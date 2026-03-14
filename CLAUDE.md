@@ -32,9 +32,9 @@ HVAC Field Service Management SaaS for solo HVAC contractors (1–3 person teams
 | Monorepo | Turborepo + pnpm@10.20.0 workspaces |
 | Frontend | Next.js 14 (App Router) — port 3000 |
 | Backend | Fastify — port 4000 |
-| Database | Supabase (PostgreSQL 15 + Row Level Security) |
+| Database | Supabase (PostgreSQL 15) |
 | ORM | Drizzle ORM (schema-as-code, type-safe queries) |
-| Auth | Supabase Auth (tenants) + Fastify bcrypt/JWT (super admin) |
+| Auth | Better Auth (unified — email/password, organization + admin plugins) |
 | Email | Resend + React Email templates |
 | Billing | Lemon Squeezy (subscriptions + affiliate program) |
 | Maps | Mapbox GL JS (address autocomplete, geocoding) |
@@ -101,33 +101,38 @@ packages/types → @hvac-saas/database
 
 ### Multi-Tenancy
 
-Shared-database, shared-schema. Every tenant table has a `tenant_id` column. Supabase RLS enforces isolation — queries only return rows matching the JWT's `tenant_id`. Super admin uses the **service role key** to bypass RLS.
+Shared-database, shared-schema. Every tenant table has a `tenant_id` column. Application-level tenant isolation via `tenantFilter()` helper in `apps/api/src/lib/db/tenant-scope.ts`. Better Auth organizations map to tenants.
 
-### Dual Authentication
+### Authentication (Better Auth)
 
-Single `/login` page handles both user types:
+Single unified auth system via [Better Auth](https://www.better-auth.com/) with organization + admin plugins.
 
-1. Form submits to Next.js API route
-2. Tries `POST /admin/auth/login` on Fastify first (checks `admin_users` with bcrypt)
-3. Admin match → admin JWT in httpOnly `admin_token` cookie (4h TTL) → `/superadmin/dashboard`
-4. Not admin (401) → falls through to `supabase.auth.signInWithPassword()`
-5. Tenant match → Supabase session cookies → `/dashboard`
-6. Both fail → error
+- **Server config**: `apps/api/src/lib/auth.ts` — Better Auth with drizzle adapter
+- **Fastify mount**: `apps/api/src/server.ts` — `auth.handler()` with reconstructed Fetch Request (not toNodeHandler)
+- **Middleware**: `apps/api/src/lib/auth-middleware.ts` — `requireAuth`, `requireAdmin`, `requireTenant` preHandlers
+- **Client**: `apps/web/src/lib/auth-client.ts` — `useSession`, `signIn`, `signUp`, `signOut`
+- **Server helper**: `apps/web/src/lib/auth-server.ts` — forwards cookies for SSR session checks
+- **Route protection**: `apps/web/src/middleware.ts` — checks Better Auth session cookie
 
-Route protection via `middleware.ts`: `/superadmin/*` requires `admin_token`, `/dashboard/*` requires Supabase session.
+Login flow:
+1. `signIn.email({ email, password })` via Better Auth React client
+2. Better Auth returns session token + user with `role` field
+3. `role === "admin"` → redirect to `/superadmin/dashboard`
+4. Otherwise → redirect to `/dashboard`
 
 ## Database
 
 ### Schema (Drizzle ORM)
 
-Schema defined in `packages/database/src/schema/` (17 files, 26 tables):
+Schema defined in `packages/database/src/schema/` (17 files, 31 tables):
 
 | File | Tables |
 |------|--------|
-| `enums.ts` | 13 `pgEnum` definitions |
-| `tenants.ts` | `tenants` |
-| `admin.ts` | `adminUsers`, `adminAuditLog`, `adminImpersonationSessions`, `platformEvents` |
-| `users.ts` | `users` |
+| `auth.ts` | `user`, `session`, `account`, `verification`, `organization`, `member`, `invitation` (Better Auth) |
+| `enums.ts` | 12 `pgEnum` definitions |
+| `tenants.ts` | `tenants` (with `organizationId` FK to Better Auth organization) |
+| `admin.ts` | `adminAuditLog`, `adminImpersonationSessions`, `platformEvents` |
+| `users.ts` | (empty — replaced by Better Auth `user` + `member`) |
 | `subscriptions.ts` | `tenantSubscriptions` |
 | `customers.ts` | `customers` |
 | `catalog.ts` | `catalogItems` |
@@ -142,7 +147,7 @@ Schema defined in `packages/database/src/schema/` (17 files, 26 tables):
 | `relations.ts` | All Drizzle `relations()` for query builder joins |
 | `index.ts` | Barrel re-export |
 
-**RLS**: 23 tenant tables have RLS enabled. Admin tables (3) have RLS disabled. Policies and triggers are in `supabase/migrations/20260314000001_rls_triggers.sql`.
+**Tenant isolation**: Application-level via `tenantFilter()` helper (RLS removed). Triggers in `supabase/migrations/20260315000002_triggers.sql`.
 
 **Auto-numbering triggers**: Jobs (`JOB-YYYY-XXXX`), Invoices (`INV-YYYY-XXXX`), Quotes (`QT-YYYY-XXXX`).
 
@@ -160,10 +165,9 @@ import { jobs, customers } from "@hvac-saas/database";
 import { eq } from "drizzle-orm";
 const result = await db.select().from(jobs).where(eq(jobs.tenantId, tenantId));
 
-// Supabase client (auth + realtime only)
-import { getSupabaseClient, getSupabaseAdmin } from "@hvac-saas/database";
-const supabase = getSupabaseClient(accessToken); // tenant-scoped, respects RLS
-const admin = getSupabaseAdmin();                 // service role, bypasses RLS
+// Supabase client (storage + realtime only)
+import { getSupabaseAdmin } from "@hvac-saas/database";
+const admin = getSupabaseAdmin();                 // service role, for Storage + Realtime
 ```
 
 ### Drizzle-kit Gotchas
@@ -196,9 +200,10 @@ export type JobUpdate = Partial<JobInsert>;
 
 ### API (apps/api)
 
-- **Tenant routes** (Supabase JWT): `/jobs`, `/customers`, `/invoices`, `/quotes`, `/bookings`, `/catalog`, `/checklists`, `/equipment`, `/refrigerant-logs`, `/availability`, `/settings`
-- **Admin routes** (Admin JWT): `/admin/auth`, `/admin/tenants`, `/admin/analytics`, `/admin/search`, `/admin/audit-log`, `/admin/system`, `/admin/affiliates`
-- **Public routes** (no auth): `/public/booking`, `/webhooks/lemon-squeezy`
+- **Auth routes** (Better Auth): `/api/auth/*` (sign-up, sign-in, sign-out, get-session, etc.)
+- **Tenant routes** (requireAuth + requireTenant): `/jobs`, `/customers`, `/invoices`, `/quotes`, `/bookings`, `/catalog`, `/checklists`, `/equipment`, `/refrigerant-logs`, `/availability`, `/settings`
+- **Admin routes** (requireAdmin): `/admin/tenants`, `/admin/analytics`, `/admin/search`, `/admin/audit-log`, `/admin/system`, `/admin/affiliates`
+- **Public routes** (no auth): `/public/booking`, `/webhooks/lemon-squeezy`, `/health`
 
 ## Key Data Flows
 
@@ -213,10 +218,13 @@ export type JobUpdate = Partial<JobInsert>;
 ## Environment
 
 `.env` at monorepo root with:
-- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — Supabase anon/public key
-- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (bypasses RLS)
-- `DATABASE_URL` — PostgreSQL connection string (Supabase pooler)
+- `DATABASE_URL` — PostgreSQL connection string (Supabase pooler, must use `prepare: false`)
+- `BETTER_AUTH_SECRET` — Secret for Better Auth session signing (min 32 chars)
+- `API_BASE_URL` — API base URL (default `http://localhost:4000`)
+- `FRONTEND_URL` — Frontend URL (default `http://localhost:3000`)
+- `NEXT_PUBLIC_API_URL` — API URL for frontend (default `http://localhost:4000`)
+- `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL (for Storage + Realtime)
+- `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (for Storage + Realtime)
 - `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` — for `seed:admin` script
 
 ## Workflow Rules

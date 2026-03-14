@@ -1,9 +1,6 @@
 // Enum values as const arrays — usable at runtime for validation, dropdowns, etc.
 // These mirror the pgEnum definitions in @hvac-saas/database
 
-export const ADMIN_ROLES = ["super_admin", "support", "billing_admin"] as const;
-export type AdminRole = (typeof ADMIN_ROLES)[number];
-
 export const JOB_STATUSES = [
   "scheduled",
   "in_progress",

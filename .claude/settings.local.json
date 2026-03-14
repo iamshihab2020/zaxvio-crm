@@ -1,7 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(pnpm:*)"
+      "Bash(pnpm:*)",
+      "WebSearch",
+      "WebFetch(domain:better-auth.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:www.boilit.dev)"
     ]
   }
 }
