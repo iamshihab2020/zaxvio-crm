@@ -9,5 +9,8 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hvac-saas/database": "workspace:*"
   }
 }
