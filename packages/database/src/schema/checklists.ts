@@ -10,7 +10,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { serviceTypeEnum } from "./enums";
 import { tenants } from "./tenants";
-import { users } from "./users";
+import { user } from "./auth";
 import { jobs } from "./jobs";
 import { catalogItems } from "./catalog";
 
@@ -69,7 +69,7 @@ export const jobChecklistCompletions = pgTable(
       .notNull()
       .references(() => checklistItems.id, { onDelete: "cascade" }),
     isCompleted: boolean("is_completed").default(false),
-    completedBy: uuid("completed_by").references(() => users.id, {
+    completedBy: text("completed_by").references(() => user.id, {
       onDelete: "set null",
     }),
     completedAt: timestamp("completed_at", { withTimezone: true }),

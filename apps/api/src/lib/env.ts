@@ -9,17 +9,16 @@ const envSchema = z.object({
   // Server
   PORT: z.coerce.number().default(4000),
   API_BASE_URL: z.string().default("http://localhost:4000"),
+  FRONTEND_URL: z.string().default("http://localhost:3000"),
 
   // Database
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
 
-  // Auth
-  JWT_SECRET: z.string().min(1, "JWT_SECRET is required"),
-  ADMIN_JWT_SECRET: z.string().min(1, "ADMIN_JWT_SECRET is required"),
+  // Better Auth
+  BETTER_AUTH_SECRET: z.string().min(32, "BETTER_AUTH_SECRET must be at least 32 characters"),
 
-  // Supabase
+  // Supabase (Storage + Realtime only)
   NEXT_PUBLIC_SUPABASE_URL: z.string().min(1),
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
 
   // Seed (optional — only needed by seed script)

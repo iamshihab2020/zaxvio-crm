@@ -1,6 +1,9 @@
 // Enums
 export * from "./enums";
 
+// Auth (Better Auth)
+export * from "./auth";
+
 // Tables
 export * from "./tenants";
 export * from "./admin";

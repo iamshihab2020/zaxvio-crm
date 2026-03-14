@@ -1,12 +1,18 @@
 import { relations } from "drizzle-orm";
 import { tenants } from "./tenants";
 import {
-  adminUsers,
+  user,
+  session,
+  account,
+  organization,
+  member,
+  invitation,
+} from "./auth";
+import {
   adminAuditLog,
   adminImpersonationSessions,
   platformEvents,
 } from "./admin";
-import { users } from "./users";
 import { tenantSubscriptions } from "./subscriptions";
 import { customers } from "./customers";
 import { catalogItems } from "./catalog";
@@ -23,9 +29,61 @@ import {
   jobChecklistCompletions,
 } from "./checklists";
 
+// --- Better Auth: User relations ---
+export const userRelations = relations(user, ({ many }) => ({
+  sessions: many(session),
+  accounts: many(account),
+  members: many(member),
+}));
+
+export const sessionRelations = relations(session, ({ one }) => ({
+  user: one(user, {
+    fields: [session.userId],
+    references: [user.id],
+  }),
+}));
+
+export const accountRelations = relations(account, ({ one }) => ({
+  user: one(user, {
+    fields: [account.userId],
+    references: [user.id],
+  }),
+}));
+
+// --- Better Auth: Organization relations ---
+export const organizationRelations = relations(organization, ({ many }) => ({
+  members: many(member),
+  invitations: many(invitation),
+}));
+
+export const memberRelations = relations(member, ({ one }) => ({
+  organization: one(organization, {
+    fields: [member.organizationId],
+    references: [organization.id],
+  }),
+  user: one(user, {
+    fields: [member.userId],
+    references: [user.id],
+  }),
+}));
+
+export const invitationRelations = relations(invitation, ({ one }) => ({
+  organization: one(organization, {
+    fields: [invitation.organizationId],
+    references: [organization.id],
+  }),
+  inviter: one(user, {
+    fields: [invitation.inviterId],
+    references: [user.id],
+  }),
+}));
+
 // --- Tenant relations ---
-export const tenantsRelations = relations(tenants, ({ many, one }) => ({
-  users: many(users),
+export const tenantsRelations = relations(tenants, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [tenants.organizationId],
+    references: [organization.id],
+  }),
   subscription: one(tenantSubscriptions),
   customers: many(customers),
   catalogItems: many(catalogItems),
@@ -39,14 +97,6 @@ export const tenantsRelations = relations(tenants, ({ many, one }) => ({
   availabilitySchedules: many(availabilitySchedules),
   scheduleOverrides: many(scheduleOverrides),
   platformEvents: many(platformEvents),
-}));
-
-// --- User relations ---
-export const usersRelations = relations(users, ({ one }) => ({
-  tenant: one(tenants, {
-    fields: [users.tenantId],
-    references: [tenants.id],
-  }),
 }));
 
 // --- Subscription relations ---
@@ -335,23 +385,18 @@ export const jobChecklistCompletionsRelations = relations(
       fields: [jobChecklistCompletions.checklistItemId],
       references: [checklistItems.id],
     }),
-    completedByUser: one(users, {
+    completedByUser: one(user, {
       fields: [jobChecklistCompletions.completedBy],
-      references: [users.id],
+      references: [user.id],
     }),
   }),
 );
 
 // --- Admin relations ---
-export const adminUsersRelations = relations(adminUsers, ({ many }) => ({
-  auditLogs: many(adminAuditLog),
-  impersonationSessions: many(adminImpersonationSessions),
-}));
-
 export const adminAuditLogRelations = relations(adminAuditLog, ({ one }) => ({
-  adminUser: one(adminUsers, {
+  adminUser: one(user, {
     fields: [adminAuditLog.adminUserId],
-    references: [adminUsers.id],
+    references: [user.id],
   }),
   targetTenant: one(tenants, {
     fields: [adminAuditLog.targetTenantId],
@@ -362,9 +407,9 @@ export const adminAuditLogRelations = relations(adminAuditLog, ({ one }) => ({
 export const adminImpersonationSessionsRelations = relations(
   adminImpersonationSessions,
   ({ one }) => ({
-    adminUser: one(adminUsers, {
+    adminUser: one(user, {
       fields: [adminImpersonationSessions.adminUserId],
-      references: [adminUsers.id],
+      references: [user.id],
     }),
     tenant: one(tenants, {
       fields: [adminImpersonationSessions.tenantId],

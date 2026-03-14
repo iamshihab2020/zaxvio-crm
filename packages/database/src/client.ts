@@ -19,7 +19,7 @@ export function getDb(connectionString?: string) {
         "DATABASE_URL environment variable is required. Pass it explicitly or set it in .env",
       );
     }
-    connection = postgres(url);
+    connection = postgres(url, { prepare: false });
     db = drizzle(connection, { schema });
   }
   return db;

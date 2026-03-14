@@ -2,44 +2,26 @@ import {
   pgTable,
   uuid,
   text,
-  boolean,
   timestamp,
   jsonb,
-  uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
-import { adminRoleEnum, eventTypeEnum } from "./enums";
+import { eventTypeEnum } from "./enums";
 import { tenants } from "./tenants";
-
-export const adminUsers = pgTable(
-  "admin_users",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    email: text("email").notNull(),
-    passwordHash: text("password_hash").notNull(),
-    role: adminRoleEnum("role").notNull(),
-    fullName: text("full_name").notNull(),
-    isActive: boolean("is_active").default(true),
-    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true })
-      .notNull()
-      .defaultNow(),
-  },
-  (table) => [uniqueIndex("idx_admin_users_email").on(table.email)],
-);
+import { user } from "./auth";
 
 export const adminAuditLog = pgTable(
   "admin_audit_log",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    adminUserId: uuid("admin_user_id")
+    adminUserId: text("admin_user_id")
       .notNull()
-      .references(() => adminUsers.id),
+      .references(() => user.id),
     action: text("action").notNull(),
     targetTenantId: uuid("target_tenant_id").references(() => tenants.id, {
       onDelete: "set null",
     }),
-    targetUserId: uuid("target_user_id"),
+    targetUserId: text("target_user_id"),
     metadata: jsonb("metadata"),
     ipAddress: text("ip_address"),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -53,13 +35,13 @@ export const adminImpersonationSessions = pgTable(
   "admin_impersonation_sessions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    adminUserId: uuid("admin_user_id")
+    adminUserId: text("admin_user_id")
       .notNull()
-      .references(() => adminUsers.id),
+      .references(() => user.id),
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id),
-    tenantUserId: uuid("tenant_user_id").notNull(),
+    tenantUserId: text("tenant_user_id").notNull(),
     reason: text("reason").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true })
       .notNull()
@@ -78,7 +60,7 @@ export const platformEvents = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     eventType: eventTypeEnum("event_type").notNull(),
-    userId: uuid("user_id"),
+    userId: text("user_id"),
     metadata: jsonb("metadata"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
