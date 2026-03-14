@@ -6,9 +6,7 @@ Task tracking for in-progress and upcoming work.
 
 ## Upcoming
 
-- [ ] Implement Fastify server entry point (apps/api/src/server.ts)
 - [ ] Implement Next.js root layout + auth pages
-- [ ] Seed admin user script (apps/api/src/scripts/seed-admin.ts)
 - [ ] Set up middleware.ts (route protection: /superadmin/* vs /dashboard/*)
 - [ ] Implement unified login flow (admin + tenant)
 - [ ] Customer CRUD API routes
@@ -19,6 +17,10 @@ Task tracking for in-progress and upcoming work.
 
 ## Done
 
+- [x] Fastify server entry point with CORS, Swagger, health check, graceful shutdown
+- [x] Admin auth plugin (@fastify/jwt namespaced, 4h TTL) + POST /admin/auth/login route
+- [x] Seed admin user script (idempotent, bcrypt 12 rounds)
+- [x] Environment validation with Zod (apps/api/src/lib/env.ts)
 - [x] Database foundation: Drizzle ORM schema (26 tables), RLS migration, types package, database client
 - [x] Install core dependencies (drizzle-orm, postgres, @supabase/supabase-js, typescript, @types/node)
 - [x] Update PRD and CLAUDE.md with Drizzle ORM info
