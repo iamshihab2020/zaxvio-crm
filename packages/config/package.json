@@ -1,0 +1,10 @@
+{
+  "name": "@hvac-saas/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./eslint": "./eslint.config.js",
+    "./tsconfig": "./tsconfig.json"
+  }
+}
