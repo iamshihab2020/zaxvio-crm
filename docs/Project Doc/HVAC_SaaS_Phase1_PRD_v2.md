@@ -8,7 +8,7 @@
 | Date | March 2026 |
 | Monorepo | Turborepo (pnpm workspaces) |
 | Apps | `apps/web` (Next.js 14) · `apps/api` (Fastify) |
-| Tech Stack | Next.js 14 · Fastify · Supabase · Mapbox · Resend · Lemon Squeezy |
+| Tech Stack | Next.js 14 · Fastify · Supabase · Drizzle ORM · Mapbox · Resend · Lemon Squeezy |
 | Target Market | Solo HVAC contractors — Texas & Florida (1–3 person teams) |
 | Subscription | $49 / month per tenant (via Lemon Squeezy) |
 | Build Timeline | 4 weeks to beta-ready MVP |
@@ -123,6 +123,7 @@ hvac-saas/                          # Turborepo root
 | Frontend (Unified) | Next.js 14 (App Router) | Dashboard UI, booking portal, invoice view, auth pages, realtime Kanban, **Super Admin panel** (`/superadmin/*`) | Vercel Hobby (free) |
 | Backend API | Fastify (Node.js) | Multi-tenant middleware, admin routes, webhooks, background cron jobs, PDF generation | Render free tier |
 | Database | Supabase (PostgreSQL 15) | All data, Row Level Security, realtime pub/sub | Supabase free tier |
+| ORM | Drizzle ORM | Type-safe queries, schema-as-code, auto-generated migrations | Bundled (zero runtime cost) |
 | Auth (Tenant) | Supabase Auth | Owner signup/login, JWT, magic link | Supabase (bundled) |
 | Auth (Admin) | Fastify admin_users + bcrypt | Super admin login via same `/login` page; separate JWT; role-based access | Fastify (bundled) |
 | File Storage | Supabase Storage | Job photos, invoice PDFs, tenant logos | Supabase (bundled) |

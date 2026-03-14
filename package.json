@@ -4,18 +4,28 @@
   "private": true,
   "packageManager": "pnpm@10.20.0",
   "scripts": {
-    "build": "turbo build",
     "dev": "turbo dev --parallel",
     "dev:api": "pnpm -F api dev",
     "dev:web": "pnpm -F web dev",
+    "build": "turbo build",
     "lint": "turbo lint",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
+    "test:unit": "pnpm -F api test:unit",
+    "test:integration": "pnpm -F api test:integration",
+    "test:e2e": "pnpm -F web test:e2e",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\""
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md,css}\"",
+    "db:generate": "pnpm -F @hvac-saas/database db:generate",
+    "db:push": "pnpm -F @hvac-saas/database db:push",
+    "db:studio": "pnpm -F @hvac-saas/database db:studio",
+    "db:migrate": "pnpm -F @hvac-saas/database db:migrate",
+    "seed:admin": "pnpm -F api seed:admin"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "prettier": "^3.2.0",
-    "turbo": "^2.8.17"
+    "turbo": "^2.8.17",
+    "typescript": "^5.9.3"
   }
 }
