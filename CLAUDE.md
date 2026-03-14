@@ -2,11 +2,28 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Strict Rules (MUST FOLLOW)
+
+1. **Read PRD & Architecture docs** before any major feature or architectural task:
+   - `docs/project_doc/HVAC_SaaS_Phase1_PRD_v2.md` — Product requirements, features, timeline, business logic
+   - `docs/project_doc/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` — System diagrams, auth flow, data architecture
+
+2. **Read & update `docs/todo.md` and `docs/lessons.md` throughout work** — not just at the end:
+   - **BEFORE** starting any task — read both files for context and to avoid past mistakes
+   - **DURING** work — re-read lessons when hitting bugs/errors; check todo for tracked issues
+   - **CONTINUOUSLY** — update as you go: move completed items to Done, add new tasks to Upcoming, append lessons immediately when learned
+
+3. **Update the repo map** in this CLAUDE.md (Monorepo Structure + Schema sections) whenever files/folders are created, renamed, moved, or deleted. Consult the repo map FIRST when planning or searching before using Glob/Grep.
+
+4. **All migration SQL must be idempotent** — use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`.
+
+5. **All `.md` files except `CLAUDE.md` live in `docs/`**.
+
+---
+
 ## Project Overview
 
 HVAC Field Service Management SaaS for solo HVAC contractors (1–3 person teams) in Texas & Florida. Multi-tenant platform ($49/mo via Lemon Squeezy) replacing phone + paper workflows with digital scheduling, invoicing, and customer management.
-
-PRD and design docs live in `docs/Project Doc/`.
 
 ## Tech Stack
 
@@ -154,7 +171,7 @@ const admin = getSupabaseAdmin();                 // service role, bypasses RLS
 - **Extensionless imports only** — `drizzle-kit` uses CJS internally. Use `"./enums"` not `"./enums.js"` in schema files.
 - **dotenv required in config** — `drizzle.config.ts` loads `.env` from monorepo root via `import { config } from "dotenv"`.
 - **Migrations output** — Generated into `supabase/migrations/`. Hand-written SQL (RLS, triggers) also lives there.
-- All hand-written migration SQL must be **idempotent** (`IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`).
+- All hand-written migration SQL must be idempotent (see Strict Rules above).
 
 ### Types (Inferred from Schema)
 
@@ -202,11 +219,6 @@ export type JobUpdate = Partial<JobInsert>;
 - `DATABASE_URL` — PostgreSQL connection string (Supabase pooler)
 - `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` — for `seed:admin` script
 
-## File Conventions
-
-- All `.md` files except `CLAUDE.md` live in `docs/`. Subfolders are fine (e.g., `docs/api/`).
-- `CLAUDE.md` stays at repo root.
-
 ## Workflow Rules
 
 ### Planning & Execution
@@ -218,20 +230,6 @@ export type JobUpdate = Partial<JobInsert>;
 
 - **Offload research to subagents.** Use Explore agents for searching and context gathering. Keep the main conversation focused on decisions and code.
 - **One task per agent.** Each subagent gets a single, well-scoped objective.
-
-### Self-Improvement & Task Tracking (MANDATORY)
-
-> **STRICT RULE**: You MUST read and update `docs/todo.md` and `docs/lessons.md` throughout your work. This is NOT optional.
-
-- **READ BEFORE starting any task** — Always read both `docs/todo.md` and `docs/lessons.md` first. Check todo for context on what's in progress/upcoming. Check lessons to avoid repeating past mistakes.
-- **READ DURING work** — If you hit a bug, error, or unexpected behavior, re-read `docs/lessons.md` — the solution may already be documented. Check `docs/todo.md` to see if the issue is already tracked.
-- **UPDATE CONTINUOUSLY** — Don't wait until the end. As you complete items, move them to Done immediately. As you discover new tasks, add them to Upcoming immediately. As you learn something non-obvious, append it to lessons immediately.
-- **`docs/todo.md`** — Keep In Progress, Upcoming, and Done sections accurate at all times. Must reflect the real current state of the project.
-- **`docs/lessons.md`** — Append non-obvious insights, workarounds, patterns, or mistakes (1–3 lines each). If nothing was learned, still review for accuracy.
-
-### Repo Map (MANDATORY)
-
-> **STRICT RULE**: Whenever you create, rename, move, or delete files/folders, you MUST update the repo map in this CLAUDE.md (the "Monorepo Structure" and "Schema" sections). When planning or searching for code, consult the repo map FIRST to locate files quickly before resorting to Glob/Grep.
 
 ### Core Principles
 
