@@ -107,55 +107,94 @@ apps/api/
 
 ### `apps/web/` — Next.js 14 Frontend (Port 3000)
 
-Unified app: tenant dashboard + super admin panel + public booking portal.
+Unified app: landing page + auth + tenant dashboard + super admin panel + public booking portal.
 
 ```
 apps/web/
-├── ✅ package.json              # name: "web", deps: @hvac-saas/types, @hvac-saas/ui
+├── ✅ package.json              # name: "web", deps: @hvac-saas/types, @hvac-saas/ui, better-auth, next-themes
 ├── ✅ tsconfig.json
+├── ✅ next.config.mjs           # staleTimes: { dynamic: 0, static: 0 } (Router Cache fix)
+├── ✅ tailwind.config.ts
+├── public/
+│   └── assets/
+│       ├── ✅ icon.png
+│       └── ✅ logo.png
 ├── src/
-│   ├── 🔲 middleware.ts          # Route protection: /superadmin/* vs /dashboard/*
-│   ├── 🔲 actions/               # Server Actions — ONLY gateway for API calls
-│   ├── 🔲 components/            # Shared React components
-│   ├── 🔲 hooks/                 # Custom React hooks
-│   ├── 🔲 lib/                   # Client utilities (Supabase client, helpers)
+│   ├── ✅ middleware.ts          # Route protection: public paths passthrough, else check Better Auth cookie
+│   ├── 📁 actions/               # Server Actions — ONLY gateway for API calls
+│   ├── 📁 hooks/                 # Custom React hooks
+│   ├── lib/
+│   │   ├── ✅ auth-client.ts     # Better Auth React client (signIn, signUp, signOut, useSession)
+│   │   ├── ✅ auth-server.ts     # Server-side session helper (forwards cookies for SSR)
+│   │   └── ✅ utils.ts           # cn() helper (clsx + tailwind-merge)
+│   ├── components/
+│   │   ├── ✅ auth-shell.tsx     # Split-panel auth wrapper (brand panel + form panel)
+│   │   ├── ✅ logo.tsx           # Logo component
+│   │   ├── ✅ refresh-on-nav.tsx # Fixes Next.js 14 back/forward stale cache (popstate → router.refresh)
+│   │   ├── ✅ theme-provider.tsx # next-themes wrapper
+│   │   ├── ✅ theme-toggle.tsx   # Light/dark toggle button
+│   │   ├── 📁 dashboard/         # Dashboard-specific components
+│   │   ├── 📁 superadmin/        # Super admin components
+│   │   ├── landing/              # Landing page section components
+│   │   │   ├── ✅ navbar.tsx
+│   │   │   ├── ✅ hero-section.tsx
+│   │   │   ├── ✅ features-section.tsx
+│   │   │   ├── ✅ how-it-works-section.tsx
+│   │   │   ├── ✅ pricing-section.tsx
+│   │   │   ├── ✅ testimonials-section.tsx
+│   │   │   ├── ✅ faq-section.tsx
+│   │   │   ├── ✅ final-cta-section.tsx
+│   │   │   ├── ✅ footer.tsx
+│   │   │   └── ✅ section-reveal.tsx  # IntersectionObserver scroll reveal
+│   │   └── ui/                    # shadcn/ui primitives
+│   │       ├── ✅ accordion.tsx
+│   │       ├── ✅ badge.tsx
+│   │       ├── ✅ button.tsx
+│   │       ├── ✅ card.tsx
+│   │       ├── ✅ input.tsx
+│   │       ├── ✅ label.tsx
+│   │       └── ✅ separator.tsx
 │   ├── app/
-│   │   ├── 📁 layout.tsx         # Root layout — placeholder only (returns null)
+│   │   ├── ✅ layout.tsx          # Root layout — fonts, ThemeProvider, RefreshOnNav
+│   │   ├── ✅ globals.css         # CSS variables, Tailwind layers, color system
+│   │   ├── ✅ icon.png            # Favicon
 │   │   │
-│   │   ├── 🔲 (auth)/                        # ── Auth Pages (Public) ──
-│   │   │   ├── 🔲 login/                     # Unified login (tenant + admin)
-│   │   │   ├── 🔲 signup/                    # Tenant registration + onboarding
-│   │   │   └── 🔲 forgot-password/           # Password reset flow
+│   │   ├── (landing)/                         # ── Landing Page (Public) ──
+│   │   │   └── ✅ page.tsx                    # Hero, features, pricing, FAQ, testimonials
 │   │   │
-│   │   ├── 🔲 (dashboard)/                   # ── Tenant Dashboard (Supabase JWT) ──
-│   │   │   ├── 🔲 page.tsx                   # KPI Homepage: 6 cards
-│   │   │   ├── 🔲 jobs/                      # Kanban board + job detail
-│   │   │   ├── 🔲 customers/                 # Customer list, detail
-│   │   │   ├── 🔲 invoices/                  # Invoice list, create, PDF
-│   │   │   ├── 🔲 quotes/                    # Quote list, create, PDF
-│   │   │   ├── 🔲 bookings/                  # Booking queue
-│   │   │   ├── 🔲 schedule/                  # Calendar view
-│   │   │   └── 🔲 settings/
-│   │   │       ├── 🔲 business/              # Business profile
-│   │   │       ├── 🔲 billing/               # Subscription
-│   │   │       ├── 🔲 catalog/               # Price book CRUD
-│   │   │       └── 🔲 checklists/            # Checklist templates
+│   │   ├── (auth)/                            # ── Auth Pages (Public, NO layout.tsx) ──
+│   │   │   ├── ✅ login/page.tsx              # Email/password sign-in (uses AuthShell)
+│   │   │   ├── ✅ signup/page.tsx             # Registration + org creation (uses AuthShell)
+│   │   │   └── ✅ forgot-password/page.tsx    # Password reset request (uses AuthShell)
 │   │   │
-│   │   ├── 🔲 (superadmin)/                  # ── Super Admin Panel (Admin JWT) ──
-│   │   │   ├── 🔲 layout.tsx                 # Red sidebar + "ADMIN" badge
-│   │   │   ├── 🔲 dashboard/                 # MRR, signups, active users
-│   │   │   ├── 🔲 tenants/                   # Tenant list, detail, impersonation
-│   │   │   ├── 🔲 analytics/                 # MRR, signups, churn
-│   │   │   ├── 🔲 support/                   # Global search, audit log
-│   │   │   ├── 🔲 affiliates/                # Affiliate performance
-│   │   │   └── 🔲 system/                    # Webhook log, cron history
+│   │   ├── (dashboard)/                       # ── Tenant Dashboard (Better Auth session) ──
+│   │   │   ├── ✅ dashboard/page.tsx          # KPI Homepage
+│   │   │   ├── 📁 jobs/                       # Kanban board + job detail
+│   │   │   ├── 📁 customers/                  # Customer list, detail
+│   │   │   ├── 📁 invoices/                   # Invoice list, create, PDF
+│   │   │   ├── 📁 quotes/                     # Quote list, create, PDF
+│   │   │   ├── 📁 bookings/                   # Booking queue
+│   │   │   ├── 📁 schedule/                   # Calendar view
+│   │   │   └── settings/
+│   │   │       ├── 📁 business/               # Business profile
+│   │   │       ├── 📁 billing/                # Subscription
+│   │   │       ├── 📁 catalog/                # Price book CRUD
+│   │   │       └── 📁 checklists/             # Checklist templates
 │   │   │
-│   │   ├── 🔲 book/[slug]/                   # ── Public Booking Portal ──
-│   │   ├── 🔲 ref/[code]/                    # ── Affiliate Redirect ──
-│   │   └── 🔲 api/
-│   │       └── 🔲 auth/                      # /api/auth/login proxy
-│   │
-├── 🔲 public/
+│   │   ├── (superadmin)/                      # ── Super Admin Panel (Admin role) ──
+│   │   │   ├── ✅ superadmin/dashboard/page.tsx  # Admin dashboard
+│   │   │   ├── 📁 dashboard/                  # MRR, signups, active users
+│   │   │   ├── 📁 tenants/[id]/               # Tenant detail, impersonation
+│   │   │   ├── 📁 analytics/active-users/     # Active users analytics
+│   │   │   ├── 📁 support/                    # Global search, audit log
+│   │   │   ├── 📁 affiliates/                 # Affiliate performance
+│   │   │   └── 📁 system/                     # Webhook log, cron history
+│   │   │
+│   │   ├── 📁 book/[slug]/                    # ── Public Booking Portal ──
+│   │   ├── 📁 ref/[code]/                     # ── Affiliate Redirect ──
+│   │   └── api/
+│   │       ├── 📁 auth/                       # /api/auth/* proxy
+│   │       └── 📁 webhooks/                   # Webhook handlers
 ```
 
 ---
@@ -304,17 +343,15 @@ All 26 tables pushed to Supabase. 23 tables have RLS enabled. 13 custom enums. 1
 
 ## Authentication Architecture
 
-### Dual Auth System
+### Unified Auth (Better Auth)
 
 ```
 /login (single page)
     │
-    ├─ Try Fastify POST /admin/auth/login (bcrypt check admin_users)
-    │   ├─ Match → Admin JWT in httpOnly "admin_token" cookie → /superadmin/dashboard
-    │   └─ 401 → Fall through ↓
-    │
-    └─ Try Supabase signInWithPassword()
-        ├─ Match → Supabase session cookies → /dashboard
+    └─ signIn.email({ email, password }) via Better Auth React client
+        ├─ Match → Better Auth session cookie
+        │   ├─ role === "admin" → /superadmin/dashboard
+        │   └─ Otherwise → /dashboard
         └─ Fail → "Invalid credentials" error
 ```
 
@@ -322,10 +359,11 @@ All 26 tables pushed to Supabase. 23 tables have RLS enabled. 13 custom enums. 1
 
 | Path | Required Auth | Cookie |
 |---|---|---|
-| `/superadmin/*` | Admin JWT | `admin_token` (httpOnly, 4h TTL) |
-| `/dashboard/*` | Supabase session | `sb-access-token` |
+| `/`, `/login`, `/signup`, `/forgot-password` | None (public) | — |
 | `/book/*` | None | — |
 | `/ref/*` | None | Sets `aff_code` (30-day) |
+| `/dashboard/*` | Better Auth session | `better-auth.session_token` |
+| `/superadmin/*` | Better Auth session (admin role) | `better-auth.session_token` |
 
 ---
 

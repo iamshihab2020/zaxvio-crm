@@ -192,6 +192,7 @@ export type JobUpdate = Partial<JobInsert>;
 
 ### Frontend (apps/web)
 
+- `(landing)/` — Public landing page (hero, features, pricing, FAQ, testimonials)
 - `(auth)/` — Login, signup, forgot-password
 - `(dashboard)/` — Tenant pages: KPI home, jobs (Kanban), customers, invoices, quotes, bookings, schedule, settings
 - `(superadmin)/` — Admin panel: dashboard, tenants, analytics, support, affiliates, system health
@@ -226,6 +227,19 @@ export type JobUpdate = Partial<JobInsert>;
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL (for Storage + Realtime)
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (for Storage + Realtime)
 - `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` — for `seed:admin` script
+
+## Frontend Rules
+
+- **No hardcoded colors**: NEVER use raw hex/rgb/hsl values in components. ALL colors must come from CSS variables defined in `globals.css` and referenced via Tailwind tokens (e.g., `bg-brand`, `text-ink`, `bg-surface`).
+- **Icon library**: Tabler Icons (`@tabler/icons-react`). NEVER use lucide-react. Always import icons individually (`import { IconName } from "@tabler/icons-react"`), never wildcard.
+- **Fonts**: Space Grotesk (headings, `font-heading`), DM Sans (body, `font-body`). NEVER use Inter, Roboto, Arial, or system defaults.
+- **Color system**: Brand orange for CTAs/accents, midnight navy for dark sections, warm off-white (`surface`) for body. Use CSS variables (`--brand`, `--surface`, `--ink`, `--midnight`).
+- **Component library**: shadcn/ui pattern (Radix primitives + CVA + tailwind-merge). Components live in `apps/web/src/components/ui/`.
+- **Animations**: CSS-only (no framer-motion). Use `IntersectionObserver` for scroll reveals via `SectionReveal` component.
+- **Landing page components**: Co-located in `apps/web/src/app/(landing)/_components/`.
+- **No generic AI aesthetics**: No purple gradients on white, no cookie-cutter layouts. Every page should have intentional design direction ("Industrial Warmth" / "Desert Heat" palette).
+- **Semantic HTML**: Use `<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`, `<article>`, `<blockquote>`, `<dl>` etc. for SEO. All sections must have `aria-labelledby` pointing to their heading.
+- **Never use `template.tsx` for route group layouts**: In Next.js App Router, `template.tsx` remounts on every navigation, destroying browser history state and breaking back/forward navigation. Always use `layout.tsx` for route group layouts (`(auth)`, `(landing)`, `(dashboard)`, etc.). Only use `template.tsx` for rare cases like per-page entry animations where you intentionally want state reset.
 
 ## Workflow Rules
 
