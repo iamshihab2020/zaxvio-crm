@@ -5,6 +5,7 @@ import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
 import { closeDb } from "@hvac-saas/database";
 import { auth } from "./lib/auth.js";
+import tenantRoutes from "./routes/tenants/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -72,6 +73,8 @@ export async function buildServer() {
   });
 
   // --- Routes ---
+  await fastify.register(tenantRoutes, { prefix: "/tenants" });
+
   fastify.get(
     "/health",
     {

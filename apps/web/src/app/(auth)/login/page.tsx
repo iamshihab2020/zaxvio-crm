@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { signIn } from "@/lib/auth-client";
+import { signIn, authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,9 @@ import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { Logo } from "@/components/logo";
 import { AuthShell } from "@/components/auth-shell";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -33,17 +34,37 @@ export default function LoginPage() {
       password,
     });
 
-    setLoading(false);
-
     if (authError) {
       setError(authError.message ?? "Invalid email or password");
+      setLoading(false);
       return;
     }
 
     if (data?.user?.role === "admin") {
       router.push("/superadmin/dashboard");
-    } else {
-      router.push("/dashboard");
+      return;
+    }
+
+    // Auto-set active organization for non-admin users
+    try {
+      const orgsResult = await authClient.organization.list();
+      const orgs = orgsResult.data;
+
+      if (orgs && orgs.length > 0) {
+        await authClient.organization.setActive({
+          organizationId: orgs[0].id,
+        });
+
+        const callbackUrl = searchParams.get("callbackUrl");
+        router.push(callbackUrl ?? "/dashboard");
+      } else {
+        // No orgs — send to signup to create one
+        router.push("/signup");
+      }
+    } catch {
+      // If org fetch fails, still try to go to dashboard
+      const callbackUrl = searchParams.get("callbackUrl");
+      router.push(callbackUrl ?? "/dashboard");
     }
   }
 
@@ -181,5 +202,13 @@ export default function LoginPage() {
         </p>
       </div>
     </AuthShell>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }

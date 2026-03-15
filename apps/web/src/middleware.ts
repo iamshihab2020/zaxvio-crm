@@ -9,6 +9,8 @@ const publicPaths = [
   "/ref",
 ];
 
+const authPaths = ["/login", "/signup"];
+
 function isPublicPath(pathname: string) {
   if (pathname === "/") return true;
   return publicPaths.some(
@@ -16,17 +18,28 @@ function isPublicPath(pathname: string) {
   );
 }
 
+function isAuthPath(pathname: string) {
+  return authPaths.some(
+    (p) => pathname === p || pathname.startsWith(p + "/"),
+  );
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  if (isPublicPath(pathname)) {
-    return NextResponse.next();
-  }
 
   // Check for Better Auth session cookie
   const sessionCookie =
     request.cookies.get("better-auth.session_token") ??
     request.cookies.get("__Secure-better-auth.session_token");
+
+  // Redirect logged-in users away from auth pages
+  if (sessionCookie && isAuthPath(pathname)) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
 
   if (!sessionCookie) {
     const loginUrl = new URL("/login", request.url);
