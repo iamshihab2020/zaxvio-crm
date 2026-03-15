@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { initializeTenant } from "@/actions/tenants";
 
 export function OrgResolver() {
   const router = useRouter();
@@ -18,6 +19,10 @@ export function OrgResolver() {
           await authClient.organization.setActive({
             organizationId: orgs[0].id,
           });
+
+          // Ensure tenant row exists (fallback if afterCreate hook failed)
+          await initializeTenant();
+
           router.refresh();
         } else {
           router.replace("/signup");

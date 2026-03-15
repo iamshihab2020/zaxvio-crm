@@ -1,5 +1,4 @@
-import { eq } from "drizzle-orm";
-import type { PgColumn } from "drizzle-orm/pg-core";
+import { eq } from "@hvac-saas/database";
 
 /**
  * Returns an `eq()` filter for tenant isolation.
@@ -11,6 +10,6 @@ import type { PgColumn } from "drizzle-orm/pg-core";
  *   .from(jobs)
  *   .where(tenantFilter(jobs.tenantId, tenantId));
  */
-export function tenantFilter(column: PgColumn, tenantId: string) {
+export function tenantFilter(column: Parameters<typeof eq>[0], tenantId: string) {
   return eq(column, tenantId);
 }

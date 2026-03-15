@@ -1,23 +1,26 @@
-# CLAUDE.md
+# [CLAUDE.md](http://CLAUDE.md)
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Strict Rules (MUST FOLLOW)
 
 1. **Read PRD & Architecture docs** before any major feature or architectural task:
-   - `docs/project_doc/HVAC_SaaS_Phase1_PRD_v2.md` — Product requirements, features, timeline, business logic
-   - `docs/project_doc/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` — System diagrams, auth flow, data architecture
-
+  - `docs/project_doc/HVAC_SaaS_Phase1_PRD_v2.md` — Product requirements, features, timeline, business logic
+  - `docs/project_doc/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` — System diagrams, auth flow, data architecture
 2. **Read & update `docs/todo.md` and `docs/lessons.md` throughout work** — not just at the end:
-   - **BEFORE** starting any task — read both files for context and to avoid past mistakes
-   - **DURING** work — re-read lessons when hitting bugs/errors; check todo for tracked issues
-   - **CONTINUOUSLY** — update as you go: move completed items to Done, add new tasks to Upcoming, append lessons immediately when learned
-
+  - **BEFORE** starting any task — read both files for context and to avoid past mistakes
+  - **DURING** work — re-read lessons when hitting bugs/errors; check todo for tracked issues
+  - **CONTINUOUSLY** — update as you go: move completed items to Done, add new tasks to Upcoming, append lessons immediately when learned
 3. **Update the repo map** in this CLAUDE.md (Monorepo Structure + Schema sections) whenever files/folders are created, renamed, moved, or deleted. Consult the repo map FIRST when planning or searching before using Glob/Grep.
-
 4. **All migration SQL must be idempotent** — use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`.
-
 5. **All `.md` files except `CLAUDE.md` live in `docs/`**.
+6. **Component Organization (STRICTLY FOLLOW)**:
+  - **NEVER** place components inside route/page folders (e.g., `app/(dashboard)/customers/components/` is FORBIDDEN).
+  - All dashboard-related components live under `apps/web/src/components/dashboard/`.
+  - **Entity-specific components**: Create a subfolder per entity — e.g., `components/dashboard/customers/` for customer page components (`customer-table.tsx`, `customer-dialog.tsx`, etc.).
+  - **Reusable components**: If a component can be shared across multiple entities (pagination, empty states, delete dialogs, table skeletons), place it in `components/dashboard/reusable/` (create the folder if it doesn't exist).
+  - **Route files only** in route folders: Only `page.tsx` and `*-page-client.tsx` stay in `app/(dashboard)/<entity>/`. They import components from `@/components/dashboard/`.
+  - **UI primitives** (shadcn) stay in `apps/web/src/components/ui/`.
 
 ---
 
@@ -27,20 +30,22 @@ HVAC Field Service Management SaaS for solo HVAC contractors (1–3 person teams
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Monorepo | Turborepo + pnpm@10.20.0 workspaces |
-| Frontend | Next.js 14 (App Router) — port 3000 |
-| Backend | Fastify — port 4000 |
-| Database | Supabase (PostgreSQL 15) |
-| ORM | Drizzle ORM (schema-as-code, type-safe queries) |
-| Auth | Better Auth (unified — email/password, organization + admin plugins) |
-| Email | Resend + React Email templates |
-| Billing | Lemon Squeezy (subscriptions + affiliate program) |
-| Maps | Mapbox GL JS (address autocomplete, geocoding) |
-| PDF | pdfkit (invoices, quotes) |
-| Realtime | Supabase Realtime (Kanban live updates) |
-| Testing | Vitest (unit/integration), Playwright (e2e) |
+
+| Layer    | Technology                                                           |
+| -------- | -------------------------------------------------------------------- |
+| Monorepo | Turborepo + [pnpm@10.20.0](mailto:pnpm@10.20.0) workspaces           |
+| Frontend | Next.js 14 (App Router) — port 3000                                  |
+| Backend  | Fastify — port 4000                                                  |
+| Database | Supabase (PostgreSQL 15)                                             |
+| ORM      | Drizzle ORM (schema-as-code, type-safe queries)                      |
+| Auth     | Better Auth (unified — email/password, organization + admin plugins) |
+| Email    | Resend + React Email templates                                       |
+| Billing  | Lemon Squeezy (subscriptions + affiliate program)                    |
+| Maps     | Mapbox GL JS (address autocomplete, geocoding)                       |
+| PDF      | pdfkit (invoices, quotes)                                            |
+| Realtime | Supabase Realtime (Kanban live updates)                              |
+| Testing  | Vitest (unit/integration), Playwright (e2e)                          |
+
 
 ## Commands
 
@@ -115,6 +120,7 @@ Single unified auth system via [Better Auth](https://www.better-auth.com/) with 
 - **Route protection**: `apps/web/src/middleware.ts` — checks Better Auth session cookie
 
 Login flow:
+
 1. `signIn.email({ email, password })` via Better Auth React client
 2. Better Auth returns session token + user with `role` field
 3. `role === "admin"` → redirect to `/superadmin/dashboard`
@@ -126,26 +132,28 @@ Login flow:
 
 Schema defined in `packages/database/src/schema/` (17 files, 31 tables):
 
-| File | Tables |
-|------|--------|
-| `auth.ts` | `user`, `session`, `account`, `verification`, `organization`, `member`, `invitation` (Better Auth) |
-| `enums.ts` | 12 `pgEnum` definitions |
-| `tenants.ts` | `tenants` (with `organizationId` FK to Better Auth organization) |
-| `admin.ts` | `adminAuditLog`, `adminImpersonationSessions`, `platformEvents` |
-| `users.ts` | (empty — replaced by Better Auth `user` + `member`) |
-| `subscriptions.ts` | `tenantSubscriptions` |
-| `customers.ts` | `customers` |
-| `catalog.ts` | `catalogItems` |
-| `equipment.ts` | `equipment`, `refrigerantLogs` |
-| `maintenance.ts` | `maintenanceContracts` |
-| `bookings.ts` | `bookings` |
-| `jobs.ts` | `jobs`, `jobLineItems`, `jobPhotos` |
-| `invoices.ts` | `invoices`, `invoiceLineItems`, `invoicePayments` |
-| `quotes.ts` | `quotes`, `quoteLineItems` |
-| `schedule.ts` | `availabilitySchedules`, `scheduleOverrides` |
-| `checklists.ts` | `checklistTemplates`, `checklistItems`, `jobChecklistCompletions` |
-| `relations.ts` | All Drizzle `relations()` for query builder joins |
-| `index.ts` | Barrel re-export |
+
+| File               | Tables                                                                                             |
+| ------------------ | -------------------------------------------------------------------------------------------------- |
+| `auth.ts`          | `user`, `session`, `account`, `verification`, `organization`, `member`, `invitation` (Better Auth) |
+| `enums.ts`         | 12 `pgEnum` definitions                                                                            |
+| `tenants.ts`       | `tenants` (with `organizationId` FK to Better Auth organization)                                   |
+| `admin.ts`         | `adminAuditLog`, `adminImpersonationSessions`, `platformEvents`                                    |
+| `users.ts`         | (empty — replaced by Better Auth `user` + `member`)                                                |
+| `subscriptions.ts` | `tenantSubscriptions`                                                                              |
+| `customers.ts`     | `customers`                                                                                        |
+| `catalog.ts`       | `catalogItems`                                                                                     |
+| `equipment.ts`     | `equipment`, `refrigerantLogs`                                                                     |
+| `maintenance.ts`   | `maintenanceContracts`                                                                             |
+| `bookings.ts`      | `bookings`                                                                                         |
+| `jobs.ts`          | `jobs`, `jobLineItems`, `jobPhotos`                                                                |
+| `invoices.ts`      | `invoices`, `invoiceLineItems`, `invoicePayments`                                                  |
+| `quotes.ts`        | `quotes`, `quoteLineItems`                                                                         |
+| `schedule.ts`      | `availabilitySchedules`, `scheduleOverrides`                                                       |
+| `checklists.ts`    | `checklistTemplates`, `checklistItems`, `jobChecklistCompletions`                                  |
+| `relations.ts`     | All Drizzle `relations()` for query builder joins                                                  |
+| `index.ts`         | Barrel re-export                                                                                   |
+
 
 **Tenant isolation**: Application-level via `tenantFilter()` helper (RLS removed). Triggers in `supabase/migrations/20260315000002_triggers.sql`.
 
@@ -201,7 +209,7 @@ export type JobUpdate = Partial<JobInsert>;
 
 ### API (apps/api)
 
-- **Auth routes** (Better Auth): `/api/auth/*` (sign-up, sign-in, sign-out, get-session, etc.)
+- **Auth routes** (Better Auth): `/api/auth/`* (sign-up, sign-in, sign-out, get-session, etc.)
 - **Tenant routes** (requireAuth + requireTenant): `/jobs`, `/customers`, `/invoices`, `/quotes`, `/bookings`, `/catalog`, `/checklists`, `/equipment`, `/refrigerant-logs`, `/availability`, `/settings`
 - **Admin routes** (requireAdmin): `/admin/tenants`, `/admin/analytics`, `/admin/search`, `/admin/audit-log`, `/admin/system`, `/admin/affiliates`
 - **Public routes** (no auth): `/public/booking`, `/webhooks/lemon-squeezy`, `/health`
@@ -219,6 +227,7 @@ export type JobUpdate = Partial<JobInsert>;
 ## Environment
 
 `.env` at monorepo root with:
+
 - `DATABASE_URL` — PostgreSQL connection string (Supabase pooler, must use `prepare: false`)
 - `BETTER_AUTH_SECRET` — Secret for Better Auth session signing (min 32 chars)
 - `API_BASE_URL` — API base URL (default `http://localhost:4000`)
@@ -259,3 +268,4 @@ export type JobUpdate = Partial<JobInsert>;
 - **No laziness.** No placeholder code, no TODO comments instead of implementing.
 - **Minimal impact.** Keep changes focused. Don't refactor adjacent code or add unrelated improvements.
 - **Autonomous bug fixing.** Fix small obvious bugs (< 10 lines) on sight. Log larger ones in `docs/todo.md`.
+

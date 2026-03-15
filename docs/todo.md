@@ -4,7 +4,7 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-- [ ] **Frontend auth flow fixes** (ZAX-40) — login auto-sets org, middleware redirects, OrgResolver
+(none)
 
 ## Build Order (Phase 1)
 
@@ -31,17 +31,22 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Customer CRUD** (#2) — API routes + dashboard page
 - [ ] **Service Catalog** (#3) — API routes + settings page
 
 ## Done
 
+- [x] **Customer CRUD** (#2) — API routes (GET/POST/PATCH/DELETE /customers), server actions, dashboard page with table, search, pagination, create/edit dialog, delete confirm
+  - Fixed Drizzle dual-instance bug: `tenant-scope.ts` now imports `eq` from `@hvac-saas/database`
+  - Reorganized components: reusable in `components/dashboard/reusable/`, customer-specific in `components/dashboard/customers/`
 - [x] **Organization/Tenant creation flow** (#1) — auto-creates tenant + subscription on org creation
   - Better Auth `organizationCreation.afterCreate` hook in auth.ts
   - Enhanced `requireTenant` middleware resolves tenantId from DB
   - Idempotent `POST /tenants/initialize` endpoint for existing orgs
   - Dashboard layout guard (redirects unauthenticated users)
   - Re-exported drizzle-orm operators from `@hvac-saas/database` to fix duplicate instance issue
+  - **Fix:** Added try-catch + transaction to `afterCreate` hook (was failing silently)
+  - **Fix:** OrgResolver now calls `initializeTenant()` as fallback after setting active org
+  - **Fix:** Added `.notNull()` constraint to `tenants.organizationId` (migration: `0001_fearless_risque.sql`)
 - [x] **Better Auth migration** — replaced Supabase Auth + bcrypt/JWT with Better Auth (unified auth system)
   - Better Auth server config with drizzle adapter, organization + admin plugins
   - Auth schema: 7 tables (user, session, account, verification, organization, member, invitation)
