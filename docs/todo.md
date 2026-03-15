@@ -4,18 +4,44 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
+- [ ] **Frontend auth flow fixes** (ZAX-40) — login auto-sets org, middleware redirects, OrgResolver
+
+## Build Order (Phase 1)
+
+Priority order based on PRD feature dependencies:
+
+| # | Feature | Scope | Depends On |
+|---|---------|-------|------------|
+| 1 | **Organization/Tenant creation flow** | Signup → create tenant row + link to Better Auth org, onboarding | Auth (done) |
+| 2 | **Customer CRUD** | API routes + dashboard page (list, create, edit, delete) | #1 |
+| 3 | **Service Catalog** | API routes + settings page (manage parts/labor/flat-rate items) | #1 |
+| 4 | **Job Management (Kanban)** | API routes + Kanban board, job detail page, line items, status workflow | #2, #3 |
+| 5 | **Invoicing** | API routes + invoice page, generate from jobs, PDF (pdfkit), email, payment tracking | #4 |
+| 6 | **Quote Builder** | API routes + quote page, PDF, email, customer acceptance, convert quote → job | #2, #3 |
+| 7 | **KPI Dashboard** | Dashboard home with metrics (revenue, jobs, outstanding invoices, etc.) | #4, #5 |
+| 8 | **Booking Portal** | Public `/book/[slug]` page, creates jobs from customer bookings | #2, #4 |
+| 9 | **Calendar/Schedule View** | Calendar page, availability schedules, schedule overrides | #4, #8 |
+| 10 | **Checklists** | Templates, attach to jobs, auto-add line items from checked catalog items | #3, #4 |
+| 11 | **Super Admin Panel** | Tenant management, platform analytics, audit log, impersonation | #1 |
+| 12 | **Email Templates** | React Email templates (invoice, quote, booking confirm, review request) | #5, #6, #8 |
+| 13 | **Affiliate Program** | Lemon Squeezy integration, referral tracking, affiliate dashboard | #11 |
+| 14 | **Settings Page** | Profile, org management, team members, billing | #1 |
+
 ## Upcoming
 
-- [ ] Customer CRUD API routes
-- [ ] Job management API routes + Kanban
-- [ ] Invoice generation + PDF
-- [ ] Booking portal (public)
-- [ ] Quote builder + convert-to-job
-- [ ] Organization creation flow (post-signup onboarding)
-- [ ] Settings page (profile, org management)
+Items not yet started (next up from Build Order above):
+
+- [ ] **Customer CRUD** (#2) — API routes + dashboard page
+- [ ] **Service Catalog** (#3) — API routes + settings page
 
 ## Done
 
+- [x] **Organization/Tenant creation flow** (#1) — auto-creates tenant + subscription on org creation
+  - Better Auth `organizationCreation.afterCreate` hook in auth.ts
+  - Enhanced `requireTenant` middleware resolves tenantId from DB
+  - Idempotent `POST /tenants/initialize` endpoint for existing orgs
+  - Dashboard layout guard (redirects unauthenticated users)
+  - Re-exported drizzle-orm operators from `@hvac-saas/database` to fix duplicate instance issue
 - [x] **Better Auth migration** — replaced Supabase Auth + bcrypt/JWT with Better Auth (unified auth system)
   - Better Auth server config with drizzle adapter, organization + admin plugins
   - Auth schema: 7 tables (user, session, account, verification, organization, member, invitation)

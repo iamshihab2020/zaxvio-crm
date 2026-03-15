@@ -6,3 +6,6 @@ export { getSupabaseAdmin } from "./supabase";
 
 // Schema (tables, enums, relations)
 export * from "./schema/index";
+
+// Re-export drizzle-orm operators so consumers use the same instance
+export { eq, and, or, ne, gt, gte, lt, lte, inArray, sql } from "drizzle-orm";

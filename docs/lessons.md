@@ -10,6 +10,7 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **Better Auth table naming** — Tables must match exact names: `user`, `session`, `account`, `verification`, `organization`, `member`, `invitation`. The `user` table name conflicts with PostgreSQL's reserved keyword — must always quote it in raw SQL (`"user"`).
 - **Dedicated auth DB connection** — Better Auth should get its own `postgres()` connection with `prepare: false` (for Supabase pooler). Don't share the singleton from `getDb()` to avoid lifecycle issues.
 - **Cross-origin cookies with Better Auth** — Set `trustedOrigins: [env.FRONTEND_URL]` in the Better Auth config. Fastify CORS must include `credentials: true`.
+- **Better Auth `databaseHooks` does NOT support `organization`** — Only `user`, `session`, `account`, `verification` are valid keys. For org lifecycle hooks, use `organizationCreation: { afterCreate }` inside the `organization()` plugin config. The callback receives `{ organization, member, user }`.
 
 ## Drizzle ORM
 
@@ -18,7 +19,7 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **Drizzle `generatedAlwaysAs` for computed columns** — use `sql` template tag for `GENERATED ALWAYS AS (quantity * unit_price) STORED` columns.
 - **Drizzle-kit uses CJS internally** — schema imports must use extensionless paths (`"./enums"` not `"./enums.js"`), otherwise drizzle-kit push/generate fails with `Cannot find module './enums.js'`.
 - **drizzle-kit push crashes on GENERATED ALWAYS AS columns** — When the DB already has tables with computed columns, `drizzle-kit push` hits `TypeError: Cannot read properties of undefined (reading 'replace')`. Workaround: drop and recreate the schema.
-- **drizzle-orm version conflicts in pnpm** — When importing `eq` from `drizzle-orm` in a package that depends on another package also using `drizzle-orm`, pnpm may resolve two different copies (e.g., one with `kysely` peer, one without). This causes type errors like "Types have separate declarations of a private property 'shouldInlineParams'". Solution: use raw SQL or import from the same package.
+- **drizzle-orm version conflicts in pnpm** — When importing `eq` from `drizzle-orm` in a package that depends on another package also using `drizzle-orm`, pnpm may resolve two different copies (e.g., one with `kysely` peer, one without). This causes type errors like "Types have separate declarations of a private property 'shouldInlineParams'". Solution: re-export operators (`eq`, `and`, etc.) from `@hvac-saas/database` so all consumers use the same copy. For queries in Better Auth hooks, use `getDb()` from the database package instead of the local `authDb` instance.
 - **drizzle.config.ts needs dotenv** — `process.env.DATABASE_URL` is undefined without explicitly loading `.env`. Use `import { config } from "dotenv"` with `path: "../../.env"` to load from monorepo root.
 - **FK name auto-truncation** — Postgres truncates identifiers over 63 chars. Long FK names get truncated. Harmless but produces a NOTICE.
 
@@ -34,6 +35,12 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **Fastify response schema constrains status codes** — If you define `response: { 200: {...} }` in route schema, Fastify's type system only allows `.status(200)`. Must also define `400` and `401` response schemas to use those status codes without type errors.
 - **`decorateRequest` with null fails in strict mode** — Use `undefined as unknown as T` instead of `null` when decorating a request property with a typed value in Fastify.
 - **`import.meta.dirname` for dotenv** — Node 21+ supports `import.meta.dirname` (ESM equivalent of `__dirname`). Avoids the `fileURLToPath(import.meta.url)` + `dirname()` boilerplate.
+
+## Auth Flow (Better Auth + Next.js)
+
+- **Better Auth sessions start with `activeOrganizationId: null`** — After `signIn.email()`, the session has no active org. Must call `authClient.organization.list()` then `authClient.organization.setActive()` before redirecting to dashboard, otherwise the dashboard layout sees null and fails.
+- **Dashboard layout can't hard-redirect on missing org** — A returning user's session may briefly have no active org. Instead of `redirect("/signup")`, render a client-side `OrgResolver` that lists orgs, sets one active, then calls `router.refresh()` to re-run the server layout.
+- **Middleware must redirect logged-in users from auth pages** — Without this, logged-in users can visit `/login` or `/signup`. Check session cookie before the public-path bypass and redirect to `/dashboard`.
 
 ## Next.js 14
 

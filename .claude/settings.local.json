@@ -5,7 +5,9 @@
       "WebSearch",
       "WebFetch(domain:better-auth.com)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:www.boilit.dev)"
+      "WebFetch(domain:www.boilit.dev)",
+      "Bash(find:*)",
+      "Bash(xargs ls:*)"
     ]
   }
 }

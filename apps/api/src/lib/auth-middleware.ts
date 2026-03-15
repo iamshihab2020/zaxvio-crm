@@ -1,6 +1,7 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { auth } from "./auth.js";
 import { fromNodeHeaders } from "better-auth/node";
+import { getDb, tenants, eq } from "@hvac-saas/database";
 
 export interface AuthUser {
   userId: string;
@@ -8,6 +9,7 @@ export interface AuthUser {
   name: string;
   role: string | null;
   activeOrganizationId: string | null;
+  tenantId: string | null;
 }
 
 declare module "fastify" {
@@ -34,6 +36,7 @@ export async function requireAuth(
     name: session.user.name,
     role: session.user.role ?? null,
     activeOrganizationId: session.session.activeOrganizationId ?? null,
+    tenantId: null,
   };
 }
 
@@ -56,9 +59,26 @@ export async function requireTenant(
   await requireAuth(request, reply);
   if (reply.sent) return;
 
-  if (!request.authUser.activeOrganizationId) {
+  const orgId = request.authUser.activeOrganizationId;
+  if (!orgId) {
     return reply
       .status(403)
       .send({ message: "Forbidden: no active organization" });
   }
+
+  // Resolve tenant record from organization
+  const db = getDb();
+  const tenant = await db
+    .select({ id: tenants.id })
+    .from(tenants)
+    .where(eq(tenants.organizationId, orgId))
+    .then((r) => r[0]);
+
+  if (!tenant) {
+    return reply
+      .status(403)
+      .send({ message: "Tenant not initialized. Call POST /tenants/initialize first." });
+  }
+
+  request.authUser.tenantId = tenant.id;
 }
