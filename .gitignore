@@ -31,3 +31,6 @@ playwright-report/
 # Misc
 *.log
 *.tsbuildinfo
+.agent 
+.agents
+.claude
