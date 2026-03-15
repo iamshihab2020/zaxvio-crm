@@ -1,9 +1,28 @@
 import type { Metadata } from "next";
+import { Space_Grotesk, DM_Sans } from "next/font/google";
+import { ThemeProvider } from "@/components/theme-provider";
+import { RefreshOnNav } from "@/components/refresh-on-nav";
 import "./globals.css";
 
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-heading",
+  display: "swap",
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "HVAC SaaS",
-  description: "Field service management for HVAC contractors",
+  title: {
+    default: "Zaxvio — HVAC Field Service Management",
+    template: "%s — Zaxvio",
+  },
+  description:
+    "Digital scheduling, invoicing, and customer management for solo HVAC contractors. Replace phone & paper workflows for $49/mo.",
 };
 
 export default function RootLayout({
@@ -12,8 +31,17 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen antialiased">{children}</body>
+    <html
+      lang="en"
+      className={`${spaceGrotesk.variable} ${dmSans.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-screen font-body antialiased">
+        <ThemeProvider>
+          <RefreshOnNav />
+          {children}
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
