@@ -151,6 +151,9 @@ Schema defined in `packages/database/src/schema/` (17 files, 31 tables):
 | `quotes.ts`        | `quotes`, `quoteLineItems`                                                                         |
 | `schedule.ts`      | `availabilitySchedules`, `scheduleOverrides`                                                       |
 | `checklists.ts`    | `checklistTemplates`, `checklistItems`, `jobChecklistCompletions`                                  |
+| `customer-notes.ts`| `customerNotes` (per-customer notes with author tracking)                                          |
+| `customer-activities.ts` | `customerActivities` (activity log timeline)                                                 |
+| `tags.ts`          | `tags` (tenant-level reusable tags), `customerTags` (many-to-many junction)                        |
 | `relations.ts`     | All Drizzle `relations()` for query builder joins                                                  |
 | `index.ts`         | Barrel re-export                                                                                   |
 

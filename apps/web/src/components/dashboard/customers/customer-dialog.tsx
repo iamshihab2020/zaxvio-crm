@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import type { Customer } from "@hvac-saas/types";
 
 interface CustomerDialogProps {
@@ -32,7 +31,6 @@ export interface CustomerFormData {
   city: string;
   state: string;
   zipCode: string;
-  notes: string;
 }
 
 const emptyForm: CustomerFormData = {
@@ -44,7 +42,6 @@ const emptyForm: CustomerFormData = {
   city: "",
   state: "",
   zipCode: "",
-  notes: "",
 };
 
 export function CustomerDialog({
@@ -70,7 +67,6 @@ export function CustomerDialog({
         city: customer.city ?? "",
         state: customer.state ?? "",
         zipCode: customer.zipCode ?? "",
-        notes: customer.notes ?? "",
       });
     } else {
       setForm(emptyForm);
@@ -198,16 +194,6 @@ export function CustomerDialog({
                 placeholder="77001"
               />
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="font-body">Notes</Label>
-            <Textarea
-              id="notes"
-              value={form.notes}
-              onChange={(e) => updateField("notes", e.target.value)}
-              placeholder="Any additional notes..."
-              rows={3}
-            />
           </div>
           <DialogFooter>
             <Button

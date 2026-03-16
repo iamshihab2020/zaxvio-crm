@@ -1,9 +1,9 @@
 import UnderDev from "@/components/under-development";
 
-export default function DashboardPage() {
+export default function JobsPage() {
   return (
     <>
-    <UnderDev/>
+      <UnderDev/>
     </>
-  );
+  )
 }

@@ -35,6 +35,19 @@ Items not yet started (next up from Build Order above):
 
 ## Done
 
+- [x] **Customer Detail Page** — 3-panel layout (info panel, tabbed content, sidebar)
+  - Inline-editable fields in left panel (click-to-edit contact + address info)
+  - Customer Tags system: tenant-level reusable tags, many-to-many with customers, create/assign/remove via popover
+  - Customer Notes system: full CRUD (add, edit, delete), timestamped with author tracking
+  - Customer Activity Log: automated timeline (customer.created, customer.updated, note.created)
+  - Tabs: Activity, Notes, Jobs (empty), Invoices (empty), Equipment (empty)
+  - Right sidebar: Appointments + Equipment placeholders
+  - Breadcrumb navigation back to customer list
+  - Customer name in list table is now a clickable link to detail page
+  - Removed notes field from customer dialog (notes now in dedicated Notes tab)
+  - New DB tables: customer_notes, customer_activities, tags, customer_tags
+  - New API routes: /tags CRUD, /customers/:id/notes, /customers/:id/activities, /customers/:id/tags
+  - New UI components: Tabs (shadcn), Popover (shadcn)
 - [x] **Customer CRUD** (#2) — API routes (GET/POST/PATCH/DELETE /customers), server actions, dashboard page with table, search, pagination, create/edit dialog, delete confirm
   - Fixed Drizzle dual-instance bug: `tenant-scope.ts` now imports `eq` from `@hvac-saas/database`
   - Reorganized components: reusable in `components/dashboard/reusable/`, customer-specific in `components/dashboard/customers/`

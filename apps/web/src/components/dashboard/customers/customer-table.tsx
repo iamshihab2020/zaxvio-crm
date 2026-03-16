@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import {
   Table,
   TableBody,
@@ -25,6 +26,8 @@ interface CustomerTableProps {
 }
 
 export function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
+  const router = useRouter();
+
   return (
     <Table>
       <TableHeader>
@@ -39,7 +42,11 @@ export function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProp
       </TableHeader>
       <TableBody>
         {customers.map((customer) => (
-          <TableRow key={customer.id}>
+          <TableRow
+            key={customer.id}
+            className="cursor-pointer"
+            onClick={() => router.push(`/customers/${customer.id}`)}
+          >
             <TableCell className="font-medium text-foreground">
               {customer.firstName} {customer.lastName}
             </TableCell>
@@ -58,7 +65,12 @@ export function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProp
             <TableCell>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <IconDots className="h-4 w-4" />
                     <span className="sr-only">Actions</span>
                   </Button>

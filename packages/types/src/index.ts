@@ -12,3 +12,6 @@ export * from "./equipment.js";
 export * from "./checklist.js";
 export * from "./schedule.js";
 export * from "./admin.js";
+export * from "./customer-note.js";
+export * from "./customer-activity.js";
+export * from "./tag.js";

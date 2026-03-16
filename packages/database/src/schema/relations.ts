@@ -28,6 +28,9 @@ import {
   checklistItems,
   jobChecklistCompletions,
 } from "./checklists";
+import { customerNotes } from "./customer-notes";
+import { customerActivities } from "./customer-activities";
+import { tags, customerTags } from "./tags";
 
 // --- Better Auth: User relations ---
 export const userRelations = relations(user, ({ many }) => ({
@@ -122,6 +125,9 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   quotes: many(quotes),
   bookings: many(bookings),
   maintenanceContracts: many(maintenanceContracts),
+  notes: many(customerNotes),
+  activities: many(customerActivities),
+  customerTags: many(customerTags),
 }));
 
 // --- Catalog relations ---
@@ -427,3 +433,61 @@ export const platformEventsRelations = relations(
     }),
   }),
 );
+
+// --- Customer Notes relations ---
+export const customerNotesRelations = relations(
+  customerNotes,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [customerNotes.tenantId],
+      references: [tenants.id],
+    }),
+    customer: one(customers, {
+      fields: [customerNotes.customerId],
+      references: [customers.id],
+    }),
+    author: one(user, {
+      fields: [customerNotes.createdBy],
+      references: [user.id],
+    }),
+  }),
+);
+
+// --- Customer Activities relations ---
+export const customerActivitiesRelations = relations(
+  customerActivities,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [customerActivities.tenantId],
+      references: [tenants.id],
+    }),
+    customer: one(customers, {
+      fields: [customerActivities.customerId],
+      references: [customers.id],
+    }),
+    performer: one(user, {
+      fields: [customerActivities.performedBy],
+      references: [user.id],
+    }),
+  }),
+);
+
+// --- Tags relations ---
+export const tagsRelations = relations(tags, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [tags.tenantId],
+    references: [tenants.id],
+  }),
+  customerTags: many(customerTags),
+}));
+
+export const customerTagsRelations = relations(customerTags, ({ one }) => ({
+  customer: one(customers, {
+    fields: [customerTags.customerId],
+    references: [customers.id],
+  }),
+  tag: one(tags, {
+    fields: [customerTags.tagId],
+    references: [tags.id],
+  }),
+}));

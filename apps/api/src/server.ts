@@ -7,6 +7,7 @@ import { closeDb } from "@hvac-saas/database";
 import { auth } from "./lib/auth.js";
 import tenantRoutes from "./routes/tenants/index.js";
 import customerRoutes from "./routes/customers/index.js";
+import tagRoutes from "./routes/tags/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -76,6 +77,7 @@ export async function buildServer() {
   // --- Routes ---
   await fastify.register(tenantRoutes, { prefix: "/tenants" });
   await fastify.register(customerRoutes, { prefix: "/customers" });
+  await fastify.register(tagRoutes, { prefix: "/tags" });
 
   fastify.get(
     "/health",
