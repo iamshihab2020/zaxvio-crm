@@ -115,6 +115,9 @@ async function start() {
 
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+  // Windows: Turbo doesn't propagate SIGINT to child processes.
+  // SIGHUP fires when the parent terminal/process is killed.
+  process.on("SIGHUP", () => shutdown("SIGHUP"));
 
   await server.listen({ port: env.PORT, host: "0.0.0.0" });
   server.log.info(

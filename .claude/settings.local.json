@@ -10,7 +10,8 @@
       "Bash(xargs ls:*)",
       "Bash(sed:*)",
       "Bash(ls:*)",
-      "Bash(netstat:*)"
+      "Bash(netstat:*)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

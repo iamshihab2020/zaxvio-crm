@@ -47,6 +47,10 @@ Items not yet started (next up from Build Order above):
   - **Fix:** Added try-catch + transaction to `afterCreate` hook (was failing silently)
   - **Fix:** OrgResolver now calls `initializeTenant()` as fallback after setting active org
   - **Fix:** Added `.notNull()` constraint to `tenants.organizationId` (migration: `0001_fearless_risque.sql`)
+  - **Fix (ZAX-32):** Signup now calls `setActive()` + `initializeTenant()` before redirect — ensures tenant row exists
+  - **Fix (ZAX-32):** Login calls `initializeTenant()` after `setActive()` — auto-heals existing users with missing tenant rows
+  - **Fix (ZAX-32):** afterCreate hook uses `onConflictDoNothing()` + `org.id` fallback slug — prevents slug collision crashes
+  - **Fix (ZAX-32):** OrgResolver shows real error messages + retry button instead of generic "Something went wrong"
 - [x] **Better Auth migration** — replaced Supabase Auth + bcrypt/JWT with Better Auth (unified auth system)
   - Better Auth server config with drizzle adapter, organization + admin plugins
   - Auth schema: 7 tables (user, session, account, verification, organization, member, invitation)

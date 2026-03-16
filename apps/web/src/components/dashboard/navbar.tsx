@@ -6,6 +6,7 @@ import { useSession, signOut } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useSidebar } from "@/components/dashboard/sidebar-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -38,6 +39,7 @@ export function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
+  const { isCollapsed } = useSidebar();
 
   const userName = session?.user?.name ?? "User";
   const userEmail = session?.user?.email ?? "";
@@ -62,7 +64,10 @@ export function Navbar() {
   const pageTitle = getPageTitle(pathname);
 
   return (
-    <header className="fixed top-0 left-60 right-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-sm">
+    <header
+      className="fixed top-0 right-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-sm transition-[left] duration-300 ease-in-out"
+      style={{ left: isCollapsed ? "4rem" : "15rem" }}
+    >
       <h1 className="font-heading text-lg font-semibold text-foreground">
         {pageTitle}
       </h1>

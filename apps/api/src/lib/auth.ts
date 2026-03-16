@@ -62,29 +62,38 @@ export const auth = betterAuth({
           try {
             const db = getDb();
 
+            const trialEnd = new Date(
+              Date.now() + 14 * 24 * 60 * 60 * 1000,
+            );
+
+            // Use org.id as fallback slug to guarantee uniqueness
+            const slug = org.slug || `org-${org.id}`;
+
             await db.transaction(async (tx) => {
               // Create tenant row linked to the new organization
-              const [tenant] = await tx
+              // onConflictDoNothing guards against slug collisions
+              const result = await tx
                 .insert(schema.tenants)
                 .values({
                   organizationId: org.id,
                   businessName: org.name,
                   ownerName: creator.name ?? "Owner",
                   email: creator.email ?? "",
-                  slug: org.slug ?? org.id,
-                  trialEndsAt: new Date(
-                    Date.now() + 14 * 24 * 60 * 60 * 1000,
-                  ),
+                  slug,
+                  trialEndsAt: trialEnd,
                 })
+                .onConflictDoNothing()
                 .returning();
 
-              // Create subscription row (trialing)
-              await tx.insert(schema.tenantSubscriptions).values({
-                tenantId: tenant.id,
-                status: "trialing",
-                currentPeriodStart: new Date(),
-                currentPeriodEnd: tenant.trialEndsAt!,
-              });
+              // If row was inserted, create subscription
+              if (result.length > 0) {
+                await tx.insert(schema.tenantSubscriptions).values({
+                  tenantId: result[0].id,
+                  status: "trialing",
+                  currentPeriodStart: new Date(),
+                  currentPeriodEnd: trialEnd,
+                });
+              }
             });
           } catch (err) {
             console.error(

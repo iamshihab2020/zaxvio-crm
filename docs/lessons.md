@@ -13,6 +13,7 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **Better Auth `databaseHooks` does NOT support `organization`** — Only `user`, `session`, `account`, `verification` are valid keys. For org lifecycle hooks, use `organizationCreation: { afterCreate }` inside the `organization()` plugin config. The callback receives `{ organization, member, user }`.
 
 - **Better Auth hooks swallow errors silently** — The `organizationCreation.afterCreate` hook does not surface errors. If the callback throws (e.g., DB insert fails), Better Auth catches it internally and the user proceeds as if nothing happened. Always wrap hook bodies in try-catch with explicit logging (`console.error`). Also add a frontend fallback (e.g., call an idempotent initialize endpoint) to recover from hook failures.
+- **Signup MUST call setActive() + initializeTenant() before redirect** — After `organization.create()`, the session still has `activeOrganizationId: null`. If signup redirects to `/dashboard` without calling `setActive()`, the dashboard layout sees null, OrgResolver tries to fix it, but `initializeTenant()` needs an active org in the session. The correct flow is: create user → create org → `setActive(orgId)` → `initializeTenant()` → redirect. Login should also call `initializeTenant()` to auto-heal users whose tenant rows were never created.
 
 ## Drizzle ORM
 
