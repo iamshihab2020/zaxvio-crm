@@ -6,6 +6,9 @@ import swaggerUi from "@fastify/swagger-ui";
 import { closeDb } from "@hvac-saas/database";
 import { auth } from "./lib/auth.js";
 import tenantRoutes from "./routes/tenants/index.js";
+import customerRoutes from "./routes/customers/index.js";
+import tagRoutes from "./routes/tags/index.js";
+import catalogRoutes from "./routes/catalog/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -74,6 +77,9 @@ export async function buildServer() {
 
   // --- Routes ---
   await fastify.register(tenantRoutes, { prefix: "/tenants" });
+  await fastify.register(customerRoutes, { prefix: "/customers" });
+  await fastify.register(tagRoutes, { prefix: "/tags" });
+  await fastify.register(catalogRoutes, { prefix: "/catalog" });
 
   fastify.get(
     "/health",
@@ -113,6 +119,9 @@ async function start() {
 
   process.on("SIGINT", () => shutdown("SIGINT"));
   process.on("SIGTERM", () => shutdown("SIGTERM"));
+  // Windows: Turbo doesn't propagate SIGINT to child processes.
+  // SIGHUP fires when the parent terminal/process is killed.
+  process.on("SIGHUP", () => shutdown("SIGHUP"));
 
   await server.listen({ port: env.PORT, host: "0.0.0.0" });
   server.log.info(

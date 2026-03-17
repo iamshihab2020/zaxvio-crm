@@ -7,7 +7,12 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:www.boilit.dev)",
       "Bash(find:*)",
-      "Bash(xargs ls:*)"
+      "Bash(xargs ls:*)",
+      "Bash(sed:*)",
+      "Bash(ls:*)",
+      "Bash(netstat:*)",
+      "Bash(xargs grep:*)",
+      "WebFetch(domain:www.better-auth.com)"
     ]
   }
 }

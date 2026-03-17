@@ -59,30 +59,49 @@ export const auth = betterAuth({
           member: unknown;
           user: { name: string; email: string };
         }) => {
-          const db = getDb();
+          try {
+            const db = getDb();
 
-          // Create tenant row linked to the new organization
-          const [tenant] = await db
-            .insert(schema.tenants)
-            .values({
-              organizationId: org.id,
-              businessName: org.name,
-              ownerName: creator.name ?? "Owner",
-              email: creator.email ?? "",
-              slug: org.slug ?? org.id,
-              trialEndsAt: new Date(
-                Date.now() + 14 * 24 * 60 * 60 * 1000,
-              ),
-            })
-            .returning();
+            const trialEnd = new Date(
+              Date.now() + 14 * 24 * 60 * 60 * 1000,
+            );
 
-          // Create subscription row (trialing)
-          await db.insert(schema.tenantSubscriptions).values({
-            tenantId: tenant.id,
-            status: "trialing",
-            currentPeriodStart: new Date(),
-            currentPeriodEnd: tenant.trialEndsAt!,
-          });
+            // Use org.id as fallback slug to guarantee uniqueness
+            const slug = org.slug || `org-${org.id}`;
+
+            await db.transaction(async (tx) => {
+              // Create tenant row linked to the new organization
+              // onConflictDoNothing guards against slug collisions
+              const result = await tx
+                .insert(schema.tenants)
+                .values({
+                  organizationId: org.id,
+                  businessName: org.name,
+                  ownerName: creator.name ?? "Owner",
+                  email: creator.email ?? "",
+                  slug,
+                  trialEndsAt: trialEnd,
+                })
+                .onConflictDoNothing()
+                .returning();
+
+              // If row was inserted, create subscription
+              if (result.length > 0) {
+                await tx.insert(schema.tenantSubscriptions).values({
+                  tenantId: result[0].id,
+                  status: "trialing",
+                  currentPeriodStart: new Date(),
+                  currentPeriodEnd: trialEnd,
+                });
+              }
+            });
+          } catch (err) {
+            console.error(
+              "[auth] Failed to create tenant for org:",
+              org.id,
+              err,
+            );
+          }
         },
       },
     }),

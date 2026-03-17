@@ -8,6 +8,20 @@
       "when": 1773522867945,
       "tag": "0000_amused_shape",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1773610137452,
+      "tag": "0001_fearless_risque",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773624084494,
+      "tag": "0002_lucky_roulette",
+      "breakpoints": true
     }
   ]
 }

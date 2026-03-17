@@ -4,7 +4,7 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-- [ ] **Frontend auth flow fixes** (ZAX-40) — login auto-sets org, middleware redirects, OrgResolver
+(none)
 
 ## Build Order (Phase 1)
 
@@ -31,17 +31,49 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Customer CRUD** (#2) — API routes + dashboard page
-- [ ] **Service Catalog** (#3) — API routes + settings page
+- [ ] **Job Management (Kanban)** (#4) — API routes + Kanban board, job detail page
 
 ## Done
 
+- [x] **Service Catalog + Settings Pages** (#3) — Full implementation
+  - API routes: CRUD for catalog items (GET list/single, POST, PATCH, DELETE), GET /categories for distinct categories
+  - Server actions: getCatalogItems, getCatalogCategories, getCatalogItem, createCatalogItem, updateCatalogItem, deleteCatalogItem
+  - Settings layout with tabbed navigation (Profile, Service Catalog, Checklists, Business, Billing)
+  - `/settings` redirects to `/settings/profile`
+  - Catalog page: table with type badges, search, item type filter, category filter, archived toggle, pagination
+  - Catalog CRUD: create/edit dialog with Popover selectors, category autocomplete (datalist), archive/restore, hard delete
+  - User Profile page: name/email editing via Better Auth, email verification badge, change password form with show/hide toggles
+  - Reuses existing components: TableSkeleton, EmptyState, Pagination, DeleteConfirmDialog
+  - New components: settings-nav, catalog-table, catalog-item-dialog, catalog-filters, profile-form, change-password-form
+- [x] **Customer Detail Page** — 3-panel layout (info panel, tabbed content, sidebar)
+  - Inline-editable fields in left panel (click-to-edit contact + address info)
+  - Customer Tags system: tenant-level reusable tags, many-to-many with customers, create/assign/remove via popover
+  - Customer Notes system: full CRUD (add, edit, delete), timestamped with author tracking
+  - Customer Activity Log: automated timeline (customer.created, customer.updated, note.created)
+  - Tabs: Activity, Notes, Jobs (empty), Invoices (empty), Equipment (empty)
+  - Right sidebar: Appointments + Equipment placeholders
+  - Breadcrumb navigation back to customer list
+  - Customer name in list table is now a clickable link to detail page
+  - Removed notes field from customer dialog (notes now in dedicated Notes tab)
+  - New DB tables: customer_notes, customer_activities, tags, customer_tags
+  - New API routes: /tags CRUD, /customers/:id/notes, /customers/:id/activities, /customers/:id/tags
+  - New UI components: Tabs (shadcn), Popover (shadcn)
+- [x] **Customer CRUD** (#2) — API routes (GET/POST/PATCH/DELETE /customers), server actions, dashboard page with table, search, pagination, create/edit dialog, delete confirm
+  - Fixed Drizzle dual-instance bug: `tenant-scope.ts` now imports `eq` from `@hvac-saas/database`
+  - Reorganized components: reusable in `components/dashboard/reusable/`, customer-specific in `components/dashboard/customers/`
 - [x] **Organization/Tenant creation flow** (#1) — auto-creates tenant + subscription on org creation
   - Better Auth `organizationCreation.afterCreate` hook in auth.ts
   - Enhanced `requireTenant` middleware resolves tenantId from DB
   - Idempotent `POST /tenants/initialize` endpoint for existing orgs
   - Dashboard layout guard (redirects unauthenticated users)
   - Re-exported drizzle-orm operators from `@hvac-saas/database` to fix duplicate instance issue
+  - **Fix:** Added try-catch + transaction to `afterCreate` hook (was failing silently)
+  - **Fix:** OrgResolver now calls `initializeTenant()` as fallback after setting active org
+  - **Fix:** Added `.notNull()` constraint to `tenants.organizationId` (migration: `0001_fearless_risque.sql`)
+  - **Fix (ZAX-32):** Signup now calls `setActive()` + `initializeTenant()` before redirect — ensures tenant row exists
+  - **Fix (ZAX-32):** Login calls `initializeTenant()` after `setActive()` — auto-heals existing users with missing tenant rows
+  - **Fix (ZAX-32):** afterCreate hook uses `onConflictDoNothing()` + `org.id` fallback slug — prevents slug collision crashes
+  - **Fix (ZAX-32):** OrgResolver shows real error messages + retry button instead of generic "Something went wrong"
 - [x] **Better Auth migration** — replaced Supabase Auth + bcrypt/JWT with Better Auth (unified auth system)
   - Better Auth server config with drizzle adapter, organization + admin plugins
   - Auth schema: 7 tables (user, session, account, verification, organization, member, invitation)

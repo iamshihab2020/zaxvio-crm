@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { signUp, authClient } from "@/lib/auth-client";
+import { initializeTenant } from "@/actions/tenants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,21 @@ export default function SignupPage() {
 
       if (orgResult.error) {
         setError(orgResult.error.message ?? "Failed to create organization");
+        setLoading(false);
+        return;
+      }
+
+      // 3. Set the org as active (so session has activeOrganizationId)
+      await authClient.organization.setActive({
+        organizationId: orgResult.data.id,
+      });
+
+      // 4. Initialize tenant (fallback in case afterCreate hook failed)
+      const tenantResult = await initializeTenant();
+      if (!tenantResult.success) {
+        setError(
+          tenantResult.error ?? "Failed to set up your account. Please try again.",
+        );
         setLoading(false);
         return;
       }

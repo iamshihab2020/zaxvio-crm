@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, authClient } from "@/lib/auth-client";
+import { initializeTenant } from "@/actions/tenants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,6 +55,9 @@ function LoginForm() {
         await authClient.organization.setActive({
           organizationId: orgs[0].id,
         });
+
+        // Ensure tenant row exists (covers users who signed up when API was down)
+        await initializeTenant();
 
         const callbackUrl = searchParams.get("callbackUrl");
         router.push(callbackUrl ?? "/dashboard");

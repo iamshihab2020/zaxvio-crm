@@ -13,7 +13,7 @@ export const tenants = pgTable(
   "tenants",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    organizationId: text("organization_id").references(() => organization.id),
+    organizationId: text("organization_id").notNull().references(() => organization.id),
     businessName: text("business_name").notNull(),
     ownerName: text("owner_name").notNull(),
     email: text("email").notNull(),
