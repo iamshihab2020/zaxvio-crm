@@ -65,7 +65,7 @@ export function Navbar() {
 
   return (
     <header
-      className="fixed top-0 right-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card/80 px-6 backdrop-blur-sm transition-[left] duration-300 ease-in-out"
+      className="fixed top-0 right-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card px-6 transition-[left] duration-300 ease-in-out"
       style={{ left: isCollapsed ? "4rem" : "15rem" }}
     >
       <h1 className="font-heading text-lg font-semibold text-foreground">

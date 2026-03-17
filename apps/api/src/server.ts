@@ -8,6 +8,7 @@ import { auth } from "./lib/auth.js";
 import tenantRoutes from "./routes/tenants/index.js";
 import customerRoutes from "./routes/customers/index.js";
 import tagRoutes from "./routes/tags/index.js";
+import catalogRoutes from "./routes/catalog/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -78,6 +79,7 @@ export async function buildServer() {
   await fastify.register(tenantRoutes, { prefix: "/tenants" });
   await fastify.register(customerRoutes, { prefix: "/customers" });
   await fastify.register(tagRoutes, { prefix: "/tags" });
+  await fastify.register(catalogRoutes, { prefix: "/catalog" });
 
   fastify.get(
     "/health",

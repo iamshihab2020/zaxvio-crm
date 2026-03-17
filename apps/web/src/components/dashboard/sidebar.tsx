@@ -114,10 +114,23 @@ export function Sidebar() {
         </nav>
 
         {/* Bottom section */}
-        <div className="p-3">
+        <div className="flex flex-col gap-1 p-3">
+          {/* Expand button when collapsed (no hover-expand) */}
+          {isCollapsed && !isHoverExpanded && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-full text-muted-foreground"
+              onClick={toggleCollapsed}
+              aria-label="Expand sidebar"
+            >
+              <IconChevronsRight className="h-5 w-5" />
+            </Button>
+          )}
+
           {/* Mode selector - visible only when fully expanded */}
           {isEffectivelyExpanded && (
-            <div className="mb-3 flex items-center gap-1">
+            <div className="mb-1 flex items-center gap-1">
               {modeOptions.map((opt) => (
                 <Button
                   key={opt.value}
@@ -132,21 +145,6 @@ export function Sidebar() {
                 </Button>
               ))}
             </div>
-          )}
-
-          <Separator className="mb-3" />
-
-          {/* Expand button when collapsed (no hover-expand) */}
-          {isCollapsed && !isHoverExpanded && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="mb-2 w-full text-muted-foreground"
-              onClick={toggleCollapsed}
-              aria-label="Expand sidebar"
-            >
-              <IconChevronsRight className="h-5 w-5" />
-            </Button>
           )}
 
           {/* Settings */}

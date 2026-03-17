@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CustomerTable } from "@/components/dashboard/customers/customer-table";
 import { CustomerDialog, type CustomerFormData } from "@/components/dashboard/customers/customer-dialog";
-import { DeleteConfirmDialog } from "@/components/dashboard/reusable/delete-confirm-dialog";
-import { TableSkeleton } from "@/components/dashboard/reusable/table-skeleton";
-import { Pagination } from "@/components/dashboard/reusable/pagination";
-import { EmptyState } from "@/components/dashboard/reusable/empty-state";
+import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { TableSkeleton } from "@/components/reusable/table-skeleton";
+import { Pagination } from "@/components/reusable/pagination";
+import { EmptyState } from "@/components/reusable/empty-state";
 import {
   getCustomers,
   createCustomer,

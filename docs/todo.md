@@ -31,10 +31,20 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Service Catalog** (#3) — API routes + settings page
+- [ ] **Job Management (Kanban)** (#4) — API routes + Kanban board, job detail page
 
 ## Done
 
+- [x] **Service Catalog + Settings Pages** (#3) — Full implementation
+  - API routes: CRUD for catalog items (GET list/single, POST, PATCH, DELETE), GET /categories for distinct categories
+  - Server actions: getCatalogItems, getCatalogCategories, getCatalogItem, createCatalogItem, updateCatalogItem, deleteCatalogItem
+  - Settings layout with tabbed navigation (Profile, Service Catalog, Checklists, Business, Billing)
+  - `/settings` redirects to `/settings/profile`
+  - Catalog page: table with type badges, search, item type filter, category filter, archived toggle, pagination
+  - Catalog CRUD: create/edit dialog with Popover selectors, category autocomplete (datalist), archive/restore, hard delete
+  - User Profile page: name/email editing via Better Auth, email verification badge, change password form with show/hide toggles
+  - Reuses existing components: TableSkeleton, EmptyState, Pagination, DeleteConfirmDialog
+  - New components: settings-nav, catalog-table, catalog-item-dialog, catalog-filters, profile-form, change-password-form
 - [x] **Customer Detail Page** — 3-panel layout (info panel, tabbed content, sidebar)
   - Inline-editable fields in left panel (click-to-edit contact + address info)
   - Customer Tags system: tenant-level reusable tags, many-to-many with customers, create/assign/remove via popover
