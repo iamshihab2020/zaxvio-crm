@@ -1,4 +1,6 @@
-<img src="https://i.ibb.co/hJm85pGb/Logo-4.png" alt="Zaxvio" border="0">
+<p align="center">
+  <img src="https://i.ibb.co/hJm85pGb/Logo-4.png" alt="Zaxvio" width="280">
+</p>
 
 # Zaxvio CRM
 
