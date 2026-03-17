@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://i.ibb.co/hJm85pGb/Logo-4.png" alt="Zaxvio" width="280">
+  <img src="https://ibb.co/zHxTW4c7.png" alt="Zaxvio" width="280">
 </p>
 
 # Zaxvio CRM
