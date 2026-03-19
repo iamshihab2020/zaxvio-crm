@@ -22,6 +22,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **Route files only** in route folders: Only `page.tsx` and `*-page-client.tsx` stay in `app/(dashboard)/<entity>/`. They import components from `@/components/dashboard/`.
   - **UI primitives** (shadcn) stay in `apps/web/src/components/ui/`.
 
+7. **Read memory files at session start** — `scripts/memory/recent-memory.md` + `scripts/memory/project-memory.md` for recent context; reference `scripts/memory/long-term-memory.md` for architecture/library decisions.
+
+> **Skill**: If the file `skills/consolidate-memory.md` exists locally, follow its methodology whenever consolidating session memory.
+
+---
+
+## Memory System
+
+Three-tier persistent memory that complements `docs/todo.md`, `docs/lessons.md`, and `MEMORY.md`:
+
+| Memory File | Purpose | Lifecycle | Source |
+|---|---|---|---|
+| `scripts/memory/recent-memory.md` | Rolling 48hr session summaries | Overwritten each run | JSONL conversation logs |
+| `scripts/memory/long-term-memory.md` | Stable facts, preferences, gotchas | Append-only | `docs/lessons.md` + session corrections |
+| `scripts/memory/project-memory.md` | Active project snapshot | Overwritten each run | `docs/todo.md` + git state |
+
+**At session start**: Read `recent-memory.md` + `project-memory.md` for context. Reference `long-term-memory.md` for architecture/library decisions.
+
+**Authoritative sources remain**: `docs/todo.md` (tasks) and `docs/lessons.md` (lessons). Memory files are optimized read-only views.
+
+**Consolidation**: Run `node scripts/memory/consolidate-memory.mjs` manually or via nightly scheduled task (`scripts/memory/install-memory-task.bat`). For in-session updates, use the `consolidate-memory` skill.
+
 ---
 
 ## Project Overview
@@ -92,6 +114,11 @@ packages/
   ui/           # @hvac-saas/ui — shared React components
   email/        # @hvac-saas/email — React Email templates (E-01 through E-13)
   config/       # @hvac-saas/config — shared ESLint + TypeScript config
+
+scripts/
+  memory/       # Memory consolidation system (auto-generated .md files are gitignored)
+
+skills/         # Claude Code skill files (methodology docs)
 ```
 
 All packages use ES modules (`"type": "module"`). Path alias `@/*` maps to `./src/*` in both apps.

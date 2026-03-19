@@ -28,9 +28,12 @@ playwright-report/
 # Turbo
 .turbo/
 
+# Memory (auto-generated, local only)
+scripts/memory/*.md
+
 # Misc
 *.log
 *.tsbuildinfo
-.agent 
+.agent
 .agents
 .claude

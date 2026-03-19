@@ -27,8 +27,8 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: IconLayoutDashboard },
   { href: "/customers", label: "Customers", icon: IconUsers },
   { href: "/jobs", label: "Jobs", icon: IconBriefcase },
-  { href: "/invoices", label: "Invoices", icon: IconFileInvoice },
   { href: "/quotes", label: "Quotes", icon: IconFileText },
+  { href: "/invoices", label: "Invoices", icon: IconFileInvoice },
   { href: "/schedule", label: "Schedule", icon: IconCalendar },
 ];
 
