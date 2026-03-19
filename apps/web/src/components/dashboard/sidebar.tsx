@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -17,7 +18,6 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Logo } from "@/components/logo";
 import { useSidebar, type SidebarMode } from "./sidebar-provider";
@@ -30,6 +30,11 @@ const navItems = [
   { href: "/invoices", label: "Invoices", icon: IconFileInvoice },
   { href: "/quotes", label: "Quotes", icon: IconFileText },
   { href: "/schedule", label: "Schedule", icon: IconCalendar },
+];
+
+const allItems = [
+  ...navItems,
+  { href: "/settings", label: "Settings", icon: IconSettings },
 ];
 
 const modeOptions: { value: SidebarMode; icon: typeof IconLayoutSidebar; label: string }[] = [
@@ -50,7 +55,57 @@ export function Sidebar() {
 
   const isEffectivelyExpanded = !isCollapsed || isHoverExpanded;
   const showLabel = isEffectivelyExpanded;
-  const useTooltip = isCollapsed && !isHoverExpanded && mode === "icon-tooltip";
+  const useTooltipMode = isCollapsed && !isHoverExpanded && mode === "icon-tooltip";
+
+  // Refs for all nav items (including settings)
+  const itemRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
+  const sidebarRef = useRef<HTMLElement>(null);
+  const [indicator, setIndicator] = useState({ top: 0, height: 0, opacity: 0 });
+  const [hoveredHref, setHoveredHref] = useState<string | null>(null);
+
+  const getActiveHref = useCallback(() => {
+    return allItems.find(
+      (item) => pathname === item.href || pathname.startsWith(item.href + "/"),
+    )?.href ?? null;
+  }, [pathname]);
+
+  const updateIndicator = useCallback(
+    (targetHref: string | null) => {
+      if (!targetHref) {
+        setIndicator((prev) => ({ ...prev, opacity: 0 }));
+        return;
+      }
+      const el = itemRefs.current.get(targetHref);
+      const sidebar = sidebarRef.current;
+      if (el && sidebar) {
+        const sidebarRect = sidebar.getBoundingClientRect();
+        const elRect = el.getBoundingClientRect();
+        setIndicator({
+          top: elRect.top - sidebarRect.top,
+          height: elRect.height,
+          opacity: 1,
+        });
+      }
+    },
+    [],
+  );
+
+  // Update indicator position when active route or sidebar expansion changes
+  const activeHref = getActiveHref();
+  const targetHref = hoveredHref ?? activeHref;
+
+  useEffect(() => {
+    // Small delay to let DOM settle after sidebar expand/collapse
+    const timer = setTimeout(() => updateIndicator(targetHref), 30);
+    return () => clearTimeout(timer);
+  }, [targetHref, updateIndicator, isEffectivelyExpanded]);
+
+  // Recalculate on resize
+  useEffect(() => {
+    const handleResize = () => updateIndicator(targetHref);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [targetHref, updateIndicator]);
 
   const handleMouseEnter = () => {
     if (isCollapsed && mode === "hover-expand") {
@@ -62,11 +117,23 @@ export function Sidebar() {
     if (isHoverExpanded) {
       setHoverExpanded(false);
     }
+    setHoveredHref(null);
   };
+
+  function setItemRef(href: string) {
+    return (el: HTMLAnchorElement | null) => {
+      if (el) {
+        itemRefs.current.set(href, el);
+      } else {
+        itemRefs.current.delete(href);
+      }
+    };
+  }
 
   return (
     <TooltipProvider delayDuration={0}>
       <aside
+        ref={sidebarRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
@@ -75,8 +142,18 @@ export function Sidebar() {
           isHoverExpanded && "shadow-xl",
         )}
       >
+        {/* Sliding indicator */}
+        <div
+          className="absolute left-3 right-3 rounded-md bg-brand-light transition-all duration-300 ease-in-out"
+          style={{
+            top: indicator.top,
+            height: indicator.height,
+            opacity: indicator.opacity,
+          }}
+        />
+
         {/* Header: Logo + Collapse toggle */}
-        <div className="flex h-14 items-center border-b border-border px-3">
+        <div className="relative z-10 flex h-14 items-center border-b border-border px-3">
           <Link href="/dashboard" className="flex-1 overflow-hidden">
             <Logo size="sm" showText={showLabel} asLink={false} />
           </Link>
@@ -107,14 +184,17 @@ export function Sidebar() {
                 isActive={isActive}
                 isCollapsed={isCollapsed && !isHoverExpanded}
                 showLabel={showLabel}
-                useTooltip={useTooltip}
+                useTooltip={useTooltipMode}
+                itemRef={setItemRef(item.href)}
+                onMouseEnter={() => setHoveredHref(item.href)}
+                onMouseLeave={() => setHoveredHref(null)}
               />
             );
           })}
         </nav>
 
         {/* Bottom section */}
-        <div className="flex flex-col gap-1 p-3">
+        <div className="relative z-10 flex flex-col gap-1 p-3">
           {/* Expand button when collapsed (no hover-expand) */}
           {isCollapsed && !isHoverExpanded && (
             <Button
@@ -157,7 +237,10 @@ export function Sidebar() {
             }
             isCollapsed={isCollapsed && !isHoverExpanded}
             showLabel={showLabel}
-            useTooltip={useTooltip}
+            useTooltip={useTooltipMode}
+            itemRef={setItemRef("/settings")}
+            onMouseEnter={() => setHoveredHref("/settings")}
+            onMouseLeave={() => setHoveredHref(null)}
           />
         </div>
       </aside>

@@ -1,8 +1,8 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
   Tooltip,
   TooltipContent,
@@ -17,6 +17,9 @@ interface SidebarNavItemProps {
   isCollapsed: boolean;
   showLabel: boolean;
   useTooltip: boolean;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
+  itemRef?: React.RefCallback<HTMLAnchorElement>;
 }
 
 export function SidebarNavItem({
@@ -27,30 +30,33 @@ export function SidebarNavItem({
   isCollapsed,
   showLabel,
   useTooltip,
+  onMouseEnter,
+  onMouseLeave,
+  itemRef,
 }: SidebarNavItemProps) {
-  const button = (
-    <Button
-      variant="ghost"
-      asChild
+  const link = (
+    <Link
+      ref={itemRef}
+      href={href}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
       className={cn(
-        "font-body text-sm font-medium",
+        "relative z-10 flex h-10 w-full items-center rounded-md px-3 text-sm font-medium font-body transition-colors duration-200",
         showLabel ? "justify-start gap-3" : "justify-center px-0",
         isActive
-          ? "bg-brand-light text-brand hover:bg-brand-light hover:text-brand"
-          : "text-muted-foreground",
+          ? "text-brand"
+          : "text-muted-foreground hover:text-brand",
       )}
     >
-      <Link href={href}>
-        <Icon className="h-5 w-5 shrink-0" />
-        {showLabel && <span className="truncate">{label}</span>}
-      </Link>
-    </Button>
+      <Icon className="h-5 w-5 shrink-0" />
+      {showLabel && <span className="truncate">{label}</span>}
+    </Link>
   );
 
   if (isCollapsed && useTooltip) {
     return (
       <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
+        <TooltipTrigger asChild>{link}</TooltipTrigger>
         <TooltipContent side="right" sideOffset={8}>
           {label}
         </TooltipContent>
@@ -58,5 +64,5 @@ export function SidebarNavItem({
     );
   }
 
-  return button;
+  return link;
 }

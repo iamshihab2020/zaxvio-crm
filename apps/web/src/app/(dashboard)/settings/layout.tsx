@@ -1,4 +1,5 @@
 import { SettingsNav } from "@/components/dashboard/settings/settings-nav";
+import { SettingsContent } from "@/components/dashboard/settings/settings-content";
 
 export default function SettingsLayout({
   children,
@@ -14,7 +15,7 @@ export default function SettingsLayout({
         Settings
       </h1>
       <SettingsNav />
-      <div className="mt-6">{children}</div>
+      <SettingsContent>{children}</SettingsContent>
     </section>
   );
 }
