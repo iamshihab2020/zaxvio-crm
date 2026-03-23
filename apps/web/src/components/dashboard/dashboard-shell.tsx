@@ -7,7 +7,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div
-      className="flex-1 transition-[padding-left] duration-300 ease-in-out"
+      className="flex-1 min-w-0 transition-[padding-left] duration-300 ease-in-out"
       style={{ paddingLeft: isCollapsed ? "4rem" : "15rem" }}
     >
       {children}

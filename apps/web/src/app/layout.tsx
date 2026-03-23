@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
 import { RefreshOnNav } from "@/components/refresh-on-nav";
+import { Toaster } from "sonner";
 import "./globals.css";
 
 const spaceGrotesk = Space_Grotesk({
@@ -40,6 +41,7 @@ export default function RootLayout({
         <ThemeProvider>
           <RefreshOnNav />
           {children}
+          <Toaster position="bottom-right" richColors />
         </ThemeProvider>
       </body>
     </html>

@@ -26,35 +26,52 @@ export function SettingsNav() {
   const tabRefs = useRef<(HTMLAnchorElement | null)[]>([]);
   const [indicator, setIndicator] = useState({ left: 0, width: 0 });
   const [ready, setReady] = useState(false);
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
-  const updateIndicator = useCallback(() => {
-    const activeIndex = tabs.findIndex((tab) => pathname.startsWith(tab.href));
-    const activeEl = tabRefs.current[activeIndex];
-    const navEl = navRef.current;
-    if (activeEl && navEl) {
-      const navRect = navEl.getBoundingClientRect();
-      const tabRect = activeEl.getBoundingClientRect();
-      setIndicator({
-        left: tabRect.left - navRect.left + navEl.scrollLeft,
-        width: tabRect.width,
-      });
-      if (!ready) setReady(true);
-    }
-  }, [pathname, ready]);
+  const activeIndex = tabs.findIndex((tab) => pathname.startsWith(tab.href));
+
+  const updateIndicatorTo = useCallback(
+    (index: number) => {
+      const el = tabRefs.current[index];
+      const navEl = navRef.current;
+      if (el && navEl) {
+        const navRect = navEl.getBoundingClientRect();
+        const tabRect = el.getBoundingClientRect();
+        setIndicator({
+          left: tabRect.left - navRect.left + navEl.scrollLeft,
+          width: tabRect.width,
+        });
+        if (!ready) setReady(true);
+      }
+    },
+    [ready],
+  );
+
+  // Move indicator to hovered tab or active tab
+  const targetIndex = hoveredIndex ?? activeIndex;
 
   useEffect(() => {
-    updateIndicator();
-  }, [updateIndicator]);
+    if (targetIndex >= 0) {
+      updateIndicatorTo(targetIndex);
+    }
+  }, [targetIndex, updateIndicatorTo, pathname]);
 
   // Recalculate on resize
   useEffect(() => {
-    window.addEventListener("resize", updateIndicator);
-    return () => window.removeEventListener("resize", updateIndicator);
-  }, [updateIndicator]);
+    const onResize = () => {
+      if (targetIndex >= 0) updateIndicatorTo(targetIndex);
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [targetIndex, updateIndicatorTo]);
 
   return (
     <nav className="mt-4 border-b border-border" aria-label="Settings tabs">
-      <div ref={navRef} className="relative -mb-px flex gap-6 overflow-x-auto">
+      <div
+        ref={navRef}
+        className="relative -mb-px flex gap-6 overflow-x-auto"
+        onMouseLeave={() => setHoveredIndex(null)}
+      >
         {/* Sliding indicator */}
         <div
           className={cn(
@@ -72,6 +89,7 @@ export function SettingsNav() {
               ref={(el) => {
                 tabRefs.current[i] = el;
               }}
+              onMouseEnter={() => setHoveredIndex(i)}
               className={cn(
                 "flex items-center gap-2 whitespace-nowrap px-1 pb-3 text-sm font-medium transition-colors duration-200 font-body",
                 isActive

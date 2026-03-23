@@ -153,6 +153,12 @@
   }
 }
 
+/* Force correct background on dragged kanban cards */
+[data-dragging="true"] {
+  background-color: hsl(var(--card)) !important;
+  color: hsl(var(--card-foreground)) !important;
+}
+
 /* Radix accordion animation */
 @keyframes accordion-down {
   from {

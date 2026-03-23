@@ -85,7 +85,7 @@ export const auth = betterAuth({
                 .onConflictDoNothing()
                 .returning();
 
-              // If row was inserted, create subscription
+              // If row was inserted, create subscription + default pipeline stages
               if (result.length > 0) {
                 await tx.insert(schema.tenantSubscriptions).values({
                   tenantId: result[0].id,
@@ -93,6 +93,13 @@ export const auth = betterAuth({
                   currentPeriodStart: new Date(),
                   currentPeriodEnd: trialEnd,
                 });
+
+                await tx.insert(schema.jobPipelineStages).values([
+                  { tenantId: result[0].id, name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
+                  { tenantId: result[0].id, name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: true },
+                  { tenantId: result[0].id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
+                  { tenantId: result[0].id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
+                ]);
               }
             });
           } catch (err) {

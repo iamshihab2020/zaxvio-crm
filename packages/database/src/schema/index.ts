@@ -19,8 +19,10 @@ export * from "./invoices";
 export * from "./quotes";
 export * from "./schedule";
 export * from "./checklists";
+export * from "./pipeline-stages";
 export * from "./customer-notes";
 export * from "./customer-activities";
+export * from "./job-activities";
 export * from "./tags";
 
 // Relations

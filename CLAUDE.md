@@ -157,7 +157,7 @@ Login flow:
 
 ### Schema (Drizzle ORM)
 
-Schema defined in `packages/database/src/schema/` (17 files, 31 tables):
+Schema defined in `packages/database/src/schema/` (18 files, 32 tables):
 
 
 | File               | Tables                                                                                             |
@@ -178,8 +178,10 @@ Schema defined in `packages/database/src/schema/` (17 files, 31 tables):
 | `quotes.ts`        | `quotes`, `quoteLineItems`                                                                         |
 | `schedule.ts`      | `availabilitySchedules`, `scheduleOverrides`                                                       |
 | `checklists.ts`    | `checklistTemplates`, `checklistItems`, `jobChecklistCompletions`                                  |
+| `pipeline-stages.ts` | `jobPipelineStages` (per-tenant Kanban pipeline stages config)                                   |
 | `customer-notes.ts`| `customerNotes` (per-customer notes with author tracking)                                          |
 | `customer-activities.ts` | `customerActivities` (activity log timeline)                                                 |
+| `job-activities.ts`      | `jobActivities` (job activity log timeline)                                                   |
 | `tags.ts`          | `tags` (tenant-level reusable tags), `customerTags` (many-to-many junction)                        |
 | `relations.ts`     | All Drizzle `relations()` for query builder joins                                                  |
 | `index.ts`         | Barrel re-export                                                                                   |
@@ -240,7 +242,7 @@ export type JobUpdate = Partial<JobInsert>;
 ### API (apps/api)
 
 - **Auth routes** (Better Auth): `/api/auth/`* (sign-up, sign-in, sign-out, get-session, etc.)
-- **Tenant routes** (requireAuth + requireTenant): `/jobs`, `/customers`, `/invoices`, `/quotes`, `/bookings`, `/catalog`, `/checklists`, `/equipment`, `/refrigerant-logs`, `/availability`, `/settings`
+- **Tenant routes** (requireAuth + requireTenant): `/jobs`, `/customers`, `/invoices`, `/quotes`, `/bookings`, `/catalog`, `/checklists`, `/pipeline-stages`, `/equipment`, `/refrigerant-logs`, `/availability`, `/settings`
 - **Admin routes** (requireAdmin): `/admin/tenants`, `/admin/analytics`, `/admin/search`, `/admin/audit-log`, `/admin/system`, `/admin/affiliates`
 - **Public routes** (no auth): `/public/booking`, `/webhooks/lemon-squeezy`, `/health`
 

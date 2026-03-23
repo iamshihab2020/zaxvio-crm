@@ -13,7 +13,9 @@
       "Bash(netstat:*)",
       "Bash(xargs grep:*)",
       "WebFetch(domain:www.better-auth.com)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(mkdir:*)",
+      "Bash(npx:*)"
     ]
   }
 }

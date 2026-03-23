@@ -30,7 +30,9 @@ import {
 } from "./checklists";
 import { customerNotes } from "./customer-notes";
 import { customerActivities } from "./customer-activities";
+import { jobActivities } from "./job-activities";
 import { tags, customerTags } from "./tags";
+import { jobPipelineStages } from "./pipeline-stages";
 
 // --- Better Auth: User relations ---
 export const userRelations = relations(user, ({ many }) => ({
@@ -100,6 +102,7 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   availabilitySchedules: many(availabilitySchedules),
   scheduleOverrides: many(scheduleOverrides),
   platformEvents: many(platformEvents),
+  jobPipelineStages: many(jobPipelineStages),
 }));
 
 // --- Subscription relations ---
@@ -212,6 +215,7 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   checklistCompletions: many(jobChecklistCompletions),
   invoices: many(invoices),
   refrigerantLogs: many(refrigerantLogs),
+  activities: many(jobActivities),
 }));
 
 export const jobLineItemsRelations = relations(jobLineItems, ({ one }) => ({
@@ -472,6 +476,25 @@ export const customerActivitiesRelations = relations(
   }),
 );
 
+// --- Job Activities relations ---
+export const jobActivitiesRelations = relations(
+  jobActivities,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [jobActivities.tenantId],
+      references: [tenants.id],
+    }),
+    job: one(jobs, {
+      fields: [jobActivities.jobId],
+      references: [jobs.id],
+    }),
+    performer: one(user, {
+      fields: [jobActivities.performedBy],
+      references: [user.id],
+    }),
+  }),
+);
+
 // --- Tags relations ---
 export const tagsRelations = relations(tags, ({ one, many }) => ({
   tenant: one(tenants, {
@@ -491,3 +514,14 @@ export const customerTagsRelations = relations(customerTags, ({ one }) => ({
     references: [tags.id],
   }),
 }));
+
+// --- Pipeline Stages relations ---
+export const jobPipelineStagesRelations = relations(
+  jobPipelineStages,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [jobPipelineStages.tenantId],
+      references: [tenants.id],
+    }),
+  }),
+);
