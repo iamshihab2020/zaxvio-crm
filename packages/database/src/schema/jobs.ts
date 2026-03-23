@@ -12,7 +12,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
-  jobStatusEnum,
   jobPriorityEnum,
   serviceTypeEnum,
   itemTypeEnum,
@@ -33,7 +32,7 @@ export const jobs = pgTable(
       .references(() => customers.id, { onDelete: "cascade" }),
     bookingId: uuid("booking_id"),
     jobNumber: text("job_number").notNull(),
-    status: jobStatusEnum("status").notNull().default("scheduled"),
+    status: text("status").notNull().default("scheduled"),
     priority: jobPriorityEnum("priority").notNull().default("standard"),
     serviceType: serviceTypeEnum("service_type").notNull(),
     title: text("title").notNull(),

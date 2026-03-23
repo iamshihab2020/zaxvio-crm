@@ -4,27 +4,40 @@ import { useSession } from "@/lib/auth-client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileForm } from "@/components/dashboard/settings/profile-form";
 import { ChangePasswordForm } from "@/components/dashboard/settings/change-password-form";
+import { ProfileSidebar } from "@/components/dashboard/settings/profile-sidebar";
 
 export function ProfileSettingsPageClient() {
   const { data: session, isPending } = useSession();
 
   if (isPending) {
     return (
-      <div className="max-w-2xl space-y-6">
-        <div className="rounded-lg border bg-card p-6">
-          <Skeleton className="mb-4 h-6 w-40" />
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2 space-y-6">
+          <div className="rounded-lg border bg-card p-6">
+            <Skeleton className="mb-4 h-6 w-40" />
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          </div>
+          <div className="rounded-lg border bg-card p-6">
+            <Skeleton className="mb-4 h-6 w-40" />
+            <div className="space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
           </div>
         </div>
-        <div className="rounded-lg border bg-card p-6">
-          <Skeleton className="mb-4 h-6 w-40" />
-          <div className="space-y-4">
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
-            <Skeleton className="h-10 w-full" />
+        <div className="space-y-4">
+          <div className="rounded-lg border bg-card p-6">
+            <Skeleton className="mb-3 h-5 w-32" />
+            <div className="space-y-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+            </div>
           </div>
         </div>
       </div>
@@ -40,9 +53,14 @@ export function ProfileSettingsPageClient() {
   }
 
   return (
-    <div className="max-w-2xl space-y-6">
-      <ProfileForm user={session.user} />
-      <ChangePasswordForm />
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="lg:col-span-2 space-y-6">
+        <ProfileForm user={session.user} />
+        <ChangePasswordForm />
+      </div>
+      <div>
+        <ProfileSidebar user={session.user} />
+      </div>
     </div>
   );
 }

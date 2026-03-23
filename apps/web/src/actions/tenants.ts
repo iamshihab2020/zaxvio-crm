@@ -40,3 +40,64 @@ export async function initializeTenant(): Promise<{
     return { success: false, error: "Network error" };
   }
 }
+
+/**
+ * Get the current tenant's data.
+ */
+export async function getTenant() {
+  try {
+    const res = await fetch(`${API_URL}/tenants/current`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to fetch tenant" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+/**
+ * Update the current tenant's fields.
+ */
+export async function updateTenant(data: {
+  businessName?: string;
+  ownerName?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  defaultTaxRate?: string;
+  googleReviewUrl?: string;
+  timezone?: string;
+}) {
+  try {
+    const res = await fetch(`${API_URL}/tenants/current`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to update tenant" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}

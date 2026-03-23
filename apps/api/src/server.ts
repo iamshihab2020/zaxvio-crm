@@ -9,6 +9,9 @@ import tenantRoutes from "./routes/tenants/index.js";
 import customerRoutes from "./routes/customers/index.js";
 import tagRoutes from "./routes/tags/index.js";
 import catalogRoutes from "./routes/catalog/index.js";
+import jobRoutes from "./routes/jobs/index.js";
+import checklistRoutes from "./routes/checklists/index.js";
+import pipelineStagesRoutes from "./routes/pipeline-stages/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -80,6 +83,9 @@ export async function buildServer() {
   await fastify.register(customerRoutes, { prefix: "/customers" });
   await fastify.register(tagRoutes, { prefix: "/tags" });
   await fastify.register(catalogRoutes, { prefix: "/catalog" });
+  await fastify.register(jobRoutes, { prefix: "/jobs" });
+  await fastify.register(checklistRoutes, { prefix: "/checklists" });
+  await fastify.register(pipelineStagesRoutes, { prefix: "/pipeline-stages" });
 
   fastify.get(
     "/health",

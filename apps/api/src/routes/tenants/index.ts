@@ -1,15 +1,89 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth } from "../../lib/auth-middleware.js";
+import { requireAuth, requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
   tenants,
   tenantSubscriptions,
+  jobPipelineStages,
   user,
   organization,
   eq,
 } from "@hvac-saas/database";
 
 export default async function tenantRoutes(fastify: FastifyInstance) {
+  /**
+   * GET /tenants/current
+   *
+   * Return the current tenant's data.
+   */
+  fastify.get(
+    "/current",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const db = getDb();
+      const tenant = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, request.authUser.tenantId!))
+        .then((r) => r[0]);
+
+      if (!tenant) {
+        return reply.status(404).send({ message: "Tenant not found" });
+      }
+
+      return reply.send({ data: tenant });
+    },
+  );
+
+  /**
+   * PATCH /tenants/current
+   *
+   * Update the current tenant's fields.
+   */
+  fastify.patch(
+    "/current",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const body = request.body as Record<string, unknown>;
+
+      const allowedFields = [
+        "businessName",
+        "ownerName",
+        "email",
+        "phone",
+        "address",
+        "city",
+        "state",
+        "zipCode",
+        "defaultTaxRate",
+        "googleReviewUrl",
+        "timezone",
+      ] as const;
+
+      const updates: Record<string, unknown> = {};
+      for (const field of allowedFields) {
+        if (field in body) {
+          updates[field] = body[field];
+        }
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return reply.status(400).send({ message: "No valid fields to update" });
+      }
+
+      updates.updatedAt = new Date();
+
+      const db = getDb();
+      const [updated] = await db
+        .update(tenants)
+        .set(updates)
+        .where(eq(tenants.id, request.authUser.tenantId!))
+        .returning();
+
+      return reply.send({ data: updated });
+    },
+  );
+
   /**
    * POST /tenants/initialize
    *
@@ -82,6 +156,14 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
         currentPeriodStart: new Date(),
         currentPeriodEnd: trialEndsAt,
       });
+
+      // Seed default pipeline stages
+      await db.insert(jobPipelineStages).values([
+        { tenantId: tenant.id, name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
+        { tenantId: tenant.id, name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: true },
+        { tenantId: tenant.id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
+        { tenantId: tenant.id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
+      ]);
 
       return reply
         .status(201)

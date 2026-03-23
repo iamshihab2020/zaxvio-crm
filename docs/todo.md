@@ -4,7 +4,7 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-(none)
+- [ ] **Invoicing (#5)** — Next up from Build Order
 
 ## Build Order (Phase 1)
 
@@ -31,10 +31,48 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Job Management (Kanban)** (#4) — API routes + Kanban board, job detail page
+- [ ] **Invoicing** (#5) — API routes + invoice page, generate from jobs, PDF, email, payment tracking
+- [ ] **Quote Builder** (#6) — API routes + quote page, PDF, email, customer acceptance, convert to job
 
 ## Done
 
+- [x] **Custom Pipeline Stages (ZAX-41)** — User-controlled Kanban columns
+  - New DB table: `job_pipeline_stages` (per-tenant, name/label/color/sortOrder/isDefault)
+  - Migration: `0005_add_pipeline_stages.sql` — creates table, converts `jobs.status` from enum to text, seeds 4 defaults for all existing tenants
+  - Schema: `packages/database/src/schema/pipeline-stages.ts`, updated `jobs.ts` (status now text)
+  - Types: `PipelineStage`, `PipelineStageInsert` in `packages/types/src/pipeline-stage.ts`
+  - API routes: GET/POST/PATCH/DELETE `/pipeline-stages`, PATCH `/pipeline-stages/reorder` with lazy-init default seeding
+  - Server actions: `getPipelineStages`, `createPipelineStage`, `updatePipelineStage`, `deletePipelineStage`, `reorderPipelineStages`
+  - Tenant creation seeding: default 4 stages seeded in `auth.ts` afterCreate + `POST /tenants/initialize`
+  - Color presets: 8 colors (blue, brand, green, red, purple, amber, gray, teal) in `stage-color-presets.ts`
+  - Kanban board: dynamic columns from pipeline stages (flex + horizontal scroll), removed hardcoded `KANBAN_COLUMNS`/`VALID_STATUS_TRANSITIONS`
+  - Manage Pipeline dialog: draggable reorder (@dnd-kit/sortable), inline label editing, color picker, delete with job count guard
+  - Job detail sheet: dynamic stage-based status badge, "Move to [next stage]" + dropdown for other stages
+  - Filters bar: added "Manage Pipeline" button
+  - Skeleton: accepts `columnCount` prop
+- [x] **Default Tax Rate in Settings** — Set once in Settings → Business, auto-fills on new jobs
+  - Migration: `0004_add_default_tax_rate.sql` adds `default_tax_rate` column to tenants
+  - Schema: `defaultTaxRate` field in `packages/database/src/schema/tenants.ts`
+  - API: GET/PATCH `/tenants/current` endpoints for reading/updating tenant data
+  - Server actions: `getTenant()`, `updateTenant()` in `actions/tenants.ts`
+  - Business Settings page: form with business info fields + default tax rate
+  - Job creation auto-fills tax rate from tenant default (user can still override per-job)
+- [x] **Job Management (Kanban)** (#4) — Full implementation
+  - Backend: 15 API endpoints (jobs CRUD, line items, checklist, photos, activities)
+  - Server actions: getJobs, getJob, createJob, updateJob, updateJobStatus, deleteJob, line items CRUD, checklist toggle, photos CRUD, activities
+  - Frontend Kanban board with 4 columns (Scheduled, In Progress, Completed, Cancelled)
+  - Drag-and-drop via @dnd-kit/core with state machine validation and optimistic updates
+  - Job detail Sheet (slide-over) with 5 tabs: Details, Line Items, Checklist, Photos, Activity
+  - Create/Edit dialog with customer search picker (Popover+Command), auto-fill address
+  - Filters: search (debounced), priority, service type with Popover-based selectors
+  - Toast notifications via sonner (added Toaster to root layout)
+  - New UI components: Sheet (shadcn), Progress (shadcn)
+  - Skeleton loaders for board and detail panel
+  - Empty states for board, each tab, and no-results
+  - Delete confirmation via reusable DeleteConfirmDialog
+  - Activity timeline with icon mapping per activity type
+  - Checklist tab with progress bar, required item indicators, auto-refresh on toggle
+  - Line items tab with inline add/edit forms, subtotal calculation
 - [x] **Service Catalog + Settings Pages** (#3) — Full implementation
   - API routes: CRUD for catalog items (GET list/single, POST, PATCH, DELETE), GET /categories for distinct categories
   - Server actions: getCatalogItems, getCatalogCategories, getCatalogItem, createCatalogItem, updateCatalogItem, deleteCatalogItem
