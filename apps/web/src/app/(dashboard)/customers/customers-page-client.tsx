@@ -134,12 +134,19 @@ export function CustomersPageClient() {
   return (
     <section className="p-6" aria-labelledby="customers-heading">
       <div className="mb-6 flex items-center justify-between">
-        <h1
-          id="customers-heading"
-          className="font-heading text-2xl font-bold text-foreground"
-        >
-          Customers
-        </h1>
+        <div>
+          <h1
+            id="customers-heading"
+            className="font-heading text-2xl font-bold text-foreground"
+          >
+            Customers
+          </h1>
+          {!loading && (
+            <p className="mt-1 text-sm text-muted-foreground font-body">
+              {pagination.total} {pagination.total === 1 ? "customer" : "customers"} total
+            </p>
+          )}
+        </div>
         <Button
           onClick={openCreateDialog}
           className="bg-brand text-brand-foreground hover:bg-brand/90"
@@ -155,55 +162,61 @@ export function CustomersPageClient() {
         </div>
       )}
 
-      {!showEmptyState && (
-        <div className="mb-4">
-          <div className="relative max-w-sm">
-            <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search customers..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-      )}
-
-      {loading && <TableSkeleton columns={6} rows={5} />}
-
       {showEmptyState && (
         <EmptyState
           icon={IconUsers}
           title="No customers yet"
-          description="Add your first customer to get started."
-          actionLabel="Add Customer"
+          description="Add your first customer to start scheduling jobs, sending invoices, and tracking service history."
+          actionLabel="Add Your First Customer"
           onAction={openCreateDialog}
         />
       )}
 
-      {showNoResults && (
-        <p className="py-12 text-center text-sm text-muted-foreground font-body">
-          No customers found matching &ldquo;{search}&rdquo;
-        </p>
-      )}
+      {!showEmptyState && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Search bar inside card header */}
+          <div className="border-b border-border px-4 py-3">
+            <div className="relative max-w-sm">
+              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+          </div>
 
-      {!loading && hasCustomers && (
-        <>
-          <CustomerTable
-            customers={customers}
-            onEdit={openEditDialog}
-            onDelete={openDeleteDialog}
-          />
-          {pagination.totalPages > 1 && (
-            <Pagination
-              page={pagination.page}
-              totalPages={pagination.totalPages}
-              total={pagination.total}
-              onPageChange={handlePageChange}
-              entityName="customer"
+          {loading && (
+            <div className="p-4">
+              <TableSkeleton columns={6} rows={5} />
+            </div>
+          )}
+
+          {showNoResults && (
+            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+              No customers found matching &ldquo;{search}&rdquo;
+            </p>
+          )}
+
+          {!loading && hasCustomers && (
+            <CustomerTable
+              customers={customers}
+              onEdit={openEditDialog}
+              onDelete={openDeleteDialog}
             />
           )}
-        </>
+        </div>
+      )}
+
+      {!loading && hasCustomers && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={handlePageChange}
+          entityName="customer"
+        />
       )}
 
       <CustomerDialog
@@ -221,6 +234,7 @@ export function CustomersPageClient() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
         loading={saving}
+        description="All jobs, invoices, and notes linked to this customer will also be removed."
       />
     </section>
   );

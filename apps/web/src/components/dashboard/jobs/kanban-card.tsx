@@ -55,8 +55,8 @@ function formatTime(timeStr: string) {
 // Hardcoded theme colors to guarantee correct background during drag
 // (CSS variable resolution can break when translate3d promotes to compositing layer)
 const DRAG_COLORS = {
-  dark: { bg: "#121621", fg: "#f8fafc" },
-  light: { bg: "#fefdfc", fg: "#1c1a18" },
+  dark: { bg: "hsl(222, 84%, 4.9%)", fg: "hsl(210, 40%, 98%)" },
+  light: { bg: "hsl(0, 0%, 100%)", fg: "hsl(222, 47%, 11%)" },
 } as const;
 
 export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {

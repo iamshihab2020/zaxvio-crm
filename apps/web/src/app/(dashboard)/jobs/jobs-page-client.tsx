@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { KanbanBoard } from "@/components/dashboard/jobs/kanban-board";
 import { KanbanSkeleton } from "@/components/dashboard/jobs/kanban-skeleton";
@@ -37,6 +38,7 @@ interface PipelineStageWithCount {
 }
 
 export function JobsPageClient() {
+  const searchParams = useSearchParams();
   const [jobs, setJobs] = useState<JobCardData[]>([]);
   const [stages, setStages] = useState<PipelineStageWithCount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +49,17 @@ export function JobsPageClient() {
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+
+  // Open job detail sheet from URL query param (e.g., /jobs?jobId=xxx)
+  const handledJobIdParam = useRef(false);
+  useEffect(() => {
+    const jobIdParam = searchParams.get("jobId");
+    if (jobIdParam && !handledJobIdParam.current) {
+      handledJobIdParam.current = true;
+      setSelectedJobId(jobIdParam);
+      setSheetOpen(true);
+    }
+  }, [searchParams]);
 
   // Create/edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);

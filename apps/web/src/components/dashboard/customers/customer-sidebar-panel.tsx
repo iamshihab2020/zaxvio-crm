@@ -24,7 +24,7 @@ export function CustomerSidebarPanel() {
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
             <IconCalendarEvent className="h-5 w-5 text-brand" />
           </div>
-          <p className="text-sm font-medium text-foreground font-body">No appointments</p>
+          <p className="text-sm font-medium text-foreground font-body">No upcoming appointments</p>
           <p className="text-xs text-muted-foreground mt-1">
             Upcoming appointments will show here
           </p>
@@ -45,7 +45,7 @@ export function CustomerSidebarPanel() {
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
             <IconAirConditioning className="h-5 w-5 text-brand" />
           </div>
-          <p className="text-sm font-medium text-foreground font-body">No equipment</p>
+          <p className="text-sm font-medium text-foreground font-body">No equipment on file</p>
           <p className="text-xs text-muted-foreground mt-1">
             Registered equipment will show here
           </p>

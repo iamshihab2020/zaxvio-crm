@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IconUser, IconMapPin, IconAlertCircle } from "@tabler/icons-react";
 import type { Customer } from "@hvac-saas/types";
 
 interface CustomerDialogProps {
@@ -44,6 +45,18 @@ const emptyForm: CustomerFormData = {
   zipCode: "",
 };
 
+function formatPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 0) return "";
+  if (digits.length <= 3) return `(${digits}`;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
+
+function stripPhone(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 export function CustomerDialog({
   customer,
   open,
@@ -62,7 +75,7 @@ export function CustomerDialog({
         firstName: customer.firstName,
         lastName: customer.lastName,
         email: customer.email ?? "",
-        phone: customer.phone ?? "",
+        phone: customer.phone ? formatPhoneInput(customer.phone) : "",
         address: customer.address ?? "",
         city: customer.city ?? "",
         state: customer.state ?? "",
@@ -86,7 +99,7 @@ export function CustomerDialog({
       return;
     }
 
-    onSave(form);
+    onSave({ ...form, phone: stripPhone(form.phone) });
   }
 
   function updateField(field: keyof CustomerFormData, value: string) {
@@ -96,6 +109,10 @@ export function CustomerDialog({
     }
   }
 
+  function handlePhoneChange(value: string) {
+    updateField("phone", formatPhoneInput(value));
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
@@ -103,98 +120,145 @@ export function CustomerDialog({
           <DialogTitle className="font-heading">
             {isEditing ? "Edit Customer" : "Add Customer"}
           </DialogTitle>
-          <DialogDescription>
-            {isEditing ? "Update customer details." : "Add a new customer to your account."}
+          <DialogDescription className="font-body">
+            {isEditing
+              ? "Update customer details."
+              : "Add a new customer so you can schedule jobs and send invoices."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName" className="font-body">
-                First Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="firstName"
-                value={form.firstName}
-                onChange={(e) => updateField("firstName", e.target.value)}
-                placeholder="John"
-              />
-              {errors.firstName && (
-                <p className="text-sm text-destructive">{errors.firstName}</p>
-              )}
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Section: Contact Info */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground font-heading">
+              <IconUser className="h-4 w-4 text-muted-foreground" />
+              Contact Info
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName" className="font-body">
-                Last Name <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="lastName"
-                value={form.lastName}
-                onChange={(e) => updateField("lastName", e.target.value)}
-                placeholder="Doe"
-              />
-              {errors.lastName && (
-                <p className="text-sm text-destructive">{errors.lastName}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email" className="font-body">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={form.email}
-                onChange={(e) => updateField("email", e.target.value)}
-                placeholder="john@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="font-body">Phone</Label>
-              <Input
-                id="phone"
-                value={form.phone}
-                onChange={(e) => updateField("phone", e.target.value)}
-                placeholder="(555) 123-4567"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="address" className="font-body">Address</Label>
-            <Input
-              id="address"
-              value={form.address}
-              onChange={(e) => updateField("address", e.target.value)}
-              placeholder="123 Main St"
-            />
-          </div>
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="city" className="font-body">City</Label>
-              <Input
-                id="city"
-                value={form.city}
-                onChange={(e) => updateField("city", e.target.value)}
-                placeholder="Houston"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="state" className="font-body">State</Label>
-              <Input
-                id="state"
-                value={form.state}
-                onChange={(e) => updateField("state", e.target.value)}
-                placeholder="TX"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="zipCode" className="font-body">ZIP Code</Label>
-              <Input
-                id="zipCode"
-                value={form.zipCode}
-                onChange={(e) => updateField("zipCode", e.target.value)}
-                placeholder="77001"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="firstName" className="font-body text-muted-foreground">
+                  First Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="firstName"
+                  value={form.firstName}
+                  onChange={(e) => updateField("firstName", e.target.value)}
+                  placeholder="e.g. Mike"
+                  className={errors.firstName ? "border-destructive" : ""}
+                />
+                {errors.firstName && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <IconAlertCircle className="h-3 w-3 shrink-0" />
+                    {errors.firstName}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lastName" className="font-body text-muted-foreground">
+                  Last Name <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="lastName"
+                  value={form.lastName}
+                  onChange={(e) => updateField("lastName", e.target.value)}
+                  placeholder="e.g. Johnson"
+                  className={errors.lastName ? "border-destructive" : ""}
+                />
+                {errors.lastName && (
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <IconAlertCircle className="h-3 w-3 shrink-0" />
+                    {errors.lastName}
+                  </p>
+                )}
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email" className="font-body text-muted-foreground">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => updateField("email", e.target.value)}
+                  placeholder="e.g. mike@email.com"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone" className="font-body text-muted-foreground">
+                  Phone
+                </Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  placeholder="(555) 123-4567"
+                  maxLength={14}
+                />
+              </div>
             </div>
           </div>
+
+          {/* Divider */}
+          <div className="border-t border-border" />
+
+          {/* Section: Service Address */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground font-heading">
+              <IconMapPin className="h-4 w-4 text-muted-foreground" />
+              Service Address
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="address" className="font-body text-muted-foreground">
+                  Street Address
+                </Label>
+                <Input
+                  id="address"
+                  value={form.address}
+                  onChange={(e) => updateField("address", e.target.value)}
+                  placeholder="e.g. 4521 Oak Creek Dr"
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="city" className="font-body text-muted-foreground">
+                    City
+                  </Label>
+                  <Input
+                    id="city"
+                    value={form.city}
+                    onChange={(e) => updateField("city", e.target.value)}
+                    placeholder="e.g. Houston"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="state" className="font-body text-muted-foreground">
+                    State
+                  </Label>
+                  <Input
+                    id="state"
+                    value={form.state}
+                    onChange={(e) => updateField("state", e.target.value)}
+                    placeholder="e.g. TX"
+                    maxLength={2}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="zipCode" className="font-body text-muted-foreground">
+                    ZIP Code
+                  </Label>
+                  <Input
+                    id="zipCode"
+                    value={form.zipCode}
+                    onChange={(e) => updateField("zipCode", e.target.value)}
+                    placeholder="e.g. 77001"
+                    maxLength={10}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button
               type="button"
@@ -206,7 +270,7 @@ export function CustomerDialog({
             </Button>
             <Button
               type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
+              className="min-w-[140px] bg-brand text-brand-foreground hover:bg-brand/90"
               disabled={loading}
             >
               {loading ? "Saving..." : isEditing ? "Save Changes" : "Add Customer"}
