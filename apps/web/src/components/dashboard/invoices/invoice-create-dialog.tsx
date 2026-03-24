@@ -1,0 +1,337 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { cn } from "@/lib/utils";
+import { IconSearch, IconCheck, IconSelector, IconPencil } from "@tabler/icons-react";
+import { getCustomers } from "@/actions/customers";
+
+export interface InvoiceFormData {
+  customerId: string;
+  issuedDate: string;
+  dueDate: string;
+  taxRate: string;
+  discountAmount: string;
+  notes: string;
+}
+
+interface InvoiceCreateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (data: InvoiceFormData) => void;
+  loading: boolean;
+  defaultTaxRate?: string;
+}
+
+interface CustomerOption {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+const emptyForm: InvoiceFormData = {
+  customerId: "",
+  issuedDate: new Date().toISOString().split("T")[0],
+  dueDate: "",
+  taxRate: "0",
+  discountAmount: "0",
+  notes: "",
+};
+
+export function InvoiceCreateDialog({
+  open,
+  onOpenChange,
+  onSave,
+  loading,
+  defaultTaxRate,
+}: InvoiceCreateDialogProps) {
+  const [form, setForm] = useState<InvoiceFormData>(emptyForm);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof InvoiceFormData, string>>
+  >({});
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
+  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState("");
+  const [taxEditable, setTaxEditable] = useState(false);
+
+  useEffect(() => {
+    const defaultTaxPct = defaultTaxRate
+      ? (parseFloat(defaultTaxRate) * 100).toString()
+      : "0";
+    setForm({ ...emptyForm, taxRate: defaultTaxPct });
+    setSelectedCustomerLabel("");
+    setErrors({});
+    setTaxEditable(false);
+  }, [open, defaultTaxRate]);
+
+  const fetchCustomers = useCallback(async (search: string) => {
+    const result = await getCustomers({ search, limit: 10 });
+    if (result.data) {
+      setCustomers(
+        result.data.map((c: CustomerOption) => ({
+          id: c.id,
+          firstName: c.firstName,
+          lastName: c.lastName,
+        })),
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!customerPopoverOpen) return;
+    const timer = setTimeout(() => fetchCustomers(customerSearch), 300);
+    return () => clearTimeout(timer);
+  }, [customerSearch, customerPopoverOpen, fetchCustomers]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newErrors: Partial<Record<keyof InvoiceFormData, string>> = {};
+    if (!form.customerId) newErrors.customerId = "Customer is required";
+
+    const taxRateNum = parseFloat(form.taxRate || "0");
+    if (isNaN(taxRateNum) || taxRateNum < 0 || taxRateNum > 100) {
+      newErrors.taxRate = "Tax rate must be between 0 and 100";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    // Convert percentage to decimal
+    const taxDecimal = taxRateNum / 100;
+    onSave({ ...form, taxRate: taxDecimal.toString() });
+  }
+
+  function updateField(field: keyof InvoiceFormData, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  }
+
+  function selectCustomer(customer: CustomerOption) {
+    updateField("customerId", customer.id);
+    setSelectedCustomerLabel(`${customer.firstName} ${customer.lastName}`);
+    setCustomerPopoverOpen(false);
+    setCustomerSearch("");
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[500px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="font-heading">Create Invoice</DialogTitle>
+          <DialogDescription>
+            Create a new invoice for a customer.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4 min-h-0"
+        >
+          <ScrollArea className="flex-1">
+            <div className="space-y-4 pr-3">
+              {/* Customer picker */}
+              <div className="space-y-2">
+                <Label className="font-body">
+                  Customer <span className="text-destructive">*</span>
+                </Label>
+                <Popover
+                  open={customerPopoverOpen}
+                  onOpenChange={setCustomerPopoverOpen}
+                >
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        "flex h-9 w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm font-body cursor-pointer",
+                        !selectedCustomerLabel && "text-muted-foreground",
+                      )}
+                    >
+                      {selectedCustomerLabel || "Select customer..."}
+                      <IconSelector className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    className="w-[calc(100vw-4rem)] sm:w-[440px] p-0"
+                    align="start"
+                  >
+                    <div className="p-2 border-b border-border">
+                      <div className="relative">
+                        <IconSearch className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder="Search customers..."
+                          value={customerSearch}
+                          onChange={(e) => setCustomerSearch(e.target.value)}
+                          className="pl-8 h-8"
+                        />
+                      </div>
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto p-1">
+                      {customers.length === 0 && (
+                        <p className="py-4 text-center text-sm text-muted-foreground">
+                          No customers found
+                        </p>
+                      )}
+                      {customers.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => selectCustomer(c)}
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                        >
+                          {form.customerId === c.id && (
+                            <IconCheck className="h-4 w-4 text-brand shrink-0" />
+                          )}
+                          <span
+                            className={cn(
+                              form.customerId !== c.id && "pl-6",
+                            )}
+                          >
+                            {c.firstName} {c.lastName}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                {errors.customerId && (
+                  <p className="text-sm text-destructive">
+                    {errors.customerId}
+                  </p>
+                )}
+              </div>
+
+              {/* Dates */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="issuedDate" className="font-body">
+                    Issued Date
+                  </Label>
+                  <Input
+                    id="issuedDate"
+                    type="date"
+                    value={form.issuedDate}
+                    onChange={(e) => updateField("issuedDate", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dueDate" className="font-body">
+                    Due Date
+                  </Label>
+                  <Input
+                    id="dueDate"
+                    type="date"
+                    value={form.dueDate}
+                    onChange={(e) => updateField("dueDate", e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Tax & Discount */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="taxRate" className="font-body">
+                    Tax Rate (%)
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="taxRate"
+                      value={form.taxRate}
+                      onChange={(e) => updateField("taxRate", e.target.value)}
+                      placeholder="8.25"
+                      readOnly={!taxEditable}
+                      className={cn(
+                        !taxEditable && "bg-muted text-muted-foreground",
+                      )}
+                    />
+                    {!taxEditable && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0 h-9 w-9"
+                        onClick={() => setTaxEditable(true)}
+                        title="Override tax rate"
+                      >
+                        <IconPencil className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  {errors.taxRate && (
+                    <p className="text-sm text-destructive">
+                      {errors.taxRate}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="discount" className="font-body">
+                    Discount ($)
+                  </Label>
+                  <Input
+                    id="discount"
+                    value={form.discountAmount}
+                    onChange={(e) =>
+                      updateField("discountAmount", e.target.value)
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div className="space-y-2">
+                <Label htmlFor="notes" className="font-body">
+                  Notes
+                </Label>
+                <Textarea
+                  id="notes"
+                  value={form.notes}
+                  onChange={(e) => updateField("notes", e.target.value)}
+                  placeholder="Invoice notes..."
+                  rows={3}
+                />
+              </div>
+            </div>
+          </ScrollArea>
+          <DialogFooter className="shrink-0 border-t pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-brand text-brand-foreground hover:bg-brand/90"
+              disabled={loading}
+            >
+              {loading ? "Creating..." : "Create Invoice"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

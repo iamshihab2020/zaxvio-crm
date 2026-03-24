@@ -4,7 +4,7 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-- [ ] **Invoicing (#5)** — Next up from Build Order
+(none)
 
 ## Build Order (Phase 1)
 
@@ -31,10 +31,29 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Invoicing** (#5) — API routes + invoice page, generate from jobs, PDF, email, payment tracking
 - [ ] **Quote Builder** (#6) — API routes + quote page, PDF, email, customer acceptance, convert to job
 
 ## Done
+
+- [x] **Enhanced Invoice PDF** (ZAX-42) — User-controlled invoice details
+  - 5 new tenant columns: licenseNumber, invoicePaymentTerms, invoicePaymentInstructions, invoiceTermsConditions, invoiceFooterMessage
+  - Migration: `0006_add_invoice_settings.sql` — idempotent `ADD COLUMN IF NOT EXISTS`
+  - PDF template: conditional logo, owner name, license #, payment terms, payment instructions, terms & conditions, custom footer
+  - Business Settings form: new "Invoice Details" card with all 5 fields + helper text
+  - "Fill it in → it shows up. Leave empty → hidden." — no toggles needed
+
+- [x] **Invoicing (#5)** — Full invoice management feature (ZAX-42)
+  - API routes: 15 endpoints (CRUD, line items, payments, PDF gen/download, send, void, status, from-job)
+  - PDF generation: `@react-pdf/renderer` with professional invoice template, Supabase Storage upload
+  - Server actions: 14 actions covering all API endpoints
+  - Frontend: Invoice list page with table, status filters, search, pagination
+  - Invoice create dialog with customer picker, tax rate, due date, discount
+  - Invoice detail sheet with 3 tabs: Details, Line Items, Payments
+  - Line items tab: add/edit/delete with catalog picker (draft only)
+  - Payments tab: record/delete payments with auto-status (paid/partially_paid)
+  - Generate Invoice from Job: button in job detail info, copies line items + tax rate
+  - Customer invoices tab: shows customer's invoices in customer detail page
+  - Business rules: draft-only editing/deletion, void restrictions, auto-number (INV-YYYY-XXXX), generated line item totals
 
 - [x] **Custom Pipeline Stages (ZAX-41)** — User-controlled Kanban columns
   - New DB table: `job_pipeline_stages` (per-tenant, name/label/color/sortOrder/isDefault)

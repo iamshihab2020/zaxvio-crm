@@ -58,6 +58,11 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
         "defaultTaxRate",
         "googleReviewUrl",
         "timezone",
+        "licenseNumber",
+        "invoicePaymentTerms",
+        "invoicePaymentInstructions",
+        "invoiceTermsConditions",
+        "invoiceFooterMessage",
       ] as const;
 
       const updates: Record<string, unknown> = {};
