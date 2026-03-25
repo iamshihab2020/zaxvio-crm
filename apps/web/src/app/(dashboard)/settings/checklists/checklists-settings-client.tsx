@@ -34,8 +34,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { IconSelector, IconCheck, IconX } from "@tabler/icons-react";
+import { IconSelector, IconCheck, IconEye, IconEyeOff } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { SettingsPageHeader } from "@/components/dashboard/settings/settings-page-header";
 
 interface TemplateWithItems extends ChecklistTemplate {
   items?: Array<{
@@ -211,82 +212,18 @@ export function ChecklistsSettingsClient() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground font-body">
-          Define checklists that auto-attach to new jobs by service type.
-        </p>
-        <Button
-          onClick={openCreateDialog}
-          className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
-        >
-          <IconPlus className="mr-2 h-4 w-4" />
-          New Template
-        </Button>
-      </div>
-
-      {/* Filters */}
-      {!showEmptyState && (
-        <div className="flex items-center gap-3 mb-4">
-          <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-            <PopoverTrigger asChild>
-              <button
-                type="button"
-                className="flex h-9 items-center gap-2 rounded-md border border-border bg-card px-3 text-sm font-body cursor-pointer"
-              >
-                {filterServiceType
-                  ? SERVICE_TYPE_LABELS[filterServiceType as ServiceType]
-                  : "All Service Types"}
-                <IconSelector className="h-4 w-4 text-muted-foreground" />
-              </button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[200px] p-1" align="start">
-              <button
-                type="button"
-                onClick={() => {
-                  setFilterServiceType("");
-                  setFilterOpen(false);
-                }}
-                className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
-              >
-                {!filterServiceType && (
-                  <IconCheck className="h-4 w-4 text-brand shrink-0" />
-                )}
-                <span className={cn(!filterServiceType ? "" : "pl-6")}>
-                  All Types
-                </span>
-              </button>
-              {SERVICE_TYPES.map((st) => (
-                <button
-                  key={st}
-                  type="button"
-                  onClick={() => {
-                    setFilterServiceType(st);
-                    setFilterOpen(false);
-                  }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
-                >
-                  {filterServiceType === st && (
-                    <IconCheck className="h-4 w-4 text-brand shrink-0" />
-                  )}
-                  <span className={cn(filterServiceType !== st && "pl-6")}>
-                    {SERVICE_TYPE_LABELS[st]}
-                  </span>
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
-
-          <label className="flex items-center gap-2 text-sm text-muted-foreground font-body cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showInactive}
-              onChange={(e) => setShowInactive(e.target.checked)}
-              className="h-4 w-4 rounded border-border accent-brand cursor-pointer"
-            />
-            Show inactive
-          </label>
-        </div>
-      )}
+      <SettingsPageHeader
+        description="Define checklists that auto-attach to new jobs by service type."
+        action={
+          <Button
+            onClick={openCreateDialog}
+            className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+          >
+            <IconPlus className="mr-2 h-4 w-4" />
+            New Template
+          </Button>
+        }
+      />
 
       {showEmptyState && (
         <EmptyState
@@ -298,20 +235,87 @@ export function ChecklistsSettingsClient() {
         />
       )}
 
-      {!loading && hasTemplates && !showEmptyState && (
-        <ChecklistTemplateList
-          templates={templates}
-          loading={loading}
-          onEdit={openEditDialog}
-          onDelete={openDeleteDialog}
-          onToggleActive={handleToggleActive}
-        />
-      )}
+      {!showEmptyState && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Filters */}
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-1.5">
+                  {filterServiceType
+                    ? SERVICE_TYPE_LABELS[filterServiceType as ServiceType]
+                    : "All Service Types"}
+                  <IconSelector className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[200px] p-1" align="start">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFilterServiceType("");
+                    setFilterOpen(false);
+                  }}
+                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                >
+                  {!filterServiceType && (
+                    <IconCheck className="h-4 w-4 text-brand shrink-0" />
+                  )}
+                  <span className={cn(!filterServiceType ? "" : "pl-6")}>
+                    All Types
+                  </span>
+                </button>
+                {SERVICE_TYPES.map((st) => (
+                  <button
+                    key={st}
+                    type="button"
+                    onClick={() => {
+                      setFilterServiceType(st);
+                      setFilterOpen(false);
+                    }}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                  >
+                    {filterServiceType === st && (
+                      <IconCheck className="h-4 w-4 text-brand shrink-0" />
+                    )}
+                    <span className={cn(filterServiceType !== st && "pl-6")}>
+                      {SERVICE_TYPE_LABELS[st]}
+                    </span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
 
-      {!loading && !hasTemplates && filterServiceType && (
-        <p className="py-12 text-center text-sm text-muted-foreground font-body">
-          No checklist templates found for this service type.
-        </p>
+            <Button
+              variant={showInactive ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowInactive(!showInactive)}
+              className="gap-1.5"
+            >
+              {showInactive ? (
+                <IconEye className="h-4 w-4" />
+              ) : (
+                <IconEyeOff className="h-4 w-4" />
+              )}
+              {showInactive ? "Showing inactive" : "Show inactive"}
+            </Button>
+          </div>
+
+          {!loading && hasTemplates && (
+            <ChecklistTemplateList
+              templates={templates}
+              loading={loading}
+              onEdit={openEditDialog}
+              onDelete={openDeleteDialog}
+              onToggleActive={handleToggleActive}
+            />
+          )}
+
+          {!loading && !hasTemplates && filterServiceType && (
+            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+              No checklist templates found for this service type.
+            </p>
+          )}
+        </div>
       )}
 
       <ChecklistTemplateDialog

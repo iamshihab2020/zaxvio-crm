@@ -1,17 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { IconUser } from "@tabler/icons-react";
+import { SettingsSection } from "@/components/dashboard/settings/settings-section";
+import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { authClient } from "@/lib/auth-client";
 
 interface ProfileFormProps {
@@ -88,33 +84,29 @@ export function ProfileForm({ user }: ProfileFormProps) {
     .toUpperCase();
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-heading text-lg">
-          Profile Information
-        </CardTitle>
-        <CardDescription className="font-body">
-          Update your personal information.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSave} className="space-y-4">
-          {/* Avatar */}
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand/10 text-brand font-heading text-xl font-bold">
-              {initials}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-foreground font-body">
-                {user.name}
-              </p>
-              <p className="text-sm text-muted-foreground font-body">
-                {user.email}
-              </p>
-            </div>
+    <SettingsSection
+      icon={IconUser}
+      title="Profile Information"
+      description="Update your personal information."
+    >
+      <form onSubmit={handleSave} className="space-y-4">
+        {/* Avatar */}
+        <div className="flex items-center gap-4">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand/20 bg-brand/10 text-brand font-heading text-2xl font-bold">
+            {initials}
           </div>
+          <div>
+            <p className="text-sm font-medium text-foreground font-body">
+              {user.name}
+            </p>
+            <p className="text-sm text-muted-foreground font-body">
+              {user.email}
+            </p>
+          </div>
+        </div>
 
-          {/* Name */}
+        {/* Name + Email in 2-col grid on desktop */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="profile-name" className="font-body">
               Name
@@ -127,12 +119,16 @@ export function ProfileForm({ user }: ProfileFormProps) {
             />
           </div>
 
-          {/* Email */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Label htmlFor="profile-email" className="font-body">
                 Email
               </Label>
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  user.emailVerified ? "bg-green-500" : "bg-amber-500"
+                }`}
+              />
               <Badge
                 variant="secondary"
                 className={
@@ -152,32 +148,21 @@ export function ProfileForm({ user }: ProfileFormProps) {
               placeholder="your@email.com"
             />
           </div>
+        </div>
 
-          {/* Message */}
-          {message && (
-            <div
-              className={`rounded-md border px-4 py-3 text-sm font-body ${
-                message.type === "success"
-                  ? "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300"
-                  : "border-destructive/50 bg-destructive/10 text-destructive"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
+        <SettingsFormMessage message={message} />
 
-          {/* Save */}
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
-              disabled={!hasChanges || saving}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
+        {/* Save */}
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            disabled={!hasChanges || saving}
+          >
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
+      </form>
+    </SettingsSection>
   );
 }

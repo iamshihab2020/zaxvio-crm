@@ -1,18 +1,39 @@
 "use client";
 
-import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IconEye, IconEyeOff } from "@tabler/icons-react";
+import { IconLock, IconEye, IconEyeOff } from "@tabler/icons-react";
+import { SettingsSection } from "@/components/dashboard/settings/settings-section";
+import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { authClient } from "@/lib/auth-client";
+import { cn } from "@/lib/utils";
+
+function getPasswordStrength(password: string): {
+  score: number;
+  label: string;
+} {
+  if (!password) return { score: 0, label: "" };
+  let score = 0;
+  if (password.length >= 8) score++;
+  if (password.length >= 12) score++;
+  if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+  if (/[0-9]/.test(password)) score++;
+  if (/[^A-Za-z0-9]/.test(password)) score++;
+  // Map 0-5 to 1-4
+  const level = Math.min(4, Math.max(1, Math.ceil((score / 5) * 4)));
+  const labels = ["", "Weak", "Fair", "Good", "Strong"];
+  return { score: level, label: labels[level] };
+}
+
+const strengthColors = [
+  "",
+  "bg-red-500",
+  "bg-amber-500",
+  "bg-yellow-500",
+  "bg-green-500",
+];
 
 export function ChangePasswordForm() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -26,6 +47,8 @@ export function ChangePasswordForm() {
     type: "success" | "error";
     text: string;
   } | null>(null);
+
+  const strength = useMemo(() => getPasswordStrength(newPassword), [newPassword]);
 
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
@@ -81,131 +104,139 @@ export function ChangePasswordForm() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-heading text-lg">Change Password</CardTitle>
-        <CardDescription className="font-body">
-          Update your password to keep your account secure.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Current Password */}
-          <div className="space-y-2">
-            <Label htmlFor="current-password" className="font-body">
-              Current Password
-            </Label>
-            <div className="relative">
-              <Input
-                id="current-password"
-                type={showCurrent ? "text" : "password"}
-                value={currentPassword}
-                onChange={(e) => {
-                  setCurrentPassword(e.target.value);
-                  if (errors.currentPassword)
-                    setErrors((prev) => ({ ...prev, currentPassword: "" }));
-                }}
-                placeholder="Enter current password"
-              />
-              <button
-                type="button"
-                onClick={() => setShowCurrent(!showCurrent)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showCurrent ? (
-                  <IconEyeOff className="h-4 w-4" />
-                ) : (
-                  <IconEye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            {errors.currentPassword && (
-              <p className="text-sm text-destructive">{errors.currentPassword}</p>
-            )}
-          </div>
-
-          {/* New Password */}
-          <div className="space-y-2">
-            <Label htmlFor="new-password" className="font-body">
-              New Password
-            </Label>
-            <div className="relative">
-              <Input
-                id="new-password"
-                type={showNew ? "text" : "password"}
-                value={newPassword}
-                onChange={(e) => {
-                  setNewPassword(e.target.value);
-                  if (errors.newPassword)
-                    setErrors((prev) => ({ ...prev, newPassword: "" }));
-                }}
-                placeholder="Minimum 8 characters"
-              />
-              <button
-                type="button"
-                onClick={() => setShowNew(!showNew)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                {showNew ? (
-                  <IconEyeOff className="h-4 w-4" />
-                ) : (
-                  <IconEye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            {errors.newPassword && (
-              <p className="text-sm text-destructive">{errors.newPassword}</p>
-            )}
-          </div>
-
-          {/* Confirm Password */}
-          <div className="space-y-2">
-            <Label htmlFor="confirm-password" className="font-body">
-              Confirm New Password
-            </Label>
+    <SettingsSection
+      icon={IconLock}
+      title="Security"
+      description="Update your password to keep your account secure."
+    >
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Current Password */}
+        <div className="space-y-2">
+          <Label htmlFor="current-password" className="font-body">
+            Current Password
+          </Label>
+          <div className="relative">
             <Input
-              id="confirm-password"
-              type="password"
-              value={confirmPassword}
+              id="current-password"
+              type={showCurrent ? "text" : "password"}
+              value={currentPassword}
               onChange={(e) => {
-                setConfirmPassword(e.target.value);
-                if (errors.confirmPassword)
-                  setErrors((prev) => ({ ...prev, confirmPassword: "" }));
+                setCurrentPassword(e.target.value);
+                if (errors.currentPassword)
+                  setErrors((prev) => ({ ...prev, currentPassword: "" }));
               }}
-              placeholder="Re-enter new password"
+              placeholder="Enter current password"
             />
-            {errors.confirmPassword && (
-              <p className="text-sm text-destructive">
-                {errors.confirmPassword}
-              </p>
-            )}
-          </div>
-
-          {/* Message */}
-          {message && (
-            <div
-              className={`rounded-md border px-4 py-3 text-sm font-body ${
-                message.type === "success"
-                  ? "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300"
-                  : "border-destructive/50 bg-destructive/10 text-destructive"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
-
-          {/* Submit */}
-          <div className="flex justify-end">
             <Button
-              type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
-              disabled={saving}
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowCurrent(!showCurrent)}
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
-              {saving ? "Updating..." : "Update Password"}
+              {showCurrent ? (
+                <IconEyeOff className="h-4 w-4" />
+              ) : (
+                <IconEye className="h-4 w-4" />
+              )}
             </Button>
           </div>
-        </form>
-      </CardContent>
-    </Card>
+          {errors.currentPassword && (
+            <p className="text-sm text-destructive">{errors.currentPassword}</p>
+          )}
+        </div>
+
+        {/* New Password */}
+        <div className="space-y-2">
+          <Label htmlFor="new-password" className="font-body">
+            New Password
+          </Label>
+          <div className="relative">
+            <Input
+              id="new-password"
+              type={showNew ? "text" : "password"}
+              value={newPassword}
+              onChange={(e) => {
+                setNewPassword(e.target.value);
+                if (errors.newPassword)
+                  setErrors((prev) => ({ ...prev, newPassword: "" }));
+              }}
+              placeholder="Minimum 8 characters"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={() => setShowNew(!showNew)}
+              className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              {showNew ? (
+                <IconEyeOff className="h-4 w-4" />
+              ) : (
+                <IconEye className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          {/* Password strength indicator */}
+          {newPassword && (
+            <div className="space-y-1">
+              <div className="flex gap-1">
+                {[1, 2, 3, 4].map((level) => (
+                  <div
+                    key={level}
+                    className={cn(
+                      "h-1.5 flex-1 rounded-full transition-colors",
+                      level <= strength.score
+                        ? strengthColors[strength.score]
+                        : "bg-muted",
+                    )}
+                  />
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">{strength.label}</p>
+            </div>
+          )}
+          {errors.newPassword && (
+            <p className="text-sm text-destructive">{errors.newPassword}</p>
+          )}
+        </div>
+
+        {/* Confirm Password */}
+        <div className="space-y-2">
+          <Label htmlFor="confirm-password" className="font-body">
+            Confirm New Password
+          </Label>
+          <Input
+            id="confirm-password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => {
+              setConfirmPassword(e.target.value);
+              if (errors.confirmPassword)
+                setErrors((prev) => ({ ...prev, confirmPassword: "" }));
+            }}
+            placeholder="Re-enter new password"
+          />
+          {errors.confirmPassword && (
+            <p className="text-sm text-destructive">
+              {errors.confirmPassword}
+            </p>
+          )}
+        </div>
+
+        <SettingsFormMessage message={message} />
+
+        {/* Submit */}
+        <div className="flex justify-end">
+          <Button
+            type="submit"
+            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            disabled={saving}
+          >
+            {saving ? "Updating..." : "Update Password"}
+          </Button>
+        </div>
+      </form>
+    </SettingsSection>
   );
 }

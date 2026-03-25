@@ -1,17 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { IconBuilding, IconSettings } from "@tabler/icons-react";
+import { SettingsSection } from "@/components/dashboard/settings/settings-section";
+import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { updateTenant } from "@/actions/tenants";
 
 interface BusinessFormProps {
@@ -26,11 +21,6 @@ interface BusinessFormProps {
     zipCode: string | null;
     defaultTaxRate: string | null;
     googleReviewUrl: string | null;
-    licenseNumber: string | null;
-    invoicePaymentTerms: string | null;
-    invoicePaymentInstructions: string | null;
-    invoiceTermsConditions: string | null;
-    invoiceFooterMessage: string | null;
   };
   onSaved?: (updated: Record<string, unknown>) => void;
 }
@@ -49,11 +39,6 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
       ? (parseFloat(tenant.defaultTaxRate) * 100).toString()
       : "0",
     googleReviewUrl: tenant.googleReviewUrl ?? "",
-    licenseNumber: tenant.licenseNumber ?? "",
-    invoicePaymentTerms: tenant.invoicePaymentTerms ?? "",
-    invoicePaymentInstructions: tenant.invoicePaymentInstructions ?? "",
-    invoiceTermsConditions: tenant.invoiceTermsConditions ?? "",
-    invoiceFooterMessage: tenant.invoiceFooterMessage ?? "",
   });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{
@@ -75,13 +60,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
     form.state !== (tenant.state ?? "") ||
     form.zipCode !== (tenant.zipCode ?? "") ||
     form.defaultTaxRate !== initialTaxRate ||
-    form.googleReviewUrl !== (tenant.googleReviewUrl ?? "") ||
-    form.licenseNumber !== (tenant.licenseNumber ?? "") ||
-    form.invoicePaymentTerms !== (tenant.invoicePaymentTerms ?? "") ||
-    form.invoicePaymentInstructions !==
-      (tenant.invoicePaymentInstructions ?? "") ||
-    form.invoiceTermsConditions !== (tenant.invoiceTermsConditions ?? "") ||
-    form.invoiceFooterMessage !== (tenant.invoiceFooterMessage ?? "");
+    form.googleReviewUrl !== (tenant.googleReviewUrl ?? "");
 
   function updateField(field: keyof typeof form, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -117,12 +96,6 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
       zipCode: form.zipCode || undefined,
       defaultTaxRate: taxDecimal,
       googleReviewUrl: form.googleReviewUrl || undefined,
-      licenseNumber: form.licenseNumber || undefined,
-      invoicePaymentTerms: form.invoicePaymentTerms || undefined,
-      invoicePaymentInstructions:
-        form.invoicePaymentInstructions || undefined,
-      invoiceTermsConditions: form.invoiceTermsConditions || undefined,
-      invoiceFooterMessage: form.invoiceFooterMessage || undefined,
     });
 
     if (result.error) {
@@ -139,16 +112,12 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
 
   return (
     <form onSubmit={handleSave} className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-heading text-lg">
-            Business Information
-          </CardTitle>
-          <CardDescription className="font-body">
-            Update your business details and default settings.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+      <SettingsSection
+        icon={IconBuilding}
+        title="Business Information"
+        description="Your business details appear on invoices, quotes, and customer communications."
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="businessName" className="font-body">
@@ -247,150 +216,46 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
               />
             </div>
           </div>
+        </div>
+      </SettingsSection>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="defaultTaxRate" className="font-body">
-                Default Tax Rate (%)
-              </Label>
-              <Input
-                id="defaultTaxRate"
-                value={form.defaultTaxRate}
-                onChange={(e) => updateField("defaultTaxRate", e.target.value)}
-                placeholder="8.25"
-              />
-              <p className="text-xs text-muted-foreground">
-                Applied automatically to new jobs. e.g. 8.25 for 8.25%
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="googleReviewUrl" className="font-body">
-                Google Review URL
-              </Label>
-              <Input
-                id="googleReviewUrl"
-                value={form.googleReviewUrl}
-                onChange={(e) =>
-                  updateField("googleReviewUrl", e.target.value)
-                }
-                placeholder="https://g.page/r/..."
-              />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-heading text-lg">
-            Invoice Details
-          </CardTitle>
-          <CardDescription className="font-body">
-            Customize what appears on your invoices. Leave a field empty to hide
-            it from the PDF.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="licenseNumber" className="font-body">
-                License Number
-              </Label>
-              <Input
-                id="licenseNumber"
-                value={form.licenseNumber}
-                onChange={(e) => updateField("licenseNumber", e.target.value)}
-                placeholder="TX-TACLA12345"
-              />
-              <p className="text-xs text-muted-foreground">
-                Shown below your business info on invoices
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="invoicePaymentTerms" className="font-body">
-                Payment Terms
-              </Label>
-              <Input
-                id="invoicePaymentTerms"
-                value={form.invoicePaymentTerms}
-                onChange={(e) =>
-                  updateField("invoicePaymentTerms", e.target.value)
-                }
-                placeholder="Net 30"
-              />
-              <p className="text-xs text-muted-foreground">
-                Shown next to the due date on invoices
-              </p>
-            </div>
-          </div>
-
+      <SettingsSection
+        icon={IconSettings}
+        title="Defaults & Integrations"
+        description="Configure default values and third-party integrations."
+      >
+        <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="invoicePaymentInstructions" className="font-body">
-              Payment Instructions
-            </Label>
-            <Textarea
-              id="invoicePaymentInstructions"
-              value={form.invoicePaymentInstructions}
-              onChange={(e) =>
-                updateField("invoicePaymentInstructions", e.target.value)
-              }
-              placeholder="Pay via Zelle to acme@hvac.com or mail check to 123 Main St, Austin, TX 78701"
-              rows={3}
-            />
-            <p className="text-xs text-muted-foreground">
-              Shown as a &quot;Payment Instructions&quot; section on invoices
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="invoiceTermsConditions" className="font-body">
-              Terms & Conditions
-            </Label>
-            <Textarea
-              id="invoiceTermsConditions"
-              value={form.invoiceTermsConditions}
-              onChange={(e) =>
-                updateField("invoiceTermsConditions", e.target.value)
-              }
-              placeholder="Late payments incur a 1.5% monthly fee. All work guaranteed for 90 days."
-              rows={3}
-            />
-            <p className="text-xs text-muted-foreground">
-              Shown as a &quot;Terms & Conditions&quot; section on invoices
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="invoiceFooterMessage" className="font-body">
-              Footer Message
+            <Label htmlFor="defaultTaxRate" className="font-body">
+              Default Tax Rate (%)
             </Label>
             <Input
-              id="invoiceFooterMessage"
-              value={form.invoiceFooterMessage}
-              onChange={(e) =>
-                updateField("invoiceFooterMessage", e.target.value)
-              }
-              placeholder="Thank you for choosing ACME HVAC!"
+              id="defaultTaxRate"
+              value={form.defaultTaxRate}
+              onChange={(e) => updateField("defaultTaxRate", e.target.value)}
+              placeholder="8.25"
             />
             <p className="text-xs text-muted-foreground">
-              Custom footer text. Defaults to &quot;Thank you for your
-              business!&quot; if empty.
+              Applied automatically to new jobs. e.g. 8.25 for 8.25%
             </p>
           </div>
-        </CardContent>
-      </Card>
-
-      {message && (
-        <div
-          className={`rounded-md border px-4 py-3 text-sm font-body ${
-            message.type === "success"
-              ? "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300"
-              : "border-destructive/50 bg-destructive/10 text-destructive"
-          }`}
-        >
-          {message.text}
+          <div className="space-y-2">
+            <Label htmlFor="googleReviewUrl" className="font-body">
+              Google Review URL
+            </Label>
+            <Input
+              id="googleReviewUrl"
+              value={form.googleReviewUrl}
+              onChange={(e) =>
+                updateField("googleReviewUrl", e.target.value)
+              }
+              placeholder="https://g.page/r/..."
+            />
+          </div>
         </div>
-      )}
+      </SettingsSection>
+
+      <SettingsFormMessage message={message} />
 
       <div className="flex justify-end">
         <Button
