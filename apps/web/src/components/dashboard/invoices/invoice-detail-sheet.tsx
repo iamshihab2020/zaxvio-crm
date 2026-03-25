@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -27,6 +28,7 @@ import {
   IconTrash,
   IconLayoutSidebar,
   IconMaximize,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import { InvoiceDetailTab } from "./invoice-detail-tab";
@@ -142,6 +144,7 @@ export function InvoiceDetailSheet({
   onDelete,
   onDataChange,
 }: InvoiceDetailSheetProps) {
+  const router = useRouter();
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
@@ -383,6 +386,20 @@ export function InvoiceDetailSheet({
                   ) : (
                     <IconLayoutSidebar className="h-4 w-4" />
                   )}
+                </Button>
+
+                {/* Open full page */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer"
+                  onClick={() => {
+                    onOpenChange(false);
+                    router.push(`/invoices/${invoice.id}`);
+                  }}
+                  title="Open full page"
+                >
+                  <IconExternalLink className="h-4 w-4" />
                 </Button>
 
                 <DropdownMenu>

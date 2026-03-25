@@ -100,7 +100,7 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
             <tr
               key={inv.id}
               className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
-              onClick={() => router.push(`/invoices?invoiceId=${inv.id}`)}
+              onClick={() => router.push(`/invoices/${inv.id}`)}
             >
               <td className="px-3 py-2 font-medium font-body">
                 {inv.invoiceNumber}

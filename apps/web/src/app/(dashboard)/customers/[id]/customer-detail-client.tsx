@@ -23,10 +23,10 @@ export function CustomerDetailClient({
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-surface">
+    <div className="flex flex-col min-h-[calc(100vh-3.5rem)] bg-surface">
       <CustomerDetailHeader customer={customer} />
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="flex flex-col lg:flex-row gap-4 sm:gap-5">
+      <div className="flex-1 p-4 sm:p-6">
+        <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 lg:items-start">
           {/* Left Panel */}
           <div className="w-full lg:w-80 shrink-0 rounded-lg border border-border bg-card shadow-sm">
             <CustomerInfoPanel customer={customer} onUpdate={handleCustomerUpdate} />
