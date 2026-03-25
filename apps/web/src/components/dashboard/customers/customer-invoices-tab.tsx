@@ -100,7 +100,7 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
             <tr
               key={inv.id}
               className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
-              onClick={() => router.push("/invoices")}
+              onClick={() => router.push(`/invoices?invoiceId=${inv.id}`)}
             >
               <td className="px-3 py-2 font-medium font-body">
                 {inv.invoiceNumber}
@@ -118,7 +118,7 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
                 <span
                   className={
                     parseFloat(inv.balanceDue) > 0
-                      ? "text-amber-600 font-medium"
+                      ? "text-amber-600 dark:text-amber-400 font-medium"
                       : "text-muted-foreground"
                   }
                 >

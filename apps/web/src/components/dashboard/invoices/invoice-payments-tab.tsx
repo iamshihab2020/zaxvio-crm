@@ -112,7 +112,7 @@ export function InvoicePaymentsTab({
       <div className="flex items-center justify-between mb-4 px-3 py-2 rounded-md bg-muted/30 border border-border">
         <div>
           <p className="text-xs text-muted-foreground font-body">Total Paid</p>
-          <p className="text-sm font-semibold text-green-600 font-body">
+          <p className="text-sm font-semibold text-green-600 dark:text-green-400 font-body">
             ${totalPaid.toFixed(2)}
           </p>
         </div>
@@ -129,9 +129,14 @@ export function InvoicePaymentsTab({
       {/* Payments list */}
       {payments.length === 0 && !showAdd && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
-          <IconCash className="h-8 w-8 text-muted-foreground mb-2" />
-          <p className="text-sm text-muted-foreground font-body">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
+            <IconCash className="h-5 w-5 text-brand" />
+          </div>
+          <p className="text-sm font-medium text-foreground font-body">
             No payments recorded
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Record a payment when your customer pays
           </p>
         </div>
       )}

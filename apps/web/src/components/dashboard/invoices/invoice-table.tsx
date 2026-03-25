@@ -28,7 +28,9 @@ interface InvoiceTableProps {
 }
 
 function formatCurrency(val: string | null) {
-  return `$${parseFloat(val ?? "0").toFixed(2)}`;
+  const num = parseFloat(val ?? "0");
+  if (num < 0) return `\u2212$${Math.abs(num).toFixed(2)}`;
+  return `$${num.toFixed(2)}`;
 }
 
 function formatDate(val: string | null) {
@@ -42,7 +44,7 @@ function formatDate(val: string | null) {
 
 export function InvoiceTable({ invoices, onRowClick }: InvoiceTableProps) {
   return (
-    <div className="rounded-md border border-border overflow-hidden">
+    <div className="overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
@@ -84,7 +86,7 @@ export function InvoiceTable({ invoices, onRowClick }: InvoiceTableProps) {
                 <span
                   className={
                     parseFloat(inv.balanceDue) > 0
-                      ? "text-amber-600 font-medium"
+                      ? "text-amber-600 dark:text-amber-400 font-medium"
                       : "text-muted-foreground"
                   }
                 >

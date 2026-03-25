@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -78,6 +79,19 @@ export function InvoicesPageClient() {
   const [deletingInvoice, setDeletingInvoice] = useState<InvoiceDetail | null>(
     null,
   );
+
+  // Deep-link support
+  const searchParams = useSearchParams();
+  const handledInvoiceIdParam = useRef(false);
+
+  useEffect(() => {
+    const invoiceIdParam = searchParams.get("invoiceId");
+    if (invoiceIdParam && !handledInvoiceIdParam.current) {
+      handledInvoiceIdParam.current = true;
+      setSelectedInvoiceId(invoiceIdParam);
+      setSheetOpen(true);
+    }
+  }, [searchParams]);
 
   const fetchInvoices = useCallback(
     async (page = 1) => {
@@ -166,12 +180,19 @@ export function InvoicesPageClient() {
     <section className="p-6" aria-labelledby="invoices-heading">
       {/* Header row — title + action button */}
       <div className="mb-6 flex items-center justify-between">
-        <h1
-          id="invoices-heading"
-          className="font-heading text-2xl font-bold text-foreground"
-        >
-          Invoices
-        </h1>
+        <div>
+          <h1
+            id="invoices-heading"
+            className="font-heading text-2xl font-bold text-foreground"
+          >
+            Invoices
+          </h1>
+          {!loading && (
+            <p className="mt-1 text-sm text-muted-foreground font-body">
+              {pagination.total} {pagination.total === 1 ? "invoice" : "invoices"} total
+            </p>
+          )}
+        </div>
         <Button
           onClick={() => setCreateDialogOpen(true)}
           className="bg-brand text-brand-foreground hover:bg-brand/90"
@@ -181,73 +202,80 @@ export function InvoicesPageClient() {
         </Button>
       </div>
 
-      {/* Search + status filters */}
-      {!showEmptyState && (
-        <div className="mb-4 space-y-3">
-          <div className="relative max-w-sm">
-            <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search invoices..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          <div className="flex items-center gap-1.5 flex-wrap">
-            {STATUS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setStatusFilter(opt.value)}
-                className={cn(
-                  "rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer font-body",
-                  statusFilter === opt.value
-                    ? "bg-brand text-brand-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Loading skeleton */}
-      {loading && <TableSkeleton columns={7} rows={5} />}
-
       {/* Empty state — no invoices at all */}
       {showEmptyState && (
         <EmptyState
           icon={IconFileInvoice}
           title="No invoices yet"
-          description="Create your first invoice to start tracking payments."
-          actionLabel="New Invoice"
+          description="Create your first invoice to start tracking payments and keeping your books organized."
+          actionLabel="Create Your First Invoice"
           onAction={() => setCreateDialogOpen(true)}
         />
       )}
 
-      {/* No results for current filters */}
-      {showNoResults && (
-        <p className="py-12 text-center text-sm text-muted-foreground font-body">
-          No invoices found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
-        </p>
+      {/* Card wrapper — search + filters + table */}
+      {!showEmptyState && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          {/* Search + filters in card header */}
+          <div className="border-b border-border px-4 py-3 space-y-3">
+            <div className="relative max-w-sm">
+              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search invoices..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {STATUS_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setStatusFilter(opt.value)}
+                  className={cn(
+                    "rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer font-body",
+                    statusFilter === opt.value
+                      ? "bg-brand text-brand-foreground"
+                      : "bg-muted text-muted-foreground hover:bg-muted/80",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="p-4">
+              <TableSkeleton columns={7} rows={5} />
+            </div>
+          )}
+
+          {/* No results for current filters */}
+          {showNoResults && (
+            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+              No invoices found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
+            </p>
+          )}
+
+          {/* Table */}
+          {!loading && hasInvoices && (
+            <InvoiceTable invoices={invoices} onRowClick={handleRowClick} />
+          )}
+        </div>
       )}
 
-      {/* Table + pagination */}
-      {!loading && hasInvoices && (
-        <>
-          <InvoiceTable invoices={invoices} onRowClick={handleRowClick} />
-          {pagination.totalPages > 1 && (
-            <Pagination
-              page={pagination.page}
-              totalPages={pagination.totalPages}
-              total={pagination.total}
-              onPageChange={(p) => fetchInvoices(p)}
-              entityName="invoice"
-            />
-          )}
-        </>
+      {/* Pagination below card */}
+      {!loading && hasInvoices && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={(p) => fetchInvoices(p)}
+          entityName="invoice"
+        />
       )}
 
       {/* Create dialog */}
@@ -278,6 +306,7 @@ export function InvoicesPageClient() {
         onConfirm={handleDelete}
         entityName="Invoice"
         itemLabel={deletingInvoice?.invoiceNumber ?? ""}
+        description="This will permanently remove the invoice and all its line items and payment records."
         loading={false}
       />
     </section>

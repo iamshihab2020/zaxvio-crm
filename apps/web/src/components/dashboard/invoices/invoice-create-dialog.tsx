@@ -20,7 +20,15 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { IconSearch, IconCheck, IconSelector, IconPencil } from "@tabler/icons-react";
+import {
+  IconSearch,
+  IconCheck,
+  IconSelector,
+  IconPencil,
+  IconUser,
+  IconFileInvoice,
+  IconAlertCircle,
+} from "@tabler/icons-react";
 import { getCustomers } from "@/actions/customers";
 
 export interface InvoiceFormData {
@@ -140,8 +148,8 @@ export function InvoiceCreateDialog({
       <DialogContent className="sm:max-w-[500px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="font-heading">Create Invoice</DialogTitle>
-          <DialogDescription>
-            Create a new invoice for a customer.
+          <DialogDescription className="font-body">
+            Create a new invoice to send to your customer and track payment.
           </DialogDescription>
         </DialogHeader>
         <form
@@ -150,9 +158,17 @@ export function InvoiceCreateDialog({
         >
           <ScrollArea className="flex-1">
             <div className="space-y-4 pr-3">
+              {/* Section 1: Customer */}
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <IconUser className="h-4 w-4" />
+                <span className="text-xs font-medium uppercase tracking-wider font-body">
+                  Customer
+                </span>
+              </div>
+
               {/* Customer picker */}
               <div className="space-y-2">
-                <Label className="font-body">
+                <Label className="font-body text-muted-foreground">
                   Customer <span className="text-destructive">*</span>
                 </Label>
                 <Popover
@@ -163,7 +179,11 @@ export function InvoiceCreateDialog({
                     <button
                       type="button"
                       className={cn(
-                        "flex h-9 w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm font-body cursor-pointer",
+                        "flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-body cursor-pointer",
+                        errors.customerId
+                          ? "border-destructive"
+                          : "border-border",
+                        "bg-card",
                         !selectedCustomerLabel && "text-muted-foreground",
                       )}
                     >
@@ -215,16 +235,28 @@ export function InvoiceCreateDialog({
                   </PopoverContent>
                 </Popover>
                 {errors.customerId && (
-                  <p className="text-sm text-destructive">
+                  <p className="flex items-center gap-1 text-xs text-destructive">
+                    <IconAlertCircle className="h-3 w-3 shrink-0" />
                     {errors.customerId}
                   </p>
                 )}
               </div>
 
+              {/* Separator */}
+              <div className="border-t border-border" />
+
+              {/* Section 2: Invoice Details */}
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <IconFileInvoice className="h-4 w-4" />
+                <span className="text-xs font-medium uppercase tracking-wider font-body">
+                  Invoice Details
+                </span>
+              </div>
+
               {/* Dates */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="issuedDate" className="font-body">
+                  <Label htmlFor="issuedDate" className="font-body text-muted-foreground">
                     Issued Date
                   </Label>
                   <Input
@@ -235,7 +267,7 @@ export function InvoiceCreateDialog({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="dueDate" className="font-body">
+                  <Label htmlFor="dueDate" className="font-body text-muted-foreground">
                     Due Date
                   </Label>
                   <Input
@@ -250,7 +282,7 @@ export function InvoiceCreateDialog({
               {/* Tax & Discount */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="taxRate" className="font-body">
+                  <Label htmlFor="taxRate" className="font-body text-muted-foreground">
                     Tax Rate (%)
                   </Label>
                   <div className="flex items-center gap-2">
@@ -262,6 +294,7 @@ export function InvoiceCreateDialog({
                       readOnly={!taxEditable}
                       className={cn(
                         !taxEditable && "bg-muted text-muted-foreground",
+                        errors.taxRate && "border-destructive",
                       )}
                     />
                     {!taxEditable && (
@@ -277,14 +310,20 @@ export function InvoiceCreateDialog({
                       </Button>
                     )}
                   </div>
+                  {!taxEditable && (
+                    <p className="text-xs text-muted-foreground">
+                      From your business settings
+                    </p>
+                  )}
                   {errors.taxRate && (
-                    <p className="text-sm text-destructive">
+                    <p className="flex items-center gap-1 text-xs text-destructive">
+                      <IconAlertCircle className="h-3 w-3 shrink-0" />
                       {errors.taxRate}
                     </p>
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="discount" className="font-body">
+                  <Label htmlFor="discount" className="font-body text-muted-foreground">
                     Discount ($)
                   </Label>
                   <Input
@@ -300,7 +339,7 @@ export function InvoiceCreateDialog({
 
               {/* Notes */}
               <div className="space-y-2">
-                <Label htmlFor="notes" className="font-body">
+                <Label htmlFor="notes" className="font-body text-muted-foreground">
                   Notes
                 </Label>
                 <Textarea
@@ -324,7 +363,7 @@ export function InvoiceCreateDialog({
             </Button>
             <Button
               type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
+              className="bg-brand text-brand-foreground hover:bg-brand/90 min-w-[160px]"
               disabled={loading}
             >
               {loading ? "Creating..." : "Create Invoice"}
