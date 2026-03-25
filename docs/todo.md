@@ -6,6 +6,17 @@ Task tracking for in-progress and upcoming work.
 
 (none)
 
+## Recently Completed
+
+- [x] **Full UI/UX Redesign — All Dashboard Pages** (6 commits, 88 files, ~9700 lines added)
+  - **Customers page redesign** (`7a54bd5`): Rewrote `customer-table.tsx` (rounded card wrapper, avatars, tooltips, responsive), `customer-dialog.tsx` (new layout), `customer-detail-header.tsx`, `customer-info-panel.tsx`, `customer-sidebar-panel.tsx`, `customer-tabs-panel.tsx`, `customer-notes-tab.tsx`, `customer-jobs-tab.tsx` (now shows real jobs), `customer-invoices-tab.tsx` (now shows real invoices), `customers-page-client.tsx` (card wrapper with search header inside)
+  - **Invoice system** (`291a282`, `19445d4`): Full invoice management — 15 API endpoints, 14 server actions, invoice list page with table/filters/search/pagination, create dialog with customer picker, detail page with 3-panel layout (info panel, tabs, sidebar), line items tab with catalog picker, payments tab, generate from job, PDF generation with `@react-pdf/renderer`, migration for 5 invoice settings columns
+  - **Invoice + Job detail pages** (`5b3bdfc`): Dedicated `/invoices/[id]` and `/jobs/[id]` detail pages with 3-panel layouts (header, info panel, tabs panel, sidebar panel), new components: `invoice-detail-header.tsx`, `invoice-info-panel.tsx`, `invoice-tabs-panel.tsx`, `invoice-sidebar-panel.tsx`, `job-detail-page-header.tsx`, `job-info-panel.tsx`, `job-tabs-panel.tsx`, `job-sidebar-panel.tsx`
+  - **Job page redesign** (`66c3fba`): Dual-view (Kanban + Table), `job-table.tsx` (new table view), `jobs-stats-bar.tsx` (KPI bar), `kanban-card-compact.tsx` (compact card variant), rewrote `kanban-board.tsx`, `kanban-card.tsx`, `kanban-column.tsx`, `job-filters.tsx`, `kanban-skeleton.tsx`
+  - **Settings page redesign** (`69be4cc`): 3 new shared components (`SettingsSection`, `SettingsFormMessage`, `SettingsPageHeader`), all 5 tabs polished — Profile (SettingsSection, 2-col grid, larger avatar, password strength indicator), Business (split into 2 sections), Invoices (SettingsSection + live preview dark mode), Catalog (customer table card pattern — filters+table in single card), Checklists (same card pattern, shadcn Table components)
+  - **Global CSS updates** (`globals.css`): New color tokens, stage color presets, refined dark mode
+  - **New reusable patterns**: Customer table card wrapper (`rounded-lg border border-border bg-card overflow-hidden` with search/filters as `border-b` header), 3-panel detail page layout (header + info + tabs + sidebar)
+
 ## Build Order (Phase 1)
 
 Priority order based on PRD feature dependencies:
