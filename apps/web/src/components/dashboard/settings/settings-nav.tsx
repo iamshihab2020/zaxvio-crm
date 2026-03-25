@@ -8,6 +8,7 @@ import {
   IconListDetails,
   IconChecklist,
   IconBuilding,
+  IconFileInvoice,
   IconCreditCard,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ const tabs = [
   { label: "Service Catalog", href: "/settings/catalog", icon: IconListDetails },
   { label: "Checklists", href: "/settings/checklists", icon: IconChecklist },
   { label: "Business", href: "/settings/business", icon: IconBuilding },
+  { label: "Invoices", href: "/settings/invoices", icon: IconFileInvoice },
   { label: "Billing", href: "/settings/billing", icon: IconCreditCard },
 ];
 
@@ -69,7 +71,7 @@ export function SettingsNav() {
     <nav className="mt-4 border-b border-border" aria-label="Settings tabs">
       <div
         ref={navRef}
-        className="relative -mb-px flex gap-6 overflow-x-auto"
+        className="relative -mb-px flex gap-6 overflow-x-auto scrollbar-none"
         onMouseLeave={() => setHoveredIndex(null)}
       >
         {/* Sliding indicator */}
@@ -91,9 +93,9 @@ export function SettingsNav() {
               }}
               onMouseEnter={() => setHoveredIndex(i)}
               className={cn(
-                "flex items-center gap-2 whitespace-nowrap px-1 pb-3 text-sm font-medium transition-colors duration-200 font-body",
+                "flex items-center gap-2 whitespace-nowrap rounded-t-md px-2 pb-3 pt-1 text-sm font-medium transition-colors duration-200 font-body",
                 isActive
-                  ? "text-foreground"
+                  ? "bg-brand/5 text-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >

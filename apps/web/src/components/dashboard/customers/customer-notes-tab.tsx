@@ -91,11 +91,20 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
         <Textarea
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
+          onKeyDown={(e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+              e.preventDefault();
+              handleCreate();
+            }
+          }}
           placeholder="Write a note about this customer..."
           rows={3}
           className="resize-none bg-card"
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between">
+          <p className="text-xs text-muted-foreground font-body">
+            Ctrl+Enter to add quickly
+          </p>
           <Button
             onClick={handleCreate}
             disabled={!newNote.trim() || saving}

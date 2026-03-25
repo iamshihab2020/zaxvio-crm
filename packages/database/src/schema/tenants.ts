@@ -31,6 +31,11 @@ export const tenants = pgTable(
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
     referredByAffiliateId: text("referred_by_affiliate_id"),
     defaultTaxRate: text("default_tax_rate").default("0"),
+    licenseNumber: text("license_number"),
+    invoicePaymentTerms: text("invoice_payment_terms"),
+    invoicePaymentInstructions: text("invoice_payment_instructions"),
+    invoiceTermsConditions: text("invoice_terms_conditions"),
+    invoiceFooterMessage: text("invoice_footer_message"),
     referralSource: referralSourceEnum("referral_source").default("organic"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

@@ -110,6 +110,14 @@ function EditableField({ label, value, field, icon, onSave }: EditableFieldProps
   );
 }
 
+function formatPhone(phone: string): string {
+  if (!phone) return "";
+  const digits = phone.replace(/\D/g, "");
+  const match = digits.match(/^1?(\d{3})(\d{3})(\d{4})$/);
+  if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
+  return phone;
+}
+
 export function CustomerInfoPanel({ customer, onUpdate }: CustomerInfoPanelProps) {
   const [tags, setTags] = useState<TagData[]>([]);
   const [tagsLoading, setTagsLoading] = useState(true);
@@ -166,7 +174,7 @@ export function CustomerInfoPanel({ customer, onUpdate }: CustomerInfoPanelProps
           />
           <EditableField
             label="Phone"
-            value={customer.phone ?? ""}
+            value={customer.phone ? formatPhone(customer.phone) : ""}
             field="phone"
             icon={<IconPhone className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
             onSave={handleFieldSave}

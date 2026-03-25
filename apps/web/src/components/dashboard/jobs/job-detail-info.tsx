@@ -1,5 +1,8 @@
 "use client";
 
+import { useState } from "react";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import {
   IconUser,
   IconMapPin,
@@ -9,11 +12,14 @@ import {
   IconCurrencyDollar,
   IconFileDescription,
   IconNote,
+  IconFileInvoice,
 } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
 import {
   SERVICE_TYPE_LABELS,
   type ServiceType,
 } from "@/lib/constants/job-options";
+import { createInvoiceFromJob } from "@/actions/invoices";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface JobDetailInfoProps {
@@ -60,6 +66,21 @@ function formatTime(timeStr: string) {
 }
 
 export function JobDetailInfo({ job }: JobDetailInfoProps) {
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const router = useRouter();
+
+  async function handleGenerateInvoice() {
+    setGeneratingInvoice(true);
+    const result = await createInvoiceFromJob(job.id);
+    setGeneratingInvoice(false);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Invoice ${result.data?.invoiceNumber ?? ""} created`);
+      router.push("/invoices");
+    }
+  }
+
   const customerName =
     job.customerFirstName || job.customerLastName
       ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()
@@ -120,6 +141,19 @@ export function JobDetailInfo({ job }: JobDetailInfoProps) {
             <span className="text-foreground">${total.toFixed(2)}</span>
           </div>
         </div>
+
+        {/* Generate Invoice button — visible when job has line items */}
+        {job.lineItems.length > 0 && (
+          <Button
+            size="sm"
+            onClick={handleGenerateInvoice}
+            disabled={generatingInvoice}
+            className="mt-3 w-full bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+          >
+            <IconFileInvoice className="mr-1.5 h-3.5 w-3.5" />
+            {generatingInvoice ? "Generating..." : "Generate Invoice"}
+          </Button>
+        )}
       </div>
     </div>
   );

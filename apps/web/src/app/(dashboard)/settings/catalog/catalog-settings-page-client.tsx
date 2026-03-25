@@ -10,6 +10,7 @@ import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
+import { SettingsPageHeader } from "@/components/dashboard/settings/settings-page-header";
 import {
   getCatalogItems,
   getCatalogCategories,
@@ -184,40 +185,24 @@ export function CatalogSettingsPageClient() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <p className="text-sm text-muted-foreground font-body">
-          Manage your services, parts, and materials for quick line item entry.
-        </p>
-        <Button
-          onClick={openCreateDialog}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          <IconPlus className="mr-2 h-4 w-4" />
-          Add Item
-        </Button>
-      </div>
+      <SettingsPageHeader
+        description="Manage your services, parts, and materials for quick line item entry."
+        action={
+          <Button
+            onClick={openCreateDialog}
+            className="bg-brand text-brand-foreground hover:bg-brand/90"
+          >
+            <IconPlus className="mr-2 h-4 w-4" />
+            Add Item
+          </Button>
+        }
+      />
 
       {error && (
         <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
         </div>
       )}
-
-      {!showEmptyState && (
-        <CatalogFilters
-          search={search}
-          onSearchChange={setSearch}
-          filterItemType={filterItemType}
-          onFilterItemTypeChange={setFilterItemType}
-          filterCategory={filterCategory}
-          onFilterCategoryChange={setFilterCategory}
-          showArchived={showArchived}
-          onShowArchivedChange={setShowArchived}
-          categories={categories}
-        />
-      )}
-
-      {loading && <TableSkeleton columns={6} rows={5} />}
 
       {showEmptyState && (
         <EmptyState
@@ -229,31 +214,49 @@ export function CatalogSettingsPageClient() {
         />
       )}
 
-      {showNoResults && (
-        <p className="py-12 text-center text-sm text-muted-foreground font-body">
-          No catalog items found matching your filters.
-        </p>
-      )}
-
-      {!loading && hasItems && (
-        <>
-          <CatalogTable
-            items={items}
+      {!showEmptyState && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <CatalogFilters
+            search={search}
+            onSearchChange={setSearch}
+            filterItemType={filterItemType}
+            onFilterItemTypeChange={setFilterItemType}
+            filterCategory={filterCategory}
+            onFilterCategoryChange={setFilterCategory}
             showArchived={showArchived}
-            onEdit={openEditDialog}
-            onArchiveToggle={handleArchiveToggle}
-            onDelete={openDeleteDialog}
+            onShowArchivedChange={setShowArchived}
+            categories={categories}
+            totalItems={pagination.total}
           />
-          {pagination.totalPages > 1 && (
-            <Pagination
-              page={pagination.page}
-              totalPages={pagination.totalPages}
-              total={pagination.total}
-              onPageChange={handlePageChange}
-              entityName="item"
+
+          {loading && <TableSkeleton columns={6} rows={5} />}
+
+          {showNoResults && (
+            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+              No catalog items found matching your filters.
+            </p>
+          )}
+
+          {!loading && hasItems && (
+            <CatalogTable
+              items={items}
+              showArchived={showArchived}
+              onEdit={openEditDialog}
+              onArchiveToggle={handleArchiveToggle}
+              onDelete={openDeleteDialog}
             />
           )}
-        </>
+        </div>
+      )}
+
+      {!loading && hasItems && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={handlePageChange}
+          entityName="item"
+        />
       )}
 
       <CatalogItemDialog

@@ -96,7 +96,13 @@ function SummaryRow({
       <Icon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
       <div className="min-w-0">
         <p className="text-xs text-muted-foreground font-body">{label}</p>
-        <p className={`text-sm font-body truncate ${muted ? "text-muted-foreground italic" : "text-foreground"}`}>
+        <p
+          className={`text-sm font-body truncate ${
+            muted
+              ? "text-muted-foreground/60 italic underline decoration-dashed decoration-muted-foreground/30 underline-offset-2"
+              : "text-foreground"
+          }`}
+        >
           {value}
         </p>
       </div>

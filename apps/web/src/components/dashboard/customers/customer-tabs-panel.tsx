@@ -30,10 +30,10 @@ export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanel
         <CustomerNotesTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="jobs" className="mt-4 sm:mt-5">
-        <CustomerJobsTab />
+        <CustomerJobsTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="invoices" className="mt-4 sm:mt-5">
-        <CustomerInvoicesTab />
+        <CustomerInvoicesTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="equipment" className="mt-4 sm:mt-5">
         <CustomerEquipmentTab />

@@ -269,7 +269,7 @@ export type JobUpdate = Partial<JobInsert>;
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (for Storage + Realtime)
 - `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` — for `seed:admin` script
 
-## Frontend Rules
+## Frontend Design System
 
 - **No hardcoded colors**: NEVER use raw hex/rgb/hsl values in components. ALL colors must come from CSS variables defined in `globals.css` and referenced via Tailwind tokens (e.g., `bg-brand`, `text-ink`, `bg-surface`).
 - **Icon library**: Tabler Icons (`@tabler/icons-react`). NEVER use lucide-react. Always import icons individually (`import { IconName } from "@tabler/icons-react"`), never wildcard.
@@ -281,6 +281,110 @@ export type JobUpdate = Partial<JobInsert>;
 - **No generic AI aesthetics**: No purple gradients on white, no cookie-cutter layouts. Every page should have intentional design direction ("Industrial Warmth" / "Desert Heat" palette).
 - **Semantic HTML**: Use `<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`, `<article>`, `<blockquote>`, `<dl>` etc. for SEO. All sections must have `aria-labelledby` pointing to their heading.
 - **Never use `template.tsx` for route group layouts**: In Next.js App Router, `template.tsx` remounts on every navigation, destroying browser history state and breaking back/forward navigation. Always use `layout.tsx` for route group layouts (`(auth)`, `(landing)`, `(dashboard)`, etc.). Only use `template.tsx` for rare cases like per-page entry animations where you intentionally want state reset.
+
+### Color System & Tokens
+
+All colors defined as CSS variables in `apps/web/src/app/globals.css`, mapped to Tailwind tokens.
+
+**Brand palette:**
+- `--brand` (24 95% 53%) → `bg-brand`, `text-brand`, `border-brand`
+- `--brand-light` → `bg-brand-light` (subtle backgrounds, hover states)
+- `--brand-foreground` → `text-brand-foreground` (text on brand backgrounds)
+
+**Semantic tokens (light/dark auto-switch):**
+- `--background` / `--foreground` — page background & primary text
+- `--card` / `--card-foreground` — card surfaces & card text
+- `--muted` / `--muted-foreground` — subdued backgrounds & secondary text
+- `--accent` / `--accent-foreground` — hover highlights
+- `--destructive` / `--destructive-foreground` — error/delete states
+- `--border`, `--input`, `--ring` — borders, inputs, focus rings
+
+**Custom tokens:**
+- `--midnight` → `bg-midnight` (dark navy sections, landing page)
+- `--surface` → `bg-surface` (warm off-white body background)
+- `--surface-alt` → `bg-surface-alt` (alternate surface shade)
+- `--ink` → `text-ink` (primary text on light backgrounds)
+
+**Dark mode:** Class-based via `next-themes` (`.dark` on `<html>`). All tokens have dark overrides in `globals.css`. Always use Tailwind tokens (`bg-brand`, `text-foreground`, `border-border`), never raw HSL/hex.
+
+### Page Layout Patterns
+
+Four standard dashboard page layouts:
+
+**1. List pages** (customers, invoices):
+```
+<section className="p-6">
+  header row: mb-6 flex items-center justify-between
+  card wrapper: rounded-lg border border-border bg-card overflow-hidden
+    search/filters: border-b border-border px-4 py-3
+    table: flush inside card (no extra padding)
+  pagination: outside card, below
+</section>
+```
+
+**2. Detail pages** (customer/[id], invoice/[id], job/[id]):
+```
+flex flex-col min-h-[calc(100vh-3.5rem)] bg-surface
+  header bar
+  flex flex-col lg:flex-row gap-4
+    left panel: w-full lg:w-80 shrink-0
+    center tabs: flex-1 min-w-0
+    right sidebar: hidden xl:block w-72 shrink-0
+  all panels: rounded-lg border border-border bg-card shadow-sm
+```
+
+**3. Settings pages** (business, profile, invoices):
+```
+grid grid-cols-1 gap-6 lg:grid-cols-3
+  form: lg:col-span-2
+  sidebar: lg:col-span-1
+```
+
+**4. Kanban/dual-view** (jobs): View toggle + board (`flex gap-4 overflow-x-auto`) or table (same card wrapper as list pages).
+
+### Component Conventions
+
+- **Tables**: Always use shadcn `Table`/`TableHeader`/`TableBody`/`TableRow`/`TableHead`/`TableCell`. Never raw `<table>`. Wrap in card container (list page pattern).
+- **Buttons**: Always `<Button>` from shadcn. CTA: `className="bg-brand text-brand-foreground hover:bg-brand/90"`. Ghost for icon buttons: `variant="ghost" size="icon"`. Never raw `<button>`.
+- **Badges**: `<Badge>` with variants (default, secondary, destructive, outline, brand). Status badges use mapped color configs with `dark:` variants. Pattern: `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium`.
+- **Dialogs**: Center modal (`<Dialog>`) for confirmations/forms (`sm:max-w-md`). Side drawer (`<Sheet side="right">`) for detail views (`sm:max-w-lg`).
+- **Filters**: `<Popover>` with button-based options for simple filters. `<Command>` inside `<Popover>` for searchable filters. Active state: `border-brand/40 bg-brand-light/20 text-brand`.
+- **Forms**: Grid layout `grid grid-cols-1 gap-4 sm:grid-cols-2`. Label+input wrapper: `space-y-2`. Settings forms use `<SettingsSection>` wrapper.
+- **Row actions**: `<DropdownMenu>` with `<Button variant="ghost" size="icon" className="h-8 w-8">` trigger. Stop propagation on trigger click.
+- **Delete confirm**: `<DeleteConfirmDialog>` from `components/dashboard/reusable/`. Props: `entityName`, `itemLabel`, `open`, `onOpenChange`, `onConfirm`, `loading`.
+- **Empty states**: `<EmptyState>` from `components/dashboard/reusable/`. Props: `icon`, `title`, `description`, `actionLabel`, `onAction`.
+- **Loading states**: Always skeleton loaders, never spinners. `<TableSkeleton columns={N} rows={N}>` for tables, custom `<Skeleton>` layouts for other content.
+- **Pagination**: `<Pagination>` from `components/dashboard/reusable/`. Rendered outside the card wrapper.
+- **Icons**: Tabler Icons only. Sizes: `h-3.5 w-3.5` (section labels), `h-4 w-4` (inline/buttons), `h-5 w-5` (section icons), `h-8 w-8` (empty state/avatar). Colors: `text-brand` (accents), `text-muted-foreground` (context).
+
+### Settings Components
+
+- **`SettingsSection`** — `components/dashboard/settings/settings-section.tsx`. Card with icon (`h-5 w-5 text-brand`) + title (`font-heading text-base font-semibold`) + optional description + optional action. Replaces hand-rolled Card+CardHeader+CardTitle+CardContent.
+- **`SettingsFormMessage`** — `components/dashboard/settings/settings-form-message.tsx`. Success (green) / error (destructive) inline message with icon. Has dark mode variants.
+- **`SettingsPageHeader`** — `components/dashboard/settings/settings-page-header.tsx`. Description + action button row for list pages (Catalog, Checklists).
+
+### Dark Mode Rules
+
+- Strategy: class-based via `next-themes`, `attribute="class"`, `defaultTheme="system"`
+- All status/badge colors MUST have `dark:` variants (e.g., `bg-blue-50 dark:bg-blue-950/40`, `text-blue-700 dark:text-blue-300`)
+- Card backgrounds auto-adapt via `bg-card` CSS variable
+- Invoice/PDF preview paper stays `bg-white dark:bg-white` (document preview, not UI element)
+- Sidebar detail sections use `bg-muted/50` for content boxes (adapts automatically)
+- Never hardcode `gray-xxx` — always use `text-muted-foreground`, `bg-muted`, `border-border`
+- Sidebar summary cards (settings) use default `<Card>`, no special backgrounds
+
+### Stage Color Presets
+
+Reference: `apps/web/src/lib/constants/stage-color-presets.ts`. Eight presets: blue, brand, green, red, purple, amber, gray, teal. Each provides: dot, bg, text, border, borderTop, ring classes with dark mode variants. Helper: `getStageColors(colorKey)` returns the preset or gray fallback.
+
+### Typography Conventions
+
+- **Headings**: `font-heading` (Space Grotesk) — page titles, card titles, section headers, accordion triggers
+- **Body**: `font-body` (DM Sans) — paragraphs, labels, table cells, filter text, badge text, help text
+- **Page title**: `font-heading text-2xl font-bold text-foreground`
+- **Subtitle**: `mt-1 text-sm text-muted-foreground font-body`
+- **Section header (sidebar)**: `text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading`
+- **Table header**: `font-body` (via TableHead default)
 
 ## Workflow Orchestration
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Sheet,
   SheetContent,
@@ -23,13 +24,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import {
-  IconDots,
   IconEdit,
   IconTrash,
   IconArrowRight,
   IconLayoutSidebar,
   IconMaximize,
   IconChevronDown,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import {
   JOB_PRIORITY_LABELS,
@@ -170,6 +171,7 @@ export function JobDetailSheet({
   onStatusChange,
   stages,
 }: JobDetailSheetProps) {
+  const router = useRouter();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
@@ -430,33 +432,41 @@ export function JobDetailSheet({
                   )}
                 </Button>
 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 cursor-pointer"
-                    >
-                      <IconDots className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => onEdit(job)}
-                      className="cursor-pointer"
-                    >
-                      <IconEdit className="mr-2 h-4 w-4" />
-                      Edit Job
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => onDelete(job)}
-                      className="cursor-pointer text-destructive focus:text-destructive"
-                    >
-                      <IconTrash className="mr-2 h-4 w-4" />
-                      Delete Job
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* Open full page */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer"
+                  onClick={() => {
+                    onOpenChange(false);
+                    router.push(`/jobs/${job.id}`);
+                  }}
+                  title="Open full page"
+                >
+                  <IconExternalLink className="h-4 w-4" />
+                </Button>
+
+                {/* Edit */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer"
+                  onClick={() => onEdit(job)}
+                  title="Edit job"
+                >
+                  <IconEdit className="h-4 w-4" />
+                </Button>
+
+                {/* Delete */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer text-destructive hover:text-destructive"
+                  onClick={() => onDelete(job)}
+                  title="Delete job"
+                >
+                  <IconTrash className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 

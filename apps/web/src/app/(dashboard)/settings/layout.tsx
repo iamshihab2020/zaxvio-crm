@@ -14,6 +14,9 @@ export default function SettingsLayout({
       >
         Settings
       </h1>
+      <p className="mt-1 text-sm text-muted-foreground font-body">
+        Manage your account, business information, and preferences.
+      </p>
       <SettingsNav />
       <SettingsContent>{children}</SettingsContent>
     </section>

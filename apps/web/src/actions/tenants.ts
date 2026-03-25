@@ -78,6 +78,11 @@ export async function updateTenant(data: {
   defaultTaxRate?: string;
   googleReviewUrl?: string;
   timezone?: string;
+  licenseNumber?: string;
+  invoicePaymentTerms?: string;
+  invoicePaymentInstructions?: string;
+  invoiceTermsConditions?: string;
+  invoiceFooterMessage?: string;
 }) {
   try {
     const res = await fetch(`${API_URL}/tenants/current`, {

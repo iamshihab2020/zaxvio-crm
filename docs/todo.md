@@ -4,7 +4,18 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-- [ ] **Invoicing (#5)** — Next up from Build Order
+(none)
+
+## Recently Completed
+
+- [x] **Full UI/UX Redesign — All Dashboard Pages** (6 commits, 88 files, ~9700 lines added)
+  - **Customers page redesign** (`7a54bd5`): Rewrote `customer-table.tsx` (rounded card wrapper, avatars, tooltips, responsive), `customer-dialog.tsx` (new layout), `customer-detail-header.tsx`, `customer-info-panel.tsx`, `customer-sidebar-panel.tsx`, `customer-tabs-panel.tsx`, `customer-notes-tab.tsx`, `customer-jobs-tab.tsx` (now shows real jobs), `customer-invoices-tab.tsx` (now shows real invoices), `customers-page-client.tsx` (card wrapper with search header inside)
+  - **Invoice system** (`291a282`, `19445d4`): Full invoice management — 15 API endpoints, 14 server actions, invoice list page with table/filters/search/pagination, create dialog with customer picker, detail page with 3-panel layout (info panel, tabs, sidebar), line items tab with catalog picker, payments tab, generate from job, PDF generation with `@react-pdf/renderer`, migration for 5 invoice settings columns
+  - **Invoice + Job detail pages** (`5b3bdfc`): Dedicated `/invoices/[id]` and `/jobs/[id]` detail pages with 3-panel layouts (header, info panel, tabs panel, sidebar panel), new components: `invoice-detail-header.tsx`, `invoice-info-panel.tsx`, `invoice-tabs-panel.tsx`, `invoice-sidebar-panel.tsx`, `job-detail-page-header.tsx`, `job-info-panel.tsx`, `job-tabs-panel.tsx`, `job-sidebar-panel.tsx`
+  - **Job page redesign** (`66c3fba`): Dual-view (Kanban + Table), `job-table.tsx` (new table view), `jobs-stats-bar.tsx` (KPI bar), `kanban-card-compact.tsx` (compact card variant), rewrote `kanban-board.tsx`, `kanban-card.tsx`, `kanban-column.tsx`, `job-filters.tsx`, `kanban-skeleton.tsx`
+  - **Settings page redesign** (`69be4cc`): 3 new shared components (`SettingsSection`, `SettingsFormMessage`, `SettingsPageHeader`), all 5 tabs polished — Profile (SettingsSection, 2-col grid, larger avatar, password strength indicator), Business (split into 2 sections), Invoices (SettingsSection + live preview dark mode), Catalog (customer table card pattern — filters+table in single card), Checklists (same card pattern, shadcn Table components)
+  - **Global CSS updates** (`globals.css`): New color tokens, stage color presets, refined dark mode
+  - **New reusable patterns**: Customer table card wrapper (`rounded-lg border border-border bg-card overflow-hidden` with search/filters as `border-b` header), 3-panel detail page layout (header + info + tabs + sidebar)
 
 ## Build Order (Phase 1)
 
@@ -31,10 +42,29 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Invoicing** (#5) — API routes + invoice page, generate from jobs, PDF, email, payment tracking
 - [ ] **Quote Builder** (#6) — API routes + quote page, PDF, email, customer acceptance, convert to job
 
 ## Done
+
+- [x] **Enhanced Invoice PDF** (ZAX-42) — User-controlled invoice details
+  - 5 new tenant columns: licenseNumber, invoicePaymentTerms, invoicePaymentInstructions, invoiceTermsConditions, invoiceFooterMessage
+  - Migration: `0006_add_invoice_settings.sql` — idempotent `ADD COLUMN IF NOT EXISTS`
+  - PDF template: conditional logo, owner name, license #, payment terms, payment instructions, terms & conditions, custom footer
+  - Business Settings form: new "Invoice Details" card with all 5 fields + helper text
+  - "Fill it in → it shows up. Leave empty → hidden." — no toggles needed
+
+- [x] **Invoicing (#5)** — Full invoice management feature (ZAX-42)
+  - API routes: 15 endpoints (CRUD, line items, payments, PDF gen/download, send, void, status, from-job)
+  - PDF generation: `@react-pdf/renderer` with professional invoice template, Supabase Storage upload
+  - Server actions: 14 actions covering all API endpoints
+  - Frontend: Invoice list page with table, status filters, search, pagination
+  - Invoice create dialog with customer picker, tax rate, due date, discount
+  - Invoice detail sheet with 3 tabs: Details, Line Items, Payments
+  - Line items tab: add/edit/delete with catalog picker (draft only)
+  - Payments tab: record/delete payments with auto-status (paid/partially_paid)
+  - Generate Invoice from Job: button in job detail info, copies line items + tax rate
+  - Customer invoices tab: shows customer's invoices in customer detail page
+  - Business rules: draft-only editing/deletion, void restrictions, auto-number (INV-YYYY-XXXX), generated line item totals
 
 - [x] **Custom Pipeline Stages (ZAX-41)** — User-controlled Kanban columns
   - New DB table: `job_pipeline_stages` (per-tenant, name/label/color/sortOrder/isDefault)

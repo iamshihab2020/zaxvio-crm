@@ -30,6 +30,7 @@ interface CatalogFiltersProps {
   showArchived: boolean;
   onShowArchivedChange: (value: boolean) => void;
   categories: string[];
+  totalItems?: number;
 }
 
 const itemTypeOptions = [
@@ -51,6 +52,7 @@ export function CatalogFilters({
   showArchived,
   onShowArchivedChange,
   categories,
+  totalItems,
 }: CatalogFiltersProps) {
   const [typeOpen, setTypeOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -66,7 +68,7 @@ export function CatalogFilters({
   }, [categories]);
 
   return (
-    <div className="mb-4 flex flex-wrap items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
       {/* Search */}
       <div className="relative max-w-sm">
         <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -169,6 +171,12 @@ export function CatalogFilters({
         <IconArchive className="h-4 w-4" />
         {showArchived ? "Showing archived" : "Show archived"}
       </Button>
+
+      {totalItems !== undefined && (
+        <span className="ml-auto text-xs text-muted-foreground font-body">
+          {totalItems} {totalItems === 1 ? "item" : "items"}
+        </span>
+      )}
     </div>
   );
 }

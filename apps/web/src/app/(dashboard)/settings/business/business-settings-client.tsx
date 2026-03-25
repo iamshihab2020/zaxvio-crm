@@ -19,6 +19,11 @@ export interface TenantData {
   defaultTaxRate: string | null;
   googleReviewUrl: string | null;
   timezone: string | null;
+  licenseNumber: string | null;
+  invoicePaymentTerms: string | null;
+  invoicePaymentInstructions: string | null;
+  invoiceTermsConditions: string | null;
+  invoiceFooterMessage: string | null;
 }
 
 export function BusinessSettingsClient() {

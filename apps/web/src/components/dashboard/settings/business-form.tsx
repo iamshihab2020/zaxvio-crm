@@ -1,16 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { IconBuilding, IconSettings } from "@tabler/icons-react";
+import { SettingsSection } from "@/components/dashboard/settings/settings-section";
+import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { updateTenant } from "@/actions/tenants";
 
 interface BusinessFormProps {
@@ -86,7 +82,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
       return;
     }
 
-    // Convert percentage to decimal for storage (e.g., 8.25 → 0.0825)
+    // Convert percentage to decimal for storage (e.g., 8.25 -> 0.0825)
     const taxDecimal = (taxNum / 100).toString();
 
     const result = await updateTenant({
@@ -115,17 +111,13 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="font-heading text-lg">
-          Business Information
-        </CardTitle>
-        <CardDescription className="font-body">
-          Update your business details and default settings.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSave} className="space-y-4">
+    <form onSubmit={handleSave} className="space-y-6">
+      <SettingsSection
+        icon={IconBuilding}
+        title="Business Information"
+        description="Your business details appear on invoices, quotes, and customer communications."
+      >
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="businessName" className="font-body">
@@ -224,60 +216,56 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
               />
             </div>
           </div>
+        </div>
+      </SettingsSection>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="defaultTaxRate" className="font-body">
-                Default Tax Rate (%)
-              </Label>
-              <Input
-                id="defaultTaxRate"
-                value={form.defaultTaxRate}
-                onChange={(e) => updateField("defaultTaxRate", e.target.value)}
-                placeholder="8.25"
-              />
-              <p className="text-xs text-muted-foreground">
-                Applied automatically to new jobs. e.g. 8.25 for 8.25%
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="googleReviewUrl" className="font-body">
-                Google Review URL
-              </Label>
-              <Input
-                id="googleReviewUrl"
-                value={form.googleReviewUrl}
-                onChange={(e) =>
-                  updateField("googleReviewUrl", e.target.value)
-                }
-                placeholder="https://g.page/r/..."
-              />
-            </div>
+      <SettingsSection
+        icon={IconSettings}
+        title="Defaults & Integrations"
+        description="Configure default values and third-party integrations."
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="defaultTaxRate" className="font-body">
+              Default Tax Rate (%)
+            </Label>
+            <Input
+              id="defaultTaxRate"
+              value={form.defaultTaxRate}
+              onChange={(e) => updateField("defaultTaxRate", e.target.value)}
+              placeholder="8.25"
+            />
+            <p className="text-xs text-muted-foreground">
+              Applied automatically to new jobs. e.g. 8.25 for 8.25%
+            </p>
           </div>
-
-          {message && (
-            <div
-              className={`rounded-md border px-4 py-3 text-sm font-body ${
-                message.type === "success"
-                  ? "border-green-200 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-300"
-                  : "border-destructive/50 bg-destructive/10 text-destructive"
-              }`}
-            >
-              {message.text}
-            </div>
-          )}
-
-          <div className="flex justify-end">
-            <Button
-              type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
-              disabled={!hasChanges || saving}
-            >
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
+          <div className="space-y-2">
+            <Label htmlFor="googleReviewUrl" className="font-body">
+              Google Review URL
+            </Label>
+            <Input
+              id="googleReviewUrl"
+              value={form.googleReviewUrl}
+              onChange={(e) =>
+                updateField("googleReviewUrl", e.target.value)
+              }
+              placeholder="https://g.page/r/..."
+            />
           </div>
-        </form>
-      </CardContent>
-    </Card>
+        </div>
+      </SettingsSection>
+
+      <SettingsFormMessage message={message} />
+
+      <div className="flex justify-end">
+        <Button
+          type="submit"
+          className="bg-brand text-brand-foreground hover:bg-brand/90"
+          disabled={!hasChanges || saving}
+        >
+          {saving ? "Saving..." : "Save Changes"}
+        </Button>
+      </div>
+    </form>
   );
 }

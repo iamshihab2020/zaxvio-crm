@@ -68,7 +68,7 @@ export function CatalogTable({
           <TableHead>Name</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>Category</TableHead>
-          <TableHead>Unit Price</TableHead>
+          <TableHead className="text-right">Unit Price</TableHead>
           <TableHead>Unit</TableHead>
           {showArchived && <TableHead>Status</TableHead>}
           <TableHead className="w-12" />
@@ -91,7 +91,7 @@ export function CatalogTable({
             <TableCell className="text-muted-foreground">
               {item.category || "\u2014"}
             </TableCell>
-            <TableCell className="text-foreground">
+            <TableCell className="text-right text-foreground">
               {priceFormatter.format(Number(item.unitPrice))}
             </TableCell>
             <TableCell className="text-muted-foreground">
