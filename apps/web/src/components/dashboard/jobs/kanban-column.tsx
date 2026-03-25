@@ -3,9 +3,9 @@
 import { useDroppable } from "@dnd-kit/core";
 import { cn } from "@/lib/utils";
 import { KanbanCard, type JobCardData } from "./kanban-card";
+import { KanbanCardCompact } from "./kanban-card-compact";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { IconPlus } from "@tabler/icons-react";
+import { IconPlus, IconBriefcase } from "@tabler/icons-react";
 
 interface PipelineStage {
   id: string;
@@ -20,9 +20,16 @@ interface KanbanColumnProps {
   jobs: JobCardData[];
   onJobClick: (jobId: string) => void;
   onAddJob: (stageName: string) => void;
+  cardView?: "default" | "compact";
 }
 
-export function KanbanColumn({ stage, jobs, onJobClick, onAddJob }: KanbanColumnProps) {
+export function KanbanColumn({
+  stage,
+  jobs,
+  onJobClick,
+  onAddJob,
+  cardView = "default",
+}: KanbanColumnProps) {
   const { isOver, setNodeRef } = useDroppable({ id: stage.name });
 
   const colors = getStageColors(stage.color);
@@ -31,8 +38,9 @@ export function KanbanColumn({ stage, jobs, onJobClick, onAddJob }: KanbanColumn
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col rounded-lg border bg-muted/20 p-3 transition-colors min-w-[280px] flex-1 overflow-hidden",
-        isOver ? `${colors.bg} ${colors.border}` : "border-border",
+        "flex flex-col rounded-lg border-t-[3px] border bg-muted/20 p-3 transition-all duration-200 min-w-[280px] flex-1",
+        colors.borderTop,
+        isOver ? `${colors.bg} ring-2 ${colors.ring}` : "border-border",
       )}
     >
       <div className="mb-3 flex items-center gap-2 shrink-0">
@@ -40,7 +48,13 @@ export function KanbanColumn({ stage, jobs, onJobClick, onAddJob }: KanbanColumn
         <h3 className="text-sm font-semibold text-foreground font-heading">
           {stage.label}
         </h3>
-        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground">
+        <span
+          className={cn(
+            "ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-medium",
+            colors.bg,
+            colors.text,
+          )}
+        >
           {jobs.length}
         </span>
         <button
@@ -52,16 +66,32 @@ export function KanbanColumn({ stage, jobs, onJobClick, onAddJob }: KanbanColumn
         </button>
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="flex flex-col gap-2 pr-2">
-          {jobs.map((job) => (
-            <KanbanCard key={job.id} job={job} onClick={onJobClick} />
+      <div className="flex-1 overflow-y-auto pr-1">
+        <div className="flex flex-col gap-2">
+          {jobs.map((job, index) => (
+            <div
+              key={job.id}
+              className="animate-card-enter"
+              style={
+                { "--enter-delay": `${index * 50}ms` } as React.CSSProperties
+              }
+            >
+              {cardView === "compact" ? (
+                <KanbanCardCompact job={job} onClick={onJobClick} />
+              ) : (
+                <KanbanCard job={job} onClick={onJobClick} />
+              )}
+            </div>
           ))}
 
           {jobs.length === 0 && (
-            <div className="flex items-center justify-center rounded-md border border-dashed border-border/60 py-8">
-              <p className="text-xs text-muted-foreground font-body">
-                No jobs
+            <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/40 py-10 px-4 text-center">
+              <IconBriefcase className="h-8 w-8 text-muted-foreground/50 mb-2" />
+              <p className="text-sm text-muted-foreground font-body">
+                No jobs in {stage.label}
+              </p>
+              <p className="text-xs text-muted-foreground/70 font-body mt-1">
+                Drag a job here or click + to add one
               </p>
             </div>
           )}
@@ -74,8 +104,7 @@ export function KanbanColumn({ stage, jobs, onJobClick, onAddJob }: KanbanColumn
             Add Job
           </button>
         </div>
-        <ScrollBar orientation="vertical" />
-      </ScrollArea>
+      </div>
     </div>
   );
 }

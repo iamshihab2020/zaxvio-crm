@@ -86,6 +86,12 @@ export const ITEM_TYPE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+export const JOB_PRIORITY_BORDER_COLORS: Record<JobPriority, string> = {
+  standard: "border-l-blue-400 dark:border-l-blue-500",
+  urgent: "border-l-amber-400 dark:border-l-amber-500",
+  emergency: "border-l-red-500 dark:border-l-red-600",
+};
+
 /** Default pipeline stages for reference */
 export const DEFAULT_PIPELINE_STAGES = [
   { name: "scheduled", label: "Scheduled", color: "blue" },

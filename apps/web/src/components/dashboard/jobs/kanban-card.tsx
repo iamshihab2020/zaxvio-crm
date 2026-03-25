@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   JOB_PRIORITY_LABELS,
   JOB_PRIORITY_COLORS,
+  JOB_PRIORITY_BORDER_COLORS,
   SERVICE_TYPE_LABELS,
   type JobPriority,
   type ServiceType,
@@ -15,6 +16,7 @@ import {
   IconClock,
   IconCurrencyDollar,
   IconMapPin,
+  IconGripVertical,
 } from "@tabler/icons-react";
 
 export interface JobCardData {
@@ -79,6 +81,9 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
       ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()
       : "No customer";
 
+  const isToday =
+    job.scheduledDate === new Date().toISOString().split("T")[0];
+
   return (
     <div
       ref={setNodeRef}
@@ -90,33 +95,53 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
         if (!isDragging) onClick(job.id);
       }}
       className={cn(
-        "cursor-grab rounded-md border border-border bg-card p-3 shadow-sm hover:shadow-md active:cursor-grabbing",
+        "cursor-grab rounded-md border border-border border-l-[3px] bg-card p-3 shadow-sm transition-all duration-200",
+        "hover:shadow-md hover:-translate-y-0.5",
+        "active:cursor-grabbing",
+        JOB_PRIORITY_BORDER_COLORS[job.priority],
         isDragging && "opacity-30",
-        isOverlay && "shadow-xl ring-2 ring-brand/30",
+        isOverlay && "shadow-xl ring-2 ring-brand/30 rotate-2 scale-[1.03]",
+        job.priority === "emergency" && "animate-pulse-emergency",
       )}
     >
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-xs font-medium text-muted-foreground font-body">
-          {job.jobNumber}
-        </span>
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-            priorityColors.bg,
-            priorityColors.text,
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs font-medium text-muted-foreground font-body">
+            {job.jobNumber}
+          </span>
+          {isToday && (
+            <span className="inline-flex items-center rounded-full bg-brand-light px-1.5 py-0.5 text-[10px] font-medium text-brand">
+              Today
+            </span>
           )}
-        >
-          {JOB_PRIORITY_LABELS[job.priority]}
-        </span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span
+            className={cn(
+              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
+              priorityColors.bg,
+              priorityColors.text,
+            )}
+          >
+            {JOB_PRIORITY_LABELS[job.priority]}
+          </span>
+          <IconGripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
+        </div>
       </div>
 
       <h4 className="text-sm font-medium text-foreground font-body line-clamp-2 mb-1">
         {job.title}
       </h4>
 
-      <p className="text-xs text-muted-foreground font-body mb-2">
+      <p className="text-xs text-muted-foreground font-body mb-1.5">
         {customerName}
       </p>
+
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="inline-flex items-center rounded-md bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider font-body">
+          {SERVICE_TYPE_LABELS[job.serviceType]}
+        </span>
+      </div>
 
       {job.address && (
         <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">

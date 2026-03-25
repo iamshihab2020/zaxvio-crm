@@ -153,6 +153,41 @@
   }
 }
 
+/* Kanban card entrance — staggered via inline --delay */
+@keyframes card-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@layer utilities {
+  .animate-card-enter {
+    animation: card-enter 0.3s ease-out both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+}
+
+/* Emergency priority pulse glow */
+@keyframes pulse-emergency {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+  }
+}
+
+@layer utilities {
+  .animate-pulse-emergency {
+    animation: pulse-emergency 2s ease-in-out infinite;
+  }
+}
+
 /* Force correct background on dragged kanban cards */
 [data-dragging="true"] {
   background-color: hsl(var(--card)) !important;
