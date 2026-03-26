@@ -84,44 +84,11 @@ interface QuoteDetailSheetProps {
   onDataChange: () => void;
 }
 
-/* -- Preference persistence -- */
+import { useViewPreference } from "@/hooks/use-view-preference";
 
-const STORAGE_KEY = "zaxvio-quote-detail-prefs";
 const DEFAULT_WIDTH = 520;
 const MIN_WIDTH = 400;
 const MAX_WIDTH = 800;
-
-interface QuoteDetailPrefs {
-  mode: "sidebar" | "dialog";
-  sidebarWidth: number;
-}
-
-function loadPrefs(): QuoteDetailPrefs {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        mode: parsed.mode === "dialog" ? "dialog" : "sidebar",
-        sidebarWidth: Math.max(
-          MIN_WIDTH,
-          Math.min(MAX_WIDTH, Number(parsed.sidebarWidth) || DEFAULT_WIDTH),
-        ),
-      };
-    }
-  } catch {
-    /* SSR or corrupt data */
-  }
-  return { mode: "sidebar", sidebarWidth: DEFAULT_WIDTH };
-}
-
-function savePrefs(prefs: QuoteDetailPrefs) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    /* quota exceeded */
-  }
-}
 
 /* -- Tab definitions -- */
 
@@ -142,17 +109,13 @@ export function QuoteDetailSheet({
   const [convertLoading, setConvertLoading] = useState(false);
 
   /* -- Preferences -- */
-  const [mounted, setMounted] = useState(false);
-  const [prefs, setPrefs] = useState<QuoteDetailPrefs>({
-    mode: "sidebar",
-    sidebarWidth: DEFAULT_WIDTH,
-  });
+  const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("quotes");
+  const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
   const switchingModeRef = useRef(false);
 
   useEffect(() => {
-    setPrefs(loadPrefs());
-    setMounted(true);
-  }, []);
+    setLiveSidebarWidth(prefSidebarWidth);
+  }, [prefSidebarWidth]);
 
   /* -- Quote data fetching -- */
   useEffect(() => {
@@ -227,18 +190,15 @@ export function QuoteDetailSheet({
       toast.error(result.error);
     } else {
       toast.success("Job created from quote");
-      refreshDetail();
-      onDataChange();
+      router.push(`/jobs/${result.data.id}`);
     }
   }
 
   /* -- Mode toggle -- */
   function toggleMode() {
     switchingModeRef.current = true;
-    const newMode = prefs.mode === "sidebar" ? "dialog" : "sidebar";
-    const newPrefs: QuoteDetailPrefs = { ...prefs, mode: newMode };
-    setPrefs(newPrefs);
-    savePrefs(newPrefs);
+    const newMode = prefMode === "sidebar" ? "dialog" : "sidebar";
+    setPrefMode(newMode);
     setIndicatorReady(false);
     requestAnimationFrame(() => {
       switchingModeRef.current = false;
@@ -256,7 +216,7 @@ export function QuoteDetailSheet({
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      dragWidthRef.current = prefs.sidebarWidth;
+      dragWidthRef.current = liveSidebarWidth;
 
       const onMove = (ev: MouseEvent) => {
         const w = Math.max(
@@ -264,7 +224,7 @@ export function QuoteDetailSheet({
           Math.min(MAX_WIDTH, window.innerWidth - ev.clientX),
         );
         dragWidthRef.current = w;
-        setPrefs((prev) => ({ ...prev, sidebarWidth: w }));
+        setLiveSidebarWidth(w);
       };
 
       const onUp = () => {
@@ -272,7 +232,7 @@ export function QuoteDetailSheet({
         document.removeEventListener("mouseup", onUp);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
-        savePrefs({ ...loadPrefs(), sidebarWidth: dragWidthRef.current });
+        setPrefSidebarWidth(dragWidthRef.current);
       };
 
       document.addEventListener("mousemove", onMove);
@@ -280,7 +240,7 @@ export function QuoteDetailSheet({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [prefs.sidebarWidth],
+    [liveSidebarWidth],
   );
 
   /* -- Sliding tab indicator -- */
@@ -317,7 +277,7 @@ export function QuoteDetailSheet({
       const id = requestAnimationFrame(() => updateIndicatorTo(targetIndex));
       return () => cancelAnimationFrame(id);
     }
-  }, [targetIndex, updateIndicatorTo, loading, quote, prefs.mode]);
+  }, [targetIndex, updateIndicatorTo, loading, quote, prefMode]);
 
   useEffect(() => {
     const onResize = () => {
@@ -340,7 +300,7 @@ export function QuoteDetailSheet({
     }
   }
 
-  const mode = mounted ? prefs.mode : "sidebar";
+  const mode = mounted ? (prefMode === "page" ? "sidebar" : prefMode) : "sidebar";
 
   /* -- Shared inner content -- */
   const innerContent = (
@@ -406,6 +366,7 @@ export function QuoteDetailSheet({
                   size="icon"
                   className="h-8 w-8 cursor-pointer"
                   onClick={() => {
+                    setPrefMode("page");
                     onOpenChange(false);
                     router.push(`/quotes/${quote.id}`);
                   }}
@@ -523,7 +484,7 @@ export function QuoteDetailSheet({
         side="right"
         className="overflow-y-auto p-0"
         style={{
-          maxWidth: mounted ? prefs.sidebarWidth : DEFAULT_WIDTH,
+          maxWidth: mounted ? liveSidebarWidth : DEFAULT_WIDTH,
           width: "100%",
         }}
       >

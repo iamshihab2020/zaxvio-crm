@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useViewPreference } from "@/hooks/use-view-preference";
+import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -69,6 +71,8 @@ interface PaginationInfo {
 }
 
 export function QuotesPageClient() {
+  const router = useRouter();
+  const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("quotes");
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -205,6 +209,10 @@ export function QuotesPageClient() {
   }
 
   function handleRowClick(id: string) {
+    if (viewMode === "page") {
+      router.push(`/quotes/${id}`);
+      return;
+    }
     setSelectedQuoteId(id);
     setSheetOpen(true);
   }
@@ -305,6 +313,9 @@ export function QuotesPageClient() {
                   ))}
                 </PopoverContent>
               </Popover>
+              {viewMounted && (
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">

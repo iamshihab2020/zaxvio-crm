@@ -17,7 +17,8 @@
       "Bash(mkdir:*)",
       "Bash(npx:*)",
       "Bash(python3:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(DIRECT_URL=\"\" pnpm db:push)"
     ]
   }
 }

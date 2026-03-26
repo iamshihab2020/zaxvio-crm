@@ -113,44 +113,11 @@ interface JobDetailSheetProps {
   stages: PipelineStage[];
 }
 
-/* ── Preference persistence ─────────────────────────────────── */
+import { useViewPreference } from "@/hooks/use-view-preference";
 
-const STORAGE_KEY = "zaxvio-job-detail-prefs";
 const DEFAULT_WIDTH = 520;
 const MIN_WIDTH = 400;
 const MAX_WIDTH = 800;
-
-interface JobDetailPrefs {
-  mode: "sidebar" | "dialog";
-  sidebarWidth: number;
-}
-
-function loadPrefs(): JobDetailPrefs {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        mode: parsed.mode === "dialog" ? "dialog" : "sidebar",
-        sidebarWidth: Math.max(
-          MIN_WIDTH,
-          Math.min(MAX_WIDTH, Number(parsed.sidebarWidth) || DEFAULT_WIDTH),
-        ),
-      };
-    }
-  } catch {
-    /* SSR or corrupt data */
-  }
-  return { mode: "sidebar", sidebarWidth: DEFAULT_WIDTH };
-}
-
-function savePrefs(prefs: JobDetailPrefs) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    /* quota exceeded */
-  }
-}
 
 /* ── Tab definitions ─────────────────────────────────────────── */
 
@@ -177,17 +144,13 @@ export function JobDetailSheet({
   const [activeTab, setActiveTab] = useState("details");
 
   /* ── Preferences ──────────────────────────────────────────── */
-  const [mounted, setMounted] = useState(false);
-  const [prefs, setPrefs] = useState<JobDetailPrefs>({
-    mode: "sidebar",
-    sidebarWidth: DEFAULT_WIDTH,
-  });
+  const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("jobs");
+  const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
   const switchingModeRef = useRef(false);
 
   useEffect(() => {
-    setPrefs(loadPrefs());
-    setMounted(true);
-  }, []);
+    setLiveSidebarWidth(prefSidebarWidth);
+  }, [prefSidebarWidth]);
 
   /* ── Job data fetching ────────────────────────────────────── */
   useEffect(() => {
@@ -225,10 +188,8 @@ export function JobDetailSheet({
   /* ── Mode toggle ──────────────────────────────────────────── */
   function toggleMode() {
     switchingModeRef.current = true;
-    const newMode = prefs.mode === "sidebar" ? "dialog" : "sidebar";
-    const newPrefs: JobDetailPrefs = { ...prefs, mode: newMode };
-    setPrefs(newPrefs);
-    savePrefs(newPrefs);
+    const newMode = prefMode === "sidebar" ? "dialog" : "sidebar";
+    setPrefMode(newMode);
     setIndicatorReady(false);
     requestAnimationFrame(() => {
       switchingModeRef.current = false;
@@ -246,7 +207,7 @@ export function JobDetailSheet({
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      dragWidthRef.current = prefs.sidebarWidth;
+      dragWidthRef.current = liveSidebarWidth;
 
       const onMove = (ev: MouseEvent) => {
         const w = Math.max(
@@ -254,7 +215,7 @@ export function JobDetailSheet({
           Math.min(MAX_WIDTH, window.innerWidth - ev.clientX),
         );
         dragWidthRef.current = w;
-        setPrefs((prev) => ({ ...prev, sidebarWidth: w }));
+        setLiveSidebarWidth(w);
       };
 
       const onUp = () => {
@@ -262,7 +223,7 @@ export function JobDetailSheet({
         document.removeEventListener("mouseup", onUp);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
-        savePrefs({ ...loadPrefs(), sidebarWidth: dragWidthRef.current });
+        setPrefSidebarWidth(dragWidthRef.current);
       };
 
       document.addEventListener("mousemove", onMove);
@@ -270,7 +231,7 @@ export function JobDetailSheet({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [prefs.sidebarWidth],
+    [liveSidebarWidth],
   );
 
   /* ── Sliding tab indicator ────────────────────────────────── */
@@ -308,7 +269,7 @@ export function JobDetailSheet({
       const id = requestAnimationFrame(() => updateIndicatorTo(targetIndex));
       return () => cancelAnimationFrame(id);
     }
-  }, [targetIndex, updateIndicatorTo, loading, job, prefs.mode]);
+  }, [targetIndex, updateIndicatorTo, loading, job, prefMode]);
 
   // Recalculate on window resize
   useEffect(() => {
@@ -334,7 +295,7 @@ export function JobDetailSheet({
     (s) => s.name !== job?.status && s.name !== nextStage?.name,
   );
 
-  const mode = mounted ? prefs.mode : "sidebar";
+  const mode = mounted ? (prefMode === "page" ? "sidebar" : prefMode) : "sidebar";
 
   /* ── Tab labels with counts ────────────────────────────────── */
   function tabLabel(value: string): string {
@@ -438,6 +399,7 @@ export function JobDetailSheet({
                   size="icon"
                   className="h-8 w-8 cursor-pointer"
                   onClick={() => {
+                    setPrefMode("page");
                     onOpenChange(false);
                     router.push(`/jobs/${job.id}`);
                   }}
@@ -604,7 +566,7 @@ export function JobDetailSheet({
         side="right"
         className="overflow-y-auto p-0"
         style={{
-          maxWidth: mounted ? prefs.sidebarWidth : DEFAULT_WIDTH,
+          maxWidth: mounted ? liveSidebarWidth : DEFAULT_WIDTH,
           width: "100%",
         }}
       >

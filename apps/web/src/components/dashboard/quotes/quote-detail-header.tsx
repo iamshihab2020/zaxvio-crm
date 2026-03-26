@@ -24,6 +24,7 @@ import {
   IconTransform,
   IconDots,
   IconTrash,
+  IconExternalLink,
 } from "@tabler/icons-react";
 import {
   sendQuote,
@@ -38,11 +39,13 @@ import type { QuoteDetail } from "./quote-detail-sheet";
 interface QuoteDetailHeaderProps {
   quote: QuoteDetail;
   onUpdate: () => void;
+  children?: React.ReactNode;
 }
 
 export function QuoteDetailHeader({
   quote,
   onUpdate,
+  children,
 }: QuoteDetailHeaderProps) {
   const router = useRouter();
   const [sendLoading, setSendLoading] = useState(false);
@@ -106,7 +109,7 @@ export function QuoteDetailHeader({
       toast.error(result.error);
     } else {
       toast.success("Job created from quote");
-      onUpdate();
+      router.push(`/jobs/${result.data.id}`);
     }
   }
 
@@ -152,6 +155,7 @@ export function QuoteDetailHeader({
 
         {/* Right: action buttons */}
         <div className="flex items-center gap-2 flex-wrap">
+          {children}
           {canSend && (
             <Button
               size="sm"
@@ -202,6 +206,17 @@ export function QuoteDetailHeader({
             >
               <IconTransform className="mr-1.5 h-3.5 w-3.5" />
               {convertLoading ? "Converting..." : "Convert to Job"}
+            </Button>
+          )}
+          {quote.convertedToJobId && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => router.push(`/jobs/${quote.convertedToJobId}`)}
+              className="cursor-pointer"
+            >
+              <IconExternalLink className="mr-1.5 h-3.5 w-3.5" />
+              View Job
             </Button>
           )}
           {canDelete && (

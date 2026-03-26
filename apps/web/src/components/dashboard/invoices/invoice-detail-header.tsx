@@ -32,11 +32,13 @@ import type { InvoiceDetail } from "./invoice-detail-sheet";
 interface InvoiceDetailHeaderProps {
   invoice: InvoiceDetail;
   onUpdate: () => void;
+  children?: React.ReactNode;
 }
 
 export function InvoiceDetailHeader({
   invoice,
   onUpdate,
+  children,
 }: InvoiceDetailHeaderProps) {
   const router = useRouter();
   const [sendLoading, setSendLoading] = useState(false);
@@ -118,6 +120,7 @@ export function InvoiceDetailHeader({
 
         {/* Right: action buttons */}
         <div className="flex items-center gap-2">
+          {children}
           {canSend && (
             <Button
               size="sm"

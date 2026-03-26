@@ -94,44 +94,11 @@ interface InvoiceDetailSheetProps {
   onDataChange: () => void;
 }
 
-/* ── Preference persistence ─────────────────────────────────── */
+import { useViewPreference } from "@/hooks/use-view-preference";
 
-const STORAGE_KEY = "zaxvio-invoice-detail-prefs";
 const DEFAULT_WIDTH = 520;
 const MIN_WIDTH = 400;
 const MAX_WIDTH = 800;
-
-interface InvoiceDetailPrefs {
-  mode: "sidebar" | "dialog";
-  sidebarWidth: number;
-}
-
-function loadPrefs(): InvoiceDetailPrefs {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      return {
-        mode: parsed.mode === "dialog" ? "dialog" : "sidebar",
-        sidebarWidth: Math.max(
-          MIN_WIDTH,
-          Math.min(MAX_WIDTH, Number(parsed.sidebarWidth) || DEFAULT_WIDTH),
-        ),
-      };
-    }
-  } catch {
-    /* SSR or corrupt data */
-  }
-  return { mode: "sidebar", sidebarWidth: DEFAULT_WIDTH };
-}
-
-function savePrefs(prefs: InvoiceDetailPrefs) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
-  } catch {
-    /* quota exceeded */
-  }
-}
 
 /* ── Tab definitions ─────────────────────────────────────────── */
 
@@ -151,17 +118,13 @@ export function InvoiceDetailSheet({
   const [sendLoading, setSendLoading] = useState(false);
 
   /* ── Preferences ──────────────────────────────────────────── */
-  const [mounted, setMounted] = useState(false);
-  const [prefs, setPrefs] = useState<InvoiceDetailPrefs>({
-    mode: "sidebar",
-    sidebarWidth: DEFAULT_WIDTH,
-  });
+  const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("invoices");
+  const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
   const switchingModeRef = useRef(false);
 
   useEffect(() => {
-    setPrefs(loadPrefs());
-    setMounted(true);
-  }, []);
+    setLiveSidebarWidth(prefSidebarWidth);
+  }, [prefSidebarWidth]);
 
   /* ── Invoice data fetching ──────────────────────────────────── */
   useEffect(() => {
@@ -218,10 +181,8 @@ export function InvoiceDetailSheet({
   /* ── Mode toggle ──────────────────────────────────────────── */
   function toggleMode() {
     switchingModeRef.current = true;
-    const newMode = prefs.mode === "sidebar" ? "dialog" : "sidebar";
-    const newPrefs: InvoiceDetailPrefs = { ...prefs, mode: newMode };
-    setPrefs(newPrefs);
-    savePrefs(newPrefs);
+    const newMode = prefMode === "sidebar" ? "dialog" : "sidebar";
+    setPrefMode(newMode);
     setIndicatorReady(false);
     requestAnimationFrame(() => {
       switchingModeRef.current = false;
@@ -239,7 +200,7 @@ export function InvoiceDetailSheet({
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
-      dragWidthRef.current = prefs.sidebarWidth;
+      dragWidthRef.current = liveSidebarWidth;
 
       const onMove = (ev: MouseEvent) => {
         const w = Math.max(
@@ -247,7 +208,7 @@ export function InvoiceDetailSheet({
           Math.min(MAX_WIDTH, window.innerWidth - ev.clientX),
         );
         dragWidthRef.current = w;
-        setPrefs((prev) => ({ ...prev, sidebarWidth: w }));
+        setLiveSidebarWidth(w);
       };
 
       const onUp = () => {
@@ -255,7 +216,7 @@ export function InvoiceDetailSheet({
         document.removeEventListener("mouseup", onUp);
         document.body.style.cursor = "";
         document.body.style.userSelect = "";
-        savePrefs({ ...loadPrefs(), sidebarWidth: dragWidthRef.current });
+        setPrefSidebarWidth(dragWidthRef.current);
       };
 
       document.addEventListener("mousemove", onMove);
@@ -263,7 +224,7 @@ export function InvoiceDetailSheet({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [prefs.sidebarWidth],
+    [liveSidebarWidth],
   );
 
   /* ── Sliding tab indicator ────────────────────────────────── */
@@ -301,7 +262,7 @@ export function InvoiceDetailSheet({
       const id = requestAnimationFrame(() => updateIndicatorTo(targetIndex));
       return () => cancelAnimationFrame(id);
     }
-  }, [targetIndex, updateIndicatorTo, loading, invoice, prefs.mode]);
+  }, [targetIndex, updateIndicatorTo, loading, invoice, prefMode]);
 
   // Recalculate on window resize
   useEffect(() => {
@@ -327,7 +288,7 @@ export function InvoiceDetailSheet({
     }
   }
 
-  const mode = mounted ? prefs.mode : "sidebar";
+  const mode = mounted ? (prefMode === "page" ? "sidebar" : prefMode) : "sidebar";
 
   /* ── Shared inner content ─────────────────────────────────── */
   const innerContent = (
@@ -394,6 +355,7 @@ export function InvoiceDetailSheet({
                   size="icon"
                   className="h-8 w-8 cursor-pointer"
                   onClick={() => {
+                    setPrefMode("page");
                     onOpenChange(false);
                     router.push(`/invoices/${invoice.id}`);
                   }}
@@ -520,7 +482,7 @@ export function InvoiceDetailSheet({
         side="right"
         className="overflow-y-auto p-0"
         style={{
-          maxWidth: mounted ? prefs.sidebarWidth : DEFAULT_WIDTH,
+          maxWidth: mounted ? liveSidebarWidth : DEFAULT_WIDTH,
           width: "100%",
         }}
       >

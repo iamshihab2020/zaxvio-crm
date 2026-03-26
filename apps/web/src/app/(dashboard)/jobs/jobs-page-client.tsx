@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useViewPreference } from "@/hooks/use-view-preference";
+import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import { toast } from "sonner";
 import { KanbanBoard } from "@/components/dashboard/jobs/kanban-board";
 import { KanbanSkeleton } from "@/components/dashboard/jobs/kanban-skeleton";
@@ -45,7 +47,9 @@ interface PipelineStageWithCount {
 }
 
 export function JobsPageClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("jobs");
   const [jobs, setJobs] = useState<JobCardData[]>([]);
   const [stages, setStages] = useState<PipelineStageWithCount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -242,6 +246,10 @@ export function JobsPageClient() {
   }, [search, priorityFilter, serviceTypeFilter, fetchJobs]);
 
   function handleJobClick(jobId: string) {
+    if (viewMode === "page") {
+      router.push(`/jobs/${jobId}`);
+      return;
+    }
     setSelectedJobId(jobId);
     setSheetOpen(true);
   }
@@ -435,6 +443,9 @@ export function JobsPageClient() {
             Table
           </button>
         </div>
+        {viewMounted && (
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        )}
       </div>
 
       {error && (

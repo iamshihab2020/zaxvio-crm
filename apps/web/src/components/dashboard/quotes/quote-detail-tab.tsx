@@ -4,12 +4,14 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { QuoteStatusBadge } from "./quote-status-badge";
 import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
+import Link from "next/link";
 import {
   IconSend,
   IconDownload,
   IconCheck,
   IconX,
   IconTransform,
+  IconExternalLink,
   IconUser,
   IconReceipt,
   IconNote,
@@ -140,6 +142,19 @@ export function QuoteDetailTab({
           >
             <IconTransform className="mr-1.5 h-3.5 w-3.5" />
             {convertLoading ? "Converting..." : "Convert to Job"}
+          </Button>
+        )}
+        {quote.convertedToJobId && (
+          <Button
+            size="sm"
+            variant="outline"
+            asChild
+            className="cursor-pointer"
+          >
+            <Link href={`/jobs/${quote.convertedToJobId}`}>
+              <IconExternalLink className="mr-1.5 h-3.5 w-3.5" />
+              View Job
+            </Link>
           </Button>
         )}
       </div>
