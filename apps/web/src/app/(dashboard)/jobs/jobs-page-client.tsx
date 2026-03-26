@@ -23,6 +23,7 @@ import {
   createJob,
   updateJob,
   deleteJob,
+  addJobLineItem,
 } from "@/actions/jobs";
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { getTenant } from "@/actions/tenants";
@@ -328,6 +329,21 @@ export function JobsPageClient() {
         setError(result.error);
         toast.error(result.error);
       } else {
+        // Add line items if any were provided
+        if (data.lineItems && data.lineItems.length > 0) {
+          const jobId = result.data.id;
+          await Promise.all(
+            data.lineItems.map((li) =>
+              addJobLineItem(jobId, {
+                description: li.description,
+                unitPrice: li.unitPrice,
+                itemType: li.itemType,
+                quantity: li.quantity,
+                catalogItemId: li.catalogItemId ?? undefined,
+              }),
+            ),
+          );
+        }
         setDialogOpen(false);
         toast.success("Job created");
         fetchJobs(search, priorityFilter, serviceTypeFilter);

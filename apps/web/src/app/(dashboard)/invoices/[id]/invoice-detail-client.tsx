@@ -23,7 +23,7 @@ export function InvoiceDetailClient({
   }, [invoice.id]);
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-3.5rem)] bg-surface">
+    <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       <InvoiceDetailHeader invoice={invoice} onUpdate={refreshInvoice} />
       <div className="flex-1 p-4 sm:p-6">
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 lg:items-start">

@@ -33,7 +33,7 @@ export function JobDetailClient({
   }, [job.id]);
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-3.5rem)] bg-surface">
+    <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
       <JobDetailPageHeader
         job={job}
         stages={stages}

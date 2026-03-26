@@ -61,8 +61,14 @@ export function CatalogItemPicker({
     setLoading(false);
   }, []);
 
+  // Prefetch catalog items on mount so data is ready instantly
   useEffect(() => {
-    if (!open) return;
+    fetchItems("");
+  }, [fetchItems]);
+
+  // Refetch when user searches inside the popover
+  useEffect(() => {
+    if (!open || search === "") return;
     const timer = setTimeout(() => fetchItems(search), 300);
     return () => clearTimeout(timer);
   }, [search, open, fetchItems]);

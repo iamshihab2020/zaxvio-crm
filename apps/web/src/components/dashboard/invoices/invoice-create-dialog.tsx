@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,25 +9,25 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
+import { cn } from "@/lib/utils";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
 import {
-  IconSearch,
-  IconCheck,
-  IconSelector,
   IconPencil,
   IconUser,
   IconFileInvoice,
   IconAlertCircle,
+  IconSearch,
+  IconCheck,
+  IconSelector,
 } from "@tabler/icons-react";
 import { getCustomers } from "@/actions/customers";
 
@@ -74,11 +74,13 @@ export function InvoiceCreateDialog({
   const [errors, setErrors] = useState<
     Partial<Record<keyof InvoiceFormData, string>>
   >({});
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
   const [selectedCustomerLabel, setSelectedCustomerLabel] = useState("");
   const [taxEditable, setTaxEditable] = useState(false);
+
+  // Popover customer picker
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   useEffect(() => {
     const defaultTaxPct = defaultTaxRate
@@ -88,31 +90,51 @@ export function InvoiceCreateDialog({
     setSelectedCustomerLabel("");
     setErrors({});
     setTaxEditable(false);
+    setCustomerSearch("");
+    setPopoverOpen(false);
   }, [open, defaultTaxRate]);
 
-  const fetchCustomers = useCallback(async (search: string) => {
-    const result = await getCustomers({ search, limit: 10 });
-    if (result.data) {
-      setCustomers(
-        result.data.map((c: CustomerOption) => ({
-          id: c.id,
-          firstName: c.firstName,
-          lastName: c.lastName,
-        })),
-      );
-    }
-  }, []);
-
+  // Prefetch customers when dialog opens so data is ready instantly
   useEffect(() => {
-    if (!customerPopoverOpen) return;
-    const timer = setTimeout(() => fetchCustomers(customerSearch), 300);
+    if (!open) return;
+    getCustomers({ search: "", limit: 10 }).then((result) => {
+      if (result.data) {
+        setCustomers(
+          result.data.map((c: CustomerOption) => ({
+            id: c.id,
+            firstName: c.firstName,
+            lastName: c.lastName,
+          })),
+        );
+      }
+    });
+  }, [open]);
+
+  // Refetch when user searches inside the popover
+  useEffect(() => {
+    if (!popoverOpen || customerSearch === "") return;
+    const timer = setTimeout(async () => {
+      const result = await getCustomers({ search: customerSearch, limit: 10 });
+      if (result.data) {
+        setCustomers(
+          result.data.map((c: CustomerOption) => ({
+            id: c.id,
+            firstName: c.firstName,
+            lastName: c.lastName,
+          })),
+        );
+      }
+    }, 300);
     return () => clearTimeout(timer);
-  }, [customerSearch, customerPopoverOpen, fetchCustomers]);
+  }, [customerSearch, popoverOpen]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const newErrors: Partial<Record<keyof InvoiceFormData, string>> = {};
-    if (!form.customerId) newErrors.customerId = "Customer is required";
+
+    if (!form.customerId) {
+      newErrors.customerId = "Customer is required";
+    }
 
     const taxRateNum = parseFloat(form.taxRate || "0");
     if (isNaN(taxRateNum) || taxRateNum < 0 || taxRateNum > 100) {
@@ -124,7 +146,6 @@ export function InvoiceCreateDialog({
       return;
     }
 
-    // Convert percentage to decimal
     const taxDecimal = taxRateNum / 100;
     onSave({ ...form, taxRate: taxDecimal.toString() });
   }
@@ -136,16 +157,16 @@ export function InvoiceCreateDialog({
     }
   }
 
-  function selectCustomer(customer: CustomerOption) {
+  function handleCustomerSelect(customer: CustomerOption) {
     updateField("customerId", customer.id);
     setSelectedCustomerLabel(`${customer.firstName} ${customer.lastName}`);
-    setCustomerPopoverOpen(false);
+    setPopoverOpen(false);
     setCustomerSearch("");
   }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-[600px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="font-heading">Create Invoice</DialogTitle>
           <DialogDescription className="font-body">
@@ -156,8 +177,8 @@ export function InvoiceCreateDialog({
           onSubmit={handleSubmit}
           className="flex flex-col gap-4 min-h-0"
         >
-          <ScrollArea className="flex-1">
-            <div className="space-y-4 pr-3">
+          <ScrollFadeArea className="flex-1">
+            <div className="space-y-4 px-3 pb-3">
               {/* Section 1: Customer */}
               <div className="flex items-center gap-2 text-muted-foreground">
                 <IconUser className="h-4 w-4" />
@@ -166,23 +187,18 @@ export function InvoiceCreateDialog({
                 </span>
               </div>
 
-              {/* Customer picker */}
+              {/* Customer picker — existing only (Popover) */}
               <div className="space-y-2">
                 <Label className="font-body text-muted-foreground">
                   Customer <span className="text-destructive">*</span>
                 </Label>
-                <Popover
-                  open={customerPopoverOpen}
-                  onOpenChange={setCustomerPopoverOpen}
-                >
+                <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
                     <button
                       type="button"
                       className={cn(
                         "flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-body cursor-pointer",
-                        errors.customerId
-                          ? "border-destructive"
-                          : "border-border",
+                        errors.customerId ? "border-destructive" : "border-border",
                         "bg-card",
                         !selectedCustomerLabel && "text-muted-foreground",
                       )}
@@ -192,7 +208,7 @@ export function InvoiceCreateDialog({
                     </button>
                   </PopoverTrigger>
                   <PopoverContent
-                    className="w-[calc(100vw-4rem)] sm:w-[440px] p-0"
+                    className="w-[calc(100vw-4rem)] sm:w-[340px] p-0"
                     align="start"
                   >
                     <div className="p-2 border-b border-border">
@@ -216,17 +232,13 @@ export function InvoiceCreateDialog({
                         <button
                           key={c.id}
                           type="button"
-                          onClick={() => selectCustomer(c)}
+                          onClick={() => handleCustomerSelect(c)}
                           className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
                         >
                           {form.customerId === c.id && (
                             <IconCheck className="h-4 w-4 text-brand shrink-0" />
                           )}
-                          <span
-                            className={cn(
-                              form.customerId !== c.id && "pl-6",
-                            )}
-                          >
+                          <span className={cn(form.customerId !== c.id && "pl-6")}>
                             {c.firstName} {c.lastName}
                           </span>
                         </button>
@@ -351,7 +363,7 @@ export function InvoiceCreateDialog({
                 />
               </div>
             </div>
-          </ScrollArea>
+          </ScrollFadeArea>
           <DialogFooter className="shrink-0 border-t pt-4">
             <Button
               type="button"

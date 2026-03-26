@@ -42,9 +42,23 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Quote Builder** (#6) — API routes + quote page, PDF, email, customer acceptance, convert to job
+- [ ] **KPI Dashboard** (#7) — Dashboard home with metrics (revenue, jobs, outstanding invoices, etc.)
 
 ## Done
+
+- [x] **Quote Builder (#6)** — Full quote management feature (ZAX-43)
+  - API routes: 13 endpoints (CRUD, line items, PDF gen/download, send, accept, decline, convert-to-job)
+  - PDF generation: `@react-pdf/renderer` with "ESTIMATE" header, "Valid Until" instead of "Due Date", no payment rows
+  - Server actions: 13 actions covering all API endpoints
+  - Frontend: Quote list page with table, status filters (draft/sent/accepted/declined/expired), search, pagination
+  - Quote create dialog with customer picker, tax rate, expiry date (+30 days default), discount
+  - Quote detail sheet with 2 tabs: Details, Line Items (no Payments tab)
+  - Line items tab: add/edit/delete with catalog picker (draft only)
+  - Full detail page: 3-panel layout (info panel, tabs, sidebar) at `/quotes/[id]`
+  - Convert to Job: creates job from accepted/sent quote, copies line items, auto-attaches checklist
+  - Customer quotes tab: shows customer's quotes in customer detail page
+  - Business rules: draft-only editing/deletion, auto-number (QT-YYYY-XXXX), generated line item totals
+  - Mirrors invoice system 1:1 with quote-specific adaptations
 
 - [x] **Enhanced Invoice PDF** (ZAX-42) — User-controlled invoice details
   - 5 new tenant columns: licenseNumber, invoicePaymentTerms, invoicePaymentInstructions, invoiceTermsConditions, invoiceFooterMessage

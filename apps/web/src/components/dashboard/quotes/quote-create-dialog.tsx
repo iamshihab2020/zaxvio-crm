@@ -1,0 +1,665 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
+import { cn } from "@/lib/utils";
+import {
+  IconPencil,
+  IconUser,
+  IconFileText,
+  IconAlertCircle,
+  IconPlus,
+  IconTrash,
+  IconPackage,
+} from "@tabler/icons-react";
+import { ITEM_TYPE_LABELS } from "@/lib/constants/job-options";
+import {
+  CatalogItemPicker,
+  type CatalogPickerItem,
+} from "@/components/dashboard/catalog/catalog-item-picker";
+import {
+  CustomerPicker,
+  type CustomerSelection,
+} from "@/components/dashboard/customers/customer-picker";
+import { createCustomer } from "@/actions/customers";
+import { toast } from "sonner";
+
+export interface LineItemFormData {
+  description: string;
+  itemType: string;
+  quantity: string;
+  unitPrice: string;
+  catalogItemId: string | null;
+}
+
+export interface QuoteFormData {
+  customerId: string;
+  issuedDate: string;
+  expiryDate: string;
+  taxRate: string;
+  discountAmount: string;
+  notes: string;
+  lineItems: LineItemFormData[];
+}
+
+interface QuoteCreateDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSave: (data: QuoteFormData) => void;
+  loading: boolean;
+  defaultTaxRate?: string;
+}
+
+function getDefaultExpiry(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 30);
+  return d.toISOString().split("T")[0];
+}
+
+interface NewItemForm {
+  description: string;
+  itemType: string;
+  quantity: string;
+  unitPrice: string;
+  catalogItemId: string | null;
+  catalogItemLabel: string;
+}
+
+const emptyItemForm: NewItemForm = {
+  description: "",
+  itemType: "labor",
+  quantity: "1",
+  unitPrice: "",
+  catalogItemId: null,
+  catalogItemLabel: "",
+};
+
+const emptyForm: Omit<QuoteFormData, "lineItems"> = {
+  customerId: "",
+  issuedDate: new Date().toISOString().split("T")[0],
+  expiryDate: getDefaultExpiry(),
+  taxRate: "0",
+  discountAmount: "0",
+  notes: "",
+};
+
+export function QuoteCreateDialog({
+  open,
+  onOpenChange,
+  onSave,
+  loading,
+  defaultTaxRate,
+}: QuoteCreateDialogProps) {
+  const [form, setForm] = useState(emptyForm);
+  const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof typeof emptyForm, string>>
+  >({});
+  const [customerSelection, setCustomerSelection] =
+    useState<CustomerSelection | null>(null);
+  const [taxEditable, setTaxEditable] = useState(false);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+
+  // New line item form
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [itemForm, setItemForm] = useState<NewItemForm>(emptyItemForm);
+
+  useEffect(() => {
+    const defaultTaxPct = defaultTaxRate
+      ? (parseFloat(defaultTaxRate) * 100).toString()
+      : "0";
+    setForm({ ...emptyForm, expiryDate: getDefaultExpiry(), taxRate: defaultTaxPct });
+    setLineItems([]);
+    setCustomerSelection(null);
+    setErrors({});
+    setTaxEditable(false);
+    setCreatingCustomer(false);
+    setShowAddItem(false);
+    setItemForm(emptyItemForm);
+  }, [open, defaultTaxRate]);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const newErrors: Partial<Record<keyof typeof emptyForm, string>> = {};
+
+    if (!customerSelection) {
+      newErrors.customerId = "Customer is required";
+    } else if (
+      customerSelection.type === "new" &&
+      (!customerSelection.firstName.trim() || !customerSelection.lastName.trim())
+    ) {
+      newErrors.customerId = "First name and last name are required";
+    }
+
+    const taxRateNum = parseFloat(form.taxRate || "0");
+    if (isNaN(taxRateNum) || taxRateNum < 0 || taxRateNum > 100) {
+      newErrors.taxRate = "Tax rate must be between 0 and 100";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    let customerId: string;
+
+    if (customerSelection!.type === "new") {
+      setCreatingCustomer(true);
+      const phone = customerSelection!.type === "new" ? customerSelection!.phone.replace(/\D/g, "") : "";
+      const result = await createCustomer({
+        firstName: customerSelection!.type === "new" ? customerSelection!.firstName.trim() : "",
+        lastName: customerSelection!.type === "new" ? customerSelection!.lastName.trim() : "",
+        phone: phone || undefined,
+        email: customerSelection!.type === "new" && customerSelection!.email.trim() ? customerSelection!.email.trim() : undefined,
+      });
+      setCreatingCustomer(false);
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      customerId = result.data.id;
+      toast.success(`Customer "${result.data.firstName} ${result.data.lastName}" created`);
+    } else {
+      customerId = customerSelection!.id;
+    }
+
+    // Convert percentage to decimal
+    const taxDecimal = taxRateNum / 100;
+    onSave({ ...form, customerId, taxRate: taxDecimal.toString(), lineItems });
+  }
+
+  function updateField(field: keyof typeof emptyForm, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
+    }
+  }
+
+  function handleCustomerChange(selection: CustomerSelection | null) {
+    setCustomerSelection(selection);
+    if (errors.customerId) {
+      setErrors((prev) => ({ ...prev, customerId: undefined }));
+    }
+  }
+
+  function handleAddItem() {
+    if (!itemForm.description.trim() || !itemForm.unitPrice.trim()) return;
+    setLineItems((prev) => [
+      ...prev,
+      {
+        description: itemForm.description,
+        itemType: itemForm.itemType,
+        quantity: itemForm.quantity,
+        unitPrice: itemForm.unitPrice,
+        catalogItemId: itemForm.catalogItemId,
+      },
+    ]);
+    setItemForm(emptyItemForm);
+    setShowAddItem(false);
+  }
+
+  function removeItem(index: number) {
+    setLineItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Compute summary
+  const subtotal = lineItems.reduce(
+    (sum, li) =>
+      sum + parseFloat(li.quantity || "0") * parseFloat(li.unitPrice || "0"),
+    0,
+  );
+  const taxRateNum = parseFloat(form.taxRate || "0") / 100;
+  const taxAmount = subtotal * taxRateNum;
+  const discount = parseFloat(form.discountAmount || "0");
+  const total = subtotal + taxAmount - discount;
+
+  const isBusy = loading || creatingCustomer;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[900px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
+        <DialogHeader>
+          <DialogTitle className="font-heading">Create Quote</DialogTitle>
+          <DialogDescription className="font-body">
+            Create a new estimate to send to your customer for approval.
+          </DialogDescription>
+        </DialogHeader>
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-col gap-4 min-h-0"
+        >
+          <ScrollFadeArea className="flex-1">
+            <div className="flex flex-col lg:flex-row gap-6 px-3 pb-3">
+              {/* Left column: Quote details */}
+              <div className="flex-1 min-w-0 space-y-4">
+                {/* Section 1: Customer */}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <IconUser className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wider font-body">
+                    Customer
+                  </span>
+                </div>
+
+                {/* Customer picker */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="font-body text-muted-foreground">
+                      Customer <span className="text-destructive">*</span>
+                    </Label>
+                    {customerSelection?.type !== "new" && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleCustomerChange({
+                            type: "new",
+                            firstName: "",
+                            lastName: "",
+                            phone: "",
+                            email: "",
+                          })
+                        }
+                        className="flex items-center gap-1 text-xs text-brand hover:underline cursor-pointer font-body"
+                      >
+                        <IconPlus className="h-3 w-3" />
+                        New Customer
+                      </button>
+                    )}
+                  </div>
+                  <CustomerPicker
+                    value={customerSelection}
+                    onChange={handleCustomerChange}
+                    error={errors.customerId}
+                  />
+                  {errors.customerId && customerSelection?.type !== "new" && (
+                    <p className="flex items-center gap-1 text-xs text-destructive">
+                      <IconAlertCircle className="h-3 w-3 shrink-0" />
+                      {errors.customerId}
+                    </p>
+                  )}
+                </div>
+
+                {/* Separator */}
+                <div className="border-t border-border" />
+
+                {/* Section 2: Quote Details */}
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <IconFileText className="h-4 w-4" />
+                  <span className="text-xs font-medium uppercase tracking-wider font-body">
+                    Quote Details
+                  </span>
+                </div>
+
+                {/* Dates */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="issuedDate" className="font-body text-muted-foreground">
+                      Issued Date
+                    </Label>
+                    <Input
+                      id="issuedDate"
+                      type="date"
+                      value={form.issuedDate}
+                      onChange={(e) => updateField("issuedDate", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="expiryDate" className="font-body text-muted-foreground">
+                      Valid Until
+                    </Label>
+                    <Input
+                      id="expiryDate"
+                      type="date"
+                      value={form.expiryDate}
+                      onChange={(e) => updateField("expiryDate", e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* Tax & Discount */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="taxRate" className="font-body text-muted-foreground">
+                      Tax Rate (%)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Input
+                        id="taxRate"
+                        value={form.taxRate}
+                        onChange={(e) => updateField("taxRate", e.target.value)}
+                        placeholder="8.25"
+                        readOnly={!taxEditable}
+                        className={cn(
+                          !taxEditable && "bg-muted text-muted-foreground",
+                          errors.taxRate && "border-destructive",
+                        )}
+                      />
+                      {!taxEditable && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0 h-9 w-9"
+                          onClick={() => setTaxEditable(true)}
+                          title="Override tax rate"
+                        >
+                          <IconPencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                    {!taxEditable && (
+                      <p className="text-xs text-muted-foreground">
+                        From your business settings
+                      </p>
+                    )}
+                    {errors.taxRate && (
+                      <p className="flex items-center gap-1 text-xs text-destructive">
+                        <IconAlertCircle className="h-3 w-3 shrink-0" />
+                        {errors.taxRate}
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="discount" className="font-body text-muted-foreground">
+                      Discount ($)
+                    </Label>
+                    <Input
+                      id="discount"
+                      value={form.discountAmount}
+                      onChange={(e) =>
+                        updateField("discountAmount", e.target.value)
+                      }
+                      placeholder="0.00"
+                    />
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="font-body text-muted-foreground">
+                    Notes
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    value={form.notes}
+                    onChange={(e) => updateField("notes", e.target.value)}
+                    placeholder="Quote notes..."
+                    rows={2}
+                  />
+                </div>
+              </div>
+
+              {/* Right column: Line items */}
+              <div className="lg:w-[300px] shrink-0 space-y-3 lg:border-l lg:border-border lg:pl-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <IconPackage className="h-4 w-4" />
+                    <span className="text-xs font-medium uppercase tracking-wider font-body">
+                      Line Items
+                    </span>
+                  </div>
+                  {lineItems.length > 0 && (
+                    <span className="text-xs text-muted-foreground font-body">
+                      {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
+                    </span>
+                  )}
+                </div>
+
+                {/* Existing items */}
+                {lineItems.length > 0 && (
+                  <div className="rounded-md border border-border overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border bg-muted/30">
+                          <th className="px-2 py-1.5 text-left font-medium text-muted-foreground font-body text-xs">
+                            Item
+                          </th>
+                          <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-12">
+                            Qty
+                          </th>
+                          <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-16">
+                            Price
+                          </th>
+                          <th className="w-8" />
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {lineItems.map((li, idx) => (
+                          <tr
+                            key={idx}
+                            className="border-b border-border last:border-0"
+                          >
+                            <td className="px-2 py-1.5 font-body">
+                              <div className="text-xs text-foreground truncate max-w-[160px]">
+                                {li.description}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}
+                              </div>
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs text-muted-foreground font-body">
+                              {li.quantity}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-xs font-medium font-body">
+                              ${(
+                                parseFloat(li.quantity || "0") *
+                                parseFloat(li.unitPrice || "0")
+                              ).toFixed(2)}
+                            </td>
+                            <td className="px-1 py-1.5">
+                              <button
+                                type="button"
+                                onClick={() => removeItem(idx)}
+                                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive cursor-pointer"
+                              >
+                                <IconTrash className="h-3 w-3" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Add Line Item button — collapses when form is open */}
+                <div
+                  className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                  style={{ gridTemplateRows: showAddItem ? "0fr" : "1fr", opacity: showAddItem ? 0 : 1 }}
+                >
+                  <div className="overflow-hidden">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddItem(true)}
+                      tabIndex={showAddItem ? -1 : 0}
+                      className="w-full cursor-pointer text-xs"
+                    >
+                      <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+                      Add Line Item
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Add item form — expands when open */}
+                <div
+                  className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                  style={{ gridTemplateRows: showAddItem ? "1fr" : "0fr", opacity: showAddItem ? 1 : 0 }}
+                >
+                  <div className="overflow-hidden">
+                    <div className="rounded-md border border-border p-2.5 space-y-2">
+                      <div>
+                        <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
+                          From catalog (optional)
+                        </label>
+                        <CatalogItemPicker
+                          selectedId={itemForm.catalogItemId}
+                          selectedLabel={itemForm.catalogItemLabel}
+                          onSelect={(item: CatalogPickerItem | null) => {
+                            if (item) {
+                              setItemForm((f) => ({
+                                ...f,
+                                catalogItemId: item.id,
+                                catalogItemLabel: item.name,
+                                description: item.name,
+                                unitPrice: parseFloat(item.unitPrice).toFixed(2),
+                                itemType: item.itemType,
+                              }));
+                            } else {
+                              setItemForm((f) => ({
+                                ...f,
+                                catalogItemId: null,
+                                catalogItemLabel: "",
+                              }));
+                            }
+                          }}
+                        />
+                      </div>
+                      <Input
+                        placeholder="Description"
+                        value={itemForm.description}
+                        onChange={(e) =>
+                          setItemForm((f) => ({ ...f, description: e.target.value }))
+                        }
+                        className="text-sm h-8"
+                        tabIndex={showAddItem ? 0 : -1}
+                      />
+                      <div className="flex gap-2">
+                        <select
+                          value={itemForm.itemType}
+                          onChange={(e) =>
+                            setItemForm((f) => ({ ...f, itemType: e.target.value }))
+                          }
+                          className="h-8 rounded-md border border-border bg-card px-2 text-xs font-body flex-1"
+                          tabIndex={showAddItem ? 0 : -1}
+                        >
+                          {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
+                            <option key={val} value={val}>
+                              {label}
+                            </option>
+                          ))}
+                        </select>
+                        <Input
+                          placeholder="Qty"
+                          value={itemForm.quantity}
+                          onChange={(e) =>
+                            setItemForm((f) => ({ ...f, quantity: e.target.value }))
+                          }
+                          className="w-14 text-sm h-8"
+                          tabIndex={showAddItem ? 0 : -1}
+                        />
+                        <Input
+                          placeholder="Price"
+                          value={itemForm.unitPrice}
+                          onChange={(e) =>
+                            setItemForm((f) => ({ ...f, unitPrice: e.target.value }))
+                          }
+                          className="w-20 text-sm h-8"
+                          tabIndex={showAddItem ? 0 : -1}
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs cursor-pointer"
+                          tabIndex={showAddItem ? 0 : -1}
+                          onClick={() => {
+                            setShowAddItem(false);
+                            setItemForm(emptyItemForm);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+                          tabIndex={showAddItem ? 0 : -1}
+                          onClick={handleAddItem}
+                          disabled={!itemForm.description.trim() || !itemForm.unitPrice.trim()}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary */}
+                {lineItems.length > 0 && (
+                  <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5">
+                    <div className="flex justify-between text-xs text-muted-foreground font-body">
+                      <span>Subtotal</span>
+                      <span>${subtotal.toFixed(2)}</span>
+                    </div>
+                    {taxRateNum > 0 && (
+                      <div className="flex justify-between text-xs text-muted-foreground font-body">
+                        <span>Tax ({form.taxRate}%)</span>
+                        <span>${taxAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {discount > 0 && (
+                      <div className="flex justify-between text-xs text-muted-foreground font-body">
+                        <span>Discount</span>
+                        <span>-${discount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold font-body">
+                      <span>Total</span>
+                      <span>${total.toFixed(2)}</span>
+                    </div>
+                  </div>
+                )}
+
+                {lineItems.length === 0 && !showAddItem && (
+                  <p className="text-xs text-muted-foreground text-center py-4 font-body">
+                    Line items are optional during creation.
+                    <br />
+                    You can also add them later.
+                  </p>
+                )}
+              </div>
+            </div>
+          </ScrollFadeArea>
+          <DialogFooter className="shrink-0 border-t pt-4">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={isBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              className="bg-brand text-brand-foreground hover:bg-brand/90 min-w-[160px]"
+              disabled={isBusy}
+            >
+              {creatingCustomer
+                ? "Creating customer..."
+                : loading
+                  ? "Creating..."
+                  : "Create Quote"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
