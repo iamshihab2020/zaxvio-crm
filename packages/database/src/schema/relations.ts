@@ -31,6 +31,7 @@ import {
 import { customerNotes } from "./customer-notes";
 import { customerActivities } from "./customer-activities";
 import { jobActivities } from "./job-activities";
+import { quoteActivities } from "./quote-activities";
 import { tags, customerTags } from "./tags";
 import { jobPipelineStages } from "./pipeline-stages";
 
@@ -309,6 +310,7 @@ export const quotesRelations = relations(quotes, ({ one, many }) => ({
     references: [jobs.id],
   }),
   lineItems: many(quoteLineItems),
+  activities: many(quoteActivities),
 }));
 
 export const quoteLineItemsRelations = relations(
@@ -490,6 +492,25 @@ export const jobActivitiesRelations = relations(
     }),
     performer: one(user, {
       fields: [jobActivities.performedBy],
+      references: [user.id],
+    }),
+  }),
+);
+
+// --- Quote Activities relations ---
+export const quoteActivitiesRelations = relations(
+  quoteActivities,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [quoteActivities.tenantId],
+      references: [tenants.id],
+    }),
+    quote: one(quotes, {
+      fields: [quoteActivities.quoteId],
+      references: [quotes.id],
+    }),
+    performer: one(user, {
+      fields: [quoteActivities.performedBy],
       references: [user.id],
     }),
   }),

@@ -16,10 +16,12 @@ export function QuoteDetailClient({
   quote: initialQuote,
 }: QuoteDetailClientProps) {
   const [quote, setQuote] = useState<QuoteDetail>(initialQuote);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const refreshQuote = useCallback(async () => {
     const res = await getQuote(quote.id);
     if (res.data) setQuote(res.data as QuoteDetail);
+    setRefreshKey((k) => k + 1);
   }, [quote.id]);
 
   return (
@@ -33,7 +35,7 @@ export function QuoteDetailClient({
           </div>
           {/* Center Panel */}
           <div className="flex-1 min-w-0 rounded-lg border border-border bg-card shadow-sm p-4 sm:p-5">
-            <QuoteTabsPanel quote={quote} onUpdate={refreshQuote} />
+            <QuoteTabsPanel quote={quote} onUpdate={refreshQuote} refreshKey={refreshKey} />
           </div>
           {/* Right Sidebar */}
           <div className="hidden xl:block w-72 shrink-0 rounded-lg border border-border bg-card shadow-sm">

@@ -9,6 +9,7 @@ import {
   IconChecklist,
   IconBuilding,
   IconFileInvoice,
+  IconFileDescription,
   IconCreditCard,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ const tabs = [
   { label: "Checklists", href: "/settings/checklists", icon: IconChecklist },
   { label: "Business", href: "/settings/business", icon: IconBuilding },
   { label: "Invoices", href: "/settings/invoices", icon: IconFileInvoice },
+  { label: "Quotes", href: "/settings/quotes", icon: IconFileDescription },
   { label: "Billing", href: "/settings/billing", icon: IconCreditCard },
 ];
 

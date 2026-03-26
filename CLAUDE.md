@@ -157,7 +157,7 @@ Login flow:
 
 ### Schema (Drizzle ORM)
 
-Schema defined in `packages/database/src/schema/` (18 files, 32 tables):
+Schema defined in `packages/database/src/schema/` (19 files, 33 tables):
 
 
 | File               | Tables                                                                                             |
@@ -182,6 +182,7 @@ Schema defined in `packages/database/src/schema/` (18 files, 32 tables):
 | `customer-notes.ts`| `customerNotes` (per-customer notes with author tracking)                                          |
 | `customer-activities.ts` | `customerActivities` (activity log timeline)                                                 |
 | `job-activities.ts`      | `jobActivities` (job activity log timeline)                                                   |
+| `quote-activities.ts`    | `quoteActivities` (quote activity log timeline)                                               |
 | `tags.ts`          | `tags` (tenant-level reusable tags), `customerTags` (many-to-many junction)                        |
 | `relations.ts`     | All Drizzle `relations()` for query builder joins                                                  |
 | `index.ts`         | Barrel re-export                                                                                   |

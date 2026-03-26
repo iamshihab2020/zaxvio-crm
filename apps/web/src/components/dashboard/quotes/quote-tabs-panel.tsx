@@ -3,15 +3,16 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { QuoteLineItemsTab } from "./quote-line-items-tab";
-import { IconActivity } from "@tabler/icons-react";
+import { QuoteActivityTab } from "./quote-activity-tab";
 import type { QuoteDetail } from "./quote-detail-sheet";
 
 interface QuoteTabsPanelProps {
   quote: QuoteDetail;
   onUpdate: () => void;
+  refreshKey?: number;
 }
 
-export function QuoteTabsPanel({ quote, onUpdate }: QuoteTabsPanelProps) {
+export function QuoteTabsPanel({ quote, onUpdate, refreshKey }: QuoteTabsPanelProps) {
   const [activeTab, setActiveTab] = useState("line-items");
 
   return (
@@ -41,15 +42,7 @@ export function QuoteTabsPanel({ quote, onUpdate }: QuoteTabsPanelProps) {
           />
         </TabsContent>
         <TabsContent value="activity" className="mt-0">
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
-              <IconActivity className="h-5 w-5 text-brand" />
-            </div>
-            <p className="text-sm font-medium text-foreground font-body">
-              Activity timeline
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">Coming soon</p>
-          </div>
+          <QuoteActivityTab quoteId={quote.id} refreshKey={refreshKey} />
         </TabsContent>
       </div>
     </Tabs>

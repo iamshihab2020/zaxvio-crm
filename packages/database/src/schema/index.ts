@@ -23,6 +23,7 @@ export * from "./pipeline-stages";
 export * from "./customer-notes";
 export * from "./customer-activities";
 export * from "./job-activities";
+export * from "./quote-activities";
 export * from "./tags";
 
 // Relations

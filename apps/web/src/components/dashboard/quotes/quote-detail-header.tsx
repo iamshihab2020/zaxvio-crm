@@ -13,7 +13,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { QuoteStatusBadge } from "./quote-status-badge";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
 import {
+  IconAlertTriangle,
   IconChevronRight,
   IconSend,
   IconDownload,
@@ -45,6 +47,7 @@ export function QuoteDetailHeader({
   const router = useRouter();
   const [sendLoading, setSendLoading] = useState(false);
   const [convertLoading, setConvertLoading] = useState(false);
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
@@ -193,7 +196,7 @@ export function QuoteDetailHeader({
           {canConvert && (
             <Button
               size="sm"
-              onClick={handleConvert}
+              onClick={() => setConvertDialogOpen(true)}
               disabled={convertLoading}
               className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
             >
@@ -234,6 +237,34 @@ export function QuoteDetailHeader({
         onConfirm={handleDelete}
         loading={deleteLoading}
         description="All line items will also be deleted."
+      />
+
+      <ConfirmActionDialog
+        title="Convert to Job"
+        description={
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              A new job will be created with all line items copied from this quote.
+            </p>
+            {quote.status === "sent" && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-2.5">
+                <IconAlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  This quote hasn&apos;t been formally accepted. Converting will mark it as accepted.
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+          </div>
+        }
+        open={convertDialogOpen}
+        onOpenChange={setConvertDialogOpen}
+        onConfirm={() => {
+          setConvertDialogOpen(false);
+          handleConvert();
+        }}
+        confirmLabel="Convert to Job"
+        loading={convertLoading}
       />
     </>
   );

@@ -4,6 +4,7 @@ import {
   getDb,
   quotes,
   quoteLineItems,
+  quoteActivities,
   jobs,
   jobLineItems,
   jobActivities,
@@ -21,10 +22,52 @@ import {
   asc,
   count,
   sql,
+  user,
 } from "@hvac-saas/database";
 import { getSupabaseAdmin } from "@hvac-saas/database";
+import { lt } from "drizzle-orm";
 
 // ========== HELPERS ==========
+
+/**
+ * Auto-expire sent quotes past their expiryDate.
+ * Single UPDATE, no extra queries.
+ */
+async function autoExpireQuotes(
+  db: ReturnType<typeof getDb>,
+  tenantId: string,
+) {
+  const today = new Date().toISOString().split("T")[0];
+  await db
+    .update(quotes)
+    .set({ status: "expired" as never, updatedAt: new Date() })
+    .where(
+      and(
+        eq(quotes.tenantId, tenantId),
+        eq(quotes.status, "sent" as never),
+        lt(quotes.expiryDate, today),
+      ),
+    );
+}
+
+async function logQuoteActivity(
+  db: ReturnType<typeof getDb>,
+  tenantId: string,
+  quoteId: string,
+  type: string,
+  description: string,
+  performedBy?: string,
+  metadata?: Record<string, unknown>,
+) {
+  await db.insert(quoteActivities).values({
+    tenantId,
+    quoteId,
+    type,
+    description,
+    performedBy: performedBy ?? null,
+    metadata: metadata ?? null,
+  });
+}
 
 async function recalculateQuoteTotals(
   db: ReturnType<typeof getDb>,
@@ -149,6 +192,10 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
+
+      // Auto-expire sent quotes past their expiry date
+      await autoExpireQuotes(db, tenantId);
+
       const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
       const limitNum = Math.min(
         100,
@@ -255,6 +302,9 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
+      // Auto-expire this quote if past expiry
+      await autoExpireQuotes(db, tenantId);
+
       const quoteRow = await db
         .select({
           id: quotes.id,
@@ -344,6 +394,22 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ message: "Customer not found" });
       }
 
+      // Validate discount amount
+      if (body.discountAmount !== undefined) {
+        const d = parseFloat(body.discountAmount as string);
+        if (isNaN(d) || d < 0) {
+          return reply.status(400).send({ message: "Discount amount must be a non-negative number" });
+        }
+      }
+
+      // Validate tax rate (decimal: 0.0825 = 8.25%)
+      if (body.taxRate !== undefined) {
+        const t = parseFloat(body.taxRate as string);
+        if (isNaN(t) || t < 0 || t > 1) {
+          return reply.status(400).send({ message: "Tax rate must be between 0 and 1 (e.g., 0.0825 for 8.25%)" });
+        }
+      }
+
       // Get default tax rate from tenant if not specified
       let taxRate = body.taxRate as string | undefined;
       if (!taxRate) {
@@ -379,6 +445,8 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .from(quotes)
         .where(eq(quotes.id, quote.id));
 
+      await logQuoteActivity(db, tenantId, created.id, "quote.created", `Quote ${created.quoteNumber} created`, request.authUser.userId);
+
       return reply.status(201).send({ data: created });
     },
   );
@@ -410,6 +478,39 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         return reply
           .status(400)
           .send({ message: "Only draft quotes can be edited" });
+      }
+
+      // Validate discount amount
+      if (body.discountAmount !== undefined) {
+        const d = parseFloat(body.discountAmount as string);
+        if (isNaN(d) || d < 0) {
+          return reply.status(400).send({ message: "Discount amount must be a non-negative number" });
+        }
+      }
+
+      // Validate tax rate
+      if (body.taxRate !== undefined) {
+        const t = parseFloat(body.taxRate as string);
+        if (isNaN(t) || t < 0 || t > 1) {
+          return reply.status(400).send({ message: "Tax rate must be between 0 and 1 (e.g., 0.0825 for 8.25%)" });
+        }
+      }
+
+      // Validate customer ID change
+      if (body.customerId && body.customerId !== existing.customerId) {
+        const newCustomer = await db
+          .select({ id: customers.id })
+          .from(customers)
+          .where(
+            and(
+              eq(customers.tenantId, tenantId),
+              eq(customers.id, body.customerId as string),
+            ),
+          )
+          .then((r) => r[0]);
+        if (!newCustomer) {
+          return reply.status(400).send({ message: "Customer not found" });
+        }
       }
 
       const allowedFields = [
@@ -447,6 +548,9 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .select()
         .from(quotes)
         .where(eq(quotes.id, id));
+
+      const changedFields = Object.keys(updates).filter((k) => k !== "updatedAt");
+      await logQuoteActivity(db, tenantId, id, "quote.updated", `Quote updated (${changedFields.join(", ")})`, request.authUser.userId, { changedFields });
 
       return reply.send({ data: updated });
     },
@@ -565,6 +669,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .returning();
 
       await recalculateQuoteTotals(db, id, tenantId);
+      await logQuoteActivity(db, tenantId, id, "line_item.added", `Line item added: ${description}`, request.authUser.userId, { description });
 
       return reply.status(201).send({ data: lineItem });
     },
@@ -624,6 +729,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         "unitPrice",
         "sortOrder",
         "itemType",
+        "catalogItemId",
       ];
       const updates: Record<string, unknown> = {};
       for (const field of allowedFields) {
@@ -639,6 +745,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .returning();
 
       await recalculateQuoteTotals(db, id, tenantId);
+      await logQuoteActivity(db, tenantId, id, "line_item.updated", "Line item updated", request.authUser.userId);
 
       return reply.send({ data: updated });
     },
@@ -696,6 +803,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .where(eq(quoteLineItems.id, lineItemId));
 
       await recalculateQuoteTotals(db, id, tenantId);
+      await logQuoteActivity(db, tenantId, id, "line_item.removed", "Line item removed", request.authUser.userId);
 
       return reply.send({ message: "Line item deleted" });
     },
@@ -746,7 +854,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         db
           .select()
           .from(customers)
-          .where(eq(customers.id, q.customerId))
+          .where(and(eq(customers.id, q.customerId), eq(customers.tenantId, tenantId)))
           .then((r) => r[0]),
         db
           .select()
@@ -754,6 +862,11 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           .where(eq(tenants.id, tenantId))
           .then((r) => r[0]),
       ]);
+
+      // Validate line items exist
+      if (lineItems.length === 0) {
+        return reply.status(400).send({ message: "Cannot send a quote with no line items" });
+      }
 
       // Generate PDF
       const { generateQuotePdf } = await import(
@@ -789,6 +902,8 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .select()
         .from(quotes)
         .where(eq(quotes.id, id));
+
+      await logQuoteActivity(db, tenantId, id, "quote.sent", "Quote sent", request.authUser.userId);
 
       return reply.send({ data: updated });
     },
@@ -850,7 +965,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         db
           .select()
           .from(customers)
-          .where(eq(customers.id, q.customerId))
+          .where(and(eq(customers.id, q.customerId), eq(customers.tenantId, tenantId)))
           .then((r) => r[0]),
         db
           .select()
@@ -918,6 +1033,8 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
         .returning();
 
+      await logQuoteActivity(db, tenantId, id, "quote.accepted", "Quote accepted", request.authUser.userId);
+
       return reply.send({ data: updated });
     },
   );
@@ -958,6 +1075,8 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         })
         .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
         .returning();
+
+      await logQuoteActivity(db, tenantId, id, "quote.declined", "Quote declined", request.authUser.userId);
 
       return reply.send({ data: updated });
     },
@@ -1054,11 +1173,12 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         );
       }
 
-      // Recalculate job totals
+      // Recalculate job totals (include discount from quote)
       const subtotal = parseFloat(q.subtotal);
       const taxRate = parseFloat(q.taxRate ?? "0");
+      const discountAmount = parseFloat(q.discountAmount ?? "0");
       const taxAmount = subtotal * taxRate;
-      const totalAmount = subtotal + taxAmount;
+      const totalAmount = subtotal + taxAmount - discountAmount;
 
       await db
         .update(jobs)
@@ -1089,7 +1209,89 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .from(jobs)
         .where(eq(jobs.id, job.id));
 
+      await logQuoteActivity(db, tenantId, id, "quote.converted", `Converted to job ${createdJob.jobNumber}`, userId, { jobId: job.id });
+
       return reply.status(201).send({ data: createdJob });
+    },
+  );
+
+  // ===== ACTIVITIES =====
+
+  /**
+   * GET /quotes/:id/activities
+   * Paginated activity timeline for a quote.
+   */
+  fastify.get(
+    "/:id/activities",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const tenantId = request.authUser.tenantId!;
+      const {
+        page = "1",
+        limit = "50",
+      } = request.query as Record<string, string | undefined>;
+      const db = getDb();
+
+      // Verify quote exists for this tenant
+      const q = await db
+        .select({ id: quotes.id })
+        .from(quotes)
+        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
+        .then((r) => r[0]);
+
+      if (!q) {
+        return reply.status(404).send({ message: "Quote not found" });
+      }
+
+      const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit ?? "50", 10) || 50));
+      const offset = (pageNum - 1) * limitNum;
+
+      const [data, totalResult] = await Promise.all([
+        db
+          .select({
+            id: quoteActivities.id,
+            type: quoteActivities.type,
+            description: quoteActivities.description,
+            metadata: quoteActivities.metadata,
+            createdAt: quoteActivities.createdAt,
+            performedBy: quoteActivities.performedBy,
+            performerName: user.name,
+          })
+          .from(quoteActivities)
+          .leftJoin(user, eq(quoteActivities.performedBy, user.id))
+          .where(
+            and(
+              eq(quoteActivities.tenantId, tenantId),
+              eq(quoteActivities.quoteId, id),
+            ),
+          )
+          .orderBy(desc(quoteActivities.createdAt))
+          .limit(limitNum)
+          .offset(offset),
+        db
+          .select({ total: count() })
+          .from(quoteActivities)
+          .where(
+            and(
+              eq(quoteActivities.tenantId, tenantId),
+              eq(quoteActivities.quoteId, id),
+            ),
+          ),
+      ]);
+
+      const total = totalResult[0]?.total ?? 0;
+
+      return reply.send({
+        data,
+        pagination: {
+          page: pageNum,
+          limit: limitNum,
+          total,
+          totalPages: Math.ceil(total / limitNum),
+        },
+      });
     },
   );
 }

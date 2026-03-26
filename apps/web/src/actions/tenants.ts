@@ -83,6 +83,8 @@ export async function updateTenant(data: {
   invoicePaymentInstructions?: string;
   invoiceTermsConditions?: string;
   invoiceFooterMessage?: string;
+  quoteTermsConditions?: string;
+  quoteFooterMessage?: string;
 }) {
   try {
     const res = await fetch(`${API_URL}/tenants/current`, {

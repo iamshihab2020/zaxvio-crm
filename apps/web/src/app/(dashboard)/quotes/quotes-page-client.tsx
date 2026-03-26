@@ -7,9 +7,17 @@ import {
   IconPlus,
   IconSearch,
   IconFileText,
+  IconSortDescending,
+  IconSortAscending,
+  IconCheck,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import {
   QuoteTable,
@@ -35,6 +43,15 @@ import {
 } from "@/actions/quotes";
 import { getTenant } from "@/actions/tenants";
 
+const SORT_OPTIONS = [
+  { value: "createdAt", label: "Date Created" },
+  { value: "quoteNumber", label: "Quote #" },
+  { value: "totalAmount", label: "Total Amount" },
+  { value: "issuedDate", label: "Issued Date" },
+  { value: "expiryDate", label: "Expiry Date" },
+  { value: "status", label: "Status" },
+];
+
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "draft", label: "Draft" },
@@ -56,6 +73,9 @@ export function QuotesPageClient() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [sortBy, setSortBy] = useState("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [sortPopoverOpen, setSortPopoverOpen] = useState(false);
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
     limit: 20,
@@ -97,8 +117,8 @@ export function QuotesPageClient() {
         status: statusFilter || undefined,
         page,
         limit: 20,
-        sortBy: "createdAt",
-        sortOrder: "desc",
+        sortBy,
+        sortOrder,
       });
       if (result.data) {
         setQuotes(result.data as QuoteRow[]);
@@ -108,7 +128,7 @@ export function QuotesPageClient() {
       }
       setLoading(false);
     },
-    [search, statusFilter],
+    [search, statusFilter, sortBy, sortOrder],
   );
 
   // Fetch tenant for default tax rate
@@ -175,7 +195,12 @@ export function QuotesPageClient() {
       toast.success("Quote deleted");
       setDeleteDialogOpen(false);
       setDeletingQuote(null);
-      fetchQuotes(pagination.page);
+      // If last item on current page, go to previous page
+      const targetPage =
+        quotes.length === 1 && pagination.page > 1
+          ? pagination.page - 1
+          : pagination.page;
+      fetchQuotes(targetPage);
     }
   }
 
@@ -230,14 +255,56 @@ export function QuotesPageClient() {
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Search + filters */}
           <div className="border-b border-border px-4 py-3 space-y-3">
-            <div className="relative max-w-sm">
-              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search quotes..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative max-w-sm flex-1">
+                <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search quotes..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Popover open={sortPopoverOpen} onOpenChange={setSortPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 cursor-pointer shrink-0"
+                  >
+                    {sortOrder === "desc" ? (
+                      <IconSortDescending className="h-4 w-4" />
+                    ) : (
+                      <IconSortAscending className="h-4 w-4" />
+                    )}
+                    <span className="hidden sm:inline text-xs font-body">
+                      {SORT_OPTIONS.find((s) => s.value === sortBy)?.label ?? "Sort"}
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-48 p-1" align="end">
+                  {SORT_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => {
+                        if (sortBy === opt.value) {
+                          setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+                        } else {
+                          setSortBy(opt.value);
+                          setSortOrder("desc");
+                        }
+                        setSortPopoverOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-2 py-1.5 text-sm rounded-md hover:bg-muted font-body cursor-pointer"
+                    >
+                      <span>{opt.label}</span>
+                      {sortBy === opt.value && (
+                        <IconCheck className="h-3.5 w-3.5 text-brand" />
+                      )}
+                    </button>
+                  ))}
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">

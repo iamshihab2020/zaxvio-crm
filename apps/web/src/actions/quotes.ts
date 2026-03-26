@@ -227,6 +227,7 @@ export async function updateQuoteLineItem(
     unitPrice?: string;
     sortOrder?: number;
     itemType?: string;
+    catalogItemId?: string | null;
   },
 ) {
   try {
@@ -355,6 +356,38 @@ export async function convertQuoteToJob(id: string) {
 
     const json = await res.json();
     return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+// ===== ACTIVITIES =====
+
+export async function getQuoteActivities(
+  quoteId: string,
+  params?: { page?: number; limit?: number },
+) {
+  try {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+
+    const qs = searchParams.toString();
+    const res = await fetch(
+      `${API_URL}/quotes/${quoteId}/activities${qs ? `?${qs}` : ""}`,
+      {
+        headers: { cookie: await getCookieHeader() },
+        cache: "no-store",
+      },
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to fetch activities" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, pagination: json.pagination, error: null };
   } catch {
     return { data: null, error: "Network error" };
   }

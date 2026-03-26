@@ -233,6 +233,8 @@ interface QuotePdfProps {
     licenseNumber: string | null;
     invoiceTermsConditions: string | null;
     invoiceFooterMessage: string | null;
+    quoteTermsConditions: string | null;
+    quoteFooterMessage: string | null;
   } | null;
 }
 
@@ -243,9 +245,10 @@ export function QuotePdf({
   tenant,
 }: QuotePdfProps) {
   const taxPercent = parseFloat(quote.taxRate ?? "0") * 100;
-  const hasTermsConditions = !!tenant?.invoiceTermsConditions;
+  const hasTermsConditions = !!(tenant?.quoteTermsConditions ?? tenant?.invoiceTermsConditions);
+  const termsText = tenant?.quoteTermsConditions ?? tenant?.invoiceTermsConditions ?? "";
   const footerMessage =
-    tenant?.invoiceFooterMessage || "Thank you for considering our services!";
+    tenant?.quoteFooterMessage ?? tenant?.invoiceFooterMessage ?? "Thank you for considering our services!";
 
   return (
     <Document>
@@ -401,7 +404,7 @@ export function QuotePdf({
           <View style={styles.infoSection}>
             <Text style={styles.infoSectionLabel}>Terms & Conditions</Text>
             <Text style={styles.infoSectionText}>
-              {tenant.invoiceTermsConditions}
+              {termsText}
             </Text>
           </View>
         )}

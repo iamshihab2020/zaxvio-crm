@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { QuoteStatusBadge } from "./quote-status-badge";
+import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
 import {
   IconSend,
   IconDownload,
@@ -11,6 +13,7 @@ import {
   IconUser,
   IconReceipt,
   IconNote,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 
 function formatCurrency(val: string | null) {
@@ -75,6 +78,7 @@ export function QuoteDetailTab({
   sendLoading,
   convertLoading,
 }: QuoteDetailTabProps) {
+  const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const taxPercent = parseFloat(quote.taxRate ?? "0") * 100;
   const canSend = quote.status === "draft";
   const canAcceptDecline = quote.status === "sent";
@@ -130,7 +134,7 @@ export function QuoteDetailTab({
         {canConvert && (
           <Button
             size="sm"
-            onClick={onConvert}
+            onClick={() => setConvertDialogOpen(true)}
             disabled={convertLoading}
             className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
           >
@@ -139,6 +143,34 @@ export function QuoteDetailTab({
           </Button>
         )}
       </div>
+
+      <ConfirmActionDialog
+        title="Convert to Job"
+        description={
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              A new job will be created with all line items copied from this quote.
+            </p>
+            {quote.status === "sent" && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/40 p-2.5">
+                <IconAlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                <p className="text-xs text-amber-700 dark:text-amber-300">
+                  This quote hasn&apos;t been formally accepted. Converting will mark it as accepted.
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
+          </div>
+        }
+        open={convertDialogOpen}
+        onOpenChange={setConvertDialogOpen}
+        onConfirm={() => {
+          setConvertDialogOpen(false);
+          onConvert();
+        }}
+        confirmLabel="Convert to Job"
+        loading={convertLoading}
+      />
 
       {/* Status & Dates */}
       <div className="grid grid-cols-2 gap-4">

@@ -41,6 +41,8 @@ export async function generateQuotePdf(
     licenseNumber: string | null;
     invoiceTermsConditions: string | null;
     invoiceFooterMessage: string | null;
+    quoteTermsConditions: string | null;
+    quoteFooterMessage: string | null;
   } | null | undefined,
 ): Promise<Buffer> {
   const element = React.createElement(QuotePdf, {

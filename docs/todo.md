@@ -59,6 +59,20 @@ Items not yet started (next up from Build Order above):
   - Customer quotes tab: shows customer's quotes in customer detail page
   - Business rules: draft-only editing/deletion, auto-number (QT-YYYY-XXXX), generated line item totals
   - Mirrors invoice system 1:1 with quote-specific adaptations
+  - **Bug fixes & features (16 issues resolved):**
+    - Bug 1: Fixed discount lost in quote-to-job conversion (subtotal + tax - discount)
+    - Bug 2+5: Convert-to-Job confirmation dialog with amber warning for "sent" quotes (auto-accept notice)
+    - Bug 4: Added tenant filter to customer fetch in send/PDF endpoints (security fix)
+    - Bug 6: Fixed pagination edge case when deleting last item on a page
+    - Issues 7-10: Backend validation for discount amount (≥0), tax rate (0-1), zero line items on send, customer ID change
+    - Feature 11: Auto-expire sent quotes past expiry date (checked on list/detail fetch)
+    - Feature 12: Activity timeline with `quote_activities` table, 10 activity types, timeline UI in Activity tab
+    - Feature 14: Catalog picker in line item edit mode (not just add)
+    - Feature 15: Sort options on quote list page (6 sort columns with direction toggle)
+    - Feature 16: Quote-specific PDF footer settings (terms & conditions, footer message) with Settings > Quotes page
+    - New reusable: `ConfirmActionDialog` in `components/dashboard/reusable/`
+    - Migrations: `0007_add_quote_settings.sql`, `0008_add_quote_activities.sql`
+    - Deferred: Email sending (#3) and email preview (#13) — no email infra yet
 
 - [x] **Enhanced Invoice PDF** (ZAX-42) — User-controlled invoice details
   - 5 new tenant columns: licenseNumber, invoicePaymentTerms, invoicePaymentInstructions, invoiceTermsConditions, invoiceFooterMessage

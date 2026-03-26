@@ -63,6 +63,8 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
         "invoicePaymentInstructions",
         "invoiceTermsConditions",
         "invoiceFooterMessage",
+        "quoteTermsConditions",
+        "quoteFooterMessage",
       ] as const;
 
       const updates: Record<string, unknown> = {};

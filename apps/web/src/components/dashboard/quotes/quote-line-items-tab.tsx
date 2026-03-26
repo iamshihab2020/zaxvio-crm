@@ -113,7 +113,7 @@ export function QuoteLineItemsTab({
       quantity: li.quantity,
       unitPrice: li.unitPrice,
       catalogItemId: li.catalogItemId,
-      catalogItemLabel: "",
+      catalogItemLabel: li.catalogItemId ? li.description : "",
     });
   }
 
@@ -125,6 +125,7 @@ export function QuoteLineItemsTab({
       itemType: editForm.itemType,
       quantity: editForm.quantity,
       unitPrice: editForm.unitPrice,
+      catalogItemId: editForm.catalogItemId,
     });
     setSaving(false);
     if (result.error) {
@@ -184,61 +185,83 @@ export function QuoteLineItemsTab({
               {lineItems.map((li) =>
                 editingId === li.id ? (
                   <tr key={li.id} className="border-b border-border">
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={editForm.description}
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            description: e.target.value,
-                          }))
-                        }
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={editForm.quantity}
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            quantity: e.target.value,
-                          }))
-                        }
-                        className="h-8 text-sm w-16"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={editForm.unitPrice}
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            unitPrice: e.target.value,
-                          }))
-                        }
-                        className="h-8 text-sm w-20 text-right"
-                      />
-                    </td>
-                    <td />
-                    <td className="px-2 py-1.5">
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          onClick={handleSaveEdit}
-                          disabled={saving}
-                          className="h-7 text-xs cursor-pointer"
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditingId(null)}
-                          className="h-7 text-xs cursor-pointer"
-                        >
-                          Cancel
-                        </Button>
+                    <td colSpan={isDraft ? 5 : 4} className="px-2 py-2">
+                      <div className="space-y-2">
+                        <CatalogItemPicker
+                          selectedId={editForm.catalogItemId}
+                          selectedLabel={editForm.catalogItemLabel}
+                          onSelect={(item: CatalogPickerItem | null) => {
+                            if (item) {
+                              setEditForm((f) => ({
+                                ...f,
+                                catalogItemId: item.id,
+                                catalogItemLabel: item.name,
+                                description: item.name,
+                                unitPrice: parseFloat(item.unitPrice).toFixed(2),
+                                itemType: item.itemType,
+                              }));
+                            } else {
+                              setEditForm((f) => ({
+                                ...f,
+                                catalogItemId: null,
+                                catalogItemLabel: "",
+                              }));
+                            }
+                          }}
+                        />
+                        <div className="flex gap-2">
+                          <Input
+                            value={editForm.description}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                description: e.target.value,
+                              }))
+                            }
+                            placeholder="Description"
+                            className="h-8 text-sm flex-1"
+                          />
+                          <Input
+                            value={editForm.quantity}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                quantity: e.target.value,
+                              }))
+                            }
+                            placeholder="Qty"
+                            className="h-8 text-sm w-16"
+                          />
+                          <Input
+                            value={editForm.unitPrice}
+                            onChange={(e) =>
+                              setEditForm((f) => ({
+                                ...f,
+                                unitPrice: e.target.value,
+                              }))
+                            }
+                            placeholder="Price"
+                            className="h-8 text-sm w-24 text-right"
+                          />
+                        </div>
+                        <div className="flex gap-1 justify-end">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingId(null)}
+                            className="h-7 text-xs cursor-pointer"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            size="sm"
+                            onClick={handleSaveEdit}
+                            disabled={saving}
+                            className="h-7 text-xs cursor-pointer"
+                          >
+                            Save
+                          </Button>
+                        </div>
                       </div>
                     </td>
                   </tr>
