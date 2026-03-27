@@ -14,6 +14,7 @@ import checklistRoutes from "./routes/checklists/index.js";
 import pipelineStagesRoutes from "./routes/pipeline-stages/index.js";
 import invoiceRoutes from "./routes/invoices/index.js";
 import quoteRoutes from "./routes/quotes/index.js";
+import dashboardRoutes from "./routes/dashboard/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -90,6 +91,7 @@ export async function buildServer() {
   await fastify.register(pipelineStagesRoutes, { prefix: "/pipeline-stages" });
   await fastify.register(invoiceRoutes, { prefix: "/invoices" });
   await fastify.register(quoteRoutes, { prefix: "/quotes" });
+  await fastify.register(dashboardRoutes, { prefix: "/dashboard" });
 
   fastify.get(
     "/health",
