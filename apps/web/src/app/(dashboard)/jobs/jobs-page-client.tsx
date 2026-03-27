@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useViewPreference } from "@/hooks/use-view-preference";
+import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import { toast } from "sonner";
 import { KanbanBoard } from "@/components/dashboard/jobs/kanban-board";
 import { KanbanSkeleton } from "@/components/dashboard/jobs/kanban-skeleton";
@@ -23,6 +25,7 @@ import {
   createJob,
   updateJob,
   deleteJob,
+  addJobLineItem,
 } from "@/actions/jobs";
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { getTenant } from "@/actions/tenants";
@@ -44,7 +47,9 @@ interface PipelineStageWithCount {
 }
 
 export function JobsPageClient() {
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("jobs");
   const [jobs, setJobs] = useState<JobCardData[]>([]);
   const [stages, setStages] = useState<PipelineStageWithCount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -241,6 +246,10 @@ export function JobsPageClient() {
   }, [search, priorityFilter, serviceTypeFilter, fetchJobs]);
 
   function handleJobClick(jobId: string) {
+    if (viewMode === "page") {
+      router.push(`/jobs/${jobId}`);
+      return;
+    }
     setSelectedJobId(jobId);
     setSheetOpen(true);
   }
@@ -328,6 +337,21 @@ export function JobsPageClient() {
         setError(result.error);
         toast.error(result.error);
       } else {
+        // Add line items if any were provided
+        if (data.lineItems && data.lineItems.length > 0) {
+          const jobId = result.data.id;
+          await Promise.all(
+            data.lineItems.map((li) =>
+              addJobLineItem(jobId, {
+                description: li.description,
+                unitPrice: li.unitPrice,
+                itemType: li.itemType,
+                quantity: li.quantity,
+                catalogItemId: li.catalogItemId ?? undefined,
+              }),
+            ),
+          );
+        }
         setDialogOpen(false);
         toast.success("Job created");
         fetchJobs(search, priorityFilter, serviceTypeFilter);
@@ -419,6 +443,9 @@ export function JobsPageClient() {
             Table
           </button>
         </div>
+        {viewMounted && (
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        )}
       </div>
 
       {error && (

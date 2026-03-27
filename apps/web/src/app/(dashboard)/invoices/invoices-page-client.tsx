@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useViewPreference } from "@/hooks/use-view-preference";
+import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -52,6 +54,8 @@ interface PaginationInfo {
 }
 
 export function InvoicesPageClient() {
+  const router = useRouter();
+  const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("invoices");
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -168,6 +172,10 @@ export function InvoicesPageClient() {
   }
 
   function handleRowClick(id: string) {
+    if (viewMode === "page") {
+      router.push(`/invoices/${id}`);
+      return;
+    }
     setSelectedInvoiceId(id);
     setSheetOpen(true);
   }
@@ -218,14 +226,19 @@ export function InvoicesPageClient() {
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Search + filters in card header */}
           <div className="border-b border-border px-4 py-3 space-y-3">
-            <div className="relative max-w-sm">
-              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search invoices..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative max-w-sm flex-1">
+                <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search invoices..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              {viewMounted && (
+                <ViewModeToggle value={viewMode} onChange={setViewMode} />
+              )}
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">

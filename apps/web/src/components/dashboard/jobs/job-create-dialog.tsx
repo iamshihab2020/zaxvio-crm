@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,27 +9,35 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { IconSearch, IconCheck, IconSelector, IconPencil } from "@tabler/icons-react";
+import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
+import {
+  IconPencil,
+  IconPlus,
+  IconTrash,
+  IconPackage,
+} from "@tabler/icons-react";
 import {
   SERVICE_TYPES,
   SERVICE_TYPE_LABELS,
   JOB_PRIORITIES,
   JOB_PRIORITY_LABELS,
-  type ServiceType,
-  type JobPriority,
+  ITEM_TYPE_LABELS,
 } from "@/lib/constants/job-options";
-import { getCustomers } from "@/actions/customers";
+import {
+  CustomerPicker,
+  type CustomerSelection,
+} from "@/components/dashboard/customers/customer-picker";
+import {
+  CatalogItemPicker,
+  type CatalogPickerItem,
+} from "@/components/dashboard/catalog/catalog-item-picker";
+import { createCustomer } from "@/actions/customers";
+import { toast } from "sonner";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface JobCreateDialogProps {
@@ -40,6 +48,14 @@ interface JobCreateDialogProps {
   loading: boolean;
   defaultTaxRate?: string;
   initialStatus?: string;
+}
+
+export interface LineItemFormData {
+  description: string;
+  itemType: string;
+  quantity: string;
+  unitPrice: string;
+  catalogItemId: string | null;
 }
 
 export interface JobFormData {
@@ -55,9 +71,28 @@ export interface JobFormData {
   taxRate: string;
   notes: string;
   status?: string;
+  lineItems: LineItemFormData[];
 }
 
-const emptyForm: JobFormData = {
+interface NewItemForm {
+  description: string;
+  itemType: string;
+  quantity: string;
+  unitPrice: string;
+  catalogItemId: string | null;
+  catalogItemLabel: string;
+}
+
+const emptyItemForm: NewItemForm = {
+  description: "",
+  itemType: "labor",
+  quantity: "1",
+  unitPrice: "",
+  catalogItemId: null,
+  catalogItemLabel: "",
+};
+
+const emptyForm: Omit<JobFormData, "lineItems"> = {
   customerId: "",
   title: "",
   serviceType: "repair",
@@ -71,13 +106,6 @@ const emptyForm: JobFormData = {
   notes: "",
 };
 
-interface CustomerOption {
-  id: string;
-  firstName: string;
-  lastName: string;
-  address: string | null;
-}
-
 export function JobCreateDialog({
   job,
   open,
@@ -87,13 +115,17 @@ export function JobCreateDialog({
   defaultTaxRate,
   initialStatus,
 }: JobCreateDialogProps) {
-  const [form, setForm] = useState<JobFormData>(emptyForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof JobFormData, string>>>({});
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
-  const [customerPopoverOpen, setCustomerPopoverOpen] = useState(false);
-  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState("");
+  const [form, setForm] = useState(emptyForm);
+  const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
+  const [errors, setErrors] = useState<Partial<Record<keyof typeof emptyForm, string>>>({});
+  const [customerSelection, setCustomerSelection] =
+    useState<CustomerSelection | null>(null);
   const [taxEditable, setTaxEditable] = useState(false);
+  const [creatingCustomer, setCreatingCustomer] = useState(false);
+
+  // New line item form
+  const [showAddItem, setShowAddItem] = useState(false);
+  const [itemForm, setItemForm] = useState<NewItemForm>(emptyItemForm);
 
   const isEditing = !!job;
 
@@ -112,47 +144,50 @@ export function JobCreateDialog({
         taxRate: job.taxRate ? (parseFloat(job.taxRate) * 100).toString() : "0",
         notes: job.notes ?? "",
       });
-      const name = `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim();
-      setSelectedCustomerLabel(name);
+      setCustomerSelection({
+        type: "existing",
+        id: job.customerId,
+        firstName: job.customerFirstName ?? "",
+        lastName: job.customerLastName ?? "",
+        address: null,
+        city: null,
+        state: null,
+        zipCode: null,
+      });
       setTaxEditable(true);
     } else {
-      // For new jobs, pre-fill with tenant's default tax rate (converted to %)
       const defaultTaxPct = defaultTaxRate
         ? (parseFloat(defaultTaxRate) * 100).toString()
         : "0";
       setForm({ ...emptyForm, taxRate: defaultTaxPct });
-      setSelectedCustomerLabel("");
+      setCustomerSelection(null);
       setTaxEditable(false);
     }
+    setLineItems([]);
     setErrors({});
+    setCreatingCustomer(false);
+    setShowAddItem(false);
+    setItemForm(emptyItemForm);
   }, [job, open, defaultTaxRate]);
 
-  // Debounced customer search
-  const fetchCustomers = useCallback(async (search: string) => {
-    const result = await getCustomers({ search, limit: 10 });
-    if (result.data) {
-      setCustomers(
-        result.data.map((c: CustomerOption) => ({
-          id: c.id,
-          firstName: c.firstName,
-          lastName: c.lastName,
-          address: c.address,
-        })),
-      );
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!customerPopoverOpen) return;
-    const timer = setTimeout(() => fetchCustomers(customerSearch), 300);
-    return () => clearTimeout(timer);
-  }, [customerSearch, customerPopoverOpen, fetchCustomers]);
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    const newErrors: Partial<Record<keyof JobFormData, string>> = {};
-    if (!form.customerId) newErrors.customerId = "Customer is required";
+    const newErrors: Partial<Record<keyof typeof emptyForm, string>> = {};
+
+    if (isEditing) {
+      if (!form.customerId) newErrors.customerId = "Customer is required";
+    } else {
+      if (!customerSelection) {
+        newErrors.customerId = "Customer is required";
+      } else if (
+        customerSelection.type === "new" &&
+        (!customerSelection.firstName.trim() || !customerSelection.lastName.trim())
+      ) {
+        newErrors.customerId = "First name and last name are required";
+      }
+    }
+
     if (!form.title.trim()) newErrors.title = "Title is required";
     if (!form.scheduledDate) newErrors.scheduledDate = "Date is required";
 
@@ -168,33 +203,88 @@ export function JobCreateDialog({
       return;
     }
 
-    // Convert percentage to decimal for the API (e.g. 8.25 → 0.0825)
+    let customerId: string;
+
+    if (isEditing) {
+      customerId = form.customerId;
+    } else if (customerSelection!.type === "new") {
+      setCreatingCustomer(true);
+      const phone = customerSelection!.type === "new" ? customerSelection!.phone.replace(/\D/g, "") : "";
+      const result = await createCustomer({
+        firstName: customerSelection!.type === "new" ? customerSelection!.firstName.trim() : "",
+        lastName: customerSelection!.type === "new" ? customerSelection!.lastName.trim() : "",
+        phone: phone || undefined,
+        email: customerSelection!.type === "new" && customerSelection!.email.trim() ? customerSelection!.email.trim() : undefined,
+      });
+      setCreatingCustomer(false);
+
+      if (result.error) {
+        toast.error(result.error);
+        return;
+      }
+
+      customerId = result.data.id;
+      toast.success(`Customer "${result.data.firstName} ${result.data.lastName}" created`);
+    } else {
+      customerId = customerSelection!.id;
+    }
+
     const taxDecimal = taxRateNum / 100;
-    onSave({ ...form, taxRate: taxDecimal.toString(), status: initialStatus });
+    onSave({ ...form, customerId, taxRate: taxDecimal.toString(), status: initialStatus, lineItems });
   }
 
-  function updateField(field: keyof JobFormData, value: string) {
+  function updateField(field: keyof typeof emptyForm, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   }
 
-  function selectCustomer(customer: CustomerOption) {
-    updateField("customerId", customer.id);
-    const label = `${customer.firstName} ${customer.lastName}`;
-    setSelectedCustomerLabel(label);
-    // Auto-fill address if empty
-    if (!form.address && customer.address) {
-      updateField("address", customer.address);
+  function handleCustomerChange(selection: CustomerSelection | null) {
+    setCustomerSelection(selection);
+    if (errors.customerId) {
+      setErrors((prev) => ({ ...prev, customerId: undefined }));
     }
-    setCustomerPopoverOpen(false);
-    setCustomerSearch("");
+    if (selection?.type === "existing" && selection.address && !form.address) {
+      updateField("address", selection.address);
+    }
   }
+
+  function handleAddItem() {
+    if (!itemForm.description.trim() || !itemForm.unitPrice.trim()) return;
+    setLineItems((prev) => [
+      ...prev,
+      {
+        description: itemForm.description,
+        itemType: itemForm.itemType,
+        quantity: itemForm.quantity,
+        unitPrice: itemForm.unitPrice,
+        catalogItemId: itemForm.catalogItemId,
+      },
+    ]);
+    setItemForm(emptyItemForm);
+    setShowAddItem(false);
+  }
+
+  function removeItem(index: number) {
+    setLineItems((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Compute summary
+  const subtotal = lineItems.reduce(
+    (sum, li) =>
+      sum + parseFloat(li.quantity || "0") * parseFloat(li.unitPrice || "0"),
+    0,
+  );
+  const taxRateNum = parseFloat(form.taxRate || "0") / 100;
+  const taxAmount = subtotal * taxRateNum;
+  const total = subtotal + taxAmount;
+
+  const isBusy = loading || creatingCustomer;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
+      <DialogContent className="sm:max-w-[900px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="font-heading">
             {isEditing ? "Edit Job" : "Create Job"}
@@ -206,71 +296,42 @@ export function JobCreateDialog({
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 min-h-0">
-          <ScrollArea className="flex-1">
-            <div className="space-y-4 pr-3">
+          <ScrollFadeArea className="flex-1">
+            <div className="flex flex-col lg:flex-row gap-6 px-3 pb-3">
+              {/* Left column: Job details */}
+              <div className="flex-1 min-w-0 space-y-4">
           {/* Customer picker (not shown when editing since customerId can't change) */}
           {!isEditing && (
             <div className="space-y-2">
-              <Label className="font-body">
-                Customer <span className="text-destructive">*</span>
-              </Label>
-              <Popover
-                open={customerPopoverOpen}
-                onOpenChange={setCustomerPopoverOpen}
-              >
-                <PopoverTrigger asChild>
+              <div className="flex items-center justify-between">
+                <Label className="font-body">
+                  Customer <span className="text-destructive">*</span>
+                </Label>
+                {customerSelection?.type !== "new" && (
                   <button
                     type="button"
-                    className={cn(
-                      "flex h-9 w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm font-body cursor-pointer",
-                      !selectedCustomerLabel && "text-muted-foreground",
-                    )}
+                    onClick={() =>
+                      handleCustomerChange({
+                        type: "new",
+                        firstName: "",
+                        lastName: "",
+                        phone: "",
+                        email: "",
+                      })
+                    }
+                    className="flex items-center gap-1 text-xs text-brand hover:underline cursor-pointer font-body"
                   >
-                    {selectedCustomerLabel || "Select customer..."}
-                    <IconSelector className="h-4 w-4 text-muted-foreground" />
+                    <IconPlus className="h-3 w-3" />
+                    New Customer
                   </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[calc(100vw-4rem)] sm:w-[540px] p-0" align="start">
-                  <div className="p-2 border-b border-border">
-                    <div className="relative">
-                      <IconSearch className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search customers..."
-                        value={customerSearch}
-                        onChange={(e) => setCustomerSearch(e.target.value)}
-                        className="pl-8 h-8"
-                      />
-                    </div>
-                  </div>
-                  <div className="max-h-[200px] overflow-y-auto p-1">
-                    {customers.length === 0 && (
-                      <p className="py-4 text-center text-sm text-muted-foreground">
-                        No customers found
-                      </p>
-                    )}
-                    {customers.map((c) => (
-                      <button
-                        key={c.id}
-                        type="button"
-                        onClick={() => selectCustomer(c)}
-                        className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
-                      >
-                        {form.customerId === c.id && (
-                          <IconCheck className="h-4 w-4 text-brand shrink-0" />
-                        )}
-                        <span
-                          className={cn(
-                            form.customerId !== c.id && "pl-6",
-                          )}
-                        >
-                          {c.firstName} {c.lastName}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-              {errors.customerId && (
+                )}
+              </div>
+              <CustomerPicker
+                value={customerSelection}
+                onChange={handleCustomerChange}
+                error={errors.customerId}
+              />
+              {errors.customerId && customerSelection?.type !== "new" && (
                 <p className="text-sm text-destructive">{errors.customerId}</p>
               )}
             </div>
@@ -436,28 +497,260 @@ export function JobCreateDialog({
               rows={2}
             />
           </div>
+              </div>
 
+              {/* Right column: Line items (only for create mode) */}
+              {!isEditing && (
+                <div className="lg:w-[300px] shrink-0 space-y-3 lg:border-l lg:border-border lg:pl-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <IconPackage className="h-4 w-4" />
+                      <span className="text-xs font-medium uppercase tracking-wider font-body">
+                        Line Items
+                      </span>
+                    </div>
+                    {lineItems.length > 0 && (
+                      <span className="text-xs text-muted-foreground font-body">
+                        {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Existing items */}
+                  {lineItems.length > 0 && (
+                    <div className="rounded-md border border-border overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-border bg-muted/30">
+                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground font-body text-xs">
+                              Item
+                            </th>
+                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-12">
+                              Qty
+                            </th>
+                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-16">
+                              Price
+                            </th>
+                            <th className="w-8" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {lineItems.map((li, idx) => (
+                            <tr
+                              key={idx}
+                              className="border-b border-border last:border-0"
+                            >
+                              <td className="px-2 py-1.5 font-body">
+                                <div className="text-xs text-foreground truncate max-w-[160px]">
+                                  {li.description}
+                                </div>
+                                <div className="text-[10px] text-muted-foreground">
+                                  {ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}
+                                </div>
+                              </td>
+                              <td className="px-2 py-1.5 text-right text-xs text-muted-foreground font-body">
+                                {li.quantity}
+                              </td>
+                              <td className="px-2 py-1.5 text-right text-xs font-medium font-body">
+                                ${(
+                                  parseFloat(li.quantity || "0") *
+                                  parseFloat(li.unitPrice || "0")
+                                ).toFixed(2)}
+                              </td>
+                              <td className="px-1 py-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(idx)}
+                                  className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive cursor-pointer"
+                                >
+                                  <IconTrash className="h-3 w-3" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+
+                  {/* Add Line Item button — collapses when form is open */}
+                  <div
+                    className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                    style={{ gridTemplateRows: showAddItem ? "0fr" : "1fr", opacity: showAddItem ? 0 : 1 }}
+                  >
+                    <div className="overflow-hidden">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAddItem(true)}
+                        tabIndex={showAddItem ? -1 : 0}
+                        className="w-full cursor-pointer text-xs"
+                      >
+                        <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+                        Add Line Item
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Add item form — expands when open */}
+                  <div
+                    className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                    style={{ gridTemplateRows: showAddItem ? "1fr" : "0fr", opacity: showAddItem ? 1 : 0 }}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="rounded-md border border-border p-2.5 space-y-2">
+                        <div>
+                          <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
+                            From catalog (optional)
+                          </label>
+                          <CatalogItemPicker
+                            selectedId={itemForm.catalogItemId}
+                            selectedLabel={itemForm.catalogItemLabel}
+                            onSelect={(item: CatalogPickerItem | null) => {
+                              if (item) {
+                                setItemForm((f) => ({
+                                  ...f,
+                                  catalogItemId: item.id,
+                                  catalogItemLabel: item.name,
+                                  description: item.name,
+                                  unitPrice: parseFloat(item.unitPrice).toFixed(2),
+                                  itemType: item.itemType,
+                                }));
+                              } else {
+                                setItemForm((f) => ({
+                                  ...f,
+                                  catalogItemId: null,
+                                  catalogItemLabel: "",
+                                }));
+                              }
+                            }}
+                          />
+                        </div>
+                        <Input
+                          placeholder="Description"
+                          value={itemForm.description}
+                          onChange={(e) =>
+                            setItemForm((f) => ({ ...f, description: e.target.value }))
+                          }
+                          className="text-sm h-8"
+                          tabIndex={showAddItem ? 0 : -1}
+                        />
+                        <div className="flex gap-2">
+                          <select
+                            value={itemForm.itemType}
+                            onChange={(e) =>
+                              setItemForm((f) => ({ ...f, itemType: e.target.value }))
+                            }
+                            className="h-8 rounded-md border border-border bg-card px-2 text-xs font-body flex-1"
+                            tabIndex={showAddItem ? 0 : -1}
+                          >
+                            {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
+                              <option key={val} value={val}>
+                                {label}
+                              </option>
+                            ))}
+                          </select>
+                          <Input
+                            placeholder="Qty"
+                            value={itemForm.quantity}
+                            onChange={(e) =>
+                              setItemForm((f) => ({ ...f, quantity: e.target.value }))
+                            }
+                            className="w-14 text-sm h-8"
+                            tabIndex={showAddItem ? 0 : -1}
+                          />
+                          <Input
+                            placeholder="Price"
+                            value={itemForm.unitPrice}
+                            onChange={(e) =>
+                              setItemForm((f) => ({ ...f, unitPrice: e.target.value }))
+                            }
+                            className="w-20 text-sm h-8"
+                            tabIndex={showAddItem ? 0 : -1}
+                          />
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-7 text-xs cursor-pointer"
+                            tabIndex={showAddItem ? 0 : -1}
+                            onClick={() => {
+                              setShowAddItem(false);
+                              setItemForm(emptyItemForm);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-7 text-xs bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+                            tabIndex={showAddItem ? 0 : -1}
+                            onClick={handleAddItem}
+                            disabled={!itemForm.description.trim() || !itemForm.unitPrice.trim()}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Summary */}
+                  {lineItems.length > 0 && (
+                    <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5">
+                      <div className="flex justify-between text-xs text-muted-foreground font-body">
+                        <span>Subtotal</span>
+                        <span>${subtotal.toFixed(2)}</span>
+                      </div>
+                      {taxRateNum > 0 && (
+                        <div className="flex justify-between text-xs text-muted-foreground font-body">
+                          <span>Tax ({form.taxRate}%)</span>
+                          <span>${taxAmount.toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold font-body">
+                        <span>Total</span>
+                        <span>${total.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {lineItems.length === 0 && !showAddItem && (
+                    <p className="text-xs text-muted-foreground text-center py-4 font-body">
+                      Line items are optional during creation.
+                      <br />
+                      You can also add them later.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
-          </ScrollArea>
+          </ScrollFadeArea>
           <DialogFooter className="shrink-0 border-t pt-4">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
-              disabled={loading}
+              disabled={isBusy}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               className="bg-brand text-brand-foreground hover:bg-brand/90"
-              disabled={loading}
+              disabled={isBusy}
             >
-              {loading
-                ? "Saving..."
-                : isEditing
-                  ? "Save Changes"
-                  : "Create Job"}
+              {creatingCustomer
+                ? "Creating customer..."
+                : loading
+                  ? "Saving..."
+                  : isEditing
+                    ? "Save Changes"
+                    : "Create Job"}
             </Button>
           </DialogFooter>
         </form>

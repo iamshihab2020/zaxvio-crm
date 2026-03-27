@@ -30,34 +30,33 @@ import {
   IconMaximize,
   IconExternalLink,
 } from "@tabler/icons-react";
-import { InvoiceStatusBadge } from "./invoice-status-badge";
-import { InvoiceDetailTab } from "./invoice-detail-tab";
-import { InvoiceLineItemsTab } from "./invoice-line-items-tab";
-import { InvoicePaymentsTab } from "./invoice-payments-tab";
+import { QuoteStatusBadge } from "./quote-status-badge";
+import { QuoteDetailTab } from "./quote-detail-tab";
+import { QuoteLineItemsTab } from "./quote-line-items-tab";
 import {
-  getInvoice,
-  sendInvoice,
-  getInvoicePdfUrl,
-  voidInvoice,
-} from "@/actions/invoices";
+  getQuote,
+  sendQuote,
+  getQuotePdfUrl,
+  acceptQuote,
+  declineQuote,
+  convertQuoteToJob,
+} from "@/actions/quotes";
 
-export interface InvoiceDetail {
+export interface QuoteDetail {
   id: string;
-  invoiceNumber: string;
+  quoteNumber: string;
   status: string;
   issuedDate: string;
-  dueDate: string | null;
+  expiryDate: string | null;
   subtotal: string;
   taxRate: string | null;
   taxAmount: string | null;
   discountAmount: string | null;
   totalAmount: string;
-  amountPaid: string;
-  balanceDue: string;
   notes: string | null;
   pdfStoragePath: string | null;
   customerId: string;
-  jobId: string | null;
+  convertedToJobId: string | null;
   customerFirstName: string | null;
   customerLastName: string | null;
   customerEmail: string | null;
@@ -75,22 +74,13 @@ export interface InvoiceDetail {
     catalogItemId: string | null;
     sortOrder: number | null;
   }>;
-  payments: Array<{
-    id: string;
-    amount: string;
-    paymentMethod: string | null;
-    paymentDate: string;
-    referenceNumber: string | null;
-    notes: string | null;
-    createdAt: string;
-  }>;
 }
 
-interface InvoiceDetailSheetProps {
-  invoiceId: string | null;
+interface QuoteDetailSheetProps {
+  quoteId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onDelete: (invoice: InvoiceDetail) => void;
+  onDelete: (quote: QuoteDetail) => void;
   onDataChange: () => void;
 }
 
@@ -100,25 +90,26 @@ const DEFAULT_WIDTH = 520;
 const MIN_WIDTH = 400;
 const MAX_WIDTH = 800;
 
-/* ── Tab definitions ─────────────────────────────────────────── */
+/* -- Tab definitions -- */
 
-const TAB_VALUES = ["details", "line-items", "payments"] as const;
+const TAB_VALUES = ["details", "line-items"] as const;
 
-export function InvoiceDetailSheet({
-  invoiceId,
+export function QuoteDetailSheet({
+  quoteId,
   open,
   onOpenChange,
   onDelete,
   onDataChange,
-}: InvoiceDetailSheetProps) {
+}: QuoteDetailSheetProps) {
   const router = useRouter();
-  const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
+  const [quote, setQuote] = useState<QuoteDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
   const [sendLoading, setSendLoading] = useState(false);
+  const [convertLoading, setConvertLoading] = useState(false);
 
-  /* ── Preferences ──────────────────────────────────────────── */
-  const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("invoices");
+  /* -- Preferences -- */
+  const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("quotes");
   const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
   const switchingModeRef = useRef(false);
 
@@ -126,59 +117,84 @@ export function InvoiceDetailSheet({
     setLiveSidebarWidth(prefSidebarWidth);
   }, [prefSidebarWidth]);
 
-  /* ── Invoice data fetching ──────────────────────────────────── */
+  /* -- Quote data fetching -- */
   useEffect(() => {
-    if (!invoiceId || !open) {
-      setInvoice(null);
+    if (!quoteId || !open) {
+      setQuote(null);
       return;
     }
     setLoading(true);
     setActiveTab("details");
-    getInvoice(invoiceId).then((res) => {
-      if (res.data) setInvoice(res.data as InvoiceDetail);
+    getQuote(quoteId).then((res) => {
+      if (res.data) setQuote(res.data as QuoteDetail);
       setLoading(false);
     });
-  }, [invoiceId, open]);
+  }, [quoteId, open]);
 
   async function refreshDetail() {
-    if (!invoiceId) return;
-    const res = await getInvoice(invoiceId);
-    if (res.data) setInvoice(res.data as InvoiceDetail);
+    if (!quoteId) return;
+    const res = await getQuote(quoteId);
+    if (res.data) setQuote(res.data as QuoteDetail);
   }
 
   async function handleSend() {
-    if (!invoice) return;
+    if (!quote) return;
     setSendLoading(true);
-    const result = await sendInvoice(invoice.id);
+    const result = await sendQuote(quote.id);
     setSendLoading(false);
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success("Invoice sent successfully");
+      toast.success("Quote sent successfully");
       refreshDetail();
       onDataChange();
     }
   }
 
   async function handleDownloadPdf() {
-    if (!invoice) return;
-    const url = await getInvoicePdfUrl(invoice.id);
+    if (!quote) return;
+    const url = await getQuotePdfUrl(quote.id);
     window.open(url, "_blank");
   }
 
-  async function handleVoid() {
-    if (!invoice) return;
-    const result = await voidInvoice(invoice.id);
+  async function handleAccept() {
+    if (!quote) return;
+    const result = await acceptQuote(quote.id);
     if (result.error) {
       toast.error(result.error);
     } else {
-      toast.success("Invoice voided");
+      toast.success("Quote accepted");
       refreshDetail();
       onDataChange();
     }
   }
 
-  /* ── Mode toggle ──────────────────────────────────────────── */
+  async function handleDecline() {
+    if (!quote) return;
+    const result = await declineQuote(quote.id);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Quote declined");
+      refreshDetail();
+      onDataChange();
+    }
+  }
+
+  async function handleConvert() {
+    if (!quote) return;
+    setConvertLoading(true);
+    const result = await convertQuoteToJob(quote.id);
+    setConvertLoading(false);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success("Job created from quote");
+      router.push(`/jobs/${result.data.id}`);
+    }
+  }
+
+  /* -- Mode toggle -- */
   function toggleMode() {
     switchingModeRef.current = true;
     const newMode = prefMode === "sidebar" ? "dialog" : "sidebar";
@@ -194,7 +210,7 @@ export function InvoiceDetailSheet({
     onOpenChange(newOpen);
   }
 
-  /* ── Drag-to-resize (sidebar only) ────────────────────────── */
+  /* -- Drag-to-resize (sidebar only) -- */
   const dragWidthRef = useRef(DEFAULT_WIDTH);
 
   const handleDragStart = useCallback(
@@ -227,7 +243,7 @@ export function InvoiceDetailSheet({
     [liveSidebarWidth],
   );
 
-  /* ── Sliding tab indicator ────────────────────────────────── */
+  /* -- Sliding tab indicator -- */
   const navRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -256,15 +272,13 @@ export function InvoiceDetailSheet({
     [indicatorReady],
   );
 
-  // Recalculate indicator on target change or mode switch
   useEffect(() => {
-    if (targetIndex >= 0 && !loading && invoice) {
+    if (targetIndex >= 0 && !loading && quote) {
       const id = requestAnimationFrame(() => updateIndicatorTo(targetIndex));
       return () => cancelAnimationFrame(id);
     }
-  }, [targetIndex, updateIndicatorTo, loading, invoice, prefMode]);
+  }, [targetIndex, updateIndicatorTo, loading, quote, prefMode]);
 
-  // Recalculate on window resize
   useEffect(() => {
     const onResize = () => {
       if (targetIndex >= 0) updateIndicatorTo(targetIndex);
@@ -273,16 +287,14 @@ export function InvoiceDetailSheet({
     return () => window.removeEventListener("resize", onResize);
   }, [targetIndex, updateIndicatorTo]);
 
-  /* ── Tab labels with counts ────────────────────────────────── */
+  /* -- Tab labels with counts -- */
   function tabLabel(value: string): string {
-    if (!invoice) return value;
+    if (!quote) return value;
     switch (value) {
       case "details":
         return "Details";
       case "line-items":
-        return `Line Items (${invoice.lineItems.length})`;
-      case "payments":
-        return `Payments (${invoice.payments.length})`;
+        return `Line Items (${quote.lineItems.length})`;
       default:
         return value;
     }
@@ -290,14 +302,14 @@ export function InvoiceDetailSheet({
 
   const mode = mounted ? (prefMode === "page" ? "sidebar" : prefMode) : "sidebar";
 
-  /* ── Shared inner content ─────────────────────────────────── */
+  /* -- Shared inner content -- */
   const innerContent = (
     <>
       {loading && (
         <>
-          <SheetTitle className="sr-only">Invoice details</SheetTitle>
+          <SheetTitle className="sr-only">Quote details</SheetTitle>
           <SheetDescription className="sr-only">
-            Loading invoice information
+            Loading quote information
           </SheetDescription>
           <div className="p-6 space-y-4">
             <Skeleton className="h-6 w-32" />
@@ -311,21 +323,20 @@ export function InvoiceDetailSheet({
         </>
       )}
 
-      {!loading && invoice && (
+      {!loading && quote && (
         <>
-          {/* ── Header ────────────────────────────────────── */}
+          {/* -- Header -- */}
           <div className="px-6 pt-6 pb-4 border-b border-border">
             <div className="flex items-start justify-between pr-8">
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <SheetTitle className="font-heading text-lg">
-                    {invoice.invoiceNumber}
+                    {quote.quoteNumber}
                   </SheetTitle>
-                  <InvoiceStatusBadge status={invoice.status} />
+                  <QuoteStatusBadge status={quote.status} />
                 </div>
                 <SheetDescription className="text-sm font-body">
-                  {invoice.customerFirstName} {invoice.customerLastName}
-                  {invoice.jobId && " · From Job"}
+                  {quote.customerFirstName} {quote.customerLastName}
                 </SheetDescription>
               </div>
 
@@ -357,7 +368,7 @@ export function InvoiceDetailSheet({
                   onClick={() => {
                     setPrefMode("page");
                     onOpenChange(false);
-                    router.push(`/invoices/${invoice.id}`);
+                    router.push(`/quotes/${quote.id}`);
                   }}
                   title="Open full page"
                 >
@@ -376,11 +387,11 @@ export function InvoiceDetailSheet({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem
-                      onClick={() => onDelete(invoice)}
+                      onClick={() => onDelete(quote)}
                       className="cursor-pointer text-destructive focus:text-destructive"
                     >
                       <IconTrash className="mr-2 h-4 w-4" />
-                      Delete Invoice
+                      Delete Quote
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -388,7 +399,7 @@ export function InvoiceDetailSheet({
             </div>
           </div>
 
-          {/* ── Tabs with sliding indicator ───────────────── */}
+          {/* -- Tabs with sliding indicator -- */}
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
@@ -426,31 +437,22 @@ export function InvoiceDetailSheet({
 
             <div className="px-6 py-4">
               <TabsContent value="details" className="mt-0">
-                <InvoiceDetailTab
-                  invoice={invoice}
+                <QuoteDetailTab
+                  quote={quote}
                   onSend={handleSend}
                   onDownloadPdf={handleDownloadPdf}
-                  onVoid={handleVoid}
+                  onAccept={handleAccept}
+                  onDecline={handleDecline}
+                  onConvert={handleConvert}
                   sendLoading={sendLoading}
+                  convertLoading={convertLoading}
                 />
               </TabsContent>
               <TabsContent value="line-items" className="mt-0">
-                <InvoiceLineItemsTab
-                  invoiceId={invoice.id}
-                  lineItems={invoice.lineItems}
-                  isDraft={invoice.status === "draft"}
-                  onUpdate={() => {
-                    refreshDetail();
-                    onDataChange();
-                  }}
-                />
-              </TabsContent>
-              <TabsContent value="payments" className="mt-0">
-                <InvoicePaymentsTab
-                  invoiceId={invoice.id}
-                  payments={invoice.payments}
-                  balanceDue={invoice.balanceDue}
-                  isVoid={invoice.status === "void"}
+                <QuoteLineItemsTab
+                  quoteId={quote.id}
+                  lineItems={quote.lineItems}
+                  isDraft={quote.status === "draft"}
                   onUpdate={() => {
                     refreshDetail();
                     onDataChange();
@@ -464,7 +466,7 @@ export function InvoiceDetailSheet({
     </>
   );
 
-  /* ── Render: Dialog mode ──────────────────────────────────── */
+  /* -- Render: Dialog mode -- */
   if (mode === "dialog") {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -475,7 +477,7 @@ export function InvoiceDetailSheet({
     );
   }
 
-  /* ── Render: Sidebar mode (default) ───────────────────────── */
+  /* -- Render: Sidebar mode (default) -- */
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
@@ -486,7 +488,7 @@ export function InvoiceDetailSheet({
           width: "100%",
         }}
       >
-        {/* Drag handle — left edge resize */}
+        {/* Drag handle */}
         <div
           className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
           onMouseDown={handleDragStart}

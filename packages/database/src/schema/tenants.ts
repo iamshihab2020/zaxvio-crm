@@ -36,6 +36,8 @@ export const tenants = pgTable(
     invoicePaymentInstructions: text("invoice_payment_instructions"),
     invoiceTermsConditions: text("invoice_terms_conditions"),
     invoiceFooterMessage: text("invoice_footer_message"),
+    quoteTermsConditions: text("quote_terms_conditions"),
+    quoteFooterMessage: text("quote_footer_message"),
     referralSource: referralSourceEnum("referral_source").default("organic"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

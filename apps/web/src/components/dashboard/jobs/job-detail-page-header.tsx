@@ -41,12 +41,14 @@ interface JobDetailPageHeaderProps {
   job: JobDetail;
   stages: PipelineStage[];
   onUpdate: () => void;
+  children?: React.ReactNode;
 }
 
 export function JobDetailPageHeader({
   job,
   stages,
   onUpdate,
+  children,
 }: JobDetailPageHeaderProps) {
   const router = useRouter();
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -142,6 +144,7 @@ export function JobDetailPageHeader({
 
         {/* Right: action buttons */}
         <div className="flex items-center gap-2">
+          {children}
           {nextStage && (
             <Button
               size="sm"
