@@ -18,7 +18,18 @@
       "Bash(npx:*)",
       "Bash(python3:*)",
       "Bash(python:*)",
-      "Bash(DIRECT_URL=\"\" pnpm db:push)"
+      "Bash(DIRECT_URL=\"\" pnpm db:push)",
+      "Bash(grep -r \"shadcn.*chart\\\\|from.*recharts\\\\|import.*Recharts\" /c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm --include=*.json --include=*.tsx --include=*.ts)",
+      "Bash(find 'C:/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/actions' -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(find 'C:/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/lib' -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(find 'C:/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/hooks' -type f \\\\\\(-name *.tsx -o -name *.ts \\\\\\))",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(for dir:*)",
+      "Bash(do echo:*)",
+      "Read(//c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/**)",
+      "Bash(done)",
+      "Bash(grep -v \"^\\\\.\\\\.$\")",
+      "Bash(grep -v \"^\\\\.$\")"
     ]
   }
 }

@@ -4,7 +4,35 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-(none)
+- [x] **Dashboard Redesign (ZAX-44)** — Transform flat dashboard into data-dense CRM dashboard
+  - [x] Step 0: Install deps + shadcn Calendar + DateRangePicker
+  - [x] Step 1: Expand types + API (9 new queries, date range params)
+  - [x] Step 2: Redesign KPI cards (trends + sparklines)
+  - [x] Step 3: Layout restructure (2-column + header date range picker)
+  - [x] Step 4: New sidebar widgets (Today's Schedule, Invoice Aging, Quote Conversion)
+  - [x] Step 5: Enhance charts (revenue + pipeline donut)
+  - [x] Step 6: Polish activity feed
+  - [x] Typecheck passes across all packages
+
+## Recently Completed (Latest)
+
+- [x] **KPI Dashboard (#7)** — Dashboard home with metrics, charts, and activity feed (ZAX-44)
+  - API route: GET `/dashboard/stats` — single endpoint with 10 parallel SQL queries
+  - KPI cards: Jobs Today (with emergency badge), Open Invoices, Outstanding Balance, This Month Revenue, Active Customers, Upcoming Bookings
+  - Overdue invoices alert banner (conditional, amber styling)
+  - Quick action buttons: New Job, New Customer, View Invoices, View Schedule
+  - Revenue area chart (shadcn Charts + Recharts) — last 6 months with gradient fill + tooltips
+  - Job pipeline horizontal bar chart — dynamic colors from tenant's custom pipeline stages
+  - Recent activity feed — last 10 activities from jobs + quotes with relative timestamps
+  - Server action: `getDashboardStats()` in `actions/dashboard.ts`
+  - Types: `DashboardStats` + related interfaces in `packages/types/src/dashboard.ts`
+  - Shared helpers: `formatCurrency()`, `formatRelativeTime()` in `lib/format.ts`
+  - Full skeleton loader matching page layout
+  - Responsive: 2-col (mobile) → 3-col (tablet) → 6-col (desktop) KPI grid
+  - Dark mode: all chart colors auto-switch via CSS variables
+  - No DB migration needed — all data from existing tables with existing indexes
+  - New dependencies: recharts, shadcn chart component
+  - CSS variables: `--chart-1` through `--chart-5` in globals.css
 
 ## Recently Completed
 
@@ -42,7 +70,7 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **KPI Dashboard** (#7) — Dashboard home with metrics (revenue, jobs, outstanding invoices, etc.)
+- [x] **KPI Dashboard** (#7) — Dashboard home with metrics (revenue, jobs, outstanding invoices, etc.) — DONE (ZAX-44)
 
 ## Done
 

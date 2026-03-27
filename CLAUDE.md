@@ -11,7 +11,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **BEFORE** starting any task — read both files for context and to avoid past mistakes
   - **DURING** work — re-read lessons when hitting bugs/errors; check todo for tracked issues
   - **CONTINUOUSLY** — update as you go: move completed items to Done, add new tasks to Upcoming, append lessons immediately when learned
-3. **Update the repo map** in this CLAUDE.md (Monorepo Structure + Schema sections) whenever files/folders are created, renamed, moved, or deleted. Consult the repo map FIRST when planning or searching before using Glob/Grep.
+3. **`docs/project_docs/REPO_MAP.md` is the single source of truth for project structure:**
+  - **READ FIRST** — Before planning, searching, or exploring the codebase, always read the repo map first. It tells you exactly where every file, route, component, schema, and action lives. This is faster than Glob/Grep.
+  - **UPDATE ALWAYS** — Whenever files/folders are created, renamed, moved, or deleted (new routes, components, schema files, actions, migrations, etc.), update the repo map in the same commit.
 4. **All migration SQL must be idempotent** — use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`.
 5. **All `.md` files except `CLAUDE.md` live in `docs/`**.
 6. **Component Organization (STRICTLY FOLLOW)**:
