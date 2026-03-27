@@ -15,6 +15,9 @@ import pipelineStagesRoutes from "./routes/pipeline-stages/index.js";
 import invoiceRoutes from "./routes/invoices/index.js";
 import quoteRoutes from "./routes/quotes/index.js";
 import dashboardRoutes from "./routes/dashboard/index.js";
+import availabilityRoutes from "./routes/availability/index.js";
+import publicBookingRoutes from "./routes/public/booking.js";
+import bookingRoutes from "./routes/bookings/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -92,6 +95,9 @@ export async function buildServer() {
   await fastify.register(invoiceRoutes, { prefix: "/invoices" });
   await fastify.register(quoteRoutes, { prefix: "/quotes" });
   await fastify.register(dashboardRoutes, { prefix: "/dashboard" });
+  await fastify.register(availabilityRoutes, { prefix: "/availability" });
+  await fastify.register(publicBookingRoutes, { prefix: "/public/booking" });
+  await fastify.register(bookingRoutes, { prefix: "/bookings" });
 
   fastify.get(
     "/health",

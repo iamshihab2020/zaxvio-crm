@@ -334,7 +334,7 @@ export async function declineQuote(id: string) {
   }
 }
 
-export async function convertQuoteToJob(id: string) {
+export async function convertQuoteToJob(id: string, pipelineStageId?: string) {
   try {
     const res = await fetch(`${API_URL}/quotes/${id}/convert`, {
       method: "POST",
@@ -342,7 +342,7 @@ export async function convertQuoteToJob(id: string) {
         "Content-Type": "application/json",
         cookie: await getCookieHeader(),
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(pipelineStageId ? { pipelineStageId } : {}),
       cache: "no-store",
     });
 

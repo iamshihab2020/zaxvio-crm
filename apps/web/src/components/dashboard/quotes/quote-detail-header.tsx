@@ -14,6 +14,7 @@ import {
 import { QuoteStatusBadge } from "./quote-status-badge";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
+import { ConvertToJobDialog } from "@/components/reusable/convert-to-job-dialog";
 import {
   IconAlertTriangle,
   IconChevronRight,
@@ -101,9 +102,9 @@ export function QuoteDetailHeader({
     }
   }
 
-  async function handleConvert() {
+  async function handleConvert(pipelineStageId: string) {
     setConvertLoading(true);
-    const result = await convertQuoteToJob(quote.id);
+    const result = await convertQuoteToJob(quote.id, pipelineStageId);
     setConvertLoading(false);
     if (result.error) {
       toast.error(result.error);
@@ -254,11 +255,17 @@ export function QuoteDetailHeader({
         description="All line items will also be deleted."
       />
 
-      <ConfirmActionDialog
-        title="Convert to Job"
+      <ConvertToJobDialog
+        open={convertDialogOpen}
+        onOpenChange={setConvertDialogOpen}
+        onConfirm={(stageId) => {
+          setConvertDialogOpen(false);
+          handleConvert(stageId);
+        }}
+        loading={convertLoading}
         description={
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground font-body">
               A new job will be created with all line items copied from this quote.
             </p>
             {quote.status === "sent" && (
@@ -269,17 +276,8 @@ export function QuoteDetailHeader({
                 </p>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
           </div>
         }
-        open={convertDialogOpen}
-        onOpenChange={setConvertDialogOpen}
-        onConfirm={() => {
-          setConvertDialogOpen(false);
-          handleConvert();
-        }}
-        confirmLabel="Convert to Job"
-        loading={convertLoading}
       />
     </>
   );

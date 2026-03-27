@@ -54,6 +54,12 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **Never use `template.tsx` for route group layouts** — `template.tsx` remounts on every navigation, destroying browser history state and breaking back/forward. Always use `layout.tsx` for route groups. Only use `template.tsx` for rare cases like per-page entry animations.
 - **Route groups for organization only, not competing layouts** — Auth pages (`(auth)/`) should NOT have their own `layout.tsx` if there's already a root layout. Competing layout trees cause rendering conflicts. Use a shared wrapper component (e.g., `AuthShell`) instead.
 
+## Booking Portal
+
+- **Auto-create customer at booking submission, not at convert-to-job** — When a customer submits a public booking, immediately match by email or phone to an existing customer record, or create a new one. This way the contractor sees a linked customer from day one (can view history, previous bookings). The convert-to-job flow just uses the already-linked `customerId`. Match priority: email first (most reliable), then phone. Split `customerName` into `firstName`/`lastName` on first space.
+- **Pre-fetch all availability data on page load** — Fetch 3 months of available dates + all time slots for every date while the user is on the service selection step. By the time they reach date/time pickers, everything is instant from cache. Batch slot fetches (5 at a time) to avoid overwhelming the API.
+- **Lazy-seed default availability for existing tenants** — Tenants created before availability seeding was added have zero `availability_schedules` rows. Both the authenticated `GET /availability` and public `GET /public/booking/:slug/availability` endpoints must lazy-seed Mon-Fri 8am-5pm defaults if no rows exist. Without this, all calendar dates show as unavailable.
+
 ## Project Maintenance
 
 - **Always update `docs/project_docs/REPO_MAP.md` when adding/removing/moving files** — The repo map got severely outdated (showed routes as "planned" that were done months ago). Any PR that creates new files, folders, routes, components, schema files, actions, or migrations MUST update the repo map in the same commit. Same discipline as `docs/todo.md` and `docs/lessons.md`.

@@ -1095,6 +1095,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId!;
+      const body = (request.body as { pipelineStageId?: string } | null) ?? {};
       const db = getDb();
 
       const q = await db
@@ -1119,17 +1120,26 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           .send({ message: "This quote has already been converted to a job" });
       }
 
-      // Get the first pipeline stage for the default status
+      // Resolve pipeline stage (user-selected or first default)
       const { jobPipelineStages } = await import("@hvac-saas/database");
-      const firstStage = await db
-        .select({ name: jobPipelineStages.name })
-        .from(jobPipelineStages)
-        .where(eq(jobPipelineStages.tenantId, tenantId))
-        .orderBy(asc(jobPipelineStages.sortOrder))
-        .limit(1)
-        .then((r) => r[0]);
-
-      const jobStatus = firstStage?.name ?? "Scheduled";
+      let jobStatus = "Scheduled";
+      if (body.pipelineStageId) {
+        const selectedStage = await db
+          .select({ name: jobPipelineStages.name })
+          .from(jobPipelineStages)
+          .where(and(eq(jobPipelineStages.id, body.pipelineStageId), eq(jobPipelineStages.tenantId, tenantId)))
+          .then((r) => r[0]);
+        if (selectedStage) jobStatus = selectedStage.name;
+      } else {
+        const firstStage = await db
+          .select({ name: jobPipelineStages.name })
+          .from(jobPipelineStages)
+          .where(eq(jobPipelineStages.tenantId, tenantId))
+          .orderBy(asc(jobPipelineStages.sortOrder))
+          .limit(1)
+          .then((r) => r[0]);
+        if (firstStage) jobStatus = firstStage.name;
+      }
 
       // Create job
       const [job] = await db
