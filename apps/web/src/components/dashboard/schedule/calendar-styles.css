@@ -1,0 +1,449 @@
+/* ===================================================================
+   react-big-calendar CSS overrides
+   Strategy: strip ALL defaults, apply project design tokens (shadcn/Tailwind)
+   Light + Dark mode aware via CSS variables
+   =================================================================== */
+
+/* Import react-big-calendar base CSS */
+@import "react-big-calendar/lib/css/react-big-calendar.css";
+@import "react-big-calendar/lib/addons/dragAndDrop/styles.css";
+
+/* ── Hide default toolbar (replaced by custom shadcn ScheduleToolbar) ── */
+.rbc-toolbar {
+  display: none !important;
+}
+
+/* ── Base calendar ── */
+.rbc-calendar {
+  background: hsl(var(--card));
+  font-family: var(--font-body);
+  border: none;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   MONTH VIEW
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-month-view {
+  background: hsl(var(--card));
+  border: none;
+  border-radius: 0;
+}
+
+.rbc-month-view .rbc-month-row + .rbc-month-row {
+  border-top: 1px solid hsl(var(--border));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TIME VIEW (week / day)
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-time-view {
+  background: hsl(var(--card));
+  border: none !important;
+  border-radius: 0;
+}
+
+/* ── Time header (day names + all-day area) ── */
+.rbc-time-view .rbc-time-header {
+  background: hsl(var(--card));
+  border: none !important;
+  margin-bottom: 0;
+}
+
+.rbc-time-header-content {
+  border-left: 1px solid hsl(var(--border)) !important;
+  background: hsl(var(--card));
+}
+
+.rbc-time-header-gutter {
+  background: hsl(var(--card)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   HEADERS (day name columns) — shared by all views
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-header {
+  border: none !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: hsl(var(--foreground));
+  padding: 10px 4px;
+  background: hsl(var(--card));
+}
+
+.rbc-header + .rbc-header {
+  border-left: 1px solid hsl(var(--border)) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DAY BACKGROUNDS
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-day-bg {
+  background: hsl(var(--card));
+}
+
+.rbc-day-bg + .rbc-day-bg {
+  border-left: 1px solid hsl(var(--border)) !important;
+}
+
+/* Today highlight */
+.rbc-today {
+  background-color: hsl(var(--brand) / 0.04) !important;
+}
+
+/* Off-range (previous/next month days) */
+.rbc-off-range-bg {
+  background-color: hsl(var(--muted) / 0.3) !important;
+}
+
+.rbc-off-range {
+  color: hsl(var(--muted-foreground));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ALL-DAY SECTION
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-allday-cell {
+  background: hsl(var(--card)) !important;
+  border: none !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  min-height: 0;
+  padding: 2px 0;
+}
+
+.rbc-allday-cell .rbc-row-bg,
+.rbc-allday-cell .rbc-day-bg {
+  background: hsl(var(--card));
+}
+
+.rbc-row-bg {
+  background: hsl(var(--card));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TIME GRID
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-time-content {
+  background: hsl(var(--card));
+  border-top: 1px solid hsl(var(--border)) !important;
+}
+
+/* Vertical dividers between days */
+.rbc-time-content > * + * > * {
+  border-left: 1px solid hsl(var(--border)) !important;
+}
+
+/* Time column cells */
+.rbc-day-slot .rbc-time-column {
+  background: hsl(var(--card));
+}
+
+/* Hour lines — primary grid */
+.rbc-timeslot-group {
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  min-height: 60px;
+}
+
+/* Half-hour lines — subtle secondary grid */
+.rbc-time-slot {
+  border-top: 1px solid hsl(var(--border) / 0.3) !important;
+}
+
+:is(.dark) .rbc-time-slot {
+  border-top: 1px solid hsl(var(--border) / 0.15) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TIME GUTTER (left column with time labels)
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-time-gutter {
+  background: hsl(var(--card));
+}
+
+.rbc-time-gutter .rbc-timeslot-group {
+  border-bottom: 1px solid hsl(var(--border)) !important;
+}
+
+.rbc-time-gutter .rbc-label {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.7rem;
+  font-weight: 500;
+  font-family: var(--font-body);
+  padding: 0 8px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   EVENTS — strip ALL default styles
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-event {
+  background: transparent !important;
+  border: none !important;
+  padding: 1px 2px !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  color: inherit !important;
+  outline: none !important;
+}
+
+.rbc-event:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring)) !important;
+  border-radius: 6px !important;
+}
+
+.rbc-event.rbc-selected {
+  background: transparent !important;
+}
+
+.rbc-event-label {
+  display: none !important;
+}
+
+.rbc-event-content {
+  font-size: inherit;
+  line-height: inherit;
+  height: 100%;
+}
+
+/* Month view events */
+.rbc-month-view .rbc-event {
+  margin: 1px 2px;
+}
+
+.rbc-row-segment {
+  padding: 0 2px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SHOW MORE LINK
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-show-more {
+  color: hsl(var(--brand));
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 2px 4px;
+  background: transparent;
+}
+
+.rbc-show-more:hover {
+  text-decoration: underline;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   POPUP OVERLAY ("+N more" click in month view)
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-overlay {
+  background: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1) !important;
+  padding: 8px !important;
+  z-index: 50 !important;
+  max-width: 280px !important;
+  min-width: 200px !important;
+}
+
+:is(.dark) .rbc-overlay {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.rbc-overlay-header {
+  font-family: var(--font-heading) !important;
+  font-weight: 600 !important;
+  font-size: 0.8rem !important;
+  color: hsl(var(--foreground)) !important;
+  padding: 4px 4px 8px !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  margin-bottom: 4px !important;
+}
+
+.rbc-overlay .rbc-event {
+  margin: 2px 0 !important;
+  padding: 0 !important;
+}
+
+/* The backdrop behind the popup */
+.rbc-overlay-backdrop {
+  background: transparent !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CURRENT TIME INDICATOR
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-current-time-indicator {
+  background-color: hsl(var(--brand)) !important;
+  height: 3px !important;
+  z-index: 3;
+}
+
+.rbc-current-time-indicator::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: hsl(var(--brand));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DATE CELL (month view numbers)
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-date-cell {
+  padding: 4px 8px;
+  text-align: right;
+  font-size: 0.8rem;
+  color: hsl(var(--foreground));
+}
+
+.rbc-date-cell.rbc-now {
+  font-weight: 700;
+  color: hsl(var(--brand));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DRAG AND DROP
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-addons-dnd .rbc-addons-dnd-row-body {
+  position: relative;
+}
+
+.rbc-addons-dnd .rbc-addons-dnd-drag-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+}
+
+.rbc-addons-dnd-drag-preview {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.rbc-addons-dnd .rbc-addons-dnd-resize-ns-icon,
+.rbc-addons-dnd .rbc-addons-dnd-resize-ew-icon {
+  display: none !important;
+}
+
+/* Hide resize anchor handles (the draggable dots at edges) */
+.rbc-addons-dnd-resize-ns-anchor,
+.rbc-addons-dnd-resize-ew-anchor {
+  display: none !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   AVAILABILITY OVERLAY (unavailable time slots)
+   ══════════════════════════════════════════════════════════════════ */
+
+.schedule-slot-unavailable {
+  background-color: hsl(var(--muted) / 0.15) !important;
+}
+
+:is(.dark) .schedule-slot-unavailable {
+  background-color: hsl(var(--muted) / 0.06) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   CELL HOVER EFFECT
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Month view cells */
+.rbc-month-view .rbc-day-bg:hover {
+  background-color: hsl(var(--muted) / 0.4) !important;
+  transition: background-color 150ms ease;
+}
+
+:is(.dark) .rbc-month-view .rbc-day-bg:hover {
+  background-color: hsl(var(--muted) / 0.15) !important;
+}
+
+/* Week/Day — hover on each day column.
+   The events-container is absolutely positioned on top and blocks pointer events
+   on the timeslot-groups, so we let pointer events pass through the events container
+   to the column behind, EXCEPT on actual events. */
+.rbc-day-slot .rbc-events-container {
+  pointer-events: none;
+}
+
+.rbc-day-slot .rbc-events-container .rbc-event {
+  pointer-events: auto;
+}
+
+.rbc-day-slot .rbc-timeslot-group {
+  transition: background-color 150ms ease;
+  cursor: default;
+}
+
+.rbc-day-slot .rbc-timeslot-group:hover {
+  background-color: hsl(var(--muted) / 0.35) !important;
+}
+
+:is(.dark) .rbc-day-slot .rbc-timeslot-group:hover {
+  background-color: hsl(var(--muted) / 0.12) !important;
+}
+
+/* Keep today tint on hover */
+.rbc-today.rbc-day-bg:hover {
+  background-color: hsl(var(--brand) / 0.08) !important;
+}
+
+:is(.dark) .rbc-today.rbc-day-bg:hover {
+  background-color: hsl(var(--brand) / 0.08) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   SLOT SELECTION
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-slot-selection {
+  background-color: hsl(var(--brand) / 0.15) !important;
+  border: 1px solid hsl(var(--brand) / 0.3) !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   DISABLE rbc's INTERNAL SCROLL (ScrollArea wraps calendar instead)
+   ══════════════════════════════════════════════════════════════════ */
+
+.schedule-calendar-no-internal-scroll .rbc-time-content {
+  overflow-y: visible !important;
+  max-height: none !important;
+}
+
+.schedule-calendar-no-internal-scroll .rbc-time-view {
+  overflow: visible !important;
+}
+
+.rbc-time-view .rbc-time-header.rbc-overflowing {
+  margin-right: 0 !important;
+  border-right: none !important;
+}
+
+.rbc-time-header-content .rbc-row {
+  min-height: auto;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   GLOBAL BORDER RESET — catch any inherited borders from rbc defaults
+   Must be LAST to override everything above
+   ══════════════════════════════════════════════════════════════════ */
+
+.rbc-month-view .rbc-month-row,
+.rbc-month-view .rbc-row-content {
+  border-color: hsl(var(--border));
+}

@@ -29,7 +29,11 @@
       "Read(//c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/**)",
       "Bash(done)",
       "Bash(grep -v \"^\\\\.\\\\.$\")",
-      "Bash(grep -v \"^\\\\.$\")"
+      "Bash(grep -v \"^\\\\.$\")",
+      "Bash(ls -la /c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/app/\\\\\\(dashboard\\\\\\)/)",
+      "Bash(cat \"/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/app/\\(dashboard\\)/dashboard/dashboard-page-client.tsx\")",
+      "Bash(cat \"/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/app/\\(dashboard\\)/bookings/bookings-page-client.tsx\")",
+      "Bash(cat:*)"
     ]
   }
 }
