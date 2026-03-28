@@ -43,13 +43,14 @@ export interface CalendarEvent {
   end: Date;
   allDay: boolean;
   resource: {
-    type: "job" | "booking";
+    type: "job" | "booking" | "event";
     priority?: string;
     status?: string;
     serviceType?: string;
     jobNumber?: string;
     customerName: string;
     address?: string;
+    color?: string;
   };
 }
 
@@ -70,6 +71,7 @@ interface ScheduleCalendarProps {
   onSelectEvent: (event: CalendarEvent) => void;
   onEventDrop: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
   onEventResize: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
+  onSelectSlot?: (slotInfo: { start: Date; end: Date; action: string }) => void;
 }
 
 /** Parse "HH:MM" string to hours as decimal (e.g., "09:30" → 9.5) */
@@ -88,6 +90,7 @@ export function ScheduleCalendar({
   onSelectEvent,
   onEventDrop,
   onEventResize,
+  onSelectSlot,
 }: ScheduleCalendarProps) {
   /* ── Availability-based slot styling ── */
   const slotPropGetter: SlotPropGetter = useCallback(
@@ -197,13 +200,15 @@ export function ScheduleCalendar({
       components={components}
       eventPropGetter={eventPropGetter}
       slotPropGetter={isTimeView ? slotPropGetter : undefined}
-      selectable={false}
+      selectable={!!onSelectSlot}
+      onSelectSlot={onSelectSlot}
+      longPressThreshold={250}
       resizable={false}
       step={30}
       timeslots={2}
       popup
       showMultiDayTimes
-      draggableAccessor={(event: CalendarEvent) => event.resource.type === "job"}
+      draggableAccessor={(event: CalendarEvent) => event.resource.type === "job" || event.resource.type === "event"}
       style={{ height: isTimeView ? "auto" : "100%" }}
     />
   );

@@ -36,6 +36,13 @@
       "when": 1774524960344,
       "tag": "0004_skinny_sentinel",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774691698545,
+      "tag": "0005_shocking_sleeper",
+      "breakpoints": true
     }
   ]
 }

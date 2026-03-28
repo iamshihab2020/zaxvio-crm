@@ -4,20 +4,34 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-- [x] **Booking Portal (#8, ZAX-45)** — Public booking portal + dashboard bookings management
-  - [x] Step 1: Backend — Availability API (4 endpoints + default seeding + lazy-seed)
-  - [x] Step 2: Backend — Public Booking API (4 public endpoints, no auth)
-  - [x] Step 3: Backend — Tenant Booking CRUD (5 endpoints + convert-to-job)
-  - [x] Step 4: Frontend — Foundation (constants, actions, nav updates)
-  - [x] Step 5: Frontend — Dashboard Bookings Page (table, pills, detail sheet with resize/dialog modes)
-  - [x] Step 6: Frontend — Settings / Availability (weekly editor + overrides)
-  - [x] Step 7: Frontend — Public Booking Portal (/book/[slug] multi-step, pre-fetch all data, animations)
-  - [x] Step 8: Finalize & Verify (typecheck passes)
-  - [x] Enhancement: Auto-create customer at booking submission (match by email/phone or create new)
-  - [x] Enhancement: Booking link card + stats cards + preview button in dashboard header
-  - [x] Enhancement: Portal redesign (branded header, trust badges, full-width calendar, step animations)
+(none)
 
 ## Recently Completed (Latest)
+
+- [x] **Calendar/Schedule View (#9, ZAX-46)** — Calendar page with Month/Week/Day views
+  - [x] Dependency: react-big-calendar + @types/react-big-calendar
+  - [x] Page shell: `page.tsx` (server), `schedule-page-client.tsx` (client orchestrator)
+  - [x] Core calendar: `schedule-calendar.tsx` — react-big-calendar as layout engine, all visuals overridden
+  - [x] Custom toolbar (100% shadcn): Button, Popover, Calendar date picker, view switcher (M/W/D)
+  - [x] Custom event rendering: priority color-coded cards (blue/amber/red), booking distinction (teal/dashed)
+  - [x] Filters (shadcn): Popover priority/service type filters, Switch+Label bookings toggle, Badge active indicators
+  - [x] Click-to-open: reuses existing JobDetailSheet via URL param `?jobId=xxx`
+  - [x] Drag-to-reschedule: withDragAndDrop HOC, optimistic updates, PATCH /jobs/:id
+  - [x] Availability overlay: slotPropGetter greys out unavailable time slots
+  - [x] View persistence: localStorage `schedule-calendar-view` key (default: week)
+  - [x] Skeleton loader: shadcn Skeleton mimicking calendar grid
+  - [x] Dark mode: full CSS variable overrides, all event colors have dark: variants
+  - [x] Light mode: visible grid lines using `hsl(var(--border))`, half-hour lines softer
+  - [x] Cell hover effects: timeslot-group hover highlight (pointer-events passthrough on events-container)
+  - [x] Popup overlay: "+N more" styled with shadcn popover tokens
+  - [x] Date navigation animation: fade-in + slide-up on date/view change (reflow-based)
+  - [x] Full-height layout: fills viewport minus navbar, ScrollArea for week/day, native height for month
+  - **Files created**: 8 new files in `components/dashboard/schedule/` + 2 route files
+  - **No backend changes** — all APIs already existed
+
+## Previously Completed
+
+- [x] **Booking Portal (#8, ZAX-45)** — Public booking portal + dashboard bookings management
 
 - [x] **KPI Dashboard (#7)** — Dashboard home with metrics, charts, and activity feed (ZAX-44)
   - API route: GET `/dashboard/stats` — single endpoint with 10 parallel SQL queries
@@ -73,9 +87,20 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [x] **KPI Dashboard** (#7) — Dashboard home with metrics (revenue, jobs, outstanding invoices, etc.) — DONE (ZAX-44)
+- [ ] **Super Admin Panel** (#11) — Tenant management, platform analytics, audit log, impersonation
+- [ ] **Email Templates** (#12) — React Email templates (invoice, quote, booking confirm, review request)
+- [ ] **Affiliate Program** (#13) — Lemon Squeezy integration, referral tracking, affiliate dashboard
+- [ ] **Settings Completion** (#14) — Team members, billing/subscription management
 
 ## Done
+
+- [x] **Checklists (#10)** — Full checklist template management + job integration (already implemented)
+  - DB: 3 tables (checklistTemplates, checklistItems, jobChecklistCompletions)
+  - API: 8 endpoints — template CRUD, item CRUD, toggle completion
+  - Job integration: auto-attach on create, toggle with auto-add line items from catalog, completion gate
+  - Settings UI: template management page with create/edit/delete, service type filter
+  - Job detail: checklist tab with progress bar, required indicators, optimistic updates
+  - Server actions: full coverage for templates, items, and job checklist operations
 
 - [x] **Quote Builder (#6)** — Full quote management feature (ZAX-43)
   - API routes: 13 endpoints (CRUD, line items, PDF gen/download, send, accept, decline, convert-to-job)

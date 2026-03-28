@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -216,11 +217,10 @@ export function InvoicePaymentsTab({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs font-body">Date</Label>
-              <Input
-                type="date"
+              <DatePicker
                 value={paymentDate}
-                onChange={(e) => setPaymentDate(e.target.value)}
-                className="text-sm"
+                onChange={setPaymentDate}
+                placeholder="Payment date"
               />
             </div>
             <div className="space-y-1">

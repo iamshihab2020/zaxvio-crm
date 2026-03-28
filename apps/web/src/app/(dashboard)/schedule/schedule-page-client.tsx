@@ -10,9 +10,17 @@ import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, su
 import { getJobs, updateJob, deleteJob } from "@/actions/jobs";
 import { getBookings, getAvailability } from "@/actions/bookings";
 import { getPipelineStages } from "@/actions/pipeline-stages";
+import {
+  getCalendarEvents,
+  createCalendarEvent,
+  updateCalendarEvent,
+  deleteCalendarEvent,
+  type CalendarEventData,
+} from "@/actions/calendar-events";
 import type { JobCardData } from "@/components/dashboard/jobs/kanban-card";
 import { JobDetailSheet, type JobDetail } from "@/components/dashboard/jobs/job-detail-sheet";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { EventCreateDialog, type EventFormData } from "@/components/dashboard/schedule/event-create-dialog";
 
 import { ScheduleToolbar, type CalendarView } from "@/components/dashboard/schedule/schedule-toolbar";
 import { ScheduleFilters } from "@/components/dashboard/schedule/schedule-filters";
@@ -146,6 +154,41 @@ function bookingToEvent(booking: BookingData): CalendarEvent {
   };
 }
 
+function calEventToCalendarEvent(evt: CalendarEventData): CalendarEvent {
+  const dateStr = evt.eventDate;
+
+  let start: Date;
+  let end: Date;
+  let allDay = false;
+
+  if (evt.startTime) {
+    start = new Date(`${dateStr}T${evt.startTime}`);
+    if (evt.endTime) {
+      end = new Date(`${dateStr}T${evt.endTime}`);
+    } else {
+      end = new Date(start.getTime() + 60 * 60 * 1000);
+    }
+  } else {
+    start = new Date(`${dateStr}T00:00:00`);
+    end = new Date(`${dateStr}T23:59:59`);
+    allDay = true;
+  }
+
+  return {
+    id: evt.id,
+    title: evt.title,
+    start,
+    end,
+    allDay,
+    resource: {
+      type: "event",
+      customerName: evt.contactName ?? "",
+      address: evt.address ?? undefined,
+      color: evt.color ?? "purple",
+    },
+  };
+}
+
 /* ── Main component ── */
 export function SchedulePageClient() {
   const router = useRouter();
@@ -164,6 +207,7 @@ export function SchedulePageClient() {
   // Data state
   const [jobs, setJobs] = useState<JobCardData[]>([]);
   const [bookings, setBookings] = useState<BookingData[]>([]);
+  const [calEvents, setCalEvents] = useState<CalendarEventData[]>([]);
   const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -179,11 +223,17 @@ export function SchedulePageClient() {
   );
   const [sheetOpen, setSheetOpen] = useState(!!searchParams.get("jobId"));
 
-  // Create/delete dialog state
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  // Job detail/delete dialog state
   const [editingJob, setEditingJob] = useState<JobDetail | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deletingJob, setDeletingJob] = useState<JobDetail | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Calendar event dialog state
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [editingEvent, setEditingEvent] = useState<CalendarEventData | null>(null);
+  const [eventSaving, setEventSaving] = useState(false);
+  const [slotInfo, setSlotInfo] = useState<{ date: string; start: string; end: string } | null>(null);
 
   // Ref to prevent double-fetch
   const fetchingRef = useRef(false);
@@ -197,13 +247,15 @@ export function SchedulePageClient() {
       const { dateFrom, dateTo } = getDateRange(date, view);
 
       try {
-        const [jobsRes, bookingsRes] = await Promise.all([
+        const [jobsRes, bookingsRes, eventsRes] = await Promise.all([
           getJobs({ dateFrom, dateTo, limit: 200, sortBy: "scheduledDate", sortOrder: "asc" }),
           getBookings({ dateFrom, dateTo, limit: 200 }),
+          getCalendarEvents({ dateFrom, dateTo, limit: 200 }),
         ]);
 
         if (jobsRes.data) setJobs(jobsRes.data);
         if (bookingsRes.data) setBookings(bookingsRes.data);
+        if (eventsRes.data) setCalEvents(eventsRes.data);
       } finally {
         fetchingRef.current = false;
         setLoading(false);
@@ -292,8 +344,10 @@ export function SchedulePageClient() {
       setSelectedJobId(event.id);
       setSheetOpen(true);
       router.replace(`/schedule?jobId=${event.id}`, { scroll: false });
+    } else if (event.resource.type === "event") {
+      const found = calEvents.find((e) => e.id === event.id);
+      if (found) handleCalendarEventClick(found);
     } else {
-      // Booking click — navigate to bookings page
       router.push(`/bookings`);
     }
   }
@@ -316,6 +370,31 @@ export function SchedulePageClient() {
     start: Date;
     end: Date;
   }) {
+    if (event.resource.type === "event") {
+      // Drag calendar event
+      const eventDate = format(start, "yyyy-MM-dd");
+      const startTime = format(start, "HH:mm");
+      const endTime = format(end, "HH:mm");
+
+      const prevEvents = [...calEvents];
+      setCalEvents((prev) =>
+        prev.map((e) =>
+          e.id === event.id
+            ? { ...e, eventDate, startTime, endTime }
+            : e,
+        ),
+      );
+
+      const result = await updateCalendarEvent(event.id, { eventDate, startTime, endTime });
+      if (result.error) {
+        setCalEvents(prevEvents);
+        toast.error(result.error);
+      } else {
+        toast.success(`Event moved to ${format(start, "MMM d, h:mm a")}`);
+      }
+      return;
+    }
+
     const scheduledDate = format(start, "yyyy-MM-dd");
     const scheduledStart = format(start, "HH:mm");
     const scheduledEnd = format(end, "HH:mm");
@@ -353,6 +432,26 @@ export function SchedulePageClient() {
     start: Date;
     end: Date;
   }) {
+    if (event.resource.type === "event") {
+      const eventDate = format(start, "yyyy-MM-dd");
+      const startTime = format(start, "HH:mm");
+      const endTime = format(end, "HH:mm");
+
+      const prevEvents = [...calEvents];
+      setCalEvents((prev) =>
+        prev.map((e) =>
+          e.id === event.id ? { ...e, eventDate, startTime, endTime } : e,
+        ),
+      );
+
+      const result = await updateCalendarEvent(event.id, { eventDate, startTime, endTime });
+      if (result.error) {
+        setCalEvents(prevEvents);
+        toast.error(result.error);
+      }
+      return;
+    }
+
     const scheduledDate = format(start, "yyyy-MM-dd");
     const scheduledStart = format(start, "HH:mm");
     const scheduledEnd = format(end, "HH:mm");
@@ -409,6 +508,81 @@ export function SchedulePageClient() {
     fetchData(currentDate, currentView);
   }
 
+  /* ── Calendar event CRUD ── */
+  function handleSelectSlot({ start, end }: { start: Date; end: Date; action: string }) {
+    const eventDate = format(start, "yyyy-MM-dd");
+    const isTimeSlot = currentView === "week" || currentView === "day";
+    const startTime = isTimeSlot ? format(start, "HH:mm") : "";
+    const endTime = isTimeSlot ? format(end, "HH:mm") : "";
+
+    setSlotInfo({ date: eventDate, start: startTime, end: endTime });
+    setEditingEvent(null);
+    setEventDialogOpen(true);
+  }
+
+  function handleNewEventButton() {
+    setSlotInfo({ date: format(new Date(), "yyyy-MM-dd"), start: "", end: "" });
+    setEditingEvent(null);
+    setEventDialogOpen(true);
+  }
+
+  function handleCalendarEventClick(calEvent: CalendarEventData) {
+    setEditingEvent(calEvent);
+    setSlotInfo(null);
+    setEventDialogOpen(true);
+  }
+
+  async function handleEventSave(data: EventFormData) {
+    setEventSaving(true);
+    try {
+      if (editingEvent) {
+        const result = await updateCalendarEvent(editingEvent.id, {
+          title: data.title,
+          eventDate: data.eventDate,
+          startTime: data.startTime || undefined,
+          endTime: data.endTime || undefined,
+          contactName: data.contactName || undefined,
+          contactPhone: data.contactPhone || undefined,
+          address: data.address || undefined,
+          description: data.description || undefined,
+          notes: data.notes || undefined,
+          color: data.color,
+          customerId: data.customerId,
+        });
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Event updated");
+      } else {
+        const result = await createCalendarEvent({
+          title: data.title,
+          eventDate: data.eventDate,
+          startTime: data.startTime || undefined,
+          endTime: data.endTime || undefined,
+          contactName: data.contactName || undefined,
+          contactPhone: data.contactPhone || undefined,
+          address: data.address || undefined,
+          description: data.description || undefined,
+          notes: data.notes || undefined,
+          color: data.color,
+          customerId: data.customerId ?? undefined,
+        });
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        toast.success("Event created");
+      }
+      setEventDialogOpen(false);
+      setEditingEvent(null);
+      setSlotInfo(null);
+      fetchData(currentDate, currentView);
+    } finally {
+      setEventSaving(false);
+    }
+  }
+
   /* ── Build calendar events (apply filters) ── */
   const filteredJobs = jobs.filter((j) => {
     if (priorityFilter && j.priority !== priorityFilter) return false;
@@ -423,6 +597,7 @@ export function SchedulePageClient() {
           .filter((b) => b.status !== "cancelled")
           .map(bookingToEvent)
       : []),
+    ...calEvents.map(calEventToCalendarEvent),
   ];
 
   /* ── Loading state ── */
@@ -443,6 +618,7 @@ export function SchedulePageClient() {
             onToday={handleToday}
             onPrev={handlePrev}
             onNext={handleNext}
+            onCreateEvent={handleNewEventButton}
           />
 
           <ScheduleFilters
@@ -464,6 +640,7 @@ export function SchedulePageClient() {
             onSelectEvent={handleSelectEvent}
             onEventDrop={handleEventDrop}
             onEventResize={handleEventResize}
+            onSelectSlot={handleSelectSlot}
           />
         </Card>
 
@@ -486,6 +663,24 @@ export function SchedulePageClient() {
           loading={deleteLoading}
           entityName="job"
           itemLabel={deletingJob?.jobNumber ?? ""}
+        />
+
+        {/* Event create/edit dialog */}
+        <EventCreateDialog
+          event={editingEvent}
+          open={eventDialogOpen}
+          onOpenChange={(open) => {
+            setEventDialogOpen(open);
+            if (!open) {
+              setEditingEvent(null);
+              setSlotInfo(null);
+            }
+          }}
+          onSave={handleEventSave}
+          loading={eventSaving}
+          defaultEventDate={slotInfo?.date}
+          defaultStartTime={slotInfo?.start}
+          defaultEndTime={slotInfo?.end}
         />
       </section>
     </TooltipProvider>

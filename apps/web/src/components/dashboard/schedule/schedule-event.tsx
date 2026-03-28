@@ -45,6 +45,52 @@ const BOOKING_COLORS = {
   subtext: "text-teal-700/80 dark:text-teal-300/70",
 };
 
+/** Calendar event (user-created) colors keyed by color name */
+const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: string; subtext: string; dot: string }> = {
+  purple: {
+    bg: "bg-purple-100 dark:bg-purple-900/70",
+    border: "border-l-purple-500 dark:border-l-purple-400",
+    text: "text-purple-900 dark:text-purple-100",
+    subtext: "text-purple-700/80 dark:text-purple-300/70",
+    dot: "bg-purple-500",
+  },
+  blue: {
+    bg: "bg-sky-100 dark:bg-sky-900/70",
+    border: "border-l-sky-500 dark:border-l-sky-400",
+    text: "text-sky-900 dark:text-sky-100",
+    subtext: "text-sky-700/80 dark:text-sky-300/70",
+    dot: "bg-sky-500",
+  },
+  green: {
+    bg: "bg-emerald-100 dark:bg-emerald-900/70",
+    border: "border-l-emerald-500 dark:border-l-emerald-400",
+    text: "text-emerald-900 dark:text-emerald-100",
+    subtext: "text-emerald-700/80 dark:text-emerald-300/70",
+    dot: "bg-emerald-500",
+  },
+  amber: {
+    bg: "bg-orange-100 dark:bg-orange-900/70",
+    border: "border-l-orange-500 dark:border-l-orange-400",
+    text: "text-orange-900 dark:text-orange-100",
+    subtext: "text-orange-700/80 dark:text-orange-300/70",
+    dot: "bg-orange-500",
+  },
+  red: {
+    bg: "bg-rose-100 dark:bg-rose-900/70",
+    border: "border-l-rose-500 dark:border-l-rose-400",
+    text: "text-rose-900 dark:text-rose-100",
+    subtext: "text-rose-700/80 dark:text-rose-300/70",
+    dot: "bg-rose-500",
+  },
+  teal: {
+    bg: "bg-teal-100 dark:bg-teal-900/70",
+    border: "border-l-teal-500 dark:border-l-teal-400",
+    text: "text-teal-900 dark:text-teal-100",
+    subtext: "text-teal-700/80 dark:text-teal-300/70",
+    dot: "bg-teal-500",
+  },
+};
+
 /** Priority → dot color class */
 const PRIORITY_DOT: Record<string, string> = {
   standard: "bg-blue-500",
@@ -59,12 +105,20 @@ export interface ScheduleEventProps {
   [key: string]: any;
 }
 
+function getEventColors(r: CalendarEvent["resource"]) {
+  if (r.type === "event") {
+    return CALENDAR_EVENT_COLORS[r.color ?? "purple"] ?? CALENDAR_EVENT_COLORS.purple;
+  }
+  if (r.type === "booking") return BOOKING_COLORS;
+  return EVENT_COLORS[r.priority ?? "standard"] ?? EVENT_COLORS.standard;
+}
+
 /** Event component for Week/Day views (timed events with more space) */
 function TimedEventContent({ event }: { event: CalendarEvent }) {
   const r = event.resource;
   const isBooking = r.type === "booking";
-  const priority = r.priority ?? "standard";
-  const colors = isBooking ? BOOKING_COLORS : (EVENT_COLORS[priority] ?? EVENT_COLORS.standard);
+  const isCalendarEvent = r.type === "event";
+  const colors = getEventColors(r);
 
   return (
     <div
@@ -78,11 +132,11 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
       )}
     >
       <div className="flex items-center gap-1 min-w-0">
-        {isBooking && (
+        {(isBooking || isCalendarEvent) && (
           <IconCalendarEvent className={cn("h-3 w-3 shrink-0", colors.text)} />
         )}
         <span className={cn("truncate text-xs font-semibold leading-tight", colors.text)}>
-          {isBooking ? "Booking" : r.jobNumber ?? event.title}
+          {isBooking ? "Booking" : isCalendarEvent ? event.title : r.jobNumber ?? event.title}
         </span>
       </div>
       {r.customerName && (
@@ -101,8 +155,10 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
 function MonthEventContent({ event }: { event: CalendarEvent }) {
   const r = event.resource;
   const isBooking = r.type === "booking";
+  const isCalendarEvent = r.type === "event";
   const priority = r.priority ?? "standard";
-  const colors = isBooking ? BOOKING_COLORS : (EVENT_COLORS[priority] ?? EVENT_COLORS.standard);
+  const colors = getEventColors(r);
+  const calEvtColors = isCalendarEvent ? CALENDAR_EVENT_COLORS[r.color ?? "purple"] ?? CALENDAR_EVENT_COLORS.purple : null;
 
   return (
     <div className={cn(
@@ -113,11 +169,11 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
       <span
         className={cn(
           "h-2 w-2 shrink-0 rounded-full",
-          isBooking ? "bg-teal-500" : PRIORITY_DOT[priority],
+          isCalendarEvent ? calEvtColors?.dot : isBooking ? "bg-teal-500" : PRIORITY_DOT[priority],
         )}
       />
       <span className={cn("truncate text-xs font-semibold", colors.text)}>
-        {r.jobNumber ?? event.title}
+        {isCalendarEvent ? event.title : r.jobNumber ?? event.title}
       </span>
     </div>
   );
@@ -127,6 +183,7 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
 export function ScheduleEvent({ event }: ScheduleEventProps) {
   const r = event.resource;
   const isBooking = r.type === "booking";
+  const isCalendarEvent = r.type === "event";
 
   return (
     <Tooltip>
@@ -145,8 +202,12 @@ export function ScheduleEvent({ event }: ScheduleEventProps) {
       >
         <div className="space-y-1.5">
           <p className="font-heading font-semibold text-sm">
-            {isBooking ? "Booking" : r.jobNumber}
-            {!isBooking && r.jobNumber && (
+            {isCalendarEvent
+              ? event.title
+              : isBooking
+                ? "Booking"
+                : r.jobNumber}
+            {!isBooking && !isCalendarEvent && r.jobNumber && (
               <span className="font-normal text-muted-foreground"> — {event.title.replace(`${r.jobNumber} — `, "")}</span>
             )}
           </p>
@@ -163,7 +224,7 @@ export function ScheduleEvent({ event }: ScheduleEventProps) {
             </p>
           )}
           <div className="flex items-center gap-2 text-xs">
-            {r.priority && !isBooking && (
+            {r.priority && !isBooking && !isCalendarEvent && (
               <span className={cn(
                 "inline-flex items-center rounded-full px-1.5 py-0.5 font-medium",
                 JOB_PRIORITY_COLORS[r.priority as JobPriority]?.bg,
@@ -174,6 +235,9 @@ export function ScheduleEvent({ event }: ScheduleEventProps) {
             )}
             {r.serviceType && (
               <span className="text-muted-foreground capitalize">{r.serviceType}</span>
+            )}
+            {isCalendarEvent && (
+              <span className="text-muted-foreground">Event</span>
             )}
           </div>
         </div>
@@ -199,7 +263,7 @@ export function ScheduleMonthEvent({ event }: ScheduleEventProps) {
       >
         <div className="space-y-1.5">
           <p className="font-heading font-semibold text-sm">
-            {r.type === "booking" ? "Booking" : r.jobNumber ?? event.title}
+            {r.type === "event" ? event.title : r.type === "booking" ? "Booking" : r.jobNumber ?? event.title}
           </p>
           {r.customerName && (
             <p className="text-xs text-muted-foreground">{r.customerName}</p>

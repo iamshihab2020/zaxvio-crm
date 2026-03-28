@@ -1,7 +1,7 @@
 "use client";
 
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
+import { TimePicker } from "@/components/ui/time-picker";
 import { Button } from "@/components/ui/button";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { IconClock, IconDeviceFloppy } from "@tabler/icons-react";
@@ -82,19 +82,21 @@ export function AvailabilityWeeklyEditor({
 
             {entry.isActive ? (
               <div className="flex items-center gap-2">
-                <Input
-                  type="time"
-                  value={entry.startTime}
-                  onChange={(e) => updateDay(entry.dayOfWeek, { startTime: e.target.value })}
-                  className="w-32"
-                />
+                <div className="w-36">
+                  <TimePicker
+                    value={entry.startTime}
+                    onChange={(v) => updateDay(entry.dayOfWeek, { startTime: v })}
+                    placeholder="Start"
+                  />
+                </div>
                 <span className="text-sm text-muted-foreground">to</span>
-                <Input
-                  type="time"
-                  value={entry.endTime}
-                  onChange={(e) => updateDay(entry.dayOfWeek, { endTime: e.target.value })}
-                  className="w-32"
-                />
+                <div className="w-36">
+                  <TimePicker
+                    value={entry.endTime}
+                    onChange={(v) => updateDay(entry.dayOfWeek, { endTime: v })}
+                    placeholder="End"
+                  />
+                </div>
               </div>
             ) : (
               <span className="text-sm text-muted-foreground">Closed</span>

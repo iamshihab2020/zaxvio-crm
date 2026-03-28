@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimePicker } from "@/components/ui/time-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 
@@ -63,10 +65,10 @@ export function AvailabilityOverrideDialog({
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label>Date</Label>
-            <Input
-              type="date"
+            <DatePicker
               value={overrideDate}
-              onChange={(e) => setOverrideDate(e.target.value)}
+              onChange={setOverrideDate}
+              placeholder="Pick date"
             />
           </div>
 
@@ -81,11 +83,11 @@ export function AvailabilityOverrideDialog({
             <div className="flex items-center gap-2">
               <div className="space-y-2 flex-1">
                 <Label>Start Time</Label>
-                <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+                <TimePicker value={startTime} onChange={setStartTime} placeholder="Start" />
               </div>
               <div className="space-y-2 flex-1">
                 <Label>End Time</Label>
-                <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+                <TimePicker value={endTime} onChange={setEndTime} placeholder="End" />
               </div>
             </div>
           )}

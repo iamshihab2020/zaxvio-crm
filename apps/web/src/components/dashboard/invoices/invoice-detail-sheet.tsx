@@ -29,6 +29,7 @@ import {
   IconLayoutSidebar,
   IconMaximize,
   IconExternalLink,
+  IconX,
 } from "@tabler/icons-react";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import { InvoiceDetailTab } from "./invoice-detail-tab";
@@ -384,6 +385,16 @@ export function InvoiceDetailSheet({
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer"
+                  onClick={() => onOpenChange(false)}
+                  title="Close"
+                >
+                  <IconX className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>

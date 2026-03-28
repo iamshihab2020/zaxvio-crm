@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { TimePicker } from "@/components/ui/time-picker";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -20,7 +22,23 @@ import {
   IconPlus,
   IconTrash,
   IconPackage,
+  IconLayoutSidebar,
+  IconMaximize,
+  IconX,
 } from "@tabler/icons-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useViewPreference } from "@/hooks/use-view-preference";
 import {
   SERVICE_TYPES,
   SERVICE_TYPE_LABELS,
@@ -281,23 +299,48 @@ export function JobCreateDialog({
   const total = subtotal + taxAmount;
 
   const isBusy = loading || creatingCustomer;
+  const { mode, setMode } = useViewPreference("jobs");
+  const isSidebar = mode === "sidebar";
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[900px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="font-heading">
-            {isEditing ? "Edit Job" : "Create Job"}
-          </DialogTitle>
-          <DialogDescription>
-            {isEditing
-              ? "Update job details."
-              : "Create a new job for a customer."}
-          </DialogDescription>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 min-h-0">
-          <ScrollFadeArea className="flex-1">
-            <div className="flex flex-col lg:flex-row gap-6 px-3 pb-3">
+  const header = (
+    <div className="flex items-center justify-between px-6 pt-6 pb-2">
+      <div>
+        <h2 className="font-heading text-lg font-semibold">
+          {isEditing ? "Edit Job" : "Create Job"}
+        </h2>
+        <p className="text-sm text-muted-foreground font-body">
+          {isEditing ? "Update job details." : "Create a new job for a customer."}
+        </p>
+      </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex items-center gap-1 shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => setMode(isSidebar ? "dialog" : "sidebar")} type="button">
+                {isSidebar ? <IconMaximize className="h-4 w-4" /> : <IconLayoutSidebar className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {isSidebar ? "Switch to dialog view" : "Switch to sidebar view"}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => onOpenChange(false)} type="button">
+                <IconX className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Close</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+
+  const formContent = (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4 min-h-0 flex-1">
+      <ScrollFadeArea className="flex-1">
+        <div className={`flex gap-6 px-6 pb-3 ${isSidebar ? "flex-col" : "flex-col lg:flex-row"}`}>
               {/* Left column: Job details */}
               <div className="flex-1 min-w-0 space-y-4">
           {/* Customer picker (not shown when editing since customerId can't change) */}
@@ -388,11 +431,11 @@ export function JobCreateDialog({
               <Label htmlFor="scheduledDate" className="font-body">
                 Date <span className="text-destructive">*</span>
               </Label>
-              <Input
+              <DatePicker
                 id="scheduledDate"
-                type="date"
                 value={form.scheduledDate}
-                onChange={(e) => updateField("scheduledDate", e.target.value)}
+                onChange={(v) => updateField("scheduledDate", v)}
+                placeholder="Pick date"
               />
               {errors.scheduledDate && (
                 <p className="text-sm text-destructive">{errors.scheduledDate}</p>
@@ -402,22 +445,22 @@ export function JobCreateDialog({
               <Label htmlFor="scheduledStart" className="font-body">
                 Start Time
               </Label>
-              <Input
+              <TimePicker
                 id="scheduledStart"
-                type="time"
                 value={form.scheduledStart}
-                onChange={(e) => updateField("scheduledStart", e.target.value)}
+                onChange={(v) => updateField("scheduledStart", v)}
+                placeholder="Start"
               />
             </div>
             <div className="space-y-2">
               <Label htmlFor="scheduledEnd" className="font-body">
                 End Time
               </Label>
-              <Input
+              <TimePicker
                 id="scheduledEnd"
-                type="time"
                 value={form.scheduledEnd}
-                onChange={(e) => updateField("scheduledEnd", e.target.value)}
+                onChange={(v) => updateField("scheduledEnd", v)}
+                placeholder="End"
               />
             </div>
           </div>
@@ -730,18 +773,19 @@ export function JobCreateDialog({
               )}
             </div>
           </ScrollFadeArea>
-          <DialogFooter className="shrink-0 border-t pt-4">
+          <div className="flex justify-end gap-2 px-6 pb-6 pt-2 border-t border-border">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={isBusy}
+              className="cursor-pointer"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
+              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
               disabled={isBusy}
             >
               {creatingCustomer
@@ -752,8 +796,28 @@ export function JobCreateDialog({
                     ? "Save Changes"
                     : "Create Job"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
+  );
+
+  if (isSidebar) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="p-0 overflow-hidden flex flex-col sm:max-w-lg w-full">
+          <SheetTitle className="sr-only">{isEditing ? "Edit Job" : "Create Job"}</SheetTitle>
+          <SheetDescription className="sr-only">{isEditing ? "Update job details." : "Create a new job."}</SheetDescription>
+          {header}
+          {formContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[900px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden p-0">
+        {header}
+        {formContent}
       </DialogContent>
     </Dialog>
   );

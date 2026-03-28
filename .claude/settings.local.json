@@ -33,7 +33,12 @@
       "Bash(ls -la /c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/app/\\\\\\(dashboard\\\\\\)/)",
       "Bash(cat \"/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/app/\\(dashboard\\)/dashboard/dashboard-page-client.tsx\")",
       "Bash(cat \"/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/app/\\(dashboard\\)/bookings/bookings-page-client.tsx\")",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(wc:*)",
+      "Bash(tail:*)",
+      "Bash(pnpm -F web exec eslint src/app/\\\\\\(dashboard\\\\\\)/schedule/schedule-page-client.tsx src/components/dashboard/schedule/schedule-toolbar.tsx src/components/dashboard/schedule/schedule-calendar.tsx src/components/dashboard/jobs/job-create-dialog.tsx)",
+      "Bash(cd:*)",
+      "Bash(grep -v '^$')"
     ]
   }
 }

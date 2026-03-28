@@ -34,6 +34,7 @@ import { jobActivities } from "./job-activities";
 import { quoteActivities } from "./quote-activities";
 import { tags, customerTags } from "./tags";
 import { jobPipelineStages } from "./pipeline-stages";
+import { calendarEvents } from "./calendar-events";
 
 // --- Better Auth: User relations ---
 export const userRelations = relations(user, ({ many }) => ({
@@ -104,6 +105,7 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   scheduleOverrides: many(scheduleOverrides),
   platformEvents: many(platformEvents),
   jobPipelineStages: many(jobPipelineStages),
+  calendarEvents: many(calendarEvents),
 }));
 
 // --- Subscription relations ---
@@ -132,6 +134,19 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   notes: many(customerNotes),
   activities: many(customerActivities),
   customerTags: many(customerTags),
+  calendarEvents: many(calendarEvents),
+}));
+
+// --- Calendar Events relations ---
+export const calendarEventsRelations = relations(calendarEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [calendarEvents.tenantId],
+    references: [tenants.id],
+  }),
+  customer: one(customers, {
+    fields: [calendarEvents.customerId],
+    references: [customers.id],
+  }),
 }));
 
 // --- Catalog relations ---

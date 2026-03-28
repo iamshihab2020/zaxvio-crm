@@ -235,6 +235,16 @@ export function BookingDetailSheet({
                     <IconLayoutSidebar className="h-4 w-4" />
                   )}
                 </Button>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 cursor-pointer"
+                  onClick={() => onOpenChange(false)}
+                  title="Close"
+                >
+                  <IconX className="h-4 w-4" />
+                </Button>
               </div>
             </div>
 

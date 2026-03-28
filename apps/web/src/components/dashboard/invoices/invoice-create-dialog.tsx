@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
@@ -28,7 +29,23 @@ import {
   IconSearch,
   IconCheck,
   IconSelector,
+  IconLayoutSidebar,
+  IconMaximize,
+  IconX,
 } from "@tabler/icons-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { useViewPreference } from "@/hooks/use-view-preference";
 import { getCustomers } from "@/actions/customers";
 
 export interface InvoiceFormData {
@@ -164,21 +181,49 @@ export function InvoiceCreateDialog({
     setCustomerSearch("");
   }
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="font-heading">Create Invoice</DialogTitle>
-          <DialogDescription className="font-body">
-            Create a new invoice to send to your customer and track payment.
-          </DialogDescription>
-        </DialogHeader>
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-col gap-4 min-h-0"
-        >
-          <ScrollFadeArea className="flex-1">
-            <div className="space-y-4 px-3 pb-3">
+  const { mode, setMode } = useViewPreference("invoices");
+  const isSidebar = mode === "sidebar";
+
+  const header = (
+    <div className="flex items-center justify-between px-6 pt-6 pb-2">
+      <div>
+        <h2 className="font-heading text-lg font-semibold">Create Invoice</h2>
+        <p className="text-sm text-muted-foreground font-body">
+          Create a new invoice to send to your customer and track payment.
+        </p>
+      </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex items-center gap-1 shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => setMode(isSidebar ? "dialog" : "sidebar")} type="button">
+                {isSidebar ? <IconMaximize className="h-4 w-4" /> : <IconLayoutSidebar className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {isSidebar ? "Switch to dialog view" : "Switch to sidebar view"}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => onOpenChange(false)} type="button">
+                <IconX className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">Close</TooltipContent>
+          </Tooltip>
+        </div>
+      </TooltipProvider>
+    </div>
+  );
+
+  const formContent = (
+    <form
+      onSubmit={handleSubmit}
+      className="flex flex-col gap-4 min-h-0 flex-1"
+    >
+      <ScrollFadeArea className="flex-1">
+        <div className="space-y-4 px-6 pb-3">
               {/* Section 1: Customer */}
               <div className="flex items-center gap-2 text-muted-foreground">
                 <IconUser className="h-4 w-4" />
@@ -271,22 +316,22 @@ export function InvoiceCreateDialog({
                   <Label htmlFor="issuedDate" className="font-body text-muted-foreground">
                     Issued Date
                   </Label>
-                  <Input
+                  <DatePicker
                     id="issuedDate"
-                    type="date"
                     value={form.issuedDate}
-                    onChange={(e) => updateField("issuedDate", e.target.value)}
+                    onChange={(v) => updateField("issuedDate", v)}
+                    placeholder="Issue date"
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="dueDate" className="font-body text-muted-foreground">
                     Due Date
                   </Label>
-                  <Input
+                  <DatePicker
                     id="dueDate"
-                    type="date"
                     value={form.dueDate}
-                    onChange={(e) => updateField("dueDate", e.target.value)}
+                    onChange={(v) => updateField("dueDate", v)}
+                    placeholder="Due date"
                   />
                 </div>
               </div>
@@ -364,24 +409,45 @@ export function InvoiceCreateDialog({
               </div>
             </div>
           </ScrollFadeArea>
-          <DialogFooter className="shrink-0 border-t pt-4">
+          <div className="flex justify-end gap-2 px-6 pb-6 pt-2 border-t border-border">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="cursor-pointer"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90 min-w-[160px]"
+              className="bg-brand text-brand-foreground hover:bg-brand/90 min-w-[160px] cursor-pointer"
               disabled={loading}
             >
               {loading ? "Creating..." : "Create Invoice"}
             </Button>
-          </DialogFooter>
+          </div>
         </form>
+  );
+
+  if (isSidebar) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="p-0 overflow-hidden flex flex-col sm:max-w-lg w-full">
+          <SheetTitle className="sr-only">Create Invoice</SheetTitle>
+          <SheetDescription className="sr-only">Create a new invoice.</SheetDescription>
+          {header}
+          {formContent}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden p-0">
+        {header}
+        {formContent}
       </DialogContent>
     </Dialog>
   );

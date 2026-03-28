@@ -19,6 +19,7 @@ import {
   IconCalendarMonth,
   IconCalendarWeek,
   IconCalendarDot,
+  IconPlus,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import {
@@ -38,6 +39,7 @@ interface ScheduleToolbarProps {
   onToday: () => void;
   onPrev: () => void;
   onNext: () => void;
+  onCreateEvent?: () => void;
 }
 
 const VIEW_OPTIONS: { value: CalendarView; label: string; icon: React.ElementType }[] = [
@@ -74,6 +76,7 @@ export function ScheduleToolbar({
   onToday,
   onPrev,
   onNext,
+  onCreateEvent,
 }: ScheduleToolbarProps) {
   const [datePickerOpen, setDatePickerOpen] = useState(false);
 
@@ -150,7 +153,23 @@ export function ScheduleToolbar({
         </Popover>
       </div>
 
-      {/* Right: View switcher */}
+      {/* Right: New Job + View switcher */}
+      <div className="flex items-center gap-2">
+        {onCreateEvent && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                onClick={onCreateEvent}
+                className="cursor-pointer gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90"
+              >
+                <IconPlus className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">New Event</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Schedule a new event</TooltipContent>
+          </Tooltip>
+        )}
       <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5">
         {VIEW_OPTIONS.map(({ value, label, icon: Icon }) => (
           <Tooltip key={value}>
@@ -173,6 +192,7 @@ export function ScheduleToolbar({
             <TooltipContent>{label} view</TooltipContent>
           </Tooltip>
         ))}
+      </div>
       </div>
     </div>
   );
