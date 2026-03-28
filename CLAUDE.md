@@ -26,6 +26,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 7. **Read memory files at session start** — `scripts/memory/recent-memory.md` + `scripts/memory/project-memory.md` for recent context; reference `scripts/memory/long-term-memory.md` for architecture/library decisions.
 
+8. **`docs/API_DOCUMENTATION.md` is the single source of truth for API endpoints:**
+  - **READ** when working on frontend actions, API client calls, server actions, or any task that interacts with the API — consult this doc to know exact endpoints, request/response shapes, auth requirements, and query parameters.
+  - **UPDATE ALWAYS** — Whenever a new API endpoint is added, modified, or removed, update `docs/API_DOCUMENTATION.md` in the same commit. Follow the existing format exactly:
+    - Add the endpoint under the correct feature group (or create a new group if needed)
+    - Include: HTTP method, path, auth level, request body with field table, query parameters (if GET), and a realistic demo JSON response
+    - Update the Table of Contents if a new section is added
+    - Update the Enums & Constants section if new enum values are introduced
+
 > **Skill**: If the file `skills/consolidate-memory.md` exists locally, follow its methodology whenever consolidating session memory.
 
 ---
