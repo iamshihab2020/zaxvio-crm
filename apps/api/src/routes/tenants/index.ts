@@ -5,6 +5,7 @@ import {
   tenants,
   tenantSubscriptions,
   jobPipelineStages,
+  availabilitySchedules,
   user,
   organization,
   eq,
@@ -171,6 +172,17 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
         { tenantId: tenant.id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
         { tenantId: tenant.id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
       ]);
+
+      // Seed default availability schedule (Mon-Fri 8am-5pm)
+      await db.insert(availabilitySchedules).values(
+        [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+          tenantId: tenant.id,
+          dayOfWeek: day,
+          startTime: "08:00",
+          endTime: "17:00",
+          isActive: day >= 1 && day <= 5, // Mon-Fri active, Sat-Sun inactive
+        })),
+      );
 
       return reply
         .status(201)

@@ -9,6 +9,10 @@ import {
   IconPlus,
   IconSearch,
   IconFileInvoice,
+  IconFileText,
+  IconSend,
+  IconCircleCheck,
+  IconAlertTriangle,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,6 +71,7 @@ export function InvoicesPageClient() {
     totalPages: 0,
   });
   const [defaultTaxRate, setDefaultTaxRate] = useState("0");
+  const [stats, setStats] = useState({ draft: 0, sent: 0, paid: 0, overdue: 0 });
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -133,6 +138,25 @@ export function InvoicesPageClient() {
     const timer = setTimeout(() => fetchInvoices(1), 300);
     return () => clearTimeout(timer);
   }, [fetchInvoices]);
+
+  // Fetch stats
+  useEffect(() => {
+    async function loadStats() {
+      const [draft, sent, paid, overdue] = await Promise.all([
+        getInvoices({ status: "draft", limit: 1 }),
+        getInvoices({ status: "sent", limit: 1 }),
+        getInvoices({ status: "paid", limit: 1 }),
+        getInvoices({ status: "overdue", limit: 1 }),
+      ]);
+      setStats({
+        draft: draft.pagination?.total ?? 0,
+        sent: sent.pagination?.total ?? 0,
+        paid: paid.pagination?.total ?? 0,
+        overdue: overdue.pagination?.total ?? 0,
+      });
+    }
+    loadStats();
+  }, [invoices]);
 
   async function handleCreate(data: InvoiceFormData) {
     setSaving(true);
@@ -209,6 +233,37 @@ export function InvoicesPageClient() {
           New Invoice
         </Button>
       </div>
+
+      {/* Stats Cards */}
+      {!showEmptyState && (
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Draft", count: stats.draft, icon: IconFileText, color: "text-muted-foreground", bg: "bg-muted/50" },
+            { label: "Sent", count: stats.sent, icon: IconSend, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
+            { label: "Paid", count: stats.paid, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
+            { label: "Overdue", count: stats.overdue, icon: IconAlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40" },
+          ].map((stat) => (
+            <button
+              key={stat.label}
+              onClick={() =>
+                setStatusFilter(statusFilter === stat.label.toLowerCase() ? "" : stat.label.toLowerCase())
+              }
+              className={cn(
+                "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all hover:border-brand/40 cursor-pointer",
+                statusFilter === stat.label.toLowerCase() && "border-brand ring-1 ring-brand/20",
+              )}
+            >
+              <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", stat.bg)}>
+                <stat.icon className={cn("h-4 w-4", stat.color)} />
+              </div>
+              <div>
+                <p className="text-lg font-bold font-heading text-foreground">{stat.count}</p>
+                <p className="text-xs text-muted-foreground font-body">{stat.label}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Empty state — no invoices at all */}
       {showEmptyState && (

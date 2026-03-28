@@ -181,10 +181,10 @@ export function QuoteDetailSheet({
     }
   }
 
-  async function handleConvert() {
+  async function handleConvert(pipelineStageId: string) {
     if (!quote) return;
     setConvertLoading(true);
-    const result = await convertQuoteToJob(quote.id);
+    const result = await convertQuoteToJob(quote.id, pipelineStageId);
     setConvertLoading(false);
     if (result.error) {
       toast.error(result.error);

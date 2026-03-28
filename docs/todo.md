@@ -4,15 +4,18 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-- [x] **Dashboard Redesign (ZAX-44)** — Transform flat dashboard into data-dense CRM dashboard
-  - [x] Step 0: Install deps + shadcn Calendar + DateRangePicker
-  - [x] Step 1: Expand types + API (9 new queries, date range params)
-  - [x] Step 2: Redesign KPI cards (trends + sparklines)
-  - [x] Step 3: Layout restructure (2-column + header date range picker)
-  - [x] Step 4: New sidebar widgets (Today's Schedule, Invoice Aging, Quote Conversion)
-  - [x] Step 5: Enhance charts (revenue + pipeline donut)
-  - [x] Step 6: Polish activity feed
-  - [x] Typecheck passes across all packages
+- [x] **Booking Portal (#8, ZAX-45)** — Public booking portal + dashboard bookings management
+  - [x] Step 1: Backend — Availability API (4 endpoints + default seeding + lazy-seed)
+  - [x] Step 2: Backend — Public Booking API (4 public endpoints, no auth)
+  - [x] Step 3: Backend — Tenant Booking CRUD (5 endpoints + convert-to-job)
+  - [x] Step 4: Frontend — Foundation (constants, actions, nav updates)
+  - [x] Step 5: Frontend — Dashboard Bookings Page (table, pills, detail sheet with resize/dialog modes)
+  - [x] Step 6: Frontend — Settings / Availability (weekly editor + overrides)
+  - [x] Step 7: Frontend — Public Booking Portal (/book/[slug] multi-step, pre-fetch all data, animations)
+  - [x] Step 8: Finalize & Verify (typecheck passes)
+  - [x] Enhancement: Auto-create customer at booking submission (match by email/phone or create new)
+  - [x] Enhancement: Booking link card + stats cards + preview button in dashboard header
+  - [x] Enhancement: Portal redesign (branded header, trust badges, full-width calendar, step animations)
 
 ## Recently Completed (Latest)
 

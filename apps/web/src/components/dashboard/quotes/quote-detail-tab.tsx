@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { QuoteStatusBadge } from "./quote-status-badge";
-import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
+import { ConvertToJobDialog } from "@/components/reusable/convert-to-job-dialog";
 import Link from "next/link";
 import {
   IconSend,
@@ -65,7 +65,7 @@ interface QuoteDetailTabProps {
   onDownloadPdf: () => void;
   onAccept: () => void;
   onDecline: () => void;
-  onConvert: () => void;
+  onConvert: (pipelineStageId: string) => void;
   sendLoading: boolean;
   convertLoading: boolean;
 }
@@ -159,11 +159,17 @@ export function QuoteDetailTab({
         )}
       </div>
 
-      <ConfirmActionDialog
-        title="Convert to Job"
+      <ConvertToJobDialog
+        open={convertDialogOpen}
+        onOpenChange={setConvertDialogOpen}
+        onConfirm={(stageId) => {
+          setConvertDialogOpen(false);
+          onConvert(stageId);
+        }}
+        loading={convertLoading}
         description={
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground font-body">
               A new job will be created with all line items copied from this quote.
             </p>
             {quote.status === "sent" && (
@@ -174,17 +180,8 @@ export function QuoteDetailTab({
                 </p>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">This action cannot be undone.</p>
           </div>
         }
-        open={convertDialogOpen}
-        onOpenChange={setConvertDialogOpen}
-        onConfirm={() => {
-          setConvertDialogOpen(false);
-          onConvert();
-        }}
-        confirmLabel="Convert to Job"
-        loading={convertLoading}
       />
 
       {/* Status & Dates */}

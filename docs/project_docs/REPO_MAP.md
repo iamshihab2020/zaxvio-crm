@@ -87,6 +87,8 @@ apps/api/
 |   |   +-- auth.ts               # Better Auth server config (drizzle adapter, org + admin plugins)
 |   |   +-- auth-middleware.ts     # requireAuth, requireAdmin, requireTenant preHandlers
 |   |   +-- env.ts                 # Zod-validated env loading (dotenv from monorepo root)
+|   |   +-- timezone.ts           # getTenantToday(), getTenantTomorrow(), getMaxBookingDate(), getDayOfWeek()
+|   |   +-- job-helpers.ts        # attachChecklistToJob() shared helper (used by jobs + bookings)
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
 |   |   +-- pdf/
@@ -96,6 +98,10 @@ apps/api/
 |   |       +-- quote-pdf.tsx            # Quote PDF React template (@react-pdf/renderer)
 |   |
 |   +-- routes/
+|   |   +-- availability/
+|   |   |   +-- index.ts          # GET/PUT /availability, POST/DELETE /availability/overrides
+|   |   +-- bookings/
+|   |   |   +-- index.ts          # GET/PATCH/DELETE /bookings, POST /bookings/:id/convert-to-job
 |   |   +-- catalog/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /catalog (+ /categories)
 |   |   +-- checklists/
@@ -110,16 +116,16 @@ apps/api/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, checklist, photos, activities
 |   |   +-- pipeline-stages/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /pipeline-stages + /reorder
+|   |   +-- public/
+|   |   |   +-- booking.ts        # Public booking portal API (no auth): branding, availability, slots, submit
 |   |   +-- quotes/
 |   |   |   +-- index.ts          # 13 endpoints: CRUD, line items, PDF, send, accept, convert-to-job
 |   |   +-- tags/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /tags (tenant-level reusable tags)
 |   |   +-- tenants/
-|   |   |   +-- index.ts          # GET/PATCH /tenants/current, POST /tenants/initialize
+|   |   |   +-- index.ts          # GET/PATCH /tenants/current, POST /tenants/initialize (+availability seeding)
 |   |   +-- admin/
 |   |   |   ~ .gitkeep            # Planned: tenant mgmt, analytics, audit log, impersonation
-|   |   +-- bookings/
-|   |   |   ~ .gitkeep            # Planned: public submit, owner confirm -> create job
 |   |   +-- webhooks/
 |   |       ~ .gitkeep            # Planned: Lemon Squeezy subscription events
 |   |
@@ -154,9 +160,10 @@ apps/api/
 | `/quotes` | requireTenant | CRUD + line items, PDF, send, accept, convert-to-job | + |
 | `/tags` | requireTenant | CRUD (tenant-level) | + |
 | `/dashboard/stats` | requireTenant | GET stats (10 parallel queries) | + |
+| `/availability` | requireTenant | GET/PUT weekly schedule, POST/DELETE overrides | + |
+| `/bookings` | requireTenant | CRUD + convert-to-job | + |
+| `/public/booking/:slug` | None | Branding, availability, slots, submit booking | + |
 | `/admin/*` | requireAdmin | Tenant mgmt, analytics, audit, impersonation | ~ |
-| `/bookings` | requireTenant | Booking management | ~ |
-| `/public/booking` | None | Public booking portal | - |
 | `/webhooks/lemon-squeezy` | Signature | Subscription lifecycle | ~ |
 
 ---
@@ -179,6 +186,7 @@ apps/web/
     +-- middleware.ts          # Route protection: public paths passthrough, else check session cookie
     |
     +-- actions/              # Server Actions — ONLY gateway for API calls
+    |   +-- bookings.ts          # 13 actions: tenant CRUD + availability + public portal
     |   +-- catalog.ts
     |   +-- checklists.ts
     |   +-- customers.ts
@@ -199,6 +207,7 @@ apps/web/
     |   +-- format.ts                # formatCurrency(), formatRelativeTime() helpers
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
     |   +-- constants/
+    |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
     |       +-- job-options.ts       # Service types, priorities
     |       +-- stage-color-presets.ts  # 8 color presets for pipeline stages
@@ -211,7 +220,7 @@ apps/web/
     |   +-- theme-toggle.tsx         # Light/dark toggle button
     |   +-- under-development.tsx    # Placeholder for unbuilt pages
     |   |
-    |   +-- ui/                      # shadcn/ui primitives (23 components)
+    |   +-- ui/                      # shadcn/ui primitives (24 components, incl. switch)
     |   |   +-- accordion.tsx
     |   |   +-- avatar.tsx
     |   |   +-- badge.tsx
@@ -248,10 +257,19 @@ apps/web/
     |   |   +-- footer.tsx
     |   |   +-- section-reveal.tsx   # IntersectionObserver scroll reveal
     |   |
+    |   +-- booking-portal/          # Public booking portal components
+    |   |   +-- booking-progress-indicator.tsx  # Step dots (5 steps)
+    |   |   +-- booking-service-card.tsx        # Selectable service type card
+    |   |   +-- booking-step-service.tsx        # Step 1: service type grid
+    |   |   +-- booking-step-date.tsx           # Step 2: calendar date picker
+    |   |   +-- booking-step-time.tsx           # Step 3: time slot grid
+    |   |   +-- booking-step-info.tsx           # Step 4: customer info form
+    |   |   +-- booking-step-confirmation.tsx   # Step 5: success screen
+    |   |
     |   +-- dashboard/               # Dashboard-specific components (by entity)
     |   |   +-- dashboard-shell.tsx  # Shell layout (sidebar + navbar + content)
     |   |   +-- navbar.tsx           # Top navigation bar
-    |   |   +-- sidebar.tsx          # Side navigation
+    |   |   +-- sidebar.tsx          # Side navigation (incl. Bookings link)
     |   |   +-- sidebar-provider.tsx # Sidebar state context
     |   |   +-- sidebar-nav-item.tsx # Nav item component
     |   |   |
@@ -332,6 +350,13 @@ apps/web/
     |   |   |   +-- quote-table.tsx
     |   |   |   +-- quote-tabs-panel.tsx
     |   |   |
+    |   |   +-- bookings/           # Booking management components
+    |   |   |   +-- booking-table.tsx
+    |   |   |   +-- booking-filters.tsx
+    |   |   |   +-- booking-status-badge.tsx
+    |   |   |   +-- booking-detail-sheet.tsx
+    |   |   |   +-- booking-convert-dialog.tsx
+    |   |   |
     |   |   +-- catalog/            # Service catalog components
     |   |   |   +-- catalog-filters.tsx
     |   |   |   +-- catalog-item-dialog.tsx
@@ -343,6 +368,9 @@ apps/web/
     |   |   |   +-- checklist-template-list.tsx
     |   |   |
     |   |   +-- settings/           # Settings page components
+    |   |       +-- availability-weekly-editor.tsx    # Weekly schedule editor (7 day rows)
+    |   |       +-- availability-override-list.tsx    # Schedule overrides table
+    |   |       +-- availability-override-dialog.tsx  # Add override form dialog
     |   |       +-- business-form.tsx
     |   |       +-- business-sidebar.tsx
     |   |       +-- change-password-form.tsx
@@ -418,7 +446,8 @@ apps/web/
         |   |       +-- quote-detail-client.tsx
         |   |
         |   +-- bookings/
-        |   |   ~ (placeholder)                      # Planned: booking queue
+        |   |   +-- page.tsx                         # Bookings list page
+        |   |   +-- bookings-page-client.tsx         # Client (table, filters, detail sheet)
         |   |
         |   +-- schedule/
         |   |   ~ (placeholder)                      # Planned: calendar view
@@ -444,6 +473,9 @@ apps/web/
         |       +-- quotes/
         |       |   +-- page.tsx
         |       |   +-- quote-settings-client.tsx
+        |       +-- bookings/
+        |       |   +-- page.tsx                     # Booking/availability settings
+        |       |   +-- bookings-settings-client.tsx # Weekly schedule + overrides management
         |       +-- billing/
         |           ~ .gitkeep                       # Planned: subscription + affiliate widget
         |
@@ -456,7 +488,9 @@ apps/web/
         |   ~ system/                                 # Planned
         |   ~ tenants/[id]/                           # Planned
         |
-        +-- book/[slug]/                             # -- Public Booking Portal (Planned) --
+        +-- book/[slug]/                             # -- Public Booking Portal --
+        |   +-- page.tsx                             # Server component (fetches tenant by slug)
+        |   +-- booking-form-client.tsx              # Multi-step form (5 steps)
         +-- ref/[code]/                              # -- Affiliate Redirect (Planned) --
         +-- api/
             +-- auth/                                # Next.js API routes for auth callbacks
@@ -670,7 +704,7 @@ packages/types --> @hvac-saas/database +
 | 5 | Invoicing | + Done |
 | 6 | Quote Builder | + Done |
 | 7 | KPI Dashboard | + Done |
-| 8 | Booking Portal | - Not started |
+| 8 | Booking Portal | + Done |
 | 9 | Calendar/Schedule View | - Not started (blocked by #8) |
 | 10 | Checklists | + Done |
 | 11 | Super Admin Panel | ~ Placeholder only |

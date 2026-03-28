@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 
 export type ViewMode = "sidebar" | "dialog" | "page";
-export type EntityType = "quotes" | "jobs" | "invoices";
+export type EntityType = "quotes" | "jobs" | "invoices" | "bookings";
 
 interface ViewPreference {
   mode: ViewMode;

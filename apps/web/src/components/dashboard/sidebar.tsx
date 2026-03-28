@@ -10,6 +10,7 @@ import {
   IconFileInvoice,
   IconFileText,
   IconCalendar,
+  IconCalendarEvent,
   IconSettings,
   IconChevronsLeft,
   IconChevronsRight,
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/jobs", label: "Jobs", icon: IconBriefcase },
   { href: "/quotes", label: "Quotes", icon: IconFileText },
   { href: "/invoices", label: "Invoices", icon: IconFileInvoice },
+  { href: "/bookings", label: "Bookings", icon: IconCalendarEvent },
   { href: "/schedule", label: "Schedule", icon: IconCalendar },
 ];
 

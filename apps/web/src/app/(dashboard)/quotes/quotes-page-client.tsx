@@ -12,6 +12,9 @@ import {
   IconSortDescending,
   IconSortAscending,
   IconCheck,
+  IconSend,
+  IconCircleCheck,
+  IconX,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -87,6 +90,7 @@ export function QuotesPageClient() {
     totalPages: 0,
   });
   const [defaultTaxRate, setDefaultTaxRate] = useState("0");
+  const [stats, setStats] = useState({ draft: 0, sent: 0, accepted: 0, declined: 0 });
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -149,6 +153,25 @@ export function QuotesPageClient() {
     const timer = setTimeout(() => fetchQuotes(1), 300);
     return () => clearTimeout(timer);
   }, [fetchQuotes]);
+
+  // Fetch stats
+  useEffect(() => {
+    async function loadStats() {
+      const [draft, sent, accepted, declined] = await Promise.all([
+        getQuotes({ status: "draft", limit: 1 }),
+        getQuotes({ status: "sent", limit: 1 }),
+        getQuotes({ status: "accepted", limit: 1 }),
+        getQuotes({ status: "declined", limit: 1 }),
+      ]);
+      setStats({
+        draft: draft.pagination?.total ?? 0,
+        sent: sent.pagination?.total ?? 0,
+        accepted: accepted.pagination?.total ?? 0,
+        declined: declined.pagination?.total ?? 0,
+      });
+    }
+    loadStats();
+  }, [quotes]);
 
   async function handleCreate(data: QuoteFormData) {
     setSaving(true);
@@ -256,6 +279,37 @@ export function QuotesPageClient() {
           actionLabel="Create Your First Quote"
           onAction={() => setCreateDialogOpen(true)}
         />
+      )}
+
+      {/* Stats Cards */}
+      {!showEmptyState && (
+        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {[
+            { label: "Draft", count: stats.draft, icon: IconFileText, color: "text-muted-foreground", bg: "bg-muted/50" },
+            { label: "Sent", count: stats.sent, icon: IconSend, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
+            { label: "Accepted", count: stats.accepted, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
+            { label: "Declined", count: stats.declined, icon: IconX, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40" },
+          ].map((stat) => (
+            <button
+              key={stat.label}
+              onClick={() =>
+                setStatusFilter(statusFilter === stat.label.toLowerCase() ? "" : stat.label.toLowerCase())
+              }
+              className={cn(
+                "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all hover:border-brand/40 cursor-pointer",
+                statusFilter === stat.label.toLowerCase() && "border-brand ring-1 ring-brand/20",
+              )}
+            >
+              <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", stat.bg)}>
+                <stat.icon className={cn("h-4 w-4", stat.color)} />
+              </div>
+              <div>
+                <p className="text-lg font-bold font-heading text-foreground">{stat.count}</p>
+                <p className="text-xs text-muted-foreground font-body">{stat.label}</p>
+              </div>
+            </button>
+          ))}
+        </div>
       )}
 
       {/* Card wrapper */}
