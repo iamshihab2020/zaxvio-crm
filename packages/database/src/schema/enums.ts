@@ -92,3 +92,9 @@ export const refrigerantActionEnum = pgEnum("refrigerant_action", [
   "recovered",
   "recycled",
 ]);
+
+export const adminTierEnum = pgEnum("admin_tier", [
+  "super_admin",
+  "support",
+  "billing_admin",
+]);

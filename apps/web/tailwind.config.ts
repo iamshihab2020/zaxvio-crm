@@ -59,6 +59,14 @@ const config: Config = {
           alt: "hsl(var(--surface-alt))",
         },
         ink: "hsl(var(--ink))",
+        admin: {
+          accent: "hsl(var(--admin-accent))",
+          "accent-foreground": "hsl(var(--admin-accent-foreground))",
+          "accent-light": "hsl(var(--admin-accent-light))",
+          "sidebar-bg": "hsl(var(--admin-sidebar-bg))",
+          "sidebar-foreground": "hsl(var(--admin-sidebar-foreground))",
+          ring: "hsl(var(--admin-ring))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

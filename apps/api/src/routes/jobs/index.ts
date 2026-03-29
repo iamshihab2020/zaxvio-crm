@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { emitPlatformEvent } from "../../lib/platform-events.js";
 import {
   getDb,
   jobs,
@@ -404,6 +405,8 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         .select()
         .from(jobs)
         .where(eq(jobs.id, job.id));
+
+      emitPlatformEvent(tenantId, "job_created", userId);
 
       return reply.status(201).send({ data: created });
     },

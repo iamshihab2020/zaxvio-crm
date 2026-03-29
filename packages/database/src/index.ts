@@ -8,4 +8,4 @@ export { getSupabaseAdmin } from "./supabase";
 export * from "./schema/index";
 
 // Re-export drizzle-orm operators so consumers use the same instance
-export { eq, and, or, ne, gt, gte, lt, lte, inArray, sql, ilike, desc, asc, count } from "drizzle-orm";
+export { eq, and, or, ne, not, gt, gte, lt, lte, inArray, sql, ilike, desc, asc, count, countDistinct } from "drizzle-orm";

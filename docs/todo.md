@@ -4,7 +4,32 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-(none)
+- [ ] **Super Admin Panel** (#11, ZAX-34) — 26 features, 4 phases, ~60 new files
+  - **Phase 0 — Foundation**
+    - [x] 0A: Schema + auth infrastructure (admin_tier enum, webhook/cron tables, requireAdminTier middleware)
+    - [x] 0B: Superadmin layout shell (sidebar, navbar, shell — red accent theme + globals.css + tailwind)
+    - [x] 0C: API route registration + server actions base (23+ endpoints, 18 server actions)
+  - **Phase 1 — Tenant Management**
+    - [x] 1A: Tenant list + detail pages (SA-05, SA-06)
+    - [x] 1B: Tenant action dialogs (extend trial, override subscription, edit, delete) + wired to detail page
+    - [x] 1B: Impersonation dialog (UI + reason field) — API integration pending Better Auth admin plugin
+  - **Phase 2 — Analytics & Dashboard**
+    - [x] 2A: Admin dashboard + MRR + signups (SA-13, SA-14) — KPI cards, funnel, signup chart
+    - [x] 2B: Full analytics page with Recharts — MRR bar chart, signup area chart, active users (DAT/WAT/MAT), trial funnel, churn table
+    - [x] 2C: Platform event emission — emitPlatformEvent() in customers, jobs, bookings
+    - [x] 2D: Inactive alerts (14d no activity) + feature adoption (% tenants using each feature) — on analytics page
+  - **Phase 3 — Support, Search & Audit**
+    - [x] 3A: Global search (Cmd+K command palette) — wired into navbar
+    - [x] 3B: Audit log + impersonation log tables — support page with tabs
+    - [x] 3C: ReauthDialog component for destructive actions (password re-entry)
+  - **Phase 4 — System Health & P1**
+    - [x] 4A: System health page — live DB/uptime/memory/node stats
+    - [x] 4C: Affiliates page — KPI cards (referred tenants, affiliate MRR, rate) + table
+  - **Tenant Deep Analysis**
+    - [x] API: `GET /admin/tenants/:id/analytics` — 15 parallel queries, single auth check
+    - [x] Frontend: Analytics tab on tenant detail — lazy loaded, skeleton, 5 sections (usage KPIs, financial charts, status breakdowns, operational rates, activity feed)
+  - **Plan**: `docs/superadmin/SUPERADMIN_IMPLEMENTATION_PLAN.md`
+  - **Report**: `docs/superadmin/SUPERADMIN_ANALYSIS_REPORT.md`
 
 ## Recently Completed (Latest)
 
@@ -87,7 +112,6 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Super Admin Panel** (#11) — Tenant management, platform analytics, audit log, impersonation
 - [ ] **Email Templates** (#12) — React Email templates (invoice, quote, booking confirm, review request)
 - [ ] **Affiliate Program** (#13) — Lemon Squeezy integration, referral tracking, affiliate dashboard
 - [ ] **Settings Completion** (#14) — Team members, billing/subscription management

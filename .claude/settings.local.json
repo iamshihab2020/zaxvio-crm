@@ -38,7 +38,13 @@
       "Bash(tail:*)",
       "Bash(pnpm -F web exec eslint src/app/\\\\\\(dashboard\\\\\\)/schedule/schedule-page-client.tsx src/components/dashboard/schedule/schedule-toolbar.tsx src/components/dashboard/schedule/schedule-calendar.tsx src/components/dashboard/jobs/job-create-dialog.tsx)",
       "Bash(cd:*)",
-      "Bash(grep -v '^$')"
+      "Bash(grep -v '^$')",
+      "Bash(grep -r \"superadmin\\\\|Super Admin\" '/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm' --include=*.tsx --include=*.ts --include=*.md --include=*.json)",
+      "Bash(grep -l \"POST\\\\|GET\\\\|PATCH\\\\|DELETE\" /c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/api/src/routes/*/index.ts)",
+      "Bash(grep -r \"superadmin\\\\|Super Admin\" '/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web' --include=*.tsx --include=*.ts)",
+      "Bash(find apps/web/src -type d -name \"\\(superadmin\\)\" -o -type d -name superadmin)",
+      "Bash(du:*)",
+      "Bash(grep -E \"\\\\.tsx$\")"
     ]
   }
 }

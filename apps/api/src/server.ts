@@ -19,6 +19,7 @@ import availabilityRoutes from "./routes/availability/index.js";
 import publicBookingRoutes from "./routes/public/booking.js";
 import bookingRoutes from "./routes/bookings/index.js";
 import calendarEventRoutes from "./routes/calendar-events/index.js";
+import adminRoutes from "./routes/admin/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -100,6 +101,7 @@ export async function buildServer() {
   await fastify.register(publicBookingRoutes, { prefix: "/public/booking" });
   await fastify.register(bookingRoutes, { prefix: "/bookings" });
   await fastify.register(calendarEventRoutes, { prefix: "/calendar-events" });
+  await fastify.register(adminRoutes, { prefix: "/admin" });
 
   fastify.get(
     "/health",
