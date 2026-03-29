@@ -44,16 +44,16 @@ async function seedAdmin() {
       process.exit(0);
     }
 
-    // Set role to admin directly in DB (seed script runs without a session)
-    await sql`UPDATE "user" SET role = 'admin' WHERE id = ${result.user.id}`;
+    // Set role to admin + owner directly in DB (seed script runs without a session)
+    await sql`UPDATE "user" SET role = 'admin', admin_tier = 'super_admin', is_owner = true WHERE id = ${result.user.id}`;
 
     console.log(`Admin user created: ${result.user.email} (${result.user.id})`);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     // Handle "user already exists" gracefully — ensure admin role is set
     if (message.includes("already") || message.includes("exists")) {
-      await sql`UPDATE "user" SET role = 'admin' WHERE email = ${email}`;
-      console.log(`Admin user already exists — ensured admin role: ${email}`);
+      await sql`UPDATE "user" SET role = 'admin', admin_tier = 'super_admin', is_owner = true WHERE email = ${email}`;
+      console.log(`Admin user already exists — ensured admin role + owner: ${email}`);
     } else {
       console.error("Seed failed:", err);
       await sql.end();

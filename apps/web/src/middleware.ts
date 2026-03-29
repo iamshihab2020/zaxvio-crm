@@ -24,6 +24,23 @@ function isAuthPath(pathname: string) {
   );
 }
 
+function isSuperadminPath(pathname: string) {
+  return pathname.startsWith("/superadmin");
+}
+
+function isDashboardPath(pathname: string) {
+  return (
+    pathname.startsWith("/dashboard") ||
+    pathname.startsWith("/customers") ||
+    pathname.startsWith("/jobs") ||
+    pathname.startsWith("/invoices") ||
+    pathname.startsWith("/quotes") ||
+    pathname.startsWith("/bookings") ||
+    pathname.startsWith("/schedule") ||
+    pathname.startsWith("/settings")
+  );
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -32,22 +49,46 @@ export function middleware(request: NextRequest) {
     request.cookies.get("better-auth.session_token") ??
     request.cookies.get("__Secure-better-auth.session_token");
 
-  // Redirect logged-in users away from auth pages
-  if (sessionCookie && isAuthPath(pathname)) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  // Read role cookie (set at login, cleared at logout)
+  const roleCookie = request.cookies.get("x-user-role")?.value;
+  const isAdmin = roleCookie === "admin";
+
+  // ── Logged-in user routing ──────────────────────────────
+  if (sessionCookie) {
+    // Redirect logged-in users away from auth pages
+    if (isAuthPath(pathname)) {
+      const target = isAdmin ? "/superadmin/dashboard" : "/dashboard";
+      return NextResponse.redirect(new URL(target, request.url));
+    }
+
+    // Redirect logged-in users away from landing page (prevents back-button to /)
+    if (pathname === "/") {
+      const target = isAdmin ? "/superadmin/dashboard" : "/dashboard";
+      return NextResponse.redirect(new URL(target, request.url));
+    }
+
+    // Block non-admins from superadmin paths (fast heuristic before layout check)
+    if (isSuperadminPath(pathname) && !isAdmin) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Redirect admins away from dashboard paths to superadmin
+    if (isDashboardPath(pathname) && isAdmin) {
+      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
+    }
+
+    return NextResponse.next();
   }
 
+  // ── Not logged in ────���──────────────────────────────────
   if (isPublicPath(pathname)) {
     return NextResponse.next();
   }
 
-  if (!sessionCookie) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("callbackUrl", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  return NextResponse.next();
+  // Redirect to login with callback URL
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("callbackUrl", pathname);
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {

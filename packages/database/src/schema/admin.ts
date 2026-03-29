@@ -44,6 +44,9 @@ export const adminImpersonationSessions = pgTable(
       .references(() => tenants.id),
     tenantUserId: text("tenant_user_id").notNull(),
     reason: text("reason").notNull(),
+    mode: text("mode").notNull().default("ghost"),
+    status: text("status").notNull().default("active"),
+    adminName: text("admin_name"),
     startedAt: timestamp("started_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

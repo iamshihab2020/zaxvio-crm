@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, authClient } from "@/lib/auth-client";
 import { initializeTenant } from "@/actions/tenants";
@@ -13,7 +13,6 @@ import { Logo } from "@/components/logo";
 import { AuthShell } from "@/components/auth-shell";
 
 function LoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,24 +29,29 @@ function LoginForm() {
     setError(null);
     setLoading(true);
 
-    const { data, error: authError } = await signIn.email({
-      email,
-      password,
-    });
-
-    if (authError) {
-      setError(authError.message ?? "Invalid email or password");
-      setLoading(false);
-      return;
-    }
-
-    if (data?.user?.role === "admin") {
-      router.push("/superadmin/dashboard");
-      return;
-    }
-
-    // Auto-set active organization for non-admin users
     try {
+      const { data, error: authError } = await signIn.email({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError(authError.message ?? "Invalid email or password");
+        return;
+      }
+
+      const role = data?.user?.role ?? "user";
+
+      // Set role cookie for middleware (lightweight, no secrets)
+      document.cookie = `x-user-role=${role}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+
+      if (role === "admin") {
+        // Hard navigation with history replace — back button can't return to login
+        window.location.replace("/superadmin/dashboard");
+        return;
+      }
+
+      // Auto-set active organization for non-admin users
       const orgsResult = await authClient.organization.list();
       const orgs = orgsResult.data;
 
@@ -60,15 +64,16 @@ function LoginForm() {
         await initializeTenant();
 
         const callbackUrl = searchParams.get("callbackUrl");
-        router.push(callbackUrl ?? "/dashboard");
+        // Hard navigation — back button can't return to login
+        window.location.replace(callbackUrl ?? "/dashboard");
       } else {
         // No orgs — send to signup to create one
-        router.push("/signup");
+        window.location.replace("/signup");
       }
     } catch {
-      // If org fetch fails, still try to go to dashboard
-      const callbackUrl = searchParams.get("callbackUrl");
-      router.push(callbackUrl ?? "/dashboard");
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 

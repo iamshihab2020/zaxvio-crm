@@ -3666,6 +3666,170 @@ Global cross-tenant search by business name, owner, email, or slug.
 }
 ```
 
+### `POST /admin/impersonation/start`
+
+**Auth:** `requireAdminTier(["super_admin", "support"])`
+
+Start impersonating a tenant. Creates an impersonation session and returns session ID for cookie-based context injection.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tenantId` | string (UUID) | Yes | Tenant to impersonate |
+| `reason` | string | Yes | Audit reason for impersonation |
+
+**Response** `200 OK`
+
+```json
+{
+  "sessionId": "uuid",
+  "tenantId": "uuid",
+  "tenantUserId": "usr_tenant_owner",
+  "tenantName": "Cool Air LLC",
+  "expiresAt": "2026-03-29T14:00:00.000Z"
+}
+```
+
+### `POST /admin/impersonation/end`
+
+**Auth:** `requireAdmin`
+
+End an active impersonation session.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string (UUID) | Yes | Impersonation session to end |
+
+**Response** `200 OK`
+
+```json
+{
+  "success": true,
+  "tenantId": "uuid"
+}
+```
+
+### `GET /admin/impersonation/active`
+
+**Auth:** `requireAdmin`
+
+Check if the requesting admin has an active impersonation session.
+
+**Response** `200 OK`
+
+```json
+{
+  "active": true,
+  "session": {
+    "id": "uuid",
+    "tenantId": "uuid",
+    "tenantName": "Cool Air LLC",
+    "reason": "Support ticket #123",
+    "startedAt": "2026-03-29T12:00:00.000Z",
+    "expiresAt": "2026-03-29T14:00:00.000Z"
+  }
+}
+```
+
+### `POST /admin/impersonation/request`
+
+**Auth:** `requireAdminTier(["super_admin", "support"])`
+
+Request visible (consent-based) impersonation. Creates a pending session and broadcasts a realtime request to the tenant.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tenantId` | string (UUID) | Yes | Tenant to impersonate |
+| `reason` | string | Yes | Reason shown to tenant |
+
+**Response** `200 OK`
+
+```json
+{
+  "sessionId": "uuid",
+  "status": "pending"
+}
+```
+
+### `POST /admin/impersonation/cancel`
+
+**Auth:** `requireAdmin`
+
+Cancel a pending visible impersonation request. Broadcasts cancel event to tenant.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string (UUID) | Yes | Pending session to cancel |
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `POST /tenants/impersonation/respond`
+
+**Auth:** `requireTenant`
+
+Tenant accepts or rejects a visible impersonation request.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string (UUID) | Yes | Impersonation session |
+| `approved` | boolean | Yes | Whether to grant access |
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `GET /tenants/impersonation/pending`
+
+**Auth:** `requireTenant`
+
+Check for pending visible impersonation requests targeting this tenant.
+
+**Response** `200 OK`
+
+```json
+{
+  "pending": true,
+  "request": {
+    "sessionId": "uuid",
+    "adminName": "Super Admin",
+    "reason": "Support ticket #456"
+  }
+}
+```
+
+### `GET /tenants/impersonation/active-viewer`
+
+**Auth:** `requireTenant`
+
+Check if an admin is actively viewing this tenant's account (visible mode).
+
+**Response** `200 OK`
+
+```json
+{
+  "active": true,
+  "viewer": {
+    "sessionId": "uuid",
+    "adminName": "Super Admin"
+  }
+}
+```
+
 ### `GET /admin/impersonation-log`
 
 **Auth:** `requireAdminTier(["super_admin", "support"])`

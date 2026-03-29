@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { IconPlus, IconSearch, IconUsers } from "@tabler/icons-react";
+import { IconPlus, IconSearch, IconUsers, IconMail, IconPhone, IconMapPin } from "@tabler/icons-react";
+import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { CustomerTable } from "@/components/dashboard/customers/customer-table";
@@ -43,6 +44,24 @@ export function CustomersPageClient() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stats, setStats] = useState({ total: 0, withEmail: 0, withPhone: 0, withAddress: 0 });
+
+  // Compute stats from all customers
+  useEffect(() => {
+    async function loadStats() {
+      const result = await getCustomers({ limit: 9999 });
+      if (result.data) {
+        const all = result.data as Customer[];
+        setStats({
+          total: all.length,
+          withEmail: all.filter((c: Customer) => c.email).length,
+          withPhone: all.filter((c: Customer) => c.phone).length,
+          withAddress: all.filter((c: Customer) => c.address || c.city).length,
+        });
+      }
+    }
+    loadStats();
+  }, [customers]);
 
   const fetchCustomers = useCallback(
     async (page: number, searchTerm: string) => {
@@ -132,30 +151,7 @@ export function CustomersPageClient() {
   const showNoResults = !loading && !hasCustomers && !!search;
 
   return (
-    <section className="p-6" aria-labelledby="customers-heading">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1
-            id="customers-heading"
-            className="font-heading text-2xl font-bold text-foreground"
-          >
-            Customers
-          </h1>
-          {!loading && (
-            <p className="mt-1 text-sm text-muted-foreground font-body">
-              {pagination.total} {pagination.total === 1 ? "customer" : "customers"} total
-            </p>
-          )}
-        </div>
-        <Button
-          onClick={openCreateDialog}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          <IconPlus className="mr-2 h-4 w-4" />
-          Add Customer
-        </Button>
-      </div>
-
+    <section className="p-6">
       {error && (
         <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
@@ -172,18 +168,41 @@ export function CustomersPageClient() {
         />
       )}
 
+      {/* Stats Cards */}
+      {!showEmptyState && (
+        <StatsCards
+          stats={[
+            { label: "Total", count: stats.total, icon: IconUsers, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
+            { label: "With Email", count: stats.withEmail, icon: IconMail, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
+            { label: "With Phone", count: stats.withPhone, icon: IconPhone, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40" },
+            { label: "With Address", count: stats.withAddress, icon: IconMapPin, color: "text-muted-foreground", bg: "bg-muted/50" },
+          ]}
+          className="mb-4"
+        />
+      )}
+
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Search bar inside card header */}
+          {/* Search bar + action inside card header */}
           <div className="border-b border-border px-4 py-3">
-            <div className="relative max-w-sm">
-              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, email, or phone..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
+            <div className="flex items-center justify-between gap-3">
+              <div className="relative max-w-sm flex-1">
+                <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name, email, or phone..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <Button
+                onClick={openCreateDialog}
+                size="sm"
+                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
+              >
+                <IconPlus className="mr-2 h-4 w-4" />
+                Add Customer
+              </Button>
             </div>
           </div>
 

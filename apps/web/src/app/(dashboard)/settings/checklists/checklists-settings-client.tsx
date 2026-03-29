@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/popover";
 import { IconSelector, IconCheck, IconEye, IconEyeOff } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { SettingsPageHeader } from "@/components/dashboard/settings/settings-page-header";
 
 interface TemplateWithItems extends ChecklistTemplate {
   items?: Array<{
@@ -212,19 +211,6 @@ export function ChecklistsSettingsClient() {
 
   return (
     <div>
-      <SettingsPageHeader
-        description="Define checklists that auto-attach to new jobs by service type."
-        action={
-          <Button
-            onClick={openCreateDialog}
-            className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
-          >
-            <IconPlus className="mr-2 h-4 w-4" />
-            New Template
-          </Button>
-        }
-      />
-
       {showEmptyState && (
         <EmptyState
           icon={IconChecklist}
@@ -298,6 +284,20 @@ export function ChecklistsSettingsClient() {
               )}
               {showInactive ? "Showing inactive" : "Show inactive"}
             </Button>
+
+            <div className="ml-auto flex items-center gap-3">
+              <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body">
+                {templates.length} {templates.length === 1 ? "Template" : "Templates"}
+              </span>
+              <Button
+                onClick={openCreateDialog}
+                size="sm"
+                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0 cursor-pointer"
+              >
+                <IconPlus className="mr-2 h-4 w-4" />
+                New Template
+              </Button>
+            </div>
           </div>
 
           {!loading && hasTemplates && (

@@ -10,8 +10,11 @@ import {
   organization,
   eq,
 } from "@hvac-saas/database";
+import tenantImpersonationRoutes from "./impersonation.js";
 
 export default async function tenantRoutes(fastify: FastifyInstance) {
+  // Sub-routes
+  await fastify.register(tenantImpersonationRoutes, { prefix: "/impersonation" });
   /**
    * GET /tenants/current
    *

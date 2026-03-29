@@ -132,6 +132,12 @@ export function Sidebar() {
     };
   }
 
+  // Shift sidebar down when impersonation bar is visible
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  useEffect(() => {
+    setIsImpersonating(document.cookie.includes("x-impersonation-id="));
+  }, []);
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
@@ -139,7 +145,8 @@ export function Sidebar() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
-          "fixed inset-y-0 left-0 z-30 flex flex-col border-r border-border bg-card transition-[width] duration-300 ease-in-out",
+          "fixed left-0 z-30 flex flex-col border-r border-border bg-card transition-[width,top] duration-300 ease-in-out",
+          isImpersonating ? "top-10 bottom-0" : "inset-y-0",
           isEffectivelyExpanded ? "w-60" : "w-16",
           isHoverExpanded && "shadow-xl",
         )}

@@ -10,7 +10,6 @@ import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
-import { SettingsPageHeader } from "@/components/dashboard/settings/settings-page-header";
 import {
   getCatalogItems,
   getCatalogCategories,
@@ -185,19 +184,6 @@ export function CatalogSettingsPageClient() {
 
   return (
     <div>
-      <SettingsPageHeader
-        description="Manage your services, parts, and materials for quick line item entry."
-        action={
-          <Button
-            onClick={openCreateDialog}
-            className="bg-brand text-brand-foreground hover:bg-brand/90"
-          >
-            <IconPlus className="mr-2 h-4 w-4" />
-            Add Item
-          </Button>
-        }
-      />
-
       {error && (
         <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
@@ -227,6 +213,16 @@ export function CatalogSettingsPageClient() {
             onShowArchivedChange={setShowArchived}
             categories={categories}
             totalItems={pagination.total}
+            action={
+              <Button
+                onClick={openCreateDialog}
+                size="sm"
+                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
+              >
+                <IconPlus className="mr-2 h-4 w-4" />
+                Add Item
+              </Button>
+            }
           />
 
           {loading && <TableSkeleton columns={6} rows={5} />}

@@ -108,3 +108,66 @@ export async function updateTenant(data: {
     return { data: null, error: "Network error" };
   }
 }
+
+// ── Impersonation (Tenant-side) ─────────────────────────
+
+export async function respondToImpersonation(
+  sessionId: string,
+  approved: boolean,
+) {
+  try {
+    const res = await fetch(`${API_URL}/tenants/impersonation/respond`, {
+      method: "POST",
+      headers: {
+        cookie: await getCookieHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId, approved }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.message ?? "Failed to respond" };
+    }
+
+    return { success: true, error: null };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function getPendingImpersonationRequest() {
+  try {
+    const res = await fetch(`${API_URL}/tenants/impersonation/pending`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return { data: null, error: "Failed to check" };
+    }
+
+    const json = await res.json();
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function getActiveImpersonationViewer() {
+  try {
+    const res = await fetch(`${API_URL}/tenants/impersonation/active-viewer`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return { data: null, error: "Failed to check" };
+    }
+
+    const json = await res.json();
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}

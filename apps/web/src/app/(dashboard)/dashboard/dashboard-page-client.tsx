@@ -18,13 +18,6 @@ import { TodaySchedule } from "@/components/dashboard/home/today-schedule";
 import { InvoiceAging } from "@/components/dashboard/home/invoice-aging";
 import { QuoteConversion } from "@/components/dashboard/home/quote-conversion";
 
-function getGreeting(): string {
-  const hour = new Date().getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
 function getTodayString(): string {
   return new Date().toLocaleDateString("en-US", {
     weekday: "long",
@@ -92,16 +85,11 @@ export function DashboardPageClient() {
   return (
     <section className="p-6">
       <div className="space-y-6">
-        {/* Page Header */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="font-heading text-2xl font-bold text-foreground">
-              {getGreeting()}
-            </h1>
-            <p className="mt-0.5 text-sm text-muted-foreground font-body">
-              {getTodayString()}
-            </p>
-          </div>
+        {/* Toolbar */}
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground font-body">
+            {getTodayString()}
+          </p>
           <div className="flex items-center gap-2">
             <DateRangePicker
               dateRange={dateRange}

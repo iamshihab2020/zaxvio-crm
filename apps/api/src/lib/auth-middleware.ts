@@ -1,7 +1,15 @@
 import type { FastifyRequest, FastifyReply } from "fastify";
 import { auth } from "./auth.js";
 import { fromNodeHeaders } from "better-auth/node";
-import { getDb, tenants, user, eq } from "@hvac-saas/database";
+import {
+  getDb,
+  tenants,
+  user,
+  adminImpersonationSessions,
+  eq,
+  and,
+  sql,
+} from "@hvac-saas/database";
 
 export type AdminTier = "super_admin" | "support" | "billing_admin";
 
@@ -11,8 +19,23 @@ export interface AuthUser {
   name: string;
   role: string | null;
   adminTier: AdminTier | null;
+  isOwner: boolean;
   activeOrganizationId: string | null;
   tenantId: string | null;
+  isImpersonating: boolean;
+  impersonationSessionId: string | null;
+}
+
+/** Parse a single cookie value from the raw Cookie header */
+function parseCookie(
+  cookieHeader: string | undefined,
+  name: string,
+): string | null {
+  if (!cookieHeader) return null;
+  const match = cookieHeader.match(
+    new RegExp(`(?:^|;\\s*)${name}=([^;]*)`),
+  );
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 declare module "fastify" {
@@ -39,8 +62,11 @@ export async function requireAuth(
     name: session.user.name,
     role: session.user.role ?? null,
     adminTier: null,
+    isOwner: false,
     activeOrganizationId: session.session.activeOrganizationId ?? null,
     tenantId: null,
+    isImpersonating: false,
+    impersonationSessionId: null,
   };
 }
 
@@ -55,15 +81,16 @@ export async function requireAdmin(
     return reply.status(403).send({ message: "Forbidden: admin role required" });
   }
 
-  // Fetch admin tier from DB
+  // Fetch admin tier + owner status from DB
   const db = getDb();
   const row = await db
-    .select({ adminTier: user.adminTier })
+    .select({ adminTier: user.adminTier, isOwner: user.isOwner })
     .from(user)
     .where(eq(user.id, request.authUser.userId))
     .then((r) => r[0]);
 
   request.authUser.adminTier = (row?.adminTier as AdminTier) ?? null;
+  request.authUser.isOwner = row?.isOwner ?? false;
 }
 
 /**
@@ -84,6 +111,8 @@ export function requireAdminTier(allowedTiers: AdminTier[]) {
   };
 }
 
+const IMPERSONATION_MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
+
 export async function requireTenant(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -91,6 +120,57 @@ export async function requireTenant(
   await requireAuth(request, reply);
   if (reply.sent) return;
 
+  // Check for impersonation cookie — admin impersonating a tenant
+  const impersonationId = parseCookie(
+    request.headers.cookie as string | undefined,
+    "x-impersonation-id",
+  );
+
+  if (impersonationId && request.authUser.role === "admin") {
+    const db = getDb();
+    const impSession = await db
+      .select()
+      .from(adminImpersonationSessions)
+      .where(
+        and(
+          eq(adminImpersonationSessions.id, impersonationId),
+          eq(
+            adminImpersonationSessions.adminUserId,
+            request.authUser.userId,
+          ),
+          sql`${adminImpersonationSessions.endedAt} IS NULL`,
+        ),
+      )
+      .then((r) => r[0]);
+
+    if (!impSession) {
+      return reply
+        .status(403)
+        .send({ message: "Impersonation session not found or already ended" });
+    }
+
+    // Check 2-hour expiry
+    const elapsed =
+      Date.now() - new Date(impSession.startedAt).getTime();
+    if (elapsed > IMPERSONATION_MAX_MS) {
+      // Auto-end expired session
+      await db
+        .update(adminImpersonationSessions)
+        .set({ endedAt: new Date() })
+        .where(eq(adminImpersonationSessions.id, impersonationId));
+      return reply
+        .status(403)
+        .send({ message: "Impersonation session expired" });
+    }
+
+    // Inject tenant context from impersonation session
+    request.authUser.tenantId = impSession.tenantId;
+    request.authUser.isImpersonating = true;
+    request.authUser.impersonationSessionId = impersonationId;
+    return;
+  }
+
+  // Normal tenant resolution
   const orgId = request.authUser.activeOrganizationId;
   if (!orgId) {
     return reply
@@ -98,7 +178,6 @@ export async function requireTenant(
       .send({ message: "Forbidden: no active organization" });
   }
 
-  // Resolve tenant record from organization
   const db = getDb();
   const tenant = await db
     .select({ id: tenants.id })

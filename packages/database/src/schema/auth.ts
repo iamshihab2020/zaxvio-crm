@@ -18,6 +18,7 @@ export const user = pgTable("user", {
   phone: text("phone"),
   role: text("role").default("user"),
   adminTier: adminTierEnum("admin_tier"),
+  isOwner: boolean("is_owner").notNull().default(false),
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires", { withTimezone: true }),

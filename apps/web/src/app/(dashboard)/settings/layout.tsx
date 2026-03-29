@@ -7,16 +7,7 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <section className="p-6" aria-labelledby="settings-heading">
-      <h1
-        id="settings-heading"
-        className="font-heading text-2xl font-bold text-foreground"
-      >
-        Settings
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground font-body">
-        Manage your account, business information, and preferences.
-      </p>
+    <section className="p-6">
       <SettingsNav />
       <SettingsContent>{children}</SettingsContent>
     </section>

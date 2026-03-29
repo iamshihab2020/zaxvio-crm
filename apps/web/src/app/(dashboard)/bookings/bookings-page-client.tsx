@@ -30,6 +30,7 @@ import {
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -198,32 +199,7 @@ export function BookingsPageClient() {
   const showNoResults = !loading && !hasBookings && (!!search || !!statusFilter);
 
   return (
-    <section className="p-6" aria-labelledby="bookings-heading">
-      {/* Header row */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1
-            id="bookings-heading"
-            className="font-heading text-2xl font-bold text-foreground"
-          >
-            Bookings
-          </h1>
-          {!loading && (
-            <p className="mt-1 text-sm text-muted-foreground font-body">
-              Manage incoming booking requests from your public portal
-            </p>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/settings/bookings">
-            <Button size="sm" variant="secondary">
-              <IconSettings className="mr-2 h-4 w-4" />
-              Availability
-            </Button>
-          </Link>
-        </div>
-      </div>
-
+    <section className="p-6">
       {/* Booking Link Card */}
       <div className="mb-4 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -274,40 +250,28 @@ export function BookingsPageClient() {
                 </Button>
               </a>
             )}
+            <Link href="/settings/bookings">
+              <Button size="sm" variant="secondary">
+                <IconSettings className="mr-2 h-4 w-4" />
+                Availability
+              </Button>
+            </Link>
           </div>
         </div>
       </div>
 
       {/* Stats Cards */}
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
+      <StatsCards
+        stats={[
           { label: "Pending", count: stats.pending, icon: IconClock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40" },
           { label: "Confirmed", count: stats.confirmed, icon: IconCircleCheck, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
           { label: "Completed", count: stats.completed, icon: IconCalendarEvent, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
           { label: "Cancelled", count: stats.cancelled, icon: IconX, color: "text-muted-foreground", bg: "bg-muted/50" },
-        ].map((stat) => (
-          <button
-            key={stat.label}
-            onClick={() =>
-              setStatusFilter(
-                statusFilter === stat.label.toLowerCase() ? "" : stat.label.toLowerCase(),
-              )
-            }
-            className={cn(
-              "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all hover:border-brand/40",
-              statusFilter === stat.label.toLowerCase() && "border-brand ring-1 ring-brand/20",
-            )}
-          >
-            <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", stat.bg)}>
-              <stat.icon className={cn("h-4 w-4", stat.color)} />
-            </div>
-            <div>
-              <p className="text-lg font-bold font-heading text-foreground">{stat.count}</p>
-              <p className="text-xs text-muted-foreground font-body">{stat.label}</p>
-            </div>
-          </button>
-        ))}
-      </div>
+        ]}
+        activeFilter={statusFilter}
+        onFilterChange={setStatusFilter}
+        className="mb-4"
+      />
 
       {/* Empty state — no bookings at all */}
       {showEmptyState && (

@@ -44,7 +44,17 @@
       "Bash(grep -r \"superadmin\\\\|Super Admin\" '/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web' --include=*.tsx --include=*.ts)",
       "Bash(find apps/web/src -type d -name \"\\(superadmin\\)\" -o -type d -name superadmin)",
       "Bash(du:*)",
-      "Bash(grep -E \"\\\\.tsx$\")"
+      "Bash(grep -E \"\\\\.tsx$\")",
+      "Bash(cat \"apps/web/src/app/\\(auth\\)/login/page.tsx\")",
+      "Bash(grep -E \"\\\\.\\(ts|js|tsx|jsx\\)$\")",
+      "Bash(cat \"apps/web/src/app/\\(auth\\)/signup/page.tsx\")",
+      "Bash(grep -r 'pnpm seed:admin' '/c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm' --include=*.ts --include=*.tsx --include=*.js --include=*.json)",
+      "Bash(grep:*)",
+      "Bash(cat \"apps/web/src/app/\\(superadmin\\)/layout.tsx\")",
+      "Bash(cat \"apps/web/src/app/\\(dashboard\\)/layout.tsx\")",
+      "Bash(cat \"apps/web/src/app/\\(dashboard\\)/org-resolver.tsx\")",
+      "Bash(cat \"apps/web/src/app/\\(auth\\)/forgot-password/page.tsx\")",
+      "Bash(cat \"apps/web/src/app/\\(dashboard\\)/settings/layout.tsx\")"
     ]
   }
 }

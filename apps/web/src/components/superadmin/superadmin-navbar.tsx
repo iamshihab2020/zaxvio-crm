@@ -52,10 +52,12 @@ export function SuperadminNavbar() {
     .slice(0, 2);
 
   const handleLogout = async () => {
+    // Clear role cookie before signing out
+    document.cookie = "x-user-role=; path=/; max-age=0";
     await signOut({
       fetchOptions: {
         onSuccess: () => {
-          router.push("/login");
+          router.replace("/login");
         },
       },
     });

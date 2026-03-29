@@ -132,6 +132,7 @@ apps/api/
 |   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
 |   |   |   +-- analytics.ts      # 7 endpoints: MRR, signups, active-users, churn, trial-conversion, inactive-alerts, feature-adoption
 |   |   |   +-- audit.ts          # 3 endpoints: audit-log, impersonation-log, tenant activity
+|   |   |   +-- impersonation.ts  # 5 endpoints: start, request, end, cancel, active — ghost + visible impersonation
 |   |   |   +-- search.ts         # 1 endpoint: global cross-tenant search
 |   |   |   +-- system.ts         # 3 endpoints: health, webhooks, crons
 |   |   +-- webhooks/
@@ -212,6 +213,7 @@ apps/web/
     +-- lib/
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
     |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR)
+    |   +-- supabase-client.ts       # Browser Supabase client for Realtime subscriptions (anon key)
     |   +-- format.ts                # formatCurrency(), formatRelativeTime() helpers
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
     |   +-- constants/
@@ -277,6 +279,9 @@ apps/web/
     |   +-- dashboard/               # Dashboard-specific components (by entity)
     |   |   +-- dashboard-shell.tsx  # Shell layout (sidebar + navbar + content)
     |   |   +-- navbar.tsx           # Top navigation bar
+    |   |   +-- impersonation-bar.tsx # Admin-only floating bar during impersonation (exit button + timer)
+    |   |   +-- impersonation-request-listener.tsx # Tenant-side: realtime listener + permission dialog for visible impersonation
+    |   |   +-- impersonation-active-indicator.tsx # Tenant-side: "admin is viewing" bar during visible impersonation
     |   |   +-- sidebar.tsx          # Side navigation (incl. Bookings link)
     |   |   +-- sidebar-provider.tsx # Sidebar state context
     |   |   +-- sidebar-nav-item.tsx # Nav item component

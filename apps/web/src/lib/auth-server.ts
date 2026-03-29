@@ -21,8 +21,19 @@ export async function getServerSession() {
   if (!res.ok) return null;
 
   const data = await res.json();
+
+  // Validate response shape — return null for malformed/empty responses
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !data.session?.userId ||
+    !data.user?.id
+  ) {
+    return null;
+  }
+
   return data as {
     session: { id: string; userId: string; activeOrganizationId: string | null };
     user: { id: string; email: string; name: string; role: string | null };
-  } | null;
+  };
 }

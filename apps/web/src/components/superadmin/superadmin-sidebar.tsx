@@ -13,6 +13,7 @@ import {
   IconChevronsLeft,
   IconChevronsRight,
   IconShieldLock,
+  IconUserShield,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,6 +32,7 @@ const navItems = [
   { href: "/superadmin/support", label: "Support", icon: IconHeadset },
   { href: "/superadmin/affiliates", label: "Affiliates", icon: IconUsers },
   { href: "/superadmin/system", label: "System", icon: IconServer },
+  { href: "/superadmin/admins", label: "Admins", icon: IconUserShield },
 ];
 
 export function SuperadminSidebar() {

@@ -12,6 +12,96 @@ async function getCookieHeader() {
     .join("; ");
 }
 
+// ── Admin Management ────────────────────────────────────
+
+export async function getAdminUsers() {
+  try {
+    const res = await fetch(`${API_URL}/admin/admins`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to fetch admins" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function createAdminUser(data: {
+  name: string;
+  email: string;
+  password: string;
+  adminTier: string;
+  makeOwner?: boolean;
+}) {
+  try {
+    const res = await fetch(`${API_URL}/admin/admins`, {
+      method: "POST",
+      headers: {
+        cookie: await getCookieHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to create admin" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function updateAdminTier(id: string, adminTier: string, makeOwner?: boolean) {
+  try {
+    const res = await fetch(`${API_URL}/admin/admins/${id}`, {
+      method: "PATCH",
+      headers: {
+        cookie: await getCookieHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ adminTier, makeOwner }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.message ?? "Failed to update tier" };
+    }
+
+    return { success: true, error: null };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
+export async function removeAdminAccess(id: string) {
+  try {
+    const res = await fetch(`${API_URL}/admin/admins/${id}`, {
+      method: "DELETE",
+      headers: { cookie: await getCookieHeader() },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { success: false, error: err.message ?? "Failed to remove admin" };
+    }
+
+    return { success: true, error: null };
+  } catch {
+    return { success: false, error: "Network error" };
+  }
+}
+
 // ── Dashboard (combined endpoint) ────────────────────────
 
 export async function getAdminDashboard() {
@@ -337,6 +427,119 @@ export async function getChurnList(days?: number) {
 
     const json = await res.json();
     return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+// ── Impersonation ───────────────────────────────────────
+
+export async function startImpersonation(tenantId: string, reason: string) {
+  try {
+    const res = await fetch(`${API_URL}/admin/impersonation/start`, {
+      method: "POST",
+      headers: {
+        cookie: await getCookieHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tenantId, reason }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to start impersonation" };
+    }
+
+    const json = await res.json();
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function endImpersonation(sessionId: string) {
+  try {
+    const res = await fetch(`${API_URL}/admin/impersonation/end`, {
+      method: "POST",
+      headers: {
+        cookie: await getCookieHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to end impersonation" };
+    }
+
+    const json = await res.json();
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function getActiveImpersonation() {
+  try {
+    const res = await fetch(`${API_URL}/admin/impersonation/active`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to check impersonation" };
+    }
+
+    const json = await res.json();
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function requestVisibleImpersonation(tenantId: string, reason: string) {
+  try {
+    const res = await fetch(`${API_URL}/admin/impersonation/request`, {
+      method: "POST",
+      headers: {
+        cookie: await getCookieHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tenantId, reason }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to request impersonation" };
+    }
+
+    const json = await res.json();
+    return { data: json, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function cancelImpersonationRequest(sessionId: string) {
+  try {
+    const res = await fetch(`${API_URL}/admin/impersonation/cancel`, {
+      method: "POST",
+      headers: {
+        cookie: await getCookieHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sessionId }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to cancel request" };
+    }
+
+    const json = await res.json();
+    return { data: json, error: null };
   } catch {
     return { data: null, error: "Network error" };
   }

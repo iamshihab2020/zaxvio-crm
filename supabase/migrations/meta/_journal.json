@@ -43,6 +43,13 @@
       "when": 1774691698545,
       "tag": "0005_shocking_sleeper",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1774791062644,
+      "tag": "0006_square_baron_strucker",
+      "breakpoints": true
     }
   ]
 }

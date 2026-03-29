@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import {
   InvoiceTable,
   type InvoiceRow,
@@ -209,60 +210,20 @@ export function InvoicesPageClient() {
   const showNoResults = !loading && !hasInvoices && (!!search || !!statusFilter);
 
   return (
-    <section className="p-6" aria-labelledby="invoices-heading">
-      {/* Header row — title + action button */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1
-            id="invoices-heading"
-            className="font-heading text-2xl font-bold text-foreground"
-          >
-            Invoices
-          </h1>
-          {!loading && (
-            <p className="mt-1 text-sm text-muted-foreground font-body">
-              {pagination.total} {pagination.total === 1 ? "invoice" : "invoices"} total
-            </p>
-          )}
-        </div>
-        <Button
-          onClick={() => setCreateDialogOpen(true)}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          <IconPlus className="mr-2 h-4 w-4" />
-          New Invoice
-        </Button>
-      </div>
-
+    <section className="p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
+        <StatsCards
+          stats={[
             { label: "Draft", count: stats.draft, icon: IconFileText, color: "text-muted-foreground", bg: "bg-muted/50" },
             { label: "Sent", count: stats.sent, icon: IconSend, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
             { label: "Paid", count: stats.paid, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
             { label: "Overdue", count: stats.overdue, icon: IconAlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40" },
-          ].map((stat) => (
-            <button
-              key={stat.label}
-              onClick={() =>
-                setStatusFilter(statusFilter === stat.label.toLowerCase() ? "" : stat.label.toLowerCase())
-              }
-              className={cn(
-                "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all hover:border-brand/40 cursor-pointer",
-                statusFilter === stat.label.toLowerCase() && "border-brand ring-1 ring-brand/20",
-              )}
-            >
-              <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", stat.bg)}>
-                <stat.icon className={cn("h-4 w-4", stat.color)} />
-              </div>
-              <div>
-                <p className="text-lg font-bold font-heading text-foreground">{stat.count}</p>
-                <p className="text-xs text-muted-foreground font-body">{stat.label}</p>
-              </div>
-            </button>
-          ))}
-        </div>
+          ]}
+          activeFilter={statusFilter}
+          onFilterChange={setStatusFilter}
+          className="mb-4"
+        />
       )}
 
       {/* Empty state — no invoices at all */}
@@ -294,6 +255,14 @@ export function InvoicesPageClient() {
               {viewMounted && (
                 <ViewModeToggle value={viewMode} onChange={setViewMode} />
               )}
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                size="sm"
+                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
+              >
+                <IconPlus className="mr-2 h-4 w-4" />
+                New Invoice
+              </Button>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">

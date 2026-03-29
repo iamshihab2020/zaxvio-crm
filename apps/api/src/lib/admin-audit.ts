@@ -8,7 +8,10 @@ export type AdminAction =
   | "trial_extend"
   | "subscription_override"
   | "tenant_edit"
-  | "tenant_delete";
+  | "tenant_delete"
+  | "admin_create"
+  | "admin_update_tier"
+  | "admin_remove";
 
 export async function logAdminAction(
   adminUserId: string,

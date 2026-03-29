@@ -12,7 +12,9 @@ Task tracking for in-progress and upcoming work.
   - **Phase 1 — Tenant Management**
     - [x] 1A: Tenant list + detail pages (SA-05, SA-06)
     - [x] 1B: Tenant action dialogs (extend trial, override subscription, edit, delete) + wired to detail page
-    - [x] 1B: Impersonation dialog (UI + reason field) — API integration pending Better Auth admin plugin
+    - [x] 1B: Impersonation dialog (UI + reason field)
+    - [x] 1C: Ghost Impersonation — API + full flow (start/end/active endpoints, cookie-based context injection, ImpersonationBar, 2h auto-expiry)
+    - [x] 1D: Visible Impersonation — consent-based flow with Supabase Realtime (request/respond/cancel, tenant permission dialog, active viewer indicator, exit notification)
   - **Phase 2 — Analytics & Dashboard**
     - [x] 2A: Admin dashboard + MRR + signups (SA-13, SA-14) — KPI cards, funnel, signup chart
     - [x] 2B: Full analytics page with Recharts — MRR bar chart, signup area chart, active users (DAT/WAT/MAT), trial funnel, churn table
