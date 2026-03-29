@@ -7,9 +7,11 @@ export default function SettingsLayout({
   children: React.ReactNode;
 }) {
   return (
-    <section className="p-6">
+    <div className="md:flex min-h-[calc(100vh-3.5rem)]">
       <SettingsNav />
-      <SettingsContent>{children}</SettingsContent>
-    </section>
+      <div className="flex-1 min-w-0">
+        <SettingsContent>{children}</SettingsContent>
+      </div>
+    </div>
   );
 }

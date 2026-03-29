@@ -37,6 +37,8 @@ function isDashboardPath(pathname: string) {
     pathname.startsWith("/quotes") ||
     pathname.startsWith("/bookings") ||
     pathname.startsWith("/schedule") ||
+    pathname.startsWith("/catalog") ||
+    pathname.startsWith("/checklists") ||
     pathname.startsWith("/settings")
   );
 }

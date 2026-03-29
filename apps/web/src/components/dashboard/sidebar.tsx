@@ -11,6 +11,8 @@ import {
   IconFileText,
   IconCalendar,
   IconCalendarEvent,
+  IconListDetails,
+  IconChecklist,
   IconSettings,
   IconChevronsLeft,
   IconChevronsRight,
@@ -32,6 +34,8 @@ const navItems = [
   { href: "/invoices", label: "Invoices", icon: IconFileInvoice },
   { href: "/bookings", label: "Bookings", icon: IconCalendarEvent },
   { href: "/schedule", label: "Schedule", icon: IconCalendar },
+  { href: "/catalog", label: "Catalog", icon: IconListDetails },
+  { href: "/checklists", label: "Checklists", icon: IconChecklist },
 ];
 
 const allItems = [
