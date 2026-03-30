@@ -6,12 +6,14 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   IconUser,
   IconBuilding,
+  IconUsersGroup,
   IconFileInvoice,
   IconFileDescription,
   IconCalendarEvent,
   IconCreditCard,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { useOrgRole } from "@/hooks/use-org-role";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -26,6 +28,7 @@ interface NavItem {
   label: string;
   href: string;
   icon: Icon;
+  roles?: string[];
 }
 
 interface NavGroup {
@@ -43,8 +46,9 @@ const navGroups: NavGroup[] = [
   {
     label: "Organization",
     items: [
-      { label: "Business", href: "/settings/business", icon: IconBuilding },
-      { label: "Billing", href: "/settings/billing", icon: IconCreditCard },
+      { label: "Business", href: "/settings/business", icon: IconBuilding, roles: ["owner", "admin"] },
+      { label: "Team", href: "/settings/team", icon: IconUsersGroup },
+      { label: "Billing", href: "/settings/billing", icon: IconCreditCard, roles: ["owner"] },
     ],
   },
   {
@@ -62,11 +66,22 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-const allItems = navGroups.flatMap((g) => g.items);
-
 export function SettingsNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const { role: orgRole, isLoading: roleLoading } = useOrgRole();
+
+  // Filter nav groups based on user's org role
+  const filteredGroups = navGroups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter(
+        (item) => !item.roles || (orgRole && item.roles.includes(orgRole)),
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
+
+  const allItems = filteredGroups.flatMap((g) => g.items);
 
   // Indicator state for desktop sidebar
   const itemRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
@@ -128,7 +143,7 @@ export function SettingsNav() {
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {navGroups.map((group) => (
+            {filteredGroups.map((group) => (
               <div key={group.label}>
                 <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
                   {group.label}
@@ -167,7 +182,7 @@ export function SettingsNav() {
               style={{ top: indicator.top, height: indicator.height }}
             />
 
-            {navGroups.map((group) => (
+            {filteredGroups.map((group) => (
               <div key={group.label}>
                 <p className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground font-heading">
                   {group.label}

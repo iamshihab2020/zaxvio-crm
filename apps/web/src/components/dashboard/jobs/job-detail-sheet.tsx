@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   IconEdit,
@@ -350,24 +351,12 @@ export function JobDetailSheet({
                   <SheetTitle className="font-heading text-lg">
                     {job.jobNumber}
                   </SheetTitle>
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                      statusColors?.bg,
-                      statusColors?.text,
-                    )}
-                  >
+                  <Badge className={cn("px-2 py-0.5 font-medium", statusColors?.bg, statusColors?.text)}>
                     {statusLabel}
-                  </span>
-                  <span
-                    className={cn(
-                      "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                      priorityColors?.bg,
-                      priorityColors?.text,
-                    )}
-                  >
+                  </Badge>
+                  <Badge className={cn("px-2 py-0.5 font-medium", priorityColors?.bg, priorityColors?.text)}>
                     {JOB_PRIORITY_LABELS[job.priority]}
-                  </span>
+                  </Badge>
                 </div>
                 <SheetDescription className="text-sm font-body">
                   {job.title}

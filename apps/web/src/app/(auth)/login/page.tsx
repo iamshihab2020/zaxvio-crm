@@ -51,6 +51,21 @@ function LoginForm() {
         return;
       }
 
+      // Check for pending invitation
+      const inviteId = searchParams.get("invite");
+      if (inviteId) {
+        const acceptResult = await authClient.organization.acceptInvitation({
+          invitationId: inviteId,
+        });
+        if (!acceptResult.error && acceptResult.data?.member?.organizationId) {
+          await authClient.organization.setActive({
+            organizationId: acceptResult.data.member.organizationId,
+          });
+          window.location.replace("/dashboard");
+          return;
+        }
+      }
+
       // Auto-set active organization for non-admin users
       const orgsResult = await authClient.organization.list();
       const orgs = orgsResult.data;

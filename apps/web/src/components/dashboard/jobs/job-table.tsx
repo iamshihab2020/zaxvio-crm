@@ -21,6 +21,7 @@ import {
 } from "@/lib/constants/job-options";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { JobCardData } from "./kanban-card";
 
 interface Stage {
@@ -155,30 +156,30 @@ export function JobTable({
                   {customerName}
                 </TableCell>
                 <TableCell className={cellClass}>
-                  <span
+                  <Badge
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full font-medium font-body",
-                      compact ? "px-2 py-px text-[11px]" : "px-2.5 py-0.5 text-xs",
+                      "gap-1.5 font-medium",
+                      compact ? "px-2 py-px text-[11px]" : "px-2.5 py-0.5",
                       stageInfo.colors.bg,
                       stageInfo.colors.text,
                     )}
                   >
                     <span className={cn("rounded-full", stageInfo.colors.dot, compact ? "h-1 w-1" : "h-1.5 w-1.5")} />
                     {stageInfo.label}
-                  </span>
+                  </Badge>
                 </TableCell>
                 <TableCell className={cellClass}>
                   {priorityColors && (
-                    <span
+                    <Badge
                       className={cn(
-                        "inline-flex items-center rounded-full font-medium font-body",
-                        compact ? "px-2 py-px text-[11px]" : "px-2.5 py-0.5 text-xs",
+                        "font-medium",
+                        compact ? "px-2 py-px text-[11px]" : "px-2.5 py-0.5",
                         priorityColors.bg,
                         priorityColors.text,
                       )}
                     >
                       {JOB_PRIORITY_LABELS[job.priority as JobPriority]}
-                    </span>
+                    </Badge>
                   )}
                 </TableCell>
                 <TableCell className={cn("text-muted-foreground font-body", cellClass)}>

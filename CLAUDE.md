@@ -24,7 +24,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
   - **Route files only** in route folders: Only `page.tsx` and `*-page-client.tsx` stay in `app/(dashboard)/<entity>/`. They import components from `@/components/dashboard/`.
   - **UI primitives** (shadcn) stay in `apps/web/src/components/ui/`.
 
-7. **Read memory files at session start** — `scripts/memory/recent-memory.md` + `scripts/memory/project-memory.md` for recent context; reference `scripts/memory/long-term-memory.md` for architecture/library decisions.
+7. **NEVER use `as any` or `as unknown`** — Always use proper types. Define interfaces/types for all data structures. Use generics where needed. If a third-party API returns untyped data, define a type for its shape and assert to that specific type (`as MyType`), never `as any` or `as unknown`. No exceptions.
+
+8. **Read memory files at session start** — `scripts/memory/recent-memory.md` + `scripts/memory/project-memory.md` for recent context; reference `scripts/memory/long-term-memory.md` for architecture/library decisions.
 
 8. **`docs/API_DOCUMENTATION.md` is the single source of truth for API endpoints:**
   - **READ** when working on frontend actions, API client calls, server actions, or any task that interacts with the API — consult this doc to know exact endpoints, request/response shapes, auth requirements, and query parameters.

@@ -6,6 +6,7 @@ import postgres from "postgres";
 import * as schema from "@hvac-saas/database";
 import { getDb } from "@hvac-saas/database";
 import { env } from "./env.js";
+import { sendInvitationEmail } from "./email.js";
 
 // Better Auth gets its own dedicated connection with prepare: false
 // This avoids issues with Supabase's transaction pooler
@@ -49,6 +50,17 @@ export const auth = betterAuth({
   plugins: [
     organization({
       allowUserToCreateOrganization: true,
+      creatorRole: "owner",
+      invitationExpiresIn: 7 * 24 * 60 * 60, // 7 days
+      async sendInvitationEmail(data) {
+        await sendInvitationEmail({
+          to: data.email,
+          inviterName: data.inviter.user.name,
+          organizationName: data.organization.name,
+          role: data.role,
+          inviteUrl: `${env.FRONTEND_URL}/invite/${data.id}`,
+        });
+      },
       organizationCreation: {
         afterCreate: async ({
           organization: org,

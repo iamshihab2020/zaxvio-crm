@@ -7,6 +7,7 @@ import {
   IconCalendarPlus,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -127,14 +128,14 @@ export function TodaySchedule({
                       {job.priority === "emergency" && (
                         <IconFlame className="h-3.5 w-3.5 text-red-500" />
                       )}
-                      <span
+                      <Badge
                         className={cn(
-                          "inline-flex items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                          "px-1.5 py-0.5 text-[10px] font-medium",
                           statusBadge.classes,
                         )}
                       >
                         {statusBadge.label}
-                      </span>
+                      </Badge>
                     </div>
                   </Link>
                 );

@@ -3,6 +3,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import {
   JOB_PRIORITY_LABELS,
   JOB_PRIORITY_COLORS,
@@ -110,21 +111,15 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
             {job.jobNumber}
           </span>
           {isToday && (
-            <span className="inline-flex items-center rounded-full bg-brand-light px-1.5 py-0.5 text-[10px] font-medium text-brand">
+            <Badge className="bg-brand-light text-brand px-1.5 py-0.5 text-[10px] font-medium">
               Today
-            </span>
+            </Badge>
           )}
         </div>
         <div className="flex items-center gap-1.5">
-          <span
-            className={cn(
-              "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-              priorityColors.bg,
-              priorityColors.text,
-            )}
-          >
+          <Badge className={cn("px-2 py-0.5 font-medium", priorityColors.bg, priorityColors.text)}>
             {JOB_PRIORITY_LABELS[job.priority]}
-          </span>
+          </Badge>
           <IconGripVertical className="h-3.5 w-3.5 text-muted-foreground/30" />
         </div>
       </div>
@@ -138,9 +133,9 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
       </p>
 
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="inline-flex items-center rounded-md bg-muted/50 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground uppercase tracking-wider font-body">
+        <Badge className="bg-muted/50 text-muted-foreground px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider">
           {SERVICE_TYPE_LABELS[job.serviceType]}
-        </span>
+        </Badge>
       </div>
 
       {job.address && (

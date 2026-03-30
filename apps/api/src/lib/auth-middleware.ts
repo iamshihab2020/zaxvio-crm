@@ -5,6 +5,7 @@ import {
   getDb,
   tenants,
   user,
+  member,
   adminImpersonationSessions,
   eq,
   and,
@@ -22,6 +23,7 @@ export interface AuthUser {
   isOwner: boolean;
   activeOrganizationId: string | null;
   tenantId: string | null;
+  orgRole: string | null;
   isImpersonating: boolean;
   impersonationSessionId: string | null;
 }
@@ -65,6 +67,7 @@ export async function requireAuth(
     isOwner: false,
     activeOrganizationId: session.session.activeOrganizationId ?? null,
     tenantId: null,
+    orgRole: null,
     isImpersonating: false,
     impersonationSessionId: null,
   };
@@ -192,4 +195,41 @@ export async function requireTenant(
   }
 
   request.authUser.tenantId = tenant.id;
+}
+
+/**
+ * Factory to create middleware that requires specific organization-level roles.
+ * Must be used after requireTenant (which resolves activeOrganizationId).
+ * Usage: `{ preHandler: [requireOrgRole(["owner", "admin"])] }`
+ */
+export function requireOrgRole(allowedRoles: string[]) {
+  return async function (request: FastifyRequest, reply: FastifyReply) {
+    await requireTenant(request, reply);
+    if (reply.sent) return;
+
+    const orgId = request.authUser.activeOrganizationId;
+    if (!orgId) {
+      return reply.status(403).send({ message: "Forbidden: no active organization" });
+    }
+
+    const db = getDb();
+    const memberRow = await db
+      .select({ role: member.role })
+      .from(member)
+      .where(
+        and(
+          eq(member.userId, request.authUser.userId),
+          eq(member.organizationId, orgId),
+        ),
+      )
+      .then((r) => r[0]);
+
+    if (!memberRow || !allowedRoles.includes(memberRow.role)) {
+      return reply.status(403).send({
+        message: `Forbidden: requires one of [${allowedRoles.join(", ")}]`,
+      });
+    }
+
+    request.authUser.orgRole = memberRow.role;
+  };
 }

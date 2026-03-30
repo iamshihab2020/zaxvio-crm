@@ -116,7 +116,37 @@ Items not yet started (next up from Build Order above):
 
 - [ ] **Email Templates** (#12) — React Email templates (invoice, quote, booking confirm, review request)
 - [ ] **Affiliate Program** (#13) — Lemon Squeezy integration, referral tracking, affiliate dashboard
-- [ ] **Settings Completion** (#14) — Team members, billing/subscription management
+- [ ] **Billing/Subscription** — Lemon Squeezy subscription management in settings
+- [ ] **Notifications** — In-app notification system (bell icon is placeholder)
+- [ ] **Reports/Analytics** — Tenant-level reporting (revenue, job completion rates)
+
+## Recently Completed (Latest)
+
+- [x] **Team Management** (ZAX-34 session) — Multi-user org support with roles
+  - Better Auth org plugin configured: `creatorRole: "owner"`, `sendInvitationEmail` hook, 7-day expiry
+  - Resend email utility (`apps/api/src/lib/email.ts`) for invitation emails
+  - `requireOrgRole()` middleware factory for role-based API access control
+  - Role guard on `PATCH /tenants/current` (owner/admin only)
+  - Migration: existing org creators set to "owner" role
+  - Invitation acceptance page: `/invite/[id]` with accept/decline for logged-in, signup/login links for guests
+  - Signup/login pages: handle `?invite=` param for invitation flow
+  - Team settings page: `/settings/team` with member list, invite dialog, pending invitations
+  - Reusable components: `TeamRoleBadge`, `TeamMemberList`, `TeamInviteDialog`, `TeamPendingInvitations`
+  - `useOrgRole` hook: returns `{ role, isOwner, isAdmin, isMember, isLoading }`
+  - Settings nav role-aware filtering (Business: owner/admin, Billing: owner only)
+
+- [x] **Enterprise UI/UX Overhaul** (ZAX-34 session) — Dashboard-wide redesign
+  - Removed duplicate page headers (navbar title is single source)
+  - Stats cards as page headers (invoices, quotes, bookings, customers)
+  - Reusable `StatsCards` component (`components/dashboard/reusable/stats-cards.tsx`)
+  - Action buttons moved into search/filter toolbars
+  - Promoted Catalog & Checklists from Settings to top-level sidebar items
+  - Settings redesigned: horizontal tabs → grouped sidebar (Account, Organization, Documents, Scheduling)
+  - Mobile settings: shadcn Select dropdown
+  - Sidebar redesigned: flat list → grouped sections (Planning, Work, Revenue, Configuration)
+  - Sidebar order: Dashboard → Schedule → Bookings → Customers → Jobs → Quotes → Invoices → Catalog → Checklists
+  - Badge system: all status badges now use shadcn `<Badge>` with subtle-fill pattern (no borders)
+  - Icons updated for visual distinction (Quotes: IconFileDescription, Invoices: IconReceipt, etc.)
 
 ## Done
 

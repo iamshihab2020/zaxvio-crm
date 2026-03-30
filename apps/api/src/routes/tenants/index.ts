@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth, requireTenant } from "../../lib/auth-middleware.js";
+import { requireAuth, requireTenant, requireOrgRole } from "../../lib/auth-middleware.js";
 import {
   getDb,
   tenants,
@@ -46,7 +46,7 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/current",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireOrgRole(["owner", "admin"])] },
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;
 

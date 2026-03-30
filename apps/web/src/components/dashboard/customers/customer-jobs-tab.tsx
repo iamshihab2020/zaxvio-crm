@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { IconBriefcase, IconCalendar } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { getJobs } from "@/actions/jobs";
 import {
   JOB_STATUS_COLORS,
@@ -130,9 +131,9 @@ export function CustomerJobsTab({ customerId }: CustomerJobsTabProps) {
                   {job.title}
                 </td>
                 <td className="px-3 py-2">
-                  <span
+                  <Badge
                     className={cn(
-                      "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
+                      "gap-1.5 px-2 py-0.5 font-medium",
                       statusColors.bg,
                       statusColors.text,
                     )}
@@ -141,18 +142,18 @@ export function CustomerJobsTab({ customerId }: CustomerJobsTabProps) {
                       className={cn("h-1.5 w-1.5 rounded-full", statusColors.dot)}
                     />
                     {job.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                  </span>
+                  </Badge>
                 </td>
                 <td className="px-3 py-2">
-                  <span
+                  <Badge
                     className={cn(
-                      "inline-flex rounded-full px-2 py-0.5 text-xs font-medium",
+                      "px-2 py-0.5 font-medium",
                       priorityColors.bg,
                       priorityColors.text,
                     )}
                   >
                     {JOB_PRIORITY_LABELS[job.priority as JobPriority] ?? job.priority}
-                  </span>
+                  </Badge>
                 </td>
                 <td className="px-3 py-2 text-muted-foreground font-body">
                   <span className="flex items-center gap-1">
