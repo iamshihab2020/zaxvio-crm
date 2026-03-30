@@ -392,15 +392,9 @@ export function JobsPageClient() {
   const stagesReady = stages.length > 0;
 
   return (
-    <section className="p-6 overflow-hidden animate-fade-in-up" aria-labelledby="jobs-heading">
+    <section className="p-6 overflow-hidden animate-fade-in-up">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <div className="flex items-baseline gap-x-4 gap-y-1 flex-wrap">
-          <h1
-            id="jobs-heading"
-            className="font-heading text-2xl font-bold text-foreground"
-          >
-            Jobs
-          </h1>
           {!loading && viewType !== "table" && (
             <JobsStatsBar
               totalJobs={jobs.length}
@@ -415,7 +409,6 @@ export function JobsPageClient() {
             </span>
           )}
         </div>
-
         {/* Board / Table view switch */}
         <div className="flex items-center rounded-lg border border-border p-0.5 gap-0.5">
           <button

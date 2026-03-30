@@ -4,7 +4,34 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
-(none)
+- [ ] **Super Admin Panel** (#11, ZAX-34) — 26 features, 4 phases, ~60 new files
+  - **Phase 0 — Foundation**
+    - [x] 0A: Schema + auth infrastructure (admin_tier enum, webhook/cron tables, requireAdminTier middleware)
+    - [x] 0B: Superadmin layout shell (sidebar, navbar, shell — red accent theme + globals.css + tailwind)
+    - [x] 0C: API route registration + server actions base (23+ endpoints, 18 server actions)
+  - **Phase 1 — Tenant Management**
+    - [x] 1A: Tenant list + detail pages (SA-05, SA-06)
+    - [x] 1B: Tenant action dialogs (extend trial, override subscription, edit, delete) + wired to detail page
+    - [x] 1B: Impersonation dialog (UI + reason field)
+    - [x] 1C: Ghost Impersonation — API + full flow (start/end/active endpoints, cookie-based context injection, ImpersonationBar, 2h auto-expiry)
+    - [x] 1D: Visible Impersonation — consent-based flow with Supabase Realtime (request/respond/cancel, tenant permission dialog, active viewer indicator, exit notification)
+  - **Phase 2 — Analytics & Dashboard**
+    - [x] 2A: Admin dashboard + MRR + signups (SA-13, SA-14) — KPI cards, funnel, signup chart
+    - [x] 2B: Full analytics page with Recharts — MRR bar chart, signup area chart, active users (DAT/WAT/MAT), trial funnel, churn table
+    - [x] 2C: Platform event emission — emitPlatformEvent() in customers, jobs, bookings
+    - [x] 2D: Inactive alerts (14d no activity) + feature adoption (% tenants using each feature) — on analytics page
+  - **Phase 3 — Support, Search & Audit**
+    - [x] 3A: Global search (Cmd+K command palette) — wired into navbar
+    - [x] 3B: Audit log + impersonation log tables — support page with tabs
+    - [x] 3C: ReauthDialog component for destructive actions (password re-entry)
+  - **Phase 4 — System Health & P1**
+    - [x] 4A: System health page — live DB/uptime/memory/node stats
+    - [x] 4C: Affiliates page — KPI cards (referred tenants, affiliate MRR, rate) + table
+  - **Tenant Deep Analysis**
+    - [x] API: `GET /admin/tenants/:id/analytics` — 15 parallel queries, single auth check
+    - [x] Frontend: Analytics tab on tenant detail — lazy loaded, skeleton, 5 sections (usage KPIs, financial charts, status breakdowns, operational rates, activity feed)
+  - **Plan**: `docs/superadmin/SUPERADMIN_IMPLEMENTATION_PLAN.md`
+  - **Report**: `docs/superadmin/SUPERADMIN_ANALYSIS_REPORT.md`
 
 ## Recently Completed (Latest)
 
@@ -87,10 +114,39 @@ Priority order based on PRD feature dependencies:
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Super Admin Panel** (#11) — Tenant management, platform analytics, audit log, impersonation
 - [ ] **Email Templates** (#12) — React Email templates (invoice, quote, booking confirm, review request)
 - [ ] **Affiliate Program** (#13) — Lemon Squeezy integration, referral tracking, affiliate dashboard
-- [ ] **Settings Completion** (#14) — Team members, billing/subscription management
+- [ ] **Billing/Subscription** — Lemon Squeezy subscription management in settings
+- [ ] **Notifications** — In-app notification system (bell icon is placeholder)
+- [ ] **Reports/Analytics** — Tenant-level reporting (revenue, job completion rates)
+
+## Recently Completed (Latest)
+
+- [x] **Team Management** (ZAX-34 session) — Multi-user org support with roles
+  - Better Auth org plugin configured: `creatorRole: "owner"`, `sendInvitationEmail` hook, 7-day expiry
+  - Resend email utility (`apps/api/src/lib/email.ts`) for invitation emails
+  - `requireOrgRole()` middleware factory for role-based API access control
+  - Role guard on `PATCH /tenants/current` (owner/admin only)
+  - Migration: existing org creators set to "owner" role
+  - Invitation acceptance page: `/invite/[id]` with accept/decline for logged-in, signup/login links for guests
+  - Signup/login pages: handle `?invite=` param for invitation flow
+  - Team settings page: `/settings/team` with member list, invite dialog, pending invitations
+  - Reusable components: `TeamRoleBadge`, `TeamMemberList`, `TeamInviteDialog`, `TeamPendingInvitations`
+  - `useOrgRole` hook: returns `{ role, isOwner, isAdmin, isMember, isLoading }`
+  - Settings nav role-aware filtering (Business: owner/admin, Billing: owner only)
+
+- [x] **Enterprise UI/UX Overhaul** (ZAX-34 session) — Dashboard-wide redesign
+  - Removed duplicate page headers (navbar title is single source)
+  - Stats cards as page headers (invoices, quotes, bookings, customers)
+  - Reusable `StatsCards` component (`components/dashboard/reusable/stats-cards.tsx`)
+  - Action buttons moved into search/filter toolbars
+  - Promoted Catalog & Checklists from Settings to top-level sidebar items
+  - Settings redesigned: horizontal tabs → grouped sidebar (Account, Organization, Documents, Scheduling)
+  - Mobile settings: shadcn Select dropdown
+  - Sidebar redesigned: flat list → grouped sections (Planning, Work, Revenue, Configuration)
+  - Sidebar order: Dashboard → Schedule → Bookings → Customers → Jobs → Quotes → Invoices → Catalog → Checklists
+  - Badge system: all status badges now use shadcn `<Badge>` with subtle-fill pattern (no borders)
+  - Icons updated for visual distinction (Quotes: IconFileDescription, Invoices: IconReceipt, etc.)
 
 ## Done
 

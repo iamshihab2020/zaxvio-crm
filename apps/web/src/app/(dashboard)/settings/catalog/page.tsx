@@ -1,11 +1,5 @@
-import type { Metadata } from "next";
-import { CatalogSettingsPageClient } from "./catalog-settings-page-client";
-
-export const metadata: Metadata = {
-  title: "Service Catalog",
-  description: "Manage your service catalog items",
-};
+import { redirect } from "next/navigation";
 
 export default function CatalogSettingsPage() {
-  return <CatalogSettingsPageClient />;
+  redirect("/catalog");
 }

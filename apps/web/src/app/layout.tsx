@@ -19,11 +19,11 @@ const dmSans = DM_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Zaxvio — HVAC Field Service Management",
-    template: "%s — Zaxvio",
+    default: "Zaxvio — CRM for Service Businesses",
+    template: "%s | Zaxvio",
   },
   description:
-    "Digital scheduling, invoicing, and customer management for solo HVAC contractors. Replace phone & paper workflows for $49/mo.",
+    "All-in-one CRM for field service businesses. Scheduling, invoicing, team management, and customer tracking — built for teams that get work done.",
 };
 
 export default function RootLayout({

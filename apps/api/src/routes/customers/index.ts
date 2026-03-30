@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { emitPlatformEvent } from "../../lib/platform-events.js";
 import {
   getDb,
   customers,
@@ -136,6 +137,8 @@ export default async function customerRoutes(fastify: FastifyInstance) {
         description: `Customer ${customer.firstName} ${customer.lastName} was created`,
         performedBy: userId,
       });
+
+      emitPlatformEvent(tenantId, "customer_created", userId);
 
       return reply.status(201).send({ data: customer });
     },

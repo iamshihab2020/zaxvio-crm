@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
 import { cn } from "@/lib/utils";
@@ -583,20 +590,18 @@ export function QuoteCreateDialog({
                         tabIndex={showAddItem ? 0 : -1}
                       />
                       <div className="flex gap-2">
-                        <select
-                          value={itemForm.itemType}
-                          onChange={(e) =>
-                            setItemForm((f) => ({ ...f, itemType: e.target.value }))
-                          }
-                          className="h-8 rounded-md border border-border bg-card px-2 text-xs font-body flex-1"
-                          tabIndex={showAddItem ? 0 : -1}
-                        >
-                          {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
-                            <option key={val} value={val}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
+                        <Select value={itemForm.itemType} onValueChange={(v) => setItemForm((f) => ({ ...f, itemType: v }))}>
+                          <SelectTrigger className="h-8 text-xs font-body flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
+                              <SelectItem key={val} value={val} className="text-xs font-body">
+                                {label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                         <Input
                           placeholder="Qty"
                           value={itemForm.quantity}

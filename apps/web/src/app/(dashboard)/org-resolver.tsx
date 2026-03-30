@@ -33,7 +33,11 @@ export function OrgResolver() {
 
         router.refresh();
       } else {
-        router.replace("/signup");
+        // No orgs found — show error instead of redirecting to signup
+        // (user may have had their org deleted, or be an admin who shouldn't be here)
+        setError(
+          "No workspace found for your account. If you believe this is an error, please contact support or sign in with a different account.",
+        );
       }
     } catch {
       setError(

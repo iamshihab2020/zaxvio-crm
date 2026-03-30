@@ -5,6 +5,13 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -376,19 +383,18 @@ export function QuoteLineItemsTab({
             className="text-sm"
           />
           <div className="flex gap-2">
-            <select
-              value={form.itemType}
-              onChange={(e) =>
-                setForm((f) => ({ ...f, itemType: e.target.value }))
-              }
-              className="h-9 rounded-md border border-border bg-card px-2 text-sm font-body"
-            >
-              {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
-                <option key={val} value={val}>
-                  {label}
-                </option>
-              ))}
-            </select>
+            <Select value={form.itemType} onValueChange={(v) => setForm((f) => ({ ...f, itemType: v }))}>
+              <SelectTrigger className="h-9 text-sm font-body">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
+                  <SelectItem key={val} value={val} className="text-sm font-body">
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input
               placeholder="Qty"
               value={form.quantity}

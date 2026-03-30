@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import {
   IconCalendar,
   IconClock,
@@ -81,26 +82,14 @@ export function JobInfoPanel({ job, stages }: JobInfoPanelProps) {
         </h2>
         <div className="flex items-center gap-2">
           {statusColors && (
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                statusColors.bg,
-                statusColors.text,
-              )}
-            >
+            <Badge className={cn("px-2 py-0.5 font-medium", statusColors.bg, statusColors.text)}>
               {statusLabel}
-            </span>
+            </Badge>
           )}
           {priorityColors && (
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                priorityColors.bg,
-                priorityColors.text,
-              )}
-            >
+            <Badge className={cn("px-2 py-0.5 font-medium", priorityColors.bg, priorityColors.text)}>
               {JOB_PRIORITY_LABELS[job.priority]}
-            </span>
+            </Badge>
           )}
         </div>
       </div>

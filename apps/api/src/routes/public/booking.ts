@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { emitPlatformEvent } from "../../lib/platform-events.js";
 import {
   getDb,
   tenants,
@@ -495,6 +496,8 @@ export default async function publicBookingRoutes(fastify: FastifyInstance) {
 
     // If reply was already sent (409 case), created will be undefined
     if (!created) return;
+
+    emitPlatformEvent(tenant.id, "booking_received", null);
 
     return reply.status(201).send({
       data: {

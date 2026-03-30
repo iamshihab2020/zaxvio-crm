@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -114,26 +115,14 @@ export function JobDetailPageHeader({
                 {job.jobNumber}
               </span>
               {statusColors && (
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                    statusColors.bg,
-                    statusColors.text,
-                  )}
-                >
+                <Badge className={cn("px-2 py-0.5 font-medium", statusColors.bg, statusColors.text)}>
                   {statusLabel}
-                </span>
+                </Badge>
               )}
               {priorityColors && (
-                <span
-                  className={cn(
-                    "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
-                    priorityColors.bg,
-                    priorityColors.text,
-                  )}
-                >
+                <Badge className={cn("px-2 py-0.5 font-medium", priorityColors.bg, priorityColors.text)}>
                   {JOB_PRIORITY_LABELS[job.priority]}
-                </span>
+                </Badge>
               )}
             </div>
             <p className="text-xs text-muted-foreground font-body">

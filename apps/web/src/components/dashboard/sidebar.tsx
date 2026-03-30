@@ -7,10 +7,12 @@ import {
   IconLayoutDashboard,
   IconUsers,
   IconBriefcase,
-  IconFileInvoice,
-  IconFileText,
-  IconCalendar,
-  IconCalendarEvent,
+  IconFileDescription,
+  IconReceipt,
+  IconCalendarWeek,
+  IconCalendarPlus,
+  IconListDetails,
+  IconChecklist,
   IconSettings,
   IconChevronsLeft,
   IconChevronsRight,
@@ -24,18 +26,51 @@ import { Logo } from "@/components/logo";
 import { useSidebar, type SidebarMode } from "./sidebar-provider";
 import { SidebarNavItem } from "./sidebar-nav-item";
 
-const navItems = [
+type NavItem = { href: string; label: string; icon: typeof IconLayoutDashboard };
+type NavGroup = { label: string; items: NavItem[] };
+
+const standaloneItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: IconLayoutDashboard },
-  { href: "/customers", label: "Customers", icon: IconUsers },
-  { href: "/jobs", label: "Jobs", icon: IconBriefcase },
-  { href: "/quotes", label: "Quotes", icon: IconFileText },
-  { href: "/invoices", label: "Invoices", icon: IconFileInvoice },
-  { href: "/bookings", label: "Bookings", icon: IconCalendarEvent },
-  { href: "/schedule", label: "Schedule", icon: IconCalendar },
+];
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Planning",
+    items: [
+      { href: "/schedule", label: "Schedule", icon: IconCalendarWeek },
+      { href: "/bookings", label: "Bookings", icon: IconCalendarPlus },
+    ],
+  },
+  {
+    label: "Work",
+    items: [
+      { href: "/customers", label: "Customers", icon: IconUsers },
+      { href: "/jobs", label: "Jobs", icon: IconBriefcase },
+    ],
+  },
+  {
+    label: "Revenue",
+    items: [
+      { href: "/quotes", label: "Quotes", icon: IconFileDescription },
+      { href: "/invoices", label: "Invoices", icon: IconReceipt },
+    ],
+  },
+  {
+    label: "Configuration",
+    items: [
+      { href: "/catalog", label: "Catalog", icon: IconListDetails },
+      { href: "/checklists", label: "Checklists", icon: IconChecklist },
+    ],
+  },
+];
+
+const allNavItems = [
+  ...standaloneItems,
+  ...navGroups.flatMap((g) => g.items),
 ];
 
 const allItems = [
-  ...navItems,
+  ...allNavItems,
   { href: "/settings", label: "Settings", icon: IconSettings },
 ];
 
@@ -132,6 +167,12 @@ export function Sidebar() {
     };
   }
 
+  // Shift sidebar down when impersonation bar is visible
+  const [isImpersonating, setIsImpersonating] = useState(false);
+  useEffect(() => {
+    setIsImpersonating(document.cookie.includes("x-impersonation-id="));
+  }, []);
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
@@ -139,7 +180,8 @@ export function Sidebar() {
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
-          "fixed inset-y-0 left-0 z-30 flex flex-col border-r border-border bg-card transition-[width] duration-300 ease-in-out",
+          "fixed left-0 z-30 flex flex-col border-r border-border bg-card transition-[width,top] duration-300 ease-in-out",
+          isImpersonating ? "top-10 bottom-0" : "inset-y-0",
           isEffectivelyExpanded ? "w-60" : "w-16",
           isHoverExpanded && "shadow-xl",
         )}
@@ -173,8 +215,9 @@ export function Sidebar() {
         </div>
 
         {/* Nav items */}
-        <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Main navigation">
-          {navItems.map((item) => {
+        <nav className="flex flex-1 flex-col p-3" aria-label="Main navigation">
+          {/* Standalone items (Dashboard) */}
+          {standaloneItems.map((item) => {
             const isActive =
               pathname === item.href || pathname.startsWith(item.href + "/");
             return (
@@ -193,6 +236,41 @@ export function Sidebar() {
               />
             );
           })}
+
+          {/* Grouped sections */}
+          {navGroups.map((group) => (
+            <div key={group.label} className="mt-4">
+              {isEffectivelyExpanded ? (
+                <h3 className="mb-1 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground font-heading">
+                  {group.label}
+                </h3>
+              ) : (
+                <div className="mx-3 mb-1 border-t border-border" />
+              )}
+              <div className="flex flex-col gap-0.5">
+                {group.items.map((item) => {
+                  const isActive =
+                    pathname === item.href ||
+                    pathname.startsWith(item.href + "/");
+                  return (
+                    <SidebarNavItem
+                      key={item.href}
+                      href={item.href}
+                      label={item.label}
+                      icon={item.icon}
+                      isActive={isActive}
+                      isCollapsed={isCollapsed && !isHoverExpanded}
+                      showLabel={showLabel}
+                      useTooltip={useTooltipMode}
+                      itemRef={setItemRef(item.href)}
+                      onMouseEnter={() => setHoveredHref(item.href)}
+                      onMouseLeave={() => setHoveredHref(null)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
         {/* Bottom section */}

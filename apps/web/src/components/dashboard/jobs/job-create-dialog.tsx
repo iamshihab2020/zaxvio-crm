@@ -14,6 +14,13 @@ import { Input } from "@/components/ui/input";
 import { TimePicker } from "@/components/ui/time-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
@@ -398,31 +405,33 @@ export function JobCreateDialog({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label className="font-body">Service Type</Label>
-              <select
-                value={form.serviceType}
-                onChange={(e) => updateField("serviceType", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 py-2 text-sm font-body"
-              >
-                {SERVICE_TYPES.map((st) => (
-                  <option key={st} value={st}>
-                    {SERVICE_TYPE_LABELS[st]}
-                  </option>
-                ))}
-              </select>
+              <Select value={form.serviceType} onValueChange={(v) => updateField("serviceType", v)}>
+                <SelectTrigger className="h-9 font-body">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SERVICE_TYPES.map((st) => (
+                    <SelectItem key={st} value={st} className="font-body">
+                      {SERVICE_TYPE_LABELS[st]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label className="font-body">Priority</Label>
-              <select
-                value={form.priority}
-                onChange={(e) => updateField("priority", e.target.value)}
-                className="flex h-9 w-full rounded-md border border-border bg-card px-3 py-2 text-sm font-body"
-              >
-                {JOB_PRIORITIES.map((p) => (
-                  <option key={p} value={p}>
-                    {JOB_PRIORITY_LABELS[p]}
-                  </option>
-                ))}
-              </select>
+              <Select value={form.priority} onValueChange={(v) => updateField("priority", v)}>
+                <SelectTrigger className="h-9 font-body">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {JOB_PRIORITIES.map((p) => (
+                    <SelectItem key={p} value={p} className="font-body">
+                      {JOB_PRIORITY_LABELS[p]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -680,20 +689,18 @@ export function JobCreateDialog({
                           tabIndex={showAddItem ? 0 : -1}
                         />
                         <div className="flex gap-2">
-                          <select
-                            value={itemForm.itemType}
-                            onChange={(e) =>
-                              setItemForm((f) => ({ ...f, itemType: e.target.value }))
-                            }
-                            className="h-8 rounded-md border border-border bg-card px-2 text-xs font-body flex-1"
-                            tabIndex={showAddItem ? 0 : -1}
-                          >
-                            {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
-                              <option key={val} value={val}>
-                                {label}
-                              </option>
-                            ))}
-                          </select>
+                          <Select value={itemForm.itemType} onValueChange={(v) => setItemForm((f) => ({ ...f, itemType: v }))}>
+                            <SelectTrigger className="h-8 text-xs font-body flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
+                                <SelectItem key={val} value={val} className="text-xs font-body">
+                                  {label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <Input
                             placeholder="Qty"
                             value={itemForm.quantity}

@@ -3405,9 +3405,489 @@ View admin actions audit log.
 }
 ```
 
-### `GET /admin/system`
+### `POST /admin/tenants/:id/deactivate`
+
+**Auth:** `requireAdminTier(["super_admin"])`
+
+Deactivate a tenant (sets `isActive = false`). Logged to audit.
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `POST /admin/tenants/:id/activate`
+
+**Auth:** `requireAdminTier(["super_admin"])`
+
+Activate a deactivated tenant. Logged to audit.
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `POST /admin/tenants/:id/extend-trial`
+
+**Auth:** `requireAdminTier(["super_admin", "support"])`
+
+Extend tenant trial period.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `days` | number | Yes | Days to extend (1-365) |
+
+**Response** `200 OK`
+
+```json
+{ "success": true, "trialEndsAt": "2026-05-15T00:00:00.000Z" }
+```
+
+### `POST /admin/tenants/:id/override-subscription`
+
+**Auth:** `requireAdminTier(["super_admin", "billing_admin"])`
+
+Override subscription status/plan.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `status` | string | No | New subscription status |
+| `planName` | string | No | New plan name |
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `PATCH /admin/tenants/:id`
+
+**Auth:** `requireAdminTier(["super_admin"])`
+
+Edit tenant details. Only allowed fields: businessName, ownerName, email, phone, slug, address, city, state, zipCode.
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `DELETE /admin/tenants/:id`
+
+**Auth:** `requireAdminTier(["super_admin"])`
+
+Hard delete tenant with 2-step confirmation.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `confirmBusinessName` | string | Yes | Must match tenant business name |
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `GET /admin/analytics/mrr`
 
 **Auth:** `requireAdmin`
+
+MRR metrics with plan breakdown.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "currentMRR": 490,
+    "totalActiveSubscriptions": 10,
+    "breakdown": [
+      { "planName": "starter", "count": 10, "price": 49, "mrr": 490 }
+    ]
+  }
+}
+```
+
+### `GET /admin/analytics/signups`
+
+**Auth:** `requireAdmin`
+
+Daily signups for last 90 days.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    { "date": "2026-03-01", "count": 3 },
+    { "date": "2026-03-02", "count": 1 }
+  ]
+}
+```
+
+### `GET /admin/analytics/active-users`
+
+**Auth:** `requireAdmin`
+
+Daily/Weekly/Monthly active tenant counts.
+
+**Response** `200 OK`
+
+```json
+{ "data": { "dat": 5, "wat": 12, "mat": 25 } }
+```
+
+### `GET /admin/analytics/churn`
+
+**Auth:** `requireAdmin`
+
+**Query Params:** `days` (default: 90)
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "tenantId": "uuid",
+      "businessName": "Cool Air LLC",
+      "planName": "starter",
+      "cancelledAt": "2026-03-15T00:00:00.000Z",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "mrrLost": 49,
+      "daysActive": 73
+    }
+  ]
+}
+```
+
+### `GET /admin/analytics/trial-conversion`
+
+**Auth:** `requireAdmin`
+
+Trial funnel metrics.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "totalTrials": 50,
+    "activeTrials": 10,
+    "converted": 30,
+    "cancelled": 10,
+    "conversionRate": 60
+  }
+}
+```
+
+### `GET /admin/analytics/inactive-alerts`
+
+**Auth:** `requireAdmin`
+
+Tenants with no platform_events in last 14 days (churn risk).
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "businessName": "Lazy AC Co",
+      "ownerName": "John",
+      "email": "john@lazy.com",
+      "planName": "starter",
+      "subscriptionStatus": "active",
+      "mrr": 49
+    }
+  ]
+}
+```
+
+### `GET /admin/analytics/feature-adoption`
+
+**Auth:** `requireAdmin`
+
+Feature usage percentages across all tenants.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "totalTenants": 25,
+    "features": [
+      { "feature": "Jobs", "tenants": 20, "percentage": 80 },
+      { "feature": "Customers", "tenants": 25, "percentage": 100 },
+      { "feature": "Invoices", "tenants": 15, "percentage": 60 },
+      { "feature": "Quotes", "tenants": 10, "percentage": 40 },
+      { "feature": "Bookings", "tenants": 5, "percentage": 20 }
+    ]
+  }
+}
+```
+
+### `GET /admin/search?q=term`
+
+**Auth:** `requireAdminTier(["super_admin", "support"])`
+
+Global cross-tenant search by business name, owner, email, or slug.
+
+**Query Params:** `q` (min 2 chars), `limit` (default: 20)
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "tenants": [
+      {
+        "id": "uuid",
+        "businessName": "Cool Air LLC",
+        "ownerName": "John Doe",
+        "email": "john@coolair.com",
+        "slug": "cool-air",
+        "isActive": true,
+        "subscriptionStatus": "active",
+        "planName": "starter",
+        "mrr": 49
+      }
+    ]
+  }
+}
+```
+
+### `POST /admin/impersonation/start`
+
+**Auth:** `requireAdminTier(["super_admin", "support"])`
+
+Start impersonating a tenant. Creates an impersonation session and returns session ID for cookie-based context injection.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tenantId` | string (UUID) | Yes | Tenant to impersonate |
+| `reason` | string | Yes | Audit reason for impersonation |
+
+**Response** `200 OK`
+
+```json
+{
+  "sessionId": "uuid",
+  "tenantId": "uuid",
+  "tenantUserId": "usr_tenant_owner",
+  "tenantName": "Cool Air LLC",
+  "expiresAt": "2026-03-29T14:00:00.000Z"
+}
+```
+
+### `POST /admin/impersonation/end`
+
+**Auth:** `requireAdmin`
+
+End an active impersonation session.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string (UUID) | Yes | Impersonation session to end |
+
+**Response** `200 OK`
+
+```json
+{
+  "success": true,
+  "tenantId": "uuid"
+}
+```
+
+### `GET /admin/impersonation/active`
+
+**Auth:** `requireAdmin`
+
+Check if the requesting admin has an active impersonation session.
+
+**Response** `200 OK`
+
+```json
+{
+  "active": true,
+  "session": {
+    "id": "uuid",
+    "tenantId": "uuid",
+    "tenantName": "Cool Air LLC",
+    "reason": "Support ticket #123",
+    "startedAt": "2026-03-29T12:00:00.000Z",
+    "expiresAt": "2026-03-29T14:00:00.000Z"
+  }
+}
+```
+
+### `POST /admin/impersonation/request`
+
+**Auth:** `requireAdminTier(["super_admin", "support"])`
+
+Request visible (consent-based) impersonation. Creates a pending session and broadcasts a realtime request to the tenant.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `tenantId` | string (UUID) | Yes | Tenant to impersonate |
+| `reason` | string | Yes | Reason shown to tenant |
+
+**Response** `200 OK`
+
+```json
+{
+  "sessionId": "uuid",
+  "status": "pending"
+}
+```
+
+### `POST /admin/impersonation/cancel`
+
+**Auth:** `requireAdmin`
+
+Cancel a pending visible impersonation request. Broadcasts cancel event to tenant.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string (UUID) | Yes | Pending session to cancel |
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `POST /tenants/impersonation/respond`
+
+**Auth:** `requireTenant`
+
+Tenant accepts or rejects a visible impersonation request.
+
+**Request Body:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `sessionId` | string (UUID) | Yes | Impersonation session |
+| `approved` | boolean | Yes | Whether to grant access |
+
+**Response** `200 OK`
+
+```json
+{ "success": true }
+```
+
+### `GET /tenants/impersonation/pending`
+
+**Auth:** `requireTenant`
+
+Check for pending visible impersonation requests targeting this tenant.
+
+**Response** `200 OK`
+
+```json
+{
+  "pending": true,
+  "request": {
+    "sessionId": "uuid",
+    "adminName": "Super Admin",
+    "reason": "Support ticket #456"
+  }
+}
+```
+
+### `GET /tenants/impersonation/active-viewer`
+
+**Auth:** `requireTenant`
+
+Check if an admin is actively viewing this tenant's account (visible mode).
+
+**Response** `200 OK`
+
+```json
+{
+  "active": true,
+  "viewer": {
+    "sessionId": "uuid",
+    "adminName": "Super Admin"
+  }
+}
+```
+
+### `GET /admin/impersonation-log`
+
+**Auth:** `requireAdminTier(["super_admin", "support"])`
+
+Impersonation session history with pagination.
+
+**Query Params:** `page` (default: 1), `limit` (default: 50)
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "adminUserId": "usr_admin",
+      "adminName": "Admin User",
+      "tenantId": "uuid",
+      "tenantName": "Cool Air LLC",
+      "reason": "Support ticket #123",
+      "startedAt": "2026-03-28T12:00:00.000Z",
+      "endedAt": "2026-03-28T12:15:00.000Z",
+      "actionsTaken": []
+    }
+  ],
+  "pagination": { "page": 1, "limit": 50, "total": 5, "totalPages": 1 }
+}
+```
+
+### `GET /admin/tenants/:id/activity`
+
+**Auth:** `requireAdmin`
+
+Platform events for a specific tenant.
+
+**Query Params:** `page` (default: 1), `limit` (default: 50)
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "uuid",
+      "tenantId": "uuid",
+      "eventType": "job_created",
+      "userId": "usr_123",
+      "metadata": null,
+      "createdAt": "2026-03-28T10:00:00.000Z"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 50, "total": 100, "totalPages": 2 }
+}
+```
+
+### `GET /admin/system`
+
+**Auth:** `requireAdminTier(["super_admin"])`
 
 System health metrics.
 
@@ -3416,15 +3896,44 @@ System health metrics.
 ```json
 {
   "data": {
-    "uptime": 1234567,
-    "version": "1.0.0",
-    "database": "connected",
+    "uptime": 3600,
+    "database": "healthy",
     "memory": {
-      "used": 128,
-      "total": 512
-    }
+      "heapUsedMB": 64,
+      "heapTotalMB": 128,
+      "rssMB": 180
+    },
+    "nodeVersion": "v22.13.0"
   }
 }
+```
+
+### `GET /admin/system/webhooks`
+
+**Auth:** `requireAdminTier(["super_admin"])`
+
+Last N webhook deliveries.
+
+**Query Params:** `limit` (default: 100)
+
+**Response** `200 OK`
+
+```json
+{ "data": [] }
+```
+
+### `GET /admin/system/crons`
+
+**Auth:** `requireAdminTier(["super_admin"])`
+
+Cron job execution history.
+
+**Query Params:** `limit` (default: 50)
+
+**Response** `200 OK`
+
+```json
+{ "data": [] }
 ```
 
 ---
@@ -3511,6 +4020,24 @@ System health metrics.
 | `past_due` | Payment past due |
 | `cancelled` | Subscription cancelled |
 | `expired` | Subscription expired |
+
+### Admin Tier
+
+| Value | Description |
+|-------|-------------|
+| `super_admin` | Full access to all admin features |
+| `support` | Can impersonate, extend trials, view analytics, search — cannot delete or override billing |
+| `billing_admin` | Can override subscriptions, view analytics, affiliates — cannot impersonate |
+
+### Platform Event Types
+
+| Value | Description |
+|-------|-------------|
+| `login` | User logged in |
+| `job_created` | Job was created |
+| `invoice_sent` | Invoice was sent |
+| `booking_received` | Booking was received |
+| `customer_created` | Customer was created |
 
 ---
 

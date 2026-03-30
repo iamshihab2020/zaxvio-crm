@@ -5,6 +5,7 @@ import {
   boolean,
   timestamp,
 } from "drizzle-orm/pg-core";
+import { adminTierEnum } from "./enums";
 
 // --- Better Auth Core Tables ---
 
@@ -16,6 +17,8 @@ export const user = pgTable("user", {
   image: text("image"),
   phone: text("phone"),
   role: text("role").default("user"),
+  adminTier: adminTierEnum("admin_tier"),
+  isOwner: boolean("is_owner").notNull().default(false),
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires", { withTimezone: true }),
@@ -125,4 +128,7 @@ export const invitation = pgTable("invitation", {
   inviterId: text("inviter_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });

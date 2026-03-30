@@ -1,7 +1,17 @@
-export default function SuperAdminDashboardPage() {
+import { getAdminDashboard } from "@/actions/admin";
+import { DashboardPageClient } from "./dashboard-page-client";
+
+export default async function SuperAdminDashboardPage() {
+  const result = await getAdminDashboard();
+  const d = result.data;
+
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="text-2xl font-bold">Super Admin Dashboard</h1>
-    </div>
+    <DashboardPageClient
+      mrr={d?.mrr ?? null}
+      signups={d?.signups ?? null}
+      activeUsers={d?.activeUsers ?? null}
+      trialConversion={d?.trialConversion ?? null}
+      totalTenants={d?.totalTenants ?? 0}
+    />
   );
 }

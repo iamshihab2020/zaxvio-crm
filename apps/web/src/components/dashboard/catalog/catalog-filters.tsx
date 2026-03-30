@@ -31,6 +31,7 @@ interface CatalogFiltersProps {
   onShowArchivedChange: (value: boolean) => void;
   categories: string[];
   totalItems?: number;
+  action?: React.ReactNode;
 }
 
 const itemTypeOptions = [
@@ -53,6 +54,7 @@ export function CatalogFilters({
   onShowArchivedChange,
   categories,
   totalItems,
+  action,
 }: CatalogFiltersProps) {
   const [typeOpen, setTypeOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -172,11 +174,14 @@ export function CatalogFilters({
         {showArchived ? "Showing archived" : "Show archived"}
       </Button>
 
-      {totalItems !== undefined && (
-        <span className="ml-auto text-xs text-muted-foreground font-body">
-          {totalItems} {totalItems === 1 ? "item" : "items"}
-        </span>
-      )}
+      <div className="ml-auto flex items-center gap-3">
+        {totalItems !== undefined && (
+          <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body">
+            {totalItems} {totalItems === 1 ? "Item" : "Items"}
+          </span>
+        )}
+        {action}
+      </div>
     </div>
   );
 }

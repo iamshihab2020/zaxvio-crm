@@ -24,6 +24,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import {
   QuoteTable,
   type QuoteRow,
@@ -245,31 +246,7 @@ export function QuotesPageClient() {
   const showNoResults = !loading && !hasQuotes && (!!search || !!statusFilter);
 
   return (
-    <section className="p-6" aria-labelledby="quotes-heading">
-      {/* Header row */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1
-            id="quotes-heading"
-            className="font-heading text-2xl font-bold text-foreground"
-          >
-            Quotes
-          </h1>
-          {!loading && (
-            <p className="mt-1 text-sm text-muted-foreground font-body">
-              {pagination.total} {pagination.total === 1 ? "quote" : "quotes"} total
-            </p>
-          )}
-        </div>
-        <Button
-          onClick={() => setCreateDialogOpen(true)}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          <IconPlus className="mr-2 h-4 w-4" />
-          New Quote
-        </Button>
-      </div>
-
+    <section className="p-6">
       {/* Empty state */}
       {showEmptyState && (
         <EmptyState
@@ -282,34 +259,19 @@ export function QuotesPageClient() {
       )}
 
       {/* Stats Cards */}
+      {/* Stats Cards */}
       {!showEmptyState && (
-        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[
+        <StatsCards
+          stats={[
             { label: "Draft", count: stats.draft, icon: IconFileText, color: "text-muted-foreground", bg: "bg-muted/50" },
             { label: "Sent", count: stats.sent, icon: IconSend, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
             { label: "Accepted", count: stats.accepted, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
             { label: "Declined", count: stats.declined, icon: IconX, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40" },
-          ].map((stat) => (
-            <button
-              key={stat.label}
-              onClick={() =>
-                setStatusFilter(statusFilter === stat.label.toLowerCase() ? "" : stat.label.toLowerCase())
-              }
-              className={cn(
-                "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all hover:border-brand/40 cursor-pointer",
-                statusFilter === stat.label.toLowerCase() && "border-brand ring-1 ring-brand/20",
-              )}
-            >
-              <div className={cn("flex h-9 w-9 items-center justify-center rounded-full", stat.bg)}>
-                <stat.icon className={cn("h-4 w-4", stat.color)} />
-              </div>
-              <div>
-                <p className="text-lg font-bold font-heading text-foreground">{stat.count}</p>
-                <p className="text-xs text-muted-foreground font-body">{stat.label}</p>
-              </div>
-            </button>
-          ))}
-        </div>
+          ]}
+          activeFilter={statusFilter}
+          onFilterChange={setStatusFilter}
+          className="mb-4"
+        />
       )}
 
       {/* Card wrapper */}
@@ -370,6 +332,14 @@ export function QuotesPageClient() {
               {viewMounted && (
                 <ViewModeToggle value={viewMode} onChange={setViewMode} />
               )}
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                size="sm"
+                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
+              >
+                <IconPlus className="mr-2 h-4 w-4" />
+                New Quote
+              </Button>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">

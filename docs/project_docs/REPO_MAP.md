@@ -85,10 +85,13 @@ apps/api/
 |   |
 |   +-- lib/
 |   |   +-- auth.ts               # Better Auth server config (drizzle adapter, org + admin plugins)
-|   |   +-- auth-middleware.ts     # requireAuth, requireAdmin, requireTenant preHandlers
+|   |   +-- auth-middleware.ts     # requireAuth, requireAdmin, requireAdminTier(), requireTenant preHandlers
 |   |   +-- env.ts                 # Zod-validated env loading (dotenv from monorepo root)
 |   |   +-- timezone.ts           # getTenantToday(), getTenantTomorrow(), getMaxBookingDate(), getDayOfWeek()
 |   |   +-- job-helpers.ts        # attachChecklistToJob() shared helper (used by jobs + bookings)
+|   |   +-- admin-audit.ts        # logAdminAction() — append-only audit log helper
+|   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
+|   |   +-- platform-events.ts    # emitPlatformEvent() — fire-and-forget activity tracking
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
 |   |   +-- pdf/
@@ -124,8 +127,14 @@ apps/api/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /tags (tenant-level reusable tags)
 |   |   +-- tenants/
 |   |   |   +-- index.ts          # GET/PATCH /tenants/current, POST /tenants/initialize (+availability seeding)
-|   |   +-- admin/
-|   |   |   ~ .gitkeep            # Planned: tenant mgmt, analytics, audit log, impersonation
+|   |   +-- admin/                 # Super admin API routes (prefix: /admin)
+|   |   |   +-- index.ts          # Master plugin, registers sub-routes
+|   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
+|   |   |   +-- analytics.ts      # 7 endpoints: MRR, signups, active-users, churn, trial-conversion, inactive-alerts, feature-adoption
+|   |   |   +-- audit.ts          # 3 endpoints: audit-log, impersonation-log, tenant activity
+|   |   |   +-- impersonation.ts  # 5 endpoints: start, request, end, cancel, active — ghost + visible impersonation
+|   |   |   +-- search.ts         # 1 endpoint: global cross-tenant search
+|   |   |   +-- system.ts         # 3 endpoints: health, webhooks, crons
 |   |   +-- webhooks/
 |   |       ~ .gitkeep            # Planned: Lemon Squeezy subscription events
 |   |
@@ -204,6 +213,7 @@ apps/web/
     +-- lib/
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
     |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR)
+    |   +-- supabase-client.ts       # Browser Supabase client for Realtime subscriptions (anon key)
     |   +-- format.ts                # formatCurrency(), formatRelativeTime() helpers
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
     |   +-- constants/
@@ -269,6 +279,9 @@ apps/web/
     |   +-- dashboard/               # Dashboard-specific components (by entity)
     |   |   +-- dashboard-shell.tsx  # Shell layout (sidebar + navbar + content)
     |   |   +-- navbar.tsx           # Top navigation bar
+    |   |   +-- impersonation-bar.tsx # Admin-only floating bar during impersonation (exit button + timer)
+    |   |   +-- impersonation-request-listener.tsx # Tenant-side: realtime listener + permission dialog for visible impersonation
+    |   |   +-- impersonation-active-indicator.tsx # Tenant-side: "admin is viewing" bar during visible impersonation
     |   |   +-- sidebar.tsx          # Side navigation (incl. Bookings link)
     |   |   +-- sidebar-provider.tsx # Sidebar state context
     |   |   +-- sidebar-nav-item.tsx # Nav item component
@@ -393,8 +406,20 @@ apps/web/
     |   |   +-- table-skeleton.tsx
     |   |   +-- view-mode-toggle.tsx
     |   |
-    |   +-- superadmin/             # Super admin components
-    |       ~ (placeholder)
+    |   +-- superadmin/             # Super admin components (red-themed admin panel)
+    |       +-- superadmin-sidebar.tsx          # Red-accented collapsible sidebar (6 nav items)
+    |       +-- superadmin-sidebar-provider.tsx # Sidebar state context (localStorage)
+    |       +-- superadmin-shell.tsx            # Content wrapper with sidebar padding
+    |       +-- superadmin-navbar.tsx           # Navbar with ADMIN badge, Cmd+K search, user dropdown
+    |       +-- global-search.tsx               # Cmd+K command palette (Dialog + Command)
+    |       +-- reauth-dialog.tsx               # Password re-entry for destructive actions
+    |       +-- tenants/
+    |       |   +-- tenant-status-badge.tsx     # Status badge (active/trialing/cancelled/deactivated)
+    |       |   +-- extend-trial-dialog.tsx     # Extend trial dialog (preset + custom days)
+    |       |   +-- override-subscription-dialog.tsx  # Override status + plan
+    |       |   +-- edit-tenant-dialog.tsx      # Edit tenant fields form
+    |       |   +-- delete-tenant-dialog.tsx    # 2-step delete with name confirmation
+    |       |   +-- impersonate-dialog.tsx      # Impersonation reason dialog
     |
     +-- app/
         +-- layout.tsx              # Root layout — fonts, ThemeProvider, RefreshOnNav, Toaster
@@ -480,13 +505,28 @@ apps/web/
         |           ~ .gitkeep                       # Planned: subscription + affiliate widget
         |
         +-- (superadmin)/                            # -- Super Admin Panel (Admin role) --
-        |   +-- superadmin/dashboard/page.tsx         # Placeholder admin dashboard
-        |   ~ affiliates/                             # Planned
-        |   ~ analytics/active-users/                 # Planned
-        |   ~ dashboard/                              # Planned
-        |   ~ support/                                # Planned
-        |   ~ system/                                 # Planned
-        |   ~ tenants/[id]/                           # Planned
+        |   +-- layout.tsx                           # Server layout: auth gate (admin only), sidebar+navbar shell
+        |   +-- superadmin/
+        |       +-- dashboard/
+        |       |   +-- page.tsx                     # SSR: fetches MRR, signups, active users, trial funnel
+        |       |   +-- dashboard-page-client.tsx    # KPI grid, MRR breakdown, funnel bars, signup mini-chart
+        |       +-- tenants/
+        |       |   +-- page.tsx                     # SSR: fetches tenant list
+        |       |   +-- tenants-page-client.tsx      # Search, table, pagination, status badges
+        |       |   +-- [id]/
+        |       |       +-- page.tsx                 # SSR: fetches tenant detail + stats
+        |       |       +-- tenant-detail-client.tsx # 3-panel layout, all action dialogs wired
+        |       +-- analytics/
+        |       |   +-- page.tsx                     # SSR: fetches all analytics data
+        |       |   +-- analytics-page-client.tsx    # Recharts (MRR bar, signup area), churn table, feature adoption, inactive alerts
+        |       +-- support/
+        |       |   +-- page.tsx                     # SSR: fetches audit + impersonation logs
+        |       |   +-- support-page-client.tsx      # Tabbed: audit log table + impersonation log table
+        |       +-- system/
+        |       |   +-- page.tsx                     # SSR: fetches system health (DB, uptime, memory, node)
+        |       +-- affiliates/
+        |           +-- page.tsx                     # SSR: fetches affiliate tenants
+        |           +-- affiliates-page-client.tsx   # KPI cards + referred tenants table
         |
         +-- book/[slug]/                             # -- Public Booking Portal --
         |   +-- page.tsx                             # Server component (fetches tenant by slug)

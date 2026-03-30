@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireAuth, requireTenant } from "../../lib/auth-middleware.js";
+import { requireAuth, requireTenant, requireOrgRole } from "../../lib/auth-middleware.js";
 import {
   getDb,
   tenants,
@@ -10,8 +10,11 @@ import {
   organization,
   eq,
 } from "@hvac-saas/database";
+import tenantImpersonationRoutes from "./impersonation.js";
 
 export default async function tenantRoutes(fastify: FastifyInstance) {
+  // Sub-routes
+  await fastify.register(tenantImpersonationRoutes, { prefix: "/impersonation" });
   /**
    * GET /tenants/current
    *
@@ -43,7 +46,7 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/current",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireOrgRole(["owner", "admin"])] },
     async (request, reply) => {
       const body = request.body as Record<string, unknown>;
 

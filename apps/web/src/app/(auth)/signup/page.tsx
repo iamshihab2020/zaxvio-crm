@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signUp, authClient } from "@/lib/auth-client";
 import { initializeTenant } from "@/actions/tenants";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,9 @@ import { Logo } from "@/components/logo";
 import { AuthShell } from "@/components/auth-shell";
 
 export default function SignupPage() {
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const inviteId = searchParams.get("invite");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,53 +33,76 @@ export default function SignupPage() {
     setError(null);
     setLoading(true);
 
-    // 1. Create the user account
-    const { data, error: authError } = await signUp.email({
-      email,
-      password,
-      name,
-    });
+    try {
+      // 1. Create the user account
+      const { data, error: authError } = await signUp.email({
+        email,
+        password,
+        name,
+      });
 
-    if (authError) {
-      setError(authError.message ?? "Failed to create account");
+      if (authError) {
+        setError(authError.message ?? "Failed to create account");
+        return;
+      }
+
+      if (data?.user) {
+        if (inviteId) {
+          // Invitation flow: accept the invitation instead of creating an org
+          const acceptResult = await authClient.organization.acceptInvitation({
+            invitationId: inviteId,
+          });
+          if (acceptResult.error) {
+            setError(acceptResult.error.message ?? "Failed to accept invitation");
+            return;
+          }
+          // Set the invited org as active
+          if (acceptResult.data?.member?.organizationId) {
+            await authClient.organization.setActive({
+              organizationId: acceptResult.data.member.organizationId,
+            });
+          }
+        } else {
+          // Normal flow: create organization (tenant)
+          const orgResult = await authClient.organization.create({
+            name: businessName,
+            slug: businessName
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")
+              .replace(/^-|-$/g, ""),
+          });
+
+          if (orgResult.error) {
+            setError(orgResult.error.message ?? "Failed to create organization");
+            return;
+          }
+
+          // Set the org as active (so session has activeOrganizationId)
+          await authClient.organization.setActive({
+            organizationId: orgResult.data.id,
+          });
+
+          // Initialize tenant (fallback in case afterCreate hook failed)
+          const tenantResult = await initializeTenant();
+          if (!tenantResult.success) {
+            setError(
+              tenantResult.error ?? "Failed to set up your account. Please try again.",
+            );
+            return;
+          }
+        }
+      }
+
+      // Set role cookie for middleware (new signups are always regular users)
+      document.cookie = `x-user-role=user; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
+
+      // Hard navigation — back button can't return to signup
+      window.location.replace("/dashboard");
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    // 2. Create the organization (tenant)
-    if (data?.user) {
-      const orgResult = await authClient.organization.create({
-        name: businessName,
-        slug: businessName
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, "-")
-          .replace(/^-|-$/g, ""),
-      });
-
-      if (orgResult.error) {
-        setError(orgResult.error.message ?? "Failed to create organization");
-        setLoading(false);
-        return;
-      }
-
-      // 3. Set the org as active (so session has activeOrganizationId)
-      await authClient.organization.setActive({
-        organizationId: orgResult.data.id,
-      });
-
-      // 4. Initialize tenant (fallback in case afterCreate hook failed)
-      const tenantResult = await initializeTenant();
-      if (!tenantResult.success) {
-        setError(
-          tenantResult.error ?? "Failed to set up your account. Please try again.",
-        );
-        setLoading(false);
-        return;
-      }
-    }
-
-    setLoading(false);
-    router.push("/dashboard");
   }
 
   return (
@@ -91,10 +116,10 @@ export default function SignupPage() {
         {/* Header */}
         <div className="space-y-1 text-center">
           <h1 className="font-heading text-2xl font-bold tracking-tight">
-            Create your account
+            {inviteId ? "Join your team" : "Create your account"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Start your 14-day free trial
+            {inviteId ? "Create an account to accept your invitation" : "Start your 14-day free trial"}
           </p>
         </div>
 
@@ -200,17 +225,19 @@ export default function SignupPage() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="businessName">Business name</Label>
-            <Input
-              id="businessName"
-              type="text"
-              placeholder="Acme HVAC Services"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              required
-            />
-          </div>
+          {!inviteId && (
+            <div className="space-y-2">
+              <Label htmlFor="businessName">Business name</Label>
+              <Input
+                id="businessName"
+                type="text"
+                placeholder="Acme HVAC Services"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
           <Button
             type="submit"

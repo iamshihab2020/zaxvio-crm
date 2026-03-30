@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
+import { emitPlatformEvent } from "../../lib/platform-events.js";
 import {
   getDb,
   bookings,
@@ -371,6 +372,8 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
         metadata: { bookingId: booking.id },
         performedBy: userId,
       });
+
+      emitPlatformEvent(tenantId, "booking_received", userId);
 
       return reply.status(201).send({ data: job });
     },

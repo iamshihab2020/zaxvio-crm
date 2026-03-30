@@ -8,7 +8,7 @@ export function SettingsContent({ children }: { children: React.ReactNode }) {
   return (
     <div
       key={pathname}
-      className="mt-6 animate-settings-enter"
+      className="p-6 animate-settings-enter"
     >
       {children}
     </div>
