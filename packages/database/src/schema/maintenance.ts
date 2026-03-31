@@ -30,6 +30,9 @@ export const maintenanceContracts = pgTable("maintenance_contracts", {
   annualPrice: numeric("annual_price", { precision: 10, scale: 2 }),
   isActive: boolean("is_active").default(true),
   notes: text("notes"),
+  renewalReminderSentAt: timestamp("renewal_reminder_sent_at", {
+    withTimezone: true,
+  }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

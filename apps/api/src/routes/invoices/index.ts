@@ -804,6 +804,81 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
         })
         .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)));
 
+      // E-08: Payment receipt + E-12: Review request (fire-and-forget)
+      {
+        const paymentAmount = parseFloat(String(body.amount));
+        const remainingBalance = Math.max(0, balanceDue);
+        const paymentDate = (body.paymentDate as string) || new Date().toISOString().split("T")[0];
+
+        // Fetch customer + tenant for email
+        const [emailCustomer, emailTenant] = await Promise.all([
+          db.select().from(customers).where(eq(customers.id, inv.customerId)).then((r) => r[0]),
+          db.select().from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]),
+        ]);
+
+        if (emailCustomer?.email) {
+          const { sendPaymentReceiptEmail, sendReviewRequestEmail } = await import("../../lib/email.js");
+
+          // E-08: Payment receipt
+          sendPaymentReceiptEmail({
+            to: emailCustomer.email,
+            props: {
+              customerName: `${emailCustomer.firstName} ${emailCustomer.lastName}`.trim(),
+              businessName: emailTenant?.businessName ?? "HVAC Service",
+              businessLogoUrl: emailTenant?.logoUrl ?? null,
+              businessPhone: emailTenant?.phone ?? null,
+              businessAddress: emailTenant?.address ?? null,
+              invoiceNumber: inv.invoiceNumber ?? `INV-${inv.id.slice(0, 8)}`,
+              paymentAmount,
+              paymentDate: new Date(paymentDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              paymentMethod: (body.paymentMethod as string) ?? null,
+              remainingBalance,
+            },
+          }).catch((err) => console.error("[email] E-08 payment receipt failed:", err));
+
+          // E-12: Review request (2h delay, only if paid in full + google review URL set)
+          if (
+            newStatus === "paid" &&
+            emailTenant?.googleReviewUrl &&
+            !inv.reviewRequestedAt
+          ) {
+            const REVIEW_DELAY_MS = 2 * 60 * 60 * 1000; // 2 hours
+            setTimeout(async () => {
+              try {
+                // Re-verify invoice is still paid and review not yet requested
+                const freshInv = await db
+                  .select()
+                  .from(invoices)
+                  .where(eq(invoices.id, id))
+                  .then((r) => r[0]);
+
+                if (freshInv?.status !== "paid" || freshInv.reviewRequestedAt) return;
+
+                await sendReviewRequestEmail({
+                  to: emailCustomer.email!,
+                  props: {
+                    customerName: `${emailCustomer.firstName} ${emailCustomer.lastName}`.trim(),
+                    businessName: emailTenant?.businessName ?? "HVAC Service",
+                    businessLogoUrl: emailTenant?.logoUrl ?? null,
+                    businessPhone: emailTenant?.phone ?? null,
+                    businessAddress: emailTenant?.address ?? null,
+                    googleReviewUrl: emailTenant.googleReviewUrl!,
+                  },
+                });
+
+                // Mark review as requested (idempotency)
+                await db
+                  .update(invoices)
+                  .set({ reviewRequestedAt: new Date() })
+                  .where(eq(invoices.id, id));
+              } catch (err) {
+                console.error("[email] E-12 review request failed:", err);
+              }
+            }, REVIEW_DELAY_MS);
+          }
+        }
+      }
+
       return reply.status(201).send({ data: payment });
     },
   );
@@ -982,6 +1057,44 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
         .select()
         .from(invoices)
         .where(eq(invoices.id, id));
+
+      // E-06: Send invoice email with PDF attachment (fire-and-forget)
+      if (customer?.email) {
+        const { sendInvoiceEmail } = await import("../../lib/email.js");
+        sendInvoiceEmail({
+          to: customer.email,
+          props: {
+            customerName: `${customer.firstName} ${customer.lastName}`.trim(),
+            businessName: tenant?.businessName ?? "HVAC Service",
+            businessLogoUrl: tenant?.logoUrl ?? null,
+            businessPhone: tenant?.phone ?? null,
+            businessAddress: tenant?.address ?? null,
+            invoiceNumber: inv.invoiceNumber ?? `INV-${inv.id.slice(0, 8)}`,
+            issuedDate: inv.issuedDate
+              ? new Date(inv.issuedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            dueDate: inv.dueDate
+              ? new Date(inv.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : "Upon receipt",
+            lineItems: lineItems.map((li) => ({
+              description: li.description ?? "",
+              quantity: Number(li.quantity ?? 1),
+              unitPrice: Number(li.unitPrice ?? 0),
+              total: Number(li.total ?? 0),
+            })),
+            subtotal: Number(inv.subtotal ?? 0),
+            taxAmount: Number(inv.taxAmount ?? 0),
+            discountAmount: Number(inv.discountAmount ?? 0),
+            totalAmount: Number(inv.totalAmount ?? 0),
+            balanceDue: Number(inv.balanceDue ?? inv.totalAmount ?? 0),
+            paymentInstructions: tenant?.invoicePaymentInstructions ?? null,
+          },
+          pdf: {
+            buffer: Buffer.from(pdfBuffer),
+            filename: `${inv.invoiceNumber ?? "invoice"}.pdf`,
+          },
+        }).catch((err) => console.error("[email] E-06 invoice send failed:", err));
+      }
 
       return reply.send({ data: updated });
     },

@@ -13,6 +13,7 @@ import {
   catalogItems,
   customers,
   customerActivities,
+  tenants,
   user,
   eq,
   and,
@@ -597,6 +598,48 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         metadata: { from: existing.status, to: body.status },
         performedBy: userId,
       });
+
+      // E-05: Job completion email to customer (fire-and-forget)
+      if (body.status === "completed" && existing.customerId) {
+        const { sendJobCompletionEmail } = await import("../../lib/email.js");
+
+        const [emailCustomer, emailTenant, emailLineItems] = await Promise.all([
+          db.select().from(customers).where(eq(customers.id, existing.customerId)).then((r) => r[0]),
+          db.select().from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]),
+          db.select().from(jobLineItems).where(and(eq(jobLineItems.jobId, id), eq(jobLineItems.tenantId, tenantId))),
+        ]);
+
+        if (emailCustomer?.email) {
+          const subtotal = emailLineItems.reduce((sum, li) => sum + Number(li.total ?? 0), 0);
+          const taxRate = Number(existing.taxRate ?? 0);
+          const taxAmount = subtotal * taxRate;
+          const total = subtotal + taxAmount;
+
+          sendJobCompletionEmail({
+            to: emailCustomer.email,
+            props: {
+              customerName: `${emailCustomer.firstName} ${emailCustomer.lastName}`.trim(),
+              businessName: emailTenant?.businessName ?? "HVAC Service",
+              businessLogoUrl: emailTenant?.logoUrl ?? null,
+              businessPhone: emailTenant?.phone ?? null,
+              businessAddress: emailTenant?.address ?? null,
+              jobTitle: existing.title ?? "Service",
+              serviceType: existing.serviceType ?? "General",
+              completedDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+              lineItems: emailLineItems.map((li) => ({
+                description: li.description ?? "",
+                quantity: Number(li.quantity ?? 1),
+                unitPrice: Number(li.unitPrice ?? 0),
+                total: Number(li.total ?? 0),
+              })),
+              subtotal,
+              taxAmount,
+              total,
+              notes: existing.description,
+            },
+          }).catch((err) => console.error("[email] E-05 job completion failed:", err));
+        }
+      }
 
       return reply.send({ data: updated });
     },

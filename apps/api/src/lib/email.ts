@@ -1,5 +1,23 @@
 import { Resend } from "resend";
 import { env } from "./env.js";
+import type {
+  WelcomeEmailProps,
+  BookingConfirmationEmailProps,
+  NewBookingNotificationEmailProps,
+  BookingConfirmedEmailProps,
+  JobCompletionEmailProps,
+  InvoiceEmailProps,
+  InvoiceOverdueEmailProps,
+  PaymentReceiptEmailProps,
+  ContractRenewalEmailProps,
+  TrialExpiringEmailProps,
+  WelcomePaidEmailProps,
+  ReviewRequestEmailProps,
+  QuoteEmailProps,
+  TeamInvitationEmailProps,
+} from "@hvac-saas/email";
+
+// ── Resend client (lazy init) ──
 
 let resend: Resend | null = null;
 
@@ -11,41 +29,286 @@ function getResend(): Resend | null {
   return resend;
 }
 
-interface InvitationEmailData {
+// ── Generic send helper ──
+
+interface SendEmailOptions {
+  to: string;
+  subject: string;
+  html: string;
+  attachments?: Array<{ filename: string; content: Buffer }>;
+  /** Tag for dev-mode logging */
+  tag: string;
+}
+
+async function sendEmail(options: SendEmailOptions): Promise<void> {
+  const client = getResend();
+  if (!client) {
+    console.warn(
+      `[email:${options.tag}] RESEND_API_KEY not configured — skipping email to ${options.to}`
+    );
+    return;
+  }
+
+  try {
+    await client.emails.send({
+      from: env.RESEND_FROM_EMAIL,
+      to: options.to,
+      subject: options.subject,
+      html: options.html,
+      attachments: options.attachments?.map((a) => ({
+        filename: a.filename,
+        content: a.content,
+      })),
+    });
+  } catch (error) {
+    console.error(`[email:${options.tag}] Failed to send to ${options.to}:`, error);
+  }
+}
+
+// ── Render helpers (lazy imports to avoid top-level await) ──
+
+async function renderTemplate<P>(
+  renderFn: () => Promise<{ default: (props: P) => Promise<string> }>,
+  props: P
+): Promise<string> {
+  const mod = await renderFn();
+  return mod.default(props);
+}
+
+// ── E-01: Welcome ──
+
+export async function sendWelcomeEmail(data: {
+  to: string;
+  props: WelcomeEmailProps;
+}): Promise<void> {
+  const { renderWelcomeEmail } = await import("@hvac-saas/email");
+  const html = await renderWelcomeEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Welcome to Zaxvio, ${data.props.businessName}!`,
+    html,
+    tag: "E-01:welcome",
+  });
+}
+
+// ── E-02: Booking Confirmation (to customer) ──
+
+export async function sendBookingConfirmationEmail(data: {
+  to: string;
+  props: BookingConfirmationEmailProps;
+}): Promise<void> {
+  const { renderBookingConfirmationEmail } = await import("@hvac-saas/email");
+  const html = await renderBookingConfirmationEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Booking Confirmed — ${data.props.businessName}`,
+    html,
+    tag: "E-02:booking-confirmation",
+  });
+}
+
+// ── E-03: New Booking Notification (to owner) ──
+
+export async function sendNewBookingNotificationEmail(data: {
+  to: string;
+  props: NewBookingNotificationEmailProps;
+}): Promise<void> {
+  const { renderNewBookingNotificationEmail } = await import(
+    "@hvac-saas/email"
+  );
+  const html = await renderNewBookingNotificationEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `New Booking: ${data.props.serviceType} on ${data.props.bookingDate}`,
+    html,
+    tag: "E-03:new-booking-notification",
+  });
+}
+
+// ── E-04: Booking Confirmed by Owner (to customer) ──
+
+export async function sendBookingConfirmedEmail(data: {
+  to: string;
+  props: BookingConfirmedEmailProps;
+}): Promise<void> {
+  const { renderBookingConfirmedEmail } = await import("@hvac-saas/email");
+  const html = await renderBookingConfirmedEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Appointment Confirmed — ${data.props.businessName}`,
+    html,
+    tag: "E-04:booking-confirmed",
+  });
+}
+
+// ── E-05: Job Completion (to customer) ──
+
+export async function sendJobCompletionEmail(data: {
+  to: string;
+  props: JobCompletionEmailProps;
+}): Promise<void> {
+  const { renderJobCompletionEmail } = await import("@hvac-saas/email");
+  const html = await renderJobCompletionEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Service Complete — ${data.props.jobTitle} | ${data.props.businessName}`,
+    html,
+    tag: "E-05:job-completion",
+  });
+}
+
+// ── E-06: Invoice (to customer, with PDF attachment) ──
+
+export async function sendInvoiceEmail(data: {
+  to: string;
+  props: InvoiceEmailProps;
+  pdf?: { buffer: Buffer; filename: string };
+}): Promise<void> {
+  const { renderInvoiceEmail } = await import("@hvac-saas/email");
+  const html = await renderInvoiceEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Invoice ${data.props.invoiceNumber} from ${data.props.businessName}`,
+    html,
+    attachments: data.pdf ? [{ filename: data.pdf.filename, content: data.pdf.buffer }] : undefined,
+    tag: "E-06:invoice",
+  });
+}
+
+// ── E-07: Invoice Overdue Reminder (to customer) ──
+
+export async function sendInvoiceOverdueEmail(data: {
+  to: string;
+  props: InvoiceOverdueEmailProps;
+}): Promise<void> {
+  const { renderInvoiceOverdueEmail } = await import("@hvac-saas/email");
+  const html = await renderInvoiceOverdueEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Payment Reminder: Invoice ${data.props.invoiceNumber} — ${data.props.daysOverdue} days overdue`,
+    html,
+    tag: "E-07:invoice-overdue",
+  });
+}
+
+// ── E-08: Payment Receipt (to customer) ──
+
+export async function sendPaymentReceiptEmail(data: {
+  to: string;
+  props: PaymentReceiptEmailProps;
+}): Promise<void> {
+  const { renderPaymentReceiptEmail } = await import("@hvac-saas/email");
+  const html = await renderPaymentReceiptEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Payment Received — ${data.props.businessName}`,
+    html,
+    tag: "E-08:payment-receipt",
+  });
+}
+
+// ── E-09: Contract Renewal Reminder (to customer) ──
+
+export async function sendContractRenewalEmail(data: {
+  to: string;
+  props: ContractRenewalEmailProps;
+}): Promise<void> {
+  const { renderContractRenewalEmail } = await import("@hvac-saas/email");
+  const html = await renderContractRenewalEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Maintenance Contract Expiring — ${data.props.businessName}`,
+    html,
+    tag: "E-09:contract-renewal",
+  });
+}
+
+// ── E-10: Trial Expiring (to tenant owner) ──
+
+export async function sendTrialExpiringEmail(data: {
+  to: string;
+  props: TrialExpiringEmailProps;
+}): Promise<void> {
+  const { renderTrialExpiringEmail } = await import("@hvac-saas/email");
+  const html = await renderTrialExpiringEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Your Zaxvio trial expires in ${data.props.daysRemaining} day${data.props.daysRemaining === 1 ? "" : "s"}`,
+    html,
+    tag: "E-10:trial-expiring",
+  });
+}
+
+// ── E-11: Welcome Paid (to tenant owner) ──
+
+export async function sendWelcomePaidEmail(data: {
+  to: string;
+  props: WelcomePaidEmailProps;
+}): Promise<void> {
+  const { renderWelcomePaidEmail } = await import("@hvac-saas/email");
+  const html = await renderWelcomePaidEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Welcome to Zaxvio Pro, ${data.props.businessName}!`,
+    html,
+    tag: "E-11:welcome-paid",
+  });
+}
+
+// ── E-12: Review Request (to customer, 2h after invoice paid) ──
+
+export async function sendReviewRequestEmail(data: {
+  to: string;
+  props: ReviewRequestEmailProps;
+}): Promise<void> {
+  const { renderReviewRequestEmail } = await import("@hvac-saas/email");
+  const html = await renderReviewRequestEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `How did we do? — ${data.props.businessName}`,
+    html,
+    tag: "E-12:review-request",
+  });
+}
+
+// ── E-13: Quote / Estimate (to customer, with PDF attachment) ──
+
+export async function sendQuoteEmail(data: {
+  to: string;
+  props: QuoteEmailProps;
+  pdf?: { buffer: Buffer; filename: string };
+}): Promise<void> {
+  const { renderQuoteEmail } = await import("@hvac-saas/email");
+  const html = await renderQuoteEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: `Estimate ${data.props.quoteNumber} from ${data.props.businessName}`,
+    html,
+    attachments: data.pdf ? [{ filename: data.pdf.filename, content: data.pdf.buffer }] : undefined,
+    tag: "E-13:quote",
+  });
+}
+
+// ── Team Invitation (migrated from inline HTML) ──
+
+export async function sendInvitationEmail(data: {
   to: string;
   inviterName: string;
   organizationName: string;
   role: string;
   inviteUrl: string;
-}
-
-export async function sendInvitationEmail(data: InvitationEmailData) {
-  const client = getResend();
-  if (!client) {
-    console.warn("[email] RESEND_API_KEY not configured — skipping invitation email to", data.to);
-    console.info("[email] Invite URL:", data.inviteUrl);
-    return;
-  }
-
-  const roleLabel = data.role.charAt(0).toUpperCase() + data.role.slice(1);
-
-  await client.emails.send({
-    from: env.RESEND_FROM_EMAIL,
+}): Promise<void> {
+  const { renderTeamInvitationEmail } = await import("@hvac-saas/email");
+  const html = await renderTeamInvitationEmail({
+    inviterName: data.inviterName,
+    organizationName: data.organizationName,
+    role: data.role,
+    inviteUrl: data.inviteUrl,
+  });
+  await sendEmail({
     to: data.to,
     subject: `You've been invited to join ${data.organizationName}`,
-    html: `
-      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 560px; margin: 0 auto; padding: 40px 20px;">
-        <h2 style="color: #1a1a1a; font-size: 24px; margin-bottom: 8px;">You're invited!</h2>
-        <p style="color: #555; font-size: 16px; line-height: 1.6; margin-bottom: 24px;">
-          <strong>${data.inviterName}</strong> has invited you to join <strong>${data.organizationName}</strong> as a <strong>${roleLabel}</strong>.
-        </p>
-        <a href="${data.inviteUrl}" style="display: inline-block; background-color: #f97316; color: #fff; text-decoration: none; padding: 12px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-          Accept Invitation
-        </a>
-        <p style="color: #999; font-size: 13px; margin-top: 32px;">
-          This invitation expires in 7 days. If you didn't expect this email, you can safely ignore it.
-        </p>
-      </div>
-    `,
+    html,
+    tag: "team-invitation",
   });
 }

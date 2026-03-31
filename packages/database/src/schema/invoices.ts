@@ -54,6 +54,9 @@ export const invoices = pgTable(
     reviewRequestedAt: timestamp("review_requested_at", {
       withTimezone: true,
     }),
+    lastOverdueReminderAt: timestamp("last_overdue_reminder_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
