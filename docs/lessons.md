@@ -92,3 +92,13 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **Better Auth `getInvitation` returns 403 for non-members** — Can't fetch invitation details for users who aren't org members yet. The invite acceptance page should show generic "accept/decline" without fetching details.
 - **Better Auth org plugin method names differ from docs** — `createInvitation` → `inviteMember`, `memberId` → `memberIdOrEmail`, `getInvitation` takes `{ query: { id } }` not `{ invitationId }`. Always check TypeScript errors for correct parameter shapes.
 - **Better Auth `invitation` table needs `createdAt`** — The Drizzle schema was missing `createdAt` on the invitation table. Better Auth requires it for the `inviteMember` endpoint. Always match the exact schema Better Auth expects.
+
+## Equipment/Assets & Service Agreements (2026-03-31)
+
+- **DB schema was already ahead** — equipment, refrigerant_logs, and maintenance_contracts tables existed from initial migration but had no API routes, actions, or frontend. Lesson: always check what schema already exists before planning.
+- **refrigerantLogs.jobId was NOT NULL without FK** — had to fix with migration to make nullable + add FK constraint. Check FK integrity when building on existing schemas.
+- **General service industry naming** — DB tables stay as `equipment` / `maintenanceContracts` but UI labels use "Assets" / "Service Agreements". Route paths use `/assets` and `/service-agreements`. Component folders match DB names (`equipment/`, `service-agreements/`).
+- **Standalone page vs customer tab** — Agreement dialog needs a CustomerPicker when opened from standalone /service-agreements page but should skip it when opened from customer detail tab (customerId pre-filled). Use a `customerId` prop to control this.
+- **Pagination component requires `total` prop** — Don't forget to pass it; the reusable Pagination component renders total count text.
+- **Sidebar scaling** — With 12+ nav items, collapsible groups with localStorage persistence prevents visual overload. ScrollArea wrapping ensures collapsed sidebar scrolls on small screens. Hide scrollbar in collapsed mode to avoid overlapping icons.
+- **Sliding indicator + ScrollArea** — The sidebar's sliding hover indicator breaks when nav items scroll because `getBoundingClientRect()` returns visual position but the indicator is absolutely positioned on the aside. Fix: listen to the ScrollArea viewport's scroll event and recalculate indicator position. Also clip indicator opacity when item scrolls outside visible bounds.

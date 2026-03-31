@@ -1,12 +1,14 @@
 "use client";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CustomerOverviewTab } from "./customer-overview-tab";
 import { CustomerActivityTab } from "./customer-activity-tab";
 import { CustomerNotesTab } from "./customer-notes-tab";
 import { CustomerJobsTab } from "./customer-jobs-tab";
 import { CustomerInvoicesTab } from "./customer-invoices-tab";
 import { CustomerEquipmentTab } from "./customer-equipment-tab";
 import { CustomerQuotesTab } from "./customer-quotes-tab";
+import { CustomerAgreementsTab } from "./customer-agreements-tab";
 
 interface CustomerTabsPanelProps {
   customerId: string;
@@ -15,21 +17,20 @@ interface CustomerTabsPanelProps {
 
 export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanelProps) {
   return (
-    <Tabs defaultValue="activity" className="w-full">
+    <Tabs defaultValue="overview" className="w-full">
       <TabsList className="w-full justify-start overflow-x-auto lg:-mx-5 lg:px-5 lg:rounded-none">
-        <TabsTrigger value="activity">Activity</TabsTrigger>
-        <TabsTrigger value="notes">Notes</TabsTrigger>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="jobs">Jobs</TabsTrigger>
         <TabsTrigger value="invoices">Invoices</TabsTrigger>
         <TabsTrigger value="quotes">Quotes</TabsTrigger>
-        <TabsTrigger value="equipment">Equipment</TabsTrigger>
+        <TabsTrigger value="equipment">Assets</TabsTrigger>
+        <TabsTrigger value="agreements">Agreements</TabsTrigger>
+        <TabsTrigger value="activity">Activity</TabsTrigger>
+        <TabsTrigger value="notes">Notes</TabsTrigger>
       </TabsList>
 
-      <TabsContent value="activity" className="mt-4 sm:mt-5">
-        <CustomerActivityTab customerId={customerId} refreshKey={activityKey} />
-      </TabsContent>
-      <TabsContent value="notes" className="mt-4 sm:mt-5">
-        <CustomerNotesTab customerId={customerId} />
+      <TabsContent value="overview" className="mt-4 sm:mt-5">
+        <CustomerOverviewTab customerId={customerId} refreshKey={activityKey} />
       </TabsContent>
       <TabsContent value="jobs" className="mt-4 sm:mt-5">
         <CustomerJobsTab customerId={customerId} />
@@ -41,7 +42,16 @@ export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanel
         <CustomerQuotesTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="equipment" className="mt-4 sm:mt-5">
-        <CustomerEquipmentTab />
+        <CustomerEquipmentTab customerId={customerId} />
+      </TabsContent>
+      <TabsContent value="agreements" className="mt-4 sm:mt-5">
+        <CustomerAgreementsTab customerId={customerId} />
+      </TabsContent>
+      <TabsContent value="activity" className="mt-4 sm:mt-5">
+        <CustomerActivityTab customerId={customerId} refreshKey={activityKey} />
+      </TabsContent>
+      <TabsContent value="notes" className="mt-4 sm:mt-5">
+        <CustomerNotesTab customerId={customerId} />
       </TabsContent>
     </Tabs>
   );

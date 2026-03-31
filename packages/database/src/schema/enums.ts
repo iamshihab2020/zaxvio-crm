@@ -93,6 +93,15 @@ export const refrigerantActionEnum = pgEnum("refrigerant_action", [
   "recycled",
 ]);
 
+export const serviceFrequencyEnum = pgEnum("service_frequency", [
+  "weekly",
+  "biweekly",
+  "monthly",
+  "quarterly",
+  "semi_annual",
+  "annual",
+]);
+
 export const adminTierEnum = pgEnum("admin_tier", [
   "super_admin",
   "support",

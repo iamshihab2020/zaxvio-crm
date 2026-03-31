@@ -84,6 +84,8 @@ interface QuoteCreateDialogProps {
   onSave: (data: QuoteFormData) => void;
   loading: boolean;
   defaultTaxRate?: string;
+  /** Pre-fill customer when creating from customer detail page */
+  defaultCustomer?: { id: string; firstName: string; lastName: string } | null;
 }
 
 function getDefaultExpiry(): string {
@@ -125,6 +127,7 @@ export function QuoteCreateDialog({
   onSave,
   loading,
   defaultTaxRate,
+  defaultCustomer,
 }: QuoteCreateDialogProps) {
   const [form, setForm] = useState(emptyForm);
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
@@ -146,7 +149,20 @@ export function QuoteCreateDialog({
       : "0";
     setForm({ ...emptyForm, expiryDate: getDefaultExpiry(), taxRate: defaultTaxPct });
     setLineItems([]);
-    setCustomerSelection(null);
+    setCustomerSelection(
+      defaultCustomer
+        ? {
+            type: "existing" as const,
+            id: defaultCustomer.id,
+            firstName: defaultCustomer.firstName,
+            lastName: defaultCustomer.lastName,
+            address: null,
+            city: null,
+            state: null,
+            zipCode: null,
+          }
+        : null,
+    );
     setErrors({});
     setTaxEditable(false);
     setCreatingCustomer(false);

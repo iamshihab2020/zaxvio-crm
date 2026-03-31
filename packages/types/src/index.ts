@@ -9,6 +9,7 @@ export * from "./quote.js";
 export * from "./booking.js";
 export * from "./catalog.js";
 export * from "./equipment.js";
+export * from "./maintenance-contract.js";
 export * from "./checklist.js";
 export * from "./schedule.js";
 export * from "./admin.js";

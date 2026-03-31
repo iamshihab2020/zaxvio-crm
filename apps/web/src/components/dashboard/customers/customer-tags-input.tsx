@@ -123,25 +123,28 @@ export function CustomerTagsInput({
         {assignedTags.map((tag) => (
           <Badge
             key={tag.id}
-            variant="outline"
-            className="gap-1 pr-1"
+            variant="secondary"
+            className="gap-1 pr-1 text-xs font-medium"
             style={
               tag.color
                 ? {
-                    borderColor: tag.color,
+                    backgroundColor: `${tag.color}20`,
                     color: tag.color,
-                    backgroundColor: `${tag.color}15`,
                   }
                 : undefined
             }
           >
+            <span
+              className="h-1.5 w-1.5 rounded-full shrink-0"
+              style={tag.color ? { backgroundColor: tag.color } : undefined}
+            />
             {tag.name}
             <button
               type="button"
               onClick={() => handleRemoveTag(tag.id)}
-              className="ml-0.5 rounded-full p-0.5 hover:bg-muted"
+              className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
             >
-              <IconX className="h-3 w-3" />
+              <IconX className="h-2.5 w-2.5" />
             </button>
           </Badge>
         ))}

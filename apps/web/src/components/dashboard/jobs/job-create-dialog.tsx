@@ -73,6 +73,8 @@ interface JobCreateDialogProps {
   loading: boolean;
   defaultTaxRate?: string;
   initialStatus?: string;
+  /** Pre-fill customer when creating from customer detail page */
+  defaultCustomer?: { id: string; firstName: string; lastName: string } | null;
 }
 
 export interface LineItemFormData {
@@ -139,6 +141,7 @@ export function JobCreateDialog({
   loading,
   defaultTaxRate,
   initialStatus,
+  defaultCustomer,
 }: JobCreateDialogProps) {
   const [form, setForm] = useState(emptyForm);
   const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
@@ -185,7 +188,20 @@ export function JobCreateDialog({
         ? (parseFloat(defaultTaxRate) * 100).toString()
         : "0";
       setForm({ ...emptyForm, taxRate: defaultTaxPct });
-      setCustomerSelection(null);
+      setCustomerSelection(
+        defaultCustomer
+          ? {
+              type: "existing" as const,
+              id: defaultCustomer.id,
+              firstName: defaultCustomer.firstName,
+              lastName: defaultCustomer.lastName,
+              address: null,
+              city: null,
+              state: null,
+              zipCode: null,
+            }
+          : null,
+      );
       setTaxEditable(false);
     }
     setLineItems([]);

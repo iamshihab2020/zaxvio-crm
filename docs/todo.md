@@ -4,6 +4,12 @@ Task tracking for in-progress and upcoming work.
 
 ## In Progress
 
+### Sidebar Redesign (2026-03-31)
+- Collapsible groups (Schedule, Manage, Finance, Setup)
+- ScrollArea for overflow, narrowed from w-60 to w-56
+- Setup group collapsed by default
+- Group collapse state persisted to localStorage
+
 - [ ] **Super Admin Panel** (#11, ZAX-34) — 26 features, 4 phases, ~60 new files
   - **Phase 0 — Foundation**
     - [x] 0A: Schema + auth infrastructure (admin_tier enum, webhook/cron tables, requireAdminTier middleware)
@@ -137,6 +143,8 @@ Items not yet started (next up from Build Order above):
 - [ ] **Billing/Subscription** — Lemon Squeezy subscription management in settings
 - [ ] **Notifications** — In-app notification system (bell icon is placeholder)
 - [ ] **Reports/Analytics** — Tenant-level reporting (revenue, job completion rates)
+- [ ] **Asset picker integration into Job create/edit dialog** — frontend wiring for equipmentId selection
+- [ ] **Equipment reference on Quote create** — optional equipmentId FK on quotes
 
 ## Recently Completed (Latest)
 
@@ -167,6 +175,10 @@ Items not yet started (next up from Build Order above):
   - Icons updated for visual distinction (Quotes: IconFileDescription, Invoices: IconReceipt, etc.)
 
 ## Done
+
+- [x] **Equipment/Assets CRUD (ZAX-52)** — Full CRUD for equipment/assets with customer tab integration, refrigerant logs sub-resource, standalone /assets page, asset detail page with service history
+- [x] **Service Agreements (ZAX-53)** — Maintenance contracts renamed to "Service Agreements" for general service industry. Full CRUD, customer tab, standalone /service-agreements page, expiring contracts endpoint. Added serviceFrequencyEnum (weekly to annual)
+- [x] **Asset Integration (ZAX-59)** — equipmentId added to jobs table, asset picker component, jobs API returns equipment info, equipment history endpoint
 
 - [x] **Checklists (#10)** — Full checklist template management + job integration (already implemented)
   - DB: 3 tables (checklistTemplates, checklistItems, jobChecklistCompletions)

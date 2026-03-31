@@ -63,6 +63,8 @@ interface InvoiceCreateDialogProps {
   onSave: (data: InvoiceFormData) => void;
   loading: boolean;
   defaultTaxRate?: string;
+  /** Pre-fill customer when creating from customer detail page */
+  defaultCustomer?: { id: string; firstName: string; lastName: string } | null;
 }
 
 interface CustomerOption {
@@ -86,6 +88,7 @@ export function InvoiceCreateDialog({
   onSave,
   loading,
   defaultTaxRate,
+  defaultCustomer,
 }: InvoiceCreateDialogProps) {
   const [form, setForm] = useState<InvoiceFormData>(emptyForm);
   const [errors, setErrors] = useState<
@@ -103,8 +106,16 @@ export function InvoiceCreateDialog({
     const defaultTaxPct = defaultTaxRate
       ? (parseFloat(defaultTaxRate) * 100).toString()
       : "0";
-    setForm({ ...emptyForm, taxRate: defaultTaxPct });
-    setSelectedCustomerLabel("");
+    setForm({
+      ...emptyForm,
+      taxRate: defaultTaxPct,
+      customerId: defaultCustomer?.id ?? "",
+    });
+    setSelectedCustomerLabel(
+      defaultCustomer
+        ? `${defaultCustomer.firstName} ${defaultCustomer.lastName}`
+        : "",
+    );
     setErrors({});
     setTaxEditable(false);
     setCustomerSearch("");

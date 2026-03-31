@@ -38,6 +38,10 @@
 - [Bookings (Internal)](#bookings-internal)
 - [Availability / Schedule](#availability--schedule)
 - [Public Booking Portal](#public-booking-portal)
+- [Equipment (Assets)](#equipment-assets)
+- [Refrigerant Logs](#refrigerant-logs)
+- [Equipment Service History](#equipment-service-history)
+- [Service Agreements (Maintenance Contracts)](#service-agreements-maintenance-contracts)
 - [Admin Panel](#admin-panel)
 - [Enums & Constants](#enums--constants)
 - [Error Handling](#error-handling)
@@ -3268,6 +3272,604 @@ Public booking confirmation/status page.
 
 ---
 
+## Equipment (Assets)
+
+Manage HVAC equipment/assets linked to customers.
+
+### `GET /equipment`
+
+**Auth:** `requireTenant`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Options |
+|-----------|------|---------|---------|
+| `search` | string | - | Searches equipmentType, brand, model, serialNumber |
+| `customerId` | string | - | Filter by customer |
+| `page` | integer | `1` | - |
+| `limit` | integer | `20` | Max: 100 |
+| `sortBy` | string | `"createdAt"` | `createdAt`, `equipmentType`, `brand`, `installDate`, `warrantyExpiry` |
+| `sortOrder` | string | `"desc"` | `asc`, `desc` |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "equip_001",
+      "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "customerId": "cust_001",
+      "customerFirstName": "Jane",
+      "customerLastName": "Doe",
+      "equipmentType": "Central AC",
+      "brand": "Carrier",
+      "model": "24ACC636A003",
+      "serialNumber": "SN-2024-00456",
+      "installDate": "2024-06-15",
+      "warrantyExpiry": "2029-06-15",
+      "location": "Rooftop Unit #1",
+      "notes": "Installed during full system replacement",
+      "createdAt": "2026-03-28T14:30:00.000Z",
+      "updatedAt": "2026-03-28T14:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 12,
+    "totalPages": 1
+  }
+}
+```
+
+### `GET /equipment/:id`
+
+**Auth:** `requireTenant`
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "id": "equip_001",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "customerId": "cust_001",
+    "customerFirstName": "Jane",
+    "customerLastName": "Doe",
+    "equipmentType": "Central AC",
+    "brand": "Carrier",
+    "model": "24ACC636A003",
+    "serialNumber": "SN-2024-00456",
+    "installDate": "2024-06-15",
+    "warrantyExpiry": "2029-06-15",
+    "location": "Rooftop Unit #1",
+    "notes": "Installed during full system replacement",
+    "createdAt": "2026-03-28T14:30:00.000Z",
+    "updatedAt": "2026-03-28T14:30:00.000Z"
+  }
+}
+```
+
+### `POST /equipment`
+
+**Auth:** `requireTenant`
+
+Create a new equipment record.
+
+**Request Body:**
+
+```json
+{
+  "customerId": "cust_001",
+  "equipmentType": "Central AC",
+  "brand": "Carrier",
+  "model": "24ACC636A003",
+  "serialNumber": "SN-2024-00456",
+  "installDate": "2024-06-15",
+  "warrantyExpiry": "2029-06-15",
+  "location": "Rooftop Unit #1",
+  "notes": "Installed during full system replacement"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `customerId` | string | Yes | Customer who owns the equipment |
+| `equipmentType` | string | Yes | Type of equipment (e.g., "Central AC", "Furnace") |
+| `brand` | string | No | Manufacturer brand |
+| `model` | string | No | Model number |
+| `serialNumber` | string | No | Serial number |
+| `installDate` | string | No | `YYYY-MM-DD` install date |
+| `warrantyExpiry` | string | No | `YYYY-MM-DD` warranty expiration |
+| `location` | string | No | Where the equipment is installed |
+| `notes` | string | No | Additional notes |
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "id": "equip_002",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "customerId": "cust_001",
+    "equipmentType": "Central AC",
+    "brand": "Carrier",
+    "model": "24ACC636A003",
+    "serialNumber": "SN-2024-00456",
+    "installDate": "2024-06-15",
+    "warrantyExpiry": "2029-06-15",
+    "location": "Rooftop Unit #1",
+    "notes": "Installed during full system replacement",
+    "createdAt": "2026-03-31T10:00:00.000Z",
+    "updatedAt": "2026-03-31T10:00:00.000Z"
+  }
+}
+```
+
+### `PATCH /equipment/:id`
+
+**Auth:** `requireTenant`
+
+Update an equipment record.
+
+**Request Body:**
+
+```json
+{
+  "equipmentType": "Heat Pump",
+  "brand": "Trane",
+  "location": "Basement"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `equipmentType` | string | No | Type of equipment |
+| `brand` | string | No | Manufacturer brand |
+| `model` | string | No | Model number |
+| `serialNumber` | string | No | Serial number |
+| `installDate` | string | No | `YYYY-MM-DD` install date |
+| `warrantyExpiry` | string | No | `YYYY-MM-DD` warranty expiration |
+| `location` | string | No | Where the equipment is installed |
+| `notes` | string | No | Additional notes |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "id": "equip_001",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "customerId": "cust_001",
+    "equipmentType": "Heat Pump",
+    "brand": "Trane",
+    "model": "24ACC636A003",
+    "serialNumber": "SN-2024-00456",
+    "installDate": "2024-06-15",
+    "warrantyExpiry": "2029-06-15",
+    "location": "Basement",
+    "notes": "Installed during full system replacement",
+    "createdAt": "2026-03-28T14:30:00.000Z",
+    "updatedAt": "2026-03-31T10:15:00.000Z"
+  }
+}
+```
+
+### `DELETE /equipment/:id`
+
+**Auth:** `requireTenant`
+
+Delete an equipment record.
+
+**Response** `200 OK`
+
+```json
+{
+  "message": "Equipment deleted"
+}
+```
+
+---
+
+## Refrigerant Logs
+
+EPA-compliant refrigerant tracking for equipment.
+
+### `GET /equipment/:id/refrigerant-logs`
+
+**Auth:** `requireTenant`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Options |
+|-----------|------|---------|---------|
+| `page` | integer | `1` | - |
+| `limit` | integer | `20` | Max: 100 |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "reflog_001",
+      "equipmentId": "equip_001",
+      "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "refrigerantType": "R-410A",
+      "action": "added",
+      "quantity": 3.5,
+      "unit": "lbs",
+      "technicianName": "John Smith",
+      "epaCertNumber": "EPA-12345",
+      "jobId": "job_015",
+      "notes": "Topped off after leak repair",
+      "createdAt": "2026-03-28T14:30:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 4,
+    "totalPages": 1
+  }
+}
+```
+
+### `POST /equipment/:id/refrigerant-logs`
+
+**Auth:** `requireTenant`
+
+Create a new refrigerant log entry.
+
+**Request Body:**
+
+```json
+{
+  "refrigerantType": "R-410A",
+  "action": "added",
+  "quantity": 3.5,
+  "unit": "lbs",
+  "technicianName": "John Smith",
+  "epaCertNumber": "EPA-12345",
+  "jobId": "job_015",
+  "notes": "Topped off after leak repair"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `refrigerantType` | string | Yes | Type of refrigerant (e.g., "R-410A", "R-22") |
+| `action` | string | Yes | `added`, `recovered`, or `recycled` |
+| `quantity` | number | Yes | Amount of refrigerant |
+| `unit` | string | No | Unit of measurement (default: "lbs") |
+| `technicianName` | string | No | Name of the technician |
+| `epaCertNumber` | string | No | EPA certification number |
+| `jobId` | string | No | Associated job ID |
+| `notes` | string | No | Additional notes |
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "id": "reflog_002",
+    "equipmentId": "equip_001",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "refrigerantType": "R-410A",
+    "action": "added",
+    "quantity": 3.5,
+    "unit": "lbs",
+    "technicianName": "John Smith",
+    "epaCertNumber": "EPA-12345",
+    "jobId": "job_015",
+    "notes": "Topped off after leak repair",
+    "createdAt": "2026-03-31T10:00:00.000Z"
+  }
+}
+```
+
+---
+
+## Equipment Service History
+
+### `GET /equipment/:id/history`
+
+**Auth:** `requireTenant`
+
+Get the full service history for an equipment item, including related jobs, service agreements, and refrigerant logs.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "jobs": [
+      {
+        "id": "job_015",
+        "jobNumber": "JOB-2026-0015",
+        "title": "AC Leak Repair",
+        "status": "completed",
+        "serviceType": "repair",
+        "scheduledDate": "2026-03-25",
+        "completedAt": "2026-03-25T16:00:00.000Z"
+      }
+    ],
+    "agreements": [
+      {
+        "id": "mc_001",
+        "contractName": "Annual Maintenance Plan",
+        "startDate": "2026-01-01",
+        "endDate": "2026-12-31",
+        "frequency": "quarterly",
+        "isActive": true
+      }
+    ],
+    "refrigerantLogs": [
+      {
+        "id": "reflog_001",
+        "refrigerantType": "R-410A",
+        "action": "added",
+        "quantity": 3.5,
+        "unit": "lbs",
+        "technicianName": "John Smith",
+        "createdAt": "2026-03-28T14:30:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+---
+
+## Service Agreements (Maintenance Contracts)
+
+Manage recurring service/maintenance agreements linked to customers and optionally to equipment.
+
+### `GET /maintenance-contracts`
+
+**Auth:** `requireTenant`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Options |
+|-----------|------|---------|---------|
+| `search` | string | - | Searches contractName, customerFirstName, customerLastName |
+| `customerId` | string | - | Filter by customer |
+| `equipmentId` | string | - | Filter by equipment |
+| `isActive` | string | - | `true` or `false` |
+| `page` | integer | `1` | - |
+| `limit` | integer | `20` | Max: 100 |
+| `sortBy` | string | `"createdAt"` | `createdAt`, `startDate`, `endDate`, `contractName`, `annualPrice` |
+| `sortOrder` | string | `"desc"` | `asc`, `desc` |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "mc_001",
+      "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "customerId": "cust_001",
+      "customerFirstName": "Jane",
+      "customerLastName": "Doe",
+      "equipmentId": "equip_001",
+      "equipmentType": "Central AC",
+      "equipmentBrand": "Carrier",
+      "contractName": "Annual Maintenance Plan",
+      "startDate": "2026-01-01",
+      "endDate": "2026-12-31",
+      "frequency": "quarterly",
+      "visitsPerYear": 4,
+      "annualPrice": "499.00",
+      "isActive": true,
+      "notes": "Includes filter changes and coil cleaning",
+      "createdAt": "2026-01-01T10:00:00.000Z",
+      "updatedAt": "2026-01-01T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 5,
+    "totalPages": 1
+  }
+}
+```
+
+### `GET /maintenance-contracts/expiring`
+
+**Auth:** `requireTenant`
+
+Get service agreements expiring within a number of days.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `days` | integer | `30` | Number of days to look ahead |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "mc_002",
+      "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "customerId": "cust_003",
+      "customerFirstName": "Mike",
+      "customerLastName": "Johnson",
+      "contractName": "Semi-Annual HVAC Checkup",
+      "startDate": "2025-05-01",
+      "endDate": "2026-04-30",
+      "frequency": "semi_annual",
+      "visitsPerYear": 2,
+      "annualPrice": "299.00",
+      "isActive": true,
+      "notes": null
+    }
+  ]
+}
+```
+
+### `GET /maintenance-contracts/:id`
+
+**Auth:** `requireTenant`
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "id": "mc_001",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "customerId": "cust_001",
+    "customerFirstName": "Jane",
+    "customerLastName": "Doe",
+    "equipmentId": "equip_001",
+    "equipmentType": "Central AC",
+    "equipmentBrand": "Carrier",
+    "contractName": "Annual Maintenance Plan",
+    "startDate": "2026-01-01",
+    "endDate": "2026-12-31",
+    "frequency": "quarterly",
+    "visitsPerYear": 4,
+    "annualPrice": "499.00",
+    "isActive": true,
+    "notes": "Includes filter changes and coil cleaning",
+    "createdAt": "2026-01-01T10:00:00.000Z",
+    "updatedAt": "2026-01-01T10:00:00.000Z"
+  }
+}
+```
+
+### `POST /maintenance-contracts`
+
+**Auth:** `requireTenant`
+
+Create a new service agreement.
+
+**Request Body:**
+
+```json
+{
+  "customerId": "cust_001",
+  "contractName": "Annual Maintenance Plan",
+  "startDate": "2026-01-01",
+  "endDate": "2026-12-31",
+  "equipmentId": "equip_001",
+  "frequency": "quarterly",
+  "visitsPerYear": 4,
+  "annualPrice": "499.00",
+  "notes": "Includes filter changes and coil cleaning"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `customerId` | string | Yes | Customer for this agreement |
+| `contractName` | string | Yes | Name of the agreement |
+| `startDate` | string | Yes | `YYYY-MM-DD` start date |
+| `endDate` | string | Yes | `YYYY-MM-DD` end date |
+| `equipmentId` | string | No | Linked equipment item |
+| `frequency` | string | No | Visit frequency (see `service_frequency` enum) |
+| `visitsPerYear` | integer | No | Number of visits per year |
+| `annualPrice` | string | No | Annual contract price |
+| `notes` | string | No | Additional notes |
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "id": "mc_003",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "customerId": "cust_001",
+    "contractName": "Annual Maintenance Plan",
+    "startDate": "2026-01-01",
+    "endDate": "2026-12-31",
+    "equipmentId": "equip_001",
+    "frequency": "quarterly",
+    "visitsPerYear": 4,
+    "annualPrice": "499.00",
+    "isActive": true,
+    "notes": "Includes filter changes and coil cleaning",
+    "createdAt": "2026-03-31T10:00:00.000Z",
+    "updatedAt": "2026-03-31T10:00:00.000Z"
+  }
+}
+```
+
+### `PATCH /maintenance-contracts/:id`
+
+**Auth:** `requireTenant`
+
+Update a service agreement.
+
+**Request Body:**
+
+```json
+{
+  "contractName": "Premium Maintenance Plan",
+  "annualPrice": "699.00",
+  "visitsPerYear": 6,
+  "isActive": false
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `contractName` | string | No | Name of the agreement |
+| `startDate` | string | No | `YYYY-MM-DD` start date |
+| `endDate` | string | No | `YYYY-MM-DD` end date |
+| `equipmentId` | string | No | Linked equipment item |
+| `frequency` | string | No | Visit frequency (see `service_frequency` enum) |
+| `visitsPerYear` | integer | No | Number of visits per year |
+| `annualPrice` | string | No | Annual contract price |
+| `isActive` | boolean | No | Whether the agreement is active |
+| `notes` | string | No | Additional notes |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "id": "mc_001",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "customerId": "cust_001",
+    "contractName": "Premium Maintenance Plan",
+    "startDate": "2026-01-01",
+    "endDate": "2026-12-31",
+    "equipmentId": "equip_001",
+    "frequency": "quarterly",
+    "visitsPerYear": 6,
+    "annualPrice": "699.00",
+    "isActive": false,
+    "notes": "Includes filter changes and coil cleaning",
+    "createdAt": "2026-01-01T10:00:00.000Z",
+    "updatedAt": "2026-03-31T10:30:00.000Z"
+  }
+}
+```
+
+### `DELETE /maintenance-contracts/:id`
+
+**Auth:** `requireTenant`
+
+Delete a service agreement.
+
+**Response** `200 OK`
+
+```json
+{
+  "message": "Service agreement deleted"
+}
+```
+
+---
+
 ## Admin Panel
 
 Super admin endpoints for platform management. Requires admin role.
@@ -3989,6 +4591,25 @@ Cron job execution history.
 | `confirmed` | Booking confirmed |
 | `cancelled` | Booking cancelled |
 | `completed` | Booking completed |
+
+### Service Frequency
+
+| Value | Description |
+|-------|-------------|
+| `weekly` | Every week |
+| `biweekly` | Every two weeks |
+| `monthly` | Every month |
+| `quarterly` | Every three months |
+| `semi_annual` | Every six months |
+| `annual` | Once per year |
+
+### Refrigerant Action
+
+| Value | Description |
+|-------|-------------|
+| `added` | Refrigerant added to system |
+| `recovered` | Refrigerant recovered from system |
+| `recycled` | Refrigerant recycled |
 
 ### Item Types
 

@@ -19,6 +19,7 @@ import {
 import { tenants } from "./tenants";
 import { customers } from "./customers";
 import { catalogItems } from "./catalog";
+import { equipment } from "./equipment";
 
 export const jobs = pgTable(
   "jobs",
@@ -31,6 +32,9 @@ export const jobs = pgTable(
       .notNull()
       .references(() => customers.id, { onDelete: "cascade" }),
     bookingId: uuid("booking_id"),
+    equipmentId: uuid("equipment_id").references(() => equipment.id, {
+      onDelete: "set null",
+    }),
     jobNumber: text("job_number").notNull(),
     status: text("status").notNull().default("scheduled"),
     priority: jobPriorityEnum("priority").notNull().default("standard"),

@@ -21,8 +21,10 @@ const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/customers": "Customers",
   "/jobs": "Jobs",
+  "/assets": "Assets",
   "/invoices": "Invoices",
   "/quotes": "Quotes",
+  "/service-agreements": "Service Agreements",
   "/bookings": "Bookings",
   "/schedule": "Schedule",
   "/catalog": "Catalog",
@@ -78,7 +80,7 @@ export function Navbar() {
   return (
     <header
       className={`fixed right-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card px-6 transition-[left,top] duration-300 ease-in-out ${isImpersonating ? "top-10" : "top-0"}`}
-      style={{ left: isCollapsed ? "4rem" : "15rem" }}
+      style={{ left: isCollapsed ? "4rem" : "14rem" }}
     >
       <h1 className="font-heading text-lg font-semibold text-foreground">
         {pageTitle}

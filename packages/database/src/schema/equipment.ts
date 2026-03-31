@@ -10,6 +10,7 @@ import {
 import { refrigerantActionEnum } from "./enums";
 import { tenants } from "./tenants";
 import { customers } from "./customers";
+import { jobs } from "./jobs";
 
 export const equipment = pgTable(
   "equipment",
@@ -49,7 +50,7 @@ export const refrigerantLogs = pgTable("refrigerant_logs", {
   tenantId: uuid("tenant_id")
     .notNull()
     .references(() => tenants.id, { onDelete: "cascade" }),
-  jobId: uuid("job_id").notNull(),
+  jobId: uuid("job_id").references(() => jobs.id, { onDelete: "set null" }),
   equipmentId: uuid("equipment_id").references(() => equipment.id, {
     onDelete: "set null",
   }),

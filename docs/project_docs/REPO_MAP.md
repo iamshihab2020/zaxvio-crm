@@ -65,6 +65,14 @@ zaxvio-crm/
         +-- 20260314000001_rls_triggers.sql          # RLS policies + triggers
         +-- 20260315000001_drop_rls_for_better_auth.sql  # Drop RLS (app-level isolation)
         +-- 20260315000002_triggers.sql              # Auto-numbering + updated_at triggers
+        +-- 20260329000001_admin_tier_and_system_tables.sql  # Admin tier enum + system health tables
+        +-- 20260329000002_add_is_owner_column.sql           # Owner flag on org members
+        +-- 20260329000003_visible_impersonation.sql         # Visible impersonation support
+        +-- 20260331000001_set_org_creator_owner_role.sql    # Auto-set owner role on org creation
+        +-- 20260331000002_add_email_tracking_fields.sql     # Email tracking columns
+        +-- 20260331000003_fix_refrigerant_logs_job_fk.sql   # Fix refrigerant_logs.job_id FK + nullable
+        +-- 20260331000004_add_service_frequency.sql         # Service frequency enum + column
+        +-- 20260331000005_add_equipment_id_to_jobs.sql      # Equipment reference on jobs
         +-- meta/                                    # Drizzle snapshots + journal
 ```
 
@@ -95,10 +103,12 @@ apps/api/
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
 |   |   +-- pdf/
-|   |       +-- generate-invoice-pdf.ts  # Invoice PDF generation entry point
-|   |       +-- generate-quote-pdf.ts    # Quote PDF generation entry point
-|   |       +-- invoice-pdf.tsx          # Invoice PDF React template (@react-pdf/renderer)
-|   |       +-- quote-pdf.tsx            # Quote PDF React template (@react-pdf/renderer)
+|   |   |   +-- generate-invoice-pdf.ts  # Invoice PDF generation entry point
+|   |   |   +-- generate-quote-pdf.ts    # Quote PDF generation entry point
+|   |   |   +-- invoice-pdf.tsx          # Invoice PDF React template (@react-pdf/renderer)
+|   |   |   +-- quote-pdf.tsx            # Quote PDF React template (@react-pdf/renderer)
+|   |   +-- cron/
+|   |       +-- email-cron.ts      # Scheduled: overdue invoices, contract renewal, trial expiry emails
 |   |
 |   +-- routes/
 |   |   +-- availability/
@@ -127,6 +137,12 @@ apps/api/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /tags (tenant-level reusable tags)
 |   |   +-- tenants/
 |   |   |   +-- index.ts          # GET/PATCH /tenants/current, POST /tenants/initialize (+availability seeding)
+|   |   +-- calendar-events/
+|   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /calendar-events
+|   |   +-- equipment/
+|   |   |   +-- index.ts          # CRUD /equipment, sub-resource /equipment/:id/refrigerant-logs, /equipment/:id/history
+|   |   +-- maintenance-contracts/
+|   |   |   +-- index.ts          # CRUD /maintenance-contracts, GET /maintenance-contracts/expiring
 |   |   +-- admin/                 # Super admin API routes (prefix: /admin)
 |   |   |   +-- index.ts          # Master plugin, registers sub-routes
 |   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
@@ -135,6 +151,8 @@ apps/api/
 |   |   |   +-- impersonation.ts  # 5 endpoints: start, request, end, cancel, active — ghost + visible impersonation
 |   |   |   +-- search.ts         # 1 endpoint: global cross-tenant search
 |   |   |   +-- system.ts         # 3 endpoints: health, webhooks, crons
+|   |   |   +-- admins.ts         # GET /admin/admins (super admin user management)
+|   |   |   +-- dashboard.ts      # GET /admin/dashboard/stats
 |   |   +-- webhooks/
 |   |       ~ .gitkeep            # Planned: Lemon Squeezy subscription events
 |   |
@@ -172,7 +190,10 @@ apps/api/
 | `/availability` | requireTenant | GET/PUT weekly schedule, POST/DELETE overrides | + |
 | `/bookings` | requireTenant | CRUD + convert-to-job | + |
 | `/public/booking/:slug` | None | Branding, availability, slots, submit booking | + |
-| `/admin/*` | requireAdmin | Tenant mgmt, analytics, audit, impersonation | ~ |
+| `/equipment` | requireTenant | CRUD + refrigerant logs sub-resource + history | + |
+| `/maintenance-contracts` | requireTenant | CRUD + expiring contracts | + |
+| `/calendar-events` | requireTenant | CRUD | + |
+| `/admin/*` | requireAdmin | Tenant mgmt, analytics, audit, impersonation | + |
 | `/webhooks/lemon-squeezy` | Signature | Subscription lifecycle | ~ |
 
 ---
@@ -195,13 +216,17 @@ apps/web/
     +-- middleware.ts          # Route protection: public paths passthrough, else check session cookie
     |
     +-- actions/              # Server Actions — ONLY gateway for API calls
+    |   +-- admin.ts             # Super admin actions
     |   +-- bookings.ts          # 13 actions: tenant CRUD + availability + public portal
+    |   +-- calendar-events.ts   # Calendar event CRUD
     |   +-- catalog.ts
     |   +-- checklists.ts
     |   +-- customers.ts
     |   +-- dashboard.ts
+    |   +-- equipment.ts         # Equipment/asset CRUD + refrigerant logs
     |   +-- invoices.ts
     |   +-- jobs.ts
+    |   +-- maintenance-contracts.ts  # Service agreement CRUD + expiring
     |   +-- pipeline-stages.ts
     |   +-- quotes.ts
     |   +-- tags.ts
@@ -230,7 +255,7 @@ apps/web/
     |   +-- theme-toggle.tsx         # Light/dark toggle button
     |   +-- under-development.tsx    # Placeholder for unbuilt pages
     |   |
-    |   +-- ui/                      # shadcn/ui primitives (24 components, incl. switch)
+    |   +-- ui/                      # shadcn/ui primitives (28 components)
     |   |   +-- accordion.tsx
     |   |   +-- avatar.tsx
     |   |   +-- badge.tsx
@@ -247,12 +272,16 @@ apps/web/
     |   |   +-- popover.tsx
     |   |   +-- progress.tsx
     |   |   +-- scroll-area.tsx
+    |   |   +-- select.tsx
     |   |   +-- separator.tsx
     |   |   +-- sheet.tsx
     |   |   +-- skeleton.tsx
+    |   |   +-- switch.tsx
     |   |   +-- table.tsx
     |   |   +-- tabs.tsx
     |   |   +-- textarea.tsx
+    |   |   +-- time-picker.tsx
+    |   |   +-- date-picker.tsx
     |   |   +-- tooltip.tsx
     |   |
     |   +-- landing/                 # Landing page section components
@@ -314,6 +343,7 @@ apps/web/
     |   |   |   +-- customer-table.tsx
     |   |   |   +-- customer-tabs-panel.tsx
     |   |   |   +-- customer-tags-input.tsx
+    |   |   |   +-- customer-agreements-tab.tsx
     |   |   |
     |   |   +-- jobs/               # Job management components
     |   |   |   +-- job-create-dialog.tsx
@@ -379,6 +409,18 @@ apps/web/
     |   |   +-- checklists/         # Checklist template components
     |   |   |   +-- checklist-template-dialog.tsx
     |   |   |   +-- checklist-template-list.tsx
+    |   |   |
+    |   |   +-- equipment/           # Asset management components
+    |   |   |   +-- asset-dialog.tsx
+    |   |   |   +-- asset-picker.tsx
+    |   |   |   +-- asset-service-history-tab.tsx
+    |   |   |   +-- asset-table.tsx
+    |   |   |   +-- refrigerant-log-dialog.tsx
+    |   |   |   +-- refrigerant-logs-panel.tsx
+    |   |   |
+    |   |   +-- service-agreements/  # Service agreement components
+    |   |   |   +-- service-agreement-dialog.tsx
+    |   |   |   +-- service-agreement-table.tsx
     |   |   |
     |   |   +-- settings/           # Settings page components
     |   |       +-- availability-weekly-editor.tsx    # Weekly schedule editor (7 day rows)
@@ -474,8 +516,20 @@ apps/web/
         |   |   +-- page.tsx                         # Bookings list page
         |   |   +-- bookings-page-client.tsx         # Client (table, filters, detail sheet)
         |   |
+        |   +-- assets/
+        |   |   +-- page.tsx                         # Asset list (all customers)
+        |   |   +-- assets-page-client.tsx
+        |   |   +-- [id]/
+        |   |       +-- page.tsx                     # Asset detail (3-panel)
+        |   |       +-- asset-detail-client.tsx
+        |   |
+        |   +-- service-agreements/
+        |   |   +-- page.tsx                         # Service agreements list
+        |   |   +-- service-agreements-page-client.tsx
+        |   |
         |   +-- schedule/
-        |   |   ~ (placeholder)                      # Planned: calendar view
+        |   |   +-- page.tsx                         # Calendar/schedule view
+        |   |   +-- schedule-page-client.tsx
         |   |
         |   +-- settings/
         |       +-- layout.tsx                       # Settings shell with tab navigation
@@ -554,7 +608,7 @@ packages/database/
     +-- supabase.ts           # Supabase client factories (tenant-scoped + admin)
     +-- schema/
         +-- index.ts              # Barrel re-export of all tables, enums, relations
-        +-- enums.ts              # 12 pgEnum definitions
+        +-- enums.ts              # 13 pgEnum definitions (incl. serviceFrequencyEnum)
         +-- auth.ts               # Better Auth tables: user, session, account, verification, organization, member, invitation
         +-- tenants.ts            # tenants table (with organizationId FK)
         +-- users.ts              # users table (replaced by Better Auth user + member)
@@ -563,11 +617,12 @@ packages/database/
         +-- customers.ts          # customers table
         +-- customer-notes.ts     # customerNotes table
         +-- customer-activities.ts # customerActivities table
+        +-- calendar-events.ts    # calendarEvents table
         +-- catalog.ts            # catalogItems table
-        +-- equipment.ts          # equipment, refrigerantLogs tables
-        +-- maintenance.ts        # maintenanceContracts table
+        +-- equipment.ts          # equipment, refrigerantLogs tables (jobId FK to jobs)
+        +-- maintenance.ts        # maintenanceContracts table (with frequency column)
         +-- bookings.ts           # bookings table
-        +-- jobs.ts               # jobs, jobLineItems, jobPhotos tables (status is text, not enum)
+        +-- jobs.ts               # jobs, jobLineItems, jobPhotos tables (status is text, equipmentId FK)
         +-- job-activities.ts     # jobActivities table
         +-- invoices.ts           # invoices, invoiceLineItems, invoicePayments tables
         +-- quotes.ts             # quotes, quoteLineItems tables
@@ -602,7 +657,8 @@ packages/types/
     +-- booking.ts            # Booking, BookingInsert, BookingUpdate
     +-- catalog.ts            # CatalogItem, CatalogItemInsert, CatalogItemUpdate
     +-- checklist.ts          # ChecklistTemplate, ChecklistItem, JobChecklistCompletion
-    +-- equipment.ts          # Equipment, EquipmentInsert, RefrigerantLog
+    +-- equipment.ts          # Equipment, EquipmentInsert, EquipmentUpdate, RefrigerantLog, RefrigerantLogInsert
+    +-- maintenance-contract.ts  # MaintenanceContract, MaintenanceContractInsert, MaintenanceContractUpdate
     +-- schedule.ts           # AvailabilitySchedule, ScheduleOverride
     +-- pipeline-stage.ts     # PipelineStage, PipelineStageInsert
     +-- tag.ts                # Tag, CustomerTag types
@@ -642,7 +698,7 @@ packages/config/
 
 ---
 
-## Database Tables (33 total)
+## Database Tables (35 total)
 
 ### Better Auth Tables (7)
 
@@ -656,7 +712,7 @@ packages/config/
 | `member` | Organization membership |
 | `invitation` | Org invitations |
 
-### Business Tables (26)
+### Business Tables (28)
 
 | Table | Purpose | Key Fields |
 |---|---|---|
@@ -682,6 +738,7 @@ packages/config/
 | `quotes` | Estimates | quote_number (QT-YYYY-XXXX), status, expiresAt |
 | `quote_line_items` | Quote charges | quote_id, qty, unit_price, total (generated) |
 | `quote_activities` | Quote activity log | quote_id, activity_type, metadata |
+| `calendar_events` | Calendar entries | tenant_id, customer_id, title, start/end datetime |
 | `bookings` | Online bookings | customer_id, status, booking_date, service_type |
 | `availability_schedules` | Weekly availability | day_of_week, start_time, end_time |
 | `schedule_overrides` | Day-off / special hours | override_date, is_available, reason |
@@ -745,9 +802,13 @@ packages/types --> @hvac-saas/database +
 | 6 | Quote Builder | + Done |
 | 7 | KPI Dashboard | + Done |
 | 8 | Booking Portal | + Done |
-| 9 | Calendar/Schedule View | - Not started (blocked by #8) |
+| 9 | Calendar/Schedule View | + Done |
 | 10 | Checklists | + Done |
-| 11 | Super Admin Panel | ~ Placeholder only |
+| 11 | Super Admin Panel | + Done |
 | 12 | Email Templates | - Not started (blocked by #8) |
 | 13 | Affiliate Program | - Not started (blocked by #11) |
 | 14 | Settings | + Done (except Billing tab) |
+| 15 | Equipment/Assets | + Done |
+| 16 | Service Agreements | + Done |
+| 17 | Team Management | + Done |
+| 18 | Email Templates | + Done |

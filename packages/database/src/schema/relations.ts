@@ -169,6 +169,7 @@ export const equipmentRelations = relations(equipment, ({ one, many }) => ({
   }),
   refrigerantLogs: many(refrigerantLogs),
   maintenanceContracts: many(maintenanceContracts),
+  jobs: many(jobs),
 }));
 
 export const refrigerantLogsRelations = relations(
@@ -181,6 +182,10 @@ export const refrigerantLogsRelations = relations(
     equipment: one(equipment, {
       fields: [refrigerantLogs.equipmentId],
       references: [equipment.id],
+    }),
+    job: one(jobs, {
+      fields: [refrigerantLogs.jobId],
+      references: [jobs.id],
     }),
   }),
 );
@@ -225,6 +230,10 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   customer: one(customers, {
     fields: [jobs.customerId],
     references: [customers.id],
+  }),
+  equipment: one(equipment, {
+    fields: [jobs.equipmentId],
+    references: [equipment.id],
   }),
   lineItems: many(jobLineItems),
   photos: many(jobPhotos),
