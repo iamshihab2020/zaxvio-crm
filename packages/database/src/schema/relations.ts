@@ -35,6 +35,12 @@ import { quoteActivities } from "./quote-activities";
 import { tags, customerTags } from "./tags";
 import { jobPipelineStages } from "./pipeline-stages";
 import { calendarEvents } from "./calendar-events";
+import {
+  notifications,
+  notificationReads,
+  notificationChannelConfig,
+  notificationDeliveries,
+} from "./notifications";
 
 // --- Better Auth: User relations ---
 export const userRelations = relations(user, ({ many }) => ({
@@ -106,6 +112,8 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   platformEvents: many(platformEvents),
   jobPipelineStages: many(jobPipelineStages),
   calendarEvents: many(calendarEvents),
+  notifications: many(notifications),
+  notificationChannelConfigs: many(notificationChannelConfig),
 }));
 
 // --- Subscription relations ---
@@ -567,6 +575,61 @@ export const jobPipelineStagesRelations = relations(
     tenant: one(tenants, {
       fields: [jobPipelineStages.tenantId],
       references: [tenants.id],
+    }),
+  }),
+);
+
+// --- Notification relations ---
+export const notificationsRelations = relations(
+  notifications,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [notifications.tenantId],
+      references: [tenants.id],
+    }),
+    actor: one(user, {
+      fields: [notifications.actorId],
+      references: [user.id],
+    }),
+    reads: many(notificationReads),
+    deliveries: many(notificationDeliveries),
+  }),
+);
+
+export const notificationReadsRelations = relations(
+  notificationReads,
+  ({ one }) => ({
+    notification: one(notifications, {
+      fields: [notificationReads.notificationId],
+      references: [notifications.id],
+    }),
+    user: one(user, {
+      fields: [notificationReads.userId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const notificationChannelConfigRelations = relations(
+  notificationChannelConfig,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [notificationChannelConfig.tenantId],
+      references: [tenants.id],
+    }),
+    user: one(user, {
+      fields: [notificationChannelConfig.userId],
+      references: [user.id],
+    }),
+  }),
+);
+
+export const notificationDeliveriesRelations = relations(
+  notificationDeliveries,
+  ({ one }) => ({
+    notification: one(notifications, {
+      fields: [notificationDeliveries.notificationId],
+      references: [notifications.id],
     }),
   }),
 );

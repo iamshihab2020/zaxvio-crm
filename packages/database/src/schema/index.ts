@@ -26,6 +26,7 @@ export * from "./job-activities";
 export * from "./quote-activities";
 export * from "./tags";
 export * from "./calendar-events";
+export * from "./notifications";
 
 // Relations
 export * from "./relations";

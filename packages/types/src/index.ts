@@ -19,3 +19,4 @@ export * from "./job-activity.js";
 export * from "./tag.js";
 export * from "./pipeline-stage.js";
 export * from "./dashboard.js";
+export * from "./notification.js";

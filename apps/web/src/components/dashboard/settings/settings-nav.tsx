@@ -11,6 +11,7 @@ import {
   IconFileDescription,
   IconCalendarEvent,
   IconCreditCard,
+  IconBell,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useOrgRole } from "@/hooks/use-org-role";
@@ -41,6 +42,7 @@ const navGroups: NavGroup[] = [
     label: "Account",
     items: [
       { label: "Profile", href: "/settings/profile", icon: IconUser },
+      { label: "Notifications", href: "/settings/notifications", icon: IconBell },
     ],
   },
   {

@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { IconBell, IconSettings, IconLogout } from "@tabler/icons-react";
+import { IconSettings, IconLogout } from "@tabler/icons-react";
+import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
 import { useSession, signOut } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -89,11 +90,7 @@ export function Navbar() {
       <div className="flex items-center gap-1">
         <ThemeToggle />
 
-        <Button variant="ghost" size="icon" className="relative">
-          <IconBell className="h-[18px] w-[18px]" stroke={1.5} />
-          <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-brand" />
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <NotificationBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

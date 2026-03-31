@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
+import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   jobs,
@@ -605,6 +606,17 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         description: `Status changed from ${existing.status} to ${body.status}`,
         metadata: { from: existing.status, to: body.status },
         performedBy: userId,
+      });
+
+      dispatchNotification({
+        tenantId,
+        type: "job_status_changed",
+        title: `Job ${existing.jobNumber ?? ""} moved to ${body.status}`,
+        description: `Job status changed from ${existing.status} to ${body.status}`,
+        entityType: "job",
+        entityId: id,
+        actorId: userId,
+        metadata: { jobNumber: existing.jobNumber, from: existing.status, to: body.status },
       });
 
       // E-05: Job completion email to customer (fire-and-forget)

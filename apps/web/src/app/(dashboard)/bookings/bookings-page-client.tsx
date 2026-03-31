@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Booking } from "@hvac-saas/types";
 import { getBookings, updateBooking, cancelBooking, convertBookingToJob } from "@/actions/bookings";
@@ -49,6 +49,7 @@ interface PaginationInfo {
 
 export function BookingsPageClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -60,9 +61,10 @@ export function BookingsPageClient() {
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState({ pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
 
-  // Sheet / Dialog state
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  // Sheet / Dialog state — auto-open from URL param (e.g., notification click)
+  const bookingIdParam = searchParams.get("bookingId");
+  const [sheetOpen, setSheetOpen] = useState(!!bookingIdParam);
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(bookingIdParam);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelId, setCancelId] = useState<string | null>(null);
   const [cancelLoading, setCancelLoading] = useState(false);

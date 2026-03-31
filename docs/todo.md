@@ -137,14 +137,30 @@ Priority order based on PRD feature dependencies:
 
 ## Upcoming
 
-Items not yet started (next up from Build Order above):
+Items not yet started (next up):
 
-- [ ] **Affiliate Program** (#13) — Lemon Squeezy integration, referral tracking, affiliate dashboard
-- [ ] **Billing/Subscription** — Lemon Squeezy subscription management in settings
-- [ ] **Notifications** — In-app notification system (bell icon is placeholder)
+- [x] **Multi-Channel Notifications** — Real-time in-app (Supabase Realtime) + email channel now, SMS/Voice stubs for later
+  - [x] DB: 4 tables (notifications, notification_reads, notification_channel_config, notification_deliveries) + 3 enums
+  - [x] Migration: `20260401000001_add_notifications.sql` (fully idempotent)
+  - [x] Backend: `dispatchNotification()` fire-and-forget service with channel adapters (in-app + email now, SMS/Voice stubs)
+  - [x] API: 6 endpoints (GET list, GET unread-count, PATCH read, PATCH read-all, GET/PATCH preferences)
+  - [x] Integration: Wired into 5 routes (customers, jobs, invoices, quotes, public booking)
+  - [x] Frontend: `useNotifications()` hook with Supabase Realtime subscription
+  - [x] UI: NotificationBell dropdown (Popover + ScrollArea + Skeleton), replaces placeholder in navbar
+  - [x] Settings: Notification preferences page with Table×Switch grid, SMS/Voice disabled with "Coming soon" tooltips
+  - **Files**: 13 new, ~12 modified
 - [ ] **Reports/Analytics** — Tenant-level reporting (revenue, job completion rates)
 - [ ] **Asset picker integration into Job create/edit dialog** — frontend wiring for equipmentId selection
 - [ ] **Equipment reference on Quote create** — optional equipmentId FK on quotes
+- _(More features TBD — will be added here as planned)_
+
+## Last (Do These After All Other Features)
+
+> **Billing & Affiliate depend on Lemon Squeezy and will be the very last items built in Phase 1.** Many features will be added before these.
+
+- [ ] **Billing/Subscription** — Lemon Squeezy subscription management in settings
+- [ ] **Affiliate Program** (#13) — Lemon Squeezy integration, referral tracking, affiliate dashboard
+- [ ] **Deferred Emails** — E-01 Welcome (needs org creation refactor), E-11 Welcome Paid (needs LemonSqueezy webhook)
 
 ## Recently Completed (Latest)
 

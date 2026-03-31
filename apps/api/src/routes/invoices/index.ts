@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   invoices,
@@ -803,6 +804,17 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
           updatedAt: new Date(),
         })
         .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)));
+
+      dispatchNotification({
+        tenantId,
+        type: "invoice_paid",
+        title: `Payment of $${parseFloat(String(body.amount)).toFixed(2)} received`,
+        description: `Payment recorded for invoice ${inv.invoiceNumber ?? id}${newStatus === "paid" ? " — fully paid" : ""}`,
+        entityType: "invoice",
+        entityId: id,
+        actorId: request.authUser.userId,
+        metadata: { invoiceNumber: inv.invoiceNumber, amount: body.amount, newStatus },
+      });
 
       // E-08: Payment receipt + E-12: Review request (fire-and-forget)
       {

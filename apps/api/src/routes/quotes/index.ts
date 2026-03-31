@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   quotes,
@@ -1045,7 +1046,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
       const db = getDb();
 
       const q = await db
-        .select({ id: quotes.id, status: quotes.status })
+        .select({ id: quotes.id, status: quotes.status, quoteNumber: quotes.quoteNumber })
         .from(quotes)
         .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
         .then((r) => r[0]);
@@ -1071,6 +1072,17 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
 
       await logQuoteActivity(db, tenantId, id, "quote.accepted", "Quote accepted", request.authUser.userId);
 
+      dispatchNotification({
+        tenantId,
+        type: "quote_accepted",
+        title: `Quote ${q.quoteNumber ?? ""} accepted`,
+        description: `Quote has been accepted`,
+        entityType: "quote",
+        entityId: id,
+        actorId: request.authUser.userId,
+        metadata: { quoteNumber: q.quoteNumber },
+      });
+
       return reply.send({ data: updated });
     },
   );
@@ -1088,7 +1100,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
       const db = getDb();
 
       const q = await db
-        .select({ id: quotes.id, status: quotes.status })
+        .select({ id: quotes.id, status: quotes.status, quoteNumber: quotes.quoteNumber })
         .from(quotes)
         .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
         .then((r) => r[0]);
@@ -1113,6 +1125,17 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         .returning();
 
       await logQuoteActivity(db, tenantId, id, "quote.declined", "Quote declined", request.authUser.userId);
+
+      dispatchNotification({
+        tenantId,
+        type: "quote_declined",
+        title: `Quote ${q.quoteNumber ?? ""} declined`,
+        description: `Quote has been declined`,
+        entityType: "quote",
+        entityId: id,
+        actorId: request.authUser.userId,
+        metadata: { quoteNumber: q.quoteNumber },
+      });
 
       return reply.send({ data: updated });
     },

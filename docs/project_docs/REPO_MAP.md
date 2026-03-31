@@ -100,6 +100,7 @@ apps/api/
 |   |   +-- admin-audit.ts        # logAdminAction() — append-only audit log helper
 |   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
 |   |   +-- platform-events.ts    # emitPlatformEvent() — fire-and-forget activity tracking
+|   |   +-- notifications.ts      # dispatchNotification() — multi-channel dispatch (in-app, email, SMS stub, voice stub)
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
 |   |   +-- pdf/
@@ -143,6 +144,8 @@ apps/api/
 |   |   |   +-- index.ts          # CRUD /equipment, sub-resource /equipment/:id/refrigerant-logs, /equipment/:id/history
 |   |   +-- maintenance-contracts/
 |   |   |   +-- index.ts          # CRUD /maintenance-contracts, GET /maintenance-contracts/expiring
+|   |   +-- notifications/
+|   |   |   +-- index.ts          # 6 endpoints: GET list, GET unread-count, PATCH read, PATCH read-all, GET/PATCH preferences
 |   |   +-- admin/                 # Super admin API routes (prefix: /admin)
 |   |   |   +-- index.ts          # Master plugin, registers sub-routes
 |   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
@@ -227,6 +230,7 @@ apps/web/
     |   +-- invoices.ts
     |   +-- jobs.ts
     |   +-- maintenance-contracts.ts  # Service agreement CRUD + expiring
+    |   +-- notifications.ts      # 6 actions: list, unread-count, mark-read, mark-all-read, get/update preferences
     |   +-- pipeline-stages.ts
     |   +-- quotes.ts
     |   +-- tags.ts
@@ -234,6 +238,7 @@ apps/web/
     |
     +-- hooks/
     |   +-- use-view-preference.ts   # Persist Kanban/Table view toggle
+    |   +-- use-notifications.ts     # Real-time notification hook (Supabase broadcast + server actions)
     |
     +-- lib/
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
@@ -311,6 +316,11 @@ apps/web/
     |   |   +-- impersonation-bar.tsx # Admin-only floating bar during impersonation (exit button + timer)
     |   |   +-- impersonation-request-listener.tsx # Tenant-side: realtime listener + permission dialog for visible impersonation
     |   |   +-- impersonation-active-indicator.tsx # Tenant-side: "admin is viewing" bar during visible impersonation
+    |   |   +-- notifications/       # Notification bell dropdown components
+    |   |   |   +-- notification-bell.tsx    # Popover dropdown with real-time updates
+    |   |   |   +-- notification-item.tsx    # Single notification row with icon, title, time, unread dot
+    |   |   |   +-- notification-header.tsx  # Header with "Mark all as read" button
+    |   |   |   +-- notification-empty.tsx   # Empty state (IconBellOff)
     |   |   +-- sidebar.tsx          # Side navigation (incl. Bookings link)
     |   |   +-- sidebar-provider.tsx # Sidebar state context
     |   |   +-- sidebar-nav-item.tsx # Nav item component
@@ -630,6 +640,7 @@ packages/database/
         +-- schedule.ts           # availabilitySchedules, scheduleOverrides tables
         +-- checklists.ts         # checklistTemplates, checklistItems, jobChecklistCompletions tables
         +-- pipeline-stages.ts    # jobPipelineStages table (per-tenant Kanban config)
+        +-- notifications.ts      # notifications, notification_reads, notification_channel_config, notification_deliveries tables
         +-- tags.ts               # tags, customerTags tables
         +-- relations.ts          # All Drizzle relations() for query builder joins
 ```
@@ -664,6 +675,7 @@ packages/types/
     +-- tag.ts                # Tag, CustomerTag types
     +-- dashboard.ts          # DashboardStats + related metric interfaces
     +-- subscription.ts       # TenantSubscription, TenantSubscriptionInsert
+    +-- notification.ts       # Notification, NotificationRead, NotificationChannelConfig, NotificationDelivery, NotificationWithReadStatus
     +-- admin.ts              # AdminAuditLog, AdminImpersonationSession, PlatformEvent
 ```
 

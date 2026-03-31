@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
+import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   customers,
@@ -139,6 +140,17 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       });
 
       emitPlatformEvent(tenantId, "customer_created", userId);
+
+      dispatchNotification({
+        tenantId,
+        type: "customer_created",
+        title: `New customer: ${customer.firstName} ${customer.lastName}`,
+        description: `${customer.firstName} ${customer.lastName} was added to your customer list`,
+        entityType: "customer",
+        entityId: customer.id,
+        actorId: userId,
+        metadata: { customerName: `${customer.firstName} ${customer.lastName}` },
+      });
 
       return reply.status(201).send({ data: customer });
     },

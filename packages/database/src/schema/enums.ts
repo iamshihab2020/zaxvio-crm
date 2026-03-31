@@ -107,3 +107,28 @@ export const adminTierEnum = pgEnum("admin_tier", [
   "support",
   "billing_admin",
 ]);
+
+export const notificationTypeEnum = pgEnum("notification_type", [
+  "booking_received",
+  "job_status_changed",
+  "invoice_paid",
+  "customer_created",
+  "quote_accepted",
+  "quote_declined",
+  "invoice_overdue",
+  "team_member_joined",
+]);
+
+export const notificationChannelEnum = pgEnum("notification_channel", [
+  "in_app",
+  "email",
+  "sms",
+  "voice",
+]);
+
+export const deliveryStatusEnum = pgEnum("delivery_status", [
+  "pending",
+  "sent",
+  "delivered",
+  "failed",
+]);

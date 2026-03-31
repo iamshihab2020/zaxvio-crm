@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
+import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   tenants,
@@ -501,6 +502,22 @@ export default async function publicBookingRoutes(fastify: FastifyInstance) {
     if (!created) return;
 
     emitPlatformEvent(tenant.id, "booking_received", null);
+
+    dispatchNotification({
+      tenantId: tenant.id,
+      type: "booking_received",
+      title: `New booking from ${body.customerName ?? "a customer"}`,
+      description: `${body.serviceType ?? "Service"} booking for ${body.bookingDate ?? ""}${body.preferredTime ? ` at ${body.preferredTime}` : ""}`,
+      entityType: "booking",
+      entityId: created.id,
+      actorId: null,
+      metadata: {
+        customerName: body.customerName,
+        serviceType: body.serviceType,
+        bookingDate: body.bookingDate,
+        preferredTime: body.preferredTime,
+      },
+    });
 
     // E-02 + E-03: Booking confirmation emails (fire-and-forget)
     {
