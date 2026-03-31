@@ -77,6 +77,7 @@ export async function createQuote(data: {
   taxRate?: string;
   discountAmount?: string;
   notes?: string;
+  equipmentId?: string;
 }) {
   try {
     const res = await fetch(`${API_URL}/quotes`, {
@@ -110,6 +111,7 @@ export async function updateQuote(
     discountAmount?: string;
     customerId?: string;
     issuedDate?: string;
+    equipmentId?: string | null;
   },
 ) {
   try {

@@ -57,6 +57,10 @@ export interface QuoteDetail {
   notes: string | null;
   pdfStoragePath: string | null;
   customerId: string;
+  equipmentId: string | null;
+  equipmentType: string | null;
+  equipmentBrand: string | null;
+  equipmentModel: string | null;
   convertedToJobId: string | null;
   customerFirstName: string | null;
   customerLastName: string | null;

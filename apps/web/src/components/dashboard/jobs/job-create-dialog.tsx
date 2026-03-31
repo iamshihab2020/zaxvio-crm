@@ -62,6 +62,7 @@ import {
   type CatalogPickerItem,
 } from "@/components/dashboard/catalog/catalog-item-picker";
 import { createCustomer } from "@/actions/customers";
+import { AssetPicker } from "@/components/dashboard/equipment/asset-picker";
 import { toast } from "sonner";
 import type { JobDetail } from "./job-detail-sheet";
 
@@ -87,6 +88,7 @@ export interface LineItemFormData {
 
 export interface JobFormData {
   customerId: string;
+  equipmentId: string;
   title: string;
   serviceType: string;
   priority: string;
@@ -121,6 +123,7 @@ const emptyItemForm: NewItemForm = {
 
 const emptyForm: Omit<JobFormData, "lineItems"> = {
   customerId: "",
+  equipmentId: "",
   title: "",
   serviceType: "repair",
   priority: "standard",
@@ -161,6 +164,7 @@ export function JobCreateDialog({
     if (job) {
       setForm({
         customerId: job.customerId,
+        equipmentId: job.equipmentId ?? "",
         title: job.title,
         serviceType: job.serviceType,
         priority: job.priority,
@@ -283,6 +287,7 @@ export function JobCreateDialog({
 
   function handleCustomerChange(selection: CustomerSelection | null) {
     setCustomerSelection(selection);
+    setForm((prev) => ({ ...prev, equipmentId: "" }));
     if (errors.customerId) {
       setErrors((prev) => ({ ...prev, customerId: undefined }));
     }
@@ -402,6 +407,24 @@ export function JobCreateDialog({
               )}
             </div>
           )}
+
+          {/* Asset picker */}
+          <div className="space-y-2">
+            <Label className="font-body">Equipment / Asset</Label>
+            <AssetPicker
+              customerId={
+                isEditing
+                  ? form.customerId
+                  : customerSelection?.type === "existing"
+                    ? customerSelection.id
+                    : null
+              }
+              value={form.equipmentId || null}
+              onChange={(id) =>
+                setForm((prev) => ({ ...prev, equipmentId: id ?? "" }))
+              }
+            />
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="title" className="font-body">

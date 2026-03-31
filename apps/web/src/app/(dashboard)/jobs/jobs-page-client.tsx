@@ -309,6 +309,7 @@ export function JobsPageClient() {
         address: data.address || undefined,
         taxRate: data.taxRate,
         notes: data.notes || undefined,
+        equipmentId: data.equipmentId || null,
       });
       if (result.error) {
         setError(result.error);
@@ -332,6 +333,7 @@ export function JobsPageClient() {
         taxRate: data.taxRate,
         notes: data.notes || undefined,
         status: data.status || undefined,
+        equipmentId: data.equipmentId || undefined,
       });
       if (result.error) {
         setError(result.error);

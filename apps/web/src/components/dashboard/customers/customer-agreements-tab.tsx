@@ -82,6 +82,7 @@ export function CustomerAgreementsTab({
         visitsPerYear: parseInt(data.visitsPerYear, 10) || 2,
         annualPrice: data.annualPrice ? parseFloat(data.annualPrice) : null,
         notes: data.notes || undefined,
+        equipmentId: data.equipmentId || null,
       });
       if (!result.error) {
         setDialogOpen(false);
@@ -99,6 +100,7 @@ export function CustomerAgreementsTab({
           ? parseFloat(data.annualPrice)
           : undefined,
         notes: data.notes || undefined,
+        equipmentId: data.equipmentId || undefined,
       });
       if (!result.error) {
         setDialogOpen(false);

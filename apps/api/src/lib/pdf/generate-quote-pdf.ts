@@ -44,12 +44,19 @@ export async function generateQuotePdf(
     quoteTermsConditions: string | null;
     quoteFooterMessage: string | null;
   } | null | undefined,
+  equipmentData?: {
+    equipmentType: string;
+    brand: string | null;
+    model: string | null;
+    serialNumber: string | null;
+  } | null,
 ): Promise<Buffer> {
   const element = React.createElement(QuotePdf, {
     quote,
     lineItems,
     customer: customer ?? null,
     tenant: tenant ?? null,
+    equipment: equipmentData ?? null,
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

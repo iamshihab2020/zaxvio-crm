@@ -11,6 +11,7 @@ import {
   IconCurrencyDollar,
   IconFileDescription,
   IconNote,
+  IconDevices2,
 } from "@tabler/icons-react";
 import {
   JOB_PRIORITY_LABELS,
@@ -130,6 +131,26 @@ export function JobInfoPanel({ job, stages }: JobInfoPanelProps) {
           </div>
         </div>
       </div>
+
+      {/* Equipment */}
+      {job.equipmentId && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading flex items-center gap-1.5">
+            <IconDevices2 className="h-3.5 w-3.5" />
+            Equipment
+          </h3>
+          <div className="rounded-md bg-muted/50 p-3">
+            <Link
+              href={`/assets/${job.equipmentId}`}
+              className="text-sm text-foreground font-body hover:text-brand transition-colors"
+            >
+              {[job.equipmentType, job.equipmentBrand, job.equipmentModel]
+                .filter(Boolean)
+                .join(" — ")}
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Location */}
       {job.address && (

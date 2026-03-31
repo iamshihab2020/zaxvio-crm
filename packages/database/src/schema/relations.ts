@@ -178,6 +178,7 @@ export const equipmentRelations = relations(equipment, ({ one, many }) => ({
   refrigerantLogs: many(refrigerantLogs),
   maintenanceContracts: many(maintenanceContracts),
   jobs: many(jobs),
+  quotes: many(quotes),
 }));
 
 export const refrigerantLogsRelations = relations(
@@ -336,6 +337,10 @@ export const quotesRelations = relations(quotes, ({ one, many }) => ({
   customer: one(customers, {
     fields: [quotes.customerId],
     references: [customers.id],
+  }),
+  equipment: one(equipment, {
+    fields: [quotes.equipmentId],
+    references: [equipment.id],
   }),
   convertedToJob: one(jobs, {
     fields: [quotes.convertedToJobId],

@@ -74,6 +74,10 @@ export interface JobDetail {
   totalAmount: string;
   notes: string | null;
   customerId: string;
+  equipmentId: string | null;
+  equipmentType: string | null;
+  equipmentBrand: string | null;
+  equipmentModel: string | null;
   customerFirstName: string | null;
   customerLastName: string | null;
   completedAt: string | null;

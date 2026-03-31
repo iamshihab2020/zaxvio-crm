@@ -76,7 +76,9 @@ export function AssetPicker({
       ]
         .filter(Boolean)
         .join(" — ")
-    : "Select asset...";
+    : !customerId
+      ? "Select a customer first"
+      : "Select asset...";
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -108,7 +110,9 @@ export function AssetPicker({
               </div>
             ) : (
               <>
-                <CommandEmpty>No assets found.</CommandEmpty>
+                <CommandEmpty>
+                  No assets found for this customer.
+                </CommandEmpty>
                 {value && (
                   <CommandItem
                     onSelect={() => {

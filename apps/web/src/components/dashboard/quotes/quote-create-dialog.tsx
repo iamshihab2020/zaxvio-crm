@@ -58,6 +58,7 @@ import {
   type CustomerSelection,
 } from "@/components/dashboard/customers/customer-picker";
 import { createCustomer } from "@/actions/customers";
+import { AssetPicker } from "@/components/dashboard/equipment/asset-picker";
 import { toast } from "sonner";
 
 export interface LineItemFormData {
@@ -70,6 +71,7 @@ export interface LineItemFormData {
 
 export interface QuoteFormData {
   customerId: string;
+  equipmentId: string;
   issuedDate: string;
   expiryDate: string;
   taxRate: string;
@@ -114,6 +116,7 @@ const emptyItemForm: NewItemForm = {
 
 const emptyForm: Omit<QuoteFormData, "lineItems"> = {
   customerId: "",
+  equipmentId: "",
   issuedDate: new Date().toISOString().split("T")[0],
   expiryDate: getDefaultExpiry(),
   taxRate: "0",
@@ -231,6 +234,7 @@ export function QuoteCreateDialog({
 
   function handleCustomerChange(selection: CustomerSelection | null) {
     setCustomerSelection(selection);
+    setForm((prev) => ({ ...prev, equipmentId: "" }));
     if (errors.customerId) {
       setErrors((prev) => ({ ...prev, customerId: undefined }));
     }
@@ -357,6 +361,22 @@ export function QuoteCreateDialog({
                       {errors.customerId}
                     </p>
                   )}
+                </div>
+
+                {/* Asset picker */}
+                <div className="space-y-2">
+                  <Label className="font-body text-muted-foreground">Equipment / Asset</Label>
+                  <AssetPicker
+                    customerId={
+                      customerSelection?.type === "existing"
+                        ? customerSelection.id
+                        : null
+                    }
+                    value={form.equipmentId || null}
+                    onChange={(id) =>
+                      setForm((prev) => ({ ...prev, equipmentId: id ?? "" }))
+                    }
+                  />
                 </div>
 
                 {/* Separator */}

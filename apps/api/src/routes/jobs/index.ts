@@ -249,11 +249,16 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           completedAt: jobs.completedAt,
           createdAt: jobs.createdAt,
           updatedAt: jobs.updatedAt,
+          equipmentId: jobs.equipmentId,
+          equipmentType: equipment.equipmentType,
+          equipmentBrand: equipment.brand,
+          equipmentModel: equipment.model,
           customerFirstName: customers.firstName,
           customerLastName: customers.lastName,
         })
         .from(jobs)
         .leftJoin(customers, eq(jobs.customerId, customers.id))
+        .leftJoin(equipment, eq(jobs.equipmentId, equipment.id))
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
         .then((r) => r[0]);
 

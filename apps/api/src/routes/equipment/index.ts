@@ -7,6 +7,7 @@ import {
   customers,
   customerActivities,
   jobs,
+  quotes,
   maintenanceContracts,
   eq,
   and,
@@ -550,7 +551,7 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: "Equipment not found" });
       }
 
-      const [serviceJobs, agreements, logs] = await Promise.all([
+      const [serviceJobs, agreements, relatedQuotes, logs] = await Promise.all([
         db
           .select({
             id: jobs.id,
@@ -593,6 +594,26 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
           )
           .orderBy(desc(maintenanceContracts.createdAt)),
         db
+          .select({
+            id: quotes.id,
+            quoteNumber: quotes.quoteNumber,
+            status: quotes.status,
+            issuedDate: quotes.issuedDate,
+            totalAmount: quotes.totalAmount,
+            customerFirstName: customers.firstName,
+            customerLastName: customers.lastName,
+          })
+          .from(quotes)
+          .leftJoin(customers, eq(quotes.customerId, customers.id))
+          .where(
+            and(
+              eq(quotes.tenantId, tenantId),
+              eq(quotes.equipmentId, id),
+            ),
+          )
+          .orderBy(desc(quotes.createdAt))
+          .limit(50),
+        db
           .select()
           .from(refrigerantLogs)
           .where(
@@ -609,6 +630,7 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
         data: {
           jobs: serviceJobs,
           agreements,
+          quotes: relatedQuotes,
           refrigerantLogs: logs,
         },
       });

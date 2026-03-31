@@ -14,6 +14,7 @@ import {
   checklistItems,
   catalogItems,
   customers,
+  equipment,
   tenants,
   eq,
   and,
@@ -261,11 +262,15 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
             convertedToJobId: quotes.convertedToJobId,
             createdAt: quotes.createdAt,
             updatedAt: quotes.updatedAt,
+            equipmentId: quotes.equipmentId,
+            equipmentType: equipment.equipmentType,
+            equipmentBrand: equipment.brand,
             customerFirstName: customers.firstName,
             customerLastName: customers.lastName,
           })
           .from(quotes)
           .leftJoin(customers, eq(quotes.customerId, customers.id))
+          .leftJoin(equipment, eq(quotes.equipmentId, equipment.id))
           .where(whereClause)
           .orderBy(orderFn(sortCol))
           .limit(limitNum)
@@ -322,6 +327,10 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           totalAmount: quotes.totalAmount,
           notes: quotes.notes,
           pdfStoragePath: quotes.pdfStoragePath,
+          equipmentId: quotes.equipmentId,
+          equipmentType: equipment.equipmentType,
+          equipmentBrand: equipment.brand,
+          equipmentModel: equipment.model,
           convertedToJobId: quotes.convertedToJobId,
           createdAt: quotes.createdAt,
           updatedAt: quotes.updatedAt,
@@ -333,6 +342,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         })
         .from(quotes)
         .leftJoin(customers, eq(quotes.customerId, customers.id))
+        .leftJoin(equipment, eq(quotes.equipmentId, equipment.id))
         .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
         .then((r) => r[0]);
 
@@ -437,6 +447,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           taxRate: taxRate ?? "0",
           discountAmount: (body.discountAmount as string) || "0",
           notes: (body.notes as string) || null,
+          equipmentId: (body.equipmentId as string) || null,
         })
         .returning();
 
@@ -521,6 +532,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         "discountAmount",
         "customerId",
         "issuedDate",
+        "equipmentId",
       ] as const;
 
       const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -840,8 +852,8 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           .send({ message: "Only draft quotes can be sent" });
       }
 
-      // Get line items, customer, tenant info
-      const [lineItems, customer, tenant] = await Promise.all([
+      // Get line items, customer, tenant, equipment info
+      const [lineItems, customer, tenant, equipmentData] = await Promise.all([
         db
           .select()
           .from(quoteLineItems)
@@ -862,6 +874,18 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           .from(tenants)
           .where(eq(tenants.id, tenantId))
           .then((r) => r[0]),
+        q.equipmentId
+          ? db
+              .select({
+                equipmentType: equipment.equipmentType,
+                brand: equipment.brand,
+                model: equipment.model,
+                serialNumber: equipment.serialNumber,
+              })
+              .from(equipment)
+              .where(eq(equipment.id, q.equipmentId))
+              .then((r) => r[0] ?? null)
+          : Promise.resolve(null),
       ]);
 
       // Validate line items exist
@@ -878,6 +902,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         lineItems,
         customer,
         tenant,
+        equipmentData,
       );
 
       // Upload to Supabase Storage
@@ -988,7 +1013,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
       }
 
       // Generate on-the-fly
-      const [lineItems, customer, tenant] = await Promise.all([
+      const [lineItems, customer, tenant, equipmentData] = await Promise.all([
         db
           .select()
           .from(quoteLineItems)
@@ -1009,6 +1034,18 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           .from(tenants)
           .where(eq(tenants.id, tenantId))
           .then((r) => r[0]),
+        q.equipmentId
+          ? db
+              .select({
+                equipmentType: equipment.equipmentType,
+                brand: equipment.brand,
+                model: equipment.model,
+                serialNumber: equipment.serialNumber,
+              })
+              .from(equipment)
+              .where(eq(equipment.id, q.equipmentId))
+              .then((r) => r[0] ?? null)
+          : Promise.resolve(null),
       ]);
 
       const { generateQuotePdf } = await import(
@@ -1019,6 +1056,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         lineItems,
         customer,
         tenant,
+        equipmentData,
       );
 
       return reply
@@ -1212,6 +1250,7 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
           scheduledDate: new Date().toISOString().split("T")[0],
           taxRate: q.taxRate ?? "0",
           serviceType: "repair" as never,
+          equipmentId: q.equipmentId ?? null,
         })
         .returning();
 

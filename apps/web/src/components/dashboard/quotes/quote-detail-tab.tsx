@@ -16,6 +16,7 @@ import {
   IconReceipt,
   IconNote,
   IconAlertTriangle,
+  IconDevices2,
 } from "@tabler/icons-react";
 
 function formatCurrency(val: string | null) {
@@ -54,6 +55,10 @@ interface QuoteDetailTabProps {
     discountAmount: string | null;
     totalAmount: string;
     notes: string | null;
+    equipmentId: string | null;
+    equipmentType: string | null;
+    equipmentBrand: string | null;
+    equipmentModel: string | null;
     customerFirstName: string | null;
     customerLastName: string | null;
     customerEmail: string | null;
@@ -243,6 +248,28 @@ export function QuoteDetailTab({
           )}
         </div>
       </div>
+
+      {/* Equipment */}
+      {quote.equipmentId && (
+        <div>
+          <div className="flex items-center gap-1.5 mb-2">
+            <IconDevices2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground font-body uppercase tracking-wider font-medium">
+              Equipment
+            </p>
+          </div>
+          <div className="rounded-md border border-border p-3">
+            <Link
+              href={`/assets/${quote.equipmentId}`}
+              className="text-sm font-medium font-body hover:text-brand transition-colors"
+            >
+              {[quote.equipmentType, quote.equipmentBrand, quote.equipmentModel]
+                .filter(Boolean)
+                .join(" — ")}
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Financial Summary */}
       <div>

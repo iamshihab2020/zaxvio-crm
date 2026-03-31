@@ -236,6 +236,12 @@ interface QuotePdfProps {
     quoteTermsConditions: string | null;
     quoteFooterMessage: string | null;
   } | null;
+  equipment: {
+    equipmentType: string;
+    brand: string | null;
+    model: string | null;
+    serialNumber: string | null;
+  } | null;
 }
 
 export function QuotePdf({
@@ -243,6 +249,7 @@ export function QuotePdf({
   lineItems,
   customer,
   tenant,
+  equipment,
 }: QuotePdfProps) {
   const taxPercent = parseFloat(quote.taxRate ?? "0") * 100;
   const hasTermsConditions = !!(tenant?.quoteTermsConditions ?? tenant?.invoiceTermsConditions);
@@ -326,6 +333,23 @@ export function QuotePdf({
             )}
           </View>
         </View>
+
+        {/* Equipment Info */}
+        {equipment && (
+          <View style={{ marginBottom: 16, padding: 8, backgroundColor: "#f8f8f8", borderRadius: 4 }}>
+            <Text style={styles.sectionLabel}>Equipment / Asset</Text>
+            <Text style={styles.metaText}>
+              {[equipment.equipmentType, equipment.brand, equipment.model]
+                .filter(Boolean)
+                .join(" — ")}
+            </Text>
+            {equipment.serialNumber && (
+              <Text style={styles.metaText}>
+                S/N: {equipment.serialNumber}
+              </Text>
+            )}
+          </View>
+        )}
 
         {/* Line Items Table */}
         <View style={styles.table}>

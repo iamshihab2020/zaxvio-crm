@@ -13,6 +13,7 @@ import { quoteStatusEnum, itemTypeEnum } from "./enums";
 import { tenants } from "./tenants";
 import { customers } from "./customers";
 import { jobs } from "./jobs";
+import { equipment } from "./equipment";
 import { catalogItems } from "./catalog";
 
 export const quotes = pgTable(
@@ -43,6 +44,9 @@ export const quotes = pgTable(
       .default("0"),
     notes: text("notes"),
     pdfStoragePath: text("pdf_storage_path"),
+    equipmentId: uuid("equipment_id").references(() => equipment.id, {
+      onDelete: "set null",
+    }),
     convertedToJobId: uuid("converted_to_job_id").references(() => jobs.id, {
       onDelete: "set null",
     }),

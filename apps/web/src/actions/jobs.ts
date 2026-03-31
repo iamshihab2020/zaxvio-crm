@@ -92,6 +92,7 @@ export async function createJob(data: {
   notes?: string;
   bookingId?: string;
   status?: string;
+  equipmentId?: string;
 }) {
   try {
     const res = await fetch(`${API_URL}/jobs`, {
@@ -129,6 +130,7 @@ export async function updateJob(
     address?: string;
     notes?: string;
     taxRate?: string;
+    equipmentId?: string | null;
   },
 ) {
   try {

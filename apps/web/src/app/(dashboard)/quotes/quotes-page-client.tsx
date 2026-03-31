@@ -183,6 +183,7 @@ export function QuotesPageClient() {
       taxRate: data.taxRate,
       discountAmount: data.discountAmount || undefined,
       notes: data.notes || undefined,
+      equipmentId: data.equipmentId || undefined,
     });
     if (result.error) {
       setSaving(false);

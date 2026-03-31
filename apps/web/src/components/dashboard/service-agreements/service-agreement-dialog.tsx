@@ -23,6 +23,7 @@ import {
   CustomerPicker,
   type CustomerSelection,
 } from "@/components/dashboard/customers/customer-picker";
+import { AssetPicker } from "@/components/dashboard/equipment/asset-picker";
 
 export interface AgreementFormData {
   contractName: string;
@@ -161,6 +162,22 @@ export function ServiceAgreementDialog({
               )}
             </div>
           )}
+
+          <div className="space-y-1">
+            <Label className="font-body">Equipment / Asset</Label>
+            <AssetPicker
+              customerId={
+                customerId ??
+                (customerSelection?.type === "existing"
+                  ? customerSelection.id
+                  : null)
+              }
+              value={form.equipmentId || null}
+              onChange={(id) =>
+                setForm({ ...form, equipmentId: id ?? "" })
+              }
+            />
+          </div>
 
           <div className="space-y-1">
             <Label className="font-body">Agreement Name *</Label>
