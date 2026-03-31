@@ -7,6 +7,8 @@ import {
   scheduleOverrides,
   bookings,
   customers,
+  member,
+  user,
   eq,
   and,
   or,
@@ -21,6 +23,7 @@ import {
   getMaxBookingDate,
   getDayOfWeek,
 } from "../../lib/timezone.js";
+import { env } from "../../lib/env.js";
 
 /** Resolve a tenant by slug. Returns null if not found or inactive. */
 async function resolveTenantBySlug(slug: string) {
@@ -498,6 +501,70 @@ export default async function publicBookingRoutes(fastify: FastifyInstance) {
     if (!created) return;
 
     emitPlatformEvent(tenant.id, "booking_received", null);
+
+    // E-02 + E-03: Booking confirmation emails (fire-and-forget)
+    {
+      const { sendBookingConfirmationEmail, sendNewBookingNotificationEmail } = await import("../../lib/email.js");
+
+      // Fetch full tenant info for emails (phone, address, owner email)
+      const fullTenant = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.id, tenant.id))
+        .then((r) => r[0]);
+
+      // Fetch owner email (creator of the organization)
+      const ownerMember = await db
+        .select({ userId: member.userId })
+        .from(member)
+        .where(and(eq(member.organizationId, fullTenant?.organizationId ?? ""), eq(member.role, "owner")))
+        .then((r) => r[0]);
+
+      const ownerUser = ownerMember
+        ? await db.select({ name: user.name, email: user.email }).from(user).where(eq(user.id, ownerMember.userId)).then((r) => r[0])
+        : null;
+
+      const bookingDateStr = new Date(body.bookingDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+      const serviceLabel = body.serviceType.charAt(0).toUpperCase() + body.serviceType.slice(1);
+
+      // E-02: Customer booking confirmation
+      if (trimmedEmail) {
+        sendBookingConfirmationEmail({
+          to: trimmedEmail,
+          props: {
+            customerName: trimmedName,
+            businessName: tenant.businessName ?? "HVAC Service",
+            businessLogoUrl: tenant.logoUrl ?? null,
+            businessPhone: fullTenant?.phone ?? null,
+            businessAddress: fullTenant?.address ?? null,
+            serviceType: serviceLabel,
+            bookingDate: bookingDateStr,
+            preferredTime: body.preferredTime,
+            address: trimmedAddress,
+            notes: body.description?.trim() || null,
+          },
+        }).catch((err) => console.error("[email] E-02 booking confirmation failed:", err));
+      }
+
+      // E-03: Owner notification
+      if (ownerUser?.email) {
+        sendNewBookingNotificationEmail({
+          to: ownerUser.email,
+          props: {
+            ownerName: ownerUser.name ?? "Owner",
+            customerName: trimmedName,
+            customerEmail: trimmedEmail,
+            customerPhone: trimmedPhone,
+            serviceType: serviceLabel,
+            bookingDate: bookingDateStr,
+            preferredTime: body.preferredTime,
+            address: trimmedAddress,
+            description: body.description?.trim() || null,
+            dashboardUrl: `${env.FRONTEND_URL}/bookings`,
+          },
+        }).catch((err) => console.error("[email] E-03 new booking notification failed:", err));
+      }
+    }
 
     return reply.status(201).send({
       data: {

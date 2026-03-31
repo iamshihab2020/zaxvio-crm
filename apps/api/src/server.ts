@@ -152,6 +152,10 @@ async function start() {
   server.log.info(
     `Swagger docs at http://localhost:${env.PORT}/docs`,
   );
+
+  // Start email cron jobs (E-07 overdue, E-09 contract renewal, E-10 trial expiry)
+  const { startEmailCronJobs } = await import("./lib/cron/email-cron.js");
+  startEmailCronJobs();
 }
 
 start();

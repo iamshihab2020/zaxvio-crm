@@ -110,11 +110,29 @@ Priority order based on PRD feature dependencies:
 | 13 | **Affiliate Program** | Lemon Squeezy integration, referral tracking, affiliate dashboard | #11 |
 | 14 | **Settings Page** | Profile, org management, team members, billing | #1 |
 
+## In Progress
+
+- [x] **Email Templates** (#12, ZAX-50) — 14 React Email templates (E-01 through E-13 + team invitation)
+  - [x] Phase 1: Package setup + 5 shared brand components (email-layout, brand-button, data-table, info-row, heading)
+  - [x] Phase 2: 14 template implementations (3 batches by route readiness)
+  - [x] Phase 3: API send functions (rewrite email.ts with 14 typed senders)
+  - [x] Phase 4: Route integration (invoice, quote, booking, job, auth)
+    - [x] E-06: Invoice send → `POST /invoices/:id/send`
+    - [x] E-08 + E-12: Payment receipt + review request → `POST /invoices/:id/payments`
+    - [x] E-13: Quote send → `POST /quotes/:id/send`
+    - [x] E-02 + E-03: Booking confirmation → `POST /public/booking/:slug/submit`
+    - [x] E-04: Booking confirmed → `POST /bookings/:id/convert-to-job`
+    - [x] E-05: Job completion → `PATCH /jobs/:id/status`
+    - [ ] E-01: Welcome (auth hook — deferred, needs org creation refactor)
+    - [ ] E-11: Welcome paid (deferred — requires LemonSqueezy webhook)
+  - [x] Phase 5: DB migration (3 idempotency timestamp columns)
+  - [x] Phase 6: Cron jobs (E-07 overdue, E-09 contract renewal, E-10 trial expiry) — 6h interval + startup run
+  - **Team invitation migrated** from inline HTML to React Email template
+
 ## Upcoming
 
 Items not yet started (next up from Build Order above):
 
-- [ ] **Email Templates** (#12) — React Email templates (invoice, quote, booking confirm, review request)
 - [ ] **Affiliate Program** (#13) — Lemon Squeezy integration, referral tracking, affiliate dashboard
 - [ ] **Billing/Subscription** — Lemon Squeezy subscription management in settings
 - [ ] **Notifications** — In-app notification system (bell icon is placeholder)

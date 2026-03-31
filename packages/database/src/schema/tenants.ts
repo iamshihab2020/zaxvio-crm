@@ -39,6 +39,9 @@ export const tenants = pgTable(
     quoteTermsConditions: text("quote_terms_conditions"),
     quoteFooterMessage: text("quote_footer_message"),
     referralSource: referralSourceEnum("referral_source").default("organic"),
+    trialExpiryEmailSentAt: timestamp("trial_expiry_email_sent_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

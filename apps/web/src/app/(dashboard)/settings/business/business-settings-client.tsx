@@ -18,6 +18,7 @@ export interface TenantData {
   zipCode: string | null;
   defaultTaxRate: string | null;
   googleReviewUrl: string | null;
+  logoUrl: string | null;
   timezone: string | null;
   licenseNumber: string | null;
   invoicePaymentTerms: string | null;

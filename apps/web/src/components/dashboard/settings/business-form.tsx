@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IconBuilding, IconSettings } from "@tabler/icons-react";
+import { IconBuilding, IconSettings, IconPhoto, IconTrash, IconUpload } from "@tabler/icons-react";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
-import { updateTenant } from "@/actions/tenants";
+import { updateTenant, uploadLogo, removeLogo } from "@/actions/tenants";
 
 interface BusinessFormProps {
   tenant: {
@@ -21,11 +21,75 @@ interface BusinessFormProps {
     zipCode: string | null;
     defaultTaxRate: string | null;
     googleReviewUrl: string | null;
+    logoUrl: string | null;
   };
   onSaved?: (updated: Record<string, unknown>) => void;
 }
 
 export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
+  const [logoPreview, setLogoPreview] = useState<string | null>(tenant.logoUrl);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [removingLogo, setRemovingLogo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setMessage({ type: "error", text: "Please select an image file." });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setMessage({ type: "error", text: "Logo must be under 2MB." });
+      return;
+    }
+
+    setUploadingLogo(true);
+    setMessage(null);
+
+    // Convert to base64
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = (reader.result as string).split(",")[1];
+      const result = await uploadLogo({
+        base64,
+        filename: file.name,
+        mimeType: file.type,
+      });
+
+      if (result.error) {
+        setMessage({ type: "error", text: result.error });
+      } else {
+        const newUrl = (result.data as Record<string, unknown>)?.logoUrl as string;
+        setLogoPreview(newUrl);
+        setMessage({ type: "success", text: "Logo uploaded." });
+        if (result.data) onSaved?.(result.data as Record<string, unknown>);
+      }
+      setUploadingLogo(false);
+    };
+    reader.readAsDataURL(file);
+
+    // Reset input so same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  async function handleRemoveLogo() {
+    setRemovingLogo(true);
+    setMessage(null);
+
+    const result = await removeLogo();
+    if (result.error) {
+      setMessage({ type: "error", text: result.error });
+    } else {
+      setLogoPreview(null);
+      setMessage({ type: "success", text: "Logo removed." });
+      if (result.data) onSaved?.(result.data as Record<string, unknown>);
+    }
+    setRemovingLogo(false);
+  }
+
   const [form, setForm] = useState({
     businessName: tenant.businessName,
     ownerName: tenant.ownerName,
@@ -112,6 +176,69 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
 
   return (
     <form onSubmit={handleSave} className="space-y-6">
+      {/* Logo Upload */}
+      <SettingsSection
+        icon={IconPhoto}
+        title="Business Logo"
+        description="Your logo appears on invoices, quotes, emails, and your booking page."
+      >
+        <div className="flex items-center gap-6">
+          {/* Preview */}
+          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 border-dashed border-border bg-muted/50">
+            {logoPreview ? (
+              <img
+                src={logoPreview}
+                alt="Business logo"
+                className="h-full w-full object-contain"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center">
+                <IconPhoto className="h-8 w-8 text-muted-foreground/40" />
+              </div>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoSelect}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingLogo}
+              >
+                <IconUpload className="mr-1.5 h-3.5 w-3.5" />
+                {uploadingLogo ? "Uploading..." : logoPreview ? "Change" : "Upload"}
+              </Button>
+              {logoPreview && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveLogo}
+                  disabled={removingLogo}
+                  className="text-destructive hover:text-destructive"
+                >
+                  <IconTrash className="mr-1.5 h-3.5 w-3.5" />
+                  {removingLogo ? "Removing..." : "Remove"}
+                </Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              PNG, JPG, or SVG. Max 2MB. Square logos work best.
+            </p>
+          </div>
+        </div>
+      </SettingsSection>
+
       <SettingsSection
         icon={IconBuilding}
         title="Business Information"

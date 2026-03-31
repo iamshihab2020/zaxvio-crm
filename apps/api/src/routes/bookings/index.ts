@@ -7,6 +7,7 @@ import {
   bookings,
   jobs,
   customers,
+  tenants,
   jobActivities,
   jobPipelineStages,
   eq,
@@ -374,6 +375,28 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       });
 
       emitPlatformEvent(tenantId, "booking_received", userId);
+
+      // E-04: Booking confirmed email to customer (fire-and-forget)
+      if (booking.customerEmail) {
+        const { sendBookingConfirmedEmail } = await import("../../lib/email.js");
+        const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]);
+        const serviceLabel = booking.serviceType.charAt(0).toUpperCase() + booking.serviceType.slice(1);
+
+        sendBookingConfirmedEmail({
+          to: booking.customerEmail,
+          props: {
+            customerName: booking.customerName,
+            businessName: tenant?.businessName ?? "HVAC Service",
+            businessLogoUrl: tenant?.logoUrl ?? null,
+            businessPhone: tenant?.phone ?? null,
+            businessAddress: tenant?.address ?? null,
+            serviceType: serviceLabel,
+            scheduledDate: new Date(booking.bookingDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+            scheduledTime: booking.preferredTime,
+            address: booking.address,
+          },
+        }).catch((err) => console.error("[email] E-04 booking confirmed failed:", err));
+      }
 
       return reply.status(201).send({ data: job });
     },

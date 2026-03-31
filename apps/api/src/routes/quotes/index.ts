@@ -905,6 +905,42 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
 
       await logQuoteActivity(db, tenantId, id, "quote.sent", "Quote sent", request.authUser.userId);
 
+      // E-13: Send quote email with PDF attachment (fire-and-forget)
+      if (customer?.email) {
+        const { sendQuoteEmail } = await import("../../lib/email.js");
+        sendQuoteEmail({
+          to: customer.email,
+          props: {
+            customerName: `${customer.firstName} ${customer.lastName}`.trim(),
+            businessName: tenant?.businessName ?? "HVAC Service",
+            businessLogoUrl: tenant?.logoUrl ?? null,
+            businessPhone: tenant?.phone ?? null,
+            businessAddress: tenant?.address ?? null,
+            quoteNumber: q.quoteNumber ?? `QT-${q.id.slice(0, 8)}`,
+            issuedDate: q.issuedDate
+              ? new Date(q.issuedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
+            expiryDate: q.expiryDate
+              ? new Date(q.expiryDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+              : "30 days",
+            lineItems: lineItems.map((li) => ({
+              description: li.description ?? "",
+              quantity: Number(li.quantity ?? 1),
+              unitPrice: Number(li.unitPrice ?? 0),
+              total: Number(li.total ?? 0),
+            })),
+            subtotal: Number(q.subtotal ?? 0),
+            taxAmount: Number(q.taxAmount ?? 0),
+            discountAmount: Number(q.discountAmount ?? 0),
+            totalAmount: Number(q.totalAmount ?? 0),
+          },
+          pdf: {
+            buffer: Buffer.from(pdfBuffer),
+            filename: `${q.quoteNumber ?? "estimate"}.pdf`,
+          },
+        }).catch((err) => console.error("[email] E-13 quote send failed:", err));
+      }
+
       return reply.send({ data: updated });
     },
   );

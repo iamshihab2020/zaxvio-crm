@@ -77,6 +77,7 @@ export async function updateTenant(data: {
   zipCode?: string;
   defaultTaxRate?: string;
   googleReviewUrl?: string;
+  logoUrl?: string;
   timezone?: string;
   licenseNumber?: string;
   invoicePaymentTerms?: string;
@@ -100,6 +101,60 @@ export async function updateTenant(data: {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return { data: null, error: err.message ?? "Failed to update tenant" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+// ── Logo Upload ─────────────────────────
+
+export async function uploadLogo(data: {
+  base64: string;
+  filename: string;
+  mimeType: string;
+}) {
+  try {
+    const res = await fetch(`${API_URL}/tenants/current/logo`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({
+        data: data.base64,
+        filename: data.filename,
+        mimeType: data.mimeType,
+      }),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to upload logo" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function removeLogo() {
+  try {
+    const res = await fetch(`${API_URL}/tenants/current/logo`, {
+      method: "DELETE",
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to remove logo" };
     }
 
     const json = await res.json();
