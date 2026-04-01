@@ -1,48 +1,54 @@
-# [CLAUDE.md](http://CLAUDE.md)
+# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Strict Rules (MUST FOLLOW)
+---
 
-1. **Read PRD & Architecture docs** before any major feature or architectural task:
-  - `docs/project_doc/HVAC_SaaS_Phase1_PRD_v2.md` — Product requirements, features, timeline, business logic
-  - `docs/project_doc/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` — System diagrams, auth flow, data architecture
-2. **Read & update `docs/todo.md` and `docs/lessons.md` throughout work** — not just at the end:
-  - **BEFORE** starting any task — read both files for context and to avoid past mistakes
-  - **DURING** work — re-read lessons when hitting bugs/errors; check todo for tracked issues
-  - **CONTINUOUSLY** — update as you go: move completed items to Done, add new tasks to Upcoming, append lessons immediately when learned
-3. **`docs/project_docs/REPO_MAP.md` is the single source of truth for project structure:**
-  - **READ FIRST** — Before planning, searching, or exploring the codebase, always read the repo map first. It tells you exactly where every file, route, component, schema, and action lives. This is faster than Glob/Grep.
-  - **UPDATE ALWAYS** — Whenever files/folders are created, renamed, moved, or deleted (new routes, components, schema files, actions, migrations, etc.), update the repo map in the same commit.
-4. **All migration SQL must be idempotent** — use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`.
-5. **All `.md` files except `CLAUDE.md` live in `docs/`**.
-6. **Component Organization (STRICTLY FOLLOW)**:
-  - **NEVER** place components inside route/page folders (e.g., `app/(dashboard)/customers/components/` is FORBIDDEN).
-  - All dashboard-related components live under `apps/web/src/components/dashboard/`.
-  - **Entity-specific components**: Create a subfolder per entity — e.g., `components/dashboard/customers/` for customer page components (`customer-table.tsx`, `customer-dialog.tsx`, etc.).
-  - **Reusable components**: If a component can be shared across multiple entities (pagination, empty states, delete dialogs, table skeletons), place it in `components/dashboard/reusable/` (create the folder if it doesn't exist).
-  - **Route files only** in route folders: Only `page.tsx` and `*-page-client.tsx` stay in `app/(dashboard)/<entity>/`. They import components from `@/components/dashboard/`.
-  - **UI primitives** (shadcn) stay in `apps/web/src/components/ui/`.
+## Reference Documents (READ BEFORE MAJOR WORK)
 
-7. **NEVER use `as any` or `as unknown`** — Always use proper types. Define interfaces/types for all data structures. Use generics where needed. If a third-party API returns untyped data, define a type for its shape and assert to that specific type (`as MyType`), never `as any` or `as unknown`. No exceptions.
+These docs are the source of truth. Read the relevant ones before starting any task.
 
-8. **Read memory files at session start** — `scripts/memory/recent-memory.md` + `scripts/memory/project-memory.md` for recent context; reference `scripts/memory/long-term-memory.md` for architecture/library decisions.
-
-8. **`docs/API_DOCUMENTATION.md` is the single source of truth for API endpoints:**
-  - **READ** when working on frontend actions, API client calls, server actions, or any task that interacts with the API — consult this doc to know exact endpoints, request/response shapes, auth requirements, and query parameters.
-  - **UPDATE ALWAYS** — Whenever a new API endpoint is added, modified, or removed, update `docs/API_DOCUMENTATION.md` in the same commit. Follow the existing format exactly:
-    - Add the endpoint under the correct feature group (or create a new group if needed)
-    - Include: HTTP method, path, auth level, request body with field table, query parameters (if GET), and a realistic demo JSON response
-    - Update the Table of Contents if a new section is added
-    - Update the Enums & Constants section if new enum values are introduced
+| Document | Purpose | When to Read | When to Update |
+|----------|---------|--------------|----------------|
+| `docs/project_docs/HVAC_SaaS_Phase1_PRD_v2.md` | Product requirements, features, business logic | Before any major feature or architectural task | When features are added/changed |
+| `docs/project_docs/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` | System diagrams, auth flow, data architecture | Before auth or architecture work | When architecture changes |
+| `docs/project_docs/HVAC_Saas_Proposal.md` | Business proposal, market strategy, profit projections | Before business-facing decisions | When platform scope changes |
+| `docs/project_docs/REPO_MAP.md` | **Single source of truth for project structure** — every file, route, component, schema, action | **READ FIRST** before planning, searching, or exploring. Faster than Glob/Grep | **UPDATE ALWAYS** when files/folders are created, renamed, moved, or deleted |
+| `docs/todo.md` | Task tracking (plan, progress, done) | Before starting any task; during work to track progress | Continuously — move items to Done, add new tasks |
+| `docs/lessons.md` | Non-obvious insights, patterns, mistakes | Before starting work; when hitting bugs/errors | After ANY user correction or hard-won insight |
+| `docs/API_DOCUMENTATION.md` | API endpoint reference (methods, paths, request/response shapes) | When working on frontend actions, server actions, or API routes | When any API endpoint is added, modified, or removed |
 
 > **Skill**: If the file `skills/consolidate-memory.md` exists locally, follow its methodology whenever consolidating session memory.
+
+> **Skill**: Use `.claude/skills/planner.md` **PROACTIVELY** whenever the user requests feature implementation, architectural changes, or complex refactoring. Enter plan mode, follow the planner skill's format (Overview → Requirements → Architecture Changes → Phased Implementation Steps with file paths → Testing Strategy → Risks → Success Criteria), and write the plan to `docs/todo.md` before writing any code.
+
+---
+
+## Strict Rules (MUST FOLLOW)
+
+1. **All migration SQL must be idempotent** — use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`. See PRD for full pattern reference.
+2. **All `.md` files except `CLAUDE.md` live in `docs/`**.
+3. **Component Organization**:
+   - **NEVER** place components inside route/page folders (e.g., `app/(dashboard)/customers/components/` is FORBIDDEN)
+   - Entity-specific components: `components/dashboard/<entity>/` (e.g., `components/dashboard/customers/`)
+   - Reusable components: `components/dashboard/reusable/` (EmptyState, DeleteConfirmDialog, Pagination, TableSkeleton, StatsCards, ConfirmActionDialog)
+   - Route files only in route folders: `page.tsx` and `*-page-client.tsx` — they import from `@/components/dashboard/`
+   - UI primitives (shadcn): `apps/web/src/components/ui/`
+4. **NEVER use `as any` or `as unknown`** — define proper types/interfaces. For untyped third-party data, assert to a specific type (`as MyType`), never `as any`.
+5. **Maximize shadcn/ui and reusable components** — always check `components/ui/` and `components/dashboard/reusable/` before building anything. Install missing shadcn components via `npx shadcn@latest add <component>` from `apps/web/`. Never hand-roll HTML when a shadcn equivalent exists. Never duplicate UI patterns.
+6. **Keep the chatbot knowledge base up to date** — `apps/web/src/lib/chatbot/knowledge-base.ts` contains all FAQ entries. Update in the same commit when features change. Use industry-agnostic language.
+7. **Never use `template.tsx` for route group layouts** — causes remount on every navigation, breaks browser history. Always use `layout.tsx`.
+8. **Housekeeping on every change** — When adding, modifying, or removing anything (new routes, components, schema files, actions, API endpoints, migrations, etc.), update **all** of these in the same commit:
+   - `docs/project_docs/REPO_MAP.md` — add/remove/rename file entries
+   - `docs/API_DOCUMENTATION.md` — add/update/remove endpoint docs (method, path, auth, request/response shapes)
+   - `apps/web/src/lib/chatbot/knowledge-base.ts` — add/edit/remove FAQ entries for affected features
+   - `docs/todo.md` — mark completed items, add new tasks if needed
 
 ---
 
 ## Memory System
 
-Three-tier persistent memory that complements `docs/todo.md`, `docs/lessons.md`, and `MEMORY.md`:
+Three-tier persistent memory that complements `docs/todo.md`, `docs/lessons.md`, and auto-memory `MEMORY.md`:
 
 | Memory File | Purpose | Lifecycle | Source |
 |---|---|---|---|
@@ -56,30 +62,33 @@ Three-tier persistent memory that complements `docs/todo.md`, `docs/lessons.md`,
 
 **Consolidation**: Run `node scripts/memory/consolidate-memory.mjs` manually or via nightly scheduled task (`scripts/memory/install-memory-task.bat`). For in-session updates, use the `consolidate-memory` skill.
 
+**Auto-memory** (`.claude/projects/.../memory/MEMORY.md`): Loaded at start of every conversation. Update the "Current State" section after completing major work, after user corrections, and after major architecture decisions.
+
 ---
 
 ## Project Overview
 
-HVAC Field Service Management SaaS for solo HVAC contractors (1–3 person teams) in Texas & Florida. Multi-tenant platform ($49/mo via Lemon Squeezy) replacing phone + paper workflows with digital scheduling, invoicing, and customer management.
+Multi-industry Service Management SaaS platform (initial target: solo HVAC contractors, 1–3 person teams, Texas & Florida). Multi-tenant platform ($49/mo via Lemon Squeezy) replacing phone + paper workflows with digital scheduling, invoicing, and customer management.
+
+**Platform vision**: Industry-agnostic — all features must work for any service business, not just HVAC.
 
 ## Tech Stack
 
-
-| Layer    | Technology                                                           |
-| -------- | -------------------------------------------------------------------- |
-| Monorepo | Turborepo + [pnpm@10.20.0](mailto:pnpm@10.20.0) workspaces           |
-| Frontend | Next.js 14 (App Router) — port 3000                                  |
-| Backend  | Fastify — port 4000                                                  |
-| Database | Supabase (PostgreSQL 15)                                             |
-| ORM      | Drizzle ORM (schema-as-code, type-safe queries)                      |
-| Auth     | Better Auth (unified — email/password, organization + admin plugins) |
-| Email    | Resend + React Email templates                                       |
-| Billing  | Lemon Squeezy (subscriptions + affiliate program)                    |
-| Maps     | Mapbox GL JS (address autocomplete, geocoding)                       |
-| PDF      | pdfkit (invoices, quotes)                                            |
-| Realtime | Supabase Realtime (Kanban live updates)                              |
-| Testing  | Vitest (unit/integration), Playwright (e2e)                          |
-
+| Layer | Technology |
+|-------|------------|
+| Monorepo | Turborepo + pnpm@10.20.0 workspaces |
+| Frontend | Next.js 14 (App Router) — port 3000 |
+| Backend | Fastify — port 4000 |
+| Database | Supabase (PostgreSQL 15) |
+| ORM | Drizzle ORM (schema-as-code, type-safe queries) |
+| Auth | Better Auth (unified — email/password, organization + admin plugins) |
+| Email | Resend + React Email templates (`@hvac-saas/email`) |
+| Billing | Lemon Squeezy (subscriptions + affiliate program) |
+| Maps | Mapbox GL JS (address autocomplete, geocoding) |
+| PDF | @react-pdf/renderer (invoices, quotes) |
+| Realtime | Supabase Realtime (Kanban live updates, notifications) |
+| AI/Chat | Groq (llama-3.3-70b-versatile) + Vercel AI SDK v6 |
+| Testing | Vitest (unit/integration), Playwright (e2e) |
 
 ## Commands
 
@@ -111,6 +120,8 @@ pnpm test:e2e               # Playwright e2e tests
 pnpm seed:admin             # Create admin user (uses ADMIN_SEED_EMAIL + ADMIN_SEED_PASSWORD env vars)
 ```
 
+---
+
 ## Architecture
 
 ### Monorepo Structure
@@ -124,7 +135,7 @@ packages/
   database/     # @hvac-saas/database — Drizzle schema, clients (Drizzle + Supabase)
   types/        # @hvac-saas/types — TypeScript types inferred from Drizzle schema
   ui/           # @hvac-saas/ui — shared React components
-  email/        # @hvac-saas/email — React Email templates (E-01 through E-13)
+  email/        # @hvac-saas/email — React Email templates (E-01 through E-14)
   config/       # @hvac-saas/config — shared ESLint + TypeScript config
 
 scripts/
@@ -138,7 +149,7 @@ All packages use ES modules (`"type": "module"`). Path alias `@/*` maps to `./sr
 ### Package Dependencies
 
 ```
-apps/api  → @hvac-saas/database, @hvac-saas/types
+apps/api  → @hvac-saas/database, @hvac-saas/types, @hvac-saas/email
 apps/web  → @hvac-saas/types, @hvac-saas/ui
 packages/types → @hvac-saas/database
 ```
@@ -153,7 +164,7 @@ Single unified auth system via [Better Auth](https://www.better-auth.com/) with 
 
 - **Server config**: `apps/api/src/lib/auth.ts` — Better Auth with drizzle adapter
 - **Fastify mount**: `apps/api/src/server.ts` — `auth.handler()` with reconstructed Fetch Request (not toNodeHandler)
-- **Middleware**: `apps/api/src/lib/auth-middleware.ts` — `requireAuth`, `requireAdmin`, `requireTenant` preHandlers
+- **Middleware**: `apps/api/src/lib/auth-middleware.ts` — `requireAuth`, `requireAdmin`, `requireTenant`, `requireOrgRole()` preHandlers
 - **Client**: `apps/web/src/lib/auth-client.ts` — `useSession`, `signIn`, `signUp`, `signOut`
 - **Server helper**: `apps/web/src/lib/auth-server.ts` — forwards cookies for SSR session checks
 - **Route protection**: `apps/web/src/middleware.ts` — checks Better Auth session cookie
@@ -165,42 +176,50 @@ Login flow:
 3. `role === "admin"` → redirect to `/superadmin/dashboard`
 4. Otherwise → redirect to `/dashboard`
 
+### AI Chatbot
+
+- **Engine**: Groq `llama-3.3-70b-versatile` via Vercel AI SDK v6 `generateText()` + tool calling
+- **API route**: `apps/web/src/app/api/chat/route.ts` (Next.js API route, not server action)
+- **10 AI tools**: greet, answer_help, create customer/event/job/invoice/quote/catalog_item/equipment/booking
+- **Knowledge base**: `apps/web/src/lib/chatbot/knowledge-base.ts` (~30 FAQ entries)
+- **UI**: `apps/web/src/components/dashboard/chatbot/` — floating chat panel (z-40)
+- **Key**: AI SDK v6 uses `inputSchema` (not `parameters`) and `maxOutputTokens` (not `maxTokens`)
+- **Env**: `GROQ_API_KEY` in `.env`
+
+---
+
 ## Database
 
 ### Schema (Drizzle ORM)
 
-Schema defined in `packages/database/src/schema/` (19 files, 33 tables):
+Schema defined in `packages/database/src/schema/` — key files:
 
+| File | Tables |
+|------|--------|
+| `auth.ts` | `user`, `session`, `account`, `verification`, `organization`, `member`, `invitation` (Better Auth) |
+| `enums.ts` | 12+ `pgEnum` definitions |
+| `tenants.ts` | `tenants` (with `organizationId` FK to Better Auth organization) |
+| `admin.ts` | `adminAuditLog`, `adminImpersonationSessions`, `platformEvents` |
+| `customers.ts` | `customers` |
+| `catalog.ts` | `catalogItems` |
+| `equipment.ts` | `equipment`, `refrigerantLogs` |
+| `maintenance.ts` | `maintenanceContracts` (service agreements) |
+| `bookings.ts` | `bookings` |
+| `jobs.ts` | `jobs`, `jobLineItems`, `jobPhotos` |
+| `invoices.ts` | `invoices`, `invoiceLineItems`, `invoicePayments` |
+| `quotes.ts` | `quotes`, `quoteLineItems` |
+| `schedule.ts` | `availabilitySchedules`, `scheduleOverrides` |
+| `checklists.ts` | `checklistTemplates`, `checklistItems`, `jobChecklistCompletions` |
+| `pipeline-stages.ts` | `jobPipelineStages` (per-tenant Kanban pipeline stages config) |
+| `customer-notes.ts` | `customerNotes` (per-customer notes with author tracking) |
+| `customer-activities.ts` | `customerActivities` (activity log timeline) |
+| `job-activities.ts` | `jobActivities` (job activity log timeline) |
+| `quote-activities.ts` | `quoteActivities` (quote activity log timeline) |
+| `tags.ts` | `tags` (tenant-level reusable tags), `customerTags` (many-to-many junction) |
+| `notifications.ts` | `notifications`, `notificationReads`, `notificationChannelConfig`, `notificationDeliveries` |
+| `relations.ts` | All Drizzle `relations()` for query builder joins |
 
-| File               | Tables                                                                                             |
-| ------------------ | -------------------------------------------------------------------------------------------------- |
-| `auth.ts`          | `user`, `session`, `account`, `verification`, `organization`, `member`, `invitation` (Better Auth) |
-| `enums.ts`         | 12 `pgEnum` definitions                                                                            |
-| `tenants.ts`       | `tenants` (with `organizationId` FK to Better Auth organization)                                   |
-| `admin.ts`         | `adminAuditLog`, `adminImpersonationSessions`, `platformEvents`                                    |
-| `users.ts`         | (empty — replaced by Better Auth `user` + `member`)                                                |
-| `subscriptions.ts` | `tenantSubscriptions`                                                                              |
-| `customers.ts`     | `customers`                                                                                        |
-| `catalog.ts`       | `catalogItems`                                                                                     |
-| `equipment.ts`     | `equipment`, `refrigerantLogs`                                                                     |
-| `maintenance.ts`   | `maintenanceContracts`                                                                             |
-| `bookings.ts`      | `bookings`                                                                                         |
-| `jobs.ts`          | `jobs`, `jobLineItems`, `jobPhotos`                                                                |
-| `invoices.ts`      | `invoices`, `invoiceLineItems`, `invoicePayments`                                                  |
-| `quotes.ts`        | `quotes`, `quoteLineItems`                                                                         |
-| `schedule.ts`      | `availabilitySchedules`, `scheduleOverrides`                                                       |
-| `checklists.ts`    | `checklistTemplates`, `checklistItems`, `jobChecklistCompletions`                                  |
-| `pipeline-stages.ts` | `jobPipelineStages` (per-tenant Kanban pipeline stages config)                                   |
-| `customer-notes.ts`| `customerNotes` (per-customer notes with author tracking)                                          |
-| `customer-activities.ts` | `customerActivities` (activity log timeline)                                                 |
-| `job-activities.ts`      | `jobActivities` (job activity log timeline)                                                   |
-| `quote-activities.ts`    | `quoteActivities` (quote activity log timeline)                                               |
-| `tags.ts`          | `tags` (tenant-level reusable tags), `customerTags` (many-to-many junction)                        |
-| `relations.ts`     | All Drizzle `relations()` for query builder joins                                                  |
-| `index.ts`         | Barrel re-export                                                                                   |
-
-
-**Tenant isolation**: Application-level via `tenantFilter()` helper (RLS removed). Triggers in `supabase/migrations/20260315000002_triggers.sql`.
+**Tenant isolation**: Application-level via `tenantFilter()` helper (RLS removed).
 
 **Auto-numbering triggers**: Jobs (`JOB-YYYY-XXXX`), Invoices (`INV-YYYY-XXXX`), Quotes (`QT-YYYY-XXXX`).
 
@@ -220,14 +239,14 @@ const result = await db.select().from(jobs).where(eq(jobs.tenantId, tenantId));
 
 // Supabase client (storage + realtime only)
 import { getSupabaseAdmin } from "@hvac-saas/database";
-const admin = getSupabaseAdmin();                 // service role, for Storage + Realtime
+const admin = getSupabaseAdmin();
 ```
 
 ### Drizzle-kit Gotchas
 
 - **Extensionless imports only** — `drizzle-kit` uses CJS internally. Use `"./enums"` not `"./enums.js"` in schema files.
 - **dotenv required in config** — `drizzle.config.ts` loads `.env` from monorepo root via `import { config } from "dotenv"`.
-- **Migrations output** — Generated into `supabase/migrations/`. Hand-written SQL (RLS, triggers) also lives there.
+- **Migrations output** — Generated into `supabase/migrations/`. Hand-written SQL also lives there.
 - All hand-written migration SQL must be idempotent (see Strict Rules above).
 
 ### Types (Inferred from Schema)
@@ -241,23 +260,28 @@ export type JobInsert = typeof jobs.$inferInsert;
 export type JobUpdate = Partial<JobInsert>;
 ```
 
+---
+
 ## Route Groups
 
 ### Frontend (apps/web)
 
 - `(landing)/` — Public landing page (hero, features, pricing, FAQ, testimonials)
 - `(auth)/` — Login, signup, forgot-password
-- `(dashboard)/` — Tenant pages: KPI home, jobs (Kanban), customers, invoices, quotes, bookings, schedule, settings
+- `(dashboard)/` — Tenant pages: KPI home, jobs (Kanban + table), customers, invoices, quotes, bookings, schedule, assets, service-agreements, catalog, checklists, settings (profile, business, invoices, quotes, team, notifications, scheduling)
 - `(superadmin)/` — Admin panel: dashboard, tenants, analytics, support, affiliates, system health
 - `book/[slug]/` — Public customer booking portal
 - `ref/[code]/` — Affiliate redirect (sets `aff_code` cookie, 30-day)
+- `invite/[id]/` — Team invitation acceptance page
 
 ### API (apps/api)
 
-- **Auth routes** (Better Auth): `/api/auth/`* (sign-up, sign-in, sign-out, get-session, etc.)
-- **Tenant routes** (requireAuth + requireTenant): `/jobs`, `/customers`, `/invoices`, `/quotes`, `/bookings`, `/catalog`, `/checklists`, `/pipeline-stages`, `/equipment`, `/refrigerant-logs`, `/availability`, `/settings`
+- **Auth routes** (Better Auth): `/api/auth/*` (sign-up, sign-in, sign-out, get-session, etc.)
+- **Tenant routes** (requireAuth + requireTenant): `/jobs`, `/customers`, `/invoices`, `/quotes`, `/bookings`, `/catalog`, `/checklists`, `/pipeline-stages`, `/equipment`, `/refrigerant-logs`, `/availability`, `/settings`, `/tags`, `/notifications`, `/dashboard/stats`
 - **Admin routes** (requireAdmin): `/admin/tenants`, `/admin/analytics`, `/admin/search`, `/admin/audit-log`, `/admin/system`, `/admin/affiliates`
 - **Public routes** (no auth): `/public/booking`, `/webhooks/lemon-squeezy`, `/health`
+
+---
 
 ## Key Data Flows
 
@@ -265,9 +289,13 @@ export type JobUpdate = Partial<JobInsert>;
 
 **Quote-to-job**: Create quote → add line items → PDF → email → customer accepts → "Create Job" copies line items → normal job flow
 
+**Notifications**: Entity events (customer created, job updated, invoice paid, etc.) → `dispatchNotification()` → in-app (Supabase Realtime) + email channels → NotificationBell UI updates in real-time
+
 **Affiliate**: `/ref/[code]` sets cookie → signup → Lemon Squeezy checkout → webhook captures `affiliate_id` → saved to `tenants.referred_by_affiliate_id`
 
 **Server Actions**: All frontend API calls go through `apps/web/src/actions/`. Never call the API directly from client components: `Component → Server Action → Fastify API`.
+
+---
 
 ## Environment
 
@@ -281,19 +309,24 @@ export type JobUpdate = Partial<JobInsert>;
 - `NEXT_PUBLIC_SUPABASE_URL` — Supabase project URL (for Storage + Realtime)
 - `SUPABASE_SERVICE_ROLE_KEY` — Supabase service role key (for Storage + Realtime)
 - `ADMIN_SEED_EMAIL` / `ADMIN_SEED_PASSWORD` — for `seed:admin` script
+- `GROQ_API_KEY` — Groq API key for AI chatbot
+- `RESEND_API_KEY` — Resend API key for transactional emails
+
+---
 
 ## Frontend Design System
 
-- **No hardcoded colors**: NEVER use raw hex/rgb/hsl values in components. ALL colors must come from CSS variables defined in `globals.css` and referenced via Tailwind tokens (e.g., `bg-brand`, `text-ink`, `bg-surface`).
-- **Icon library**: Tabler Icons (`@tabler/icons-react`). NEVER use lucide-react. Always import icons individually (`import { IconName } from "@tabler/icons-react"`), never wildcard.
-- **Fonts**: Space Grotesk (headings, `font-heading`), DM Sans (body, `font-body`). NEVER use Inter, Roboto, Arial, or system defaults.
-- **Color system**: Brand orange for CTAs/accents, midnight navy for dark sections, warm off-white (`surface`) for body. Use CSS variables (`--brand`, `--surface`, `--ink`, `--midnight`).
-- **Component library**: shadcn/ui pattern (Radix primitives + CVA + tailwind-merge). Components live in `apps/web/src/components/ui/`.
-- **Animations**: CSS-only (no framer-motion). Use `IntersectionObserver` for scroll reveals via `SectionReveal` component.
+### Core Rules
+
+- **No hardcoded colors**: ALL colors via CSS variables in `globals.css` → Tailwind tokens (`bg-brand`, `text-ink`, `bg-surface`). Never raw hex/rgb/hsl.
+- **Icon library**: Tabler Icons (`@tabler/icons-react`) only. NEVER lucide-react. Always import individually, never wildcard.
+- **Fonts**: Space Grotesk (headings, `font-heading`), DM Sans (body, `font-body`). NEVER Inter, Roboto, Arial, or system defaults.
+- **Color system**: Brand orange for CTAs/accents, midnight navy for dark sections, warm off-white (`surface`) for body.
+- **Component library**: shadcn/ui pattern (Radix primitives + CVA + tailwind-merge). Components in `apps/web/src/components/ui/`.
+- **Animations**: CSS-only (no framer-motion). `IntersectionObserver` for scroll reveals via `SectionReveal`.
 - **Landing page components**: Co-located in `apps/web/src/app/(landing)/_components/`.
-- **No generic AI aesthetics**: No purple gradients on white, no cookie-cutter layouts. Every page should have intentional design direction ("Industrial Warmth" / "Desert Heat" palette).
-- **Semantic HTML**: Use `<header>`, `<nav>`, `<main>`, `<section>`, `<footer>`, `<article>`, `<blockquote>`, `<dl>` etc. for SEO. All sections must have `aria-labelledby` pointing to their heading.
-- **Never use `template.tsx` for route group layouts**: In Next.js App Router, `template.tsx` remounts on every navigation, destroying browser history state and breaking back/forward navigation. Always use `layout.tsx` for route group layouts (`(auth)`, `(landing)`, `(dashboard)`, etc.). Only use `template.tsx` for rare cases like per-page entry animations where you intentionally want state reset.
+- **No generic AI aesthetics**: No purple gradients on white. Intentional design direction ("Industrial Warmth" / "Desert Heat" palette).
+- **Semantic HTML**: `<header>`, `<nav>`, `<main>`, `<section>`, `<footer>` etc. for SEO. Sections need `aria-labelledby`.
 
 ### Color System & Tokens
 
@@ -318,11 +351,9 @@ All colors defined as CSS variables in `apps/web/src/app/globals.css`, mapped to
 - `--surface-alt` → `bg-surface-alt` (alternate surface shade)
 - `--ink` → `text-ink` (primary text on light backgrounds)
 
-**Dark mode:** Class-based via `next-themes` (`.dark` on `<html>`). All tokens have dark overrides in `globals.css`. Always use Tailwind tokens (`bg-brand`, `text-foreground`, `border-border`), never raw HSL/hex.
+**Dark mode:** Class-based via `next-themes` (`.dark` on `<html>`). All tokens have dark overrides in `globals.css`. Always use Tailwind tokens, never raw HSL/hex.
 
 ### Page Layout Patterns
-
-Four standard dashboard page layouts:
 
 **1. List pages** (customers, invoices):
 ```
@@ -357,85 +388,78 @@ grid grid-cols-1 gap-6 lg:grid-cols-3
 
 ### Component Conventions
 
-- **Tables**: Always use shadcn `Table`/`TableHeader`/`TableBody`/`TableRow`/`TableHead`/`TableCell`. Never raw `<table>`. Wrap in card container (list page pattern).
-- **Buttons**: Always `<Button>` from shadcn. CTA: `className="bg-brand text-brand-foreground hover:bg-brand/90"`. Ghost for icon buttons: `variant="ghost" size="icon"`. Never raw `<button>`.
-- **Badges**: `<Badge>` with variants (default, secondary, destructive, outline, brand). Status badges use mapped color configs with `dark:` variants. Pattern: `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium`.
-- **Dialogs**: Center modal (`<Dialog>`) for confirmations/forms (`sm:max-w-md`). Side drawer (`<Sheet side="right">`) for detail views (`sm:max-w-lg`).
-- **Filters**: `<Popover>` with button-based options for simple filters. `<Command>` inside `<Popover>` for searchable filters. Active state: `border-brand/40 bg-brand-light/20 text-brand`.
-- **Forms**: Grid layout `grid grid-cols-1 gap-4 sm:grid-cols-2`. Label+input wrapper: `space-y-2`. Settings forms use `<SettingsSection>` wrapper.
-- **Row actions**: `<DropdownMenu>` with `<Button variant="ghost" size="icon" className="h-8 w-8">` trigger. Stop propagation on trigger click.
-- **Delete confirm**: `<DeleteConfirmDialog>` from `components/dashboard/reusable/`. Props: `entityName`, `itemLabel`, `open`, `onOpenChange`, `onConfirm`, `loading`.
-- **Empty states**: `<EmptyState>` from `components/dashboard/reusable/`. Props: `icon`, `title`, `description`, `actionLabel`, `onAction`.
-- **Loading states**: Always skeleton loaders, never spinners. `<TableSkeleton columns={N} rows={N}>` for tables, custom `<Skeleton>` layouts for other content.
-- **Pagination**: `<Pagination>` from `components/dashboard/reusable/`. Rendered outside the card wrapper.
-- **Icons**: Tabler Icons only. Sizes: `h-3.5 w-3.5` (section labels), `h-4 w-4` (inline/buttons), `h-5 w-5` (section icons), `h-8 w-8` (empty state/avatar). Colors: `text-brand` (accents), `text-muted-foreground` (context).
+- **Tables**: shadcn `Table`/`TableHeader`/`TableBody`/`TableRow`/`TableHead`/`TableCell`. Never raw `<table>`. Wrap in card container.
+- **Buttons**: `<Button>` from shadcn. CTA: `className="bg-brand text-brand-foreground hover:bg-brand/90"`. Ghost for icon buttons: `variant="ghost" size="icon"`.
+- **Badges**: `<Badge>` with variants. Status badges use mapped color configs with `dark:` variants. Pattern: `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium`.
+- **Dialogs**: Center modal (`<Dialog>`) for confirmations/forms. Side drawer (`<Sheet side="right">`) for detail views.
+- **Filters**: `<Popover>` with button-based options. `<Command>` inside `<Popover>` for searchable filters. Active state: `border-brand/40 bg-brand-light/20 text-brand`.
+- **Forms**: Grid `grid grid-cols-1 gap-4 sm:grid-cols-2`. Label+input: `space-y-2`. Settings use `<SettingsSection>` wrapper.
+- **Row actions**: `<DropdownMenu>` with ghost icon button trigger. Stop propagation on trigger click.
+- **Delete confirm**: `<DeleteConfirmDialog>` from `components/dashboard/reusable/`.
+- **Empty states**: `<EmptyState>` from `components/dashboard/reusable/`.
+- **Loading states**: Always skeleton loaders, never spinners. `<TableSkeleton>` for tables.
+- **Pagination**: `<Pagination>` from `components/dashboard/reusable/`. Outside the card wrapper.
+- **Icons**: Tabler only. Sizes: `h-3.5 w-3.5` (labels), `h-4 w-4` (inline/buttons), `h-5 w-5` (sections), `h-8 w-8` (empty state).
 
 ### Settings Components
 
-- **`SettingsSection`** — `components/dashboard/settings/settings-section.tsx`. Card with icon (`h-5 w-5 text-brand`) + title (`font-heading text-base font-semibold`) + optional description + optional action. Replaces hand-rolled Card+CardHeader+CardTitle+CardContent.
-- **`SettingsFormMessage`** — `components/dashboard/settings/settings-form-message.tsx`. Success (green) / error (destructive) inline message with icon. Has dark mode variants.
-- **`SettingsPageHeader`** — `components/dashboard/settings/settings-page-header.tsx`. Description + action button row for list pages (Catalog, Checklists).
+- **`SettingsSection`** — `components/dashboard/settings/settings-section.tsx`. Card with icon + title + optional description + action.
+- **`SettingsFormMessage`** — `components/dashboard/settings/settings-form-message.tsx`. Success/error inline message with icon.
+- **`SettingsPageHeader`** — `components/dashboard/settings/settings-page-header.tsx`. Description + action button row.
 
 ### Dark Mode Rules
 
-- Strategy: class-based via `next-themes`, `attribute="class"`, `defaultTheme="system"`
-- All status/badge colors MUST have `dark:` variants (e.g., `bg-blue-50 dark:bg-blue-950/40`, `text-blue-700 dark:text-blue-300`)
+- All status/badge colors MUST have `dark:` variants
 - Card backgrounds auto-adapt via `bg-card` CSS variable
-- Invoice/PDF preview paper stays `bg-white dark:bg-white` (document preview, not UI element)
-- Sidebar detail sections use `bg-muted/50` for content boxes (adapts automatically)
-- Never hardcode `gray-xxx` — always use `text-muted-foreground`, `bg-muted`, `border-border`
-- Sidebar summary cards (settings) use default `<Card>`, no special backgrounds
+- Invoice/PDF preview paper stays `bg-white dark:bg-white`
+- Sidebar detail sections use `bg-muted/50` for content boxes
+- Never hardcode `gray-xxx` — use `text-muted-foreground`, `bg-muted`, `border-border`
 
 ### Stage Color Presets
 
-Reference: `apps/web/src/lib/constants/stage-color-presets.ts`. Eight presets: blue, brand, green, red, purple, amber, gray, teal. Each provides: dot, bg, text, border, borderTop, ring classes with dark mode variants. Helper: `getStageColors(colorKey)` returns the preset or gray fallback.
+Reference: `apps/web/src/lib/constants/stage-color-presets.ts`. Eight presets: blue, brand, green, red, purple, amber, gray, teal. Helper: `getStageColors(colorKey)` returns preset or gray fallback.
 
-### Typography Conventions
+### Typography
 
-- **Headings**: `font-heading` (Space Grotesk) — page titles, card titles, section headers, accordion triggers
-- **Body**: `font-body` (DM Sans) — paragraphs, labels, table cells, filter text, badge text, help text
+- **Headings**: `font-heading` (Space Grotesk) — page titles, card titles, section headers
+- **Body**: `font-body` (DM Sans) — paragraphs, labels, table cells, filter text
 - **Page title**: `font-heading text-2xl font-bold text-foreground`
 - **Subtitle**: `mt-1 text-sm text-muted-foreground font-body`
 - **Section header (sidebar)**: `text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading`
-- **Table header**: `font-body` (via TableHead default)
+
+### Z-Index Layers
+
+- Sidebar: `z-30`
+- Navbar: `z-20`
+- Chatbot / floating components: `z-40+`
+
+---
 
 ## Workflow Orchestration
 
-### 1. Plan Mode Default
+### Plan Mode Default
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
-- If something goes sideways, STOP and re-plan immediately — don't keep pushing
-- Use plan mode for verification steps, not just building
+- If something goes sideways, STOP and re-plan — don't keep pushing
 - Write detailed specs upfront to reduce ambiguity
 
-### 2. Subagent Strategy
+### Subagent Strategy
 - Use subagents liberally to keep main context window clean
 - Offload research, exploration, and parallel analysis to subagents
-- For complex problems, throw more compute at it via subagents
 - One task per subagent for focused execution
 
-### 3. Self-Improvement Loop
+### Self-Improvement Loop
 - After ANY correction from the user: update `docs/lessons.md` with the pattern
-- Write rules for yourself that prevent the same mistake
-- Ruthlessly iterate on these lessons until mistake rate drops
-- Review lessons at session start for relevant project
+- Write rules that prevent the same mistake
+- Review lessons at session start
 
-### 4. Verification Before Done
+### Verification Before Done
 - Never mark a task complete without proving it works
-- Diff behavior between main and your changes when relevant
-- Ask yourself: "Would a staff engineer approve this?"
 - Run tests, check logs, demonstrate correctness
+- Ask: "Would a staff engineer approve this?"
 
-### 5. Demand Elegance (Balanced)
-- For non-trivial changes: pause and ask "is there a more elegant way?"
-- If a fix feels hacky: "Knowing everything I know now, implement the elegant solution"
-- Skip this for simple, obvious fixes — don't over-engineer
-- Challenge your own work before presenting it
-
-### 6. Autonomous Bug Fixing
+### Autonomous Bug Fixing
 - When given a bug report: just fix it. Don't ask for hand-holding
 - Point at logs, errors, failing tests — then resolve them
-- Zero context switching required from the user
-- Go fix failing CI tests without being told how
 
 ### Task Management
 
@@ -451,4 +475,4 @@ Reference: `apps/web/src/lib/constants/stage-color-presets.ts`. Eight presets: b
 - **Simplicity First**: Make every change as simple as possible. Impact minimal code.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
-
+- **Demand Elegance (Balanced)**: For non-trivial changes, pause and ask "is there a more elegant way?" Skip for simple, obvious fixes.

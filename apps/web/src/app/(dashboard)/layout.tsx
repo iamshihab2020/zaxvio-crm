@@ -9,6 +9,7 @@ import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 import { ImpersonationBar } from "@/components/dashboard/impersonation-bar";
 import { ImpersonationRequestListener } from "@/components/dashboard/impersonation-request-listener";
 import { ImpersonationActiveIndicator } from "@/components/dashboard/impersonation-active-indicator";
+import { HelpChatbot } from "@/components/dashboard/chatbot/help-chatbot";
 
 export default async function DashboardLayout({
   children,
@@ -53,6 +54,7 @@ export default async function DashboardLayout({
             {children}
           </main>
         </DashboardShell>
+        <HelpChatbot />
       </div>
     </SidebarProvider>
   );

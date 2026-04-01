@@ -149,6 +149,20 @@ Items not yet started (next up):
   - [x] UI: NotificationBell dropdown (Popover + ScrollArea + Skeleton), replaces placeholder in navbar
   - [x] Settings: Notification preferences page with Table×Switch grid, SMS/Voice disabled with "Coming soon" tooltips
   - **Files**: 13 new, ~12 modified
+- [x] **Help Chatbot** — Floating chat widget on all dashboard pages
+  - [x] NLP engine: `compromise` library for natural language parsing (free, client-side)
+  - [x] Intent detection: greeting, help, action (create entities), unknown
+  - [x] Knowledge base: ~30 FAQ entries across 9 categories (industry-agnostic)
+  - [x] 8 entity actions: create customer, event, job, invoice, quote, catalog item, equipment, booking
+  - [x] Two input modes: natural language + key:value format
+  - [x] Customer lookup flow: search -> select -> confirm for entities needing customerId
+  - [x] Multi-step conversation: missing fields -> follow-up -> confirmation -> execution
+  - [x] UI: floating button (z-40, bottom-right), chat panel (380x520, mobile full-screen)
+  - [x] Components: 5 UI files (chatbot-panel, chatbot-message, chatbot-welcome, typing-indicator, help-chatbot)
+  - [x] Engine: 8 lib files (types, entity-definitions, normalizer, intent-detector, knowledge-base, action-parser, action-executor, engine)
+  - [x] Hook: `useChatbot` with localStorage persistence (50 msg cap, 24h TTL)
+  - [x] Integration: Added to dashboard layout
+  - **Files**: 14 new (8 lib + 5 components + 1 hook), 1 modified (layout.tsx)
 - [ ] **Reports/Analytics** — Tenant-level reporting (revenue, job completion rates)
 - [ ] **Asset picker integration into Job create/edit dialog** — frontend wiring for equipmentId selection
 - [ ] **Equipment reference on Quote create** — optional equipmentId FK on quotes
