@@ -21,6 +21,7 @@ import tagRoutes from "./routes/tags/index.js";
 import catalogRoutes from "./routes/catalog/index.js";
 import jobRoutes from "./routes/jobs/index.js";
 import checklistRoutes from "./routes/checklists/index.js";
+import pipelineRoutes from "./routes/pipelines/index.js";
 import pipelineStagesRoutes from "./routes/pipeline-stages/index.js";
 import invoiceRoutes from "./routes/invoices/index.js";
 import quoteRoutes from "./routes/quotes/index.js";
@@ -122,6 +123,7 @@ export async function buildServer() {
   await fastify.register(catalogRoutes, { prefix: "/catalog" });
   await fastify.register(jobRoutes, { prefix: "/jobs" });
   await fastify.register(checklistRoutes, { prefix: "/checklists" });
+  await fastify.register(pipelineRoutes, { prefix: "/pipelines" });
   await fastify.register(pipelineStagesRoutes, { prefix: "/pipeline-stages" });
   await fastify.register(invoiceRoutes, { prefix: "/invoices" });
   await fastify.register(quoteRoutes, { prefix: "/quotes" });

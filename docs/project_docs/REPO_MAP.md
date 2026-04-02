@@ -73,6 +73,7 @@ zaxvio-crm/
         +-- 20260331000003_fix_refrigerant_logs_job_fk.sql   # Fix refrigerant_logs.job_id FK + nullable
         +-- 20260331000004_add_service_frequency.sql         # Service frequency enum + column
         +-- 20260331000005_add_equipment_id_to_jobs.sql      # Equipment reference on jobs
+        +-- 20260402000001_add_multi_pipelines.sql   # Multi-pipeline: pipelines table, FK on stages+jobs, data migration
         +-- meta/                                    # Drizzle snapshots + journal
 ```
 
@@ -128,6 +129,8 @@ apps/api/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, payments, PDF, send, void
 |   |   +-- jobs/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, checklist, photos, activities
+|   |   +-- pipelines/
+|   |   |   +-- index.ts          # CRUD /pipelines (list, create, update, delete)
 |   |   +-- pipeline-stages/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /pipeline-stages + /reorder
 |   |   +-- public/
@@ -185,6 +188,7 @@ apps/api/
 | `/catalog` | requireTenant | CRUD + categories | + |
 | `/checklists` | requireTenant | Templates + items CRUD | + |
 | `/jobs` | requireTenant | CRUD + line items, checklist, photos, activities | + |
+| `/pipelines` | requireTenant | CRUD (list, create, update, delete) | + |
 | `/pipeline-stages` | requireTenant | CRUD + reorder | + |
 | `/invoices` | requireTenant | CRUD + line items, payments, PDF, send, void | + |
 | `/quotes` | requireTenant | CRUD + line items, PDF, send, accept, convert-to-job | + |
@@ -232,6 +236,7 @@ apps/web/
     |   +-- maintenance-contracts.ts  # Service agreement CRUD + expiring
     |   +-- notifications.ts      # 6 actions: list, unread-count, mark-read, mark-all-read, get/update preferences
     |   +-- pipeline-stages.ts
+    |   +-- pipelines.ts          # Pipeline CRUD (4 actions)
     |   +-- quotes.ts
     |   +-- tags.ts
     |   +-- tenants.ts
@@ -355,7 +360,11 @@ apps/web/
     |   |   |   +-- customer-tags-input.tsx
     |   |   |   +-- customer-agreements-tab.tsx
     |   |   |
+    |   |   +-- pipelines/           # Pipeline management components
+    |   |   |   +-- pipeline-create-dialog.tsx  # Create pipeline dialog (name, stage options)
+    |   |   |
     |   |   +-- jobs/               # Job management components
+    |   |   |   +-- pipeline-selector.tsx    # Pipeline dropdown selector (Popover, shown when >1 pipeline)
     |   |   |   +-- job-create-dialog.tsx
     |   |   |   +-- job-detail-activities.tsx
     |   |   |   +-- job-detail-checklist.tsx
@@ -562,6 +571,9 @@ apps/web/
         |       +-- quotes/
         |       |   +-- page.tsx
         |       |   +-- quote-settings-client.tsx
+        |       +-- pipelines/
+        |       |   +-- page.tsx                     # Server component — Pipelines settings page
+        |       |   +-- pipelines-settings-client.tsx # Pipeline management (list, create, rename, delete, set default)
         |       +-- bookings/
         |       |   +-- page.tsx                     # Booking/availability settings
         |       |   +-- bookings-settings-client.tsx # Weekly schedule + overrides management
@@ -639,6 +651,7 @@ packages/database/
         +-- quote-activities.ts   # quoteActivities table
         +-- schedule.ts           # availabilitySchedules, scheduleOverrides tables
         +-- checklists.ts         # checklistTemplates, checklistItems, jobChecklistCompletions tables
+        +-- pipelines.ts           # pipelines table (id, tenant_id, name, label, is_default)
         +-- pipeline-stages.ts    # jobPipelineStages table (per-tenant Kanban config)
         +-- notifications.ts      # notifications, notification_reads, notification_channel_config, notification_deliveries tables
         +-- tags.ts               # tags, customerTags tables
@@ -671,6 +684,7 @@ packages/types/
     +-- equipment.ts          # Equipment, EquipmentInsert, EquipmentUpdate, RefrigerantLog, RefrigerantLogInsert
     +-- maintenance-contract.ts  # MaintenanceContract, MaintenanceContractInsert, MaintenanceContractUpdate
     +-- schedule.ts           # AvailabilitySchedule, ScheduleOverride
+    +-- pipeline.ts            # Pipeline, PipelineInsert types
     +-- pipeline-stage.ts     # PipelineStage, PipelineStageInsert
     +-- tag.ts                # Tag, CustomerTag types
     +-- dashboard.ts          # DashboardStats + related metric interfaces

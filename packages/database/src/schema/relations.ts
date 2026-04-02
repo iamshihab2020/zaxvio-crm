@@ -33,6 +33,7 @@ import { customerActivities } from "./customer-activities";
 import { jobActivities } from "./job-activities";
 import { quoteActivities } from "./quote-activities";
 import { tags, customerTags } from "./tags";
+import { pipelines } from "./pipelines";
 import { jobPipelineStages } from "./pipeline-stages";
 import { calendarEvents } from "./calendar-events";
 import {
@@ -110,6 +111,7 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   availabilitySchedules: many(availabilitySchedules),
   scheduleOverrides: many(scheduleOverrides),
   platformEvents: many(platformEvents),
+  pipelines: many(pipelines),
   jobPipelineStages: many(jobPipelineStages),
   calendarEvents: many(calendarEvents),
   notifications: many(notifications),
@@ -243,6 +245,10 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   equipment: one(equipment, {
     fields: [jobs.equipmentId],
     references: [equipment.id],
+  }),
+  pipeline: one(pipelines, {
+    fields: [jobs.pipelineId],
+    references: [pipelines.id],
   }),
   lineItems: many(jobLineItems),
   photos: many(jobPhotos),
@@ -573,6 +579,16 @@ export const customerTagsRelations = relations(customerTags, ({ one }) => ({
   }),
 }));
 
+// --- Pipeline relations ---
+export const pipelinesRelations = relations(pipelines, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [pipelines.tenantId],
+    references: [tenants.id],
+  }),
+  stages: many(jobPipelineStages),
+  jobs: many(jobs),
+}));
+
 // --- Pipeline Stages relations ---
 export const jobPipelineStagesRelations = relations(
   jobPipelineStages,
@@ -580,6 +596,10 @@ export const jobPipelineStagesRelations = relations(
     tenant: one(tenants, {
       fields: [jobPipelineStages.tenantId],
       references: [tenants.id],
+    }),
+    pipeline: one(pipelines, {
+      fields: [jobPipelineStages.pipelineId],
+      references: [pipelines.id],
     }),
   }),
 );

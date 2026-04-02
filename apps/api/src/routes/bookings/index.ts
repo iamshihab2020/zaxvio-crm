@@ -9,6 +9,7 @@ import {
   customers,
   tenants,
   jobActivities,
+  pipelines,
   jobPipelineStages,
   eq,
   and,
@@ -314,7 +315,15 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
           .where(eq(bookings.id, id));
       }
 
-      // 4. Resolve pipeline stage (user-selected or first default)
+      // 4. Resolve default pipeline
+      const defaultPipeline = await db
+        .select({ id: pipelines.id })
+        .from(pipelines)
+        .where(and(eq(pipelines.tenantId, tenantId), eq(pipelines.isDefault, true)))
+        .then((r) => r[0]);
+      const pipelineId = defaultPipeline?.id ?? null;
+
+      // 5. Resolve pipeline stage (user-selected or first default)
       let status = "scheduled";
       if (body.pipelineStageId) {
         const selectedStage = await db
@@ -323,18 +332,18 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
           .where(and(eq(jobPipelineStages.id, body.pipelineStageId), eq(jobPipelineStages.tenantId, tenantId)))
           .then((r) => r[0]);
         if (selectedStage) status = selectedStage.name;
-      } else {
+      } else if (pipelineId) {
         const firstStage = await db
           .select({ name: jobPipelineStages.name })
           .from(jobPipelineStages)
-          .where(eq(jobPipelineStages.tenantId, tenantId))
+          .where(eq(jobPipelineStages.pipelineId, pipelineId))
           .orderBy(asc(jobPipelineStages.sortOrder))
           .limit(1)
           .then((r) => r[0]);
         if (firstStage) status = firstStage.name;
       }
 
-      // 5. Create job
+      // 6. Create job
       const serviceLabel = booking.serviceType.charAt(0).toUpperCase() + booking.serviceType.slice(1);
       const [job] = await db
         .insert(jobs)
@@ -342,6 +351,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
           tenantId,
           customerId: customerId!,
           bookingId: booking.id,
+          pipelineId,
           jobNumber: "", // DB trigger auto-generates
           title: `${serviceLabel} - ${booking.customerName}`,
           status,

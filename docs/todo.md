@@ -41,6 +41,12 @@ Task tracking for in-progress and upcoming work.
 
 ## Recently Completed (Latest)
 
+- [x] **Multi-Pipeline Feature** (2026-04-02) — Multiple pipelines per tenant with independent stages
+  - [x] Database: `pipelines` table, `pipeline_id` FK on stages + jobs, idempotent migration with data backfill
+  - [x] API: Pipeline CRUD routes (`/pipelines`), updated stage/job/dashboard/booking/quote routes
+  - [x] Frontend: Pipeline selector on Jobs page, pipeline-scoped Kanban/table views
+  - [x] Settings: Pipelines management page (create, rename, delete, set default, edit stages)
+
 - [x] **Calendar/Schedule View (#9, ZAX-46)** — Calendar page with Month/Week/Day views
   - [x] Dependency: react-big-calendar + @types/react-big-calendar
   - [x] Page shell: `page.tsx` (server), `schedule-page-client.tsx` (client orchestrator)

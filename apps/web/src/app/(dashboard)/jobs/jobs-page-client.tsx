@@ -27,8 +27,10 @@ import {
   deleteJob,
   addJobLineItem,
 } from "@/actions/jobs";
+import { getPipelines } from "@/actions/pipelines";
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { getTenant } from "@/actions/tenants";
+import { PipelineSelector } from "@/components/dashboard/jobs/pipeline-selector";
 import { JobTable } from "@/components/dashboard/jobs/job-table";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
@@ -36,8 +38,18 @@ import { IconLayoutKanban, IconTable } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import type { JobPriority, ServiceType } from "@/lib/constants/job-options";
 
+interface PipelineData {
+  id: string;
+  name: string;
+  label: string;
+  isDefault: boolean;
+  stageCount: number;
+  jobCount: number;
+}
+
 interface PipelineStageWithCount {
   id: string;
+  pipelineId: string;
   name: string;
   label: string;
   color: string;
@@ -50,6 +62,8 @@ export function JobsPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("jobs");
+  const [pipelinesData, setPipelinesData] = useState<PipelineData[]>([]);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
   const [jobs, setJobs] = useState<JobCardData[]>([]);
   const [stages, setStages] = useState<PipelineStageWithCount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -137,32 +151,36 @@ export function JobsPageClient() {
   const [defaultTaxRate, setDefaultTaxRate] = useState<string | undefined>(undefined);
 
   // Fetch pipeline stages (non-loading, for refreshes)
-  const fetchStages = useCallback(async () => {
-    const result = await getPipelineStages();
+  const fetchStages = useCallback(async (pipelineId?: string) => {
+    const pid = pipelineId ?? selectedPipelineId;
+    if (!pid) return;
+    const result = await getPipelineStages(pid);
     if (result.data) {
       setStages(result.data as PipelineStageWithCount[]);
     }
-  }, []);
+  }, [selectedPipelineId]);
 
   const fetchJobs = useCallback(
     async (
       searchTerm: string,
       priority: JobPriority | null,
       serviceType: ServiceType | null,
-      { silent = false } = {},
+      { silent = false, pipelineId }: { silent?: boolean; pipelineId?: string } = {},
     ) => {
+      const pid = pipelineId ?? selectedPipelineId;
       if (!silent) setLoading(true);
       const [jobsResult, stagesResult] = await Promise.all([
         getJobs({
           search: searchTerm || undefined,
           priority: priority ?? undefined,
           serviceType: serviceType ?? undefined,
+          pipelineId: pid ?? undefined,
           limit: 200,
           sortBy: "scheduledDate",
           sortOrder: "asc",
         }),
         // Only fetch stages on initial load (non-silent), otherwise skip
-        !silent ? getPipelineStages() : Promise.resolve(null),
+        !silent && pid ? getPipelineStages(pid) : Promise.resolve(null),
       ]);
       if (jobsResult.data) {
         setJobs(jobsResult.data as JobCardData[]);
@@ -172,7 +190,7 @@ export function JobsPageClient() {
       }
       if (!silent) setLoading(false);
     },
-    [],
+    [selectedPipelineId],
   );
 
   const fetchJobsForTable = useCallback(
@@ -189,6 +207,7 @@ export function JobsPageClient() {
         search: (searchTerm ?? search) || undefined,
         priority: (priority !== undefined ? priority : priorityFilter) ?? undefined,
         serviceType: (serviceType !== undefined ? serviceType : serviceTypeFilter) ?? undefined,
+        pipelineId: selectedPipelineId ?? undefined,
         page,
         limit: 20,
         sortBy,
@@ -206,8 +225,62 @@ export function JobsPageClient() {
       }
       setTableLoading(false);
     },
-    [search, priorityFilter, serviceTypeFilter],
+    [search, priorityFilter, serviceTypeFilter, selectedPipelineId],
   );
+
+  // Load pipelines on mount, resolve initial pipeline selection
+  useEffect(() => {
+    getPipelines().then((result) => {
+      if (result.data) {
+        const pList = result.data as PipelineData[];
+        setPipelinesData(pList);
+
+        // Resolve pipeline: URL > localStorage > default
+        const urlPipeline = searchParams.get("pipeline");
+        const storedPipeline = typeof window !== "undefined"
+          ? localStorage.getItem("jobs-pipeline-id")
+          : null;
+
+        let resolvedId: string | null = null;
+        if (urlPipeline && pList.some((p) => p.id === urlPipeline)) {
+          resolvedId = urlPipeline;
+        } else if (storedPipeline && pList.some((p) => p.id === storedPipeline)) {
+          resolvedId = storedPipeline;
+        } else {
+          resolvedId = pList.find((p) => p.isDefault)?.id ?? pList[0]?.id ?? null;
+        }
+
+        if (resolvedId) {
+          setSelectedPipelineId(resolvedId);
+          localStorage.setItem("jobs-pipeline-id", resolvedId);
+        }
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When pipeline changes, refetch data
+  useEffect(() => {
+    if (!selectedPipelineId) return;
+    fetchJobs("", null, null, { pipelineId: selectedPipelineId });
+    if (viewType === "table") {
+      fetchJobsForTable(1, tableSortBy, tableSortOrder, "", null, null);
+    }
+    // Reset search/filters on pipeline switch
+    setSearch("");
+    setPriorityFilter(null);
+    setServiceTypeFilter(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPipelineId]);
+
+  function handlePipelineChange(pipelineId: string) {
+    setSelectedPipelineId(pipelineId);
+    localStorage.setItem("jobs-pipeline-id", pipelineId);
+    // Update URL without full navigation
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("pipeline", pipelineId);
+    router.replace(`/jobs?${params.toString()}`);
+  }
 
   // Fetch tenant default tax rate on mount
   useEffect(() => {
@@ -218,11 +291,7 @@ export function JobsPageClient() {
     });
   }, []);
 
-  // Initial fetch (jobs + stages together)
-  useEffect(() => {
-    fetchJobs("", null, null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchJobs]);
+  // Note: Initial fetch is now handled by the selectedPipelineId useEffect above
 
   // Fetch table data when starting in table mode
   const initialTableFetchDone = useRef(false);
@@ -334,6 +403,7 @@ export function JobsPageClient() {
         notes: data.notes || undefined,
         status: data.status || undefined,
         equipmentId: data.equipmentId || undefined,
+        pipelineId: selectedPipelineId || undefined,
       });
       if (result.error) {
         setError(result.error);
@@ -396,7 +466,12 @@ export function JobsPageClient() {
   return (
     <section className="p-6 overflow-hidden animate-fade-in-up">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex items-baseline gap-x-4 gap-y-1 flex-wrap">
+        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
+          <PipelineSelector
+            pipelines={pipelinesData}
+            selectedId={selectedPipelineId}
+            onSelect={handlePipelineChange}
+          />
           {!loading && viewType !== "table" && (
             <JobsStatsBar
               totalJobs={jobs.length}
@@ -561,6 +636,7 @@ export function JobsPageClient() {
         open={pipelineDialogOpen}
         onOpenChange={setPipelineDialogOpen}
         stages={stages}
+        pipelineId={selectedPipelineId}
         onStagesChange={fetchStages}
       />
     </section>

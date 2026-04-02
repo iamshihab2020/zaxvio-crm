@@ -22,6 +22,7 @@ export async function getJobs(params?: {
   priority?: string;
   dateFrom?: string;
   dateTo?: string;
+  pipelineId?: string;
   page?: number;
   limit?: number;
   sortBy?: string;
@@ -29,6 +30,7 @@ export async function getJobs(params?: {
 }) {
   try {
     const searchParams = new URLSearchParams();
+    if (params?.pipelineId) searchParams.set("pipelineId", params.pipelineId);
     if (params?.search) searchParams.set("search", params.search);
     if (params?.status) searchParams.set("status", params.status);
     if (params?.customerId) searchParams.set("customerId", params.customerId);
@@ -93,6 +95,7 @@ export async function createJob(data: {
   bookingId?: string;
   status?: string;
   equipmentId?: string;
+  pipelineId?: string;
 }) {
   try {
     const res = await fetch(`${API_URL}/jobs`, {

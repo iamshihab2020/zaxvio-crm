@@ -150,7 +150,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["kanban", "board", "drag", "columns", "pipeline", "board view"],
     question: "How does the Kanban board work?",
     answer:
-      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of jobs in that stage.",
+      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of jobs in that stage.",
   },
   {
     id: "jobs-table",
@@ -175,6 +175,14 @@ const entries: KnowledgeEntry[] = [
     question: "How do I customize pipeline stages?",
     answer:
       'On the **Jobs** page, click the **gear icon** or **"Manage Pipeline"** button. In the dialog:\n\n• **Add stages** with a name, label, and color\n• **Drag to reorder** stages (uses drag-and-drop)\n• **Edit** stage name and color inline\n• **Delete** stages (only if no jobs are in that stage)\n\n8 color presets available: blue, brand, green, red, purple, amber, gray, teal.',
+  },
+  {
+    id: "jobs-multi-pipeline",
+    category: "jobs",
+    keywords: ["multiple pipelines", "multi pipeline", "create pipeline", "pipeline settings", "different workflows"],
+    question: "Can I have multiple pipelines?",
+    answer:
+      'Yes! Go to **Settings > Pipelines** to create multiple pipelines (e.g., "Residential", "Commercial", "Maintenance"). Each pipeline has its own set of stages. On the **Jobs** page, use the **pipeline dropdown** to switch between pipelines. New jobs are assigned to the currently selected pipeline. One pipeline is always marked as **default**.',
   },
   {
     id: "jobs-line-items",

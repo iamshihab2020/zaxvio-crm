@@ -2,29 +2,22 @@ import {
   pgTable,
   uuid,
   text,
-  integer,
   boolean,
   timestamp,
   uniqueIndex,
   index,
 } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
-import { pipelines } from "./pipelines";
 
-export const jobPipelineStages = pgTable(
-  "job_pipeline_stages",
+export const pipelines = pgTable(
+  "pipelines",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     tenantId: uuid("tenant_id")
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
-    pipelineId: uuid("pipeline_id")
-      .notNull()
-      .references(() => pipelines.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     label: text("label").notNull(),
-    color: text("color").notNull().default("gray"),
-    sortOrder: integer("sort_order").notNull().default(0),
     isDefault: boolean("is_default").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -34,14 +27,7 @@ export const jobPipelineStages = pgTable(
       .defaultNow(),
   },
   (table) => [
-    uniqueIndex("idx_pipeline_stages_pipeline_name").on(
-      table.pipelineId,
-      table.name,
-    ),
-    index("idx_pipeline_stages_pipeline_sort").on(
-      table.pipelineId,
-      table.sortOrder,
-    ),
-    index("idx_pipeline_stages_tenant_id").on(table.tenantId),
+    uniqueIndex("idx_pipelines_tenant_name").on(table.tenantId, table.name),
+    index("idx_pipelines_tenant_id").on(table.tenantId),
   ],
 );

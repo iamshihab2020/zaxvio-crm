@@ -5,6 +5,7 @@ import {
   getSupabaseAdmin,
   tenants,
   tenantSubscriptions,
+  pipelines,
   jobPipelineStages,
   availabilitySchedules,
   user,
@@ -283,12 +284,19 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
         currentPeriodEnd: trialEndsAt,
       });
 
-      // Seed default pipeline stages
+      // Seed default pipeline and stages
+      const [defaultPipeline] = await db.insert(pipelines).values({
+        tenantId: tenant.id,
+        name: "default",
+        label: "Default",
+        isDefault: true,
+      }).returning();
+
       await db.insert(jobPipelineStages).values([
-        { tenantId: tenant.id, name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
-        { tenantId: tenant.id, name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: true },
-        { tenantId: tenant.id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
-        { tenantId: tenant.id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
+        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
+        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: true },
+        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
+        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
       ]);
 
       // Seed default availability schedule (Mon-Fri 8am-5pm)

@@ -17,6 +17,7 @@ export * from "./customer-note.js";
 export * from "./customer-activity.js";
 export * from "./job-activity.js";
 export * from "./tag.js";
+export * from "./pipeline.js";
 export * from "./pipeline-stage.js";
 export * from "./dashboard.js";
 export * from "./notification.js";

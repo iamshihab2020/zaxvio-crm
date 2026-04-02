@@ -12,6 +12,7 @@ import {
   IconCalendarEvent,
   IconCreditCard,
   IconBell,
+  IconLayoutColumns,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useOrgRole } from "@/hooks/use-org-role";
@@ -58,6 +59,12 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Invoices", href: "/settings/invoices", icon: IconFileInvoice },
       { label: "Quotes", href: "/settings/quotes", icon: IconFileDescription },
+    ],
+  },
+  {
+    label: "Jobs",
+    items: [
+      { label: "Pipelines", href: "/settings/pipelines", icon: IconLayoutColumns },
     ],
   },
   {

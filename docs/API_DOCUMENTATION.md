@@ -34,6 +34,7 @@
 - [Invoice Payments](#invoice-payments)
 - [Catalog](#service-catalog)
 - [Checklists](#checklist-templates)
+- [Pipelines](#pipelines)
 - [Pipeline Stages](#pipeline-stages)
 - [Bookings (Internal)](#bookings-internal)
 - [Availability / Schedule](#availability--schedule)
@@ -1038,6 +1039,7 @@ List jobs with rich filtering and pagination.
 | `customerId` | uuid | - | Filter by customer |
 | `serviceType` | string | - | See [Service Types](#enums--constants) |
 | `priority` | string | - | `standard`, `urgent`, `emergency` |
+| `pipelineId` | uuid | - | Filter by pipeline (defaults to all pipelines) |
 | `dateFrom` | string | - | ISO date (scheduledDate >=) |
 | `dateTo` | string | - | ISO date (scheduledDate <=) |
 | `page` | integer | `1` | - |
@@ -1061,6 +1063,7 @@ List jobs with rich filtering and pagination.
       "serviceType": "repair",
       "title": "AC Unit Not Cooling",
       "description": "Customer reports AC blowing warm air. Possible refrigerant leak.",
+      "pipelineId": "pipe_001",
       "scheduledDate": "2026-03-29",
       "scheduledStart": "09:00",
       "scheduledEnd": "11:00",
@@ -1090,13 +1093,14 @@ List jobs with rich filtering and pagination.
 
 **Auth:** `requireTenant`
 
-Create a new job. Auto-generates `jobNumber` (format: `JOB-YYYY-XXXX`). Automatically attaches a matching checklist template if one exists for the service type. Logs a `job.created` activity.
+Create a new job. Auto-generates `jobNumber` (format: `JOB-YYYY-XXXX`). Automatically attaches a matching checklist template if one exists for the service type. Logs a `job.created` activity. If `pipelineId` is omitted, the job is assigned to the default pipeline.
 
 **Request Body:**
 
 ```json
 {
   "customerId": "cust_001",
+  "pipelineId": "pipe_001",
   "serviceType": "repair",
   "title": "AC Unit Not Cooling",
   "description": "Customer reports AC blowing warm air.",
@@ -2675,15 +2679,176 @@ Add an item to a checklist template.
 
 ---
 
+## Pipelines
+
+Per-tenant pipelines for organizing job workflows. Each pipeline contains its own set of stages.
+
+### `GET /pipelines`
+
+**Auth:** `requireTenant`
+
+List all pipelines for the tenant.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "pipe_001",
+      "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "default",
+      "label": "Default",
+      "isDefault": true,
+      "stageCount": 4,
+      "jobCount": 53,
+      "createdAt": "2026-01-15T10:00:00.000Z",
+      "updatedAt": "2026-01-15T10:00:00.000Z"
+    },
+    {
+      "id": "pipe_002",
+      "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "name": "commercial",
+      "label": "Commercial",
+      "isDefault": false,
+      "stageCount": 6,
+      "jobCount": 12,
+      "createdAt": "2026-03-01T08:00:00.000Z",
+      "updatedAt": "2026-03-01T08:00:00.000Z"
+    }
+  ]
+}
+```
+
+### `POST /pipelines`
+
+**Auth:** `requireTenant`
+
+Create a new pipeline.
+
+**Request Body:**
+
+```json
+{
+  "label": "Commercial",
+  "isDefault": false,
+  "seedDefaultStages": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `label` | string | Yes | Display label |
+| `isDefault` | boolean | No | Set as default pipeline (unsets previous default) |
+| `seedDefaultStages` | boolean | No | Seed 4 default stages (default: `true`). Ignored if `copyFromPipelineId` is provided |
+| `copyFromPipelineId` | string | No | Copy stages from an existing pipeline |
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "id": "pipe_002",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "commercial",
+    "label": "Commercial",
+    "isDefault": false,
+    "stageCount": 4,
+    "jobCount": 0,
+    "createdAt": "2026-03-01T08:00:00.000Z",
+    "updatedAt": "2026-03-01T08:00:00.000Z"
+  }
+}
+```
+
+**Notes:** If `isDefault: true`, the previously default pipeline is unset in a transaction. Seeds 4 default stages (Scheduled, In Progress, Completed, Cancelled) unless `seedDefaultStages: false` or `copyFromPipelineId` is provided.
+
+### `PATCH /pipelines/:id`
+
+**Auth:** `requireTenant`
+
+Update a pipeline's label or default status.
+
+**Request Body:**
+
+```json
+{
+  "label": "Commercial Projects",
+  "isDefault": true
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `label` | string | No | New display label |
+| `isDefault` | boolean | No | Set as default pipeline (unsets previous default in a transaction) |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "id": "pipe_002",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "commercial_projects",
+    "label": "Commercial Projects",
+    "isDefault": true,
+    "stageCount": 6,
+    "jobCount": 12,
+    "createdAt": "2026-03-01T08:00:00.000Z",
+    "updatedAt": "2026-03-15T09:00:00.000Z"
+  }
+}
+```
+
+### `DELETE /pipelines/:id`
+
+**Auth:** `requireTenant`
+
+Delete a pipeline. Cannot delete the default pipeline or the last remaining pipeline.
+
+**Response** `200 OK`
+
+```json
+{
+  "message": "Pipeline deleted"
+}
+```
+
+**Error** `400 Bad Request`
+
+```json
+{
+  "error": "Cannot delete the default pipeline"
+}
+```
+
+**Error** `409 Conflict`
+
+```json
+{
+  "error": "Cannot delete pipeline with assigned jobs. Move or delete 12 jobs first.",
+  "jobCount": 12
+}
+```
+
+---
+
 ## Pipeline Stages
 
-Per-tenant custom Kanban pipeline stages for job management.
+Per-pipeline custom Kanban pipeline stages for job management. Stage name uniqueness is scoped to the pipeline (not tenant-wide).
 
 ### `GET /pipeline-stages`
 
 **Auth:** `requireTenant`
 
-List all pipeline stages, sorted by `sortOrder`. Auto-seeds default stages on first access if none exist.
+List all pipeline stages for a given pipeline, sorted by `sortOrder`. Auto-seeds default stages on first access if none exist.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `pipelineId` | uuid | - | Pipeline to list stages for (defaults to the default pipeline) |
 
 **Default stages:** Scheduled, In Progress, Completed, Cancelled
 
@@ -2695,6 +2860,7 @@ List all pipeline stages, sorted by `sortOrder`. Auto-seeds default stages on fi
     {
       "id": "stage_001",
       "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "pipelineId": "pipe_001",
       "name": "scheduled",
       "label": "Scheduled",
       "color": "blue",
@@ -2706,6 +2872,7 @@ List all pipeline stages, sorted by `sortOrder`. Auto-seeds default stages on fi
     },
     {
       "id": "stage_002",
+      "pipelineId": "pipe_001",
       "name": "in_progress",
       "label": "In Progress",
       "color": "amber",
@@ -2717,6 +2884,7 @@ List all pipeline stages, sorted by `sortOrder`. Auto-seeds default stages on fi
     },
     {
       "id": "stage_003",
+      "pipelineId": "pipe_001",
       "name": "awaiting_parts",
       "label": "Awaiting Parts",
       "color": "purple",
@@ -2728,6 +2896,7 @@ List all pipeline stages, sorted by `sortOrder`. Auto-seeds default stages on fi
     },
     {
       "id": "stage_004",
+      "pipelineId": "pipe_001",
       "name": "completed",
       "label": "Completed",
       "color": "green",
@@ -2751,6 +2920,7 @@ Create a custom pipeline stage.
 
 ```json
 {
+  "pipelineId": "pipe_001",
   "label": "Awaiting Parts",
   "color": "purple"
 }
@@ -2758,6 +2928,7 @@ Create a custom pipeline stage.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `pipelineId` | string | Yes | Pipeline to add the stage to |
 | `label` | string | Yes | Display label |
 | `color` | string | No | Color key (default: `"gray"`) -- see stage color presets |
 
@@ -2767,6 +2938,7 @@ Create a custom pipeline stage.
 {
   "data": {
     "id": "stage_003",
+    "pipelineId": "pipe_001",
     "name": "awaiting_parts",
     "label": "Awaiting Parts",
     "color": "purple",

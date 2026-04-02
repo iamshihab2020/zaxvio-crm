@@ -112,7 +112,7 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
           AND status = 'overdue'
       `),
 
-      // 8. Job Pipeline (jobs grouped by pipeline stage)
+      // 8. Job Pipeline (jobs grouped by pipeline stage — default pipeline)
       db.execute<{
         stage_name: string;
         stage_label: string;
@@ -125,8 +125,9 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
           jps.color AS stage_color,
           COUNT(j.id)::text AS job_count
         FROM job_pipeline_stages jps
+        INNER JOIN pipelines p ON p.id = jps.pipeline_id AND p.is_default = true
         LEFT JOIN jobs j
-          ON j.status = jps.name AND j.tenant_id = jps.tenant_id
+          ON j.status = jps.name AND j.pipeline_id = jps.pipeline_id
         WHERE jps.tenant_id = ${tenantId}
         GROUP BY jps.name, jps.label, jps.color, jps.sort_order
         ORDER BY jps.sort_order

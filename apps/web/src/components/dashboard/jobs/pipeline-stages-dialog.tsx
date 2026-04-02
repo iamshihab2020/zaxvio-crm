@@ -67,6 +67,7 @@ interface PipelineStagesDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   stages: PipelineStageWithCount[];
+  pipelineId: string | null;
   onStagesChange: () => void;
 }
 
@@ -241,6 +242,7 @@ export function PipelineStagesDialog({
   open,
   onOpenChange,
   stages,
+  pipelineId,
   onStagesChange,
 }: PipelineStagesDialogProps) {
   const [localStages, setLocalStages] = useState(stages);
@@ -329,9 +331,11 @@ export function PipelineStagesDialog({
     const trimmed = newLabel.trim();
     if (!trimmed) return;
 
+    if (!pipelineId) return;
     const result = await createPipelineStage({
       label: trimmed,
       color: newColor,
+      pipelineId,
     });
 
     if (result.error) {

@@ -12,19 +12,16 @@ async function getCookieHeader() {
     .join("; ");
 }
 
-export async function getPipelineStages(pipelineId?: string) {
+export async function getPipelines() {
   try {
-    const url = pipelineId
-      ? `${API_URL}/pipeline-stages?pipelineId=${pipelineId}`
-      : `${API_URL}/pipeline-stages`;
-    const res = await fetch(url, {
+    const res = await fetch(`${API_URL}/pipelines`, {
       headers: { cookie: await getCookieHeader() },
       cache: "no-store",
     });
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Failed to fetch pipeline stages" };
+      return { data: null, error: err.message ?? "Failed to fetch pipelines" };
     }
 
     const json = await res.json();
@@ -34,13 +31,14 @@ export async function getPipelineStages(pipelineId?: string) {
   }
 }
 
-export async function createPipelineStage(data: {
+export async function createPipeline(data: {
   label: string;
-  color?: string;
-  pipelineId: string;
+  isDefault?: boolean;
+  seedDefaultStages?: boolean;
+  copyFromPipelineId?: string;
 }) {
   try {
-    const res = await fetch(`${API_URL}/pipeline-stages`, {
+    const res = await fetch(`${API_URL}/pipelines`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -52,7 +50,7 @@ export async function createPipelineStage(data: {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Failed to create stage" };
+      return { data: null, error: err.message ?? "Failed to create pipeline" };
     }
 
     const json = await res.json();
@@ -62,12 +60,12 @@ export async function createPipelineStage(data: {
   }
 }
 
-export async function updatePipelineStage(
+export async function updatePipeline(
   id: string,
-  data: { label?: string; color?: string },
+  data: { label?: string; isDefault?: boolean },
 ) {
   try {
-    const res = await fetch(`${API_URL}/pipeline-stages/${id}`, {
+    const res = await fetch(`${API_URL}/pipelines/${id}`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -79,7 +77,7 @@ export async function updatePipelineStage(
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Failed to update stage" };
+      return { data: null, error: err.message ?? "Failed to update pipeline" };
     }
 
     const json = await res.json();
@@ -89,9 +87,9 @@ export async function updatePipelineStage(
   }
 }
 
-export async function deletePipelineStage(id: string) {
+export async function deletePipeline(id: string) {
   try {
-    const res = await fetch(`${API_URL}/pipeline-stages/${id}`, {
+    const res = await fetch(`${API_URL}/pipelines/${id}`, {
       method: "DELETE",
       headers: { cookie: await getCookieHeader() },
       cache: "no-store",
@@ -99,30 +97,7 @@ export async function deletePipelineStage(id: string) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { error: err.message ?? "Failed to delete stage" };
-    }
-
-    return { error: null };
-  } catch {
-    return { error: "Network error" };
-  }
-}
-
-export async function reorderPipelineStages(order: string[]) {
-  try {
-    const res = await fetch(`${API_URL}/pipeline-stages/reorder`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        cookie: await getCookieHeader(),
-      },
-      body: JSON.stringify({ order }),
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { error: err.message ?? "Failed to reorder stages" };
+      return { error: err.message ?? "Failed to delete pipeline" };
     }
 
     return { error: null };
