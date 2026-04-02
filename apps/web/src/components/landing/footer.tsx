@@ -7,10 +7,18 @@ const PRODUCT_LINKS = [
   { label: "FAQ", href: "#faq" },
 ] as const;
 
-const COMPANY_LINKS = [
+const INDUSTRY_LINKS = [
+  { label: "HVAC", href: "#industries" },
+  { label: "Plumbing", href: "#industries" },
+  { label: "Electrical", href: "#industries" },
+  { label: "Cleaning", href: "#industries" },
+  { label: "Landscaping", href: "#industries" },
+] as const;
+
+const RESOURCES_LINKS = [
+  { label: "Blog", href: "/blog" },
   { label: "About", href: "#" },
   { label: "Contact", href: "#" },
-  { label: "Blog", href: "#" },
 ] as const;
 
 const LEGAL_LINKS = [
@@ -21,13 +29,15 @@ const LEGAL_LINKS = [
 export function Footer() {
   return (
     <footer className="bg-midnight text-midnight-foreground" role="contentinfo">
+      {/* Gradient separator */}
+      <div className="h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" aria-hidden="true" />
       <div className="mx-auto max-w-7xl px-6 py-16">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Logo size="md" />
             <p className="mt-3 text-sm text-midnight-foreground/60">
-              Digital field service management built for solo HVAC contractors.
+              All-in-one service management for field service businesses.
             </p>
           </div>
 
@@ -50,13 +60,13 @@ export function Footer() {
             </ul>
           </nav>
 
-          {/* Company */}
-          <nav aria-label="Company links">
+          {/* Industries */}
+          <nav aria-label="Industry links">
             <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-midnight-foreground/40">
-              Company
+              Industries
             </h3>
             <ul className="mt-4 space-y-3" role="list">
-              {COMPANY_LINKS.map((link) => (
+              {INDUSTRY_LINKS.map((link) => (
                 <li key={link.label}>
                   <a
                     href={link.href}
@@ -64,6 +74,25 @@ export function Footer() {
                   >
                     {link.label}
                   </a>
+                </li>
+              ))}
+            </ul>
+          </nav>
+
+          {/* Resources */}
+          <nav aria-label="Resources links">
+            <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-midnight-foreground/40">
+              Resources
+            </h3>
+            <ul className="mt-4 space-y-3" role="list">
+              {RESOURCES_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-midnight-foreground/60 transition-colors hover:text-white"
+                  >
+                    {link.label}
+                  </Link>
                 </li>
               ))}
             </ul>

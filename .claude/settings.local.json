@@ -57,7 +57,28 @@
       "Bash(cat \"apps/web/src/app/\\(dashboard\\)/settings/layout.tsx\")",
       "Bash(1)",
       "Bash(grep -A 15 \"defaultCustomer =\" /c/Users/Victus/OneDrive/Documents/HVAC Software/Code/zaxvio-crm/apps/web/src/app/\\\\\\(dashboard\\\\\\)/customers/[id]/customer-detail-client.tsx)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "WebFetch(domain:animate-ui.com)",
+      "WebFetch(domain:www.animate-ui.com)",
+      "Bash(curl -sL \"https://animate-ui.com/r/primitives/texts/sliding-number.json\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -sL \"https://animate-ui.com/r/primitives/sliding-number.json\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -sL \"https://animate-ui.com/registry/sliding-number.json\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -sL \"https://animate-ui.com/r/typing.json\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -sL \"https://animate-ui.com/r/text/typing.json\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -sL \"https://animate-ui.com/r/texts/typing.json\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -sL \"https://animate-ui.com/api/r/typing.json\" -o /dev/null -w \"%{http_code}\")",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(curl -sL \"https://api.github.com/repos/imskyleen/animate-ui/git/trees/main?recursive=1\")",
+      "Bash(curl -sL \"https://animate-ui.com/r/primitives-effects-fade.json\" -o /dev/null -w \"%{http_code}\")",
+      "Bash(curl -sL \"https://animate-ui.com/r/primitives-texts-typing.json\" -o /dev/null -w \"%{http_code}\")",
+      "WebFetch(domain:linear.app)",
+      "Bash(npm info:*)",
+      "WebFetch(domain:www.npmjs.com)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "mcp__playwright__browser_evaluate",
+      "mcp__playwright__browser_take_screenshot",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_resize"
     ]
   }
 }

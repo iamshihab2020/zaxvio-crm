@@ -34,7 +34,7 @@ These docs are the source of truth. Read the relevant ones before starting any t
    - Reusable components: `components/dashboard/reusable/` (EmptyState, DeleteConfirmDialog, Pagination, TableSkeleton, StatsCards, ConfirmActionDialog)
    - Route files only in route folders: `page.tsx` and `*-page-client.tsx` — they import from `@/components/dashboard/`
    - UI primitives (shadcn): `apps/web/src/components/ui/`
-4. **NEVER use `as any` or `as unknown`** — define proper types/interfaces. For untyped third-party data, assert to a specific type (`as MyType`), never `as any`.
+4. **NEVER use `as any`, `as unknown`, `@ts-expect-error`, or `@ts-ignore`** — always fix TypeScript errors properly. Define proper types/interfaces. For untyped third-party data, assert to a specific type (`as MyType`), never `as any`. For third-party library type mismatches (e.g., React 18 vs 19 ref issues), use specific type casts like `as React.MutableRefObject<T>` or split conditional rendering paths instead of suppressing errors.
 5. **Maximize shadcn/ui and reusable components** — always check `components/ui/` and `components/dashboard/reusable/` before building anything. Install missing shadcn components via `npx shadcn@latest add <component>` from `apps/web/`. Never hand-roll HTML when a shadcn equivalent exists. Never duplicate UI patterns.
 6. **Keep the chatbot knowledge base up to date** — `apps/web/src/lib/chatbot/knowledge-base.ts` contains all FAQ entries. Update in the same commit when features change. Use industry-agnostic language.
 7. **Never use `template.tsx` for route group layouts** — causes remount on every navigation, breaks browser history. Always use `layout.tsx`.

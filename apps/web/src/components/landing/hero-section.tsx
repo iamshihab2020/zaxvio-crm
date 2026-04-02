@@ -1,140 +1,247 @@
+"use client";
+
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Fade } from "@/components/animate-ui/primitives/effects/fade";
+import {
+  RotatingTextContainer,
+  RotatingText,
+} from "@/components/animate-ui/primitives/texts/rotating";
+import { IconStarFilled, IconPlayerPlay } from "@tabler/icons-react";
+import { DeviceFrameset } from "react-device-frameset";
+import "react-device-frameset/styles/marvel-devices.min.css";
 
-const STATS = [
-  { value: "15–30 min", label: "saved per job" },
-  { value: "TX & FL", label: "built for" },
-  { value: "$49/mo", label: "flat pricing" },
-] as const;
+const INDUSTRIES = ["HVAC", "Plumbing", "Electrical", "Cleaning", "Landscaping"];
 
-export function HeroSection() {
+/* ---------- Mini dashboard for inside MacBook ---------- */
+function DashboardPreview() {
   return (
-    <section
-      aria-labelledby="hero-heading"
-      className="relative flex min-h-screen items-center overflow-hidden bg-midnight"
-    >
-      {/* Radial glow */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background:
-            "radial-gradient(ellipse 60% 50% at 30% 50%, hsl(var(--brand) / 0.08) 0%, transparent 70%)",
-        }}
-      />
+    <div className="flex h-full bg-midnight text-midnight-foreground">
+      {/* Mini sidebar */}
+      <div className="hidden w-11 shrink-0 flex-col items-center gap-3 border-r border-white/5 bg-midnight-light py-3 sm:flex">
+        <div className="h-5 w-5 rounded-md bg-brand/30" />
+        <div className="mt-2 h-4 w-4 rounded bg-white/10" />
+        <div className="h-4 w-4 rounded bg-white/20" />
+        <div className="h-4 w-4 rounded bg-white/10" />
+        <div className="h-4 w-4 rounded bg-white/10" />
+        <div className="h-4 w-4 rounded bg-white/10" />
+        <div className="mt-auto h-4 w-4 rounded bg-white/10" />
+      </div>
 
-      <div className="relative z-10 mx-auto grid max-w-7xl gap-12 px-6 py-32 md:grid-cols-2 md:items-center md:py-24 lg:gap-16">
-        {/* Left column */}
-        <div className="max-w-xl animate-fade-in-up">
-          <Badge variant="brand" className="mb-6">
-            Built for Solo HVAC Contractors
-          </Badge>
-
-          <h1
-            id="hero-heading"
-            className="font-heading text-4xl font-bold leading-tight tracking-tight text-midnight-foreground sm:text-5xl lg:text-6xl"
-          >
-            Ditch the Clipboard.{" "}
-            <span className="text-brand">Run Your HVAC Business</span> from
-            Your Phone.
-          </h1>
-
-          <p className="mt-6 text-lg leading-relaxed text-midnight-foreground/70">
-            Scheduling, invoicing, and customer management in one app — so
-            you can spend less time on paperwork and more time on the job.
-          </p>
-
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              href="/signup"
-              className="rounded-lg bg-brand px-6 py-3 font-heading text-sm font-semibold text-brand-foreground transition-colors hover:bg-brand/90"
-            >
-              Start Your Free Trial
-            </Link>
-            <a
-              href="#features"
-              className="rounded-lg border border-midnight-foreground/20 px-6 py-3 font-heading text-sm font-semibold text-midnight-foreground transition-colors hover:bg-midnight-foreground/5"
-            >
-              See How It Works
-            </a>
+      <div className="flex-1">
+        {/* Toolbar */}
+        <div className="flex items-center gap-2 border-b border-white/5 bg-midnight-light px-3 py-1.5">
+          <div className="flex gap-1.5">
+            <span className="h-2 w-2 rounded-full bg-red-500/70" />
+            <span className="h-2 w-2 rounded-full bg-yellow-500/70" />
+            <span className="h-2 w-2 rounded-full bg-green-500/70" />
           </div>
-
-          {/* Stats bar */}
-          <dl className="mt-12 flex flex-wrap gap-8 border-t border-midnight-foreground/10 pt-8">
-            {STATS.map((stat) => (
-              <div key={stat.label}>
-                <dt className="text-xs uppercase tracking-wider text-midnight-foreground/40">
-                  {stat.label}
-                </dt>
-                <dd className="mt-1 font-heading text-2xl font-bold text-brand">
-                  {stat.value}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <div className="ml-2 flex-1 rounded bg-white/5 px-3 py-0.5 text-[9px] text-white/30">
+            app.zaxvio.com/dashboard
+          </div>
         </div>
 
-        {/* Right column — mock dashboard card */}
-        <div
-          className="hidden animate-scale-in md:block"
-          style={{ animationDelay: "300ms" }}
-          aria-hidden="true"
-        >
-          <div className="rounded-2xl border border-midnight-foreground/10 bg-midnight-light p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-heading text-sm font-semibold text-midnight-foreground/60">
-                Today&apos;s Overview
-              </h2>
-              <span className="rounded-full bg-brand/20 px-3 py-1 text-xs font-medium text-brand">
-                Live
-              </span>
+        {/* Content */}
+        <div className="p-3">
+          {/* KPI row */}
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              { label: "Jobs Today", value: "6", change: "+2" },
+              { label: "Revenue", value: "$12.4k", change: "+18%" },
+              { label: "Open Invoices", value: "3", change: "-1" },
+              { label: "Completion", value: "94%", change: "+3%" },
+            ].map((kpi) => (
+              <div key={kpi.label} className="rounded-md bg-white/5 p-2">
+                <p className="text-[8px] text-white/40">{kpi.label}</p>
+                <p className="font-heading text-xs font-bold text-white">{kpi.value}</p>
+                <p className="text-[8px] text-emerald-400">{kpi.change}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Chart + Job list side by side */}
+          <div className="mt-2.5 grid grid-cols-5 gap-2.5">
+            {/* Chart */}
+            <div className="col-span-2 rounded-md bg-white/5 p-2.5">
+              <p className="mb-1.5 text-[8px] font-medium text-white/40">Revenue This Week</p>
+              <div className="flex items-end gap-[2px] h-16">
+                {[35, 55, 40, 70, 50, 85, 65].map((h, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-t-sm bg-gradient-to-t from-brand/80 to-brand/30"
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+
+            {/* Job list */}
+            <div className="col-span-3 space-y-1">
+              <p className="text-[8px] font-medium text-white/40">Today&apos;s Schedule</p>
               {[
-                { label: "Jobs Today", value: "6" },
-                { label: "Revenue (MTD)", value: "$12,480" },
-                { label: "Open Invoices", value: "3" },
-                { label: "Completion Rate", value: "94%" },
-              ].map((kpi) => (
-                <div
-                  key={kpi.label}
-                  className="rounded-xl bg-midnight/60 p-4"
-                >
-                  <p className="text-xs text-midnight-foreground/40">
-                    {kpi.label}
-                  </p>
-                  <p className="mt-1 font-heading text-2xl font-bold text-midnight-foreground">
-                    {kpi.value}
-                  </p>
+                { time: "9:00", customer: "Johnson Residence", type: "Emergency Repair", active: true },
+                { time: "11:30", customer: "Oak Park Office", type: "Scheduled Service", active: false },
+                { time: "2:00", customer: "Rivera Home", type: "New Installation", active: false },
+                { time: "4:00", customer: "Chen Apartment", type: "AC Maintenance", active: false },
+                { time: "5:30", customer: "Williams House", type: "Duct Cleaning", active: false },
+              ].map((job) => (
+                <div key={job.time} className="flex items-center justify-between rounded bg-white/5 px-2 py-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className={`h-1 w-1 rounded-full ${job.active ? "bg-emerald-400" : "bg-white/15"}`} />
+                    <div>
+                      <p className="text-[9px] font-medium text-white/70">{job.customer}</p>
+                      <p className="text-[7px] text-white/25">{job.type}</p>
+                    </div>
+                  </div>
+                  <span className="text-[8px] font-medium text-brand/80">{job.time}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-4 space-y-2">
+          </div>
+
+          {/* Recent customers row */}
+          <div className="mt-2.5 rounded-md bg-white/5 p-2.5">
+            <p className="mb-1.5 text-[8px] font-medium text-white/40">Recent Customers</p>
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { time: "9:00 AM", customer: "Johnson Residence", type: "AC Repair" },
-                { time: "11:30 AM", customer: "Oak Park Office", type: "Maintenance" },
-                { time: "2:00 PM", customer: "Rivera Home", type: "Installation" },
-              ].map((job) => (
-                <div
-                  key={job.time}
-                  className="flex items-center justify-between rounded-lg bg-midnight/40 px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-midnight-foreground">
-                      {job.customer}
-                    </p>
-                    <p className="text-xs text-midnight-foreground/40">
-                      {job.type}
-                    </p>
-                  </div>
-                  <span className="text-xs font-medium text-brand">
-                    {job.time}
+                { initials: "JR", name: "Johnson R.", color: "bg-blue-500/60" },
+                { initials: "OP", name: "Oak Park", color: "bg-emerald-500/60" },
+                { initials: "RH", name: "Rivera H.", color: "bg-violet-500/60" },
+              ].map((c) => (
+                <div key={c.initials} className="flex items-center gap-1.5">
+                  <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[7px] font-bold text-white ${c.color}`}>
+                    {c.initials}
                   </span>
+                  <span className="text-[8px] text-white/50">{c.name}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+export function HeroSection() {
+  return (
+    <section
+      aria-labelledby="hero-heading"
+      className="aurora-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pt-28 pb-16"
+    >
+      {/* Content — centered */}
+      <div className="relative z-10 mx-auto max-w-4xl text-center">
+        {/* Badge */}
+        <Fade inView inViewOnce delay={0}>
+          <Badge
+            variant="brand"
+            className="mb-6 border border-brand/20 bg-brand/10 text-brand backdrop-blur"
+          >
+            Service Management for Every Industry
+          </Badge>
+        </Fade>
+
+        {/* Headline */}
+        <Fade inView inViewOnce delay={100}>
+          <h1
+            id="hero-heading"
+            className="font-heading text-4xl font-bold leading-[1.1] tracking-tight text-midnight-foreground sm:text-5xl md:text-6xl lg:text-7xl"
+          >
+            Run Your{" "}
+            <span className="relative inline-flex text-brand">
+              <RotatingTextContainer
+                text={INDUSTRIES}
+                duration={2500}
+                className="inline-block min-w-[3ch]"
+              >
+                <RotatingText className="inline-block" />
+              </RotatingTextContainer>
+            </span>
+            <br className="hidden sm:block" />
+            Business from Your Phone.
+          </h1>
+        </Fade>
+
+        {/* Subtitle */}
+        <Fade inView inViewOnce delay={200}>
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-midnight-foreground/60 sm:text-xl">
+            Scheduling, invoicing, and customer management in one app — built
+            for service businesses that get work done.
+          </p>
+        </Fade>
+
+        {/* CTAs */}
+        <Fade inView inViewOnce delay={300}>
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+            <Button
+              asChild
+              size="lg"
+              className="h-12 rounded-xl bg-brand px-8 font-heading text-sm font-semibold text-brand-foreground shadow-lg shadow-brand/25 hover:bg-brand/90 hover:shadow-xl hover:shadow-brand/30 transition-all"
+            >
+              <Link href="/signup">Start Your Free Trial</Link>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              size="lg"
+              className="h-12 gap-2 rounded-xl font-heading text-sm font-semibold text-midnight-foreground/70 hover:text-midnight-foreground hover:bg-white/5"
+            >
+              <a href="#features">
+                <IconPlayerPlay size={16} stroke={2} />
+                See How It Works
+              </a>
+            </Button>
+          </div>
+        </Fade>
+
+        {/* Social proof */}
+        <Fade inView inViewOnce delay={400}>
+          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-midnight-foreground/50">
+            <div className="flex gap-0.5">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <IconStarFilled
+                  key={i}
+                  size={14}
+                  className="text-amber-400"
+                />
+              ))}
+            </div>
+            <span>
+              Rated <span className="font-semibold text-midnight-foreground/70">4.9/5</span> by 500+ service businesses
+            </span>
+          </div>
+        </Fade>
+      </div>
+
+      {/* MacBook Pro mockup */}
+      <Fade inView inViewOnce delay={600}>
+        <div className="relative z-10 mx-auto mt-12 w-full max-w-4xl">
+          {/* Glow effect behind device */}
+          <div
+            className="pointer-events-none absolute -inset-8 rounded-3xl opacity-40 blur-3xl"
+            style={{
+              background:
+                "radial-gradient(ellipse at center, hsl(var(--brand) / 0.2) 0%, transparent 70%)",
+            }}
+            aria-hidden="true"
+          />
+
+          {/* Device — hidden on small mobile */}
+          <div className="hidden sm:block">
+            <DeviceFrameset device="MacBook Pro">
+              <DashboardPreview />
+            </DeviceFrameset>
+          </div>
+
+          {/* Mobile fallback — simplified card */}
+          <div className="sm:hidden">
+            <div className="rounded-2xl border border-white/10 bg-midnight-light shadow-2xl overflow-hidden">
+              <DashboardPreview />
+            </div>
+          </div>
+        </div>
+      </Fade>
     </section>
   );
 }

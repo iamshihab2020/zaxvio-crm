@@ -1,0 +1,503 @@
+- generic [active] [ref=e1]:
+  - banner [ref=e2]:
+    - navigation "Main navigation" [ref=e3]:
+      - link "ZAXVIO" [ref=e4] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e6]: ZAXVIO
+      - list [ref=e7]:
+        - listitem [ref=e8]:
+          - link "Features" [ref=e9] [cursor=pointer]:
+            - /url: "#features"
+        - listitem [ref=e10]:
+          - link "Industries" [ref=e11] [cursor=pointer]:
+            - /url: "#industries"
+        - listitem [ref=e12]:
+          - link "Pricing" [ref=e13] [cursor=pointer]:
+            - /url: "#pricing"
+        - listitem [ref=e14]:
+          - link "Blog" [ref=e15] [cursor=pointer]:
+            - /url: /blog
+        - listitem [ref=e16]:
+          - link "FAQ" [ref=e17] [cursor=pointer]:
+            - /url: "#faq"
+      - generic [ref=e18]:
+        - link "Log in" [ref=e20] [cursor=pointer]:
+          - /url: /login
+        - link "Get Started" [ref=e21] [cursor=pointer]:
+          - /url: /signup
+  - main [ref=e22]:
+    - region "Run Your HVAC Business from Your Phone." [ref=e23]:
+      - generic [ref=e24]:
+        - generic [ref=e26]: Service Management for Every Industry
+        - heading "Run Your HVAC Business from Your Phone." [level=1] [ref=e28]:
+          - text: Run Your
+          - generic [ref=e31]: HVAC
+          - text: Business from Your Phone.
+        - paragraph [ref=e33]: Scheduling, invoicing, and customer management in one app — built for service businesses that get work done.
+        - generic [ref=e35]:
+          - link "Start Your Free Trial" [ref=e36] [cursor=pointer]:
+            - /url: /signup
+          - link "See How It Works" [ref=e37] [cursor=pointer]:
+            - /url: "#features"
+            - img
+            - text: See How It Works
+        - generic [ref=e39]:
+          - generic [ref=e40]:
+            - img [ref=e41]
+            - img [ref=e43]
+            - img [ref=e45]
+            - img [ref=e47]
+            - img [ref=e49]
+          - generic [ref=e51]: Rated 4.9/5 by 500+ service businesses
+      - generic [ref=e60]:
+        - generic [ref=e66]: app.zaxvio.com/dashboard
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - generic [ref=e69]:
+              - paragraph [ref=e70]: Jobs Today
+              - paragraph [ref=e71]: "6"
+              - paragraph [ref=e72]: "+2"
+            - generic [ref=e73]:
+              - paragraph [ref=e74]: Revenue
+              - paragraph [ref=e75]: $12.4k
+              - paragraph [ref=e76]: +18%
+            - generic [ref=e77]:
+              - paragraph [ref=e78]: Open Invoices
+              - paragraph [ref=e79]: "3"
+              - paragraph [ref=e80]: "-1"
+            - generic [ref=e81]:
+              - paragraph [ref=e82]: Completion
+              - paragraph [ref=e83]: 94%
+              - paragraph [ref=e84]: +3%
+          - paragraph [ref=e86]: Revenue This Week
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - generic [ref=e99]:
+                - paragraph [ref=e100]: Johnson Residence
+                - paragraph [ref=e101]: Emergency Repair
+              - generic [ref=e102]: 9:00 AM
+            - generic [ref=e103]:
+              - generic [ref=e106]:
+                - paragraph [ref=e107]: Oak Park Office
+                - paragraph [ref=e108]: Scheduled Service
+              - generic [ref=e109]: 11:30 AM
+            - generic [ref=e110]:
+              - generic [ref=e113]:
+                - paragraph [ref=e114]: Rivera Home
+                - paragraph [ref=e115]: New Installation
+              - generic [ref=e116]: 2:00 PM
+    - region "Built for" [ref=e118]:
+      - generic [ref=e119]:
+        - generic [ref=e120]:
+          - generic [ref=e122]:
+            - paragraph [ref=e123]: 0+
+            - paragraph [ref=e124]: Service Businesses
+          - generic [ref=e126]:
+            - paragraph [ref=e127]: 0.0★
+            - paragraph [ref=e128]: Average Rating
+          - generic [ref=e130]:
+            - paragraph [ref=e131]: 0+
+            - paragraph [ref=e132]: Industries Served
+          - generic [ref=e134]:
+            - paragraph [ref=e135]: 0%
+            - paragraph [ref=e136]: Uptime
+        - generic [ref=e138]:
+          - paragraph [ref=e139]: Built for
+          - generic [ref=e140]:
+            - img [ref=e141]
+            - generic [ref=e146]: HVAC
+          - generic [ref=e147]:
+            - img [ref=e148]
+            - generic [ref=e150]: Plumbing
+          - generic [ref=e151]:
+            - img [ref=e152]
+            - generic [ref=e154]: Electrical
+          - generic [ref=e155]:
+            - img [ref=e156]
+            - generic [ref=e159]: Cleaning
+          - generic [ref=e160]:
+            - img [ref=e161]
+            - generic [ref=e167]: Landscaping
+          - generic [ref=e168]:
+            - img [ref=e169]
+            - generic [ref=e171]: Handyman
+    - region "Everything you need. Nothing you don't." [ref=e172]:
+      - generic [ref=e173]:
+        - generic [ref=e174]:
+          - heading "Everything you need. Nothing you don't." [level=2] [ref=e175]
+          - paragraph [ref=e176]: Purpose-built tools for service professionals who want to work smarter, not harder.
+        - generic [ref=e177]:
+          - generic [ref=e178]:
+            - generic [ref=e180]:
+              - img [ref=e182]
+              - heading "Job Dashboard" [level=3] [ref=e187]
+              - paragraph [ref=e188]: Kanban board for every job — scheduled, in-progress, complete. Drag, drop, done.
+              - generic [ref=e189]:
+                - generic [ref=e190]:
+                  - generic [ref=e191]:
+                    - generic [ref=e193]: Scheduled
+                    - generic [ref=e194]: "2"
+                  - generic [ref=e195]:
+                    - generic [ref=e196]: Johnson AC
+                    - generic [ref=e197]: Smith Heat
+                - generic [ref=e198]:
+                  - generic [ref=e199]:
+                    - generic [ref=e201]: In Progress
+                    - generic [ref=e202]: "1"
+                  - generic [ref=e204]: Park Office
+                - generic [ref=e205]:
+                  - generic [ref=e206]:
+                    - generic [ref=e208]: Complete
+                    - generic [ref=e209]: "3"
+                  - generic [ref=e210]:
+                    - generic [ref=e211]: Rivera HVAC
+                    - generic [ref=e212]: Chen Repair
+                    - generic [ref=e213]: Lee Install
+            - generic [ref=e214]:
+              - generic [ref=e216]:
+                - img [ref=e218]
+                - heading "Digital Invoicing" [level=3] [ref=e220]
+                - paragraph [ref=e221]: Generate and send professional invoices on-site. Get paid faster with online payments.
+              - generic [ref=e223]:
+                - img [ref=e225]
+                - heading "Quote Builder" [level=3] [ref=e228]
+                - paragraph [ref=e229]: Build and send branded quotes in minutes. One click converts to a job.
+          - generic [ref=e230]:
+            - generic [ref=e231]:
+              - generic [ref=e233]:
+                - img [ref=e235]
+                - heading "Customer Database" [level=3] [ref=e240]
+                - paragraph [ref=e241]: Full history for every customer — equipment, past jobs, notes, and communication.
+              - generic [ref=e243]:
+                - img [ref=e245]
+                - heading "Self-Booking Portal" [level=3] [ref=e248]
+                - paragraph [ref=e249]: Customers pick a time from your live availability. No more phone tag.
+            - generic [ref=e251]:
+              - img [ref=e253]
+              - heading "KPI Analytics" [level=3] [ref=e257]
+              - paragraph [ref=e258]: Revenue, completion rates, and job trends at a glance. Know your numbers.
+              - generic [ref=e260]:
+                - generic [ref=e261]: Monthly Revenue
+                - generic [ref=e262]: +18%
+    - region "One platform. Every service industry." [ref=e276]:
+      - generic [ref=e277]:
+        - generic [ref=e278]:
+          - heading "One platform. Every service industry." [level=2] [ref=e279]
+          - paragraph [ref=e280]: See how Zaxvio adapts to your business.
+        - generic [ref=e282]:
+          - generic [ref=e284]:
+            - button "HVAC" [ref=e285] [cursor=pointer]:
+              - img [ref=e287]
+              - generic [ref=e292]: HVAC
+            - button "Plumbing" [ref=e293] [cursor=pointer]:
+              - img [ref=e295]
+              - generic [ref=e297]: Plumbing
+            - button "Electrical" [ref=e298] [cursor=pointer]:
+              - img [ref=e300]
+              - generic [ref=e302]: Electrical
+            - button "Cleaning" [ref=e303] [cursor=pointer]:
+              - img [ref=e305]
+              - generic [ref=e308]: Cleaning
+            - button "Landscaping" [ref=e309] [cursor=pointer]:
+              - img [ref=e311]
+              - generic [ref=e317]: Landscaping
+            - button "Any Trade" [ref=e318] [cursor=pointer]:
+              - img [ref=e320]
+              - generic [ref=e322]: Any Trade
+          - generic [ref=e325]:
+            - generic [ref=e326]:
+              - img [ref=e328]
+              - heading "Built for HVAC Professionals" [level=3] [ref=e333]
+            - paragraph [ref=e334]: From emergency AC repairs to routine maintenance, manage your entire HVAC operation from one dashboard. Track equipment, log refrigerants, and invoice on-site.
+            - generic [ref=e335]:
+              - generic [ref=e336]:
+                - img [ref=e338]
+                - generic [ref=e340]: Equipment tracking & maintenance logs
+              - generic [ref=e341]:
+                - img [ref=e343]
+                - generic [ref=e345]: Refrigerant logging for compliance
+              - generic [ref=e346]:
+                - img [ref=e348]
+                - generic [ref=e350]: Emergency dispatch & scheduling
+              - generic [ref=e351]:
+                - img [ref=e353]
+                - generic [ref=e355]: On-site invoice generation
+    - region "Up and running in 10 minutes" [ref=e356]:
+      - generic [ref=e357]:
+        - generic [ref=e358]:
+          - heading "Up and running in 10 minutes" [level=2] [ref=e359]
+          - paragraph [ref=e360]: No training, no onboarding calls. If you can use a smartphone, you can use Zaxvio.
+        - generic [ref=e361]:
+          - generic [ref=e363]:
+            - generic [ref=e364]: "1"
+            - generic [ref=e365]:
+              - heading "Sign Up" [level=3] [ref=e366]
+              - paragraph [ref=e367]: Create your account in under 2 minutes. No credit card required.
+          - generic [ref=e369]:
+            - generic [ref=e370]: "2"
+            - generic [ref=e371]:
+              - heading "Set Up Your Business" [level=3] [ref=e372]
+              - paragraph [ref=e373]: Add your services, pricing, and availability. Import existing customers.
+          - generic [ref=e375]:
+            - generic [ref=e376]: "3"
+            - generic [ref=e377]:
+              - heading "Start Managing Jobs" [level=3] [ref=e378]
+              - paragraph [ref=e379]: Schedule jobs, send invoices, and track everything from your phone.
+    - region "Simple, honest pricing" [ref=e380]:
+      - generic [ref=e381]:
+        - generic [ref=e382]:
+          - heading "Simple, honest pricing" [level=2] [ref=e383]
+          - paragraph [ref=e384]: One plan. Everything included. No per-user fees, no surprise charges.
+        - generic [ref=e387]:
+          - generic [ref=e389]: Most Popular
+          - generic [ref=e390]:
+            - paragraph [ref=e391]: Everything Plan
+            - generic [ref=e392]:
+              - generic [ref=e393]: $49
+              - generic [ref=e394]: /mo
+            - paragraph [ref=e395]: per business · billed monthly
+            - list [ref=e396]:
+              - listitem [ref=e397]:
+                - img [ref=e398]
+                - text: Unlimited jobs & customers
+              - listitem [ref=e400]:
+                - img [ref=e401]
+                - text: Customer self-booking portal
+              - listitem [ref=e403]:
+                - img [ref=e404]
+                - text: Digital invoicing & payments
+              - listitem [ref=e406]:
+                - img [ref=e407]
+                - text: Quote builder with PDF export
+              - listitem [ref=e409]:
+                - img [ref=e410]
+                - text: Job Kanban dashboard
+              - listitem [ref=e412]:
+                - img [ref=e413]
+                - text: KPI & revenue analytics
+              - listitem [ref=e415]:
+                - img [ref=e416]
+                - text: Equipment tracking
+              - listitem [ref=e418]:
+                - img [ref=e419]
+                - text: Maintenance contracts
+              - listitem [ref=e421]:
+                - img [ref=e422]
+                - text: Checklist templates
+              - listitem [ref=e424]:
+                - img [ref=e425]
+                - text: Email notifications
+              - listitem [ref=e427]:
+                - img [ref=e428]
+                - text: Mobile-friendly design
+              - listitem [ref=e430]:
+                - img [ref=e431]
+                - text: Priority support
+            - generic [ref=e433]:
+              - link "Start Your Free Trial" [ref=e434] [cursor=pointer]:
+                - /url: /signup
+              - paragraph [ref=e435]: No credit card required · Cancel anytime
+        - generic [ref=e437]:
+          - paragraph [ref=e438]: What you're replacing
+          - generic [ref=e439]:
+            - generic [ref=e440]:
+              - img [ref=e441]
+              - paragraph [ref=e444]: Paper & clipboard
+              - paragraph [ref=e445]: $0 but slow
+            - generic [ref=e446]:
+              - img [ref=e447]
+              - paragraph [ref=e449]: Phone scheduling
+              - paragraph [ref=e450]: Missed calls
+            - generic [ref=e451]:
+              - img [ref=e452]
+              - paragraph [ref=e454]: Spreadsheets
+              - paragraph [ref=e455]: $10+/mo
+            - generic [ref=e456]:
+              - img [ref=e457]
+              - paragraph [ref=e461]: 3+ separate apps
+              - paragraph [ref=e462]: $150+/mo
+    - region "Trusted by service professionals across the country" [ref=e463]:
+      - generic [ref=e464]:
+        - heading "Trusted by service professionals across the country" [level=2] [ref=e466]
+        - generic [ref=e467]:
+          - generic [ref=e469]:
+            - generic [ref=e470]:
+              - img [ref=e471]
+              - img [ref=e473]
+              - img [ref=e475]
+              - img [ref=e477]
+              - img [ref=e479]
+            - paragraph [ref=e481]: “I used to lose track of callbacks all the time. Now every job is on my dashboard and my customers book themselves. Game changer.”
+            - generic [ref=e482]:
+              - generic [ref=e483]: MT
+              - generic [ref=e484]:
+                - paragraph [ref=e485]: Mike Torres
+                - paragraph [ref=e486]: Torres Home Services · Houston, TX
+          - generic [ref=e488]:
+            - generic [ref=e489]:
+              - img [ref=e490]
+              - img [ref=e492]
+              - img [ref=e494]
+              - img [ref=e496]
+              - img [ref=e498]
+            - paragraph [ref=e500]: “Invoicing on the spot means I get paid the same day instead of chasing people for weeks. Worth every penny of the $49.”
+            - generic [ref=e501]:
+              - generic [ref=e502]: SC
+              - generic [ref=e503]:
+                - paragraph [ref=e504]: Sarah Chen
+                - paragraph [ref=e505]: ClearFlow Plumbing · Tampa, FL
+          - generic [ref=e507]:
+            - generic [ref=e508]:
+              - img [ref=e509]
+              - img [ref=e511]
+              - img [ref=e513]
+              - img [ref=e515]
+              - img [ref=e517]
+            - paragraph [ref=e519]: “My wife used to do all the paperwork at night. Now the system handles scheduling, quotes, and invoices. We got our evenings back.”
+            - generic [ref=e520]:
+              - generic [ref=e521]: JW
+              - generic [ref=e522]:
+                - paragraph [ref=e523]: James Whitfield
+                - paragraph [ref=e524]: BrightSpark Electrical · Dallas, TX
+    - region "Frequently asked questions" [ref=e525]:
+      - generic [ref=e526]:
+        - generic [ref=e527]:
+          - heading "Frequently asked questions" [level=2] [ref=e528]
+          - paragraph [ref=e529]: Got questions? We've got answers.
+        - generic [ref=e531]:
+          - heading "Do I need to be tech-savvy to use Zaxvio?" [level=3] [ref=e533]:
+            - button "Do I need to be tech-savvy to use Zaxvio?" [ref=e534] [cursor=pointer]:
+              - text: Do I need to be tech-savvy to use Zaxvio?
+              - img
+          - heading "What industries does Zaxvio support?" [level=3] [ref=e536]:
+            - button "What industries does Zaxvio support?" [ref=e537] [cursor=pointer]:
+              - text: What industries does Zaxvio support?
+              - img
+          - heading "Can my customers book appointments online?" [level=3] [ref=e539]:
+            - button "Can my customers book appointments online?" [ref=e540] [cursor=pointer]:
+              - text: Can my customers book appointments online?
+              - img
+          - heading "What happens after my free trial ends?" [level=3] [ref=e542]:
+            - button "What happens after my free trial ends?" [ref=e543] [cursor=pointer]:
+              - text: What happens after my free trial ends?
+              - img
+          - heading "Can I send invoices from the field?" [level=3] [ref=e545]:
+            - button "Can I send invoices from the field?" [ref=e546] [cursor=pointer]:
+              - text: Can I send invoices from the field?
+              - img
+          - heading "Is my data secure?" [level=3] [ref=e548]:
+            - button "Is my data secure?" [ref=e549] [cursor=pointer]:
+              - text: Is my data secure?
+              - img
+          - heading "Does it work for teams of 2–3 people?" [level=3] [ref=e551]:
+            - button "Does it work for teams of 2–3 people?" [ref=e552] [cursor=pointer]:
+              - text: Does it work for teams of 2–3 people?
+              - img
+          - heading "Can I customize job types for my industry?" [level=3] [ref=e554]:
+            - button "Can I customize job types for my industry?" [ref=e555] [cursor=pointer]:
+              - text: Can I customize job types for my industry?
+              - img
+          - heading "Can I import my existing customer list?" [level=3] [ref=e557]:
+            - button "Can I import my existing customer list?" [ref=e558] [cursor=pointer]:
+              - text: Can I import my existing customer list?
+              - img
+    - region "From the Blog" [ref=e559]:
+      - generic [ref=e560]:
+        - generic [ref=e561]:
+          - heading "From the Blog" [level=2] [ref=e562]
+          - paragraph [ref=e563]: Tips, guides, and insights for service businesses.
+        - generic [ref=e564]:
+          - link "Business Tips 5 Ways to Streamline Your Service Business Operations From digital scheduling to automated invoicing, discover how top service businesses eliminate paperwork and win back hours every week. Mar 28, 2026" [ref=e566] [cursor=pointer]:
+            - /url: /blog/streamline-service-business-operations
+            - generic [ref=e569]:
+              - generic [ref=e570]: Business Tips
+              - heading "5 Ways to Streamline Your Service Business Operations" [level=3] [ref=e571]
+              - paragraph [ref=e572]: From digital scheduling to automated invoicing, discover how top service businesses eliminate paperwork and win back hours every week.
+              - paragraph [ref=e573]: Mar 28, 2026
+          - link "Guides The Complete Guide to Digital Invoicing for Field Service Stop chasing payments. Learn how field service professionals use on-site invoicing to get paid the same day. Mar 22, 2026" [ref=e575] [cursor=pointer]:
+            - /url: /blog/complete-guide-digital-invoicing
+            - generic [ref=e578]:
+              - generic [ref=e579]: Guides
+              - heading "The Complete Guide to Digital Invoicing for Field Service" [level=3] [ref=e580]
+              - paragraph [ref=e581]: Stop chasing payments. Learn how field service professionals use on-site invoicing to get paid the same day.
+              - paragraph [ref=e582]: Mar 22, 2026
+          - link "Industry Insights Why Service Businesses Are Switching from Paper to Digital The clipboard-and-carbon-copy era is ending. Here's why the smartest service businesses are going digital — and how to make the switch. Mar 15, 2026" [ref=e584] [cursor=pointer]:
+            - /url: /blog/paper-to-digital-service-businesses
+            - generic [ref=e587]:
+              - generic [ref=e588]: Industry Insights
+              - heading "Why Service Businesses Are Switching from Paper to Digital" [level=3] [ref=e589]
+              - paragraph [ref=e590]: The clipboard-and-carbon-copy era is ending. Here's why the smartest service businesses are going digital — and how to make the switch.
+              - paragraph [ref=e591]: Mar 15, 2026
+        - link "View All Posts" [ref=e594] [cursor=pointer]:
+          - /url: /blog
+          - text: View All Posts
+          - img
+    - region "Ready to run your service business smarter?" [ref=e595]:
+      - generic [ref=e598]:
+        - heading "Ready to run your service business smarter?" [level=2] [ref=e599]
+        - paragraph [ref=e600]: Join hundreds of service professionals who've ditched the clipboard for good.
+        - generic [ref=e601]:
+          - link "Start Your Free Trial" [ref=e602] [cursor=pointer]:
+            - /url: /signup
+          - paragraph [ref=e603]: No credit card required · Set up in 10 minutes
+  - contentinfo [ref=e604]:
+    - generic [ref=e605]:
+      - generic [ref=e606]:
+        - generic [ref=e607]:
+          - link "ZAXVIO" [ref=e608] [cursor=pointer]:
+            - /url: /
+            - generic [ref=e610]: ZAXVIO
+          - paragraph [ref=e611]: All-in-one service management for field service businesses.
+        - navigation "Product links" [ref=e612]:
+          - heading "Product" [level=3] [ref=e613]
+          - list [ref=e614]:
+            - listitem [ref=e615]:
+              - link "Features" [ref=e616] [cursor=pointer]:
+                - /url: "#features"
+            - listitem [ref=e617]:
+              - link "Pricing" [ref=e618] [cursor=pointer]:
+                - /url: "#pricing"
+            - listitem [ref=e619]:
+              - link "FAQ" [ref=e620] [cursor=pointer]:
+                - /url: "#faq"
+        - navigation "Industry links" [ref=e621]:
+          - heading "Industries" [level=3] [ref=e622]
+          - list [ref=e623]:
+            - listitem [ref=e624]:
+              - link "HVAC" [ref=e625] [cursor=pointer]:
+                - /url: "#industries"
+            - listitem [ref=e626]:
+              - link "Plumbing" [ref=e627] [cursor=pointer]:
+                - /url: "#industries"
+            - listitem [ref=e628]:
+              - link "Electrical" [ref=e629] [cursor=pointer]:
+                - /url: "#industries"
+            - listitem [ref=e630]:
+              - link "Cleaning" [ref=e631] [cursor=pointer]:
+                - /url: "#industries"
+            - listitem [ref=e632]:
+              - link "Landscaping" [ref=e633] [cursor=pointer]:
+                - /url: "#industries"
+        - navigation "Resources links" [ref=e634]:
+          - heading "Resources" [level=3] [ref=e635]
+          - list [ref=e636]:
+            - listitem [ref=e637]:
+              - link "Blog" [ref=e638] [cursor=pointer]:
+                - /url: /blog
+            - listitem [ref=e639]:
+              - link "About" [ref=e640] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e641]:
+              - link "Contact" [ref=e642] [cursor=pointer]:
+                - /url: "#"
+        - navigation "Legal links" [ref=e643]:
+          - heading "Legal" [level=3] [ref=e644]
+          - list [ref=e645]:
+            - listitem [ref=e646]:
+              - link "Privacy Policy" [ref=e647] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e648]:
+              - link "Terms of Service" [ref=e649] [cursor=pointer]:
+                - /url: "#"
+      - paragraph [ref=e651]: © 2026 Zaxvio. All rights reserved.
+  - region "Notifications alt+T"
