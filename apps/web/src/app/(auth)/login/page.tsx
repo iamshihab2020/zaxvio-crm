@@ -42,9 +42,6 @@ function LoginForm() {
 
       const role = data?.user?.role ?? "user";
 
-      // Set role cookie for middleware (lightweight, no secrets)
-      document.cookie = `x-user-role=${role}; path=/; max-age=${60 * 60 * 24 * 30}; samesite=lax`;
-
       if (role === "admin") {
         // Hard navigation with history replace — back button can't return to login
         window.location.replace("/superadmin/dashboard");

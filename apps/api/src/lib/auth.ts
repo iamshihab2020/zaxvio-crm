@@ -32,11 +32,12 @@ export const auth = betterAuth({
   trustedOrigins: [env.FRONTEND_URL],
   emailAndPassword: {
     enabled: true,
+    minPasswordLength: 12,
   },
   session: {
     cookieCache: {
       enabled: true,
-      maxAge: 2 * 60, // 2 minutes
+      maxAge: 10, // 10 seconds — fast permission revocation
     },
   },
   user: {

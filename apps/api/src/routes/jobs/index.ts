@@ -30,6 +30,12 @@ import {
 } from "@hvac-saas/database";
 import { getSupabaseAdmin } from "@hvac-saas/database";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
+import {
+  updateLineItemBody,
+  lineItemParam,
+  photoParam,
+  addPhotoBody,
+} from "../../lib/schemas/jobs.js";
 
 // ========== HELPERS ==========
 
@@ -820,7 +826,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id/line-items/:lineItemId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: lineItemParam, body: updateLineItemBody },
+    },
     async (request, reply) => {
       const { id, lineItemId } = request.params as {
         id: string;
@@ -828,7 +837,13 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       };
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body as {
+        description?: string;
+        quantity?: number;
+        unitPrice?: number;
+        sortOrder?: number;
+        itemType?: string;
+      };
       const db = getDb();
 
       const existing = await db
@@ -853,10 +868,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         "unitPrice",
         "sortOrder",
         "itemType",
-      ];
+      ] as const;
       const updates: Record<string, unknown> = {};
       for (const field of allowedFields) {
-        if (field in body) {
+        if (body[field] !== undefined) {
           updates[field] = body[field];
         }
       }
@@ -864,7 +879,13 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       const [updated] = await db
         .update(jobLineItems)
         .set(updates)
-        .where(eq(jobLineItems.id, lineItemId))
+        .where(
+          and(
+            eq(jobLineItems.tenantId, tenantId),
+            eq(jobLineItems.jobId, id),
+            eq(jobLineItems.id, lineItemId),
+          ),
+        )
         .returning();
 
       await recalculateJobTotals(db, id, tenantId);
@@ -1127,16 +1148,24 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/photos",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: addPhotoBody },
+    },
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body as {
+        storagePath: string;
+        caption?: string;
+        takenAt?: string;
+      };
       const db = getDb();
 
-      if (!body.storagePath) {
-        return reply.status(400).send({ message: "storagePath is required" });
+      // Validate storage path belongs to this tenant
+      if (!body.storagePath.startsWith(`${tenantId}/`)) {
+        return reply.status(400).send({ message: "Invalid storage path" });
       }
 
       // Verify job exists
@@ -1155,9 +1184,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         .values({
           tenantId,
           jobId: id,
-          storagePath: body.storagePath as string,
-          caption: (body.caption as string) || null,
-          takenAt: body.takenAt ? new Date(body.takenAt as string) : null,
+          storagePath: body.storagePath,
+          caption: body.caption || null,
+          takenAt: body.takenAt ? new Date(body.takenAt) : null,
         })
         .returning();
 
@@ -1180,7 +1209,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id/photos/:photoId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: photoParam },
+    },
     async (request, reply) => {
       const { id, photoId } = request.params as {
         id: string;
@@ -1219,7 +1251,11 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         // Storage deletion is best-effort — still delete the DB record
       }
 
-      await db.delete(jobPhotos).where(eq(jobPhotos.id, photoId));
+      await db
+        .delete(jobPhotos)
+        .where(
+          and(eq(jobPhotos.tenantId, tenantId), eq(jobPhotos.id, photoId)),
+        );
 
       await db.insert(jobActivities).values({
         tenantId,

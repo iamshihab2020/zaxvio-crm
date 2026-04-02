@@ -28,6 +28,7 @@ import {
 } from "@hvac-saas/database";
 import { getSupabaseAdmin } from "@hvac-saas/database";
 import { lt } from "drizzle-orm";
+import { quoteLineItemParam } from "../../lib/schemas/quotes.js";
 
 // ========== HELPERS ==========
 
@@ -770,7 +771,10 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id/line-items/:lineItemId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: quoteLineItemParam },
+    },
     async (request, reply) => {
       const { id, lineItemId } = request.params as {
         id: string;
@@ -813,7 +817,13 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
 
       await db
         .delete(quoteLineItems)
-        .where(eq(quoteLineItems.id, lineItemId));
+        .where(
+          and(
+            eq(quoteLineItems.tenantId, tenantId),
+            eq(quoteLineItems.quoteId, id),
+            eq(quoteLineItems.id, lineItemId),
+          ),
+        );
 
       await recalculateQuoteTotals(db, id, tenantId);
       await logQuoteActivity(db, tenantId, id, "line_item.removed", "Line item removed", request.authUser.userId);

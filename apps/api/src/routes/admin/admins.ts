@@ -3,6 +3,7 @@ import { requireAdminTier } from "../../lib/auth-middleware.js";
 import { logAdminAction } from "../../lib/admin-audit.js";
 import { auth } from "../../lib/auth.js";
 import { getDb, user, eq, desc } from "@hvac-saas/database";
+import { passwordSchema } from "../../lib/schemas/auth.js";
 
 const VALID_TIERS = ["super_admin", "support", "billing_admin"] as const;
 
@@ -57,10 +58,11 @@ export default async function adminAdminsRoutes(fastify: FastifyInstance) {
       if (!email || !email.includes("@")) {
         return reply.status(400).send({ message: "Valid email is required" });
       }
-      if (!password || password.length < 8) {
+      const passwordResult = passwordSchema.safeParse(password);
+      if (!passwordResult.success) {
         return reply
           .status(400)
-          .send({ message: "Password must be at least 8 characters" });
+          .send({ message: passwordResult.error.issues[0].message });
       }
       if (!adminTier || !VALID_TIERS.includes(adminTier as (typeof VALID_TIERS)[number])) {
         return reply.status(400).send({
@@ -84,7 +86,7 @@ export default async function adminAdminsRoutes(fastify: FastifyInstance) {
       let newUserId: string;
       try {
         const result = await auth.api.signUpEmail({
-          body: { name: name.trim(), email: email.trim().toLowerCase(), password },
+          body: { name: name.trim(), email: email.trim().toLowerCase(), password: passwordResult.data },
         });
 
         if (!result?.user?.id) {

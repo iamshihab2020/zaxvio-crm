@@ -2,6 +2,8 @@ import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import { dispatchNotification } from "../../lib/notifications.js";
+import { idParam } from "../../lib/schemas/common.js";
+import { assignTagBody, tagIdParam } from "../../lib/schemas/customers.js";
 import {
   getDb,
   customers,
@@ -543,10 +545,24 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/tags",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
       const { id } = request.params as { id: string };
+      const tenantId = request.authUser.tenantId!;
       const db = getDb();
+
+      // Verify customer belongs to this tenant
+      const customer = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+        .then((r) => r[0]);
+      if (!customer) {
+        return reply.status(404).send({ message: "Customer not found" });
+      }
 
       const data = await db
         .select({
@@ -557,7 +573,12 @@ export default async function customerRoutes(fastify: FastifyInstance) {
         })
         .from(customerTags)
         .innerJoin(tags, eq(customerTags.tagId, tags.id))
-        .where(eq(customerTags.customerId, id))
+        .where(
+          and(
+            eq(customerTags.customerId, id),
+            eq(tags.tenantId, tenantId),
+          ),
+        )
         .orderBy(tags.name);
 
       return reply.send({ data });
@@ -570,21 +591,41 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/tags",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: assignTagBody },
+    },
     async (request, reply) => {
       const { id } = request.params as { id: string };
-      const body = request.body as Record<string, unknown>;
+      const { tagId } = request.body as { tagId: string };
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
 
-      if (!body.tagId) {
-        return reply.status(400).send({ message: "tagId is required" });
+      // Verify customer belongs to this tenant
+      const customer = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+        .then((r) => r[0]);
+      if (!customer) {
+        return reply.status(404).send({ message: "Customer not found" });
       }
 
-      const db = getDb();
+      // Verify tag belongs to this tenant
+      const tag = await db
+        .select({ id: tags.id })
+        .from(tags)
+        .where(and(eq(tags.tenantId, tenantId), eq(tags.id, tagId)))
+        .then((r) => r[0]);
+      if (!tag) {
+        return reply.status(404).send({ message: "Tag not found" });
+      }
+
       const [assignment] = await db
         .insert(customerTags)
         .values({
           customerId: id,
-          tagId: body.tagId as string,
+          tagId,
         })
         .onConflictDoNothing()
         .returning();
@@ -599,10 +640,24 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id/tags/:tagId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: tagIdParam },
+    },
     async (request, reply) => {
       const { id, tagId } = request.params as { id: string; tagId: string };
+      const tenantId = request.authUser.tenantId!;
       const db = getDb();
+
+      // Verify customer belongs to this tenant
+      const customer = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+        .then((r) => r[0]);
+      if (!customer) {
+        return reply.status(404).send({ message: "Customer not found" });
+      }
 
       await db
         .delete(customerTags)

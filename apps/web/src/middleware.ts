@@ -51,33 +51,22 @@ export function middleware(request: NextRequest) {
     request.cookies.get("better-auth.session_token") ??
     request.cookies.get("__Secure-better-auth.session_token");
 
-  // Read role cookie (set at login, cleared at logout)
-  const roleCookie = request.cookies.get("x-user-role")?.value;
-  const isAdmin = roleCookie === "admin";
-
   // ── Logged-in user routing ──────────────────────────────
+  // Note: Admin role verification happens server-side in the superadmin layout,
+  // NOT via a client-set cookie (which would be forgeable).
   if (sessionCookie) {
     // Redirect logged-in users away from auth pages
     if (isAuthPath(pathname)) {
-      const target = isAdmin ? "/superadmin/dashboard" : "/dashboard";
-      return NextResponse.redirect(new URL(target, request.url));
-    }
-
-    // Redirect logged-in users away from landing page (prevents back-button to /)
-    if (pathname === "/") {
-      const target = isAdmin ? "/superadmin/dashboard" : "/dashboard";
-      return NextResponse.redirect(new URL(target, request.url));
-    }
-
-    // Block non-admins from superadmin paths (fast heuristic before layout check)
-    if (isSuperadminPath(pathname) && !isAdmin) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // Redirect admins away from dashboard paths to superadmin
-    if (isDashboardPath(pathname) && isAdmin) {
-      return NextResponse.redirect(new URL("/superadmin/dashboard", request.url));
+    // Redirect logged-in users away from landing page
+    if (pathname === "/") {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
+
+    // Superadmin access is enforced server-side in the (superadmin) layout.
+    // Middleware only checks that a session exists — no role cookie trust.
 
     return NextResponse.next();
   }

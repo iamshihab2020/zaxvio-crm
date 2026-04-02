@@ -17,6 +17,11 @@ import type {
   TeamInvitationEmailProps,
 } from "@hvac-saas/email";
 
+/** Strip CRLF/tab from email subject to prevent header injection */
+function sanitizeSubject(s: string): string {
+  return s.replace(/[\r\n\t]/g, " ").slice(0, 200);
+}
+
 // ── Resend client (lazy init) ──
 
 let resend: Resend | null = null;
@@ -85,7 +90,7 @@ export async function sendWelcomeEmail(data: {
   const html = await renderWelcomeEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Welcome to Zaxvio, ${data.props.businessName}!`,
+    subject: sanitizeSubject(`Welcome to Zaxvio, ${data.props.businessName}!`),
     html,
     tag: "E-01:welcome",
   });
@@ -101,7 +106,7 @@ export async function sendBookingConfirmationEmail(data: {
   const html = await renderBookingConfirmationEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Booking Confirmed — ${data.props.businessName}`,
+    subject: sanitizeSubject(`Booking Confirmed — ${data.props.businessName}`),
     html,
     tag: "E-02:booking-confirmation",
   });
@@ -119,7 +124,7 @@ export async function sendNewBookingNotificationEmail(data: {
   const html = await renderNewBookingNotificationEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `New Booking: ${data.props.serviceType} on ${data.props.bookingDate}`,
+    subject: sanitizeSubject(`New Booking: ${data.props.serviceType} on ${data.props.bookingDate}`),
     html,
     tag: "E-03:new-booking-notification",
   });
@@ -135,7 +140,7 @@ export async function sendBookingConfirmedEmail(data: {
   const html = await renderBookingConfirmedEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Appointment Confirmed — ${data.props.businessName}`,
+    subject: sanitizeSubject(`Appointment Confirmed — ${data.props.businessName}`),
     html,
     tag: "E-04:booking-confirmed",
   });
@@ -151,7 +156,7 @@ export async function sendJobCompletionEmail(data: {
   const html = await renderJobCompletionEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Service Complete — ${data.props.jobTitle} | ${data.props.businessName}`,
+    subject: sanitizeSubject(`Service Complete — ${data.props.jobTitle} | ${data.props.businessName}`),
     html,
     tag: "E-05:job-completion",
   });
@@ -168,7 +173,7 @@ export async function sendInvoiceEmail(data: {
   const html = await renderInvoiceEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Invoice ${data.props.invoiceNumber} from ${data.props.businessName}`,
+    subject: sanitizeSubject(`Invoice ${data.props.invoiceNumber} from ${data.props.businessName}`),
     html,
     attachments: data.pdf ? [{ filename: data.pdf.filename, content: data.pdf.buffer }] : undefined,
     tag: "E-06:invoice",
@@ -185,7 +190,7 @@ export async function sendInvoiceOverdueEmail(data: {
   const html = await renderInvoiceOverdueEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Payment Reminder: Invoice ${data.props.invoiceNumber} — ${data.props.daysOverdue} days overdue`,
+    subject: sanitizeSubject(`Payment Reminder: Invoice ${data.props.invoiceNumber} — ${data.props.daysOverdue} days overdue`),
     html,
     tag: "E-07:invoice-overdue",
   });
@@ -201,7 +206,7 @@ export async function sendPaymentReceiptEmail(data: {
   const html = await renderPaymentReceiptEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Payment Received — ${data.props.businessName}`,
+    subject: sanitizeSubject(`Payment Received — ${data.props.businessName}`),
     html,
     tag: "E-08:payment-receipt",
   });
@@ -217,7 +222,7 @@ export async function sendContractRenewalEmail(data: {
   const html = await renderContractRenewalEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Maintenance Contract Expiring — ${data.props.businessName}`,
+    subject: sanitizeSubject(`Maintenance Contract Expiring — ${data.props.businessName}`),
     html,
     tag: "E-09:contract-renewal",
   });
@@ -233,7 +238,7 @@ export async function sendTrialExpiringEmail(data: {
   const html = await renderTrialExpiringEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Your Zaxvio trial expires in ${data.props.daysRemaining} day${data.props.daysRemaining === 1 ? "" : "s"}`,
+    subject: sanitizeSubject(`Your Zaxvio trial expires in ${data.props.daysRemaining} day${data.props.daysRemaining === 1 ? "" : "s"}`),
     html,
     tag: "E-10:trial-expiring",
   });
@@ -249,7 +254,7 @@ export async function sendWelcomePaidEmail(data: {
   const html = await renderWelcomePaidEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Welcome to Zaxvio Pro, ${data.props.businessName}!`,
+    subject: sanitizeSubject(`Welcome to Zaxvio Pro, ${data.props.businessName}!`),
     html,
     tag: "E-11:welcome-paid",
   });
@@ -265,7 +270,7 @@ export async function sendReviewRequestEmail(data: {
   const html = await renderReviewRequestEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `How did we do? — ${data.props.businessName}`,
+    subject: sanitizeSubject(`How did we do? — ${data.props.businessName}`),
     html,
     tag: "E-12:review-request",
   });
@@ -282,7 +287,7 @@ export async function sendQuoteEmail(data: {
   const html = await renderQuoteEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: `Estimate ${data.props.quoteNumber} from ${data.props.businessName}`,
+    subject: sanitizeSubject(`Estimate ${data.props.quoteNumber} from ${data.props.businessName}`),
     html,
     attachments: data.pdf ? [{ filename: data.pdf.filename, content: data.pdf.buffer }] : undefined,
     tag: "E-13:quote",
@@ -307,7 +312,7 @@ export async function sendInvitationEmail(data: {
   });
   await sendEmail({
     to: data.to,
-    subject: `You've been invited to join ${data.organizationName}`,
+    subject: sanitizeSubject(`You've been invited to join ${data.organizationName}`),
     html,
     tag: "team-invitation",
   });

@@ -8,10 +8,10 @@ import {
   mapToolCallToEngineResult,
 } from "@/lib/chatbot/ai-tools";
 import type {
-  ChatApiRequest,
   ChatApiResponse,
   ChatMessage,
 } from "@/lib/chatbot/types";
+import { z } from "zod";
 
 function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -33,11 +33,52 @@ function errorResponse(error: string, status = 200): NextResponse<ChatApiRespons
   }, { status });
 }
 
+/** Sanitize user-provided values before injecting into system prompts */
+function sanitizeForPrompt(s: string): string {
+  return s.replace(/[\r\n{}[\]<>]/g, "").slice(0, 200);
+}
+
+/** Simple in-memory rate limiter per user session */
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
+const CHAT_RATE_LIMIT = 10; // max requests per minute
+
+function isRateLimited(userId: string): boolean {
+  const now = Date.now();
+  const entry = rateLimitMap.get(userId);
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(userId, { count: 1, resetAt: now + 60_000 });
+    return false;
+  }
+  entry.count++;
+  return entry.count > CHAT_RATE_LIMIT;
+}
+
+const chatRequestSchema = z.object({
+  message: z.string().min(1).max(1000),
+  conversationState: z.object({
+    phase: z.enum(["idle", "awaiting_fields", "awaiting_confirmation"]),
+    pendingAction: z.object({
+      type: z.string(),
+      params: z.record(z.string()),
+      missingFields: z.array(z.string()).optional(),
+    }).nullable(),
+  }),
+  history: z.array(z.object({
+    role: z.enum(["user", "bot"]),
+    content: z.string().max(2000),
+  })).max(10).optional(),
+});
+
 export async function POST(req: Request) {
   // Auth check
   const session = await getServerSession();
   if (!session) {
     return errorResponse("Please log in to use the assistant.", 401);
+  }
+
+  // Rate limiting per user
+  if (isRateLimited(session.user.id)) {
+    return errorResponse("You're sending messages too fast. Please wait a moment.", 429);
   }
 
   // Check for API key
@@ -46,19 +87,16 @@ export async function POST(req: Request) {
     return errorResponse("AI assistant is not configured. Please set up the GROQ_API_KEY.");
   }
 
-  // Parse request
-  let body: ChatApiRequest;
+  // Parse and validate request with Zod
+  let body: z.infer<typeof chatRequestSchema>;
   try {
-    body = await req.json();
+    const raw = await req.json();
+    body = chatRequestSchema.parse(raw);
   } catch {
     return errorResponse("Invalid request.");
   }
 
   const { message, conversationState, history } = body;
-
-  if (!message || typeof message !== "string") {
-    return errorResponse("Please enter a message.");
-  }
 
   try {
     const groq = createGroq({ apiKey });
@@ -83,7 +121,7 @@ export async function POST(req: Request) {
       const action = conversationState.pendingAction;
       const existingParams = Object.entries(action.params)
         .filter(([, v]) => v && v.trim() !== "")
-        .map(([k, v]) => `${k}: ${v}`)
+        .map(([k, v]) => `${k}: ${sanitizeForPrompt(v)}`)
         .join(", ");
       const missing = action.missingFields?.join(", ") ?? "";
 

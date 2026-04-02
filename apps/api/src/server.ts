@@ -1,10 +1,20 @@
 import { env } from "./lib/env.js";
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
 import swagger from "@fastify/swagger";
 import swaggerUi from "@fastify/swagger-ui";
+import {
+  serializerCompiler,
+  validatorCompiler,
+} from "fastify-type-provider-zod";
 import { closeDb } from "@hvac-saas/database";
 import { auth } from "./lib/auth.js";
+import {
+  printStartupBanner,
+  printShutdownMessage,
+  printCronStarted,
+} from "./lib/startup-logger.js";
 import tenantRoutes from "./routes/tenants/index.js";
 import customerRoutes from "./routes/customers/index.js";
 import tagRoutes from "./routes/tags/index.js";
@@ -34,25 +44,38 @@ export async function buildServer() {
     },
   });
 
+  // --- Zod validation ---
+  fastify.setValidatorCompiler(validatorCompiler);
+  fastify.setSerializerCompiler(serializerCompiler);
+
   // --- Plugins ---
   await fastify.register(cors, {
     origin: [env.FRONTEND_URL, env.API_BASE_URL],
     credentials: true,
   });
 
-  await fastify.register(swagger, {
-    openapi: {
-      info: {
-        title: "HVAC SaaS API",
-        version: "0.1.0",
-        description: "HVAC Field Service Management API",
-      },
-    },
+  // Global rate limit: 100 req/min per IP
+  await fastify.register(rateLimit, {
+    max: 100,
+    timeWindow: "1 minute",
   });
 
-  await fastify.register(swaggerUi, {
-    routePrefix: "/docs",
-  });
+  // API docs (disabled in production)
+  if (process.env.NODE_ENV !== "production") {
+    await fastify.register(swagger, {
+      openapi: {
+        info: {
+          title: "HVAC SaaS API",
+          version: "0.1.0",
+          description: "HVAC Field Service Management API",
+        },
+      },
+    });
+
+    await fastify.register(swaggerUi, {
+      routePrefix: "/docs",
+    });
+  }
 
   // --- Better Auth handler ---
   // Use auth.handler() with a reconstructed Fetch Request instead of toNodeHandler,
@@ -60,6 +83,9 @@ export async function buildServer() {
   fastify.route({
     method: ["GET", "POST"],
     url: "/api/auth/*",
+    config: {
+      rateLimit: { max: 10, timeWindow: "1 minute" },
+    },
     async handler(request, reply) {
       const url = new URL(
         request.url,
@@ -136,10 +162,11 @@ export async function buildServer() {
 }
 
 async function start() {
+  const startTime = process.hrtime.bigint();
   const server = await buildServer();
 
   const shutdown = async (signal: string) => {
-    server.log.info(`${signal} received — shutting down`);
+    printShutdownMessage(signal);
     await server.close();
     await closeDb();
     process.exit(0);
@@ -152,16 +179,13 @@ async function start() {
   process.on("SIGHUP", () => shutdown("SIGHUP"));
 
   await server.listen({ port: env.PORT, host: "0.0.0.0" });
-  server.log.info(
-    `Server running at http://localhost:${env.PORT}`,
-  );
-  server.log.info(
-    `Swagger docs at http://localhost:${env.PORT}/docs`,
-  );
+
+  printStartupBanner(startTime);
 
   // Start email cron jobs (E-07 overdue, E-09 contract renewal, E-10 trial expiry)
   const { startEmailCronJobs } = await import("./lib/cron/email-cron.js");
   startEmailCronJobs();
+  printCronStarted(["E-07 Invoice Overdue", "E-09 Renewal", "E-10 Trial Expiry"]);
 }
 
 start();
