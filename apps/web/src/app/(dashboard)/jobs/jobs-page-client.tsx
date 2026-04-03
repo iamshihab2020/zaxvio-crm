@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import { toast } from "sonner";
 import { KanbanBoard } from "@/components/dashboard/jobs/kanban-board";
 import { KanbanSkeleton } from "@/components/dashboard/jobs/kanban-skeleton";
 import { JobFilters } from "@/components/dashboard/jobs/job-filters";
-import { JobsStatsBar } from "@/components/dashboard/jobs/jobs-stats-bar";
+import { JobListView } from "@/components/dashboard/jobs/job-list-view";
 import {
   JobDetailSheet,
   type JobDetail,
@@ -30,12 +31,26 @@ import {
 import { getPipelines } from "@/actions/pipelines";
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { getTenant } from "@/actions/tenants";
-import { PipelineSelector } from "@/components/dashboard/jobs/pipeline-selector";
+import { PipelineTabs } from "@/components/dashboard/jobs/pipeline-tabs";
 import { JobTable } from "@/components/dashboard/jobs/job-table";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { Button } from "@/components/ui/button";
-import { IconLayoutKanban, IconTable } from "@tabler/icons-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  IconLayoutKanban,
+  IconListDetails,
+  IconList,
+  IconPlus,
+  IconAdjustments,
+  IconRowInsertTop,
+  IconRowInsertBottom,
+} from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import {
   Highlight,
@@ -76,12 +91,11 @@ export function JobsPageClient() {
   const [priorityFilter, setPriorityFilter] = useState<JobPriority | null>(null);
   const [serviceTypeFilter, setServiceTypeFilter] = useState<ServiceType | null>(null);
 
-  // View type: board vs table (persisted)
-  const [viewType, setViewType] = useState<"board" | "table">(() => {
+  // View type: board vs list vs table (persisted)
+  const [viewType, setViewType] = useState<"board" | "list" | "table">(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("jobs-view-type");
-      if (stored === "table") return "table";
-      // Back-compat: old "jobs-view-mode" had "table" value
+      if (stored === "table" || stored === "list") return stored;
       const legacy = localStorage.getItem("jobs-view-mode");
       if (legacy === "table") return "table";
       return "board";
@@ -89,12 +103,11 @@ export function JobsPageClient() {
     return "board";
   });
 
-  // Compact density: applies to both board and table (persisted)
+  // Compact density (persisted)
   const [compact, setCompact] = useState(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("jobs-compact");
       if (stored === "true") return true;
-      // Back-compat: old values
       const legacy = localStorage.getItem("jobs-view-mode") ?? localStorage.getItem("jobs-card-view");
       if (legacy === "compact") return true;
       return false;
@@ -109,7 +122,7 @@ export function JobsPageClient() {
   const [tableSortOrder, setTableSortOrder] = useState<"asc" | "desc">("asc");
   const [tableLoading, setTableLoading] = useState(false);
 
-  function handleViewTypeChange(type: "board" | "table") {
+  function handleViewTypeChange(type: "board" | "list" | "table") {
     setViewType(type);
     localStorage.setItem("jobs-view-type", type);
     if (type === "table") {
@@ -126,7 +139,6 @@ export function JobsPageClient() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
-  // Open job detail sheet from URL query param (e.g., /jobs?jobId=xxx)
   const handledJobIdParam = useRef(false);
   useEffect(() => {
     const jobIdParam = searchParams.get("jobId");
@@ -155,7 +167,6 @@ export function JobsPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [defaultTaxRate, setDefaultTaxRate] = useState<string | undefined>(undefined);
 
-  // Fetch pipeline stages (non-loading, for refreshes)
   const fetchStages = useCallback(async (pipelineId?: string) => {
     const pid = pipelineId ?? selectedPipelineId;
     if (!pid) return;
@@ -180,11 +191,10 @@ export function JobsPageClient() {
           priority: priority ?? undefined,
           serviceType: serviceType ?? undefined,
           pipelineId: pid ?? undefined,
-          limit: 200,
+          limit: 150,
           sortBy: "scheduledDate",
           sortOrder: "asc",
         }),
-        // Only fetch stages on initial load (non-silent), otherwise skip
         !silent && pid ? getPipelineStages(pid) : Promise.resolve(null),
       ]);
       if (jobsResult.data) {
@@ -214,7 +224,7 @@ export function JobsPageClient() {
         serviceType: (serviceType !== undefined ? serviceType : serviceTypeFilter) ?? undefined,
         pipelineId: selectedPipelineId ?? undefined,
         page,
-        limit: 20,
+        limit: 15,
         sortBy,
         sortOrder,
       });
@@ -233,14 +243,13 @@ export function JobsPageClient() {
     [search, priorityFilter, serviceTypeFilter, selectedPipelineId],
   );
 
-  // Load pipelines on mount, resolve initial pipeline selection
+  // Load pipelines on mount
   useEffect(() => {
     getPipelines().then((result) => {
       if (result.data) {
         const pList = result.data as PipelineData[];
         setPipelinesData(pList);
 
-        // Resolve pipeline: URL > localStorage > default
         const urlPipeline = searchParams.get("pipeline");
         const storedPipeline = typeof window !== "undefined"
           ? localStorage.getItem("jobs-pipeline-id")
@@ -271,7 +280,6 @@ export function JobsPageClient() {
     if (viewType === "table") {
       fetchJobsForTable(1, tableSortBy, tableSortOrder, "", null, null);
     }
-    // Reset search/filters on pipeline switch
     setSearch("");
     setPriorityFilter(null);
     setServiceTypeFilter(null);
@@ -281,7 +289,6 @@ export function JobsPageClient() {
   function handlePipelineChange(pipelineId: string) {
     setSelectedPipelineId(pipelineId);
     localStorage.setItem("jobs-pipeline-id", pipelineId);
-    // Update URL without full navigation
     const params = new URLSearchParams(searchParams.toString());
     params.set("pipeline", pipelineId);
     router.replace(`/jobs?${params.toString()}`);
@@ -295,8 +302,6 @@ export function JobsPageClient() {
       }
     });
   }, []);
-
-  // Note: Initial fetch is now handled by the selectedPipelineId useEffect above
 
   // Fetch table data when starting in table mode
   const initialTableFetchDone = useRef(false);
@@ -330,7 +335,7 @@ export function JobsPageClient() {
 
   function handleStatusChange() {
     fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
-    fetchStages(); // refresh job counts
+    fetchStages();
   }
 
   function handleTableSort(column: string) {
@@ -414,7 +419,6 @@ export function JobsPageClient() {
         setError(result.error);
         toast.error(result.error);
       } else {
-        // Add line items if any were provided
         if (data.lineItems && data.lineItems.length > 0) {
           const jobId = result.data.id;
           await Promise.all(
@@ -432,7 +436,7 @@ export function JobsPageClient() {
         setDialogOpen(false);
         toast.success("Job created");
         fetchJobs(search, priorityFilter, serviceTypeFilter);
-        fetchStages(); // refresh counts
+        fetchStages();
       }
     }
     setSaving(false);
@@ -449,182 +453,275 @@ export function JobsPageClient() {
       setDeleteDialogOpen(false);
       setDeletingJob(null);
       fetchJobs(search, priorityFilter, serviceTypeFilter);
-      fetchStages(); // refresh counts
+      fetchStages();
     }
     setSaving(false);
   }
-
-  // Computed stats
-  const todayStr = new Date().toISOString().split("T")[0];
-  const todayJobs = jobs.filter((j) => j.scheduledDate === todayStr).length;
-  const urgentCount = jobs.filter(
-    (j) => j.priority === "urgent" || j.priority === "emergency",
-  ).length;
-  const pipelineValue = jobs.reduce(
-    (sum, j) => sum + parseFloat(j.totalAmount || "0"),
-    0,
-  );
 
   const showNoResults = !loading && jobs.length === 0 && (!!search || !!priorityFilter || !!serviceTypeFilter);
   const stagesReady = stages.length > 0;
 
   return (
-    <section className="p-6 overflow-hidden animate-fade-in-up">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap">
-          <PipelineSelector
-            pipelines={pipelinesData}
-            selectedId={selectedPipelineId}
-            onSelect={handlePipelineChange}
-          />
-          {!loading && viewType !== "table" && (
-            <JobsStatsBar
-              totalJobs={jobs.length}
-              todayJobs={todayJobs}
-              urgentCount={urgentCount}
-              pipelineValue={pipelineValue}
-            />
-          )}
-          {viewType === "table" && !tableLoading && (
-            <span className="text-sm text-muted-foreground font-body">
-              {tablePagination.total} job{tablePagination.total !== 1 ? "s" : ""} total
-            </span>
-          )}
+    <section className="px-5 pt-2.5 pb-5 overflow-hidden animate-fade-in-up">
+      {/* Unified toolbar */}
+      <div className="mb-4 flex items-center rounded-xl border border-border bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-1.5">
+        {/* Left group: Pipeline tabs */}
+        <PipelineTabs
+          pipelines={pipelinesData}
+          selectedId={selectedPipelineId}
+          onSelect={handlePipelineChange}
+        />
+
+        <div className="h-5 w-px bg-border dark:bg-border/60 mx-2 shrink-0" />
+
+        {/* Left-center: Search + Filter */}
+        <JobFilters
+          search={search}
+          onSearchChange={setSearch}
+          priority={priorityFilter}
+          onPriorityChange={setPriorityFilter}
+          serviceType={serviceTypeFilter}
+          onServiceTypeChange={setServiceTypeFilter}
+        />
+
+        {/* Center: Board / Table labeled switch */}
+        <div className="mx-auto">
+          <Highlight
+            className="rounded-md bg-brand"
+            value={viewType}
+            controlledItems
+          >
+            <div className="flex items-center rounded-lg bg-muted/80 dark:bg-muted/30 p-0.5 gap-0.5">
+              <HighlightItem value="board">
+                <button
+                  onClick={() => handleViewTypeChange("board")}
+                  className={cn(
+                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
+                    viewType === "board"
+                      ? "text-brand-foreground"
+                      : "text-foreground/80 hover:text-foreground",
+                  )}
+                >
+                  <IconLayoutKanban className="h-3.5 w-3.5" />
+                  Board
+                </button>
+              </HighlightItem>
+              <HighlightItem value="list">
+                <button
+                  onClick={() => handleViewTypeChange("list")}
+                  className={cn(
+                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
+                    viewType === "list"
+                      ? "text-brand-foreground"
+                      : "text-foreground/80 hover:text-foreground",
+                  )}
+                >
+                  <IconList className="h-3.5 w-3.5" />
+                  List
+                </button>
+              </HighlightItem>
+              <HighlightItem value="table">
+                <button
+                  onClick={() => handleViewTypeChange("table")}
+                  className={cn(
+                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
+                    viewType === "table"
+                      ? "text-brand-foreground"
+                      : "text-foreground/80 hover:text-foreground",
+                  )}
+                >
+                  <IconListDetails className="h-3.5 w-3.5" />
+                  Table
+                </button>
+              </HighlightItem>
+            </div>
+          </Highlight>
         </div>
-        {/* Board / Table view switch */}
-        <Highlight
-          className="rounded-md bg-brand"
-          value={viewType}
-          controlledItems
-        >
-          <div className="flex items-center rounded-lg border border-border p-0.5 gap-0.5">
-            <HighlightItem value="board">
-              <Button
-                variant="ghost"
-                size="sm"
-                hoverScale={1}
-                tapScale={1}
-                onClick={() => handleViewTypeChange("board")}
-                className={cn(
-                  "rounded-md px-3 py-1.5 h-auto gap-1.5 text-sm font-body font-medium relative z-10",
-                  viewType === "board"
-                    ? "text-brand-foreground hover:bg-transparent"
-                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
-                )}
-              >
-                <IconLayoutKanban className="h-4 w-4" />
-                Board
-              </Button>
-            </HighlightItem>
-            <HighlightItem value="table">
-              <Button
-                variant="ghost"
-                size="sm"
-                hoverScale={1}
-                tapScale={1}
-                onClick={() => handleViewTypeChange("table")}
-                className={cn(
-                  "rounded-md px-3 py-1.5 h-auto gap-1.5 text-sm font-body font-medium relative z-10",
-                  viewType === "table"
-                    ? "text-brand-foreground hover:bg-transparent"
-                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
-                )}
-              >
-                <IconTable className="h-4 w-4" />
-                Table
-              </Button>
-            </HighlightItem>
+
+        {/* Right group: Density + Actions */}
+        <TooltipProvider delayDuration={200}>
+          <div className="flex items-center gap-0.5">
+            {/* Density */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  hoverScale={1}
+                  tapScale={0.95}
+                  onClick={() => handleCompactChange(false)}
+                  className={cn(
+                    "h-7 w-7 rounded-md",
+                    !compact
+                      ? "bg-muted/80 dark:bg-muted text-foreground"
+                      : "text-foreground/60 hover:text-foreground",
+                  )}
+                >
+                  <IconRowInsertTop className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Default density</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  hoverScale={1}
+                  tapScale={0.95}
+                  onClick={() => handleCompactChange(true)}
+                  className={cn(
+                    "h-7 w-7 rounded-md",
+                    compact
+                      ? "bg-muted/80 dark:bg-muted text-foreground"
+                      : "text-foreground/60 hover:text-foreground",
+                  )}
+                >
+                  <IconRowInsertBottom className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs">Compact density</TooltipContent>
+            </Tooltip>
+
+            <div className="h-4 w-px bg-border/70 dark:bg-border/40 mx-0.5 shrink-0" />
+
+            {/* View mode */}
+            {viewMounted && (
+              <ViewModeToggle value={viewMode} onChange={setViewMode} className="border-0 p-0 gap-0" />
+            )}
+
+            {/* Manage Pipeline */}
+            {viewType !== "table" && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setPipelineDialogOpen(true)}
+                    className="h-7 w-7 rounded-md text-foreground/60 hover:text-foreground"
+                  >
+                    <IconAdjustments className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-xs">Manage Pipeline</TooltipContent>
+              </Tooltip>
+            )}
+
+            {/* New Job CTA */}
+            <Button
+              onClick={openCreateDialog}
+              size="sm"
+              className="bg-brand text-brand-foreground hover:bg-brand/90 font-body h-7 text-xs px-2.5 ml-0.5 rounded-lg"
+            >
+              <IconPlus className="mr-1 h-3.5 w-3.5" />
+              New Job
+            </Button>
           </div>
-        </Highlight>
-        {viewMounted && (
-          <ViewModeToggle value={viewMode} onChange={setViewMode} />
-        )}
+        </TooltipProvider>
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
+        <div className="mb-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive font-body">
           {error}
         </div>
       )}
 
-      <JobFilters
-        search={search}
-        onSearchChange={setSearch}
-        priority={priorityFilter}
-        onPriorityChange={setPriorityFilter}
-        serviceType={serviceTypeFilter}
-        onServiceTypeChange={setServiceTypeFilter}
-        onCreateClick={openCreateDialog}
-        onManagePipeline={() => setPipelineDialogOpen(true)}
-        compact={compact}
-        onCompactChange={handleCompactChange}
-        isTableView={viewType === "table"}
-      />
+      {/* Row 4: Content with AnimatePresence for pipeline switch */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={selectedPipelineId ?? "loading"}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.2, ease: "easeInOut" }}
+        >
+          {/* Board view */}
+          {viewType === "board" && (
+            <>
+              {loading && <KanbanSkeleton columnCount={stages.length || 4} />}
 
-      {/* Board view */}
-      {viewType === "board" && (
-        <>
-          {loading && <KanbanSkeleton columnCount={stages.length || 4} />}
+              {showNoResults && (
+                <p className="py-12 text-center text-sm text-muted-foreground font-body">
+                  No jobs found matching your filters
+                </p>
+              )}
 
-          {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
-              No jobs found matching your filters
-            </p>
+              {!loading && stagesReady && !showNoResults && (
+                <KanbanBoard
+                  jobs={jobs}
+                  stages={stages}
+                  onJobClick={handleJobClick}
+                  onStatusChange={handleStatusChange}
+                  onAddJob={openCreateDialogForStage}
+                  cardView={compact ? "compact" : "default"}
+                />
+              )}
+            </>
           )}
 
-          {!loading && stagesReady && !showNoResults && (
-            <KanbanBoard
-              jobs={jobs}
-              stages={stages}
-              onJobClick={handleJobClick}
-              onStatusChange={handleStatusChange}
-              onAddJob={openCreateDialogForStage}
-              cardView={compact ? "compact" : "default"}
-            />
-          )}
-        </>
-      )}
+          {/* List view */}
+          {viewType === "list" && (
+            <>
+              {loading && <KanbanSkeleton columnCount={1} />}
 
-      {/* Table view */}
-      {viewType === "table" && (
-        <>
-          <div className="rounded-lg border border-border bg-card overflow-hidden">
-            {tableLoading && (
-              <div className="p-4">
-                <TableSkeleton columns={8} rows={10} />
+              {showNoResults && (
+                <p className="py-12 text-center text-sm text-muted-foreground font-body">
+                  No jobs found matching your filters
+                </p>
+              )}
+
+              {!loading && stagesReady && !showNoResults && (
+                <JobListView
+                  jobs={jobs}
+                  stages={stages}
+                  onJobClick={handleJobClick}
+                />
+              )}
+            </>
+          )}
+
+          {/* Table view */}
+          {viewType === "table" && (
+            <>
+              <div className="rounded-lg border border-border bg-card overflow-hidden">
+                {tableLoading && (
+                  <div className="p-4">
+                    <TableSkeleton columns={8} rows={10} />
+                  </div>
+                )}
+
+                {!tableLoading && tableJobs.length === 0 && (
+                  <p className="py-12 text-center text-sm text-muted-foreground font-body">
+                    No jobs found matching your filters
+                  </p>
+                )}
+
+                {!tableLoading && tableJobs.length > 0 && (
+                  <JobTable
+                    jobs={tableJobs}
+                    stages={stages}
+                    onRowClick={handleJobClick}
+                    sortBy={tableSortBy}
+                    sortOrder={tableSortOrder}
+                    onSort={handleTableSort}
+                    compact={compact}
+                  />
+                )}
               </div>
-            )}
 
-            {!tableLoading && tableJobs.length === 0 && (
-              <p className="py-12 text-center text-sm text-muted-foreground font-body">
-                No jobs found matching your filters
-              </p>
-            )}
-
-            {!tableLoading && tableJobs.length > 0 && (
-              <JobTable
-                jobs={tableJobs}
-                stages={stages}
-                onRowClick={handleJobClick}
-                sortBy={tableSortBy}
-                sortOrder={tableSortOrder}
-                onSort={handleTableSort}
-                compact={compact}
-              />
-            )}
-          </div>
-
-          {!tableLoading && tableJobs.length > 0 && tablePagination.totalPages > 1 && (
-            <Pagination
-              page={tablePagination.page}
-              totalPages={tablePagination.totalPages}
-              total={tablePagination.total}
-              onPageChange={handleTablePageChange}
-              entityName="job"
-            />
+              {!tableLoading && tableJobs.length > 0 && tablePagination.totalPages > 1 && (
+                <Pagination
+                  page={tablePagination.page}
+                  totalPages={tablePagination.totalPages}
+                  total={tablePagination.total}
+                  onPageChange={handleTablePageChange}
+                  entityName="job"
+                />
+              )}
+            </>
           )}
-        </>
-      )}
+        </motion.div>
+      </AnimatePresence>
 
       <JobDetailSheet
         jobId={selectedJobId}

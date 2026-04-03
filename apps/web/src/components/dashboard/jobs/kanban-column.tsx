@@ -1,6 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KanbanCard, type JobCardData } from "./kanban-card";
@@ -39,75 +40,93 @@ export function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col rounded-lg border-t-[3px] border bg-muted/20 p-3 transition-all duration-200 min-w-[280px] flex-1",
-        colors.borderTop,
-        isOver ? `${colors.bg} ring-2 ${colors.ring}` : "border-border",
+        "flex flex-col rounded-xl border p-3 transition-all duration-200 min-w-[290px] flex-1",
+        "bg-muted/40 dark:bg-muted/10",
+        isOver
+          ? `${colors.bg} ring-2 ${colors.ring} border-transparent`
+          : "border-border/50 dark:border-border/40",
       )}
     >
+      {/* Column header */}
       <div className="mb-3 flex items-center gap-2 shrink-0">
-        <span className={cn("h-3 w-3 rounded-full", colors.dot)} />
-        <h3 className="text-sm font-semibold text-foreground font-heading">
-          {stage.label}
-        </h3>
-        <span
+        <div
           className={cn(
-            "ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full px-1.5 text-xs font-medium",
+            "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1",
             colors.bg,
-            colors.text,
           )}
         >
+          <span className={cn("h-2 w-2 rounded-full", colors.dot)} />
+          <h3 className={cn("text-xs font-semibold uppercase tracking-wider font-heading", colors.text)}>
+            {stage.label}
+          </h3>
+        </div>
+        <span className="text-xs font-medium text-muted-foreground font-body">
           {jobs.length}
         </span>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onAddJob(stage.name)}
-          className="h-5 w-5"
-          title={`Add job to ${stage.label}`}
-        >
-          <IconPlus className="h-3.5 w-3.5" />
-        </Button>
+        <div className="ml-auto">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onAddJob(stage.name)}
+            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            hoverScale={1}
+            tapScale={0.9}
+            title={`Add job to ${stage.label}`}
+          >
+            <IconPlus className="h-3.5 w-3.5" />
+          </Button>
+        </div>
       </div>
 
+      {/* Cards */}
       <div className="flex-1 overflow-y-auto pr-1">
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-2.5">
           {jobs.map((job, index) => (
-            <div
+            <motion.div
               key={job.id}
-              className="animate-card-enter"
-              style={
-                { "--enter-delay": `${index * 50}ms` } as React.CSSProperties
-              }
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.25,
+                delay: index * 0.04,
+                ease: "easeOut",
+              }}
             >
               {cardView === "compact" ? (
                 <KanbanCardCompact job={job} onClick={onJobClick} />
               ) : (
                 <KanbanCard job={job} onClick={onJobClick} />
               )}
-            </div>
+            </motion.div>
           ))}
 
           {jobs.length === 0 && (
-            <div className="flex flex-col items-center justify-center rounded-md border border-dashed border-muted-foreground/30 bg-muted/40 py-10 px-4 text-center">
-              <IconBriefcase className="h-8 w-8 text-muted-foreground/50 mb-2" />
-              <p className="text-sm text-muted-foreground font-body">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="flex flex-col items-center justify-center rounded-xl py-10 px-4 text-center"
+            >
+              <IconBriefcase className="h-7 w-7 text-muted-foreground/30 mb-2" />
+              <p className="text-sm text-muted-foreground/60 font-body">
                 No jobs in {stage.label}
               </p>
-              <p className="text-xs text-muted-foreground/70 font-body mt-1">
+              <p className="text-xs text-muted-foreground/40 font-body mt-0.5">
                 Drag a job here or click + to add one
               </p>
-            </div>
+            </motion.div>
           )}
 
-          <Button
-            variant="ghost"
-            size="sm"
+          {/* Add card button */}
+          <button
             onClick={() => onAddJob(stage.name)}
-            className="w-full border border-dashed border-border/60 text-xs text-muted-foreground hover:border-brand/40 hover:text-brand font-body"
+            className="w-full py-2 text-xs text-muted-foreground/60 hover:text-brand font-body transition-colors rounded-lg hover:bg-muted/30"
           >
-            <IconPlus className="h-3.5 w-3.5" />
-            Add Job
-          </Button>
+            <span className="flex items-center justify-center gap-1">
+              <IconPlus className="h-3 w-3" />
+              Add Job
+            </span>
+          </button>
         </div>
       </div>
     </div>

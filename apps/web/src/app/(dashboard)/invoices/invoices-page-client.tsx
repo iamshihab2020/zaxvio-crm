@@ -67,7 +67,7 @@ export function InvoicesPageClient() {
   const [statusFilter, setStatusFilter] = useState("");
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
-    limit: 20,
+    limit: 15,
     total: 0,
     totalPages: 0,
   });
@@ -110,7 +110,7 @@ export function InvoicesPageClient() {
         search: search || undefined,
         status: statusFilter || undefined,
         page,
-        limit: 20,
+        limit: 15,
         sortBy: "createdAt",
         sortOrder: "desc",
       });

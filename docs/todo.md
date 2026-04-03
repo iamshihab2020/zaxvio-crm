@@ -41,6 +41,14 @@ Task tracking for in-progress and upcoming work.
 
 ## Recently Completed (Latest)
 
+- [x] **Jobs Kanban Board Redesign** (2026-04-03) — Full visual redesign of kanban board page
+  - [x] New `pipeline-tabs.tsx` — animated tab switcher replaces popover `pipeline-selector.tsx`
+  - [x] Redesigned kanban cards — cleaner layout with badge-forward design, rounded-xl, initials avatar
+  - [x] Redesigned kanban columns — pill-style headers, subtle tinted backgrounds, motion.div stagger
+  - [x] New 4-row page layout — title/actions, pipeline tabs + stats, filters + view toggle, board
+  - [x] AnimatePresence cross-fade on pipeline switch
+  - [x] Compact card updated to match new design language
+
 - [x] **Multi-Pipeline Feature** (2026-04-02) — Multiple pipelines per tenant with independent stages
   - [x] Database: `pipelines` table, `pipeline_id` FK on stages + jobs, idempotent migration with data backfill
   - [x] API: Pipeline CRUD routes (`/pipelines`), updated stage/job/dashboard/booking/quote routes

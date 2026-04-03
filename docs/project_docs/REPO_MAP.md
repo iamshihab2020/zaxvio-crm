@@ -364,7 +364,7 @@ apps/web/
     |   |   |   +-- pipeline-create-dialog.tsx  # Create pipeline dialog (name, stage options)
     |   |   |
     |   |   +-- jobs/               # Job management components
-    |   |   |   +-- pipeline-selector.tsx    # Pipeline dropdown selector (Popover, shown when >1 pipeline)
+    |   |   |   +-- pipeline-tabs.tsx         # Pipeline tab switcher (animated Highlight tabs, always visible)
     |   |   |   +-- job-create-dialog.tsx
     |   |   |   +-- job-detail-activities.tsx
     |   |   |   +-- job-detail-checklist.tsx

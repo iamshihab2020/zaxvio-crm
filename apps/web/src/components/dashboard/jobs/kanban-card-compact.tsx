@@ -3,10 +3,6 @@
 import { useDraggable } from "@dnd-kit/core";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
-import {
-  JOB_PRIORITY_BORDER_COLORS,
-  type JobPriority,
-} from "@/lib/constants/job-options";
 import type { JobCardData } from "./kanban-card";
 
 interface KanbanCardCompactProps {
@@ -60,10 +56,10 @@ export function KanbanCardCompact({
         if (!isDragging) onClick(job.id);
       }}
       className={cn(
-        "cursor-grab rounded-md border border-border border-l-[3px] bg-card px-2.5 py-1.5 shadow-sm transition-all duration-200",
-        "hover:shadow-md hover:-translate-y-0.5",
+        "cursor-grab rounded-xl border bg-card px-3 py-2 transition-all duration-200",
+        "border-border/80 shadow dark:border-border/60 dark:shadow-sm",
+        "hover:shadow-lg hover:-translate-y-0.5 dark:hover:shadow-md",
         "active:cursor-grabbing",
-        JOB_PRIORITY_BORDER_COLORS[job.priority],
         isDragging && "opacity-30",
         isOverlay && "shadow-xl ring-2 ring-brand/30 rotate-2 scale-[1.03]",
         job.priority === "emergency" && "animate-pulse-emergency",
@@ -77,7 +73,7 @@ export function KanbanCardCompact({
           {job.title}
         </span>
         <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-medium text-muted-foreground"
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[9px] font-semibold text-brand dark:bg-brand/20 dark:text-brand"
           title={
             job.customerFirstName || job.customerLastName
               ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()

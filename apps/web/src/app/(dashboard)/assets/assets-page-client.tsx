@@ -36,7 +36,7 @@ export function AssetsPageClient() {
   const [assets, setAssets] = useState<AssetRow[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     page: 1,
-    limit: 20,
+    limit: 15,
     total: 0,
     totalPages: 0,
   });
@@ -56,7 +56,7 @@ export function AssetsPageClient() {
       const result = await getEquipment({
         search: searchTerm,
         page,
-        limit: 20,
+        limit: 15,
       });
       if (result.data) {
         setAssets(result.data as AssetRow[]);

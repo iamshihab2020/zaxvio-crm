@@ -35,7 +35,7 @@ export function ServiceAgreementsPageClient() {
   const [agreements, setAgreements] = useState<AgreementRow[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     page: 1,
-    limit: 20,
+    limit: 15,
     total: 0,
     totalPages: 0,
   });
@@ -57,7 +57,7 @@ export function ServiceAgreementsPageClient() {
       const result = await getMaintenanceContracts({
         search: searchTerm,
         page,
-        limit: 20,
+        limit: 15,
       });
       if (result.data) {
         setAgreements(result.data as AgreementRow[]);

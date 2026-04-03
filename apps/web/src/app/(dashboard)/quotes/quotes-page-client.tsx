@@ -86,7 +86,7 @@ export function QuotesPageClient() {
   const [sortPopoverOpen, setSortPopoverOpen] = useState(false);
   const [pagination, setPagination] = useState<PaginationInfo>({
     page: 1,
-    limit: 20,
+    limit: 15,
     total: 0,
     totalPages: 0,
   });
@@ -125,7 +125,7 @@ export function QuotesPageClient() {
         search: search || undefined,
         status: statusFilter || undefined,
         page,
-        limit: 20,
+        limit: 15,
         sortBy,
         sortOrder,
       });

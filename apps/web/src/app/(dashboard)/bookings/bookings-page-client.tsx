@@ -55,7 +55,7 @@ export function BookingsPageClient() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1, limit: 20, total: 0, totalPages: 0,
+    page: 1, limit: 15, total: 0, totalPages: 0,
   });
   const [tenantSlug, setTenantSlug] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -89,7 +89,7 @@ export function BookingsPageClient() {
       search: search || undefined,
       status: statusFilter || undefined,
       page,
-      limit: 20,
+      limit: 15,
       sortBy: "bookingDate",
       sortOrder: "asc",
     });

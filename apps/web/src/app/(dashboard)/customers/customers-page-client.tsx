@@ -30,7 +30,7 @@ export function CustomersPageClient() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     page: 1,
-    limit: 20,
+    limit: 15,
     total: 0,
     totalPages: 0,
   });
@@ -66,10 +66,10 @@ export function CustomersPageClient() {
   const fetchCustomers = useCallback(
     async (page: number, searchTerm: string) => {
       setLoading(true);
-      const result = await getCustomers({ search: searchTerm, page, limit: 20 });
+      const result = await getCustomers({ search: searchTerm, page, limit: 15 });
       if (result.data) {
         setCustomers(result.data);
-        setPagination(result.pagination ?? { page, limit: 20, total: 0, totalPages: 0 });
+        setPagination(result.pagination ?? { page, limit: 15, total: 0, totalPages: 0 });
       }
       setLoading(false);
     },

@@ -1,6 +1,11 @@
 "use client";
 
-import { IconBriefcase, IconCalendarEvent, IconCurrencyDollar, IconAlertTriangle } from "@tabler/icons-react";
+import {
+  IconBriefcase,
+  IconCalendarEvent,
+  IconCurrencyDollar,
+  IconAlertTriangle,
+} from "@tabler/icons-react";
 
 interface JobsStatsBarProps {
   totalJobs: number;
@@ -25,31 +30,45 @@ export function JobsStatsBar({
   pipelineValue,
 }: JobsStatsBarProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs font-body">
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-medium text-foreground">
-        <IconBriefcase className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
-        {totalJobs} {totalJobs === 1 ? "job" : "jobs"}
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-body text-muted-foreground">
+      <span className="inline-flex items-center gap-1">
+        <IconBriefcase className="h-3.5 w-3.5 text-blue-500 dark:text-blue-400" />
+        <span className="font-medium text-foreground">{totalJobs}</span>
+        {totalJobs === 1 ? "job" : "jobs"}
       </span>
 
       {todayJobs > 0 && (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-medium text-foreground">
-          <IconCalendarEvent className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
-          {todayJobs} today
-        </span>
+        <>
+          <span className="text-border">|</span>
+          <span className="inline-flex items-center gap-1">
+            <IconCalendarEvent className="h-3.5 w-3.5 text-green-500 dark:text-green-400" />
+            <span className="font-medium text-foreground">{todayJobs}</span>
+            today
+          </span>
+        </>
       )}
 
       {pipelineValue > 0 && (
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 font-medium text-foreground">
-          <IconCurrencyDollar className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
-          {formatCurrency(pipelineValue)} pipeline
-        </span>
+        <>
+          <span className="text-border">|</span>
+          <span className="inline-flex items-center gap-1">
+            <IconCurrencyDollar className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
+            <span className="font-medium text-foreground">
+              {formatCurrency(pipelineValue)}
+            </span>
+          </span>
+        </>
       )}
 
       {urgentCount > 0 && (
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-red-50 dark:bg-red-950/40 px-2.5 py-1 font-medium text-red-600 dark:text-red-400">
-          <IconAlertTriangle className="h-3.5 w-3.5" />
-          {urgentCount} urgent
-        </span>
+        <>
+          <span className="text-border">|</span>
+          <span className="inline-flex items-center gap-1 text-red-600 dark:text-red-400">
+            <IconAlertTriangle className="h-3.5 w-3.5" />
+            <span className="font-medium">{urgentCount}</span>
+            urgent
+          </span>
+        </>
       )}
     </div>
   );

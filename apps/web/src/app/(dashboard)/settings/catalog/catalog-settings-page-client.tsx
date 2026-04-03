@@ -30,7 +30,7 @@ export function CatalogSettingsPageClient() {
   const [items, setItems] = useState<CatalogItem[]>([]);
   const [pagination, setPagination] = useState<PaginationData>({
     page: 1,
-    limit: 20,
+    limit: 15,
     total: 0,
     totalPages: 0,
   });
@@ -55,14 +55,14 @@ export function CatalogSettingsPageClient() {
       const result = await getCatalogItems({
         search: searchTerm,
         page,
-        limit: 20,
+        limit: 15,
         itemType: itemType || undefined,
         showArchived: archived,
       });
       if (result.data) {
         setItems(result.data);
         setPagination(
-          result.pagination ?? { page, limit: 20, total: 0, totalPages: 0 },
+          result.pagination ?? { page, limit: 15, total: 0, totalPages: 0 },
         );
       }
       setLoading(false);
