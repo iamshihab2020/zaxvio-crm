@@ -72,43 +72,49 @@ export function JobFilters({
         {/* Priority filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               className={cn(
-                "relative inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-body cursor-pointer transition-colors",
+                "relative gap-1.5 font-body",
                 priority
                   ? "border-brand/40 bg-brand-light/20 text-brand"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/30",
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30",
               )}
             >
               <IconFilter className="h-3.5 w-3.5" />
               {priority ? JOB_PRIORITY_LABELS[priority] : "Priority"}
-            </button>
+            </Button>
           </PopoverTrigger>
           <PopoverContent className="w-40 p-1" align="start">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onPriorityChange(null)}
               className={cn(
-                "w-full px-2 py-1.5 text-sm rounded-md text-left font-body cursor-pointer",
+                "w-full justify-start font-body",
                 priority === null
                   ? "bg-muted text-foreground"
-                  : "hover:bg-muted text-muted-foreground",
+                  : "text-muted-foreground",
               )}
             >
               All
-            </button>
+            </Button>
             {JOB_PRIORITIES.map((p) => (
-              <button
+              <Button
                 key={p}
+                variant="ghost"
+                size="sm"
                 onClick={() => onPriorityChange(p)}
                 className={cn(
-                  "w-full px-2 py-1.5 text-sm rounded-md text-left font-body cursor-pointer",
+                  "w-full justify-start font-body",
                   priority === p
                     ? "bg-muted text-foreground"
-                    : "hover:bg-muted text-muted-foreground",
+                    : "text-muted-foreground",
                 )}
               >
                 {JOB_PRIORITY_LABELS[p]}
-              </button>
+              </Button>
             ))}
           </PopoverContent>
         </Popover>
@@ -116,59 +122,67 @@ export function JobFilters({
         {/* Service type filter */}
         <Popover>
           <PopoverTrigger asChild>
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-body cursor-pointer transition-colors",
+                "gap-1.5 font-body",
                 serviceType
                   ? "border-brand/40 bg-brand-light/20 text-brand"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted/30",
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30",
               )}
             >
               {serviceType ? SERVICE_TYPE_LABELS[serviceType] : "Service Type"}
-            </button>
+            </Button>
           </PopoverTrigger>
           <PopoverContent className="w-40 p-1" align="start">
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
               onClick={() => onServiceTypeChange(null)}
               className={cn(
-                "w-full px-2 py-1.5 text-sm rounded-md text-left font-body cursor-pointer",
+                "w-full justify-start font-body",
                 serviceType === null
                   ? "bg-muted text-foreground"
-                  : "hover:bg-muted text-muted-foreground",
+                  : "text-muted-foreground",
               )}
             >
               All
-            </button>
+            </Button>
             {SERVICE_TYPES.map((st) => (
-              <button
+              <Button
                 key={st}
+                variant="ghost"
+                size="sm"
                 onClick={() => onServiceTypeChange(st)}
                 className={cn(
-                  "w-full px-2 py-1.5 text-sm rounded-md text-left font-body cursor-pointer",
+                  "w-full justify-start font-body",
                   serviceType === st
                     ? "bg-muted text-foreground"
-                    : "hover:bg-muted text-muted-foreground",
+                    : "text-muted-foreground",
                 )}
               >
                 {SERVICE_TYPE_LABELS[st]}
-              </button>
+              </Button>
             ))}
           </PopoverContent>
         </Popover>
 
         {hasFilters && (
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => {
               onPriorityChange(null);
               onServiceTypeChange(null);
             }}
-            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-body cursor-pointer"
+            className="text-xs text-muted-foreground hover:text-foreground font-body"
           >
             Clear filters
             <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[10px] text-brand-foreground font-medium">
               {activeFilterCount}
             </span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -176,30 +190,34 @@ export function JobFilters({
       <div className="flex items-center gap-2">
         {/* Density toggle (default / compact) */}
         <div className="flex items-center rounded-md border border-border p-0.5 gap-0.5">
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => onCompactChange(false)}
             className={cn(
-              "flex h-7 w-7 items-center justify-center rounded transition-colors cursor-pointer",
+              "h-7 w-7 rounded",
               !compact
-                ? "bg-brand text-brand-foreground"
+                ? "bg-brand text-brand-foreground hover:bg-brand/90"
                 : "text-muted-foreground hover:text-foreground",
             )}
             title="Default density"
           >
             <IconLayoutCards className="h-3.5 w-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => onCompactChange(true)}
             className={cn(
-              "flex h-7 w-7 items-center justify-center rounded transition-colors cursor-pointer",
+              "h-7 w-7 rounded",
               compact
-                ? "bg-brand text-brand-foreground"
+                ? "bg-brand text-brand-foreground hover:bg-brand/90"
                 : "text-muted-foreground hover:text-foreground",
             )}
             title="Compact density"
           >
             <IconLayoutList className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
 
         {onManagePipeline && !isTableView && (

@@ -34,8 +34,13 @@ import { PipelineSelector } from "@/components/dashboard/jobs/pipeline-selector"
 import { JobTable } from "@/components/dashboard/jobs/job-table";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
+import { Button } from "@/components/ui/button";
 import { IconLayoutKanban, IconTable } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import {
+  Highlight,
+  HighlightItem,
+} from "@/components/animate-ui/primitives/effects/highlight";
 import type { JobPriority, ServiceType } from "@/lib/constants/job-options";
 
 interface PipelineData {
@@ -487,32 +492,50 @@ export function JobsPageClient() {
           )}
         </div>
         {/* Board / Table view switch */}
-        <div className="flex items-center rounded-lg border border-border p-0.5 gap-0.5">
-          <button
-            onClick={() => handleViewTypeChange("board")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-body font-medium transition-colors cursor-pointer",
-              viewType === "board"
-                ? "bg-brand text-brand-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-            )}
-          >
-            <IconLayoutKanban className="h-4 w-4" />
-            Board
-          </button>
-          <button
-            onClick={() => handleViewTypeChange("table")}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-body font-medium transition-colors cursor-pointer",
-              viewType === "table"
-                ? "bg-brand text-brand-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
-            )}
-          >
-            <IconTable className="h-4 w-4" />
-            Table
-          </button>
-        </div>
+        <Highlight
+          className="rounded-md bg-brand"
+          value={viewType}
+          controlledItems
+        >
+          <div className="flex items-center rounded-lg border border-border p-0.5 gap-0.5">
+            <HighlightItem value="board">
+              <Button
+                variant="ghost"
+                size="sm"
+                hoverScale={1}
+                tapScale={1}
+                onClick={() => handleViewTypeChange("board")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 h-auto gap-1.5 text-sm font-body font-medium relative z-10",
+                  viewType === "board"
+                    ? "text-brand-foreground hover:bg-transparent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
+                )}
+              >
+                <IconLayoutKanban className="h-4 w-4" />
+                Board
+              </Button>
+            </HighlightItem>
+            <HighlightItem value="table">
+              <Button
+                variant="ghost"
+                size="sm"
+                hoverScale={1}
+                tapScale={1}
+                onClick={() => handleViewTypeChange("table")}
+                className={cn(
+                  "rounded-md px-3 py-1.5 h-auto gap-1.5 text-sm font-body font-medium relative z-10",
+                  viewType === "table"
+                    ? "text-brand-foreground hover:bg-transparent"
+                    : "text-muted-foreground hover:text-foreground hover:bg-transparent",
+                )}
+              >
+                <IconTable className="h-4 w-4" />
+                Table
+              </Button>
+            </HighlightItem>
+          </div>
+        </Highlight>
         {viewMounted && (
           <ViewModeToggle value={viewMode} onChange={setViewMode} />
         )}

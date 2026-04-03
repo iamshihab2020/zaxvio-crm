@@ -174,33 +174,33 @@ export function CatalogItemDialog({
               </Label>
               <Popover open={typePopoverOpen} onOpenChange={setTypePopoverOpen}>
                 <PopoverTrigger asChild>
-                  <button
+                  <Button
                     type="button"
-                    className={cn(
-                      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-                      "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
-                    )}
+                    variant="outline"
+                    className="h-10 w-full justify-between"
                   >
                     {selectedTypeLabel}
                     <IconChevronDown className="h-4 w-4 text-muted-foreground" />
-                  </button>
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[200px] p-1" align="start">
                   {itemTypeOptions.map((option) => (
-                    <button
+                    <Button
                       key={option.value}
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         updateField("itemType", option.value);
                         setTypePopoverOpen(false);
                       }}
                       className={cn(
-                        "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
+                        "w-full justify-start",
                         form.itemType === option.value && "bg-muted font-medium",
                       )}
                     >
                       {option.label}
-                    </button>
+                    </Button>
                   ))}
                 </PopoverContent>
               </Popover>
@@ -241,19 +241,19 @@ export function CatalogItemDialog({
               <Label className="font-body">Unit</Label>
               <Popover open={unitOpen} onOpenChange={setUnitOpen}>
                 <PopoverTrigger asChild>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     role="combobox"
                     aria-expanded={unitOpen}
                     className={cn(
-                      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-                      "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                      "h-10 w-full justify-between",
                       !form.unit && "text-muted-foreground",
                     )}
                   >
                     <span className="truncate">{form.unit || "Select unit"}</span>
                     <IconChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                   <Command>
@@ -289,19 +289,19 @@ export function CatalogItemDialog({
               <Label className="font-body">Category</Label>
               <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
                 <PopoverTrigger asChild>
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     role="combobox"
                     aria-expanded={categoryOpen}
                     className={cn(
-                      "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background",
-                      "focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+                      "h-10 w-full justify-between",
                       !form.category && "text-muted-foreground",
                     )}
                   >
                     <span className="truncate">{form.category || "Select category"}</span>
                     <IconChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
                   <Command>

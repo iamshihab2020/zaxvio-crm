@@ -21,6 +21,7 @@ import {
   IconLayoutSidebar,
   IconTooltip,
   IconChevronDown,
+  IconChartBar,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ type NavGroup = { label: string; items: NavItem[]; defaultOpen?: boolean };
 
 const standaloneItems: NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: IconLayoutDashboard },
+  { href: "/reports", label: "Reports", icon: IconChartBar },
 ];
 
 const navGroups: NavGroup[] = [
@@ -357,10 +359,12 @@ export function Sidebar() {
               // Expanded sidebar — collapsible groups
               return (
                 <div key={group.label} className="mt-3">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => toggleGroup(group.label)}
-                    className="flex w-full items-center justify-between px-3 py-1 group cursor-pointer"
+                    className="flex w-full items-center justify-between px-3 py-1 group h-auto"
                   >
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground font-heading select-none">
                       {group.label}
@@ -371,7 +375,7 @@ export function Sidebar() {
                         isGroupCollapsed && "-rotate-90",
                       )}
                     />
-                  </button>
+                  </Button>
                   <div
                     className={cn(
                       "flex flex-col gap-0.5 overflow-hidden transition-all duration-200",

@@ -14,6 +14,7 @@ import {
   CommandEmpty,
   CommandGroup,
 } from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { IconSelector, IconCheck, IconX } from "@tabler/icons-react";
 import { getCatalogItems } from "@/actions/catalog";
@@ -76,10 +77,11 @@ export function CatalogItemPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="outline"
           className={cn(
-            "flex h-9 w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm font-body cursor-pointer",
+            "h-9 w-full justify-between font-body",
             !selectedId && "text-muted-foreground",
           )}
         >
@@ -101,7 +103,7 @@ export function CatalogItemPicker({
             )}
             <IconSelector className="h-4 w-4 text-muted-foreground" />
           </div>
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[320px] p-0" align="start">
         <Command shouldFilter={false}>

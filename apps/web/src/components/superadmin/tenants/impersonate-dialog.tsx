@@ -230,10 +230,11 @@ export function ImpersonateDialog({
           <div className="space-y-2">
             <Label className="font-body text-sm">Impersonation Mode</Label>
             <div className="grid grid-cols-2 gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setMode("ghost")}
-                className={`flex items-center gap-2 rounded-lg border p-3 text-left transition-colors ${
+                className={`flex h-auto items-center gap-2 rounded-lg border p-3 text-left ${
                   mode === "ghost"
                     ? "border-admin-accent bg-admin-accent/10"
                     : "border-border hover:border-muted-foreground/30"
@@ -251,11 +252,12 @@ export function ImpersonateDialog({
                 {mode === "ghost" && (
                   <IconCheck className="ml-auto h-4 w-4 text-admin-accent" />
                 )}
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => setMode("visible")}
-                className={`flex items-center gap-2 rounded-lg border p-3 text-left transition-colors ${
+                className={`flex h-auto items-center gap-2 rounded-lg border p-3 text-left ${
                   mode === "visible"
                     ? "border-admin-accent bg-admin-accent/10"
                     : "border-border hover:border-muted-foreground/30"
@@ -273,7 +275,7 @@ export function ImpersonateDialog({
                 {mode === "visible" && (
                   <IconCheck className="ml-auto h-4 w-4 text-admin-accent" />
                 )}
-              </button>
+              </Button>
             </div>
           </div>
 

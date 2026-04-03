@@ -305,18 +305,20 @@ export function BookingsPageClient() {
 
             <div className="flex items-center gap-1.5 flex-wrap">
               {STATUS_OPTIONS.map((opt) => (
-                <button
+                <Button
                   key={opt.value}
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setStatusFilter(opt.value)}
                   className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium transition-colors cursor-pointer font-body",
+                    "rounded-full px-3 py-1 text-xs font-medium font-body h-auto",
                     statusFilter === opt.value
-                      ? "bg-brand text-brand-foreground"
+                      ? "bg-brand text-brand-foreground hover:bg-brand/90"
                       : "bg-muted text-muted-foreground hover:bg-muted/80",
                   )}
                 >
                   {opt.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>

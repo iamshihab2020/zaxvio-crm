@@ -3,6 +3,11 @@
 import * as React from "react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { IconX } from "@tabler/icons-react";
+import {
+  AnimatePresence,
+  motion,
+  type Transition,
+} from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -14,32 +19,37 @@ const SheetClose = SheetPrimitive.Close;
 
 const SheetPortal = SheetPrimitive.Portal;
 
-const SheetOverlay = React.forwardRef<
-  React.ComponentRef<typeof SheetPrimitive.Overlay>,
-  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
->(({ className, ...props }, ref) => (
-  <SheetPrimitive.Overlay
-    className={cn(
-      "fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 duration-300",
-      className,
-    )}
-    {...props}
-    ref={ref}
-  />
-));
-SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
+// ── Animated Overlay ──
 
-const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background shadow-2xl transition-transform data-[state=open]:animate-in data-[state=closed]:animate-out",
+function SheetOverlay({
+  className,
+  ...props
+}: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>) {
+  return (
+    <SheetPrimitive.Overlay asChild {...props}>
+      <motion.div
+        className={cn("fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]", className)}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.25 }}
+      />
+    </SheetPrimitive.Overlay>
+  );
+}
+SheetOverlay.displayName = "SheetOverlay";
+
+// ── Side variants (for static classes only — animation handled by motion) ──
+
+const sheetStaticVariants = cva(
+  "fixed z-50 gap-4 bg-background shadow-2xl",
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top data-[state=open]:duration-300 data-[state=closed]:duration-200",
-        bottom:
-          "inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom data-[state=open]:duration-300 data-[state=closed]:duration-200",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm data-[state=open]:duration-300 data-[state=closed]:duration-200",
-        right:
-          "inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-lg data-[state=open]:duration-300 data-[state=closed]:duration-200",
+        top: "inset-x-0 top-0 border-b",
+        bottom: "inset-x-0 bottom-0 border-t",
+        left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
+        right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-lg",
       },
     },
     defaultVariants: {
@@ -48,26 +58,71 @@ const sheetVariants = cva(
   },
 );
 
+// ── Motion variants per side ──
+
+const slideVariants = {
+  top: { initial: { y: "-100%" }, animate: { y: 0 }, exit: { y: "-100%" } },
+  bottom: { initial: { y: "100%" }, animate: { y: 0 }, exit: { y: "100%" } },
+  left: { initial: { x: "-100%" }, animate: { x: 0 }, exit: { x: "-100%" } },
+  right: { initial: { x: "100%" }, animate: { x: 0 }, exit: { x: "100%" } },
+} as const;
+
+const springTransition: Transition = {
+  type: "spring",
+  stiffness: 150,
+  damping: 22,
+};
+
+// ── Animated Content ──
+
 interface SheetContentProps
-  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+  extends Omit<React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>, "asChild" | "forceMount">,
+    VariantProps<typeof sheetStaticVariants> {
+  transition?: Transition;
+  showCloseButton?: boolean;
+}
 
 const SheetContent = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content
-      ref={ref}
-      className={cn(sheetVariants({ side }), className)}
-      {...props}
-    >
-      {children}
-    </SheetPrimitive.Content>
-  </SheetPortal>
-));
-SheetContent.displayName = SheetPrimitive.Content.displayName;
+>(({
+  side = "right",
+  className,
+  children,
+  transition = springTransition,
+  showCloseButton = false,
+  ...props
+}, ref) => {
+  const variants = slideVariants[side ?? "right"];
+
+  return (
+    <SheetPortal>
+      <AnimatePresence mode="wait">
+        <SheetOverlay />
+        <SheetPrimitive.Content ref={ref} asChild {...props}>
+          <motion.div
+            className={cn(sheetStaticVariants({ side }), className)}
+            initial={variants.initial}
+            animate={variants.animate}
+            exit={variants.exit}
+            transition={transition}
+          >
+            {children}
+            {showCloseButton && (
+              <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+                <IconX className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </SheetPrimitive.Close>
+            )}
+          </motion.div>
+        </SheetPrimitive.Content>
+      </AnimatePresence>
+    </SheetPortal>
+  );
+});
+SheetContent.displayName = "SheetContent";
+
+// ── Layout components (unchanged) ──
 
 const SheetHeader = ({
   className,
@@ -107,7 +162,7 @@ const SheetTitle = React.forwardRef<
     {...props}
   />
 ));
-SheetTitle.displayName = SheetPrimitive.Title.displayName;
+SheetTitle.displayName = "SheetTitle";
 
 const SheetDescription = React.forwardRef<
   React.ComponentRef<typeof SheetPrimitive.Description>,
@@ -119,7 +174,7 @@ const SheetDescription = React.forwardRef<
     {...props}
   />
 ));
-SheetDescription.displayName = SheetPrimitive.Description.displayName;
+SheetDescription.displayName = "SheetDescription";
 
 export {
   Sheet,

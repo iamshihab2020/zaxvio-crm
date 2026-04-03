@@ -139,13 +139,15 @@ export function CustomerTagsInput({
               style={tag.color ? { backgroundColor: tag.color } : undefined}
             />
             {tag.name}
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={() => handleRemoveTag(tag.id)}
-              className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+              className="ml-0.5 h-4 w-4 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
             >
               <IconX className="h-2.5 w-2.5" />
-            </button>
+            </Button>
           </Badge>
         ))}
         <Popover open={open} onOpenChange={setOpen}>
@@ -176,11 +178,13 @@ export function CustomerTagsInput({
             <div className="max-h-40 overflow-y-auto space-y-0.5">
               {/* Unassigned tags — clickable to assign */}
               {unassignedTags.map((tag) => (
-                <button
+                <Button
                   key={tag.id}
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleAssignTag(tag)}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted"
+                  className="w-full justify-start gap-2"
                 >
                   {tag.color && (
                     <span
@@ -189,7 +193,7 @@ export function CustomerTagsInput({
                     />
                   )}
                   {tag.name}
-                </button>
+                </Button>
               ))}
 
               {/* Already-assigned tags — shown grayed with checkmark */}
@@ -212,15 +216,17 @@ export function CustomerTagsInput({
                 ))}
 
               {showCreateOption && (
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={handleCreateAndAssign}
                   disabled={creating}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-brand hover:bg-muted"
+                  className="w-full justify-start gap-2 text-brand"
                 >
                   <IconPlus className="h-3.5 w-3.5" />
                   Create &quot;{search.trim()}&quot;
-                </button>
+                </Button>
               )}
 
               {matchingTags.length === 0 && !showCreateOption && (

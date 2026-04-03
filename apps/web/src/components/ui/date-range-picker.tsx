@@ -47,20 +47,32 @@ const PRESETS = [
   },
 ] as const;
 
+export type DatePreset = {
+  label: string;
+  getValue: () => { from: Date; to: Date };
+};
+
 interface DateRangePickerProps {
   dateRange: DateRange | undefined;
   onDateRangeChange: (range: DateRange | undefined) => void;
   className?: string;
+  extraPresets?: DatePreset[];
 }
 
 export function DateRangePicker({
   dateRange,
   onDateRangeChange,
   className,
+  extraPresets,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
 
-  const handlePreset = (preset: (typeof PRESETS)[number]) => {
+  const allPresets = React.useMemo(() => {
+    if (!extraPresets?.length) return PRESETS as unknown as DatePreset[];
+    return [...(PRESETS as unknown as DatePreset[]), ...extraPresets];
+  }, [extraPresets]);
+
+  const handlePreset = (preset: DatePreset) => {
     const range = preset.getValue();
     onDateRangeChange(range);
     setOpen(false);
@@ -98,14 +110,16 @@ export function DateRangePicker({
         <div className="flex">
           {/* Presets sidebar */}
           <div className="flex flex-col gap-0.5 border-r border-border p-2">
-            {PRESETS.map((preset) => (
-              <button
+            {allPresets.map((preset) => (
+              <Button
                 key={preset.label}
+                variant="ghost"
+                size="sm"
                 onClick={() => handlePreset(preset)}
-                className="rounded-md px-3 py-1.5 text-left text-xs font-body text-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                className="justify-start text-xs font-body whitespace-nowrap"
               >
                 {preset.label}
-              </button>
+              </Button>
             ))}
           </div>
           {/* Calendar */}

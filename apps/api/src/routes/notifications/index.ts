@@ -2,20 +2,20 @@ import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
-  notifications,
   notificationReads,
   notificationChannelConfig,
   eq,
   and,
   sql,
-  desc,
 } from "@hvac-saas/database";
+import {
+  getNotifications,
+  getUnreadCount,
+} from "../../services/notifications.service.js";
 
 export default async function notificationRoutes(fastify: FastifyInstance) {
   /**
    * GET /notifications
-   * List recent notifications for the current tenant + user.
-   * Query params: limit (default 20), cursor (ISO date for pagination)
    */
   fastify.get(
     "/",
@@ -25,65 +25,15 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
       const userId = request.authUser.userId;
       const query = request.query as Record<string, string>;
       const limit = Math.min(parseInt(query.limit ?? "20", 10) || 20, 50);
-      const cursor = query.cursor;
 
       const db = getDb();
-
-      const cursorFilter = cursor
-        ? sql`AND n."created_at" < ${cursor}::timestamptz`
-        : sql``;
-
-      const rows = await db.execute<{
-        id: string;
-        tenant_id: string;
-        type: string;
-        title: string;
-        description: string;
-        entity_type: string | null;
-        entity_id: string | null;
-        actor_id: string | null;
-        metadata: unknown;
-        dedup_key: string | null;
-        created_at: string;
-        is_read: boolean;
-      }>(sql`
-        SELECT
-          n.*,
-          CASE WHEN nr.id IS NOT NULL THEN true ELSE false END AS is_read
-        FROM "notifications" n
-        LEFT JOIN "notification_reads" nr
-          ON nr."notification_id" = n."id" AND nr."user_id" = ${userId}
-        WHERE n."tenant_id" = ${tenantId}
-          AND (n."actor_id" IS NULL OR n."actor_id" != ${userId})
-          ${cursorFilter}
-        ORDER BY n."created_at" DESC
-        LIMIT ${limit}
-      `);
-
-      const data = rows.map((r) => ({
-        id: r.id,
-        tenantId: r.tenant_id,
-        type: r.type,
-        title: r.title,
-        description: r.description,
-        entityType: r.entity_type,
-        entityId: r.entity_id,
-        actorId: r.actor_id,
-        metadata: r.metadata,
-        createdAt: r.created_at,
-        isRead: r.is_read,
-      }));
-
-      const nextCursor =
-        data.length === limit ? data[data.length - 1].createdAt : null;
-
-      return reply.send({ data, nextCursor });
+      const result = await getNotifications(db, tenantId, userId, limit, query.cursor);
+      return reply.send(result);
     },
   );
 
   /**
    * GET /notifications/unread-count
-   * Returns count of unread notifications for the current user.
    */
   fastify.get(
     "/unread-count",
@@ -91,20 +41,10 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-
       const db = getDb();
 
-      const result = await db.execute<{ count: string }>(sql`
-        SELECT COUNT(*)::text AS count
-        FROM "notifications" n
-        LEFT JOIN "notification_reads" nr
-          ON nr."notification_id" = n."id" AND nr."user_id" = ${userId}
-        WHERE n."tenant_id" = ${tenantId}
-          AND (n."actor_id" IS NULL OR n."actor_id" != ${userId})
-          AND nr."id" IS NULL
-      `);
-
-      return reply.send({ count: parseInt(result[0]?.count ?? "0", 10) });
+      const count = await getUnreadCount(db, tenantId, userId);
+      return reply.send({ count });
     },
   );
 

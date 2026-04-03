@@ -91,20 +91,21 @@ export function ConvertToJobDialog({
                 const colors = getStageColors(stage.color);
                 const isSelected = selectedStageId === stage.id;
                 return (
-                  <button
+                  <Button
                     key={stage.id}
                     type="button"
+                    variant="outline"
                     onClick={() => setSelectedStageId(stage.id)}
                     className={cn(
-                      "flex items-center gap-2 rounded-lg border px-3 py-2.5 text-left text-sm font-medium transition-all cursor-pointer",
+                      "justify-start gap-2 h-auto px-3 py-2.5 text-sm font-medium",
                       isSelected
                         ? "border-brand ring-1 ring-brand/20 bg-brand/5"
-                        : "border-border hover:border-brand/40",
+                        : "hover:border-brand/40",
                     )}
                   >
                     <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", colors.dot)} />
                     <span className="font-body">{stage.label}</span>
-                  </button>
+                  </Button>
                 );
               })}
             </div>

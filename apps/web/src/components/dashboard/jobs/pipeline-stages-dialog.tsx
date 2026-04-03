@@ -182,29 +182,35 @@ function SortableStageRow({
             }}
             className="h-7 text-sm"
           />
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={handleSaveLabel}
-            className="text-green-600 hover:text-green-700 cursor-pointer"
+            className="h-7 w-7 text-green-600 hover:text-green-700"
           >
             <IconCheck className="h-4 w-4" />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => {
               setEditLabel(stage.label);
               setEditing(false);
             }}
-            className="text-muted-foreground hover:text-foreground cursor-pointer"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
           >
             <IconX className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       ) : (
-        <button
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={() => setEditing(true)}
-          className="flex-1 text-left text-sm font-medium text-foreground font-body cursor-pointer hover:text-brand transition-colors truncate"
+          className="flex-1 justify-start text-sm font-medium text-foreground font-body hover:text-brand truncate"
         >
           {stage.label}
-        </button>
+        </Button>
       )}
 
       {/* Job count badge */}
@@ -215,13 +221,15 @@ function SortableStageRow({
       )}
 
       {/* Delete button */}
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => onDelete(stage.id)}
         disabled={stage.jobCount > 0}
         className={cn(
-          "shrink-0 cursor-pointer transition-colors",
+          "shrink-0 h-7 w-7",
           stage.jobCount > 0
-            ? "text-muted-foreground/30 cursor-not-allowed"
+            ? "text-muted-foreground/30"
             : "text-muted-foreground hover:text-destructive",
         )}
         title={
@@ -231,7 +239,7 @@ function SortableStageRow({
         }
       >
         <IconTrash className="h-4 w-4" />
-      </button>
+      </Button>
     </div>
   );
 }

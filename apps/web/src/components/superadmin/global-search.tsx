@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { IconBuilding, IconSearch } from "@tabler/icons-react";
 import {
   Dialog,
@@ -74,16 +75,18 @@ export function GlobalSearch() {
 
   return (
     <>
-      <button
+      <Button
+        variant="outline"
+        size="sm"
         onClick={() => setOpen(true)}
-        className="flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm text-muted-foreground hover:bg-muted/50 transition-colors cursor-pointer"
+        className="flex h-9 items-center gap-2 px-3 text-sm text-muted-foreground hover:bg-muted/50"
       >
         <IconSearch className="h-4 w-4" />
         <span className="hidden sm:inline font-body">Search tenants...</span>
         <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
           <span className="text-xs">⌘</span>K
         </kbd>
-      </button>
+      </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="overflow-hidden p-0 sm:max-w-lg">

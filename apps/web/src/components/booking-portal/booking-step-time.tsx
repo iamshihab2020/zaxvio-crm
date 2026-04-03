@@ -80,23 +80,24 @@ export function BookingStepTime({
       ) : (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {slots!.map((slot) => (
-            <button
+            <Button
               key={slot.time}
               type="button"
+              variant="outline"
               disabled={!slot.available}
               onClick={() => slot.available && onSelect(slot.time)}
               className={cn(
-                "rounded-lg border py-3 text-sm font-medium transition-all duration-200 cursor-pointer",
+                "rounded-lg py-3 text-sm font-medium h-auto",
                 slot.available && selectedTime !== slot.time &&
                   "border-border bg-card hover:border-brand/40 hover:bg-brand/5",
                 selectedTime === slot.time &&
-                  "border-brand bg-brand text-white shadow-sm",
+                  "border-brand bg-brand text-white shadow-sm hover:bg-brand/90",
                 !slot.available &&
-                  "border-transparent bg-muted/30 text-muted-foreground/30 cursor-not-allowed",
+                  "border-transparent bg-muted/30 text-muted-foreground/30",
               )}
             >
               {formatTime(slot.time)}
-            </button>
+            </Button>
           ))}
         </div>
       )}

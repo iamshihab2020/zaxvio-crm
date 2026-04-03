@@ -44,6 +44,37 @@ These docs are the source of truth. Read the relevant ones before starting any t
    - `apps/web/src/lib/chatbot/knowledge-base.ts` — add/edit/remove FAQ entries for affected features
    - `docs/todo.md` — mark completed items, add new tasks if needed
 
+## API Architecture Rules (MUST FOLLOW)
+
+1. **Service layer for business logic** — Route handlers MUST be thin: validate input, call a service function, return the response. Never put SQL queries, data transformations, or business logic directly in route handlers. Service files live in `apps/api/src/services/`.
+2. **Query layer separation** — Complex or reusable SQL queries MUST live in dedicated query files under `services/<domain>/queries/`. Each function accepts `(db, params)` and returns typed data. Route handlers never call `db.execute()` or `db.select()` directly.
+3. **Hybrid ORM approach** — Use Drizzle query builder for simple CRUD and aggregations. Use `db.execute(sql\`...\`)` only for PostgreSQL-specific features (`generate_series`, CTEs, window functions, `CASE WHEN` bucketing). Never fight the ORM — if it takes >10 minutes to express a query in Drizzle, use raw SQL.
+4. **Zod validation on query results** — All raw SQL query results MUST be validated with Zod schemas at the query function level (not in routes). Schemas live in the service's `schemas.ts` file. This catches database schema drift at runtime.
+5. **Shared query functions** — If the same query is used by multiple features (e.g., dashboard and reports both need revenue totals), extract it into a shared query file. Never duplicate SQL across routes.
+6. **Analytics caching** — Analytics/dashboard endpoints MUST use the `analyticsCache` from `services/analytics/cache.ts` with appropriate TTL presets (`REALTIME: 30s`, `TRENDS: 5min`, `REPORTS: 10min`). Use stale-while-revalidate for chart data.
+
+**Service layer structure:**
+```
+apps/api/src/services/
+  analytics/
+    types.ts               # Shared param interfaces
+    helpers.ts             # Parse helpers, label maps
+    schemas.ts             # Zod schemas for raw SQL results
+    cache.ts               # In-memory TTL cache
+    queries/               # Individual query functions
+      revenue.ts
+      jobs.ts
+      customers.ts
+      quotes-invoices.ts
+      bookings.ts
+      dashboard-only.ts
+    reports.service.ts     # Report section aggregators
+    dashboard.service.ts   # Dashboard aggregator
+  notifications.service.ts # Notification queries
+```
+
+---
+
 ## Security Rules (MUST FOLLOW)
 
 1. **Tenant isolation in EVERY query**: Every `UPDATE`, `DELETE`, and `SELECT` on tenant-scoped tables MUST include `tenantId` in the WHERE clause. Never use only the record ID. Pattern: `and(eq(table.tenantId, tenantId), eq(table.id, id))`.

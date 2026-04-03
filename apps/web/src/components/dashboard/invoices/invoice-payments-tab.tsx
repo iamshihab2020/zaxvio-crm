@@ -180,13 +180,15 @@ export function InvoicePaymentsTab({
                 )}
               </div>
               {!isVoid && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => handleDelete(p.id)}
-                  className="p-1 rounded hover:bg-muted cursor-pointer text-muted-foreground hover:text-destructive"
+                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
                   title="Remove payment"
                 >
                   <IconTrash className="h-3.5 w-3.5" />
-                </button>
+                </Button>
               )}
             </div>
           ))}

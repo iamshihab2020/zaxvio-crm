@@ -332,8 +332,10 @@ export function QuoteCreateDialog({
                       Customer <span className="text-destructive">*</span>
                     </Label>
                     {customerSelection?.type !== "new" && (
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() =>
                           handleCustomerChange({
                             type: "new",
@@ -343,11 +345,11 @@ export function QuoteCreateDialog({
                             email: "",
                           })
                         }
-                        className="flex items-center gap-1 text-xs text-brand hover:underline cursor-pointer font-body"
+                        className="gap-1 text-xs text-brand hover:underline font-body h-auto p-0"
                       >
                         <IconPlus className="h-3 w-3" />
                         New Customer
-                      </button>
+                      </Button>
                     )}
                   </div>
                   <CustomerPicker
@@ -547,13 +549,15 @@ export function QuoteCreateDialog({
                               ).toFixed(2)}
                             </td>
                             <td className="px-1 py-1.5">
-                              <button
+                              <Button
                                 type="button"
+                                variant="ghost"
+                                size="icon"
                                 onClick={() => removeItem(idx)}
-                                className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-destructive cursor-pointer"
+                                className="h-5 w-5 text-muted-foreground hover:text-destructive"
                               >
                                 <IconTrash className="h-3 w-3" />
-                              </button>
+                              </Button>
                             </td>
                           </tr>
                         ))}

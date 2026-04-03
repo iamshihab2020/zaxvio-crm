@@ -207,24 +207,27 @@ export function ChecklistTemplateDialog({
               </Label>
               <Popover open={serviceTypeOpen} onOpenChange={setServiceTypeOpen}>
                 <PopoverTrigger asChild>
-                  <button
+                  <Button
                     type="button"
-                    className="flex h-9 w-full items-center justify-between rounded-md border border-border bg-card px-3 py-2 text-sm font-body cursor-pointer"
+                    variant="outline"
+                    className="h-9 w-full justify-between font-body"
                   >
                     {SERVICE_TYPE_LABELS[serviceType as ServiceType] ?? "Select..."}
                     <IconSelector className="h-4 w-4 text-muted-foreground" />
-                  </button>
+                  </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[200px] p-1" align="start">
                   {SERVICE_TYPES.map((st) => (
-                    <button
+                    <Button
                       key={st}
                       type="button"
+                      variant="ghost"
+                      size="sm"
                       onClick={() => {
                         setServiceType(st);
                         setServiceTypeOpen(false);
                       }}
-                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                      className="w-full justify-start gap-2 font-body"
                     >
                       {serviceType === st && (
                         <IconCheck className="h-4 w-4 text-brand shrink-0" />
@@ -232,7 +235,7 @@ export function ChecklistTemplateDialog({
                       <span className={cn(serviceType !== st && "pl-6")}>
                         {SERVICE_TYPE_LABELS[st]}
                       </span>
-                    </button>
+                    </Button>
                   ))}
                 </PopoverContent>
               </Popover>
@@ -291,13 +294,15 @@ export function ChecklistTemplateDialog({
                         />
                         Req
                       </label>
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="icon"
                         onClick={() => removeItem(idx)}
-                        className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive cursor-pointer"
+                        className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                       >
                         <IconTrash className="h-3.5 w-3.5" />
-                      </button>
+                      </Button>
                     </div>
                   </div>
                   {errors[`item_${idx}`] && (

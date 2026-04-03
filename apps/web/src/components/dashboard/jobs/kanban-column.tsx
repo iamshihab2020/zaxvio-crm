@@ -1,6 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
@@ -57,13 +58,15 @@ export function KanbanColumn({
         >
           {jobs.length}
         </span>
-        <button
+        <Button
+          variant="ghost"
+          size="icon"
           onClick={() => onAddJob(stage.name)}
-          className="flex h-5 w-5 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors cursor-pointer"
+          className="h-5 w-5"
           title={`Add job to ${stage.label}`}
         >
           <IconPlus className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
 
       <div className="flex-1 overflow-y-auto pr-1">
@@ -96,13 +99,15 @@ export function KanbanColumn({
             </div>
           )}
 
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => onAddJob(stage.name)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-border/60 py-2 text-xs text-muted-foreground hover:border-brand/40 hover:text-brand transition-colors cursor-pointer font-body"
+            className="w-full border border-dashed border-border/60 text-xs text-muted-foreground hover:border-brand/40 hover:text-brand font-body"
           >
             <IconPlus className="h-3.5 w-3.5" />
             Add Job
-          </button>
+          </Button>
         </div>
       </div>
     </div>

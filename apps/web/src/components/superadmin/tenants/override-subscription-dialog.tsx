@@ -88,22 +88,24 @@ export function OverrideSubscriptionDialog({
             <Label className="font-body text-sm">Status</Label>
             <Popover open={statusOpen} onOpenChange={setStatusOpen}>
               <PopoverTrigger asChild>
-                <button className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-body ring-offset-background">
+                <Button variant="outline" className="h-10 w-full justify-between font-body">
                   {STATUS_OPTIONS.find((o) => o.value === status)?.label ?? status}
-                </button>
+                </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full p-1" align="start">
                 {STATUS_OPTIONS.map((option) => (
-                  <button
+                  <Button
                     key={option.value}
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setStatus(option.value);
                       setStatusOpen(false);
                     }}
-                    className="w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted font-body text-left"
+                    className="w-full justify-start font-body"
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </PopoverContent>
             </Popover>
@@ -113,22 +115,24 @@ export function OverrideSubscriptionDialog({
             <Label className="font-body text-sm">Plan</Label>
             <Popover open={planOpen} onOpenChange={setPlanOpen}>
               <PopoverTrigger asChild>
-                <button className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm font-body ring-offset-background">
+                <Button variant="outline" className="h-10 w-full justify-between font-body">
                   {PLAN_OPTIONS.find((o) => o.value === planName)?.label ?? planName}
-                </button>
+                </Button>
               </PopoverTrigger>
               <PopoverContent className="w-full p-1" align="start">
                 {PLAN_OPTIONS.map((option) => (
-                  <button
+                  <Button
                     key={option.value}
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setPlanName(option.value);
                       setPlanOpen(false);
                     }}
-                    className="w-full px-2 py-1.5 text-sm rounded-md hover:bg-muted font-body text-left"
+                    className="w-full justify-start font-body"
                   >
                     {option.label}
-                  </button>
+                  </Button>
                 ))}
               </PopoverContent>
             </Popover>

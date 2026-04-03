@@ -304,9 +304,9 @@ export function QuoteLineItemsTab({
                       <td className="px-2 py-2">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <button className="p-1 rounded hover:bg-muted cursor-pointer">
+                            <Button variant="ghost" size="icon" className="h-7 w-7">
                               <IconDots className="h-3.5 w-3.5 text-muted-foreground" />
-                            </button>
+                            </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem

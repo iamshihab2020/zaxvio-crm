@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   IconSearch,
   IconCheck,
@@ -143,19 +144,19 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
         <div className="overflow-hidden">
           <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 tabIndex={isNewMode ? -1 : 0}
                 className={cn(
-                  "flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-body cursor-pointer",
-                  error && !isNewMode ? "border-destructive" : "border-border",
-                  "bg-card",
+                  "h-9 w-full justify-between font-body",
+                  error && !isNewMode ? "border-destructive" : "",
                   !selectedLabel && "text-muted-foreground",
                 )}
               >
                 {selectedLabel || "Select customer..."}
                 <IconSelector className="h-4 w-4 text-muted-foreground" />
-              </button>
+              </Button>
             </PopoverTrigger>
             <PopoverContent
               className="w-[calc(100vw-4rem)] sm:w-[340px] p-0"
@@ -179,11 +180,13 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   </p>
                 )}
                 {customers.map((c) => (
-                  <button
+                  <Button
                     key={c.id}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => handleSelect(c)}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                    className="w-full justify-start gap-2 font-body"
                   >
                     {selectedId === c.id && (
                       <IconCheck className="h-4 w-4 text-brand shrink-0" />
@@ -191,18 +194,20 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                     <span className={cn(selectedId !== c.id && "pl-6")}>
                       {c.firstName} {c.lastName}
                     </span>
-                  </button>
+                  </Button>
                 ))}
               </div>
               <div className="border-t border-border p-1">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={handleNewCustomer}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body text-brand"
+                  className="w-full justify-start gap-2 font-body text-brand"
                 >
                   <IconPlus className="h-4 w-4 shrink-0" />
                   New Customer
-                </button>
+                </Button>
               </div>
             </PopoverContent>
           </Popover>
@@ -220,15 +225,17 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
               <span className="text-xs font-medium text-foreground font-heading">
                 New Customer
               </span>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={handleSwitchToExisting}
                 tabIndex={isNewMode ? 0 : -1}
-                className="flex items-center gap-1 text-xs text-brand hover:underline cursor-pointer font-body"
+                className="gap-1 text-xs text-brand hover:underline font-body h-auto p-0"
               >
                 <IconArrowBack className="h-3 w-3" />
                 Select existing
-              </button>
+              </Button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">

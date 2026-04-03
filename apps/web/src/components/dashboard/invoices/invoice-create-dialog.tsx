@@ -250,18 +250,18 @@ export function InvoiceCreateDialog({
                 </Label>
                 <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
                   <PopoverTrigger asChild>
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       className={cn(
-                        "flex h-9 w-full items-center justify-between rounded-md border px-3 py-2 text-sm font-body cursor-pointer",
-                        errors.customerId ? "border-destructive" : "border-border",
-                        "bg-card",
+                        "h-9 w-full justify-between font-body",
+                        errors.customerId ? "border-destructive" : "",
                         !selectedCustomerLabel && "text-muted-foreground",
                       )}
                     >
                       {selectedCustomerLabel || "Select customer..."}
                       <IconSelector className="h-4 w-4 text-muted-foreground" />
-                    </button>
+                    </Button>
                   </PopoverTrigger>
                   <PopoverContent
                     className="w-[calc(100vw-4rem)] sm:w-[340px] p-0"
@@ -285,11 +285,13 @@ export function InvoiceCreateDialog({
                         </p>
                       )}
                       {customers.map((c) => (
-                        <button
+                        <Button
                           key={c.id}
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleCustomerSelect(c)}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                          className="w-full justify-start gap-2 font-body"
                         >
                           {form.customerId === c.id && (
                             <IconCheck className="h-4 w-4 text-brand shrink-0" />
@@ -297,7 +299,7 @@ export function InvoiceCreateDialog({
                           <span className={cn(form.customerId !== c.id && "pl-6")}>
                             {c.firstName} {c.lastName}
                           </span>
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </PopoverContent>

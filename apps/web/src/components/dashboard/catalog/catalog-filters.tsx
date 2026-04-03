@@ -93,19 +93,21 @@ export function CatalogFilters({
         </PopoverTrigger>
         <PopoverContent className="w-[180px] p-1" align="start">
           {itemTypeOptions.map((option) => (
-            <button
+            <Button
               key={option.value}
+              variant="ghost"
+              size="sm"
               onClick={() => {
                 onFilterItemTypeChange(option.value);
                 setTypeOpen(false);
               }}
               className={cn(
-                "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted",
+                "w-full justify-start",
                 filterItemType === option.value && "bg-muted font-medium",
               )}
             >
               {option.label}
-            </button>
+            </Button>
           ))}
         </PopoverContent>
       </Popover>

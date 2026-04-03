@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { IconShieldCheck, IconArrowLeft, IconClock } from "@tabler/icons-react";
 import { getActiveImpersonation, endImpersonation } from "@/actions/admin";
 
@@ -105,14 +106,16 @@ export function ImpersonationBar() {
             </span>
           </div>
         )}
-        <button
+        <Button
+          variant="outline"
+          size="sm"
           onClick={handleExit}
           disabled={ending}
-          className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-1 font-body text-xs font-medium text-amber-200 transition-all hover:border-amber-400/50 hover:bg-amber-500/20 hover:text-amber-100 disabled:opacity-50"
+          className="border-amber-500/30 bg-amber-500/10 font-body text-xs font-medium text-amber-200 hover:border-amber-400/50 hover:bg-amber-500/20 hover:text-amber-100"
         >
           <IconArrowLeft className="h-3 w-3" />
           {ending ? "Returning..." : "Back to Admin"}
-        </button>
+        </Button>
       </div>
     </div>
   );

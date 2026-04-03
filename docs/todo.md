@@ -169,7 +169,19 @@ Items not yet started (next up):
   - [x] Hook: `useChatbot` with localStorage persistence (50 msg cap, 24h TTL)
   - [x] Integration: Added to dashboard layout
   - **Files**: 14 new (8 lib + 5 components + 1 hook), 1 modified (layout.tsx)
-- [ ] **Reports/Analytics** — Tenant-level reporting (revenue, job completion rates)
+- [x] **Reports/Analytics** — Tenant-level reporting (revenue, job completion rates)
+  - [x] Types: `packages/types/src/reports.ts` — 5 section interfaces (Revenue, Jobs, Customers, Quotes/Invoices, Bookings)
+  - [x] API: `apps/api/src/routes/reports/index.ts` — single `GET /reports/stats?section=` endpoint with 5 section handlers, 34 parallel SQL queries total
+  - [x] Server action: `apps/web/src/actions/reports.ts` — `getReportStats()` with cookie forwarding
+  - [x] Page: `apps/web/src/app/(dashboard)/reports/` — server page + client orchestrator with tab-based lazy loading
+  - [x] 5 tab components: revenue-tab, jobs-tab, customers-tab, quotes-invoices-tab, bookings-tab
+  - [x] Shared components: report-kpi-row, report-chart-card, report-data-table, export-csv-button, motion-fade, reports-skeleton
+  - [x] Charts: Recharts (AreaChart, BarChart, PieChart, LineChart) with ChartTooltip on every chart
+  - [x] Animations: motion.div Fade/SlideUp with staggered delays
+  - [x] Date range: any custom range + "Last 12 months" / "All time" presets via enhanced DateRangePicker
+  - [x] CSV export: client-side per-tab export
+  - [x] Sidebar: Reports added as top-level nav item with IconChartBar
+  - **Files**: 17 new, 4 modified
 - [ ] **Asset picker integration into Job create/edit dialog** — frontend wiring for equipmentId selection
 - [ ] **Equipment reference on Quote create** — optional equipmentId FK on quotes
 - _(More features TBD — will be added here as planned)_

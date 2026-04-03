@@ -73,28 +73,32 @@ function EditableText({
           className="h-7 text-sm"
           placeholder={placeholder}
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
-          className="shrink-0 text-brand hover:text-brand/80"
+          className="shrink-0 h-6 w-6 text-brand hover:text-brand/80"
         >
           <IconCheck className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </div>
     );
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={() => setEditing(true)}
-      className={`group flex items-center gap-1 text-left hover:text-brand transition-colors cursor-pointer ${className ?? ""}`}
+      className={`group flex items-center gap-1 text-left hover:text-brand h-auto p-0 ${className ?? ""}`}
     >
       <span className={value ? "text-foreground" : "text-muted-foreground/40"}>
         {value || placeholder}
       </span>
       <IconPencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
-    </button>
+    </Button>
   );
 }
 
@@ -217,16 +221,18 @@ export function CustomerInfoPanel({ customer, onUpdate }: CustomerInfoPanelProps
                 </div>
               </div>
             ) : (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => {
                   /* clicking will trigger the street field to open */
                 }}
-                className="text-sm text-muted-foreground/40 hover:text-brand transition-colors cursor-pointer font-body flex items-center gap-1"
+                className="text-sm text-muted-foreground/40 hover:text-brand font-body gap-1 h-auto p-0"
               >
                 <IconPlus className="h-3 w-3" />
                 Add address
-              </button>
+              </Button>
             )}
           </div>
         </div>

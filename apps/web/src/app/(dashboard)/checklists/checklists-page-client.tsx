@@ -229,13 +229,15 @@ export function ChecklistsPageClient() {
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[200px] p-1" align="start">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="sm"
                   onClick={() => {
                     setFilterServiceType("");
                     setFilterOpen(false);
                   }}
-                  className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                  className="w-full justify-start gap-2 font-body"
                 >
                   {!filterServiceType && (
                     <IconCheck className="h-4 w-4 text-brand shrink-0" />
@@ -243,16 +245,18 @@ export function ChecklistsPageClient() {
                   <span className={cn(!filterServiceType ? "" : "pl-6")}>
                     All Types
                   </span>
-                </button>
+                </Button>
                 {SERVICE_TYPES.map((st) => (
-                  <button
+                  <Button
                     key={st}
                     type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => {
                       setFilterServiceType(st);
                       setFilterOpen(false);
                     }}
-                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted cursor-pointer font-body"
+                    className="w-full justify-start gap-2 font-body"
                   >
                     {filterServiceType === st && (
                       <IconCheck className="h-4 w-4 text-brand shrink-0" />
@@ -260,7 +264,7 @@ export function ChecklistsPageClient() {
                     <span className={cn(filterServiceType !== st && "pl-6")}>
                       {SERVICE_TYPE_LABELS[st]}
                     </span>
-                  </button>
+                  </Button>
                 ))}
               </PopoverContent>
             </Popover>

@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { IconMaximize } from "@tabler/icons-react";
 
 interface InvoicePreviewProps {
@@ -442,10 +443,11 @@ export function InvoicePreview({
         </CardHeader>
         <CardContent>
           {/* Clickable scaled thumbnail */}
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => setOpen(true)}
-            className="group relative w-full cursor-pointer overflow-hidden rounded border bg-white shadow-sm transition-shadow hover:shadow-md dark:border-border"
+            className="group relative w-full overflow-hidden rounded border bg-white shadow-sm hover:shadow-md dark:border-border h-auto p-0"
             style={{ height: 520 }}
           >
             {/* Expand icon overlay */}
@@ -466,7 +468,7 @@ export function InvoicePreview({
             >
               <InvoiceBody {...bodyProps} />
             </div>
-          </button>
+          </Button>
         </CardContent>
       </Card>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { initializeTenant } from "@/actions/tenants";
 
@@ -62,13 +63,13 @@ export function OrgResolver() {
         <div className="max-w-sm space-y-4 text-center">
           <p className="text-sm text-destructive">{error}</p>
           <div className="flex items-center justify-center gap-3">
-            <button
+            <Button
               onClick={handleRetry}
               disabled={retrying}
-              className="rounded-md bg-brand px-4 py-2 text-sm font-medium text-brand-foreground transition-colors hover:bg-brand/90 disabled:opacity-50"
+              className="bg-brand text-brand-foreground hover:bg-brand/90"
             >
               {retrying ? "Retrying..." : "Try again"}
-            </button>
+            </Button>
             <a
               href="/login"
               className="text-sm text-muted-foreground underline transition-colors hover:text-foreground"

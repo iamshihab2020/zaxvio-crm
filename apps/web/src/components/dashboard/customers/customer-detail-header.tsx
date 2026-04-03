@@ -86,38 +86,44 @@ function EditableText({
           className="h-7 text-sm w-36"
           placeholder={placeholder}
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon"
           onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
-          className="shrink-0 text-brand hover:text-brand/80"
+          className="shrink-0 h-6 w-6 text-brand hover:text-brand/80"
         >
           <IconCheck className="h-3.5 w-3.5" />
-        </button>
+        </Button>
       </span>
     );
   }
 
   if (!value) {
     return (
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="sm"
         onClick={() => setEditing(true)}
-        className="text-muted-foreground/40 hover:text-brand transition-colors cursor-pointer italic text-sm"
+        className="text-muted-foreground/40 hover:text-brand italic text-sm h-auto p-0"
       >
         {placeholder}
-      </button>
+      </Button>
     );
   }
 
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
+      size="sm"
       onClick={() => setEditing(true)}
-      className={`group inline-flex items-center gap-1 hover:text-brand transition-colors cursor-pointer ${className ?? ""}`}
+      className={`group inline-flex items-center gap-1 hover:text-brand h-auto p-0 ${className ?? ""}`}
     >
       <span>{value}</span>
       <IconPencil className="h-2.5 w-2.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
-    </button>
+    </Button>
   );
 }
 

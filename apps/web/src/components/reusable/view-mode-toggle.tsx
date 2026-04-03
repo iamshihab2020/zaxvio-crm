@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import {
   IconLayoutSidebar,
   IconMaximize,
@@ -38,11 +39,13 @@ export function ViewModeToggle({ value, onChange, className }: ViewModeTogglePro
         {OPTIONS.map(({ mode, icon: Icon, label }) => (
           <Tooltip key={mode}>
             <TooltipTrigger asChild>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => onChange(mode)}
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-sm transition-colors cursor-pointer",
+                  "h-7 w-7 rounded-sm",
                   value === mode
                     ? "bg-muted text-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
@@ -50,7 +53,7 @@ export function ViewModeToggle({ value, onChange, className }: ViewModeTogglePro
               >
                 <Icon className="h-3.5 w-3.5" />
                 <span className="sr-only">{label}</span>
-              </button>
+              </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
               {label}

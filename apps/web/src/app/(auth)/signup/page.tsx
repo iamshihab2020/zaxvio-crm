@@ -124,10 +124,11 @@ export default function SignupPage() {
         </div>
 
         {/* Google button (UI only) */}
-        <button
+        <Button
           type="button"
           disabled
-          className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          variant="outline"
+          className="w-full gap-3 rounded-lg py-2.5"
         >
           <svg width="18" height="18" viewBox="0 0 24 24">
             <path
@@ -148,7 +149,7 @@ export default function SignupPage() {
             />
           </svg>
           Continue with Google
-        </button>
+        </Button>
 
         {/* Divider */}
         <div className="relative">
@@ -210,10 +211,12 @@ export default function SignupPage() {
                 autoComplete="new-password"
                 className="pr-10"
               />
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
@@ -221,7 +224,7 @@ export default function SignupPage() {
                 ) : (
                   <IconEye size={16} stroke={1.5} />
                 )}
-              </button>
+              </Button>
             </div>
           </div>
 

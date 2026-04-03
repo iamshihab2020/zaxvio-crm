@@ -204,7 +204,6 @@ export function QuoteDetailSheet({
     switchingModeRef.current = true;
     const newMode = prefMode === "sidebar" ? "dialog" : "sidebar";
     setPrefMode(newMode);
-    setIndicatorReady(false);
     requestAnimationFrame(() => {
       switchingModeRef.current = false;
     });
@@ -247,50 +246,6 @@ export function QuoteDetailSheet({
     },
     [liveSidebarWidth],
   );
-
-  /* -- Sliding tab indicator -- */
-  const navRef = useRef<HTMLDivElement>(null);
-  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
-  const [indicatorReady, setIndicatorReady] = useState(false);
-
-  const activeTabIndex = TAB_VALUES.indexOf(
-    activeTab as (typeof TAB_VALUES)[number],
-  );
-  const targetIndex = hoveredIndex ?? activeTabIndex;
-
-  const updateIndicatorTo = useCallback(
-    (index: number) => {
-      const el = tabRefs.current[index];
-      const navEl = navRef.current;
-      if (el && navEl) {
-        const navRect = navEl.getBoundingClientRect();
-        const tabRect = el.getBoundingClientRect();
-        setIndicator({
-          left: tabRect.left - navRect.left + navEl.scrollLeft,
-          width: tabRect.width,
-        });
-        if (!indicatorReady) setIndicatorReady(true);
-      }
-    },
-    [indicatorReady],
-  );
-
-  useEffect(() => {
-    if (targetIndex >= 0 && !loading && quote) {
-      const id = requestAnimationFrame(() => updateIndicatorTo(targetIndex));
-      return () => cancelAnimationFrame(id);
-    }
-  }, [targetIndex, updateIndicatorTo, loading, quote, prefMode]);
-
-  useEffect(() => {
-    const onResize = () => {
-      if (targetIndex >= 0) updateIndicatorTo(targetIndex);
-    };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [targetIndex, updateIndicatorTo]);
 
   /* -- Tab labels with counts -- */
   function tabLabel(value: string): string {
@@ -420,31 +375,9 @@ export function QuoteDetailSheet({
             onValueChange={setActiveTab}
             className="flex-1"
           >
-            <TabsList
-              ref={navRef}
-              className="relative w-full justify-start rounded-none border-b border-border bg-transparent px-6 pt-2"
-              onMouseLeave={() => setHoveredIndex(null)}
-            >
-              {/* Sliding indicator */}
-              <div
-                className={cn(
-                  "absolute bottom-0 h-[2px] bg-brand",
-                  indicatorReady
-                    ? "transition-all duration-300 ease-in-out"
-                    : "",
-                )}
-                style={{ left: indicator.left, width: indicator.width }}
-              />
-              {TAB_VALUES.map((value, i) => (
-                <TabsTrigger
-                  key={value}
-                  value={value}
-                  ref={(el) => {
-                    tabRefs.current[i] = el;
-                  }}
-                  onMouseEnter={() => setHoveredIndex(i)}
-                  className="cursor-pointer border-b-0 data-[state=active]:border-transparent"
-                >
+            <TabsList className="w-full justify-start px-6 pt-2">
+              {TAB_VALUES.map((value) => (
+                <TabsTrigger key={value} value={value}>
                   {tabLabel(value)}
                 </TabsTrigger>
               ))}

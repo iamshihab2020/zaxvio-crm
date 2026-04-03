@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   IconTool,
@@ -48,11 +49,12 @@ export function BookingServiceCard({
   const Icon = SERVICE_ICONS[serviceType] ?? IconDots;
 
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       onClick={onClick}
       className={cn(
-        "flex flex-col items-center gap-2 rounded-xl border-2 p-5 text-center transition-all duration-200",
+        "flex flex-col items-center gap-2 rounded-xl border-2 p-5 text-center h-auto",
         selected
           ? "border-brand bg-brand/5 ring-2 ring-brand/20 shadow-sm"
           : "border-border bg-card hover:border-brand/40 hover:bg-brand/5",
@@ -70,6 +72,6 @@ export function BookingServiceCard({
       <span className="text-xs text-muted-foreground">
         {SERVICE_DESCRIPTIONS[serviceType]}
       </span>
-    </button>
+    </Button>
   );
 }

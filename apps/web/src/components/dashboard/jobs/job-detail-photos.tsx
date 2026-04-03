@@ -78,12 +78,14 @@ export function JobDetailPhotos({ jobId }: JobDetailPhotosProps) {
               <p className="text-xs text-white truncate">{photo.caption}</p>
             </div>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => handleDelete(photo.id)}
-            className="absolute top-2 right-2 p-1.5 rounded-md bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-black/70"
+            className="absolute top-2 right-2 h-7 w-7 bg-black/50 text-white opacity-0 group-hover:opacity-100 hover:bg-black/70"
           >
             <IconTrash className="h-3.5 w-3.5" />
-          </button>
+          </Button>
         </div>
       ))}
     </div>
