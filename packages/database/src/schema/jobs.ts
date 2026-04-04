@@ -58,6 +58,7 @@ export const jobs = pgTable(
       .notNull()
       .default("0"),
     notes: text("notes"),
+    sortOrder: integer("sort_order").notNull().default(0),
     completedAt: timestamp("completed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

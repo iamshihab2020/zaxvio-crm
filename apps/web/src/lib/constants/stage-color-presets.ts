@@ -18,11 +18,11 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
   },
   brand: {
     dot: "bg-brand",
-    bg: "bg-brand-light/30",
-    text: "text-brand",
-    border: "border-brand/40",
+    bg: "bg-brand-light/40 dark:bg-brand/15",
+    text: "text-brand dark:text-brand",
+    border: "border-brand/30 dark:border-brand/40",
     borderTop: "border-t-brand",
-    ring: "ring-brand/30",
+    ring: "ring-brand/30 dark:ring-brand/30",
   },
   green: {
     dot: "bg-green-500",

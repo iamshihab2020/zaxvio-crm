@@ -266,6 +266,52 @@
   color: hsl(var(--card-foreground)) !important;
 }
 
+/* Allow vertical scrolling inside kanban columns despite dnd-kit touch-action: none */
+.kanban-column-scroll [style*="touch-action"] {
+  touch-action: pan-y !important;
+}
+
+/* Thin scrollbar for kanban columns */
+.kanban-column-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.25) transparent;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.kanban-column-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.kanban-column-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kanban-column-scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
+}
+
+.kanban-column-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* Smooth scrolling for Radix scroll areas */
+[data-radix-scroll-area-viewport] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Smooth scrollbar thumb transitions */
+[data-radix-scroll-area-scrollbar] > div {
+  transition: background-color 0.2s ease;
+}
+
+[data-radix-scroll-area-scrollbar] {
+  transition: opacity 0.15s ease;
+}
+
 /* Radix accordion animation */
 @keyframes accordion-down {
   from {

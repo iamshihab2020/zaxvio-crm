@@ -183,6 +183,31 @@ export async function updateJobStatus(id: string, status: string) {
   }
 }
 
+export async function reorderJobs(
+  items: { id: string; sortOrder: number; status?: string }[],
+) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/reorder`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ items }),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.message ?? "Failed to reorder jobs" };
+    }
+
+    return { error: null };
+  } catch {
+    return { error: "Network error" };
+  }
+}
+
 export async function deleteJob(id: string) {
   try {
     const res = await fetch(`${API_URL}/jobs/${id}`, {

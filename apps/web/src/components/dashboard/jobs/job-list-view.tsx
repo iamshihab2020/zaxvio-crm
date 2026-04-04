@@ -72,7 +72,7 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
 
             {/* Job rows */}
             {stageJobs.length === 0 ? (
-              <p className="text-xs text-muted-foreground/50 font-body pl-2 py-2">
+              <p className="text-xs text-muted-foreground/60 dark:text-muted-foreground/50 font-body pl-2 py-2">
                 No jobs
               </p>
             ) : (
@@ -93,8 +93,8 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                       transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
                       onClick={() => onJobClick(job.id)}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg border border-border/40 bg-card px-3 py-2.5 cursor-pointer transition-all duration-150",
-                        "hover:bg-muted/30 hover:border-border/60",
+                        "flex items-center gap-3 rounded-lg border border-border/50 dark:border-border/40 bg-card px-3 py-2.5 cursor-pointer transition-all duration-150",
+                        "hover:bg-muted/30 hover:border-border/70 dark:hover:border-border/60",
                       )}
                     >
                       {/* Customer avatar */}
@@ -108,7 +108,7 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                           <span className="text-sm font-medium text-foreground font-body truncate">
                             {job.title}
                           </span>
-                          <span className="text-[10px] text-muted-foreground/60 font-body shrink-0">
+                          <span className="text-[10px] text-muted-foreground/70 dark:text-muted-foreground/60 font-body shrink-0">
                             {job.jobNumber}
                           </span>
                         </div>
@@ -118,8 +118,8 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                           </span>
                           {job.address && (
                             <>
-                              <span className="text-muted-foreground/30">·</span>
-                              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground/60 font-body truncate">
+                              <span className="text-muted-foreground/40 dark:text-muted-foreground/30">·</span>
+                              <span className="flex items-center gap-0.5 text-[11px] text-muted-foreground/70 dark:text-muted-foreground/60 font-body truncate">
                                 <IconMapPin className="h-2.5 w-2.5 shrink-0" />
                                 {job.address}
                               </span>
@@ -129,7 +129,7 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                       </div>
 
                       {/* Badges */}
-                      <Badge className="bg-muted/60 text-muted-foreground px-1.5 py-0 text-[9px] font-medium uppercase tracking-wider border-0 shrink-0">
+                      <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-1.5 py-0 text-[9px] font-medium uppercase tracking-wider border-0 shrink-0">
                         {SERVICE_TYPE_LABELS[job.serviceType]}
                       </Badge>
                       <Badge className={cn("px-1.5 py-0 text-[9px] font-medium border-0 shrink-0", priorityColors.bg, priorityColors.text)}>

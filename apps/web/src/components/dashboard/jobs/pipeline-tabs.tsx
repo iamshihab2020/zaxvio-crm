@@ -30,7 +30,7 @@ export function PipelineTabs({
 
   return (
     <Highlight
-      className="rounded-md bg-brand"
+      className="rounded-md bg-brand-light dark:bg-brand/20"
       value={selectedId}
       controlledItems
     >
@@ -42,7 +42,7 @@ export function PipelineTabs({
               className={cn(
                 "relative z-10 rounded-md px-2.5 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
                 pipeline.id === selectedId
-                  ? "text-brand-foreground"
+                  ? "text-brand"
                   : "text-foreground/80 hover:text-foreground",
               )}
             >

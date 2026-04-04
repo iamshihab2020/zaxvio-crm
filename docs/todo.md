@@ -190,8 +190,8 @@ Items not yet started (next up):
   - [x] CSV export: client-side per-tab export
   - [x] Sidebar: Reports added as top-level nav item with IconChartBar
   - **Files**: 17 new, 4 modified
-- [ ] **Asset picker integration into Job create/edit dialog** — frontend wiring for equipmentId selection
-- [ ] **Equipment reference on Quote create** — optional equipmentId FK on quotes
+- [x] **Asset picker integration into Job create/edit dialog** — AssetPicker component wired in job-create-dialog.tsx (lines 413-429), equipmentId FK in jobs schema, API support in POST/PATCH
+- [x] **Equipment reference on Quote create** — equipmentId FK in quotes schema (quotes.ts:47-49), AssetPicker in quote-create-dialog.tsx (lines 368-382), carries over in quote-to-job conversion
 - _(More features TBD — will be added here as planned)_
 
 ## Last (Do These After All Other Features)

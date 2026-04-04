@@ -1,6 +1,10 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -32,19 +36,23 @@ export function KanbanColumn({
   onAddJob,
   cardView = "default",
 }: KanbanColumnProps) {
-  const { isOver, setNodeRef } = useDroppable({ id: stage.name });
+  const { isOver, setNodeRef } = useDroppable({
+    id: stage.name,
+    data: { type: "column", stageName: stage.name },
+  });
 
   const colors = getStageColors(stage.color);
+  const jobIds = jobs.map((j) => j.id);
 
   return (
     <div
       ref={setNodeRef}
       className={cn(
         "flex flex-col rounded-xl border p-3 transition-all duration-200 min-w-[290px] flex-1",
-        "bg-muted/40 dark:bg-muted/10",
+        "bg-muted/20 dark:bg-muted/10",
         isOver
           ? `${colors.bg} ring-2 ${colors.ring} border-transparent`
-          : "border-border/50 dark:border-border/40",
+          : "border-border/40 dark:border-border/30",
       )}
     >
       {/* Column header */}
@@ -79,55 +87,67 @@ export function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div className="flex-1 overflow-y-auto pr-1">
-        <div className="flex flex-col gap-2.5">
-          {jobs.map((job, index) => (
-            <motion.div
-              key={job.id}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                duration: 0.25,
-                delay: index * 0.04,
-                ease: "easeOut",
-              }}
-            >
-              {cardView === "compact" ? (
-                <KanbanCardCompact job={job} onClick={onJobClick} />
-              ) : (
-                <KanbanCard job={job} onClick={onJobClick} />
-              )}
-            </motion.div>
-          ))}
+      <div
+        className="flex-1 overflow-y-auto kanban-column-scroll px-1"
+        style={{ maxHeight: "calc(82vh - 60px)" }}
+      >
+        <SortableContext items={jobIds} strategy={verticalListSortingStrategy}>
+          <div className="flex flex-col gap-2.5">
+            {jobs.map((job, index) => (
+              <motion.div
+                key={job.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{
+                  duration: 0.25,
+                  delay: index * 0.04,
+                  ease: "easeOut",
+                }}
+              >
+                {cardView === "compact" ? (
+                  <KanbanCardCompact job={job} onClick={onJobClick} />
+                ) : (
+                  <KanbanCard job={job} onClick={onJobClick} />
+                )}
+              </motion.div>
+            ))}
 
-          {jobs.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.3 }}
-              className="flex flex-col items-center justify-center rounded-xl py-10 px-4 text-center"
-            >
-              <IconBriefcase className="h-7 w-7 text-muted-foreground/30 mb-2" />
-              <p className="text-sm text-muted-foreground/60 font-body">
-                No jobs in {stage.label}
-              </p>
-              <p className="text-xs text-muted-foreground/40 font-body mt-0.5">
-                Drag a job here or click + to add one
-              </p>
-            </motion.div>
-          )}
+            {jobs.length === 0 && !isOver && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="flex flex-col items-center justify-center rounded-xl py-10 px-4 text-center"
+              >
+                <IconBriefcase className="h-7 w-7 text-muted-foreground/40 dark:text-muted-foreground/30 mb-2" />
+                <p className="text-sm text-muted-foreground/70 dark:text-muted-foreground/60 font-body">
+                  No jobs in {stage.label}
+                </p>
+                <p className="text-xs text-muted-foreground/50 dark:text-muted-foreground/40 font-body mt-0.5">
+                  Drag a job here or click + to add one
+                </p>
+              </motion.div>
+            )}
 
-          {/* Add card button */}
-          <button
-            onClick={() => onAddJob(stage.name)}
-            className="w-full py-2 text-xs text-muted-foreground/60 hover:text-brand font-body transition-colors rounded-lg hover:bg-muted/30"
-          >
-            <span className="flex items-center justify-center gap-1">
-              <IconPlus className="h-3 w-3" />
-              Add Job
-            </span>
-          </button>
-        </div>
+            {/* Drop indicator for empty columns */}
+            {jobs.length === 0 && isOver && (
+              <div className="rounded-xl border-2 border-dashed border-brand/40 bg-brand/5 dark:bg-brand/10 py-8 text-center">
+                <p className="text-xs text-brand/70 font-body">Drop here</p>
+              </div>
+            )}
+
+            {/* Add card button */}
+            <button
+              onClick={() => onAddJob(stage.name)}
+              className="w-full py-2 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand font-body transition-colors rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
+            >
+              <span className="flex items-center justify-center gap-1">
+                <IconPlus className="h-3 w-3" />
+                Add Job
+              </span>
+            </button>
+          </div>
+        </SortableContext>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 "use client";
 
-import { useDraggable } from "@dnd-kit/core";
-import { useTheme } from "next-themes";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -59,25 +59,23 @@ function getInitials(first: string | null, last: string | null): string {
   return f + l || "?";
 }
 
-// Hardcoded theme colors to guarantee correct background during drag
-const DRAG_COLORS = {
-  dark: { bg: "hsl(222, 84%, 4.9%)", fg: "hsl(210, 40%, 98%)" },
-  light: { bg: "hsl(0, 0%, 100%)", fg: "hsl(222, 47%, 11%)" },
-} as const;
-
 export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
-  const { resolvedTheme } = useTheme();
-  const { attributes, listeners, setNodeRef, isDragging } =
-    useDraggable({
-      id: job.id,
-      data: { job },
-    });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: job.id,
+    data: { job, type: "card" },
+  });
 
-  const dragColors = DRAG_COLORS[resolvedTheme === "dark" ? "dark" : "light"];
-
-  const style: React.CSSProperties = isOverlay
-    ? { backgroundColor: dragColors.bg, color: dragColors.fg }
-    : {};
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
 
   const priorityColors = JOB_PRIORITY_COLORS[job.priority];
   const customerName =
@@ -99,18 +97,18 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
         if (!isDragging) onClick(job.id);
       }}
       className={cn(
-        "cursor-grab rounded-xl border bg-card p-3.5 transition-all duration-200",
-        "border-border/80 shadow dark:border-border/60 dark:shadow-sm",
-        "hover:shadow-lg hover:-translate-y-0.5 dark:hover:shadow-md",
+        "cursor-grab rounded-xl border bg-card p-3.5 transition-shadow duration-200",
+        "border-border/60 shadow-sm hover:shadow-[0_4px_12px_-2px_hsl(var(--brand)/0.25)] hover:-translate-y-0.5",
+        "dark:border-border/40 dark:shadow-sm dark:hover:shadow-[0_4px_12px_-2px_hsl(var(--brand)/0.3)]",
         "active:cursor-grabbing",
-        isDragging && "opacity-30",
+        isDragging && "opacity-30 z-0",
         isOverlay && "shadow-xl ring-2 ring-brand/30 rotate-2 scale-[1.03]",
         job.priority === "emergency" && "animate-pulse-emergency",
       )}
     >
       {/* Top row: Service type + Priority */}
       <div className="flex items-center justify-between mb-2.5">
-        <Badge className="bg-muted/60 text-muted-foreground px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0">
+        <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0">
           {SERVICE_TYPE_LABELS[job.serviceType]}
         </Badge>
         <Badge className={cn("px-2 py-0.5 text-[10px] font-medium border-0", priorityColors.bg, priorityColors.text)}>
@@ -147,7 +145,7 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
       )}
 
       {/* Bottom metadata */}
-      <div className="flex items-center justify-between pt-2.5 border-t border-border/40">
+      <div className="flex items-center justify-between pt-2.5 border-t border-border/50 dark:border-border/40">
         <div className="flex items-center gap-2.5">
           <div className="flex items-center gap-1 text-xs text-muted-foreground">
             <IconCalendar className="h-3 w-3" />

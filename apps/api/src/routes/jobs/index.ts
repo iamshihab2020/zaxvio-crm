@@ -201,7 +201,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           .leftJoin(customers, eq(jobs.customerId, customers.id))
           .leftJoin(equipment, eq(jobs.equipmentId, equipment.id))
           .where(whereClause)
-          .orderBy(orderFn(sortCol))
+          .orderBy(orderFn(sortCol), asc(jobs.sortOrder))
           .limit(limitNum)
           .offset(offset),
         db
@@ -729,6 +729,44 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
 
       return reply.send({ message: "Job deleted" });
+    },
+  );
+
+  /**
+   * PATCH /jobs/reorder
+   * Bulk update sort order for jobs within a stage (after drag-and-drop reorder).
+   */
+  fastify.patch(
+    "/reorder",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const body = request.body as {
+        items: { id: string; sortOrder: number; status?: string }[];
+      };
+      const db = getDb();
+
+      if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+        return reply.status(400).send({ message: "items array is required" });
+      }
+
+      await Promise.all(
+        body.items.map((item) => {
+          const updates: Record<string, unknown> = {
+            sortOrder: item.sortOrder,
+            updatedAt: new Date(),
+          };
+          if (item.status) {
+            updates.status = item.status;
+          }
+          return db
+            .update(jobs)
+            .set(updates)
+            .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, item.id)));
+        }),
+      );
+
+      return reply.send({ success: true });
     },
   );
 

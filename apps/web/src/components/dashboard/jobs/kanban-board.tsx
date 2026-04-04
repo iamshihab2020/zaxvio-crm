@@ -6,17 +6,19 @@ import {
   DragOverlay,
   PointerSensor,
   KeyboardSensor,
-  pointerWithin,
+  closestCorners,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
 } from "@dnd-kit/core";
+import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "sonner";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
-import { updateJobStatus } from "@/actions/jobs";
+import { reorderJobs } from "@/actions/jobs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
@@ -51,10 +53,24 @@ export function KanbanBoard({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const pendingMoveRef = useRef(false);
 
-  // Sync from parent when jobs change
-  if (jobs !== localJobs && !activeJob) {
+  // Sync from parent when jobs change — skip if a move is pending
+  if (jobs !== localJobs && !activeJob && !pendingMoveRef.current) {
     setLocalJobs(jobs);
+  }
+
+  // Get jobs for a specific stage, maintaining sort order
+  const getStageJobs = useCallback(
+    (stageName: string) =>
+      localJobs.filter((j) => j.status === stageName),
+    [localJobs],
+  );
+
+  // Find which stage a job belongs to
+  function findStageForJob(jobId: string): string | null {
+    const job = localJobs.find((j) => j.id === jobId);
+    return job?.status ?? null;
   }
 
   const checkScroll = useCallback(() => {
@@ -83,6 +99,31 @@ export function KanbanBoard({
     viewport.addEventListener("scroll", checkScroll);
     return () => viewport.removeEventListener("scroll", checkScroll);
   }, [activeJob, checkScroll]);
+
+  // Wheel-to-horizontal-scroll (trackpad / touch mouse)
+  useEffect(() => {
+    const viewport = scrollRef.current?.querySelector(
+      "[data-radix-scroll-area-viewport]",
+    ) as HTMLElement | null;
+    if (!viewport) return;
+
+    function handleWheel(e: WheelEvent) {
+      if (!viewport) return;
+      // Let horizontal trackpad swipes through natively
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+      // Don't hijack vertical scroll if cursor is anywhere inside a column
+      const target = e.target as HTMLElement;
+      if (target.closest(".kanban-column-scroll")) return;
+      // Convert vertical wheel to horizontal scroll on the board
+      if (viewport.scrollWidth > viewport.clientWidth) {
+        e.preventDefault();
+        viewport.scrollLeft += e.deltaY;
+      }
+    }
+
+    viewport.addEventListener("wheel", handleWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", handleWheel);
+  }, [stages.length]);
 
   // Grab-to-scroll
   const isDraggingScroll = useRef(false);
@@ -149,63 +190,138 @@ export function KanbanBoard({
     if (job) setActiveJob(job);
   }
 
-  async function handleDragEnd(event: DragEndEvent) {
-    setActiveJob(null);
-
+  function handleDragOver(event: DragOverEvent) {
     const { active, over } = event;
     if (!over) return;
 
-    const jobId = active.id as string;
-    const newStatus = over.id as string;
-    const job = localJobs.find((j) => j.id === jobId);
-    if (!job || job.status === newStatus) return;
+    const activeId = active.id as string;
+    const overId = over.id as string;
 
-    const targetStage = stages.find((s) => s.name === newStatus);
+    // Find the source stage
+    const activeStage = findStageForJob(activeId);
+    if (!activeStage) return;
 
-    // Optimistic update
-    const previousJobs = [...localJobs];
-    setLocalJobs((prev) =>
-      prev.map((j) => (j.id === jobId ? { ...j, status: newStatus } : j)),
-    );
+    // Determine the target stage
+    let overStage: string | null = null;
 
-    const result = await updateJobStatus(jobId, newStatus);
-    if (result.error) {
-      setLocalJobs(previousJobs);
-      toast.error(result.error);
+    // If hovering over a column droppable
+    if (over.data.current?.type === "column") {
+      overStage = over.data.current.stageName as string;
     } else {
-      toast.success(
-        `Job moved to ${targetStage?.label ?? newStatus}`,
+      // Hovering over another card — find its stage
+      overStage = findStageForJob(overId);
+    }
+
+    if (!overStage || activeStage === overStage) return;
+
+    // Move card to new column (cross-column move)
+    setLocalJobs((prev) => {
+      const updated = prev.map((j) =>
+        j.id === activeId ? { ...j, status: overStage } : j,
       );
-      onStatusChange();
+      return updated;
+    });
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setActiveJob(null);
+
+    if (!over) return;
+
+    const activeId = active.id as string;
+    const overId = over.id as string;
+
+    const activeStage = findStageForJob(activeId);
+    if (!activeStage) return;
+
+    // Determine target stage
+    let overStage: string | null = null;
+    if (over.data.current?.type === "column") {
+      overStage = over.data.current.stageName as string;
+    } else {
+      overStage = findStageForJob(overId);
+    }
+
+    if (!overStage) return;
+
+    const stageJobs = getStageJobs(overStage);
+
+    // Reorder within the same stage
+    if (activeId !== overId && over.data.current?.type !== "column") {
+      const oldIndex = stageJobs.findIndex((j) => j.id === activeId);
+      const newIndex = stageJobs.findIndex((j) => j.id === overId);
+
+      if (oldIndex !== -1 && newIndex !== -1) {
+        const reordered = arrayMove(stageJobs, oldIndex, newIndex);
+
+        // Optimistic update
+        setLocalJobs((prev) => {
+          const otherJobs = prev.filter((j) => j.status !== overStage);
+          return [...otherJobs, ...reordered];
+        });
+
+        // Fire-and-forget persist
+        reorderJobs(
+          reordered.map((j, i) => ({ id: j.id, sortOrder: i, status: overStage! })),
+        );
+      }
+    }
+
+    // Cross-column move (status change)
+    const job = localJobs.find((j) => j.id === activeId);
+    const originalJob = jobs.find((j) => j.id === activeId);
+    if (job && originalJob && job.status !== originalJob.status) {
+      const targetStage = stages.find((s) => s.name === job.status);
+      const snapshot = [...localJobs];
+
+      // Block parent sync while API is in flight
+      pendingMoveRef.current = true;
+
+      // Persist status + sort order (fire-and-forget with error revert)
+      const targetJobs = localJobs.filter((j) => j.status === job.status);
+      reorderJobs(
+        targetJobs.map((j, i) => ({ id: j.id, sortOrder: i, status: job.status })),
+      ).then((result) => {
+        pendingMoveRef.current = false;
+        if (result.error) {
+          setLocalJobs(snapshot);
+          toast.error(result.error);
+        } else {
+          toast.success(`Job moved to ${targetStage?.label ?? job.status}`);
+          onStatusChange();
+        }
+      });
     }
   }
 
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={pointerWithin}
+      collisionDetection={closestCorners}
       onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
       <div className="relative" ref={scrollRef}>
-        <ScrollArea className="w-full" style={{ minHeight: "73vh" }}>
+        <ScrollArea className="w-full" type="scroll">
           <div
-            className={cn("flex gap-3", !activeJob && "cursor-grab active:cursor-grabbing")}
-            style={{ minHeight: "73vh" }}
+            className={cn("flex gap-3 py-1 mx-[2px]", !activeJob && "cursor-grab active:cursor-grabbing")}
+            style={{ height: "82vh" }}
             onMouseDown={handleMouseDown}
           >
             {stages.map((stage) => (
               <KanbanColumn
                 key={stage.id}
                 stage={stage}
-                jobs={localJobs.filter((j) => j.status === stage.name)}
+                jobs={getStageJobs(stage.name)}
                 onJobClick={onJobClick}
                 onAddJob={onAddJob}
                 cardView={cardView}
               />
             ))}
           </div>
-          <ScrollBar orientation="horizontal" className="h-3 [&>div]:bg-muted-foreground/40 hover:[&>div]:bg-muted-foreground/60" />
+          <ScrollBar orientation="horizontal" className="h-2 [&>div]:bg-muted-foreground/30 hover:[&>div]:bg-muted-foreground/50" />
         </ScrollArea>
 
         {activeJob && canScrollLeft && (
@@ -221,7 +337,7 @@ export function KanbanBoard({
       </div>
       <DragOverlay dropAnimation={null}>
         {activeJob ? (
-          <div className="w-[290px]">
+          <div className="w-[290px] p-2">
             {cardView === "compact" ? (
               <KanbanCardCompact
                 job={activeJob}

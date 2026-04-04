@@ -83,7 +83,12 @@ export function JobsPageClient() {
   const searchParams = useSearchParams();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("jobs");
   const [pipelinesData, setPipelinesData] = useState<PipelineData[]>([]);
-  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(null);
+  const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    const urlPipeline = new URLSearchParams(window.location.search).get("pipeline");
+    if (urlPipeline) return urlPipeline;
+    return localStorage.getItem("jobs-pipeline-id");
+  });
   const [jobs, setJobs] = useState<JobCardData[]>([]);
   const [stages, setStages] = useState<PipelineStageWithCount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -243,6 +248,16 @@ export function JobsPageClient() {
     [search, priorityFilter, serviceTypeFilter, selectedPipelineId],
   );
 
+  // Set pipeline URL param immediately from localStorage (before API call)
+  useEffect(() => {
+    if (selectedPipelineId && !searchParams.get("pipeline")) {
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("pipeline", selectedPipelineId);
+      router.replace(`/jobs?${params.toString()}`);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load pipelines on mount
   useEffect(() => {
     getPipelines().then((result) => {
@@ -267,6 +282,12 @@ export function JobsPageClient() {
         if (resolvedId) {
           setSelectedPipelineId(resolvedId);
           localStorage.setItem("jobs-pipeline-id", resolvedId);
+          // Ensure URL always has pipeline param
+          if (searchParams.get("pipeline") !== resolvedId) {
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("pipeline", resolvedId);
+            router.replace(`/jobs?${params.toString()}`);
+          }
         }
       }
     });
@@ -462,9 +483,9 @@ export function JobsPageClient() {
   const stagesReady = stages.length > 0;
 
   return (
-    <section className="px-5 pt-2.5 pb-5 overflow-hidden animate-fade-in-up">
+    <section className="px-5 pt-2.5 pb-0">
       {/* Unified toolbar */}
-      <div className="mb-4 flex items-center rounded-xl border border-border bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-1.5">
+      <div className="mb-4 flex items-center rounded-xl border border-border/60 bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-1.5">
         {/* Left group: Pipeline tabs */}
         <PipelineTabs
           pipelines={pipelinesData}
@@ -487,7 +508,7 @@ export function JobsPageClient() {
         {/* Center: Board / Table labeled switch */}
         <div className="mx-auto">
           <Highlight
-            className="rounded-md bg-brand"
+            className="rounded-md bg-brand-light dark:bg-brand/20"
             value={viewType}
             controlledItems
           >
@@ -498,7 +519,7 @@ export function JobsPageClient() {
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
                     viewType === "board"
-                      ? "text-brand-foreground"
+                      ? "text-brand"
                       : "text-foreground/80 hover:text-foreground",
                   )}
                 >
@@ -512,7 +533,7 @@ export function JobsPageClient() {
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
                     viewType === "list"
-                      ? "text-brand-foreground"
+                      ? "text-brand"
                       : "text-foreground/80 hover:text-foreground",
                   )}
                 >
@@ -526,7 +547,7 @@ export function JobsPageClient() {
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
                     viewType === "table"
-                      ? "text-brand-foreground"
+                      ? "text-brand"
                       : "text-foreground/80 hover:text-foreground",
                   )}
                 >
@@ -553,8 +574,8 @@ export function JobsPageClient() {
                   className={cn(
                     "h-7 w-7 rounded-md",
                     !compact
-                      ? "bg-muted/80 dark:bg-muted text-foreground"
-                      : "text-foreground/60 hover:text-foreground",
+                      ? "bg-brand-light dark:bg-brand/20 text-brand"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <IconRowInsertTop className="h-3.5 w-3.5" />
@@ -573,8 +594,8 @@ export function JobsPageClient() {
                   className={cn(
                     "h-7 w-7 rounded-md",
                     compact
-                      ? "bg-muted/80 dark:bg-muted text-foreground"
-                      : "text-foreground/60 hover:text-foreground",
+                      ? "bg-brand-light dark:bg-brand/20 text-brand"
+                      : "text-muted-foreground hover:text-foreground",
                   )}
                 >
                   <IconRowInsertBottom className="h-3.5 w-3.5" />
@@ -598,7 +619,7 @@ export function JobsPageClient() {
                     variant="ghost"
                     size="icon"
                     onClick={() => setPipelineDialogOpen(true)}
-                    className="h-7 w-7 rounded-md text-foreground/60 hover:text-foreground"
+                    className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground"
                   >
                     <IconAdjustments className="h-3.5 w-3.5" />
                   </Button>
@@ -626,102 +647,104 @@ export function JobsPageClient() {
         </div>
       )}
 
-      {/* Row 4: Content with AnimatePresence for pipeline switch */}
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={selectedPipelineId ?? "loading"}
-          initial={{ opacity: 0, y: 6 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -6 }}
-          transition={{ duration: 0.2, ease: "easeInOut" }}
-        >
-          {/* Board view */}
-          {viewType === "board" && (
-            <>
-              {loading && <KanbanSkeleton columnCount={stages.length || 4} />}
+      {/* Board view — rendered outside AnimatePresence to avoid transform interference with DnD */}
+      {viewType === "board" && (
+        <>
+          {loading && <KanbanSkeleton columnCount={stages.length || 4} />}
 
-              {showNoResults && (
-                <p className="py-12 text-center text-sm text-muted-foreground font-body">
-                  No jobs found matching your filters
-                </p>
-              )}
-
-              {!loading && stagesReady && !showNoResults && (
-                <KanbanBoard
-                  jobs={jobs}
-                  stages={stages}
-                  onJobClick={handleJobClick}
-                  onStatusChange={handleStatusChange}
-                  onAddJob={openCreateDialogForStage}
-                  cardView={compact ? "compact" : "default"}
-                />
-              )}
-            </>
+          {showNoResults && (
+            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+              No jobs found matching your filters
+            </p>
           )}
 
-          {/* List view */}
-          {viewType === "list" && (
-            <>
-              {loading && <KanbanSkeleton columnCount={1} />}
-
-              {showNoResults && (
-                <p className="py-12 text-center text-sm text-muted-foreground font-body">
-                  No jobs found matching your filters
-                </p>
-              )}
-
-              {!loading && stagesReady && !showNoResults && (
-                <JobListView
-                  jobs={jobs}
-                  stages={stages}
-                  onJobClick={handleJobClick}
-                />
-              )}
-            </>
+          {!loading && stagesReady && !showNoResults && (
+            <KanbanBoard
+              jobs={jobs}
+              stages={stages}
+              onJobClick={handleJobClick}
+              onStatusChange={handleStatusChange}
+              onAddJob={openCreateDialogForStage}
+              cardView={compact ? "compact" : "default"}
+            />
           )}
+        </>
+      )}
 
-          {/* Table view */}
-          {viewType === "table" && (
-            <>
-              <div className="rounded-lg border border-border bg-card overflow-hidden">
-                {tableLoading && (
-                  <div className="p-4">
-                    <TableSkeleton columns={8} rows={10} />
-                  </div>
-                )}
+      {/* List + Table views with AnimatePresence */}
+      {viewType !== "board" && (
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={`${selectedPipelineId ?? "loading"}-${viewType}`}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            {/* List view */}
+            {viewType === "list" && (
+              <>
+                {loading && <KanbanSkeleton columnCount={1} />}
 
-                {!tableLoading && tableJobs.length === 0 && (
+                {showNoResults && (
                   <p className="py-12 text-center text-sm text-muted-foreground font-body">
                     No jobs found matching your filters
                   </p>
                 )}
 
-                {!tableLoading && tableJobs.length > 0 && (
-                  <JobTable
-                    jobs={tableJobs}
+                {!loading && stagesReady && !showNoResults && (
+                  <JobListView
+                    jobs={jobs}
                     stages={stages}
-                    onRowClick={handleJobClick}
-                    sortBy={tableSortBy}
-                    sortOrder={tableSortOrder}
-                    onSort={handleTableSort}
-                    compact={compact}
+                    onJobClick={handleJobClick}
                   />
                 )}
-              </div>
+              </>
+            )}
 
-              {!tableLoading && tableJobs.length > 0 && tablePagination.totalPages > 1 && (
-                <Pagination
-                  page={tablePagination.page}
-                  totalPages={tablePagination.totalPages}
-                  total={tablePagination.total}
-                  onPageChange={handleTablePageChange}
-                  entityName="job"
-                />
-              )}
-            </>
-          )}
-        </motion.div>
-      </AnimatePresence>
+            {/* Table view */}
+            {viewType === "table" && (
+              <>
+                <div className="rounded-lg border border-border bg-card overflow-hidden">
+                  {tableLoading && (
+                    <div className="p-4">
+                      <TableSkeleton columns={8} rows={10} />
+                    </div>
+                  )}
+
+                  {!tableLoading && tableJobs.length === 0 && (
+                    <p className="py-12 text-center text-sm text-muted-foreground font-body">
+                      No jobs found matching your filters
+                    </p>
+                  )}
+
+                  {!tableLoading && tableJobs.length > 0 && (
+                    <JobTable
+                      jobs={tableJobs}
+                      stages={stages}
+                      onRowClick={handleJobClick}
+                      sortBy={tableSortBy}
+                      sortOrder={tableSortOrder}
+                      onSort={handleTableSort}
+                      compact={compact}
+                    />
+                  )}
+                </div>
+
+                {!tableLoading && tableJobs.length > 0 && tablePagination.totalPages > 1 && (
+                  <Pagination
+                    page={tablePagination.page}
+                    totalPages={tablePagination.totalPages}
+                    total={tablePagination.total}
+                    onPageChange={handleTablePageChange}
+                    entityName="job"
+                  />
+                )}
+              </>
+            )}
+          </motion.div>
+        </AnimatePresence>
+      )}
 
       <JobDetailSheet
         jobId={selectedJobId}
