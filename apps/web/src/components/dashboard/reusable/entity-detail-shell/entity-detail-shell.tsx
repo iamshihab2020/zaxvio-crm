@@ -20,8 +20,6 @@ import { EntityDetailShellHeader } from "./entity-detail-shell-header";
 import { EntityDetailShellSkeleton } from "./entity-detail-shell-skeleton";
 import type { EntityDetailShellProps } from "./types";
 
-const DEFAULT_WIDTH = 520;
-
 export function EntityDetailShell({
   entityType,
   entityRoute,
@@ -183,7 +181,7 @@ export function EntityDetailShell({
         side="right"
         className="overflow-y-auto p-0"
         style={{
-          maxWidth: mounted ? liveSidebarWidth : DEFAULT_WIDTH,
+          maxWidth: liveSidebarWidth,
           width: "100%",
         }}
       >

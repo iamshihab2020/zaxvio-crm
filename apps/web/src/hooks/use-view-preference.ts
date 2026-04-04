@@ -10,19 +10,20 @@ interface ViewPreference {
   sidebarWidth: number;
 }
 
-const DEFAULT_WIDTH = 520;
 const MIN_WIDTH = 400;
-const MAX_WIDTH = 800;
+const MAX_WIDTH = 1200;
 
 const VALID_MODES: ViewMode[] = ["sidebar", "dialog", "page"];
+
+/** Default sidebar width = 40% of the viewport */
+function getDefaultWidth(): number {
+  if (typeof window === "undefined") return 520;
+  return Math.round(window.innerWidth * 0.4);
+}
 
 function getStorageKey(entity: EntityType): string {
   return `zaxvio-${entity.replace(/s$/, "")}-detail-prefs`;
 }
-
-// Special case: "quotes" → "zaxvio-quote-detail-prefs" (matches existing keys)
-// "jobs" → "zaxvio-job-detail-prefs"
-// "invoices" → "zaxvio-invoice-detail-prefs"
 
 function loadPrefs(entity: EntityType): ViewPreference {
   try {
@@ -33,14 +34,14 @@ function loadPrefs(entity: EntityType): ViewPreference {
         mode: VALID_MODES.includes(parsed.mode) ? parsed.mode : "sidebar",
         sidebarWidth: Math.max(
           MIN_WIDTH,
-          Math.min(MAX_WIDTH, Number(parsed.sidebarWidth) || DEFAULT_WIDTH),
+          Math.min(MAX_WIDTH, Number(parsed.sidebarWidth) || getDefaultWidth()),
         ),
       };
     }
   } catch {
     /* SSR or corrupt data */
   }
-  return { mode: "sidebar", sidebarWidth: DEFAULT_WIDTH };
+  return { mode: "sidebar", sidebarWidth: getDefaultWidth() };
 }
 
 function savePrefs(entity: EntityType, prefs: ViewPreference) {
@@ -55,7 +56,7 @@ export function useViewPreference(entity: EntityType) {
   const [mounted, setMounted] = useState(false);
   const [prefs, setPrefs] = useState<ViewPreference>({
     mode: "sidebar",
-    sidebarWidth: DEFAULT_WIDTH,
+    sidebarWidth: 520, // SSR fallback, replaced on mount
   });
 
   useEffect(() => {

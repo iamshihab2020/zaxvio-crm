@@ -4,9 +4,8 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useViewPreference, type EntityType } from "@/hooks/use-view-preference";
 
-const DEFAULT_WIDTH = 520;
 const MIN_WIDTH = 400;
-const MAX_WIDTH = 800;
+const MAX_WIDTH = 1200;
 
 export function useDetailShell(
   entityType: EntityType,
@@ -22,7 +21,7 @@ export function useDetailShell(
     setSidebarWidth: setPrefSidebarWidth,
   } = useViewPreference(entityType);
 
-  const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
+  const [liveSidebarWidth, setLiveSidebarWidth] = useState(prefSidebarWidth);
   const switchingModeRef = useRef(false);
 
   useEffect(() => {
@@ -65,7 +64,7 @@ export function useDetailShell(
   );
 
   /* ── Drag-to-resize (sidebar only) ────────────────────────── */
-  const dragWidthRef = useRef(DEFAULT_WIDTH);
+  const dragWidthRef = useRef(prefSidebarWidth);
 
   const handleDragStart = useCallback(
     (e: React.MouseEvent) => {

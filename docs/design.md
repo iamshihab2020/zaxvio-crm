@@ -389,6 +389,22 @@ Three modes: `"sidebar"` (520px side sheet), `"dialog"` (center modal), `"page"`
 
 Reusable shell for entity detail views in `components/dashboard/reusable/entity-detail-shell/`. Handles all shared boilerplate: sidebar/dialog mode switching, drag-to-resize, loading skeleton, header toolbar, and tab rendering.
 
+**RULE: When to use EntityDetailShell — you MUST use it when ALL of these conditions are met:**
+
+1. The view displays a **single entity's detail** (not a list, not a create/edit form)
+2. The view opens as a **sidebar (Sheet) or dialog** triggered by clicking a row/card in a list page
+3. The view shows **read-only or inline-editable fields** (not a form with Save/Cancel buttons)
+4. The entity has a **dedicated `[id]` detail page** that the shell can link to via "Open full page"
+
+**Currently used by**: Jobs, Invoices, Quotes, Bookings — these are the 4 entities with sidebar/dialog detail views.
+
+**Do NOT use EntityDetailShell for:**
+- Simple **create/edit form dialogs** (Customers, Assets, Catalog, Checklists, Service Agreements) — these are plain `<Dialog>` with form fields and a Submit button
+- **Full page detail views** only (e.g., Customer detail page at `/customers/[id]`) — these use the 3-panel layout pattern directly
+- **Confirmation dialogs** or **action modals** — use `DeleteConfirmDialog` or `ConfirmActionDialog`
+
+**When adding a NEW entity**: If the entity needs a click-to-preview panel from a list/table/kanban page (like Jobs or Invoices), use `EntityDetailShell`. If it only needs a form dialog for create/edit, use a plain `<Dialog>`.
+
 ```tsx
 import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
 
@@ -417,8 +433,6 @@ import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail
 **Sub-components**: `DetailRow` (icon + label + value), `EntityDetailShellSkeleton`, `EntityDetailShellHeader`
 
 **Performance**: Only the active tab content is mounted (lazy rendering). Tab count badges use `<Badge variant="secondary">`.
-
-**Used by**: Jobs, Invoices, Quotes, Bookings detail sheets.
 
 ### EditableField Suite
 
