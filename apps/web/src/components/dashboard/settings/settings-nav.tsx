@@ -13,6 +13,7 @@ import {
   IconCreditCard,
   IconBell,
   IconLayoutColumns,
+  IconShare,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useOrgRole } from "@/hooks/use-org-role";
@@ -71,6 +72,7 @@ const navGroups: NavGroup[] = [
     label: "Scheduling",
     items: [
       { label: "Bookings", href: "/settings/bookings", icon: IconCalendarEvent },
+      { label: "Share", href: "/settings/share", icon: IconShare },
     ],
   },
 ];
@@ -99,8 +101,21 @@ export function SettingsNav() {
   const [ready, setReady] = useState(false);
   const [hoveredHref, setHoveredHref] = useState<string | null>(null);
 
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  // Clear pending when navigation completes
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
   const activeHref = allItems.find((item) => pathname.startsWith(item.href))?.href ?? "";
-  const targetHref = hoveredHref ?? activeHref;
+  const targetHref = hoveredHref ?? pendingHref ?? activeHref;
+
+  const handleNavClick = useCallback((href: string) => {
+    if (href !== activeHref) {
+      setPendingHref(href);
+    }
+  }, [activeHref]);
 
   const updateIndicator = useCallback(
     (href: string) => {
@@ -207,6 +222,7 @@ export function SettingsNav() {
                           if (el) itemRefs.current.set(item.href, el);
                         }}
                         onMouseEnter={() => setHoveredHref(item.href)}
+                        onClick={() => handleNavClick(item.href)}
                         className={cn(
                           "relative z-10 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 font-body",
                           isActive

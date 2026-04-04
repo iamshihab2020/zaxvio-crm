@@ -27,6 +27,10 @@ import {
   IconBriefcase,
   IconX,
   IconExternalLink,
+  IconLink,
+  IconCode,
+  IconBracketsContain,
+  IconPencil,
 } from "@tabler/icons-react";
 
 interface BookingWithJob extends Booking {
@@ -34,6 +38,13 @@ interface BookingWithJob extends Booking {
   convertedJobNumber?: string | null;
   convertedJobStatus?: string | null;
 }
+
+const SOURCE_CONFIG: Record<string, { label: string; Icon: typeof IconLink; className: string }> = {
+  portal:  { label: "Link",   Icon: IconLink,   className: "bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-400" },
+  embed:   { label: "Embed",  Icon: IconCode,   className: "bg-purple-50 text-purple-700 dark:bg-purple-950 dark:text-purple-400" },
+  widget:  { label: "Widget", Icon: IconBracketsContain, className: "bg-orange-50 text-orange-700 dark:bg-orange-950 dark:text-orange-400" },
+  manual:  { label: "Manual", Icon: IconPencil, className: "bg-muted text-muted-foreground" },
+};
 
 interface BookingTableProps {
   bookings: BookingWithJob[];
@@ -82,6 +93,7 @@ export function BookingTable({
           <TableHead className="w-[120px]">Date</TableHead>
           <TableHead className="w-[90px]">Time</TableHead>
           <TableHead className="w-[110px]">Status</TableHead>
+          <TableHead className="w-[90px]">Source</TableHead>
           <TableHead className="w-[130px]">Job</TableHead>
           <TableHead className="w-[48px]" />
         </TableRow>
@@ -118,6 +130,17 @@ export function BookingTable({
             <TableCell className="text-sm">{formatTime(booking.preferredTime)}</TableCell>
             <TableCell>
               <BookingStatusBadge status={booking.status as any} />
+            </TableCell>
+            <TableCell>
+              {(() => {
+                const cfg = SOURCE_CONFIG[(booking.source ?? "portal") as string] ?? SOURCE_CONFIG.portal;
+                return (
+                  <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${cfg.className}`}>
+                    <cfg.Icon className="h-3 w-3" />
+                    {cfg.label}
+                  </span>
+                );
+              })()}
             </TableCell>
             <TableCell>
               {booking.convertedToJobId ? (

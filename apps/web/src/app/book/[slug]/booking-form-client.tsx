@@ -17,6 +17,8 @@ interface BookingFormClientProps {
   businessName: string;
   logoUrl: string | null;
   serviceTypes: string[];
+  embed?: boolean;
+  source?: "portal" | "embed" | "widget";
 }
 
 interface TimeSlot {
@@ -29,6 +31,8 @@ export function BookingFormClient({
   businessName,
   logoUrl,
   serviceTypes,
+  embed = false,
+  source = "portal",
 }: BookingFormClientProps) {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -167,6 +171,7 @@ export function BookingFormClient({
       preferredTime: time,
       address: customerInfo.address.trim() || undefined,
       description: customerInfo.description.trim() || undefined,
+      source,
     });
 
     setSubmitting(false);
@@ -189,31 +194,33 @@ export function BookingFormClient({
   }, [availabilityCache]);
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Branded Header Band */}
-      <header className="bg-midnight dark:bg-card border-b border-border">
-        <div className="mx-auto max-w-xl px-4 py-8 text-center">
-          {logoUrl && (
-            <img
-              src={logoUrl}
-              alt={businessName}
-              className="mx-auto mb-4 h-14 w-auto object-contain"
-            />
-          )}
-          <h1 className="text-2xl font-bold font-heading text-white dark:text-foreground">
-            {businessName}
-          </h1>
-          <p className="mt-2 text-sm text-white/70 dark:text-muted-foreground font-body">
-            Schedule your service appointment in minutes
-          </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 dark:bg-muted/50 px-3 py-1">
-            <IconShieldCheck className="h-3.5 w-3.5 text-green-400" />
-            <span className="text-xs font-medium text-white/80 dark:text-muted-foreground">
-              Licensed &amp; Insured
-            </span>
+    <div className={cn("bg-background", embed ? "min-h-0" : "min-h-screen")}>
+      {/* Branded Header Band — hidden in embed mode */}
+      {!embed && (
+        <header className="bg-midnight dark:bg-card border-b border-border">
+          <div className="mx-auto max-w-xl px-4 py-8 text-center">
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt={businessName}
+                className="mx-auto mb-4 h-14 w-auto object-contain"
+              />
+            )}
+            <h1 className="text-2xl font-bold font-heading text-white dark:text-foreground">
+              {businessName}
+            </h1>
+            <p className="mt-2 text-sm text-white/70 dark:text-muted-foreground font-body">
+              Schedule your service appointment in minutes
+            </p>
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 dark:bg-muted/50 px-3 py-1">
+              <IconShieldCheck className="h-3.5 w-3.5 text-green-400" />
+              <span className="text-xs font-medium text-white/80 dark:text-muted-foreground">
+                Licensed &amp; Insured
+              </span>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       {/* Step Content */}
       <main className="mx-auto max-w-xl px-4 py-6">
@@ -283,12 +290,14 @@ export function BookingFormClient({
         </div>
       </main>
 
-      {/* Footer */}
-      <footer className="pb-8 text-center">
-        <p className="text-xs text-muted-foreground/60">
-          Powered by <span className="font-semibold">Zaxvio</span>
-        </p>
-      </footer>
+      {/* Footer — hidden in embed mode */}
+      {!embed && (
+        <footer className="pb-8 text-center">
+          <p className="text-xs text-muted-foreground/60">
+            Powered by <span className="font-semibold">Zaxvio</span>
+          </p>
+        </footer>
+      )}
     </div>
   );
 }

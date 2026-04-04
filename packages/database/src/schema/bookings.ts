@@ -30,6 +30,7 @@ export const bookings = pgTable(
     address: text("address"),
     description: text("description"),
     status: bookingStatusEnum("status").notNull().default("pending"),
+    source: text("source").notNull().default("portal"),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

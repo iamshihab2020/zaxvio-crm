@@ -345,6 +345,7 @@ export async function submitPublicBooking(
     preferredTime: string;
     address?: string;
     description?: string;
+    source?: "portal" | "embed" | "widget";
   },
 ) {
   try {

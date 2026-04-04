@@ -345,6 +345,7 @@ export default async function publicBookingRoutes(fastify: FastifyInstance) {
       preferredTime: string;
       address?: string;
       description?: string;
+      source?: string;
     };
 
     const tenant = await resolveTenantBySlug(slug);
@@ -487,6 +488,7 @@ export default async function publicBookingRoutes(fastify: FastifyInstance) {
           address: trimmedAddress,
           description: body.description?.trim() || null,
           status: "pending",
+          source: ["portal", "embed", "widget"].includes(body.source ?? "") ? body.source! : "portal",
         })
         .returning();
     }).catch((err) => {

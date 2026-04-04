@@ -111,15 +111,15 @@ export function BookingDetailSheet({
           </span>
           <div className="flex items-center gap-1.5 mt-1.5">
             <BookingStatusBadge
-              status={booking!.status as "pending" | "confirmed" | "cancelled" | "completed"}
+              status={booking?.status as "pending" | "confirmed" | "cancelled" | "completed"}
             />
           </div>
         </>
       )}
       renderDescription={() => (
         <span>
-          {formatDate(booking!.bookingDate)} at{" "}
-          {formatTime(booking!.preferredTime)}
+          {booking ? formatDate(booking.bookingDate) : ""} at{" "}
+          {booking ? formatTime(booking.preferredTime) : ""}
         </span>
       )}
       renderActions={
@@ -130,8 +130,7 @@ export function BookingDetailSheet({
                   <Button
                     size="sm"
                     onClick={() => {
-                      onConfirm(booking!.id);
-                      onOpenChange(false);
+                      if (booking) { onConfirm(booking.id); onOpenChange(false); }
                     }}
                     className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
                   >
@@ -144,8 +143,7 @@ export function BookingDetailSheet({
                   variant="outline"
                   className="cursor-pointer"
                   onClick={() => {
-                    onConvert(booking!.id);
-                    onOpenChange(false);
+                    if (booking) { onConvert(booking.id); onOpenChange(false); }
                   }}
                 >
                   <IconBriefcase className="mr-1.5 h-3.5 w-3.5" />
@@ -156,8 +154,7 @@ export function BookingDetailSheet({
                   variant="ghost"
                   className="cursor-pointer text-destructive hover:text-destructive"
                   onClick={() => {
-                    onCancel(booking!.id);
-                    onOpenChange(false);
+                    if (booking) { onCancel(booking.id); onOpenChange(false); }
                   }}
                 >
                   <IconX className="mr-1.5 h-3.5 w-3.5" />
@@ -168,108 +165,110 @@ export function BookingDetailSheet({
           : undefined
       }
     >
-      {/* ── Content (no tabs) ─────────────────────────────── */}
-      <div className="space-y-6">
-        {/* Customer Section */}
-        <div>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
-            Customer
-          </h3>
-          <div className="space-y-3">
-            <DetailRow icon={IconUser} label="Name">
-              {booking!.customerName}
-            </DetailRow>
-            {booking!.customerPhone && (
-              <DetailRow icon={IconPhone} label="Phone">
-                <a
-                  href={`tel:${booking!.customerPhone}`}
-                  className="text-brand hover:underline"
-                >
-                  {booking!.customerPhone}
-                </a>
+      {/* ── Content (no tabs) — guard against null booking ── */}
+      {booking && (
+        <div className="space-y-6">
+          {/* Customer Section */}
+          <div>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
+              Customer
+            </h3>
+            <div className="space-y-3">
+              <DetailRow icon={IconUser} label="Name">
+                {booking.customerName}
               </DetailRow>
-            )}
-            {booking!.customerEmail && (
-              <DetailRow icon={IconMail} label="Email">
-                <a
-                  href={`mailto:${booking!.customerEmail}`}
-                  className="text-brand hover:underline"
-                >
-                  {booking!.customerEmail}
-                </a>
-              </DetailRow>
-            )}
-          </div>
-        </div>
-
-        {/* Service Details Section */}
-        <div>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
-            Service Details
-          </h3>
-          <div className="space-y-3">
-            <DetailRow icon={IconTool} label="Service Type">
-              {SERVICE_TYPE_LABELS[
-                booking!.serviceType as keyof typeof SERVICE_TYPE_LABELS
-              ] ?? booking!.serviceType}
-            </DetailRow>
-            <DetailRow icon={IconCalendar} label="Date">
-              {formatDate(booking!.bookingDate)}
-            </DetailRow>
-            <DetailRow icon={IconClock} label="Time">
-              {formatTime(booking!.preferredTime)}
-            </DetailRow>
-            {booking!.address && (
-              <DetailRow icon={IconMapPin} label="Address">
-                {booking!.address}
-              </DetailRow>
-            )}
-          </div>
-          {booking!.description && (
-            <div className="mt-4 rounded-md bg-muted/50 p-3 text-sm font-body text-foreground">
-              {booking!.description}
-            </div>
-          )}
-        </div>
-
-        {/* Internal Notes */}
-        <div>
-          <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
-            Internal Notes
-          </h3>
-          <div className="rounded-lg border border-border overflow-hidden">
-            <Textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add internal notes about this booking..."
-              rows={3}
-              className="text-sm border-0 rounded-none focus-visible:ring-0 resize-none"
-            />
-            <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-2">
-              <p className="text-[11px] text-muted-foreground/60 font-body">
-                Only visible to your team
-              </p>
-              <Button
-                size="sm"
-                onClick={handleSaveNotes}
-                disabled={savingNotes || notes === (booking!.notes ?? "")}
-                className={cn(
-                  "h-7 px-3 text-xs cursor-pointer",
-                  notes !== (booking!.notes ?? "")
-                    ? "bg-brand text-brand-foreground hover:bg-brand/90"
-                    : "",
-                )}
-                variant={
-                  notes === (booking!.notes ?? "") ? "ghost" : "default"
-                }
-              >
-                <IconDeviceFloppy className="mr-1.5 h-3 w-3" />
-                {savingNotes ? "Saving..." : "Save"}
-              </Button>
+              {booking.customerPhone && (
+                <DetailRow icon={IconPhone} label="Phone">
+                  <a
+                    href={`tel:${booking.customerPhone}`}
+                    className="text-brand hover:underline"
+                  >
+                    {booking.customerPhone}
+                  </a>
+                </DetailRow>
+              )}
+              {booking.customerEmail && (
+                <DetailRow icon={IconMail} label="Email">
+                  <a
+                    href={`mailto:${booking.customerEmail}`}
+                    className="text-brand hover:underline"
+                  >
+                    {booking.customerEmail}
+                  </a>
+                </DetailRow>
+              )}
             </div>
           </div>
+
+          {/* Service Details Section */}
+          <div>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
+              Service Details
+            </h3>
+            <div className="space-y-3">
+              <DetailRow icon={IconTool} label="Service Type">
+                {SERVICE_TYPE_LABELS[
+                  booking.serviceType as keyof typeof SERVICE_TYPE_LABELS
+                ] ?? booking.serviceType}
+              </DetailRow>
+              <DetailRow icon={IconCalendar} label="Date">
+                {formatDate(booking.bookingDate)}
+              </DetailRow>
+              <DetailRow icon={IconClock} label="Time">
+                {formatTime(booking.preferredTime)}
+              </DetailRow>
+              {booking.address && (
+                <DetailRow icon={IconMapPin} label="Address">
+                  {booking.address}
+                </DetailRow>
+              )}
+            </div>
+            {booking.description && (
+              <div className="mt-4 rounded-md bg-muted/50 p-3 text-sm font-body text-foreground">
+                {booking.description}
+              </div>
+            )}
+          </div>
+
+          {/* Internal Notes */}
+          <div>
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
+              Internal Notes
+            </h3>
+            <div className="rounded-lg border border-border overflow-hidden">
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add internal notes about this booking..."
+                rows={3}
+                className="text-sm border-0 rounded-none focus-visible:ring-0 resize-none"
+              />
+              <div className="flex items-center justify-between border-t border-border bg-muted/30 px-3 py-2">
+                <p className="text-[11px] text-muted-foreground/60 font-body">
+                  Only visible to your team
+                </p>
+                <Button
+                  size="sm"
+                  onClick={handleSaveNotes}
+                  disabled={savingNotes || notes === (booking.notes ?? "")}
+                  className={cn(
+                    "h-7 px-3 text-xs cursor-pointer",
+                    notes !== (booking.notes ?? "")
+                      ? "bg-brand text-brand-foreground hover:bg-brand/90"
+                      : "",
+                  )}
+                  variant={
+                    notes === (booking.notes ?? "") ? "ghost" : "default"
+                  }
+                >
+                  <IconDeviceFloppy className="mr-1.5 h-3 w-3" />
+                  {savingNotes ? "Saving..." : "Save"}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </EntityDetailShell>
   );
 }
