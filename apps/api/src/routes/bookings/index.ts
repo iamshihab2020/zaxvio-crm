@@ -144,6 +144,38 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
   );
 
   /**
+   * GET /bookings/stats
+   * Aggregate booking status counts in a single query.
+   */
+  fastify.get(
+    "/stats",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const [result] = await db
+        .select({
+          pending: sql<number>`COUNT(*) FILTER (WHERE status = 'pending')`,
+          confirmed: sql<number>`COUNT(*) FILTER (WHERE status = 'confirmed')`,
+          completed: sql<number>`COUNT(*) FILTER (WHERE status = 'completed')`,
+          cancelled: sql<number>`COUNT(*) FILTER (WHERE status = 'cancelled')`,
+        })
+        .from(bookings)
+        .where(eq(bookings.tenantId, tenantId));
+
+      return reply.send({
+        data: {
+          pending: Number(result.pending),
+          confirmed: Number(result.confirmed),
+          completed: Number(result.completed),
+          cancelled: Number(result.cancelled),
+        },
+      });
+    },
+  );
+
+  /**
    * GET /bookings/:id
    *
    * Get a single booking.

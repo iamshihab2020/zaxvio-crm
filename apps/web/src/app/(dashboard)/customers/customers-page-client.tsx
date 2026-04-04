@@ -26,16 +26,19 @@ interface PaginationData {
   totalPages: number;
 }
 
-export function CustomersPageClient() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [pagination, setPagination] = useState<PaginationData>({
-    page: 1,
-    limit: 15,
-    total: 0,
-    totalPages: 0,
-  });
+interface CustomersPageClientProps {
+  initialCustomers?: Customer[];
+  initialPagination?: PaginationData;
+}
+
+export function CustomersPageClient({
+  initialCustomers = [],
+  initialPagination = { page: 1, limit: 15, total: 0, totalPages: 0 },
+}: CustomersPageClientProps) {
+  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
+  const [pagination, setPagination] = useState<PaginationData>(initialPagination);
   const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialCustomers.length === 0);
   const [saving, setSaving] = useState(false);
 
   // Dialog state
@@ -46,22 +49,15 @@ export function CustomersPageClient() {
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({ total: 0, withEmail: 0, withPhone: 0, withAddress: 0 });
 
-  // Compute stats from all customers
+  // Compute stats from current page data + pagination total
   useEffect(() => {
-    async function loadStats() {
-      const result = await getCustomers({ limit: 9999 });
-      if (result.data) {
-        const all = result.data as Customer[];
-        setStats({
-          total: all.length,
-          withEmail: all.filter((c: Customer) => c.email).length,
-          withPhone: all.filter((c: Customer) => c.phone).length,
-          withAddress: all.filter((c: Customer) => c.address || c.city).length,
-        });
-      }
-    }
-    loadStats();
-  }, [customers]);
+    setStats({
+      total: pagination.total,
+      withEmail: customers.filter((c: Customer) => c.email).length,
+      withPhone: customers.filter((c: Customer) => c.phone).length,
+      withAddress: customers.filter((c: Customer) => c.address || c.city).length,
+    });
+  }, [customers, pagination.total]);
 
   const fetchCustomers = useCallback(
     async (page: number, searchTerm: string) => {
@@ -76,10 +72,12 @@ export function CustomersPageClient() {
     [],
   );
 
-  // Fetch on mount
+  // Fetch on mount (skip if server-prefetched)
   useEffect(() => {
+    if (initialCustomers.length > 0) return;
     fetchCustomers(1, "");
-  }, [fetchCustomers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounced search
   useEffect(() => {

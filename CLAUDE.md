@@ -89,6 +89,33 @@ apps/api/src/services/
 10. **Swagger disabled in production**: API docs (`/docs`) must be gated behind `NODE_ENV !== "production"`.
 11. **No unsafe type assertions on user input**: Never use `as string`, `as number`, `as any` on `request.body`, `request.params`, or `request.query`. Always validate with Zod first.
 
+## Performance Rules (MUST FOLLOW)
+
+1. **Server-side prefetch for initial data** — Every `page.tsx` in `(dashboard)/` MUST be an async server component that prefetches initial data and passes it as props to the client component. NEVER render an empty wrapper that delegates all fetching to useEffect.
+   ```tsx
+   // GOOD
+   export default async function MyPage() {
+     const data = await getMyData();
+     return <MyPageClient initialData={data} />;
+   }
+   // BAD
+   export default function MyPage() {
+     return <MyPageClient />;
+   }
+   ```
+
+2. **Parallel fetches with Promise.all()** — When a page needs multiple data sources, fetch them in parallel with `Promise.all()`. NEVER chain sequential awaits unless one depends on the other's result.
+
+3. **Stats via single backend query** — Status counts (draft/sent/paid/etc.) MUST use a single `/stats` endpoint with SQL `COUNT(*) FILTER (WHERE ...)`. NEVER make N separate API calls with `limit: 1` just to read `pagination.total`.
+
+4. **No limit: 9999 for counting** — NEVER fetch all records to count them client-side. Use `pagination.total` from paginated responses or a dedicated `/stats` endpoint.
+
+5. **Dynamic imports for heavy libraries** — Libraries over 30KB (recharts, react-big-calendar, @dnd-kit, motion) MUST be dynamically imported with `next/dynamic` when only used in specific views/tabs. Always provide a loading fallback skeleton.
+
+6. **loading.tsx for every route** — Every page directory in `(dashboard)/` MUST have a `loading.tsx` that renders an appropriate skeleton for instant perceived load during server-side data fetching.
+
+7. **Client components only for interactivity** — Client components (`"use client"`) should receive initial data as props and only trigger refetches on user actions (search, filter, pagination, create/edit/delete). The initial render MUST NOT depend on useEffect.
+
 ---
 
 ## Memory System

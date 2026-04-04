@@ -74,23 +74,30 @@ interface PaginationInfo {
   totalPages: number;
 }
 
-export function QuotesPageClient() {
+interface QuotesPageClientProps {
+  initialQuotes?: QuoteRow[];
+  initialPagination?: PaginationInfo;
+  defaultTaxRate?: string;
+}
+
+export function QuotesPageClient({
+  initialQuotes = [],
+  initialPagination,
+  defaultTaxRate: prefetchedTaxRate = "0",
+}: QuotesPageClientProps) {
   const router = useRouter();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("quotes");
-  const [quotes, setQuotes] = useState<QuoteRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [quotes, setQuotes] = useState<QuoteRow[]>(initialQuotes);
+  const [loading, setLoading] = useState(initialQuotes.length === 0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [sortPopoverOpen, setSortPopoverOpen] = useState(false);
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: 15,
-    total: 0,
-    totalPages: 0,
-  });
-  const [defaultTaxRate, setDefaultTaxRate] = useState("0");
+  const [pagination, setPagination] = useState<PaginationInfo>(
+    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
+  );
+  const [defaultTaxRate, setDefaultTaxRate] = useState(prefetchedTaxRate);
   const [stats, setStats] = useState({ draft: 0, sent: 0, accepted: 0, declined: 0 });
 
   // Sheet state
@@ -140,13 +147,15 @@ export function QuotesPageClient() {
     [search, statusFilter, sortBy, sortOrder],
   );
 
-  // Fetch tenant for default tax rate
+  // Fetch tenant for default tax rate (skip if server-prefetched)
   useEffect(() => {
+    if (prefetchedTaxRate !== "0") return;
     getTenant().then((res) => {
       if (res.data?.defaultTaxRate) {
         setDefaultTaxRate(res.data.defaultTaxRate);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch quotes on mount and on search/filter change (debounced)

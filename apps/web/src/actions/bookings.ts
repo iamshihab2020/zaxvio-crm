@@ -12,6 +12,22 @@ async function getCookieHeader() {
     .join("; ");
 }
 
+// ===== BOOKING STATS =====
+
+export async function getBookingStats() {
+  try {
+    const res = await fetch(`${API_URL}/bookings/stats`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+    if (!res.ok) return { data: null, error: "Failed to load stats" };
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
 // ==================== TENANT BOOKING ACTIONS ====================
 
 export async function getBookings(params?: {

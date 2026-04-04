@@ -12,6 +12,24 @@ async function getCookieHeader() {
     .join("; ");
 }
 
+// ===== CUSTOMER STATS =====
+
+export async function getCustomerStats() {
+  try {
+    const res = await fetch(`${API_URL}/customers/stats`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+    if (!res.ok) return { data: null, error: "Failed to load stats" };
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+// ===== CUSTOMERS CRUD =====
+
 export async function getCustomers(params?: {
   search?: string;
   page?: number;

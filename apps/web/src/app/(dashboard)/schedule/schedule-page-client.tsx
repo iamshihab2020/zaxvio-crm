@@ -238,13 +238,36 @@ export function SchedulePageClient() {
   // Ref to prevent double-fetch
   const fetchingRef = useRef(false);
 
+  // Date range cache: avoids refetching when revisiting previously viewed ranges
+  const MAX_CACHE_ENTRIES = 10;
+  const dataCache = useRef(
+    new Map<string, { jobs: JobCardData[]; bookings: BookingData[]; events: CalendarEventData[] }>(),
+  );
+
+  /** Clear the date range cache (call after mutations) */
+  const clearCache = useCallback(() => {
+    dataCache.current.clear();
+  }, []);
+
   /* ── Fetch data ── */
   const fetchData = useCallback(
     async (date: Date, view: CalendarView) => {
       if (fetchingRef.current) return;
-      fetchingRef.current = true;
 
       const { dateFrom, dateTo } = getDateRange(date, view);
+      const cacheKey = `${dateFrom}_${dateTo}`;
+
+      // Serve from cache instantly (no loading state)
+      const cached = dataCache.current.get(cacheKey);
+      if (cached) {
+        setJobs(cached.jobs);
+        setBookings(cached.bookings);
+        setCalEvents(cached.events);
+        setLoading(false);
+        return;
+      }
+
+      fetchingRef.current = true;
 
       try {
         const [jobsRes, bookingsRes, eventsRes] = await Promise.all([
@@ -253,9 +276,24 @@ export function SchedulePageClient() {
           getCalendarEvents({ dateFrom, dateTo, limit: 200 }),
         ]);
 
-        if (jobsRes.data) setJobs(jobsRes.data);
-        if (bookingsRes.data) setBookings(bookingsRes.data);
-        if (eventsRes.data) setCalEvents(eventsRes.data);
+        const newJobs = jobsRes.data ?? [];
+        const newBookings = bookingsRes.data ?? [];
+        const newEvents = eventsRes.data ?? [];
+
+        // Store in cache (evict oldest entry if at capacity)
+        if (dataCache.current.size >= MAX_CACHE_ENTRIES) {
+          const firstKey = dataCache.current.keys().next().value;
+          if (firstKey !== undefined) dataCache.current.delete(firstKey);
+        }
+        dataCache.current.set(cacheKey, {
+          jobs: newJobs,
+          bookings: newBookings,
+          events: newEvents,
+        });
+
+        setJobs(newJobs);
+        setBookings(newBookings);
+        setCalEvents(newEvents);
       } finally {
         fetchingRef.current = false;
         setLoading(false);
@@ -390,6 +428,7 @@ export function SchedulePageClient() {
         setCalEvents(prevEvents);
         toast.error(result.error);
       } else {
+        clearCache();
         toast.success(`Event moved to ${format(start, "MMM d, h:mm a")}`);
       }
       return;
@@ -419,6 +458,7 @@ export function SchedulePageClient() {
       setJobs(prevJobs);
       toast.error(result.error);
     } else {
+      clearCache();
       toast.success(`Job rescheduled to ${format(start, "MMM d, h:mm a")}`);
     }
   }
@@ -448,6 +488,8 @@ export function SchedulePageClient() {
       if (result.error) {
         setCalEvents(prevEvents);
         toast.error(result.error);
+      } else {
+        clearCache();
       }
       return;
     }
@@ -474,6 +516,8 @@ export function SchedulePageClient() {
     if (result.error) {
       setJobs(prevJobs);
       toast.error(result.error);
+    } else {
+      clearCache();
     }
   }
 
@@ -500,11 +544,13 @@ export function SchedulePageClient() {
       setDeletingJob(null);
       setSheetOpen(false);
       setSelectedJobId(null);
+      clearCache();
       fetchData(currentDate, currentView);
     }
   }
 
   function handleStatusChange() {
+    clearCache();
     fetchData(currentDate, currentView);
   }
 
@@ -577,6 +623,7 @@ export function SchedulePageClient() {
       setEventDialogOpen(false);
       setEditingEvent(null);
       setSlotInfo(null);
+      clearCache();
       fetchData(currentDate, currentView);
     } finally {
       setEventSaving(false);

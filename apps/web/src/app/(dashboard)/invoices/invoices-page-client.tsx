@@ -58,20 +58,27 @@ interface PaginationInfo {
   totalPages: number;
 }
 
-export function InvoicesPageClient() {
+interface InvoicesPageClientProps {
+  initialInvoices?: InvoiceRow[];
+  initialPagination?: PaginationInfo;
+  defaultTaxRate?: string;
+}
+
+export function InvoicesPageClient({
+  initialInvoices = [],
+  initialPagination,
+  defaultTaxRate: prefetchedTaxRate = "0",
+}: InvoicesPageClientProps) {
   const router = useRouter();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("invoices");
-  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>(initialInvoices);
+  const [loading, setLoading] = useState(initialInvoices.length === 0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: 15,
-    total: 0,
-    totalPages: 0,
-  });
-  const [defaultTaxRate, setDefaultTaxRate] = useState("0");
+  const [pagination, setPagination] = useState<PaginationInfo>(
+    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
+  );
+  const [defaultTaxRate, setDefaultTaxRate] = useState(prefetchedTaxRate);
   const [stats, setStats] = useState({ draft: 0, sent: 0, paid: 0, overdue: 0 });
 
   // Sheet state
@@ -125,13 +132,15 @@ export function InvoicesPageClient() {
     [search, statusFilter],
   );
 
-  // Fetch tenant for default tax rate
+  // Fetch tenant for default tax rate (skip if server-prefetched)
   useEffect(() => {
+    if (prefetchedTaxRate !== "0") return;
     getTenant().then((res) => {
       if (res.data?.defaultTaxRate) {
         setDefaultTaxRate(res.data.defaultTaxRate);
       }
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Fetch invoices on mount and on search/filter change (debounced)

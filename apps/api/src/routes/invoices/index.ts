@@ -200,6 +200,38 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
   );
 
   /**
+   * GET /invoices/stats
+   * Aggregate status counts in a single query.
+   */
+  fastify.get(
+    "/stats",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const [result] = await db
+        .select({
+          draft: sql<number>`COUNT(*) FILTER (WHERE status = 'draft')`,
+          sent: sql<number>`COUNT(*) FILTER (WHERE status = 'sent')`,
+          paid: sql<number>`COUNT(*) FILTER (WHERE status = 'paid')`,
+          overdue: sql<number>`COUNT(*) FILTER (WHERE status = 'overdue')`,
+        })
+        .from(invoices)
+        .where(eq(invoices.tenantId, tenantId));
+
+      return reply.send({
+        data: {
+          draft: Number(result.draft),
+          sent: Number(result.sent),
+          paid: Number(result.paid),
+          overdue: Number(result.overdue),
+        },
+      });
+    },
+  );
+
+  /**
    * GET /invoices/:id
    * Single invoice with lineItems + payments + customer info.
    */

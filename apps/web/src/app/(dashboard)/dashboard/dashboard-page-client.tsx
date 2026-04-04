@@ -31,9 +31,13 @@ function getRevenueTitle(dateRange: DateRange | undefined): string {
   return `Revenue — ${format(dateRange.from, "MMM d")} – ${format(dateRange.to, "MMM d, yyyy")}`;
 }
 
-export function DashboardPageClient() {
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [loading, setLoading] = useState(true);
+interface DashboardPageClientProps {
+  initialStats?: DashboardStats | null;
+}
+
+export function DashboardPageClient({ initialStats = null }: DashboardPageClientProps) {
+  const [stats, setStats] = useState<DashboardStats | null>(initialStats);
+  const [loading, setLoading] = useState(!initialStats);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: new Date(),
@@ -54,8 +58,10 @@ export function DashboardPageClient() {
   }, []);
 
   useEffect(() => {
+    if (initialStats) return;
     fetchStats(dateRange);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleDateRangeChange = (range: DateRange | undefined) => {
     setDateRange(range);

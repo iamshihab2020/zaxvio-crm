@@ -119,29 +119,31 @@ export function ChecklistsPageClient() {
       const newItems = data.items;
 
       const newItemIds = new Set(newItems.filter((i) => i.id).map((i) => i.id));
-      for (const existing of existingItems) {
-        if (!newItemIds.has(existing.id)) {
-          await deleteChecklistItem(editingTemplate.id, existing.id);
-        }
-      }
+      const toDelete = existingItems.filter((e) => !newItemIds.has(e.id));
+      const toUpdate = newItems.filter((i) => i.id);
+      const toCreate = newItems.filter((i) => !i.id);
 
-      for (const item of newItems) {
-        if (item.id) {
-          await updateChecklistItem(editingTemplate.id, item.id, {
+      await Promise.all([
+        ...toDelete.map((item) =>
+          deleteChecklistItem(editingTemplate.id, item.id),
+        ),
+        ...toUpdate.map((item) =>
+          updateChecklistItem(editingTemplate.id, item.id!, {
             label: item.label,
             isRequired: item.isRequired,
             catalogItemId: item.catalogItemId,
             sortOrder: item.sortOrder,
-          });
-        } else {
-          await addChecklistItem(editingTemplate.id, {
+          }),
+        ),
+        ...toCreate.map((item) =>
+          addChecklistItem(editingTemplate.id, {
             label: item.label,
             isRequired: item.isRequired,
             catalogItemId: item.catalogItemId,
             sortOrder: item.sortOrder,
-          });
-        }
-      }
+          }),
+        ),
+      ]);
 
       toast.success("Checklist template updated");
     } else {

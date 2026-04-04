@@ -2,8 +2,8 @@
 const config = {
   experimental: {
     staleTimes: {
-      dynamic: 0,
-      static: 0,
+      dynamic: 30,
+      static: 180,
     },
   },
   async headers() {

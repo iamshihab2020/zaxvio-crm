@@ -47,17 +47,27 @@ interface PaginationInfo {
   totalPages: number;
 }
 
-export function BookingsPageClient() {
+interface BookingsPageClientProps {
+  initialBookings?: Booking[];
+  initialPagination?: PaginationInfo;
+  tenantSlug?: string | null;
+}
+
+export function BookingsPageClient({
+  initialBookings = [],
+  initialPagination,
+  tenantSlug: prefetchedSlug,
+}: BookingsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
+  const [loading, setLoading] = useState(initialBookings.length === 0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1, limit: 15, total: 0, totalPages: 0,
-  });
-  const [tenantSlug, setTenantSlug] = useState<string | null>(null);
+  const [pagination, setPagination] = useState<PaginationInfo>(
+    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
+  );
+  const [tenantSlug, setTenantSlug] = useState<string | null>(prefetchedSlug ?? null);
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState({ pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
 
@@ -72,8 +82,9 @@ export function BookingsPageClient() {
   const [convertId, setConvertId] = useState<string | null>(null);
   const [convertLoading, setConvertLoading] = useState(false);
 
-  // Fetch tenant slug on mount
+  // Fetch tenant slug on mount (skip if server-prefetched)
   useEffect(() => {
+    if (prefetchedSlug) return;
     async function loadTenant() {
       const result = await getTenant();
       if (result.data?.slug) {
@@ -81,6 +92,7 @@ export function BookingsPageClient() {
       }
     }
     loadTenant();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchBookings = useCallback(async (page: number = 1) => {

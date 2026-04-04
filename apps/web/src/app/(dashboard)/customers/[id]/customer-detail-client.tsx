@@ -21,10 +21,12 @@ import { getTenant } from "@/actions/tenants";
 
 interface CustomerDetailClientProps {
   customer: Customer;
+  defaultTaxRate?: string;
 }
 
 export function CustomerDetailClient({
   customer: initialCustomer,
+  defaultTaxRate: prefetchedTaxRate,
 }: CustomerDetailClientProps) {
   const router = useRouter();
   const [customer, setCustomer] = useState(initialCustomer);
@@ -35,7 +37,7 @@ export function CustomerDetailClient({
   const [quoteDialogOpen, setQuoteDialogOpen] = useState(false);
   const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [defaultTaxRate, setDefaultTaxRate] = useState<string | undefined>();
+  const [defaultTaxRate, setDefaultTaxRate] = useState<string | undefined>(prefetchedTaxRate);
 
   const defaultCustomer = {
     id: customer.id,

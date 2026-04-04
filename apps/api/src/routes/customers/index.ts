@@ -19,6 +19,7 @@ import {
   desc,
   asc,
   count,
+  sql,
 } from "@hvac-saas/database";
 
 export default async function customerRoutes(fastify: FastifyInstance) {
@@ -92,6 +93,38 @@ export default async function customerRoutes(fastify: FastifyInstance) {
           limit: limitNum,
           total,
           totalPages: Math.ceil(total / limitNum),
+        },
+      });
+    },
+  );
+
+  /**
+   * GET /customers/stats
+   * Aggregate customer counts in a single query.
+   */
+  fastify.get(
+    "/stats",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const [result] = await db
+        .select({
+          total: sql<number>`COUNT(*)`,
+          withEmail: sql<number>`COUNT(*) FILTER (WHERE email IS NOT NULL AND email != '')`,
+          withPhone: sql<number>`COUNT(*) FILTER (WHERE phone IS NOT NULL AND phone != '')`,
+          withAddress: sql<number>`COUNT(*) FILTER (WHERE address IS NOT NULL OR city IS NOT NULL)`,
+        })
+        .from(customers)
+        .where(eq(customers.tenantId, tenantId));
+
+      return reply.send({
+        data: {
+          total: Number(result.total),
+          withEmail: Number(result.withEmail),
+          withPhone: Number(result.withPhone),
+          withAddress: Number(result.withAddress),
         },
       });
     },
