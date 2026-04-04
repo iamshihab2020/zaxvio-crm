@@ -43,6 +43,7 @@ import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import {
   getQuotes,
+  getQuoteStats,
   createQuote,
   deleteQuote,
   addQuoteLineItem,
@@ -74,16 +75,25 @@ interface PaginationInfo {
   totalPages: number;
 }
 
+interface QuoteStats {
+  draft: number;
+  sent: number;
+  accepted: number;
+  declined: number;
+}
+
 interface QuotesPageClientProps {
   initialQuotes?: QuoteRow[];
   initialPagination?: PaginationInfo;
   defaultTaxRate?: string;
+  initialStats?: QuoteStats;
 }
 
 export function QuotesPageClient({
   initialQuotes = [],
   initialPagination,
   defaultTaxRate: prefetchedTaxRate = "0",
+  initialStats,
 }: QuotesPageClientProps) {
   const router = useRouter();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("quotes");
@@ -98,7 +108,7 @@ export function QuotesPageClient({
     initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
   );
   const [defaultTaxRate, setDefaultTaxRate] = useState(prefetchedTaxRate);
-  const [stats, setStats] = useState({ draft: 0, sent: 0, accepted: 0, declined: 0 });
+  const [stats, setStats] = useState(initialStats ?? { draft: 0, sent: 0, accepted: 0, declined: 0 });
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -164,24 +174,11 @@ export function QuotesPageClient({
     return () => clearTimeout(timer);
   }, [fetchQuotes]);
 
-  // Fetch stats
-  useEffect(() => {
-    async function loadStats() {
-      const [draft, sent, accepted, declined] = await Promise.all([
-        getQuotes({ status: "draft", limit: 1 }),
-        getQuotes({ status: "sent", limit: 1 }),
-        getQuotes({ status: "accepted", limit: 1 }),
-        getQuotes({ status: "declined", limit: 1 }),
-      ]);
-      setStats({
-        draft: draft.pagination?.total ?? 0,
-        sent: sent.pagination?.total ?? 0,
-        accepted: accepted.pagination?.total ?? 0,
-        declined: declined.pagination?.total ?? 0,
-      });
-    }
-    loadStats();
-  }, [quotes]);
+  // Refresh stats after mutations (single API call)
+  async function refreshStats() {
+    const result = await getQuoteStats();
+    if (result.data) setStats(result.data);
+  }
 
   async function handleCreate(data: QuoteFormData) {
     setSaving(true);
@@ -218,6 +215,7 @@ export function QuotesPageClient({
     toast.success("Quote created");
     setCreateDialogOpen(false);
     fetchQuotes(1);
+    refreshStats();
     if (quoteId) {
       setSelectedQuoteId(quoteId);
       setSheetOpen(true);
@@ -233,12 +231,12 @@ export function QuotesPageClient({
       toast.success("Quote deleted");
       setDeleteDialogOpen(false);
       setDeletingQuote(null);
-      // If last item on current page, go to previous page
       const targetPage =
         quotes.length === 1 && pagination.page > 1
           ? pagination.page - 1
           : pagination.page;
       fetchQuotes(targetPage);
+      refreshStats();
     }
   }
 
@@ -410,7 +408,7 @@ export function QuotesPageClient({
           setDeletingQuote(q);
           setDeleteDialogOpen(true);
         }}
-        onDataChange={() => fetchQuotes(pagination.page)}
+        onDataChange={() => { fetchQuotes(pagination.page); refreshStats(); }}
       />
 
       {/* Delete confirmation */}

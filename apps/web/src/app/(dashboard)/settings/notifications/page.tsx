@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getNotificationPreferences } from "@/actions/notifications";
 import { NotificationSettingsPageClient } from "./notification-settings-page-client";
 
 export const metadata: Metadata = {
@@ -6,6 +7,8 @@ export const metadata: Metadata = {
   description: "Manage your notification preferences",
 };
 
-export default function NotificationSettingsPage() {
-  return <NotificationSettingsPageClient />;
+export default async function NotificationSettingsPage() {
+  const result = await getNotificationPreferences();
+
+  return <NotificationSettingsPageClient initialPreferences={(result.data ?? []) as never[]} />;
 }

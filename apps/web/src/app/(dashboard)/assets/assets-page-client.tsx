@@ -57,18 +57,23 @@ function getWarrantyStatus(asset: AssetRow): string {
   return "under_warranty";
 }
 
-export function AssetsPageClient() {
+interface AssetsPageClientProps {
+  initialAssets?: AssetRow[];
+  initialPagination?: PaginationData;
+}
+
+export function AssetsPageClient({
+  initialAssets = [],
+  initialPagination,
+}: AssetsPageClientProps) {
   const router = useRouter();
-  const [assets, setAssets] = useState<AssetRow[]>([]);
-  const [pagination, setPagination] = useState<PaginationData>({
-    page: 1,
-    limit: 15,
-    total: 0,
-    totalPages: 0,
-  });
+  const [assets, setAssets] = useState<AssetRow[]>(initialAssets);
+  const [pagination, setPagination] = useState<PaginationData>(
+    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
+  );
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialAssets.length === 0);
   const [saving, setSaving] = useState(false);
 
   // Dialog state
@@ -96,11 +101,16 @@ export function AssetsPageClient() {
     [],
   );
 
+  // Fetch on mount (skip if server-prefetched)
   useEffect(() => {
+    if (initialAssets.length > 0) return;
     fetchAssets(1, "");
-  }, [fetchAssets]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Re-fetch on search change (debounced)
   useEffect(() => {
+    if (!search) return;
     const timer = setTimeout(() => {
       fetchAssets(1, search);
     }, 300);

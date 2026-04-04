@@ -61,20 +61,27 @@ interface PaginationData {
   totalPages: number;
 }
 
-export function CatalogPageClient() {
-  const [items, setItems] = useState<CatalogItem[]>([]);
-  const [pagination, setPagination] = useState<PaginationData>({
-    page: 1,
-    limit: 15,
-    total: 0,
-    totalPages: 0,
-  });
+interface CatalogPageClientProps {
+  initialItems?: CatalogItem[];
+  initialPagination?: PaginationData;
+  initialCategories?: string[];
+}
+
+export function CatalogPageClient({
+  initialItems = [],
+  initialPagination,
+  initialCategories = [],
+}: CatalogPageClientProps) {
+  const [items, setItems] = useState<CatalogItem[]>(initialItems);
+  const [pagination, setPagination] = useState<PaginationData>(
+    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
+  );
   const [search, setSearch] = useState("");
   const [filterItemType, setFilterItemType] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [categories, setCategories] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<string[]>(initialCategories);
+  const [loading, setLoading] = useState(initialItems.length === 0);
   const [saving, setSaving] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
 
@@ -112,12 +119,17 @@ export function CatalogPageClient() {
     }
   }, []);
 
+  // Fetch on mount (skip if server-prefetched)
   useEffect(() => {
+    if (initialItems.length > 0) return;
     fetchItems(1, "", "", false);
     fetchCategories();
-  }, [fetchItems, fetchCategories]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Re-fetch on filter/search change (debounced)
   useEffect(() => {
+    if (!search && !filterItemType && !showArchived) return;
     const timer = setTimeout(() => {
       fetchItems(1, search, filterItemType, showArchived);
     }, 300);

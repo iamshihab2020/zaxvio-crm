@@ -65,9 +65,15 @@ interface TemplateWithItems extends ChecklistTemplate {
   }>;
 }
 
-export function ChecklistsPageClient() {
-  const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
-  const [loading, setLoading] = useState(true);
+interface ChecklistsPageClientProps {
+  initialTemplates?: ChecklistTemplate[];
+}
+
+export function ChecklistsPageClient({
+  initialTemplates = [],
+}: ChecklistsPageClientProps) {
+  const [templates, setTemplates] = useState<ChecklistTemplate[]>(initialTemplates);
+  const [loading, setLoading] = useState(initialTemplates.length === 0);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -92,8 +98,11 @@ export function ChecklistsPageClient() {
     setLoading(false);
   }, [filterServiceType, statusFilter]);
 
+  // Fetch on mount (skip if server-prefetched), re-fetch on filter change
   useEffect(() => {
+    if (initialTemplates.length > 0 && !filterServiceType && !statusFilter) return;
     fetchTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchTemplates]);
 
   // Compute stats client-side

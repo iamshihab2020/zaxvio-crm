@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getInvoices } from "@/actions/invoices";
+import { getInvoices, getInvoiceStats } from "@/actions/invoices";
 import { getTenant } from "@/actions/tenants";
 import { InvoicesPageClient } from "./invoices-page-client";
 
@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function InvoicesPage() {
-  const [invoicesResult, tenantResult] = await Promise.all([
+  const [invoicesResult, tenantResult, statsResult] = await Promise.all([
     getInvoices({ page: 1, limit: 15 }),
     getTenant(),
+    getInvoiceStats(),
   ]);
 
   return (
@@ -19,6 +20,7 @@ export default async function InvoicesPage() {
       initialInvoices={(invoicesResult.data ?? []) as never[]}
       initialPagination={invoicesResult.pagination as never}
       defaultTaxRate={tenantResult.data?.defaultTaxRate ?? "0"}
+      initialStats={statsResult.data ?? undefined}
     />
   );
 }

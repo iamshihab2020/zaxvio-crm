@@ -63,17 +63,22 @@ function getAgreementStatus(agreement: AgreementRow): string {
   return "active";
 }
 
-export function ServiceAgreementsPageClient() {
-  const [agreements, setAgreements] = useState<AgreementRow[]>([]);
-  const [pagination, setPagination] = useState<PaginationData>({
-    page: 1,
-    limit: 15,
-    total: 0,
-    totalPages: 0,
-  });
+interface ServiceAgreementsPageClientProps {
+  initialAgreements?: AgreementRow[];
+  initialPagination?: PaginationData;
+}
+
+export function ServiceAgreementsPageClient({
+  initialAgreements = [],
+  initialPagination,
+}: ServiceAgreementsPageClientProps) {
+  const [agreements, setAgreements] = useState<AgreementRow[]>(initialAgreements);
+  const [pagination, setPagination] = useState<PaginationData>(
+    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
+  );
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(initialAgreements.length === 0);
   const [saving, setSaving] = useState(false);
 
   // Dialog state
@@ -103,11 +108,16 @@ export function ServiceAgreementsPageClient() {
     [],
   );
 
+  // Fetch on mount (skip if server-prefetched)
   useEffect(() => {
+    if (initialAgreements.length > 0) return;
     fetchAgreements(1, "");
-  }, [fetchAgreements]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  // Re-fetch on search change (debounced)
   useEffect(() => {
+    if (!search) return;
     const timer = setTimeout(() => {
       fetchAgreements(1, search);
     }, 300);

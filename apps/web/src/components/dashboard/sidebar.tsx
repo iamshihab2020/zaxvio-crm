@@ -136,7 +136,7 @@ export function Sidebar() {
   const allResolvedItems = useMemo(() => [
     ...standaloneItems,
     ...resolvedNavGroups.flatMap((g) => g.items),
-    { href: "/settings", label: "Settings", icon: IconSettings },
+    { href: "/settings/profile", label: "Settings", icon: IconSettings },
   ], [resolvedNavGroups]);
 
   // Collapsible group state
@@ -486,7 +486,7 @@ export function Sidebar() {
 
           {/* Settings */}
           <SidebarNavItem
-            href="/settings"
+            href="/settings/profile"
             label="Settings"
             icon={IconSettings}
             isActive={
@@ -495,10 +495,10 @@ export function Sidebar() {
             isCollapsed={isCollapsed && !isHoverExpanded}
             showLabel={showLabel}
             useTooltip={useTooltipMode}
-            itemRef={setItemRef("/settings")}
-            onMouseEnter={() => setHoveredHref("/settings")}
+            itemRef={setItemRef("/settings/profile")}
+            onMouseEnter={() => setHoveredHref("/settings/profile")}
             onMouseLeave={() => setHoveredHref(null)}
-            onClick={() => handleNavClick("/settings")}
+            onClick={() => handleNavClick("/settings/profile")}
           />
         </div>
       </aside>

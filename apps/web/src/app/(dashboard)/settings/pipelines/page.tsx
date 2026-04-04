@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getPipelines } from "@/actions/pipelines";
 import { PipelinesSettingsClient } from "./pipelines-settings-client";
 
 export const metadata: Metadata = {
@@ -6,6 +7,8 @@ export const metadata: Metadata = {
   description: "Manage your job pipelines and stages",
 };
 
-export default function PipelinesSettingsPage() {
-  return <PipelinesSettingsClient />;
+export default async function PipelinesSettingsPage() {
+  const result = await getPipelines();
+
+  return <PipelinesSettingsClient initialPipelines={(result.data ?? []) as never[]} />;
 }

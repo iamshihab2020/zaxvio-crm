@@ -14,6 +14,7 @@ import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
 import {
   getCustomers,
+  getCustomerStats,
   createCustomer,
   updateCustomer,
   deleteCustomer,
@@ -27,14 +28,23 @@ interface PaginationData {
   totalPages: number;
 }
 
+interface CustomerStats {
+  total: number;
+  withEmail: number;
+  withPhone: number;
+  withAddress: number;
+}
+
 interface CustomersPageClientProps {
   initialCustomers?: Customer[];
   initialPagination?: PaginationData;
+  initialStats?: CustomerStats;
 }
 
 export function CustomersPageClient({
   initialCustomers = [],
   initialPagination = { page: 1, limit: 15, total: 0, totalPages: 0 },
+  initialStats,
 }: CustomersPageClientProps) {
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [pagination, setPagination] = useState<PaginationData>(initialPagination);
@@ -48,17 +58,13 @@ export function CustomersPageClient({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState({ total: 0, withEmail: 0, withPhone: 0, withAddress: 0 });
+  const [stats, setStats] = useState(initialStats ?? { total: 0, withEmail: 0, withPhone: 0, withAddress: 0 });
 
-  // Compute stats from current page data + pagination total
-  useEffect(() => {
-    setStats({
-      total: pagination.total,
-      withEmail: customers.filter((c: Customer) => c.email).length,
-      withPhone: customers.filter((c: Customer) => c.phone).length,
-      withAddress: customers.filter((c: Customer) => c.address || c.city).length,
-    });
-  }, [customers, pagination.total]);
+  // Refresh stats after mutations (single API call)
+  async function refreshStats() {
+    const result = await getCustomerStats();
+    if (result.data) setStats(result.data);
+  }
 
   const fetchCustomers = useCallback(
     async (page: number, searchTerm: string) => {
@@ -117,6 +123,7 @@ export function CustomersPageClient({
       } else {
         setDialogOpen(false);
         fetchCustomers(pagination.page, search);
+        refreshStats();
       }
     } else {
       const result = await createCustomer(data);
@@ -125,6 +132,7 @@ export function CustomersPageClient({
       } else {
         setDialogOpen(false);
         fetchCustomers(1, search);
+        refreshStats();
       }
     }
     setSaving(false);
@@ -141,6 +149,7 @@ export function CustomersPageClient({
       setDeleteDialogOpen(false);
       setDeletingCustomer(null);
       fetchCustomers(pagination.page, search);
+      refreshStats();
     }
     setSaving(false);
   }

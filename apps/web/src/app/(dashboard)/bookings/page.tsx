@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getBookings } from "@/actions/bookings";
+import { getBookings, getBookingStats } from "@/actions/bookings";
 import { getTenant } from "@/actions/tenants";
 import { BookingsPageClient } from "./bookings-page-client";
 
@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function BookingsPage() {
-  const [bookingsResult, tenantResult] = await Promise.all([
+  const [bookingsResult, tenantResult, statsResult] = await Promise.all([
     getBookings({ page: 1, limit: 15 }),
     getTenant(),
+    getBookingStats(),
   ]);
 
   return (
@@ -19,6 +20,7 @@ export default async function BookingsPage() {
       initialBookings={(bookingsResult.data ?? []) as never[]}
       initialPagination={bookingsResult.pagination as never}
       tenantSlug={tenantResult.data?.slug ?? null}
+      initialStats={statsResult.data ?? undefined}
     />
   );
 }

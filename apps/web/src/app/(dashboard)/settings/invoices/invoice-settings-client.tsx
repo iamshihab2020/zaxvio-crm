@@ -28,19 +28,35 @@ interface TenantData {
   invoiceFooterMessage: string | null;
 }
 
-export function InvoiceSettingsClient() {
-  const [tenant, setTenant] = useState<TenantData | null>(null);
-  const [loading, setLoading] = useState(true);
+interface InvoiceSettingsClientProps {
+  initialTenant?: TenantData | null;
+}
+
+export function InvoiceSettingsClient({ initialTenant }: InvoiceSettingsClientProps) {
+  const [tenant, setTenant] = useState<TenantData | null>(initialTenant ?? null);
+  const [loading, setLoading] = useState(!initialTenant);
   const [error, setError] = useState<string | null>(null);
-  const [formValues, setFormValues] = useState<InvoiceFormValues>({
-    licenseNumber: "",
-    invoicePaymentTerms: "",
-    invoicePaymentInstructions: "",
-    invoiceTermsConditions: "",
-    invoiceFooterMessage: "",
+  const [formValues, setFormValues] = useState<InvoiceFormValues>(() => {
+    if (initialTenant) {
+      return {
+        licenseNumber: initialTenant.licenseNumber ?? "",
+        invoicePaymentTerms: initialTenant.invoicePaymentTerms ?? "",
+        invoicePaymentInstructions: initialTenant.invoicePaymentInstructions ?? "",
+        invoiceTermsConditions: initialTenant.invoiceTermsConditions ?? "",
+        invoiceFooterMessage: initialTenant.invoiceFooterMessage ?? "",
+      };
+    }
+    return {
+      licenseNumber: "",
+      invoicePaymentTerms: "",
+      invoicePaymentInstructions: "",
+      invoiceTermsConditions: "",
+      invoiceFooterMessage: "",
+    };
   });
 
   useEffect(() => {
+    if (initialTenant) return;
     async function load() {
       const result = await getTenant();
       if (result.error) {

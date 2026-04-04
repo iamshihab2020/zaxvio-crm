@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTenant } from "@/actions/tenants";
 import { QuoteSettingsClient } from "./quote-settings-client";
 
 export const metadata: Metadata = {
@@ -6,6 +7,8 @@ export const metadata: Metadata = {
   description: "Customize your quote PDF footer and terms",
 };
 
-export default function QuoteSettingsPage() {
-  return <QuoteSettingsClient />;
+export default async function QuoteSettingsPage() {
+  const result = await getTenant();
+
+  return <QuoteSettingsClient initialTenant={result.data ?? undefined} />;
 }

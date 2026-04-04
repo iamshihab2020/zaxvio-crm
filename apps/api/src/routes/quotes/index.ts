@@ -298,6 +298,38 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
   );
 
   /**
+   * GET /quotes/stats
+   * Aggregate quote status counts in a single query.
+   */
+  fastify.get(
+    "/stats",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const [result] = await db
+        .select({
+          draft: sql<number>`COUNT(*) FILTER (WHERE status = 'draft')`,
+          sent: sql<number>`COUNT(*) FILTER (WHERE status = 'sent')`,
+          accepted: sql<number>`COUNT(*) FILTER (WHERE status = 'accepted')`,
+          declined: sql<number>`COUNT(*) FILTER (WHERE status = 'declined')`,
+        })
+        .from(quotes)
+        .where(eq(quotes.tenantId, tenantId));
+
+      return reply.send({
+        data: {
+          draft: Number(result.draft),
+          sent: Number(result.sent),
+          accepted: Number(result.accepted),
+          declined: Number(result.declined),
+        },
+      });
+    },
+  );
+
+  /**
    * GET /quotes/:id
    * Single quote with lineItems + customer info.
    */

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Booking } from "@hvac-saas/types";
-import { getBookings, updateBooking, cancelBooking, convertBookingToJob } from "@/actions/bookings";
+import { getBookings, getBookingStats, updateBooking, cancelBooking, convertBookingToJob } from "@/actions/bookings";
 import { getTenant } from "@/actions/tenants";
 import { BookingTable } from "@/components/dashboard/bookings/booking-table";
 import { BookingDetailSheet } from "@/components/dashboard/bookings/booking-detail-sheet";
@@ -48,16 +48,25 @@ interface PaginationInfo {
   totalPages: number;
 }
 
+interface BookingStats {
+  pending: number;
+  confirmed: number;
+  completed: number;
+  cancelled: number;
+}
+
 interface BookingsPageClientProps {
   initialBookings?: Booking[];
   initialPagination?: PaginationInfo;
   tenantSlug?: string | null;
+  initialStats?: BookingStats;
 }
 
 export function BookingsPageClient({
   initialBookings = [],
   initialPagination,
   tenantSlug: prefetchedSlug,
+  initialStats,
 }: BookingsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,7 +79,7 @@ export function BookingsPageClient({
   );
   const [tenantSlug, setTenantSlug] = useState<string | null>(prefetchedSlug ?? null);
   const [copied, setCopied] = useState(false);
-  const [stats, setStats] = useState({ pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+  const [stats, setStats] = useState(initialStats ?? { pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
 
   // Sheet / Dialog state — auto-open from URL param (e.g., notification click)
   const bookingIdParam = searchParams.get("bookingId");
@@ -119,24 +128,11 @@ export function BookingsPageClient({
     setLoading(false);
   }, [search, statusFilter]);
 
-  // Fetch stats counts
-  useEffect(() => {
-    async function loadStats() {
-      const [pending, confirmed, completed, cancelled] = await Promise.all([
-        getBookings({ status: "pending", limit: 1 }),
-        getBookings({ status: "confirmed", limit: 1 }),
-        getBookings({ status: "completed", limit: 1 }),
-        getBookings({ status: "cancelled", limit: 1 }),
-      ]);
-      setStats({
-        pending: pending.pagination?.total ?? 0,
-        confirmed: confirmed.pagination?.total ?? 0,
-        completed: completed.pagination?.total ?? 0,
-        cancelled: cancelled.pagination?.total ?? 0,
-      });
-    }
-    loadStats();
-  }, [bookings]);
+  // Refresh stats after mutations (single API call)
+  async function refreshStats() {
+    const result = await getBookingStats();
+    if (result.data) setStats(result.data);
+  }
 
   useEffect(() => {
     const timer = setTimeout(() => fetchBookings(1), 300);
@@ -168,6 +164,7 @@ export function BookingsPageClient({
     } else {
       toast.success("Booking confirmed");
       fetchBookings(pagination.page);
+      refreshStats();
     }
   };
 
@@ -187,6 +184,7 @@ export function BookingsPageClient({
     } else {
       toast.success("Booking cancelled");
       fetchBookings(pagination.page);
+      refreshStats();
     }
   };
 

@@ -27,12 +27,17 @@ export interface TenantData {
   invoiceFooterMessage: string | null;
 }
 
-export function BusinessSettingsClient() {
-  const [tenant, setTenant] = useState<TenantData | null>(null);
-  const [loading, setLoading] = useState(true);
+interface BusinessSettingsClientProps {
+  initialTenant?: TenantData | null;
+}
+
+export function BusinessSettingsClient({ initialTenant }: BusinessSettingsClientProps) {
+  const [tenant, setTenant] = useState<TenantData | null>(initialTenant ?? null);
+  const [loading, setLoading] = useState(!initialTenant);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (initialTenant) return;
     async function load() {
       const result = await getTenant();
       if (result.error) {
@@ -43,6 +48,7 @@ export function BusinessSettingsClient() {
       setLoading(false);
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getQuotes } from "@/actions/quotes";
+import { getQuotes, getQuoteStats } from "@/actions/quotes";
 import { getTenant } from "@/actions/tenants";
 import { QuotesPageClient } from "./quotes-page-client";
 
@@ -9,9 +9,10 @@ export const metadata: Metadata = {
 };
 
 export default async function QuotesPage() {
-  const [quotesResult, tenantResult] = await Promise.all([
+  const [quotesResult, tenantResult, statsResult] = await Promise.all([
     getQuotes({ page: 1, limit: 15 }),
     getTenant(),
+    getQuoteStats(),
   ]);
 
   return (
@@ -19,6 +20,7 @@ export default async function QuotesPage() {
       initialQuotes={(quotesResult.data ?? []) as never[]}
       initialPagination={quotesResult.pagination as never}
       defaultTaxRate={tenantResult.data?.defaultTaxRate ?? "0"}
+      initialStats={statsResult.data ?? undefined}
     />
   );
 }

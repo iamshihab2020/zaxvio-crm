@@ -25,11 +25,25 @@ const DEFAULT_SCHEDULE: ScheduleEntry[] = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
   isActive: day >= 1 && day <= 5,
 }));
 
-export function BookingsSettingsClient() {
-  const [schedule, setSchedule] = useState<ScheduleEntry[]>(DEFAULT_SCHEDULE);
-  const [originalSchedule, setOriginalSchedule] = useState<ScheduleEntry[]>(DEFAULT_SCHEDULE);
-  const [overrides, setOverrides] = useState<ScheduleOverride[]>([]);
-  const [loading, setLoading] = useState(true);
+interface BookingsSettingsClientProps {
+  initialData?: { weeklySchedule: Array<{ dayOfWeek: number; startTime: string | null; endTime: string | null; isActive: boolean }>; overrides: ScheduleOverride[] };
+}
+
+export function BookingsSettingsClient({ initialData }: BookingsSettingsClientProps) {
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>(() => {
+    if (initialData?.weeklySchedule?.length) {
+      return initialData.weeklySchedule.map((s) => ({
+        dayOfWeek: s.dayOfWeek,
+        startTime: s.startTime?.substring(0, 5) ?? "08:00",
+        endTime: s.endTime?.substring(0, 5) ?? "17:00",
+        isActive: s.isActive ?? false,
+      }));
+    }
+    return DEFAULT_SCHEDULE;
+  });
+  const [originalSchedule, setOriginalSchedule] = useState<ScheduleEntry[]>(schedule);
+  const [overrides, setOverrides] = useState<ScheduleOverride[]>(initialData?.overrides ?? []);
+  const [loading, setLoading] = useState(!initialData);
   const [saving, setSaving] = useState(false);
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
   const [savingOverride, setSavingOverride] = useState(false);
@@ -56,8 +70,10 @@ export function BookingsSettingsClient() {
   }, []);
 
   useEffect(() => {
+    if (initialData) return;
     fetchData();
-  }, [fetchData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isDirty = JSON.stringify(schedule) !== JSON.stringify(originalSchedule);
 

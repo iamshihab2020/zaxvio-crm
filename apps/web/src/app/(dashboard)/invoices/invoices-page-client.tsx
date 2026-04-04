@@ -36,6 +36,7 @@ import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import {
   getInvoices,
+  getInvoiceStats,
   createInvoice,
   deleteInvoice,
 } from "@/actions/invoices";
@@ -58,16 +59,25 @@ interface PaginationInfo {
   totalPages: number;
 }
 
+interface InvoiceStats {
+  draft: number;
+  sent: number;
+  paid: number;
+  overdue: number;
+}
+
 interface InvoicesPageClientProps {
   initialInvoices?: InvoiceRow[];
   initialPagination?: PaginationInfo;
   defaultTaxRate?: string;
+  initialStats?: InvoiceStats;
 }
 
 export function InvoicesPageClient({
   initialInvoices = [],
   initialPagination,
   defaultTaxRate: prefetchedTaxRate = "0",
+  initialStats,
 }: InvoicesPageClientProps) {
   const router = useRouter();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("invoices");
@@ -79,7 +89,7 @@ export function InvoicesPageClient({
     initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
   );
   const [defaultTaxRate, setDefaultTaxRate] = useState(prefetchedTaxRate);
-  const [stats, setStats] = useState({ draft: 0, sent: 0, paid: 0, overdue: 0 });
+  const [stats, setStats] = useState(initialStats ?? { draft: 0, sent: 0, paid: 0, overdue: 0 });
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -149,24 +159,11 @@ export function InvoicesPageClient({
     return () => clearTimeout(timer);
   }, [fetchInvoices]);
 
-  // Fetch stats
-  useEffect(() => {
-    async function loadStats() {
-      const [draft, sent, paid, overdue] = await Promise.all([
-        getInvoices({ status: "draft", limit: 1 }),
-        getInvoices({ status: "sent", limit: 1 }),
-        getInvoices({ status: "paid", limit: 1 }),
-        getInvoices({ status: "overdue", limit: 1 }),
-      ]);
-      setStats({
-        draft: draft.pagination?.total ?? 0,
-        sent: sent.pagination?.total ?? 0,
-        paid: paid.pagination?.total ?? 0,
-        overdue: overdue.pagination?.total ?? 0,
-      });
-    }
-    loadStats();
-  }, [invoices]);
+  // Refresh stats after mutations (single API call)
+  async function refreshStats() {
+    const result = await getInvoiceStats();
+    if (result.data) setStats(result.data);
+  }
 
   async function handleCreate(data: InvoiceFormData) {
     setSaving(true);
@@ -185,6 +182,7 @@ export function InvoicesPageClient({
       toast.success("Invoice created");
       setCreateDialogOpen(false);
       fetchInvoices(1);
+      refreshStats();
       if (result.data?.id) {
         setSelectedInvoiceId(result.data.id);
         setSheetOpen(true);
@@ -202,6 +200,7 @@ export function InvoicesPageClient({
       setDeleteDialogOpen(false);
       setDeletingInvoice(null);
       fetchInvoices(pagination.page);
+      refreshStats();
     }
   }
 
@@ -330,7 +329,7 @@ export function InvoicesPageClient({
           setDeletingInvoice(inv);
           setDeleteDialogOpen(true);
         }}
-        onDataChange={() => fetchInvoices(pagination.page)}
+        onDataChange={() => { fetchInvoices(pagination.page); refreshStats(); }}
       />
 
       {/* Delete confirmation */}

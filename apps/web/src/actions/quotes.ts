@@ -12,6 +12,22 @@ async function getCookieHeader() {
     .join("; ");
 }
 
+// ===== QUOTE STATS =====
+
+export async function getQuoteStats() {
+  try {
+    const res = await fetch(`${API_URL}/quotes/stats`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+    if (!res.ok) return { data: null, error: "Failed to load stats" };
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
 // ===== QUOTES CRUD =====
 
 export async function getQuotes(params?: {

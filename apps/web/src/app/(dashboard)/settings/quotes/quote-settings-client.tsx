@@ -18,16 +18,21 @@ interface TenantData {
   invoiceFooterMessage: string | null;
 }
 
-export function QuoteSettingsClient() {
-  const [loading, setLoading] = useState(true);
+interface QuoteSettingsClientProps {
+  initialTenant?: TenantData | null;
+}
+
+export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps) {
+  const [loading, setLoading] = useState(!initialTenant);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [termsConditions, setTermsConditions] = useState("");
-  const [footerMessage, setFooterMessage] = useState("");
-  const [fallbackTerms, setFallbackTerms] = useState("");
-  const [fallbackFooter, setFallbackFooter] = useState("");
+  const [termsConditions, setTermsConditions] = useState(initialTenant?.quoteTermsConditions ?? "");
+  const [footerMessage, setFooterMessage] = useState(initialTenant?.quoteFooterMessage ?? "");
+  const [fallbackTerms, setFallbackTerms] = useState(initialTenant?.invoiceTermsConditions ?? "");
+  const [fallbackFooter, setFallbackFooter] = useState(initialTenant?.invoiceFooterMessage ?? "");
 
   useEffect(() => {
+    if (initialTenant) return;
     async function load() {
       const result = await getTenant();
       if (result.error) {
@@ -42,6 +47,7 @@ export function QuoteSettingsClient() {
       setLoading(false);
     }
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSave() {

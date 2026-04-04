@@ -60,11 +60,31 @@ interface ChannelConfig {
   voice: boolean;
 }
 
-export function NotificationSettingsPageClient() {
+interface NotificationSettingsPageClientProps {
+  initialPreferences?: Array<{ notificationType: string; inApp: boolean; email: boolean; sms: boolean; voice: boolean }>;
+}
+
+export function NotificationSettingsPageClient({ initialPreferences }: NotificationSettingsPageClientProps) {
   const [preferences, setPreferences] = useState<
     Record<string, ChannelConfig>
-  >({});
-  const [isLoading, setIsLoading] = useState(true);
+  >(() => {
+    if (initialPreferences && initialPreferences.length > 0) {
+      const map: Record<string, ChannelConfig> = {};
+      for (const nt of NOTIFICATION_TYPES) {
+        const saved = initialPreferences.find((d) => d.notificationType === nt.type);
+        const defaults = NOTIFICATION_CHANNEL_DEFAULTS[nt.type] ?? { inApp: true, email: true, sms: false, voice: false };
+        map[nt.type] = {
+          inApp: saved?.inApp ?? defaults.inApp,
+          email: saved?.email ?? defaults.email,
+          sms: saved?.sms ?? defaults.sms,
+          voice: saved?.voice ?? defaults.voice,
+        };
+      }
+      return map;
+    }
+    return {};
+  });
+  const [isLoading, setIsLoading] = useState(!initialPreferences || initialPreferences.length === 0);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -72,10 +92,10 @@ export function NotificationSettingsPageClient() {
   } | null>(null);
 
   useEffect(() => {
+    if (initialPreferences && initialPreferences.length > 0) return;
     async function load() {
       const { data } = await getNotificationPreferences();
 
-      // Build map from saved prefs, falling back to defaults
       const map: Record<string, ChannelConfig> = {};
       for (const nt of NOTIFICATION_TYPES) {
         const saved = data?.find(
@@ -102,6 +122,7 @@ export function NotificationSettingsPageClient() {
     }
 
     void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleToggle = (

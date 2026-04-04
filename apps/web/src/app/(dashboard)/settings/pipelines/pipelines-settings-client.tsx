@@ -51,9 +51,13 @@ interface StageData {
   jobCount: number;
 }
 
-export function PipelinesSettingsClient() {
-  const [pipelines, setPipelines] = useState<PipelineData[]>([]);
-  const [loading, setLoading] = useState(true);
+interface PipelinesSettingsClientProps {
+  initialPipelines?: PipelineData[];
+}
+
+export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSettingsClientProps) {
+  const [pipelines, setPipelines] = useState<PipelineData[]>(initialPipelines);
+  const [loading, setLoading] = useState(initialPipelines.length === 0);
   const [createOpen, setCreateOpen] = useState(false);
 
   // Rename state
@@ -79,8 +83,10 @@ export function PipelinesSettingsClient() {
   }, []);
 
   useEffect(() => {
+    if (initialPipelines.length > 0) return;
     fetchPipelines();
-  }, [fetchPipelines]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleCreated() {
     setCreateOpen(false);
