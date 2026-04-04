@@ -38,8 +38,6 @@ function TabsList({ className, ...props }: TabsListProps) {
       className="bg-brand rounded-full"
       style={{ inset: "auto 0 0 0", height: "2px" }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      controlledItems
-      click={false}
     >
       <AnimatedTabsList
         className={cn(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { IconSettings, IconLogout } from "@tabler/icons-react";
 import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
 import { useSession, signOut } from "@/lib/auth-client";
@@ -18,8 +18,33 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/reports": "Reports",
+  "/schedule": "Calendar",
+  "/bookings": "Bookings",
+  "/customers": "Customers",
+  "/jobs": "Jobs",
+  "/quotes": "Quotes",
+  "/invoices": "Invoices",
+  "/service-agreements": "Agreements",
+  "/catalog": "Catalog",
+  "/checklists": "Checklists",
+  "/assets": "Assets",
+  "/settings": "Settings",
+};
+
+function getPageTitle(pathname: string): string {
+  // Exact match first
+  if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+  // Match by prefix (e.g. /jobs/abc → Jobs)
+  const segment = "/" + pathname.split("/")[1];
+  return PAGE_TITLES[segment] ?? "";
+}
+
 export function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { data: session } = useSession();
   const { isCollapsed } = useSidebar();
 
@@ -39,6 +64,8 @@ export function Navbar() {
     .toUpperCase()
     .slice(0, 2);
 
+  const pageTitle = getPageTitle(pathname);
+
   const handleLogout = async () => {
     // Clear role cookie before signing out
     document.cookie = "x-user-role=; path=/; max-age=0";
@@ -53,19 +80,34 @@ export function Navbar() {
 
   return (
     <header
-      className={`fixed right-0 z-20 flex h-14 items-center justify-end border-b border-border bg-card px-6 transition-[left,top] duration-300 ease-in-out ${isImpersonating ? "top-10" : "top-0"}`}
+      className={`fixed right-0 z-20 flex h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-md px-6 transition-[left,top] duration-300 ease-in-out ${isImpersonating ? "top-10" : "top-0"}`}
       style={{ left: isCollapsed ? "4rem" : "14rem" }}
     >
-      <div className="flex items-center gap-1">
+      {/* Brand accent line */}
+      <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-brand to-transparent opacity-50" />
+
+      {/* Page title */}
+      <div className="flex items-center">
+        {pageTitle && (
+          <h1 className="font-heading text-lg font-semibold text-foreground truncate">
+            {pageTitle}
+          </h1>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center gap-0.5 rounded-xl bg-muted/50 px-1.5 py-1">
         <ThemeToggle />
 
         <NotificationBell />
+
+        <div className="mx-1 h-5 w-px bg-border/50" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="ml-1 gap-2 px-2"
+              className="gap-2 px-2 rounded-lg"
             >
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-brand text-[10px] font-bold text-white">

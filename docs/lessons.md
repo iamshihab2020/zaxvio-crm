@@ -102,3 +102,44 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **Pagination component requires `total` prop** — Don't forget to pass it; the reusable Pagination component renders total count text.
 - **Sidebar scaling** — With 12+ nav items, collapsible groups with localStorage persistence prevents visual overload. ScrollArea wrapping ensures collapsed sidebar scrolls on small screens. Hide scrollbar in collapsed mode to avoid overlapping icons.
 - **Sliding indicator + ScrollArea** — The sidebar's sliding hover indicator breaks when nav items scroll because `getBoundingClientRect()` returns visual position but the indicator is absolutely positioned on the aside. Fix: listen to the ScrollArea viewport's scroll event and recalculate indicator position. Also clip indicator opacity when item scrolls outside visible bounds.
+
+## Security Hardening (2026-04-02)
+
+- **`requireTenant` middleware does NOT verify resource ownership** — It only confirms the user belongs to a tenant. You must still query with `and(eq(table.tenantId, tenantId), eq(table.id, id))` in every endpoint that reads/modifies a specific resource. Without this, any authenticated user can access any tenant's records by guessing IDs (IDOR).
+- **Rate limiting is two-tiered — global vs route-level** — Global rate limit (100 req/min) is set in `server.ts` via `@fastify/rate-limit`. Auth endpoints need stricter limits (10 req/min) set via `config.rateLimit` on the route definition. If you forget to add `config.rateLimit` to new auth routes, they silently fall back to the permissive global limit.
+- **Zod validation absence is silent** — Adding `fastify-type-provider-zod` globally enables schema validation, but only for routes that define `schema: { params, body }`. Routes without schema definitions accept any input without error. There's no warning that validation is missing.
+- **Sanitize user input before injecting into AI prompts** — The chatbot route was directly interpolating user params into system prompts (`${k}: ${v}`), allowing prompt injection. Use `sanitizeForPrompt()` to strip control chars and cap length. This applies to any route that builds LLM prompts from user data.
+
+## Multi-Pipeline (2026-04-03)
+
+- **Data backfill migrations need IS NULL guards on UPDATE** — The pipeline migration creates a default pipeline per tenant via `INSERT ... ON CONFLICT DO NOTHING` (idempotent), but the UPDATE that sets `pipeline_id` on existing jobs must use `WHERE pipeline_id IS NULL` to avoid overwriting data on re-run. INSERT idempotency alone isn't enough if the migration also does UPDATEs.
+- **`isDefault` flag without unique constraint is a race condition** — The UI enforces "one default pipeline per tenant" but the DB has no partial unique index like `CREATE UNIQUE INDEX ... WHERE is_default = true`. Concurrent API calls can create multiple defaults. The job creation endpoint picks the first one arbitrarily.
+- **Filtering by pipelineId returns empty, not error** — List endpoints that filter by `pipelineId` return 0 results if the param is missing or wrong, instead of erroring. This causes silent data loss on the frontend if you forget to pass it.
+
+## Performance Optimization (2026-04-04)
+
+- **Server-side `Promise.all()` is all-or-nothing** — If any prefetch action fails in `Promise.all([getJobs(), getPipelines(), getTenant()])`, the entire page fails with no graceful degradation. Consider wrapping individual calls in try-catch with fallback defaults for non-critical data.
+- **Initial props are snapshots, not live data** — `initialJobs` passed from server to client is stale after any user action. The client must re-fetch via server actions after mutations. If the server prefetch logic diverges from the client action logic (different filters, different fields), you get inconsistent state.
+- **Batch stats endpoints (`/stats`) are fast but not cached** — `COUNT(*) FILTER (WHERE ...)` queries are efficient, but no HTTP cache headers or `revalidateTag` calls were added. The browser/CDN doesn't know it can serve stale, causing redundant API calls on every navigation.
+
+## Kanban & Animation (2026-04-04)
+
+- **`motion/react` stagger is per-card, not batched** — Each kanban card gets its own `transition={{ delay: index * 0.04 }}`. With 50+ cards, that's 50 separate animation tasks. Unlike CSS `@keyframes` with `animation-delay`, motion/react doesn't batch these. Consider limiting stagger to the first ~10 cards.
+- **Removing priority border-left breaks light mode scannability** — The old kanban card used `border-l-[3px]` with dynamic priority colors. The redesign removed this for a cleaner look with shadow/ring, but subtle shadows are nearly invisible in light mode. Priority is only visible via badge text now.
+
+## Recharts & Reports (2026-04-03)
+
+- **Chart config objects must be memoized with `useMemo`** — Recharts compares config object identity (not deep equality). Inline config objects cause re-initialization every render, resulting in animation jank. Always wrap dynamic `ChartConfig` in `useMemo`.
+- **Y-axis `tickFormatter` rounds aggressively** — `v >= 1000 ? \`$${(v/1000).toFixed(0)}k\` : \`$${v}\`` turns $1,800 into "$2k". Users may perceive inaccurate revenue. Use `.toFixed(1)` for "$1.8k" or switch to full numbers below $10k.
+
+## Vercel AI SDK v6 + Groq (2026-04-02)
+
+- **AI SDK v6 uses `inputSchema` not `parameters` for tool definitions** — Old Vercel AI SDK used `parameters` (Zod schema). v6 renamed it to `inputSchema`. Both compile but `parameters` is silently ignored in v6, making tools accept no input.
+- **`maxOutputTokens` not `maxTokens`** — v6 renamed the token limit parameter. Using `maxTokens` may be silently ignored depending on the provider adapter.
+- **LLM tool call inputs are not validated against schema by default** — The LLM may return wrong field names or types. The SDK validates structure but not semantic correctness. Always validate tool inputs before execution, especially for DB mutations.
+
+## Frontend Architecture (2026-04-04)
+
+- **Page titles are decentralized after navbar cleanup** — Titles moved from a central `pageTitles` map in `navbar.tsx` to individual `<PageHeader>` components per page. New pages can easily miss adding a header. No compile-time check catches this.
+- **EditableField state is local, not synced to parent** — `EditableText`, `EditableSelect` etc. manage their own `draft` state. If the parent re-fetches data after a save, the editable field doesn't re-sync unless the `value` prop changes. Two tabs editing the same field can show stale drafts.
+- **`docs/design.md` is the frontend source of truth** — Extracted from CLAUDE.md (2026-04-04) to reduce CLAUDE.md size. All frontend patterns, component APIs, layout rules, and performance rules live there. Update `docs/design.md` when changing frontend conventions.

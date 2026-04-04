@@ -7,7 +7,6 @@ import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import { toast } from "sonner";
 import {
   IconPlus,
-  IconSearch,
   IconFileInvoice,
   IconFileText,
   IconSend,
@@ -15,8 +14,8 @@ import {
   IconAlertTriangle,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { SearchInput } from "@/components/reusable/search-input";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import {
@@ -263,39 +262,21 @@ export function InvoicesPageClient({
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Search + filters in card header */}
-          <div className="border-b border-border px-4 py-3 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="relative max-w-sm flex-1">
-                <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search invoices..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <StatusFilterTabs
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search invoices..."
+              />
               {viewMounted && (
                 <ViewModeToggle value={viewMode} onChange={setViewMode} />
               )}
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {STATUS_OPTIONS.map((opt) => (
-                <Button
-                  key={opt.value}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setStatusFilter(opt.value)}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium font-body h-auto",
-                    statusFilter === opt.value
-                      ? "bg-brand text-brand-foreground hover:bg-brand/90"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80",
-                  )}
-                >
-                  {opt.label}
-                </Button>
-              ))}
             </div>
           </div>
 

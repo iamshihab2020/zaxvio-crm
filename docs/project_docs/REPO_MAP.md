@@ -441,6 +441,9 @@ apps/web/
     |   |   |   +-- service-agreement-dialog.tsx
     |   |   |   +-- service-agreement-table.tsx
     |   |   |
+    |   |   +-- reusable/            # Shared dashboard-level reusable components
+    |   |   |   +-- stats-cards.tsx  # Stats cards grid (clickable filter + filterValue support)
+    |   |   |
     |   |   +-- settings/           # Settings page components
     |   |       +-- availability-weekly-editor.tsx    # Weekly schedule editor (7 day rows)
     |   |       +-- availability-override-list.tsx    # Schedule overrides table
@@ -460,10 +463,15 @@ apps/web/
     |   |
     |   +-- reusable/               # Shared dashboard components
     |   |   +-- confirm-action-dialog.tsx
+    |   |   +-- convert-to-job-dialog.tsx  # Convert booking to job dialog
     |   |   +-- delete-confirm-dialog.tsx
+    |   |   +-- editable-field.tsx         # Inline editable text field
     |   |   +-- empty-state.tsx
+    |   |   +-- page-header.tsx            # Page title + subtitle + action button
     |   |   +-- pagination.tsx
     |   |   +-- scroll-fade-area.tsx
+    |   |   +-- search-input.tsx           # Search input with icon (no built-in debounce)
+    |   |   +-- status-filter-tabs.tsx     # Animated sliding pill filter tabs
     |   |   +-- table-skeleton.tsx
     |   |   +-- view-mode-toggle.tsx
     |   |

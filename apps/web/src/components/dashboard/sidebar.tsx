@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -76,20 +76,16 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-const allNavItems = [
-  ...standaloneItems,
-  ...navGroups.flatMap((g) => g.items),
-];
-
-const allItems = [
-  ...allNavItems,
-  { href: "/settings", label: "Settings", icon: IconSettings },
-];
-
 const modeOptions: { value: SidebarMode; icon: typeof IconLayoutSidebar; label: string }[] = [
   { value: "hover-expand", icon: IconLayoutSidebar, label: "Hover to expand" },
   { value: "icon-tooltip", icon: IconTooltip, label: "Icon + tooltips" },
 ];
+
+/** Extract pathname portion from href (strips query string) */
+function basePath(href: string): string {
+  const idx = href.indexOf("?");
+  return idx >= 0 ? href.slice(0, idx) : href;
+}
 
 const COLLAPSED_GROUPS_KEY = "zaxvio-sidebar-groups";
 
@@ -117,6 +113,31 @@ export function Sidebar() {
   const isEffectivelyExpanded = !isCollapsed || isHoverExpanded;
   const showLabel = isEffectivelyExpanded;
   const useTooltipMode = isCollapsed && !isHoverExpanded && mode === "icon-tooltip";
+
+  // Resolve Jobs href with last-used pipeline from localStorage
+  const [jobsPipelineId, setJobsPipelineId] = useState<string | null>(null);
+  useEffect(() => {
+    setJobsPipelineId(localStorage.getItem("jobs-pipeline-id"));
+  }, []);
+
+  const resolvedNavGroups = useMemo(() => {
+    if (!jobsPipelineId) return navGroups;
+    return navGroups.map((group) => ({
+      ...group,
+      items: group.items.map((item) =>
+        item.href === "/jobs"
+          ? { ...item, href: `/jobs?pipeline=${jobsPipelineId}` }
+          : item,
+      ),
+    }));
+  }, [jobsPipelineId]);
+
+  // All resolved items (with query params) for indicator tracking
+  const allResolvedItems = useMemo(() => [
+    ...standaloneItems,
+    ...resolvedNavGroups.flatMap((g) => g.items),
+    { href: "/settings", label: "Settings", icon: IconSettings },
+  ], [resolvedNavGroups]);
 
   // Collapsible group state
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
@@ -153,12 +174,19 @@ export function Sidebar() {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [indicator, setIndicator] = useState({ top: 0, height: 0, opacity: 0 });
   const [hoveredHref, setHoveredHref] = useState<string | null>(null);
+  const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  // Clear pending state when pathname catches up (navigation completes)
+  useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
 
   const getActiveHref = useCallback(() => {
-    return allItems.find(
-      (item) => pathname === item.href || pathname.startsWith(item.href + "/"),
-    )?.href ?? null;
-  }, [pathname]);
+    return allResolvedItems.find((item) => {
+      const base = basePath(item.href);
+      return pathname === base || pathname.startsWith(base + "/");
+    })?.href ?? null;
+  }, [pathname, allResolvedItems]);
 
   const updateIndicator = useCallback(
     (targetHref: string | null) => {
@@ -191,7 +219,13 @@ export function Sidebar() {
   );
 
   const activeHref = getActiveHref();
-  const targetHref = hoveredHref ?? activeHref;
+  const targetHref = hoveredHref ?? pendingHref ?? activeHref;
+
+  const handleNavClick = useCallback((href: string) => {
+    if (href !== activeHref) {
+      setPendingHref(href);
+    }
+  }, [activeHref]);
 
   useEffect(() => {
     const timer = setTimeout(() => updateIndicator(targetHref), 30);
@@ -313,12 +347,13 @@ export function Sidebar() {
                   itemRef={setItemRef(item.href)}
                   onMouseEnter={() => setHoveredHref(item.href)}
                   onMouseLeave={() => setHoveredHref(null)}
+                  onClick={() => handleNavClick(item.href)}
                 />
               );
             })}
 
             {/* Grouped sections — collapsible */}
-            {navGroups.map((group) => {
+            {resolvedNavGroups.map((group) => {
               const isGroupCollapsed =
                 isEffectivelyExpanded &&
                 (groupsMounted
@@ -332,9 +367,10 @@ export function Sidebar() {
                     <div className="mx-3 mb-0.5 border-t border-border" />
                     <div className="flex flex-col">
                       {group.items.map((item) => {
+                        const base = basePath(item.href);
                         const isActive =
-                          pathname === item.href ||
-                          pathname.startsWith(item.href + "/");
+                          pathname === base ||
+                          pathname.startsWith(base + "/");
                         return (
                           <SidebarNavItem
                             key={item.href}
@@ -348,6 +384,7 @@ export function Sidebar() {
                             itemRef={setItemRef(item.href)}
                             onMouseEnter={() => setHoveredHref(item.href)}
                             onMouseLeave={() => setHoveredHref(null)}
+                            onClick={() => handleNavClick(item.href)}
                           />
                         );
                       })}
@@ -385,9 +422,10 @@ export function Sidebar() {
                     )}
                   >
                     {group.items.map((item) => {
+                      const base = basePath(item.href);
                       const isActive =
-                        pathname === item.href ||
-                        pathname.startsWith(item.href + "/");
+                        pathname === base ||
+                        pathname.startsWith(base + "/");
                       return (
                         <SidebarNavItem
                           key={item.href}
@@ -401,6 +439,7 @@ export function Sidebar() {
                           itemRef={setItemRef(item.href)}
                           onMouseEnter={() => setHoveredHref(item.href)}
                           onMouseLeave={() => setHoveredHref(null)}
+                          onClick={() => handleNavClick(item.href)}
                         />
                       );
                     })}
@@ -459,6 +498,7 @@ export function Sidebar() {
             itemRef={setItemRef("/settings")}
             onMouseEnter={() => setHoveredHref("/settings")}
             onMouseLeave={() => setHoveredHref(null)}
+            onClick={() => handleNavClick("/settings")}
           />
         </div>
       </aside>

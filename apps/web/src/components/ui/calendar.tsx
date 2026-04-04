@@ -176,6 +176,10 @@ function CalendarDayButton({
   className,
   day,
   modifiers,
+  onAnimationStart: _onAnimationStart,
+  onDragStart: _onDragStart,
+  onDrag: _onDrag,
+  onDragEnd: _onDragEnd,
   ...props
 }: React.ComponentProps<typeof DayButton>) {
   const defaultClassNames = getDefaultClassNames()

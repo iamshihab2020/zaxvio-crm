@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { IconPlus, IconSearch, IconUsers, IconMail, IconPhone, IconMapPin } from "@tabler/icons-react";
+import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin } from "@tabler/icons-react";
 import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SearchInput } from "@/components/reusable/search-input";
 import { CustomerTable } from "@/components/dashboard/customers/customer-table";
 import { CustomerDialog, type CustomerFormData } from "@/components/dashboard/customers/customer-dialog";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
@@ -157,6 +157,18 @@ export function CustomersPageClient({
         </div>
       )}
 
+      <PageHeader
+        title="Customers"
+        subtitle="Manage your customer database and contact information."
+        action={
+          <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+            Add Customer
+          </Button>
+        }
+        className="mb-4"
+      />
+
       {showEmptyState && (
         <EmptyState
           icon={IconUsers}
@@ -164,20 +176,6 @@ export function CustomersPageClient({
           description="Add your first customer to start scheduling jobs, sending invoices, and tracking service history."
           actionLabel="Add Your First Customer"
           onAction={openCreateDialog}
-        />
-      )}
-
-      {!showEmptyState && (
-        <PageHeader
-          title="Customers"
-          subtitle="Manage your customer database and contact information."
-          action={
-            <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-              <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-              Add Customer
-            </Button>
-          }
-          className="mb-4"
         />
       )}
 
@@ -198,15 +196,11 @@ export function CustomersPageClient({
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Search bar inside card header */}
           <div className="border-b border-border px-4 py-3">
-            <div className="relative max-w-sm">
-              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search by name, email, or phone..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search by name, email, or phone..."
+            />
           </div>
 
           {loading && (

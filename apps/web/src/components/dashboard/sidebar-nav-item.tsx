@@ -19,6 +19,7 @@ interface SidebarNavItemProps {
   useTooltip: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  onClick?: () => void;
   itemRef?: React.RefCallback<HTMLAnchorElement>;
 }
 
@@ -32,12 +33,14 @@ export function SidebarNavItem({
   useTooltip,
   onMouseEnter,
   onMouseLeave,
+  onClick,
   itemRef,
 }: SidebarNavItemProps) {
   const link = (
     <Link
       ref={itemRef}
       href={href}
+      onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       className={cn(

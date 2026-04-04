@@ -1,10 +1,19 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { IconFileCheck, IconPlus, IconSearch } from "@tabler/icons-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  IconFileCheck,
+  IconPlus,
+  IconCircleCheck,
+  IconClock,
+  IconAlertTriangle,
+  IconX,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/reusable/page-header";
+import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { SearchInput } from "@/components/reusable/search-input";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
@@ -24,11 +33,34 @@ import {
   deleteMaintenanceContract,
 } from "@/actions/maintenance-contracts";
 
+const STATUS_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "expiring", label: "Expiring" },
+  { value: "expired", label: "Expired" },
+  { value: "inactive", label: "Inactive" },
+];
+
 interface PaginationData {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
+}
+
+function getAgreementStatus(agreement: AgreementRow): string {
+  const now = new Date();
+  const endDate = agreement.endDate ? new Date(agreement.endDate) : null;
+  const isActive = agreement.isActive !== false;
+
+  if (!isActive) return "inactive";
+  if (endDate && endDate < now) return "expired";
+  if (endDate) {
+    const thirtyDaysFromNow = new Date();
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    if (endDate <= thirtyDaysFromNow) return "expiring";
+  }
+  return "active";
 }
 
 export function ServiceAgreementsPageClient() {
@@ -40,6 +72,7 @@ export function ServiceAgreementsPageClient() {
     totalPages: 0,
   });
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -80,6 +113,25 @@ export function ServiceAgreementsPageClient() {
     }, 300);
     return () => clearTimeout(timer);
   }, [search, fetchAgreements]);
+
+  // Compute stats client-side
+  const stats = useMemo(() => {
+    let active = 0, expiring = 0, expired = 0, inactive = 0;
+    for (const a of agreements) {
+      const status = getAgreementStatus(a);
+      if (status === "active") active++;
+      else if (status === "expiring") expiring++;
+      else if (status === "expired") expired++;
+      else if (status === "inactive") inactive++;
+    }
+    return { active, expiring, expired, inactive };
+  }, [agreements]);
+
+  // Client-side status filtering
+  const filteredAgreements = useMemo(() => {
+    if (!statusFilter) return agreements;
+    return agreements.filter((a) => getAgreementStatus(a) === statusFilter);
+  }, [agreements, statusFilter]);
 
   function openCreateDialog() {
     setEditingAgreement(null);
@@ -143,44 +195,45 @@ export function ServiceAgreementsPageClient() {
     setSaving(false);
   }
 
+  const hasAgreements = filteredAgreements.length > 0;
+  const showEmptyState = !loading && agreements.length === 0 && !search && !statusFilter;
+  const showNoResults = !loading && !hasAgreements && (!!search || !!statusFilter);
+
   return (
-    <section className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">
-            Service Agreements
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground font-body">
-            Manage recurring service contracts and maintenance plans.
-          </p>
-        </div>
-        <Button
-          onClick={openCreateDialog}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          <IconPlus className="h-4 w-4 mr-1.5" />
-          Add Agreement
-        </Button>
-      </div>
+    <section className="p-6">
+      <PageHeader
+        title="Service Agreements"
+        subtitle="Manage recurring service contracts and maintenance plans."
+        action={
+          <Button
+            onClick={openCreateDialog}
+            size="sm"
+            className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
+          >
+            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+            Add Agreement
+          </Button>
+        }
+        className="mb-4"
+      />
 
-      {/* Search */}
-      <div className="relative max-w-sm">
-        <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search agreements..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+      {/* Stats Cards */}
+      {!showEmptyState && (
+        <StatsCards
+          stats={[
+            { label: "Active", count: stats.active, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
+            { label: "Expiring", count: stats.expiring, icon: IconClock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40" },
+            { label: "Expired", count: stats.expired, icon: IconAlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40" },
+            { label: "Inactive", count: stats.inactive, icon: IconX, color: "text-muted-foreground", bg: "bg-muted/50" },
+          ]}
+          activeFilter={statusFilter}
+          onFilterChange={setStatusFilter}
+          className="mb-4"
         />
-      </div>
+      )}
 
-      {/* Content */}
-      {loading ? (
-        <Card className="overflow-hidden">
-          <TableSkeleton columns={7} rows={5} />
-        </Card>
-      ) : agreements.length === 0 && !search ? (
+      {/* Empty state */}
+      {showEmptyState && (
         <EmptyState
           icon={IconFileCheck}
           title="No service agreements yet"
@@ -188,30 +241,60 @@ export function ServiceAgreementsPageClient() {
           actionLabel="Add Agreement"
           onAction={openCreateDialog}
         />
-      ) : agreements.length === 0 ? (
-        <div className="py-12 text-center text-sm text-muted-foreground">
-          No agreements found matching &quot;{search}&quot;
-        </div>
-      ) : (
-        <>
-          <Card className="overflow-hidden">
+      )}
+
+      {/* Card wrapper — search + filters + table */}
+      {!showEmptyState && (
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <StatusFilterTabs
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search agreements..."
+              />
+            </div>
+          </div>
+
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="p-4">
+              <TableSkeleton columns={7} rows={5} />
+            </div>
+          )}
+
+          {/* No results */}
+          {showNoResults && (
+            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+              No agreements found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
+            </p>
+          )}
+
+          {/* Table */}
+          {!loading && hasAgreements && (
             <ServiceAgreementTable
-              agreements={agreements}
+              agreements={filteredAgreements}
               onEdit={openEditDialog}
               onDelete={openDeleteDialog}
             />
-          </Card>
-
-          {pagination.totalPages > 1 && (
-            <Pagination
-              page={pagination.page}
-              totalPages={pagination.totalPages}
-              total={pagination.total}
-              onPageChange={(p) => fetchAgreements(p, search)}
-              entityName="agreement"
-            />
           )}
-        </>
+        </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && hasAgreements && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={(p) => fetchAgreements(p, search)}
+          entityName="agreement"
+        />
       )}
 
       <ServiceAgreementDialog

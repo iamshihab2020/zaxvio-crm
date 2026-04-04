@@ -251,7 +251,7 @@ export function JobsTab({ data }: JobsTabProps) {
           </ReportChartCard>
         </Fade>
 
-        <Fade className="h-full" inView inViewOnce delay={100} className="md:col-span-2">
+        <Fade className="h-full md:col-span-2" inView inViewOnce delay={100}>
           <ReportChartCard title="Pipeline Distribution">
             {data.pipelineDistribution.length === 0 ? (
               <EmptyChart />

@@ -10,6 +10,8 @@ import {
 import type {
   ChatApiResponse,
   ChatMessage,
+  ConversationState,
+  PendingAction,
 } from "@/lib/chatbot/types";
 import { z } from "zod";
 
@@ -59,8 +61,9 @@ const chatRequestSchema = z.object({
     phase: z.enum(["idle", "awaiting_fields", "awaiting_confirmation"]),
     pendingAction: z.object({
       type: z.string(),
-      params: z.record(z.string()),
+      params: z.record(z.string(), z.string()),
       missingFields: z.array(z.string()).optional(),
+      status: z.string().optional(),
     }).nullable(),
   }),
   history: z.array(z.object({
@@ -96,7 +99,19 @@ export async function POST(req: Request) {
     return errorResponse("Invalid request.");
   }
 
-  const { message, conversationState, history } = body;
+  const { message, history } = body;
+  const parsedState = body.conversationState;
+  const conversationState: ConversationState = {
+    phase: parsedState.phase as ConversationState["phase"],
+    pendingAction: parsedState.pendingAction
+      ? {
+          type: parsedState.pendingAction.type as PendingAction["type"],
+          params: parsedState.pendingAction.params,
+          status: (parsedState.pendingAction.status ?? "pending") as PendingAction["status"],
+          missingFields: parsedState.pendingAction.missingFields,
+        }
+      : null,
+  };
 
   try {
     const groq = createGroq({ apiKey });

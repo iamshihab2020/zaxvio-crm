@@ -1,16 +1,25 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { IconPlus, IconListDetails } from "@tabler/icons-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import {
+  IconPlus,
+  IconListDetails,
+  IconTool,
+  IconSettings,
+  IconPackage,
+  IconBolt,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { CatalogTable } from "@/components/dashboard/catalog/catalog-table";
-import { CatalogItemDialog, type CatalogItemFormData } from "@/components/dashboard/catalog/catalog-item-dialog";
-import { CatalogFilters } from "@/components/dashboard/catalog/catalog-filters";
-import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { PageHeader } from "@/components/reusable/page-header";
+import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { SearchInput } from "@/components/reusable/search-input";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
+import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
-import { EmptyState } from "@/components/reusable/empty-state";
+import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { CatalogTable } from "@/components/dashboard/catalog/catalog-table";
+import { CatalogItemDialog, type CatalogItemFormData } from "@/components/dashboard/catalog/catalog-item-dialog";
 import {
   getCatalogItems,
   getCatalogCategories,
@@ -19,6 +28,31 @@ import {
   deleteCatalogItem,
 } from "@/actions/catalog";
 import type { CatalogItem } from "@hvac-saas/types";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
+import { IconCheck, IconChevronDown, IconArchive } from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
+import { CATALOG_CATEGORIES } from "@/lib/constants/catalog-options";
+
+const TYPE_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "labor", label: "Labor" },
+  { value: "part", label: "Part" },
+  { value: "material", label: "Material" },
+  { value: "service_call", label: "Service Call" },
+  { value: "other", label: "Other" },
+];
 
 interface PaginationData {
   page: number;
@@ -42,6 +76,7 @@ export function CatalogPageClient() {
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
@@ -88,6 +123,25 @@ export function CatalogPageClient() {
     }, 300);
     return () => clearTimeout(timer);
   }, [search, filterItemType, showArchived, fetchItems]);
+
+  // Compute stats client-side
+  const stats = useMemo(() => {
+    let labor = 0, part = 0, material = 0, service = 0;
+    for (const item of items) {
+      if (item.itemType === "labor") labor++;
+      else if (item.itemType === "part") part++;
+      else if (item.itemType === "material") material++;
+      else if (item.itemType === "service_call") service++;
+    }
+    return { labor, part, material, service };
+  }, [items]);
+
+  const mergedCategories = useMemo(() => {
+    const set = new Set<string>([...CATALOG_CATEGORIES, ...categories]);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [categories]);
+
+  const selectedCategoryLabel = filterCategory || "All Categories";
 
   function handlePageChange(newPage: number) {
     fetchItems(newPage, search, filterItemType, showArchived);
@@ -192,12 +246,28 @@ export function CatalogPageClient() {
         className="mb-4"
       />
 
+      {/* Stats Cards */}
+      {!showEmptyState && (
+        <StatsCards
+          stats={[
+            { label: "Labor", count: stats.labor, icon: IconTool, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
+            { label: "Part", count: stats.part, icon: IconSettings, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
+            { label: "Material", count: stats.material, icon: IconPackage, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40" },
+            { label: "Service Call", count: stats.service, icon: IconBolt, color: "text-purple-600 dark:text-purple-400", bg: "bg-purple-50 dark:bg-purple-950/40", filterValue: "service_call" },
+          ]}
+          activeFilter={filterItemType}
+          onFilterChange={setFilterItemType}
+          className="mb-4"
+        />
+      )}
+
       {error && (
         <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
         </div>
       )}
 
+      {/* Empty state */}
       {showEmptyState && (
         <EmptyState
           icon={IconListDetails}
@@ -208,29 +278,109 @@ export function CatalogPageClient() {
         />
       )}
 
+      {/* Card wrapper */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <CatalogFilters
-            search={search}
-            onSearchChange={setSearch}
-            filterItemType={filterItemType}
-            onFilterItemTypeChange={setFilterItemType}
-            filterCategory={filterCategory}
-            onFilterCategoryChange={setFilterCategory}
-            showArchived={showArchived}
-            onShowArchivedChange={setShowArchived}
-            categories={categories}
-            totalItems={pagination.total}
-          />
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <StatusFilterTabs
+              options={TYPE_OPTIONS}
+              value={filterItemType}
+              onChange={setFilterItemType}
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search catalog..."
+              />
 
-          {loading && <TableSkeleton columns={6} rows={5} />}
+              {/* Category Filter */}
+              <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 shrink-0" role="combobox" aria-expanded={categoryOpen}>
+                    {selectedCategoryLabel}
+                    <IconChevronDown className="h-3.5 w-3.5" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[220px] p-0" align="end">
+                  <Command>
+                    <CommandInput placeholder="Search categories..." />
+                    <CommandList>
+                      <CommandEmpty>No category found.</CommandEmpty>
+                      <CommandGroup>
+                        <CommandItem
+                          value="all-categories"
+                          onSelect={() => {
+                            setFilterCategory("");
+                            setCategoryOpen(false);
+                          }}
+                        >
+                          <IconCheck
+                            className={cn(
+                              "mr-2 h-3.5 w-3.5",
+                              !filterCategory ? "opacity-100" : "opacity-0",
+                            )}
+                          />
+                          All Categories
+                        </CommandItem>
+                        {mergedCategories.map((cat) => (
+                          <CommandItem
+                            key={cat}
+                            value={cat}
+                            onSelect={(val) => {
+                              setFilterCategory(val);
+                              setCategoryOpen(false);
+                            }}
+                          >
+                            <IconCheck
+                              className={cn(
+                                "mr-2 h-3.5 w-3.5",
+                                filterCategory === cat ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            {cat}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
 
+              {/* Archived Toggle */}
+              <Button
+                variant={showArchived ? "secondary" : "outline"}
+                size="sm"
+                onClick={() => setShowArchived(!showArchived)}
+                className="gap-1.5 shrink-0"
+              >
+                <IconArchive className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  {showArchived ? "Showing archived" : "Show archived"}
+                </span>
+              </Button>
+
+              <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
+                {pagination.total} {pagination.total === 1 ? "Item" : "Items"}
+              </span>
+            </div>
+          </div>
+
+          {/* Loading skeleton */}
+          {loading && (
+            <div className="p-4">
+              <TableSkeleton columns={6} rows={5} />
+            </div>
+          )}
+
+          {/* No results */}
           {showNoResults && (
             <p className="py-12 text-center text-sm text-muted-foreground font-body">
               No catalog items found matching your filters.
             </p>
           )}
 
+          {/* Table */}
           {!loading && hasItems && (
             <CatalogTable
               items={items}
@@ -243,6 +393,7 @@ export function CatalogPageClient() {
         </div>
       )}
 
+      {/* Pagination */}
       {!loading && hasItems && pagination.totalPages > 1 && (
         <Pagination
           page={pagination.page}

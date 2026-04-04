@@ -1,9 +1,20 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { toast } from "sonner";
-import { IconPlus, IconChecklist } from "@tabler/icons-react";
+import {
+  IconPlus,
+  IconChecklist,
+  IconCircleCheck,
+  IconCircleOff,
+  IconStack2,
+} from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/reusable/page-header";
+import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { SearchInput } from "@/components/reusable/search-input";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
+import { EmptyState } from "@/components/reusable/empty-state";
 import {
   ChecklistTemplateList,
   type ChecklistTemplate,
@@ -13,8 +24,6 @@ import {
   type TemplateFormData,
 } from "@/components/dashboard/checklists/checklist-template-dialog";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
-import { PageHeader } from "@/components/reusable/page-header";
-import { EmptyState } from "@/components/reusable/empty-state";
 import {
   getChecklistTemplates,
   getChecklistTemplate,
@@ -35,8 +44,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { IconSelector, IconCheck, IconEye, IconEyeOff } from "@tabler/icons-react";
+import { IconSelector, IconCheck } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+
+const STATUS_OPTIONS = [
+  { value: "", label: "All" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+];
 
 interface TemplateWithItems extends ChecklistTemplate {
   items?: Array<{
@@ -54,8 +69,9 @@ export function ChecklistsPageClient() {
   const [templates, setTemplates] = useState<ChecklistTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
   const [filterServiceType, setFilterServiceType] = useState("");
-  const [showInactive, setShowInactive] = useState(false);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -68,17 +84,47 @@ export function ChecklistsPageClient() {
     setLoading(true);
     const result = await getChecklistTemplates({
       serviceType: filterServiceType || undefined,
-      showInactive,
+      showInactive: statusFilter === "inactive" || statusFilter === "",
     });
     if (result.data) {
       setTemplates(result.data);
     }
     setLoading(false);
-  }, [filterServiceType, showInactive]);
+  }, [filterServiceType, statusFilter]);
 
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  // Compute stats client-side
+  const stats = useMemo(() => {
+    let active = 0, inactive = 0;
+    for (const t of templates) {
+      if (t.isActive) active++;
+      else inactive++;
+    }
+    return { total: templates.length, active, inactive };
+  }, [templates]);
+
+  // Client-side search + status filtering
+  const filteredTemplates = useMemo(() => {
+    let result = templates;
+
+    // Status filter
+    if (statusFilter === "active") {
+      result = result.filter((t) => t.isActive);
+    } else if (statusFilter === "inactive") {
+      result = result.filter((t) => !t.isActive);
+    }
+
+    // Search filter
+    if (search) {
+      const lowerSearch = search.toLowerCase();
+      result = result.filter((t) => t.name.toLowerCase().includes(lowerSearch));
+    }
+
+    return result;
+  }, [templates, statusFilter, search]);
 
   function openCreateDialog() {
     setEditingTemplate(null);
@@ -203,8 +249,9 @@ export function ChecklistsPageClient() {
     setSaving(false);
   }
 
-  const hasTemplates = templates.length > 0;
-  const showEmptyState = !loading && !hasTemplates && !filterServiceType;
+  const hasTemplates = filteredTemplates.length > 0;
+  const showEmptyState = !loading && templates.length === 0 && !filterServiceType && !search && !statusFilter;
+  const showNoResults = !loading && !hasTemplates && (!!search || !!statusFilter || !!filterServiceType);
 
   return (
     <section className="p-6">
@@ -220,6 +267,19 @@ export function ChecklistsPageClient() {
         className="mb-4"
       />
 
+      {/* Stats Cards */}
+      {!showEmptyState && (
+        <StatsCards
+          stats={[
+            { label: "Total", count: stats.total, icon: IconStack2, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
+            { label: "Active", count: stats.active, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
+            { label: "Inactive", count: stats.inactive, icon: IconCircleOff, color: "text-muted-foreground", bg: "bg-muted/50" },
+          ]}
+          className="mb-4"
+        />
+      )}
+
+      {/* Empty state */}
       {showEmptyState && (
         <EmptyState
           icon={IconChecklist}
@@ -230,84 +290,83 @@ export function ChecklistsPageClient() {
         />
       )}
 
+      {/* Card wrapper */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Filters */}
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  {filterServiceType
-                    ? SERVICE_TYPE_LABELS[filterServiceType as ServiceType]
-                    : "All Service Types"}
-                  <IconSelector className="h-4 w-4 text-muted-foreground" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-1" align="start">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFilterServiceType("");
-                    setFilterOpen(false);
-                  }}
-                  className="w-full justify-start gap-2 font-body"
-                >
-                  {!filterServiceType && (
-                    <IconCheck className="h-4 w-4 text-brand shrink-0" />
-                  )}
-                  <span className={cn(!filterServiceType ? "" : "pl-6")}>
-                    All Types
-                  </span>
-                </Button>
-                {SERVICE_TYPES.map((st) => (
+            <StatusFilterTabs
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search templates..."
+              />
+
+              {/* Service Type Filter */}
+              <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
+                    {filterServiceType
+                      ? SERVICE_TYPE_LABELS[filterServiceType as ServiceType]
+                      : "All Service Types"}
+                    <IconSelector className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-1" align="end">
                   <Button
-                    key={st}
                     type="button"
                     variant="ghost"
                     size="sm"
                     onClick={() => {
-                      setFilterServiceType(st);
+                      setFilterServiceType("");
                       setFilterOpen(false);
                     }}
                     className="w-full justify-start gap-2 font-body"
                   >
-                    {filterServiceType === st && (
+                    {!filterServiceType && (
                       <IconCheck className="h-4 w-4 text-brand shrink-0" />
                     )}
-                    <span className={cn(filterServiceType !== st && "pl-6")}>
-                      {SERVICE_TYPE_LABELS[st]}
+                    <span className={cn(!filterServiceType ? "" : "pl-6")}>
+                      All Types
                     </span>
                   </Button>
-                ))}
-              </PopoverContent>
-            </Popover>
+                  {SERVICE_TYPES.map((st) => (
+                    <Button
+                      key={st}
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFilterServiceType(st);
+                        setFilterOpen(false);
+                      }}
+                      className="w-full justify-start gap-2 font-body"
+                    >
+                      {filterServiceType === st && (
+                        <IconCheck className="h-4 w-4 text-brand shrink-0" />
+                      )}
+                      <span className={cn(filterServiceType !== st && "pl-6")}>
+                        {SERVICE_TYPE_LABELS[st]}
+                      </span>
+                    </Button>
+                  ))}
+                </PopoverContent>
+              </Popover>
 
-            <Button
-              variant={showInactive ? "secondary" : "outline"}
-              size="sm"
-              onClick={() => setShowInactive(!showInactive)}
-              className="gap-1.5"
-            >
-              {showInactive ? (
-                <IconEye className="h-4 w-4" />
-              ) : (
-                <IconEyeOff className="h-4 w-4" />
-              )}
-              {showInactive ? "Showing inactive" : "Show inactive"}
-            </Button>
-
-            <div className="ml-auto flex items-center gap-3">
-              <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body">
-                {templates.length} {templates.length === 1 ? "Template" : "Templates"}
+              <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
+                {filteredTemplates.length} {filteredTemplates.length === 1 ? "Template" : "Templates"}
               </span>
             </div>
           </div>
 
+          {/* List */}
           {!loading && hasTemplates && (
             <ChecklistTemplateList
-              templates={templates}
+              templates={filteredTemplates}
               loading={loading}
               onEdit={openEditDialog}
               onDelete={openDeleteDialog}
@@ -315,9 +374,10 @@ export function ChecklistsPageClient() {
             />
           )}
 
-          {!loading && !hasTemplates && filterServiceType && (
+          {/* No results */}
+          {showNoResults && (
             <p className="py-12 text-center text-sm text-muted-foreground font-body">
-              No checklist templates found for this service type.
+              No checklist templates found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
             </p>
           )}
         </div>

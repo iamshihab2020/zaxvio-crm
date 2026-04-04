@@ -17,6 +17,7 @@ These docs are the source of truth. Read the relevant ones before starting any t
 | `docs/todo.md` | Task tracking (plan, progress, done) | Before starting any task; during work to track progress | Continuously — move items to Done, add new tasks |
 | `docs/lessons.md` | Non-obvious insights, patterns, mistakes | Before starting work; when hitting bugs/errors | After ANY user correction or hard-won insight |
 | `docs/API_DOCUMENTATION.md` | API endpoint reference (methods, paths, request/response shapes) | When working on frontend actions, server actions, or API routes | When any API endpoint is added, modified, or removed |
+| `docs/design.md` | **Frontend design system** — colors, typography, icons, animations, component library, layout patterns, conventions, performance rules | **Before any frontend work** | When design patterns, components, or conventions change |
 
 > **Skill**: If the file `skills/consolidate-memory.md` exists locally, follow its methodology whenever consolidating session memory.
 
@@ -43,6 +44,24 @@ These docs are the source of truth. Read the relevant ones before starting any t
    - `docs/API_DOCUMENTATION.md` — add/update/remove endpoint docs (method, path, auth, request/response shapes)
    - `apps/web/src/lib/chatbot/knowledge-base.ts` — add/edit/remove FAQ entries for affected features
    - `docs/todo.md` — mark completed items, add new tasks if needed
+   - `docs/lessons.md` — add any non-obvious insights, gotchas, or corrections from the work
+9. **`docs/todo.md` formatting rules** — Keep the todo file clean, concise, and current:
+   - **Three sections only**: `## In Progress`, `## Backlog`, `## Completed`
+   - **In Progress** — only genuinely open work with unchecked `[ ]` items. Move here when you start working on something. Never leave completed items lingering.
+   - **Backlog** — planned/deferred work not yet started. Split into subsections if needed (e.g., "Deferred / Blocked", "Future Ideas").
+   - **Completed** — one-line summaries with date. No verbose sub-task breakdowns — that detail lives in git history. Format: `- [x] **Feature Name** (YYYY-MM-DD) — brief description`
+   - **Keep it short** — aim for <120 lines total. If the Completed section grows beyond ~50 items, archive older ones into a collapsed `<details>` block or remove them entirely.
+   - **No duplicate sections** — never have two "In Progress" or two "Recently Completed" headings.
+   - **Mark done immediately** — check off `[x]` items and move to Completed as soon as work is done, not in batches.
+   - **Use absolute dates** — never "next Thursday" or "tomorrow". Always `YYYY-MM-DD`.
+   - **No orphan checkboxes** — every `[ ]` must be under an active In Progress or Backlog item. If it's done, check it. If it's abandoned, remove it.
+10. **`docs/lessons.md` MUST be updated after every session** — This is the project's institutional memory. Rules:
+    - **When to add**: After ANY user correction, hard-won debugging insight, library gotcha, workaround, or non-obvious pattern discovery. If you struggled with something for more than 5 minutes, it's a lesson.
+    - **When to update**: If an existing lesson is outdated or wrong (e.g., library upgraded, workaround no longer needed), update or remove it.
+    - **Format**: Group by topic (existing sections or new ones). Each bullet: bold the takeaway, then explain why. Keep it specific and actionable — "don't do X because Y" not "be careful with X".
+    - **Not for code patterns** — Don't log things derivable from reading the code. Log the *surprise*: the thing that wasn't obvious, that cost time, that would bite someone again.
+    - **Review at session start** — Always skim `docs/lessons.md` before starting work to avoid repeating past mistakes.
+    - **NEVER let it go stale** — If multiple sessions pass without a lessons update, something is wrong. Every significant piece of work teaches something.
 
 ## API Architecture Rules (MUST FOLLOW)
 
@@ -89,32 +108,11 @@ apps/api/src/services/
 10. **Swagger disabled in production**: API docs (`/docs`) must be gated behind `NODE_ENV !== "production"`.
 11. **No unsafe type assertions on user input**: Never use `as string`, `as number`, `as any` on `request.body`, `request.params`, or `request.query`. Always validate with Zod first.
 
-## Performance Rules (MUST FOLLOW)
+## Frontend Design & Performance Rules
 
-1. **Server-side prefetch for initial data** — Every `page.tsx` in `(dashboard)/` MUST be an async server component that prefetches initial data and passes it as props to the client component. NEVER render an empty wrapper that delegates all fetching to useEffect.
-   ```tsx
-   // GOOD
-   export default async function MyPage() {
-     const data = await getMyData();
-     return <MyPageClient initialData={data} />;
-   }
-   // BAD
-   export default function MyPage() {
-     return <MyPageClient />;
-   }
-   ```
-
-2. **Parallel fetches with Promise.all()** — When a page needs multiple data sources, fetch them in parallel with `Promise.all()`. NEVER chain sequential awaits unless one depends on the other's result.
-
-3. **Stats via single backend query** — Status counts (draft/sent/paid/etc.) MUST use a single `/stats` endpoint with SQL `COUNT(*) FILTER (WHERE ...)`. NEVER make N separate API calls with `limit: 1` just to read `pagination.total`.
-
-4. **No limit: 9999 for counting** — NEVER fetch all records to count them client-side. Use `pagination.total` from paginated responses or a dedicated `/stats` endpoint.
-
-5. **Dynamic imports for heavy libraries** — Libraries over 30KB (recharts, react-big-calendar, @dnd-kit, motion) MUST be dynamically imported with `next/dynamic` when only used in specific views/tabs. Always provide a loading fallback skeleton.
-
-6. **loading.tsx for every route** — Every page directory in `(dashboard)/` MUST have a `loading.tsx` that renders an appropriate skeleton for instant perceived load during server-side data fetching.
-
-7. **Client components only for interactivity** — Client components (`"use client"`) should receive initial data as props and only trigger refetches on user actions (search, filter, pagination, create/edit/delete). The initial render MUST NOT depend on useEffect.
+> **Full reference**: [`docs/design.md`](docs/design.md) — color system, typography, icons, animations, component library, page layout patterns, component conventions, data fetching patterns, and performance rules.
+>
+> Read `docs/design.md` before any frontend work. Update it when design patterns change.
 
 ---
 
@@ -385,125 +383,6 @@ export type JobUpdate = Partial<JobInsert>;
 - `RESEND_API_KEY` — Resend API key for transactional emails
 
 ---
-
-## Frontend Design System
-
-### Core Rules
-
-- **No hardcoded colors**: ALL colors via CSS variables in `globals.css` → Tailwind tokens (`bg-brand`, `text-ink`, `bg-surface`). Never raw hex/rgb/hsl.
-- **Icon library**: Tabler Icons (`@tabler/icons-react`) only. NEVER lucide-react. Always import individually, never wildcard.
-- **Fonts**: Space Grotesk (headings, `font-heading`), DM Sans (body, `font-body`). NEVER Inter, Roboto, Arial, or system defaults.
-- **Color system**: Brand orange for CTAs/accents, midnight navy for dark sections, warm off-white (`surface`) for body.
-- **Component library**: shadcn/ui pattern (Radix primitives + CVA + tailwind-merge). Components in `apps/web/src/components/ui/`.
-- **Animations**: CSS-only (no framer-motion). `IntersectionObserver` for scroll reveals via `SectionReveal`.
-- **Landing page components**: Co-located in `apps/web/src/app/(landing)/_components/`.
-- **No generic AI aesthetics**: No purple gradients on white. Intentional design direction ("Industrial Warmth" / "Desert Heat" palette).
-- **Semantic HTML**: `<header>`, `<nav>`, `<main>`, `<section>`, `<footer>` etc. for SEO. Sections need `aria-labelledby`.
-
-### Color System & Tokens
-
-All colors defined as CSS variables in `apps/web/src/app/globals.css`, mapped to Tailwind tokens.
-
-**Brand palette:**
-- `--brand` (24 95% 53%) → `bg-brand`, `text-brand`, `border-brand`
-- `--brand-light` → `bg-brand-light` (subtle backgrounds, hover states)
-- `--brand-foreground` → `text-brand-foreground` (text on brand backgrounds)
-
-**Semantic tokens (light/dark auto-switch):**
-- `--background` / `--foreground` — page background & primary text
-- `--card` / `--card-foreground` — card surfaces & card text
-- `--muted` / `--muted-foreground` — subdued backgrounds & secondary text
-- `--accent` / `--accent-foreground` — hover highlights
-- `--destructive` / `--destructive-foreground` — error/delete states
-- `--border`, `--input`, `--ring` — borders, inputs, focus rings
-
-**Custom tokens:**
-- `--midnight` → `bg-midnight` (dark navy sections, landing page)
-- `--surface` → `bg-surface` (warm off-white body background)
-- `--surface-alt` → `bg-surface-alt` (alternate surface shade)
-- `--ink` → `text-ink` (primary text on light backgrounds)
-
-**Dark mode:** Class-based via `next-themes` (`.dark` on `<html>`). All tokens have dark overrides in `globals.css`. Always use Tailwind tokens, never raw HSL/hex.
-
-### Page Layout Patterns
-
-**1. List pages** (customers, invoices):
-```
-<section className="p-6">
-  header row: mb-6 flex items-center justify-between
-  card wrapper: rounded-lg border border-border bg-card overflow-hidden
-    search/filters: border-b border-border px-4 py-3
-    table: flush inside card (no extra padding)
-  pagination: outside card, below
-</section>
-```
-
-**2. Detail pages** (customer/[id], invoice/[id], job/[id]):
-```
-flex flex-col min-h-[calc(100vh-3.5rem)] bg-surface
-  header bar
-  flex flex-col lg:flex-row gap-4
-    left panel: w-full lg:w-80 shrink-0
-    center tabs: flex-1 min-w-0
-    right sidebar: hidden xl:block w-72 shrink-0
-  all panels: rounded-lg border border-border bg-card shadow-sm
-```
-
-**3. Settings pages** (business, profile, invoices):
-```
-grid grid-cols-1 gap-6 lg:grid-cols-3
-  form: lg:col-span-2
-  sidebar: lg:col-span-1
-```
-
-**4. Kanban/dual-view** (jobs): View toggle + board (`flex gap-4 overflow-x-auto`) or table (same card wrapper as list pages).
-
-### Component Conventions
-
-- **Tables**: shadcn `Table`/`TableHeader`/`TableBody`/`TableRow`/`TableHead`/`TableCell`. Never raw `<table>`. Wrap in card container.
-- **Buttons**: `<Button>` from shadcn. CTA: `className="bg-brand text-brand-foreground hover:bg-brand/90"`. Ghost for icon buttons: `variant="ghost" size="icon"`.
-- **Badges**: `<Badge>` with variants. Status badges use mapped color configs with `dark:` variants. Pattern: `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium`.
-- **Dialogs**: Center modal (`<Dialog>`) for confirmations/forms. Side drawer (`<Sheet side="right">`) for detail views.
-- **Filters**: `<Popover>` with button-based options. `<Command>` inside `<Popover>` for searchable filters. Active state: `border-brand/40 bg-brand-light/20 text-brand`.
-- **Forms**: Grid `grid grid-cols-1 gap-4 sm:grid-cols-2`. Label+input: `space-y-2`. Settings use `<SettingsSection>` wrapper.
-- **Row actions**: `<DropdownMenu>` with ghost icon button trigger. Stop propagation on trigger click.
-- **Delete confirm**: `<DeleteConfirmDialog>` from `components/dashboard/reusable/`.
-- **Empty states**: `<EmptyState>` from `components/dashboard/reusable/`.
-- **Loading states**: Always skeleton loaders, never spinners. `<TableSkeleton>` for tables.
-- **Pagination**: `<Pagination>` from `components/dashboard/reusable/`. Outside the card wrapper.
-- **Icons**: Tabler only. Sizes: `h-3.5 w-3.5` (labels), `h-4 w-4` (inline/buttons), `h-5 w-5` (sections), `h-8 w-8` (empty state).
-
-### Settings Components
-
-- **`SettingsSection`** — `components/dashboard/settings/settings-section.tsx`. Card with icon + title + optional description + action.
-- **`SettingsFormMessage`** — `components/dashboard/settings/settings-form-message.tsx`. Success/error inline message with icon.
-- **`SettingsPageHeader`** — `components/dashboard/settings/settings-page-header.tsx`. Description + action button row.
-
-### Dark Mode Rules
-
-- All status/badge colors MUST have `dark:` variants
-- Card backgrounds auto-adapt via `bg-card` CSS variable
-- Invoice/PDF preview paper stays `bg-white dark:bg-white`
-- Sidebar detail sections use `bg-muted/50` for content boxes
-- Never hardcode `gray-xxx` — use `text-muted-foreground`, `bg-muted`, `border-border`
-
-### Stage Color Presets
-
-Reference: `apps/web/src/lib/constants/stage-color-presets.ts`. Eight presets: blue, brand, green, red, purple, amber, gray, teal. Helper: `getStageColors(colorKey)` returns preset or gray fallback.
-
-### Typography
-
-- **Headings**: `font-heading` (Space Grotesk) — page titles, card titles, section headers
-- **Body**: `font-body` (DM Sans) — paragraphs, labels, table cells, filter text
-- **Page title**: `font-heading text-2xl font-bold text-foreground`
-- **Subtitle**: `mt-1 text-sm text-muted-foreground font-body`
-- **Section header (sidebar)**: `text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading`
-
-### Z-Index Layers
-
-- Sidebar: `z-30`
-- Navbar: `z-20`
-- Chatbot / floating components: `z-40+`
 
 ---
 

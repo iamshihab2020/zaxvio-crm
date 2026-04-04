@@ -14,11 +14,11 @@ import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SearchInput } from "@/components/reusable/search-input";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import {
   IconCalendarEvent,
-  IconSearch,
   IconCopy,
   IconCheck,
   IconSettings,
@@ -305,36 +305,18 @@ export function BookingsPageClient({
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Search + status pills inside card header */}
-          <div className="border-b border-border px-4 py-3 space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="relative max-w-sm flex-1">
-                <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search bookings..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {STATUS_OPTIONS.map((opt) => (
-                <Button
-                  key={opt.value}
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setStatusFilter(opt.value)}
-                  className={cn(
-                    "rounded-full px-3 py-1 text-xs font-medium font-body h-auto",
-                    statusFilter === opt.value
-                      ? "bg-brand text-brand-foreground hover:bg-brand/90"
-                      : "bg-muted text-muted-foreground hover:bg-muted/80",
-                  )}
-                >
-                  {opt.label}
-                </Button>
-              ))}
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <StatusFilterTabs
+              options={STATUS_OPTIONS}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
+            <div className="ml-auto flex items-center gap-2">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search bookings..."
+              />
             </div>
           </div>
 
