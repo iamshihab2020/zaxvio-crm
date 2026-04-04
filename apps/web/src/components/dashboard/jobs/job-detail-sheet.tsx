@@ -1,18 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,19 +8,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import {
-  IconTrash,
-  IconArrowRight,
-  IconLayoutSidebar,
-  IconMaximize,
-  IconChevronDown,
-  IconExternalLink,
-  IconX,
-} from "@tabler/icons-react";
+import { IconArrowRight, IconChevronDown } from "@tabler/icons-react";
 import {
   JOB_PRIORITY_LABELS,
   JOB_PRIORITY_COLORS,
@@ -40,12 +19,16 @@ import {
 } from "@/lib/constants/job-options";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { getJob, updateJob, updateJobStatus } from "@/actions/jobs";
-import { EditableText, EditableSelect } from "@/components/reusable/editable-field";
+import {
+  EditableText,
+  EditableSelect,
+} from "@/components/reusable/editable-field";
 import { JobDetailInfo } from "./job-detail-info";
 import { JobDetailLineItems } from "./job-detail-line-items";
 import { JobDetailChecklist } from "./job-detail-checklist";
 import { JobDetailPhotos } from "./job-detail-photos";
 import { JobDetailActivities } from "./job-detail-activities";
+import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
 
 interface PipelineStage {
   id: string;
@@ -118,24 +101,12 @@ interface JobDetailSheetProps {
   stages: PipelineStage[];
 }
 
-import { useViewPreference } from "@/hooks/use-view-preference";
-
-const DEFAULT_WIDTH = 520;
-const MIN_WIDTH = 400;
-const MAX_WIDTH = 800;
-
-const TAB_VALUES = [
-  "details",
-  "line-items",
-  "checklist",
-  "photos",
-  "activity",
-] as const;
-
-const PRIORITY_OPTIONS = Object.entries(JOB_PRIORITY_LABELS).map(([value, label]) => ({
-  value,
-  label: label as string,
-}));
+const PRIORITY_OPTIONS = Object.entries(JOB_PRIORITY_LABELS).map(
+  ([value, label]) => ({
+    value,
+    label: label as string,
+  }),
+);
 
 export function JobDetailSheet({
   jobId,
@@ -146,18 +117,8 @@ export function JobDetailSheet({
   onJobUpdate,
   stages,
 }: JobDetailSheetProps) {
-  const router = useRouter();
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("details");
-
-  const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("jobs");
-  const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
-  const switchingModeRef = useRef(false);
-
-  useEffect(() => {
-    setLiveSidebarWidth(prefSidebarWidth);
-  }, [prefSidebarWidth]);
 
   useEffect(() => {
     if (!jobId || !open) {
@@ -165,12 +126,17 @@ export function JobDetailSheet({
       return;
     }
     setLoading(true);
-    setActiveTab("details");
     getJob(jobId).then((res) => {
       if (res.data) setJob(res.data as JobDetail);
       setLoading(false);
     });
   }, [jobId, open]);
+
+  async function refreshDetail() {
+    if (!jobId) return;
+    const res = await getJob(jobId);
+    if (res.data) setJob(res.data as JobDetail);
+  }
 
   async function handleStatusAction(newStatus: string) {
     if (!job) return;
@@ -185,232 +151,157 @@ export function JobDetailSheet({
     }
   }
 
-  async function refreshDetail() {
-    if (!jobId) return;
-    const res = await getJob(jobId);
-    if (res.data) setJob(res.data as JobDetail);
-  }
-
-  /* ── Inline field save ───────────────────────────────────── */
-  const handleFieldSave = useCallback(async (field: string, value: string) => {
-    if (!job) return;
-
-    // Optimistic update
-    setJob((prev) => prev ? { ...prev, [field]: value || null } : prev);
-
-    const result = await updateJob(job.id, { [field]: value || undefined });
-    if (result.error) {
-      toast.error(result.error);
-      refreshDetail(); // revert
-    } else {
-      refreshDetail();
-      onJobUpdate();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [job?.id, onJobUpdate]);
-
-  /* ── Mode toggle ──────────────────────────────────────────── */
-  function toggleMode() {
-    switchingModeRef.current = true;
-    const newMode = prefMode === "sidebar" ? "dialog" : "sidebar";
-    setPrefMode(newMode);
-    requestAnimationFrame(() => {
-      switchingModeRef.current = false;
-    });
-  }
-
-  function handleOpenChange(newOpen: boolean) {
-    if (switchingModeRef.current) return;
-    onOpenChange(newOpen);
-  }
-
-  /* ── Drag-to-resize (sidebar only) ────────────────────────── */
-  const dragWidthRef = useRef(DEFAULT_WIDTH);
-
-  const handleDragStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragWidthRef.current = liveSidebarWidth;
-
-      const onMove = (ev: MouseEvent) => {
-        const w = Math.max(
-          MIN_WIDTH,
-          Math.min(MAX_WIDTH, window.innerWidth - ev.clientX),
-        );
-        dragWidthRef.current = w;
-        setLiveSidebarWidth(w);
-      };
-
-      const onUp = () => {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-        setPrefSidebarWidth(dragWidthRef.current);
-      };
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
+  const handleFieldSave = useCallback(
+    async (field: string, value: string) => {
+      if (!job) return;
+      setJob((prev) => (prev ? { ...prev, [field]: value || null } : prev));
+      const result = await updateJob(job.id, {
+        [field]: value || undefined,
+      });
+      if (result.error) {
+        toast.error(result.error);
+        refreshDetail();
+      } else {
+        refreshDetail();
+        onJobUpdate();
+      }
     },
-    [liveSidebarWidth, setPrefSidebarWidth],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [job?.id, onJobUpdate],
   );
 
   /* ── Derived values ───────────────────────────────────────── */
-  const currentStage = job ? stages.find((s) => s.name === job.status) : null;
-  const statusColors = currentStage ? getStageColors(currentStage.color) : null;
-  const statusLabel = currentStage?.label ?? job?.status ?? "";
-  const priorityColors = job ? JOB_PRIORITY_COLORS[job.priority] : null;
-
-  const currentIndex = currentStage ? stages.findIndex((s) => s.id === currentStage.id) : -1;
-  const nextStage = currentIndex >= 0 && currentIndex < stages.length - 1
-    ? stages[currentIndex + 1]
+  const currentStage = job
+    ? stages.find((s) => s.name === job.status)
     : null;
+  const statusColors = currentStage
+    ? getStageColors(currentStage.color)
+    : null;
+  const statusLabel = currentStage?.label ?? job?.status ?? "";
+
+  const currentIndex = currentStage
+    ? stages.findIndex((s) => s.id === currentStage.id)
+    : -1;
+  const nextStage =
+    currentIndex >= 0 && currentIndex < stages.length - 1
+      ? stages[currentIndex + 1]
+      : null;
   const otherStages = stages.filter(
     (s) => s.name !== job?.status && s.name !== nextStage?.name,
   );
 
-  const mode = mounted ? (prefMode === "page" ? "sidebar" : prefMode) : "sidebar";
+  const tabs = useMemo(
+    () =>
+      job
+        ? [
+            {
+              value: "details",
+              label: "Details",
+              content: (
+                <JobDetailInfo job={job} onFieldSave={handleFieldSave} />
+              ),
+            },
+            {
+              value: "line-items",
+              label: "Line Items",
+              count: job.lineItems.length,
+              content: (
+                <JobDetailLineItems
+                  jobId={job.id}
+                  lineItems={job.lineItems}
+                  onUpdate={refreshDetail}
+                />
+              ),
+            },
+            {
+              value: "checklist",
+              label: "Checklist",
+              count: job.checklist.length,
+              content: (
+                <JobDetailChecklist
+                  jobId={job.id}
+                  checklist={job.checklist}
+                  onUpdate={refreshDetail}
+                />
+              ),
+            },
+            {
+              value: "photos",
+              label: "Photos",
+              count: job.photoCount,
+              content: <JobDetailPhotos jobId={job.id} />,
+            },
+            {
+              value: "activity",
+              label: "Activity",
+              content: <JobDetailActivities jobId={job.id} />,
+            },
+          ]
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [job, handleFieldSave],
+  );
 
-  function tabLabel(value: string): string {
-    if (!job) return value;
-    switch (value) {
-      case "details":
-        return "Details";
-      case "line-items":
-        return `Line Items (${job.lineItems.length})`;
-      case "checklist":
-        return `Checklist (${job.checklist.length})`;
-      case "photos":
-        return `Photos (${job.photoCount})`;
-      case "activity":
-        return "Activity";
-      default:
-        return value;
-    }
-  }
-
-  /* ── Shared inner content ─────────────────────────────────── */
-  const innerContent = (
-    <>
-      {loading && (
+  return (
+    <EntityDetailShell
+      entityType="jobs"
+      entityRoute="/jobs"
+      entityLabel="Job"
+      entityId={jobId}
+      open={open}
+      onOpenChange={onOpenChange}
+      loading={loading}
+      hasData={!!job}
+      onDelete={job ? () => onDelete(job) : undefined}
+      renderTitle={() => (
         <>
-          <SheetTitle className="sr-only">Job details</SheetTitle>
-          <SheetDescription className="sr-only">
-            Loading job information
-          </SheetDescription>
-          <div className="p-6 space-y-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-48" />
-            <div className="space-y-3 pt-4">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
-            </div>
+          <span className="font-heading text-xl tracking-tight">
+            {job!.jobNumber}
+          </span>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <Badge
+              className={cn(
+                "px-2 py-0.5 font-medium shrink-0",
+                statusColors?.bg,
+                statusColors?.text,
+              )}
+            >
+              {statusLabel}
+            </Badge>
+            <EditableSelect
+              value={job!.priority}
+              options={PRIORITY_OPTIONS}
+              onSave={(v) => handleFieldSave("priority", v)}
+              renderValue={(val) => {
+                const colors = JOB_PRIORITY_COLORS[val as JobPriority];
+                return (
+                  <Badge
+                    className={cn(
+                      "px-2 py-0.5 font-medium cursor-pointer",
+                      colors?.bg,
+                      colors?.text,
+                    )}
+                  >
+                    {JOB_PRIORITY_LABELS[val as JobPriority] ?? val}
+                  </Badge>
+                );
+              }}
+            />
           </div>
         </>
       )}
-
-      {!loading && job && (
-        <>
-          {/* ── Header ────────────────────────────────────── */}
-          <div className="px-6 pt-6 pb-4 border-b border-border">
-            <div className="flex items-start justify-between pr-8">
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <SheetTitle className="font-heading text-lg shrink-0">
-                    {job.jobNumber}
-                  </SheetTitle>
-                  <Badge className={cn("px-2 py-0.5 font-medium shrink-0", statusColors?.bg, statusColors?.text)}>
-                    {statusLabel}
-                  </Badge>
-                  {/* Editable priority badge */}
-                  <EditableSelect
-                    value={job.priority}
-                    options={PRIORITY_OPTIONS}
-                    onSave={(v) => handleFieldSave("priority", v)}
-                    renderValue={(val) => {
-                      const colors = JOB_PRIORITY_COLORS[val as JobPriority];
-                      return (
-                        <Badge className={cn("px-2 py-0.5 font-medium cursor-pointer", colors?.bg, colors?.text)}>
-                          {JOB_PRIORITY_LABELS[val as JobPriority] ?? val}
-                        </Badge>
-                      );
-                    }}
-                  />
-                </div>
-                {/* Editable title */}
-                <SheetDescription asChild>
-                  <div>
-                    <EditableText
-                      value={job.title}
-                      onSave={(v) => handleFieldSave("title", v)}
-                      placeholder="Job title"
-                      className="text-sm font-body"
-                    />
-                  </div>
-                </SheetDescription>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer"
-                  onClick={toggleMode}
-                  title={
-                    mode === "sidebar"
-                      ? "Switch to dialog view"
-                      : "Switch to sidebar view"
-                  }
-                >
-                  {mode === "sidebar" ? (
-                    <IconMaximize className="h-4 w-4" />
-                  ) : (
-                    <IconLayoutSidebar className="h-4 w-4" />
-                  )}
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer"
-                  onClick={() => {
-                    setPrefMode("page");
-                    onOpenChange(false);
-                    router.push(`/jobs/${job.id}`);
-                  }}
-                  title="Open full page"
-                >
-                  <IconExternalLink className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer text-destructive hover:text-destructive"
-                  onClick={() => onDelete(job)}
-                  title="Delete job"
-                >
-                  <IconTrash className="h-4 w-4" />
-                </Button>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer"
-                  onClick={() => onOpenChange(false)}
-                  title="Close"
-                >
-                  <IconX className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Status action buttons */}
-            {stages.length > 1 && (
-              <div className="flex gap-2 pt-2">
+      renderDescription={() => (
+        <EditableText
+          value={job!.title}
+          onSave={(v) => handleFieldSave("title", v)}
+          placeholder="Job title"
+          className="text-sm font-body"
+        />
+      )}
+      renderActions={
+        stages.length > 1
+          ? () => (
+              <>
                 {nextStage && (
                   <Button
                     size="sm"
@@ -421,7 +312,6 @@ export function JobDetailSheet({
                     Move to {nextStage.label}
                   </Button>
                 )}
-
                 {otherStages.length > 0 && (
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -453,83 +343,11 @@ export function JobDetailSheet({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}
-              </div>
-            )}
-          </div>
-
-          {/* ── Tabs ───────────────────────────────────────── */}
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="flex-1"
-          >
-            <TabsList className="w-full justify-start px-6 pt-2">
-              {TAB_VALUES.map((value) => (
-                <TabsTrigger key={value} value={value}>
-                  {tabLabel(value)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            <div className="px-6 py-4">
-              <TabsContent value="details" className="mt-0">
-                <JobDetailInfo job={job} onFieldSave={handleFieldSave} />
-              </TabsContent>
-              <TabsContent value="line-items" className="mt-0">
-                <JobDetailLineItems
-                  jobId={job.id}
-                  lineItems={job.lineItems}
-                  onUpdate={refreshDetail}
-                />
-              </TabsContent>
-              <TabsContent value="checklist" className="mt-0">
-                <JobDetailChecklist
-                  jobId={job.id}
-                  checklist={job.checklist}
-                  onUpdate={refreshDetail}
-                />
-              </TabsContent>
-              <TabsContent value="photos" className="mt-0">
-                <JobDetailPhotos jobId={job.id} />
-              </TabsContent>
-              <TabsContent value="activity" className="mt-0">
-                <JobDetailActivities jobId={job.id} />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </>
-      )}
-    </>
-  );
-
-  if (mode === "dialog") {
-    return (
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0">
-          {innerContent}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="right"
-        className="overflow-y-auto p-0"
-        style={{
-          maxWidth: mounted ? liveSidebarWidth : DEFAULT_WIDTH,
-          width: "100%",
-        }}
-      >
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
-          onMouseDown={handleDragStart}
-        >
-          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-brand/40 transition-colors" />
-        </div>
-        {innerContent}
-      </SheetContent>
-    </Sheet>
+              </>
+            )
+          : undefined
+      }
+      tabs={tabs}
+    />
   );
 }

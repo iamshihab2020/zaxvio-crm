@@ -27,6 +27,8 @@ Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/d
 - [x] Created `docs/design.md` — extracted frontend patterns from CLAUDE.md
 - [ ] Update `docs/project_docs/REPO_MAP.md` with new files
 
+- [x] **EntityDetailShell Refactor** (2026-04-04) — Extracted reusable entity detail shell from 4 duplicated files (jobs, invoices, quotes, bookings). Removed ~1,350 lines of duplication. New components in `components/dashboard/reusable/entity-detail-shell/`. Redesigned header with toolbar pill, lazy tab rendering, dark/light mode safe.
+
 ---
 
 ## Backlog

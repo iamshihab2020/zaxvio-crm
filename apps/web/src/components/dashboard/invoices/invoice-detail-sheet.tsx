@@ -1,18 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Sheet,
-  SheetContent,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-} from "@/components/ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -20,17 +8,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import {
-  IconDots,
-  IconTrash,
-  IconLayoutSidebar,
-  IconMaximize,
-  IconExternalLink,
-  IconX,
-} from "@tabler/icons-react";
+import { IconDots, IconTrash } from "@tabler/icons-react";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import { InvoiceDetailTab } from "./invoice-detail-tab";
 import { InvoiceLineItemsTab } from "./invoice-line-items-tab";
@@ -41,6 +20,7 @@ import {
   getInvoicePdfUrl,
   voidInvoice,
 } from "@/actions/invoices";
+import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
 
 export interface InvoiceDetail {
   id: string;
@@ -95,16 +75,6 @@ interface InvoiceDetailSheetProps {
   onDataChange: () => void;
 }
 
-import { useViewPreference } from "@/hooks/use-view-preference";
-
-const DEFAULT_WIDTH = 520;
-const MIN_WIDTH = 400;
-const MAX_WIDTH = 800;
-
-/* ── Tab definitions ─────────────────────────────────────────── */
-
-const TAB_VALUES = ["details", "line-items", "payments"] as const;
-
 export function InvoiceDetailSheet({
   invoiceId,
   open,
@@ -112,29 +82,16 @@ export function InvoiceDetailSheet({
   onDelete,
   onDataChange,
 }: InvoiceDetailSheetProps) {
-  const router = useRouter();
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("details");
   const [sendLoading, setSendLoading] = useState(false);
 
-  /* ── Preferences ──────────────────────────────────────────── */
-  const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("invoices");
-  const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
-  const switchingModeRef = useRef(false);
-
-  useEffect(() => {
-    setLiveSidebarWidth(prefSidebarWidth);
-  }, [prefSidebarWidth]);
-
-  /* ── Invoice data fetching ──────────────────────────────────── */
   useEffect(() => {
     if (!invoiceId || !open) {
       setInvoice(null);
       return;
     }
     setLoading(true);
-    setActiveTab("details");
     getInvoice(invoiceId).then((res) => {
       if (res.data) setInvoice(res.data as InvoiceDetail);
       setLoading(false);
@@ -179,195 +136,14 @@ export function InvoiceDetailSheet({
     }
   }
 
-  /* ── Mode toggle ──────────────────────────────────────────── */
-  function toggleMode() {
-    switchingModeRef.current = true;
-    const newMode = prefMode === "sidebar" ? "dialog" : "sidebar";
-    setPrefMode(newMode);
-    requestAnimationFrame(() => {
-      switchingModeRef.current = false;
-    });
-  }
-
-  function handleOpenChange(newOpen: boolean) {
-    if (switchingModeRef.current) return;
-    onOpenChange(newOpen);
-  }
-
-  /* ── Drag-to-resize (sidebar only) ────────────────────────── */
-  const dragWidthRef = useRef(DEFAULT_WIDTH);
-
-  const handleDragStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      dragWidthRef.current = liveSidebarWidth;
-
-      const onMove = (ev: MouseEvent) => {
-        const w = Math.max(
-          MIN_WIDTH,
-          Math.min(MAX_WIDTH, window.innerWidth - ev.clientX),
-        );
-        dragWidthRef.current = w;
-        setLiveSidebarWidth(w);
-      };
-
-      const onUp = () => {
-        document.removeEventListener("mousemove", onMove);
-        document.removeEventListener("mouseup", onUp);
-        document.body.style.cursor = "";
-        document.body.style.userSelect = "";
-        setPrefSidebarWidth(dragWidthRef.current);
-      };
-
-      document.addEventListener("mousemove", onMove);
-      document.addEventListener("mouseup", onUp);
-      document.body.style.cursor = "col-resize";
-      document.body.style.userSelect = "none";
-    },
-    [liveSidebarWidth],
-  );
-
-  /* ── Tab labels with counts ────────────────────────────────── */
-  function tabLabel(value: string): string {
-    if (!invoice) return value;
-    switch (value) {
-      case "details":
-        return "Details";
-      case "line-items":
-        return `Line Items (${invoice.lineItems.length})`;
-      case "payments":
-        return `Payments (${invoice.payments.length})`;
-      default:
-        return value;
-    }
-  }
-
-  const mode = mounted ? (prefMode === "page" ? "sidebar" : prefMode) : "sidebar";
-
-  /* ── Shared inner content ─────────────────────────────────── */
-  const innerContent = (
-    <>
-      {loading && (
-        <>
-          <SheetTitle className="sr-only">Invoice details</SheetTitle>
-          <SheetDescription className="sr-only">
-            Loading invoice information
-          </SheetDescription>
-          <div className="p-6 space-y-4">
-            <Skeleton className="h-6 w-32" />
-            <Skeleton className="h-4 w-48" />
-            <div className="space-y-3 pt-4">
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
-              <Skeleton className="h-20 w-full" />
-            </div>
-          </div>
-        </>
-      )}
-
-      {!loading && invoice && (
-        <>
-          {/* ── Header ────────────────────────────────────── */}
-          <div className="px-6 pt-6 pb-4 border-b border-border">
-            <div className="flex items-start justify-between pr-8">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <SheetTitle className="font-heading text-lg">
-                    {invoice.invoiceNumber}
-                  </SheetTitle>
-                  <InvoiceStatusBadge status={invoice.status} />
-                </div>
-                <SheetDescription className="text-sm font-body">
-                  {invoice.customerFirstName} {invoice.customerLastName}
-                  {invoice.jobId && " · From Job"}
-                </SheetDescription>
-              </div>
-
-              <div className="flex items-center gap-1">
-                {/* Mode toggle */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer"
-                  onClick={toggleMode}
-                  title={
-                    mode === "sidebar"
-                      ? "Switch to dialog view"
-                      : "Switch to sidebar view"
-                  }
-                >
-                  {mode === "sidebar" ? (
-                    <IconMaximize className="h-4 w-4" />
-                  ) : (
-                    <IconLayoutSidebar className="h-4 w-4" />
-                  )}
-                </Button>
-
-                {/* Open full page */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer"
-                  onClick={() => {
-                    setPrefMode("page");
-                    onOpenChange(false);
-                    router.push(`/invoices/${invoice.id}`);
-                  }}
-                  title="Open full page"
-                >
-                  <IconExternalLink className="h-4 w-4" />
-                </Button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 cursor-pointer"
-                    >
-                      <IconDots className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      onClick={() => onDelete(invoice)}
-                      className="cursor-pointer text-destructive focus:text-destructive"
-                    >
-                      <IconTrash className="mr-2 h-4 w-4" />
-                      Delete Invoice
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer"
-                  onClick={() => onOpenChange(false)}
-                  title="Close"
-                >
-                  <IconX className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* ── Tabs with sliding indicator ───────────────── */}
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="flex-1"
-          >
-            <TabsList className="w-full justify-start px-6 pt-2">
-              {TAB_VALUES.map((value) => (
-                <TabsTrigger key={value} value={value}>
-                  {tabLabel(value)}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-
-            <div className="px-6 py-4">
-              <TabsContent value="details" className="mt-0">
+  const tabs = useMemo(
+    () =>
+      invoice
+        ? [
+            {
+              value: "details",
+              label: "Details",
+              content: (
                 <InvoiceDetailTab
                   invoice={invoice}
                   onSend={handleSend}
@@ -375,8 +151,13 @@ export function InvoiceDetailSheet({
                   onVoid={handleVoid}
                   sendLoading={sendLoading}
                 />
-              </TabsContent>
-              <TabsContent value="line-items" className="mt-0">
+              ),
+            },
+            {
+              value: "line-items",
+              label: "Line Items",
+              count: invoice.lineItems.length,
+              content: (
                 <InvoiceLineItemsTab
                   invoiceId={invoice.id}
                   lineItems={invoice.lineItems}
@@ -386,8 +167,13 @@ export function InvoiceDetailSheet({
                     onDataChange();
                   }}
                 />
-              </TabsContent>
-              <TabsContent value="payments" className="mt-0">
+              ),
+            },
+            {
+              value: "payments",
+              label: "Payments",
+              count: invoice.payments.length,
+              content: (
                 <InvoicePaymentsTab
                   invoiceId={invoice.id}
                   payments={invoice.payments}
@@ -398,45 +184,63 @@ export function InvoiceDetailSheet({
                     onDataChange();
                   }}
                 />
-              </TabsContent>
-            </div>
-          </Tabs>
-        </>
-      )}
-    </>
+              ),
+            },
+          ]
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [invoice, sendLoading],
   );
 
-  /* ── Render: Dialog mode ──────────────────────────────────── */
-  if (mode === "dialog") {
-    return (
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto p-0">
-          {innerContent}
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
-  /* ── Render: Sidebar mode (default) ───────────────────────── */
   return (
-    <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent
-        side="right"
-        className="overflow-y-auto p-0"
-        style={{
-          maxWidth: mounted ? liveSidebarWidth : DEFAULT_WIDTH,
-          width: "100%",
-        }}
-      >
-        {/* Drag handle — left edge resize */}
-        <div
-          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
-          onMouseDown={handleDragStart}
-        >
-          <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-brand/40 transition-colors" />
-        </div>
-        {innerContent}
-      </SheetContent>
-    </Sheet>
+    <EntityDetailShell
+      entityType="invoices"
+      entityRoute="/invoices"
+      entityLabel="Invoice"
+      entityId={invoiceId}
+      open={open}
+      onOpenChange={onOpenChange}
+      loading={loading}
+      hasData={!!invoice}
+      renderTitle={() => (
+        <>
+          <span className="font-heading text-xl tracking-tight">
+            {invoice!.invoiceNumber}
+          </span>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <InvoiceStatusBadge status={invoice!.status} />
+          </div>
+        </>
+      )}
+      renderDescription={() => (
+        <span>
+          {invoice!.customerFirstName} {invoice!.customerLastName}
+          {invoice!.jobId && " \u00B7 From Job"}
+        </span>
+      )}
+      renderToolbarExtras={() => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 cursor-pointer hover:bg-muted"
+            >
+              <IconDots className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => invoice && onDelete(invoice)}
+              className="cursor-pointer text-destructive focus:text-destructive"
+            >
+              <IconTrash className="mr-2 h-4 w-4" />
+              Delete Invoice
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+      tabs={tabs}
+    />
   );
 }

@@ -385,6 +385,41 @@ Features animated underline indicator with `ResizeObserver`.
 
 Three modes: `"sidebar"` (520px side sheet), `"dialog"` (center modal), `"page"` (full page). Persisted to localStorage via `useViewPreference` hook.
 
+### EntityDetailShell (MANDATORY for entity detail views)
+
+Reusable shell for entity detail views in `components/dashboard/reusable/entity-detail-shell/`. Handles all shared boilerplate: sidebar/dialog mode switching, drag-to-resize, loading skeleton, header toolbar, and tab rendering.
+
+```tsx
+import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
+
+<EntityDetailShell
+  entityType="jobs"
+  entityRoute="/jobs"
+  entityLabel="Job"
+  entityId={jobId}
+  open={open}
+  onOpenChange={onOpenChange}
+  loading={loading}
+  hasData={!!job}
+  onDelete={() => onDelete(job)}
+  renderTitle={() => <span className="font-heading text-xl tracking-tight">{job.jobNumber}</span>}
+  renderDescription={() => <span>{customerName}</span>}
+  renderActions={() => <Button>Move to Next</Button>}
+  tabs={[
+    { value: "details", label: "Details", content: <DetailsTab /> },
+    { value: "line-items", label: "Line Items", count: 3, content: <LineItemsTab /> },
+  ]}
+/>
+```
+
+**Props**: `entityType`, `entityRoute`, `entityLabel`, `entityId`, `open`, `onOpenChange`, `loading`, `hasData`, `renderTitle`, `renderDescription?`, `renderActions?`, `renderToolbarExtras?`, `onDelete?`, `tabs?`, `children?`
+
+**Sub-components**: `DetailRow` (icon + label + value), `EntityDetailShellSkeleton`, `EntityDetailShellHeader`
+
+**Performance**: Only the active tab content is mounted (lazy rendering). Tab count badges use `<Badge variant="secondary">`.
+
+**Used by**: Jobs, Invoices, Quotes, Bookings detail sheets.
+
 ### EditableField Suite
 
 Six inline-edit components in `editable-field.tsx`:

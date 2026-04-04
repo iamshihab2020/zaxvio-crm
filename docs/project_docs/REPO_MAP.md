@@ -443,6 +443,14 @@ apps/web/
     |   |   |
     |   |   +-- reusable/            # Shared dashboard-level reusable components
     |   |   |   +-- stats-cards.tsx  # Stats cards grid (clickable filter + filterValue support)
+    |   |   |   +-- entity-detail-shell/  # Reusable shell for entity detail views (sidebar/dialog/page)
+    |   |   |       +-- types.ts                          # Shared TypeScript interfaces
+    |   |   |       +-- use-detail-shell.ts               # Hook: mode/resize/toggle logic
+    |   |   |       +-- entity-detail-shell.tsx           # Main shell (Sheet/Dialog wrapper + tabs)
+    |   |   |       +-- entity-detail-shell-header.tsx    # Redesigned header sub-component
+    |   |   |       +-- entity-detail-shell-skeleton.tsx  # Loading skeleton
+    |   |   |       +-- detail-row.tsx                    # Reusable icon+label+value row
+    |   |   |       +-- index.ts                          # Barrel export
     |   |   |
     |   |   +-- settings/           # Settings page components
     |   |       +-- availability-weekly-editor.tsx    # Weekly schedule editor (7 day rows)
