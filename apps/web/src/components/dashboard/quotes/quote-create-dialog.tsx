@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -272,8 +272,40 @@ export function QuoteCreateDialog({
   const total = subtotal + taxAmount - discount;
 
   const isBusy = loading || creatingCustomer;
-  const { mode, setMode } = useViewPreference("quotes");
+  const { mode, setMode, sidebarWidth: prefWidth, setSidebarWidth: setPrefWidth } = useViewPreference("quotes");
   const isSidebar = mode === "sidebar";
+
+  /* ── Resizable sidebar width ──────────────────────────────── */
+  const [liveSidebarWidth, setLiveSidebarWidth] = useState(prefWidth);
+  const dragWidthRef = useRef(prefWidth);
+
+  useEffect(() => {
+    setLiveSidebarWidth(prefWidth);
+  }, [prefWidth]);
+
+  const handleDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragWidthRef.current = liveSidebarWidth;
+      const onMove = (ev: MouseEvent) => {
+        const w = Math.max(400, Math.min(1200, window.innerWidth - ev.clientX));
+        dragWidthRef.current = w;
+        setLiveSidebarWidth(w);
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        document.body.style.cursor = "";
+        document.body.style.userSelect = "";
+        setPrefWidth(dragWidthRef.current);
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+      document.body.style.cursor = "col-resize";
+      document.body.style.userSelect = "none";
+    },
+    [liveSidebarWidth, setPrefWidth],
+  );
 
   const header = (
     <div className="flex items-center justify-between px-6 pt-6 pb-2">
@@ -754,7 +786,17 @@ export function QuoteCreateDialog({
   if (isSidebar) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="p-0 overflow-hidden flex flex-col sm:max-w-lg w-full">
+        <SheetContent
+          side="right"
+          className="p-0 overflow-hidden flex flex-col w-full"
+          style={{ maxWidth: liveSidebarWidth, width: "100%" }}
+        >
+          <div
+            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
+            onMouseDown={handleDragStart}
+          >
+            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-brand/40 transition-colors" />
+          </div>
           <SheetTitle className="sr-only">Create Quote</SheetTitle>
           <SheetDescription className="sr-only">Create a new quote.</SheetDescription>
           {header}

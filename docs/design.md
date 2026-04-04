@@ -383,7 +383,7 @@ Features animated underline indicator with `ResizeObserver`.
 <ViewModeToggle value={viewMode} onChange={setViewMode} />
 ```
 
-Three modes: `"sidebar"` (520px side sheet), `"dialog"` (center modal), `"page"` (full page). Persisted to localStorage via `useViewPreference` hook.
+Three modes: `"sidebar"`, `"dialog"` (center modal), `"page"` (full page). Persisted to localStorage via `useViewPreference` hook.
 
 ### EntityDetailShell (MANDATORY for entity detail views)
 
@@ -669,6 +669,14 @@ export async function getCustomers(params?) {
 ### View Preferences
 
 `useViewPreference(entity)` hook stores detail view mode (sidebar/dialog/page) and sidebar width in localStorage. Returns `{ mode, sidebarWidth, mounted, setMode, setSidebarWidth }`.
+
+**Sidebar width rules:**
+- **Default**: 40% of the viewport width (computed on first load, stored as pixels)
+- **Range**: 400px min, 1200px max
+- **Shared per entity**: The width is stored per entity type (e.g., `zaxvio-job-detail-prefs`). When the user resizes a sidebar on the Jobs page, that width applies to BOTH the detail sheet AND the create dialog on that same page.
+- **Drag-to-resize**: All sidebar sheets MUST have a drag handle on the left edge for resizing. The handle is a 1.5px invisible strip that shows `bg-brand/40` on hover.
+- **Persistence**: Width saves to localStorage on `mouseup` (not during drag, to avoid storage thrashing).
+- **All sidebar sheets are resizable**: Detail sheets (via `EntityDetailShell`) and create/edit sheets (via inline drag handler) both use the same `useViewPreference` for their entity type.
 
 ---
 
