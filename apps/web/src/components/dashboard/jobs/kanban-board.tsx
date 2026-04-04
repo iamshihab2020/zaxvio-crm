@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
+import type { CardFieldVisibility } from "./card-fields-popover";
 import { reorderJobs } from "@/actions/jobs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
@@ -38,6 +39,7 @@ interface KanbanBoardProps {
   onStatusChange: () => void;
   onAddJob: (stageName: string) => void;
   cardView?: "default" | "compact";
+  visibleFields?: CardFieldVisibility;
 }
 
 export function KanbanBoard({
@@ -47,6 +49,7 @@ export function KanbanBoard({
   onStatusChange,
   onAddJob,
   cardView = "default",
+  visibleFields,
 }: KanbanBoardProps) {
   const [localJobs, setLocalJobs] = useState<JobCardData[]>(jobs);
   const [activeJob, setActiveJob] = useState<JobCardData | null>(null);
@@ -307,7 +310,7 @@ export function KanbanBoard({
         <ScrollArea className="w-full" type="scroll">
           <div
             className={cn("flex gap-3 py-1 mx-[2px]", !activeJob && "cursor-grab active:cursor-grabbing")}
-            style={{ height: "82vh" }}
+            style={{ height: "calc(100vh - 12.5rem)" }}
             onMouseDown={handleMouseDown}
           >
             {stages.map((stage) => (
@@ -318,6 +321,7 @@ export function KanbanBoard({
                 onJobClick={onJobClick}
                 onAddJob={onAddJob}
                 cardView={cardView}
+                visibleFields={visibleFields}
               />
             ))}
           </div>
@@ -343,9 +347,10 @@ export function KanbanBoard({
                 job={activeJob}
                 onClick={() => {}}
                 isOverlay
+                visibleFields={visibleFields}
               />
             ) : (
-              <KanbanCard job={activeJob} onClick={() => {}} isOverlay />
+              <KanbanCard job={activeJob} onClick={() => {}} isOverlay visibleFields={visibleFields} />
             )}
           </div>
         ) : null}

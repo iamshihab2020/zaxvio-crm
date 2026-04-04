@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { IconPlus, IconSearch, IconUsers, IconMail, IconPhone, IconMapPin } from "@tabler/icons-react";
+import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -166,6 +167,20 @@ export function CustomersPageClient({
         />
       )}
 
+      {!showEmptyState && (
+        <PageHeader
+          title="Customers"
+          subtitle="Manage your customer database and contact information."
+          action={
+            <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+              <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+              Add Customer
+            </Button>
+          }
+          className="mb-4"
+        />
+      )}
+
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -181,26 +196,16 @@ export function CustomersPageClient({
 
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Search bar + action inside card header */}
+          {/* Search bar inside card header */}
           <div className="border-b border-border px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="relative max-w-sm flex-1">
-                <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by name, email, or phone..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <Button
-                onClick={openCreateDialog}
-                size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
-              >
-                <IconPlus className="mr-2 h-4 w-4" />
-                Add Customer
-              </Button>
+            <div className="relative max-w-sm">
+              <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, or phone..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10"
+              />
             </div>
           </div>
 

@@ -19,53 +19,47 @@ import {
   SERVICE_TYPE_LABELS,
   type ServiceType,
 } from "@/lib/constants/job-options";
+import {
+  EditableText,
+  EditableTextarea,
+  EditableSelect,
+  EditableDate,
+  EditableTime,
+} from "@/components/reusable/editable-field";
 import { createInvoiceFromJob } from "@/actions/invoices";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface JobDetailInfoProps {
   job: JobDetail;
+  onFieldSave?: (field: string, value: string) => Promise<void>;
 }
 
 function InfoRow({
   icon: Icon,
   label,
-  value,
+  children,
 }: {
   icon: React.ElementType;
   label: string;
-  value: React.ReactNode;
+  children: React.ReactNode;
 }) {
-  if (!value) return null;
   return (
     <div className="flex gap-3 py-2">
       <Icon className="h-4 w-4 text-muted-foreground mt-0.5 shrink-0" />
-      <div>
-        <p className="text-xs text-muted-foreground font-body">{label}</p>
-        <p className="text-sm text-foreground font-body">{value}</p>
+      <div className="min-w-0 flex-1">
+        <p className="text-xs text-muted-foreground font-body mb-0.5">{label}</p>
+        {children}
       </div>
     </div>
   );
 }
 
-function formatDate(dateStr: string) {
-  const d = new Date(dateStr + "T00:00:00");
-  return d.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+const SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_TYPE_LABELS).map(([value, label]) => ({
+  value,
+  label: label as string,
+}));
 
-function formatTime(timeStr: string) {
-  const [h, m] = timeStr.split(":");
-  const hour = parseInt(h, 10);
-  const amPm = hour >= 12 ? "PM" : "AM";
-  const display = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-  return `${display}:${m} ${amPm}`;
-}
-
-export function JobDetailInfo({ job }: JobDetailInfoProps) {
+export function JobDetailInfo({ job, onFieldSave }: JobDetailInfoProps) {
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
   const router = useRouter();
 
@@ -86,38 +80,119 @@ export function JobDetailInfo({ job }: JobDetailInfoProps) {
       ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()
       : "No customer";
 
-  const timeRange =
-    job.scheduledStart && job.scheduledEnd
-      ? `${formatTime(job.scheduledStart)} - ${formatTime(job.scheduledEnd)}`
-      : job.scheduledStart
-        ? formatTime(job.scheduledStart)
-        : null;
-
   const subtotal = parseFloat(job.subtotal);
   const taxAmount = parseFloat(job.taxAmount ?? "0");
   const total = parseFloat(job.totalAmount);
 
+  const editable = !!onFieldSave;
+
+  async function saveField(field: string, value: string) {
+    if (onFieldSave) await onFieldSave(field, value);
+  }
+
   return (
     <div className="space-y-1 divide-y divide-border/50">
-      <InfoRow icon={IconUser} label="Customer" value={customerName} />
-      <InfoRow icon={IconMapPin} label="Address" value={job.address} />
-      <InfoRow
-        icon={IconCalendar}
-        label="Scheduled Date"
-        value={formatDate(job.scheduledDate)}
-      />
-      <InfoRow icon={IconClock} label="Time" value={timeRange} />
-      <InfoRow
-        icon={IconTool}
-        label="Service Type"
-        value={SERVICE_TYPE_LABELS[job.serviceType as ServiceType] ?? job.serviceType}
-      />
-      <InfoRow
-        icon={IconFileDescription}
-        label="Description"
-        value={job.description}
-      />
-      <InfoRow icon={IconNote} label="Notes" value={job.notes} />
+      {/* Customer — read-only */}
+      <InfoRow icon={IconUser} label="Customer">
+        <p className="text-sm text-foreground font-body">{customerName}</p>
+      </InfoRow>
+
+      {/* Address */}
+      <InfoRow icon={IconMapPin} label="Address">
+        {editable ? (
+          <EditableText
+            value={job.address ?? ""}
+            onSave={(v) => saveField("address", v)}
+            placeholder="Add address"
+          />
+        ) : (
+          <p className="text-sm text-foreground font-body">{job.address || "—"}</p>
+        )}
+      </InfoRow>
+
+      {/* Scheduled Date */}
+      <InfoRow icon={IconCalendar} label="Scheduled Date">
+        {editable ? (
+          <EditableDate
+            value={job.scheduledDate}
+            onSave={(v) => saveField("scheduledDate", v)}
+          />
+        ) : (
+          <p className="text-sm text-foreground font-body">
+            {new Date(job.scheduledDate + "T00:00:00").toLocaleDateString("en-US", {
+              weekday: "long", month: "long", day: "numeric", year: "numeric",
+            })}
+          </p>
+        )}
+      </InfoRow>
+
+      {/* Time */}
+      <InfoRow icon={IconClock} label="Time">
+        {editable ? (
+          <div className="flex items-center gap-2">
+            <EditableTime
+              value={job.scheduledStart}
+              onSave={(v) => saveField("scheduledStart", v)}
+              placeholder="Start"
+            />
+            <span className="text-muted-foreground text-sm">—</span>
+            <EditableTime
+              value={job.scheduledEnd}
+              onSave={(v) => saveField("scheduledEnd", v)}
+              placeholder="End"
+            />
+          </div>
+        ) : (
+          <p className="text-sm text-foreground font-body">
+            {job.scheduledStart && job.scheduledEnd
+              ? `${formatTime(job.scheduledStart)} - ${formatTime(job.scheduledEnd)}`
+              : job.scheduledStart
+                ? formatTime(job.scheduledStart)
+                : "—"}
+          </p>
+        )}
+      </InfoRow>
+
+      {/* Service Type */}
+      <InfoRow icon={IconTool} label="Service Type">
+        {editable ? (
+          <EditableSelect
+            value={job.serviceType}
+            options={SERVICE_TYPE_OPTIONS}
+            onSave={(v) => saveField("serviceType", v)}
+          />
+        ) : (
+          <p className="text-sm text-foreground font-body">
+            {SERVICE_TYPE_LABELS[job.serviceType as ServiceType] ?? job.serviceType}
+          </p>
+        )}
+      </InfoRow>
+
+      {/* Description */}
+      <InfoRow icon={IconFileDescription} label="Description">
+        {editable ? (
+          <EditableTextarea
+            value={job.description ?? ""}
+            onSave={(v) => saveField("description", v)}
+            placeholder="Add description"
+          />
+        ) : (
+          <p className="text-sm text-foreground font-body">{job.description || "—"}</p>
+        )}
+      </InfoRow>
+
+      {/* Notes */}
+      <InfoRow icon={IconNote} label="Notes">
+        {editable ? (
+          <EditableTextarea
+            value={job.notes ?? ""}
+            onSave={(v) => saveField("notes", v)}
+            placeholder="Add notes"
+          />
+        ) : (
+          <p className="text-sm text-foreground font-body">{job.notes || "—"}</p>
+        )}
+      </InfoRow>
 
       {/* Financial summary */}
       <div className="pt-3">
@@ -142,7 +217,6 @@ export function JobDetailInfo({ job }: JobDetailInfoProps) {
           </div>
         </div>
 
-        {/* Generate Invoice button — visible when job has line items */}
         {job.lineItems.length > 0 && (
           <Button
             size="sm"
@@ -157,4 +231,12 @@ export function JobDetailInfo({ job }: JobDetailInfoProps) {
       </div>
     </div>
   );
+}
+
+function formatTime(timeStr: string) {
+  const [h, m] = timeStr.split(":");
+  const hour = parseInt(h, 10);
+  const amPm = hour >= 12 ? "PM" : "AM";
+  const display = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  return `${display}:${m} ${amPm}`;
 }

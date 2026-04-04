@@ -4,11 +4,13 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import type { JobCardData } from "./kanban-card";
+import type { CardFieldVisibility } from "./card-fields-popover";
 
 interface KanbanCardCompactProps {
   job: JobCardData;
   onClick: (jobId: string) => void;
   isOverlay?: boolean;
+  visibleFields?: CardFieldVisibility;
 }
 
 function formatDate(dateStr: string) {
@@ -26,6 +28,7 @@ export function KanbanCardCompact({
   job,
   onClick,
   isOverlay,
+  visibleFields,
 }: KanbanCardCompactProps) {
   const {
     attributes,
@@ -45,6 +48,11 @@ export function KanbanCardCompact({
   };
 
   const amount = parseFloat(job.totalAmount);
+
+  const vf = visibleFields ?? {
+    serviceType: true, priority: true, jobNumber: true, customer: true,
+    address: true, date: true, time: true, amount: true, todayBadge: true,
+  };
 
   return (
     <div
@@ -67,26 +75,32 @@ export function KanbanCardCompact({
       )}
     >
       <div className="flex items-center gap-2">
-        <span className="shrink-0 text-[10px] font-medium text-muted-foreground font-body">
-          {job.jobNumber}
-        </span>
+        {vf.jobNumber && (
+          <span className="shrink-0 text-[10px] font-medium text-muted-foreground font-body">
+            {job.jobNumber}
+          </span>
+        )}
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-foreground font-body">
           {job.title}
         </span>
-        <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[9px] font-semibold text-brand dark:bg-brand/20 dark:text-brand"
-          title={
-            job.customerFirstName || job.customerLastName
-              ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()
-              : "No customer"
-          }
-        >
-          {getInitials(job.customerFirstName, job.customerLastName)}
-        </span>
-        <span className="shrink-0 text-[10px] text-muted-foreground font-body">
-          {formatDate(job.scheduledDate)}
-        </span>
-        {amount > 0 && (
+        {vf.customer && (
+          <span
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[9px] font-semibold text-brand dark:bg-brand/20 dark:text-brand"
+            title={
+              job.customerFirstName || job.customerLastName
+                ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()
+                : "No customer"
+            }
+          >
+            {getInitials(job.customerFirstName, job.customerLastName)}
+          </span>
+        )}
+        {vf.date && (
+          <span className="shrink-0 text-[10px] text-muted-foreground font-body">
+            {formatDate(job.scheduledDate)}
+          </span>
+        )}
+        {vf.amount && amount > 0 && (
           <span className="shrink-0 text-[10px] font-medium text-foreground font-body">
             ${amount.toFixed(0)}
           </span>

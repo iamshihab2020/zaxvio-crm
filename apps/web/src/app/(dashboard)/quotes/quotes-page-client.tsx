@@ -39,6 +39,7 @@ import {
 } from "@/components/dashboard/quotes/quote-detail-sheet";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { EmptyState } from "@/components/reusable/empty-state";
+import { PageHeader } from "@/components/reusable/page-header";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import {
@@ -257,6 +258,18 @@ export function QuotesPageClient({
 
   return (
     <section className="p-6">
+      <PageHeader
+        title="Quotes"
+        subtitle="Prepare and send estimates to your customers."
+        action={
+          <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+            New Quote
+          </Button>
+        }
+        className="mb-4"
+      />
+
       {/* Empty state */}
       {showEmptyState && (
         <EmptyState
@@ -344,14 +357,6 @@ export function QuotesPageClient({
               {viewMounted && (
                 <ViewModeToggle value={viewMode} onChange={setViewMode} />
               )}
-              <Button
-                onClick={() => setCreateDialogOpen(true)}
-                size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
-              >
-                <IconPlus className="mr-2 h-4 w-4" />
-                New Quote
-              </Button>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">

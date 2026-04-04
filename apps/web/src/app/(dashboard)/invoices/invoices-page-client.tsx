@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import {
   InvoiceTable,
@@ -220,6 +221,18 @@ export function InvoicesPageClient({
 
   return (
     <section className="p-6">
+      <PageHeader
+        title="Invoices"
+        subtitle="Create, send, and track payment for your invoices."
+        action={
+          <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+            New Invoice
+          </Button>
+        }
+        className="mb-4"
+      />
+
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -264,14 +277,6 @@ export function InvoicesPageClient({
               {viewMounted && (
                 <ViewModeToggle value={viewMode} onChange={setViewMode} />
               )}
-              <Button
-                onClick={() => setCreateDialogOpen(true)}
-                size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
-              >
-                <IconPlus className="mr-2 h-4 w-4" />
-                New Invoice
-              </Button>
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap">

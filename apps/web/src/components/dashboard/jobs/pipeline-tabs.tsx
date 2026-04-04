@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import {
-  Highlight,
-  HighlightItem,
-} from "@/components/animate-ui/primitives/effects/highlight";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { IconChevronDown, IconCheck, IconAdjustments } from "@tabler/icons-react";
 
 interface Pipeline {
   id: string;
@@ -19,38 +23,83 @@ interface PipelineTabsProps {
   pipelines: Pipeline[];
   selectedId: string | null;
   onSelect: (pipelineId: string) => void;
+  onManageStages?: () => void;
 }
 
 export function PipelineTabs({
   pipelines,
   selectedId,
   onSelect,
+  onManageStages,
 }: PipelineTabsProps) {
+  const [open, setOpen] = useState(false);
+
   if (pipelines.length === 0) return null;
 
+  const selected = pipelines.find((p) => p.id === selectedId);
+
   return (
-    <Highlight
-      className="rounded-md bg-brand-light dark:bg-brand/20"
-      value={selectedId}
-      controlledItems
-    >
-      <div className="flex items-center gap-0.5 rounded-lg bg-muted/80 dark:bg-muted/30 p-0.5">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          hoverScale={1}
+          tapScale={0.97}
+          className="h-7 gap-1.5 px-2.5 text-xs font-semibold font-body rounded-lg hover:bg-muted/60"
+        >
+          <span className="truncate max-w-[140px]">
+            {selected?.label ?? "Select Pipeline"}
+          </span>
+          <IconChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1" align="start">
         {pipelines.map((pipeline) => (
-          <HighlightItem key={pipeline.id} value={pipeline.id}>
-            <button
-              onClick={() => onSelect(pipeline.id)}
-              className={cn(
-                "relative z-10 rounded-md px-2.5 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
-                pipeline.id === selectedId
-                  ? "text-brand"
-                  : "text-foreground/80 hover:text-foreground",
-              )}
-            >
-              {pipeline.label}
-            </button>
-          </HighlightItem>
+          <Button
+            key={pipeline.id}
+            variant="ghost"
+            size="sm"
+            hoverScale={1}
+            tapScale={0.97}
+            onClick={() => {
+              onSelect(pipeline.id);
+              setOpen(false);
+            }}
+            className={cn(
+              "flex w-full items-center gap-2 h-8 rounded-md px-2 text-sm font-body justify-start",
+              pipeline.id === selectedId
+                ? "bg-brand-light/30 text-brand dark:bg-brand/15"
+                : "text-foreground",
+            )}
+          >
+            <span className="flex-1 text-left truncate">{pipeline.label}</span>
+            {pipeline.id === selectedId && (
+              <IconCheck className="h-3.5 w-3.5 text-brand shrink-0" />
+            )}
+          </Button>
         ))}
-      </div>
-    </Highlight>
+
+        {onManageStages && (
+          <>
+            <div className="h-px bg-border/60 my-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              hoverScale={1}
+              tapScale={0.97}
+              onClick={() => {
+                setOpen(false);
+                onManageStages();
+              }}
+              className="flex w-full items-center gap-2 h-7 rounded-md px-2 text-xs font-body text-muted-foreground hover:text-foreground justify-start"
+            >
+              <IconAdjustments className="h-3.5 w-3.5" />
+              Manage Stages
+            </Button>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }

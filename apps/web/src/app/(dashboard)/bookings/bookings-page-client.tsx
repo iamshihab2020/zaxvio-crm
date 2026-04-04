@@ -31,6 +31,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { PageHeader } from "@/components/reusable/page-header";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -214,6 +215,8 @@ export function BookingsPageClient({
 
   return (
     <section className="p-6">
+      <PageHeader title="Bookings" subtitle="View and manage customer booking requests." className="mb-4" />
+
       {/* Booking Link Card */}
       <div className="mb-4 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

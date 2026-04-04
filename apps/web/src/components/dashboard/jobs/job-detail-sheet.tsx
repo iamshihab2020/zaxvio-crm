@@ -25,7 +25,6 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
-  IconEdit,
   IconTrash,
   IconArrowRight,
   IconLayoutSidebar,
@@ -38,10 +37,10 @@ import {
   JOB_PRIORITY_LABELS,
   JOB_PRIORITY_COLORS,
   type JobPriority,
-  type ServiceType,
 } from "@/lib/constants/job-options";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
-import { getJob, updateJobStatus } from "@/actions/jobs";
+import { getJob, updateJob, updateJobStatus } from "@/actions/jobs";
+import { EditableText, EditableSelect } from "@/components/reusable/editable-field";
 import { JobDetailInfo } from "./job-detail-info";
 import { JobDetailLineItems } from "./job-detail-line-items";
 import { JobDetailChecklist } from "./job-detail-checklist";
@@ -63,7 +62,7 @@ export interface JobDetail {
   description: string | null;
   status: string;
   priority: JobPriority;
-  serviceType: ServiceType;
+  serviceType: string;
   scheduledDate: string;
   scheduledStart: string | null;
   scheduledEnd: string | null;
@@ -113,9 +112,9 @@ interface JobDetailSheetProps {
   jobId: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onEdit: (job: JobDetail) => void;
   onDelete: (job: JobDetail) => void;
   onStatusChange: () => void;
+  onJobUpdate: () => void;
   stages: PipelineStage[];
 }
 
@@ -125,8 +124,6 @@ const DEFAULT_WIDTH = 520;
 const MIN_WIDTH = 400;
 const MAX_WIDTH = 800;
 
-/* ── Tab definitions ─────────────────────────────────────────── */
-
 const TAB_VALUES = [
   "details",
   "line-items",
@@ -135,13 +132,18 @@ const TAB_VALUES = [
   "activity",
 ] as const;
 
+const PRIORITY_OPTIONS = Object.entries(JOB_PRIORITY_LABELS).map(([value, label]) => ({
+  value,
+  label: label as string,
+}));
+
 export function JobDetailSheet({
   jobId,
   open,
   onOpenChange,
-  onEdit,
   onDelete,
   onStatusChange,
+  onJobUpdate,
   stages,
 }: JobDetailSheetProps) {
   const router = useRouter();
@@ -149,7 +151,6 @@ export function JobDetailSheet({
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
 
-  /* ── Preferences ──────────────────────────────────────────── */
   const { mode: prefMode, sidebarWidth: prefSidebarWidth, mounted, setMode: setPrefMode, setSidebarWidth: setPrefSidebarWidth } = useViewPreference("jobs");
   const [liveSidebarWidth, setLiveSidebarWidth] = useState(DEFAULT_WIDTH);
   const switchingModeRef = useRef(false);
@@ -158,7 +159,6 @@ export function JobDetailSheet({
     setLiveSidebarWidth(prefSidebarWidth);
   }, [prefSidebarWidth]);
 
-  /* ── Job data fetching ────────────────────────────────────── */
   useEffect(() => {
     if (!jobId || !open) {
       setJob(null);
@@ -190,6 +190,24 @@ export function JobDetailSheet({
     const res = await getJob(jobId);
     if (res.data) setJob(res.data as JobDetail);
   }
+
+  /* ── Inline field save ───────────────────────────────────── */
+  const handleFieldSave = useCallback(async (field: string, value: string) => {
+    if (!job) return;
+
+    // Optimistic update
+    setJob((prev) => prev ? { ...prev, [field]: value || null } : prev);
+
+    const result = await updateJob(job.id, { [field]: value || undefined });
+    if (result.error) {
+      toast.error(result.error);
+      refreshDetail(); // revert
+    } else {
+      refreshDetail();
+      onJobUpdate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job?.id, onJobUpdate]);
 
   /* ── Mode toggle ──────────────────────────────────────────── */
   function toggleMode() {
@@ -236,7 +254,7 @@ export function JobDetailSheet({
       document.body.style.cursor = "col-resize";
       document.body.style.userSelect = "none";
     },
-    [liveSidebarWidth],
+    [liveSidebarWidth, setPrefSidebarWidth],
   );
 
   /* ── Derived values ───────────────────────────────────────── */
@@ -245,7 +263,6 @@ export function JobDetailSheet({
   const statusLabel = currentStage?.label ?? job?.status ?? "";
   const priorityColors = job ? JOB_PRIORITY_COLORS[job.priority] : null;
 
-  // Next stage = the one after current in sort order, plus other stages in dropdown
   const currentIndex = currentStage ? stages.findIndex((s) => s.id === currentStage.id) : -1;
   const nextStage = currentIndex >= 0 && currentIndex < stages.length - 1
     ? stages[currentIndex + 1]
@@ -256,7 +273,6 @@ export function JobDetailSheet({
 
   const mode = mounted ? (prefMode === "page" ? "sidebar" : prefMode) : "sidebar";
 
-  /* ── Tab labels with counts ────────────────────────────────── */
   function tabLabel(value: string): string {
     if (!job) return value;
     switch (value) {
@@ -276,8 +292,6 @@ export function JobDetailSheet({
   }
 
   /* ── Shared inner content ─────────────────────────────────── */
-  // SheetTitle/SheetDescription are DialogPrimitive.Title/Description,
-  // so they work inside both Sheet and Dialog contexts.
   const innerContent = (
     <>
       {loading && (
@@ -303,25 +317,43 @@ export function JobDetailSheet({
           {/* ── Header ────────────────────────────────────── */}
           <div className="px-6 pt-6 pb-4 border-b border-border">
             <div className="flex items-start justify-between pr-8">
-              <div>
+              <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 mb-1">
-                  <SheetTitle className="font-heading text-lg">
+                  <SheetTitle className="font-heading text-lg shrink-0">
                     {job.jobNumber}
                   </SheetTitle>
-                  <Badge className={cn("px-2 py-0.5 font-medium", statusColors?.bg, statusColors?.text)}>
+                  <Badge className={cn("px-2 py-0.5 font-medium shrink-0", statusColors?.bg, statusColors?.text)}>
                     {statusLabel}
                   </Badge>
-                  <Badge className={cn("px-2 py-0.5 font-medium", priorityColors?.bg, priorityColors?.text)}>
-                    {JOB_PRIORITY_LABELS[job.priority]}
-                  </Badge>
+                  {/* Editable priority badge */}
+                  <EditableSelect
+                    value={job.priority}
+                    options={PRIORITY_OPTIONS}
+                    onSave={(v) => handleFieldSave("priority", v)}
+                    renderValue={(val) => {
+                      const colors = JOB_PRIORITY_COLORS[val as JobPriority];
+                      return (
+                        <Badge className={cn("px-2 py-0.5 font-medium cursor-pointer", colors?.bg, colors?.text)}>
+                          {JOB_PRIORITY_LABELS[val as JobPriority] ?? val}
+                        </Badge>
+                      );
+                    }}
+                  />
                 </div>
-                <SheetDescription className="text-sm font-body">
-                  {job.title}
+                {/* Editable title */}
+                <SheetDescription asChild>
+                  <div>
+                    <EditableText
+                      value={job.title}
+                      onSave={(v) => handleFieldSave("title", v)}
+                      placeholder="Job title"
+                      className="text-sm font-body"
+                    />
+                  </div>
                 </SheetDescription>
               </div>
 
               <div className="flex items-center gap-1">
-                {/* Mode toggle */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -340,7 +372,6 @@ export function JobDetailSheet({
                   )}
                 </Button>
 
-                {/* Open full page */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -355,18 +386,6 @@ export function JobDetailSheet({
                   <IconExternalLink className="h-4 w-4" />
                 </Button>
 
-                {/* Edit */}
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 cursor-pointer"
-                  onClick={() => onEdit(job)}
-                  title="Edit job"
-                >
-                  <IconEdit className="h-4 w-4" />
-                </Button>
-
-                {/* Delete */}
                 <Button
                   variant="ghost"
                   size="icon"
@@ -438,7 +457,7 @@ export function JobDetailSheet({
             )}
           </div>
 
-          {/* ── Tabs with sliding indicator ───────────────── */}
+          {/* ── Tabs ───────────────────────────────────────── */}
           <Tabs
             value={activeTab}
             onValueChange={setActiveTab}
@@ -454,7 +473,7 @@ export function JobDetailSheet({
 
             <div className="px-6 py-4">
               <TabsContent value="details" className="mt-0">
-                <JobDetailInfo job={job} />
+                <JobDetailInfo job={job} onFieldSave={handleFieldSave} />
               </TabsContent>
               <TabsContent value="line-items" className="mt-0">
                 <JobDetailLineItems
@@ -483,7 +502,6 @@ export function JobDetailSheet({
     </>
   );
 
-  /* ── Render: Dialog mode ──────────────────────────────────── */
   if (mode === "dialog") {
     return (
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -494,7 +512,6 @@ export function JobDetailSheet({
     );
   }
 
-  /* ── Render: Sidebar mode (default) ───────────────────────── */
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
@@ -505,7 +522,6 @@ export function JobDetailSheet({
           width: "100%",
         }}
       >
-        {/* Drag handle — left edge resize */}
         <div
           className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
           onMouseDown={handleDragStart}

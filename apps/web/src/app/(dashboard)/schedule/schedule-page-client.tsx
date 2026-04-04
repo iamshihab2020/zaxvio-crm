@@ -22,6 +22,7 @@ import { JobDetailSheet, type JobDetail } from "@/components/dashboard/jobs/job-
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { EventCreateDialog, type EventFormData } from "@/components/dashboard/schedule/event-create-dialog";
 
+import { PageHeader } from "@/components/reusable/page-header";
 import { ScheduleToolbar, type CalendarView } from "@/components/dashboard/schedule/schedule-toolbar";
 import { ScheduleFilters } from "@/components/dashboard/schedule/schedule-filters";
 import { ScheduleCalendar, type CalendarEvent } from "@/components/dashboard/schedule/schedule-calendar";
@@ -656,6 +657,7 @@ export function SchedulePageClient() {
     <TooltipProvider delayDuration={300}>
       {/* Full-height flex column: navbar is h-14 (3.5rem) */}
       <section className="flex flex-col h-[calc(100vh-3.5rem)] p-4 gap-0">
+        <PageHeader title="Schedule" subtitle="Plan and organize your appointments and events." className="pb-3" />
         <Card className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <ScheduleToolbar
             currentDate={currentDate}
@@ -696,9 +698,9 @@ export function SchedulePageClient() {
           jobId={selectedJobId}
           open={sheetOpen}
           onOpenChange={handleSheetOpenChange}
-          onEdit={handleEdit}
           onDelete={handleDelete}
           onStatusChange={handleStatusChange}
+          onJobUpdate={handleStatusChange}
           stages={stages}
         />
 

@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
+import type { CardFieldVisibility } from "./card-fields-popover";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { IconPlus, IconBriefcase } from "@tabler/icons-react";
 
@@ -27,6 +28,7 @@ interface KanbanColumnProps {
   onJobClick: (jobId: string) => void;
   onAddJob: (stageName: string) => void;
   cardView?: "default" | "compact";
+  visibleFields?: CardFieldVisibility;
 }
 
 export function KanbanColumn({
@@ -35,6 +37,7 @@ export function KanbanColumn({
   onJobClick,
   onAddJob,
   cardView = "default",
+  visibleFields,
 }: KanbanColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: stage.name,
@@ -89,7 +92,7 @@ export function KanbanColumn({
       {/* Cards */}
       <div
         className="flex-1 overflow-y-auto kanban-column-scroll px-1"
-        style={{ maxHeight: "calc(82vh - 60px)" }}
+        style={{ maxHeight: "calc(100vh - 12.5rem - 60px)" }}
       >
         <SortableContext items={jobIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2.5">
@@ -105,9 +108,9 @@ export function KanbanColumn({
                 }}
               >
                 {cardView === "compact" ? (
-                  <KanbanCardCompact job={job} onClick={onJobClick} />
+                  <KanbanCardCompact job={job} onClick={onJobClick} visibleFields={visibleFields} />
                 ) : (
-                  <KanbanCard job={job} onClick={onJobClick} />
+                  <KanbanCard job={job} onClick={onJobClick} visibleFields={visibleFields} />
                 )}
               </motion.div>
             ))}
@@ -137,15 +140,17 @@ export function KanbanColumn({
             )}
 
             {/* Add card button */}
-            <button
+            <Button
+              variant="ghost"
+              size="sm"
+              hoverScale={1}
+              tapScale={0.97}
               onClick={() => onAddJob(stage.name)}
-              className="w-full py-2 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand font-body transition-colors rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
+              className="w-full h-8 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand font-body rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
             >
-              <span className="flex items-center justify-center gap-1">
-                <IconPlus className="h-3 w-3" />
-                Add Job
-              </span>
-            </button>
+              <IconPlus className="h-3 w-3 mr-1" />
+              Add Job
+            </Button>
           </div>
         </SortableContext>
       </div>

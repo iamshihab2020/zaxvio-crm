@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { IconSettings, IconLogout } from "@tabler/icons-react";
 import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
 import { useSession, signOut } from "@/lib/auth-client";
@@ -18,32 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const pageTitles: Record<string, string> = {
-  "/dashboard": "Dashboard",
-  "/customers": "Customers",
-  "/jobs": "Jobs",
-  "/assets": "Assets",
-  "/invoices": "Invoices",
-  "/quotes": "Quotes",
-  "/service-agreements": "Service Agreements",
-  "/bookings": "Bookings",
-  "/schedule": "Schedule",
-  "/catalog": "Catalog",
-  "/checklists": "Checklists",
-  "/settings": "Settings",
-};
-
-function getPageTitle(pathname: string): string {
-  for (const [path, title] of Object.entries(pageTitles)) {
-    if (pathname === path || pathname.startsWith(path + "/")) {
-      return title;
-    }
-  }
-  return "Dashboard";
-}
-
 export function Navbar() {
-  const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
   const { isCollapsed } = useSidebar();
@@ -76,17 +51,11 @@ export function Navbar() {
     });
   };
 
-  const pageTitle = getPageTitle(pathname);
-
   return (
     <header
-      className={`fixed right-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card px-6 transition-[left,top] duration-300 ease-in-out ${isImpersonating ? "top-10" : "top-0"}`}
+      className={`fixed right-0 z-20 flex h-14 items-center justify-end border-b border-border bg-card px-6 transition-[left,top] duration-300 ease-in-out ${isImpersonating ? "top-10" : "top-0"}`}
       style={{ left: isCollapsed ? "4rem" : "14rem" }}
     >
-      <h1 className="font-heading text-lg font-semibold text-foreground">
-        {pageTitle}
-      </h1>
-
       <div className="flex items-center gap-1">
         <ThemeToggle />
 

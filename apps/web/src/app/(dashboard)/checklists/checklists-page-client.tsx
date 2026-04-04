@@ -13,6 +13,7 @@ import {
   type TemplateFormData,
 } from "@/components/dashboard/checklists/checklist-template-dialog";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { PageHeader } from "@/components/reusable/page-header";
 import { EmptyState } from "@/components/reusable/empty-state";
 import {
   getChecklistTemplates,
@@ -207,6 +208,18 @@ export function ChecklistsPageClient() {
 
   return (
     <section className="p-6">
+      <PageHeader
+        title="Checklists"
+        subtitle="Create reusable task templates for your service jobs."
+        action={
+          <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+            New Template
+          </Button>
+        }
+        className="mb-4"
+      />
+
       {showEmptyState && (
         <EmptyState
           icon={IconChecklist}
@@ -289,14 +302,6 @@ export function ChecklistsPageClient() {
               <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body">
                 {templates.length} {templates.length === 1 ? "Template" : "Templates"}
               </span>
-              <Button
-                onClick={openCreateDialog}
-                size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0 cursor-pointer"
-              >
-                <IconPlus className="mr-2 h-4 w-4" />
-                New Template
-              </Button>
             </div>
           </div>
 

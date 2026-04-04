@@ -7,6 +7,7 @@ import { CatalogTable } from "@/components/dashboard/catalog/catalog-table";
 import { CatalogItemDialog, type CatalogItemFormData } from "@/components/dashboard/catalog/catalog-item-dialog";
 import { CatalogFilters } from "@/components/dashboard/catalog/catalog-filters";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { PageHeader } from "@/components/reusable/page-header";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
@@ -179,6 +180,18 @@ export function CatalogPageClient() {
 
   return (
     <section className="p-6">
+      <PageHeader
+        title="Catalog"
+        subtitle="Manage your parts, labor rates, and service items."
+        action={
+          <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+            Add Item
+          </Button>
+        }
+        className="mb-4"
+      />
+
       {error && (
         <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
@@ -208,16 +221,6 @@ export function CatalogPageClient() {
             onShowArchivedChange={setShowArchived}
             categories={categories}
             totalItems={pagination.total}
-            action={
-              <Button
-                onClick={openCreateDialog}
-                size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0"
-              >
-                <IconPlus className="mr-2 h-4 w-4" />
-                Add Item
-              </Button>
-            }
           />
 
           {loading && <TableSkeleton columns={6} rows={5} />}

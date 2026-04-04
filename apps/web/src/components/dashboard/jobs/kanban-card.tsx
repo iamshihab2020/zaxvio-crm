@@ -17,6 +17,7 @@ import {
   IconCurrencyDollar,
   IconMapPin,
 } from "@tabler/icons-react";
+import type { CardFieldVisibility } from "./card-fields-popover";
 
 export interface JobCardData {
   id: string;
@@ -38,6 +39,7 @@ interface KanbanCardProps {
   job: JobCardData;
   onClick: (jobId: string) => void;
   isOverlay?: boolean;
+  visibleFields?: CardFieldVisibility;
 }
 
 function formatDate(dateStr: string) {
@@ -59,7 +61,7 @@ function getInitials(first: string | null, last: string | null): string {
   return f + l || "?";
 }
 
-export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
+export function KanbanCard({ job, onClick, isOverlay, visibleFields }: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -86,6 +88,15 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
   const isToday =
     job.scheduledDate === new Date().toISOString().split("T")[0];
 
+  // Default all fields to visible if not provided
+  const vf = visibleFields ?? {
+    serviceType: true, priority: true, jobNumber: true, customer: true,
+    address: true, date: true, time: true, amount: true, todayBadge: true,
+  };
+
+  const showTopRow = vf.serviceType || vf.priority;
+  const showBottomRow = vf.date || vf.time || vf.todayBadge || vf.amount;
+
   return (
     <div
       ref={setNodeRef}
@@ -107,37 +118,47 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
       )}
     >
       {/* Top row: Service type + Priority */}
-      <div className="flex items-center justify-between mb-2.5">
-        <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0">
-          {SERVICE_TYPE_LABELS[job.serviceType]}
-        </Badge>
-        <Badge className={cn("px-2 py-0.5 text-[10px] font-medium border-0", priorityColors.bg, priorityColors.text)}>
-          {JOB_PRIORITY_LABELS[job.priority]}
-        </Badge>
-      </div>
+      {showTopRow && (
+        <div className="flex items-center justify-between mb-2.5">
+          {vf.serviceType && (
+            <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0">
+              {SERVICE_TYPE_LABELS[job.serviceType]}
+            </Badge>
+          )}
+          {vf.priority && (
+            <Badge className={cn("px-2 py-0.5 text-[10px] font-medium border-0", priorityColors.bg, priorityColors.text, !vf.serviceType && "ml-auto")}>
+              {JOB_PRIORITY_LABELS[job.priority]}
+            </Badge>
+          )}
+        </div>
+      )}
 
-      {/* Title */}
+      {/* Title — always visible */}
       <h4 className="text-sm font-medium text-foreground font-body line-clamp-2 mb-1.5">
         {job.title}
       </h4>
 
       {/* Job number */}
-      <p className="text-[11px] text-muted-foreground/70 font-body mb-2">
-        {job.jobNumber}
-      </p>
+      {vf.jobNumber && (
+        <p className="text-[11px] text-muted-foreground/70 font-body mb-2">
+          {job.jobNumber}
+        </p>
+      )}
 
       {/* Customer with initials avatar */}
-      <div className="flex items-center gap-2 mb-2.5">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[10px] font-semibold text-brand dark:bg-brand/20 dark:text-brand">
-          {getInitials(job.customerFirstName, job.customerLastName)}
-        </span>
-        <span className="text-xs text-muted-foreground font-body truncate">
-          {customerName}
-        </span>
-      </div>
+      {vf.customer && (
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[10px] font-semibold text-brand dark:bg-brand/20 dark:text-brand">
+            {getInitials(job.customerFirstName, job.customerLastName)}
+          </span>
+          <span className="text-xs text-muted-foreground font-body truncate">
+            {customerName}
+          </span>
+        </div>
+      )}
 
       {/* Address */}
-      {job.address && (
+      {vf.address && job.address && (
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2.5">
           <IconMapPin className="h-3 w-3 shrink-0" />
           <span className="truncate">{job.address}</span>
@@ -145,31 +166,35 @@ export function KanbanCard({ job, onClick, isOverlay }: KanbanCardProps) {
       )}
 
       {/* Bottom metadata */}
-      <div className="flex items-center justify-between pt-2.5 border-t border-border/50 dark:border-border/40">
-        <div className="flex items-center gap-2.5">
-          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-            <IconCalendar className="h-3 w-3" />
-            <span className="font-body">{formatDate(job.scheduledDate)}</span>
+      {showBottomRow && (
+        <div className="flex items-center justify-between pt-2.5 border-t border-border/50 dark:border-border/40">
+          <div className="flex items-center gap-2.5">
+            {vf.date && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <IconCalendar className="h-3 w-3" />
+                <span className="font-body">{formatDate(job.scheduledDate)}</span>
+              </div>
+            )}
+            {vf.time && job.scheduledStart && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <IconClock className="h-3 w-3" />
+                <span className="font-body">{formatTime(job.scheduledStart)}</span>
+              </div>
+            )}
+            {vf.todayBadge && isToday && (
+              <Badge className="bg-brand-light/50 text-brand px-1.5 py-0 text-[9px] font-medium border-0 dark:bg-brand/20">
+                Today
+              </Badge>
+            )}
           </div>
-          {job.scheduledStart && (
-            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-              <IconClock className="h-3 w-3" />
-              <span className="font-body">{formatTime(job.scheduledStart)}</span>
+          {vf.amount && parseFloat(job.totalAmount) > 0 && (
+            <div className="flex items-center gap-0.5 text-xs font-medium text-foreground font-body">
+              <IconCurrencyDollar className="h-3 w-3" />
+              <span>{parseFloat(job.totalAmount).toFixed(2)}</span>
             </div>
           )}
-          {isToday && (
-            <Badge className="bg-brand-light/50 text-brand px-1.5 py-0 text-[9px] font-medium border-0 dark:bg-brand/20">
-              Today
-            </Badge>
-          )}
         </div>
-        {parseFloat(job.totalAmount) > 0 && (
-          <div className="flex items-center gap-0.5 text-xs font-medium text-foreground font-body">
-            <IconCurrencyDollar className="h-3 w-3" />
-            <span>{parseFloat(job.totalAmount).toFixed(2)}</span>
-          </div>
-        )}
-      </div>
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import type { DashboardStats } from "@hvac-saas/types";
 import { getDashboardStats } from "@/actions/dashboard";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { PageHeader } from "@/components/reusable/page-header";
 import { DashboardSkeleton } from "@/components/dashboard/home/dashboard-skeleton";
 import { KpiGrid } from "@/components/dashboard/home/kpi-grid";
 import { OverdueAlertBanner } from "@/components/dashboard/home/overdue-alert-banner";
@@ -92,18 +93,16 @@ export function DashboardPageClient({ initialStats = null }: DashboardPageClient
     <section className="p-6">
       <div className="space-y-6">
         {/* Toolbar */}
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground font-body">
-            {getTodayString()}
-          </p>
-          <div className="flex items-center gap-2">
-            <DateRangePicker
-              dateRange={dateRange}
-              onDateRangeChange={handleDateRangeChange}
-            />
-            <QuickActions />
-          </div>
-        </div>
+        <PageHeader
+          title="Dashboard"
+          subtitle="Overview of your business at a glance."
+          action={
+            <div className="flex items-center gap-2">
+              <DateRangePicker dateRange={dateRange} onDateRangeChange={handleDateRangeChange} />
+              <QuickActions />
+            </div>
+          }
+        />
 
         {/* Overdue Alert */}
         <OverdueAlertBanner overdueInvoices={stats.overdueInvoices} />

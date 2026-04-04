@@ -5,7 +5,6 @@ import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
 import { useViewPreference } from "@/hooks/use-view-preference";
-import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import { toast } from "sonner";
 const KanbanBoard = dynamic(
   () =>
@@ -27,6 +26,10 @@ import {
 } from "@/components/dashboard/jobs/job-create-dialog";
 import { PipelineStagesDialog } from "@/components/dashboard/jobs/pipeline-stages-dialog";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import {
+  DisplaySettingsPopover,
+  useCardFieldVisibility,
+} from "@/components/dashboard/jobs/card-fields-popover";
 import type { JobCardData } from "@/components/dashboard/jobs/kanban-card";
 import {
   getJobs,
@@ -44,20 +47,12 @@ import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { Button } from "@/components/ui/button";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   IconLayoutKanban,
   IconListDetails,
   IconList,
   IconPlus,
-  IconAdjustments,
-  IconRowInsertTop,
-  IconRowInsertBottom,
 } from "@tabler/icons-react";
+import { PageHeader } from "@/components/reusable/page-header";
 import { cn } from "@/lib/utils";
 import {
   Highlight,
@@ -194,6 +189,9 @@ export function JobsPageClient({
 
   const [error, setError] = useState<string | null>(null);
   const [defaultTaxRate, setDefaultTaxRate] = useState<string | undefined>(prefetchedTaxRate);
+
+  // Card field visibility customization
+  const { fields: cardFields, setField: setCardField, resetDefaults: resetCardFields } = useCardFieldVisibility();
 
   const fetchStages = useCallback(async (pipelineId?: string) => {
     const pid = pipelineId ?? selectedPipelineId;
@@ -412,10 +410,8 @@ export function JobsPageClient({
     setDialogOpen(true);
   }
 
-  function handleEditFromSheet(job: JobDetail) {
-    setEditingJob(job);
-    setSheetOpen(false);
-    setDialogOpen(true);
+  function handleJobUpdate() {
+    fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
   }
 
   function handleDeleteFromSheet(job: JobDetail) {
@@ -514,13 +510,15 @@ export function JobsPageClient({
 
   return (
     <section className="px-5 pt-2.5 pb-0">
+      <PageHeader title="Jobs" subtitle="Track and manage all your service jobs." className="mb-2" />
       {/* Unified toolbar */}
       <div className="mb-4 flex items-center rounded-xl border border-border/60 bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-1.5">
-        {/* Left group: Pipeline tabs */}
+        {/* Left: Pipeline selector */}
         <PipelineTabs
           pipelines={pipelinesData}
           selectedId={selectedPipelineId}
           onSelect={handlePipelineChange}
+          onManageStages={() => setPipelineDialogOpen(true)}
         />
 
         <div className="h-5 w-px bg-border dark:bg-border/60 mx-2 shrink-0" />
@@ -535,7 +533,7 @@ export function JobsPageClient({
           onServiceTypeChange={setServiceTypeFilter}
         />
 
-        {/* Center: Board / Table labeled switch */}
+        {/* Center: Board / List / Table switch */}
         <div className="mx-auto">
           <Highlight
             className="rounded-md bg-brand-light dark:bg-brand/20"
@@ -544,10 +542,14 @@ export function JobsPageClient({
           >
             <div className="flex items-center rounded-lg bg-muted/80 dark:bg-muted/30 p-0.5 gap-0.5">
               <HighlightItem value="board">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  hoverScale={1}
+                  tapScale={0.97}
                   onClick={() => handleViewTypeChange("board")}
                   className={cn(
-                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
+                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
                     viewType === "board"
                       ? "text-brand"
                       : "text-foreground/80 hover:text-foreground",
@@ -555,13 +557,17 @@ export function JobsPageClient({
                 >
                   <IconLayoutKanban className="h-3.5 w-3.5" />
                   Board
-                </button>
+                </Button>
               </HighlightItem>
               <HighlightItem value="list">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  hoverScale={1}
+                  tapScale={0.97}
                   onClick={() => handleViewTypeChange("list")}
                   className={cn(
-                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
+                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
                     viewType === "list"
                       ? "text-brand"
                       : "text-foreground/80 hover:text-foreground",
@@ -569,13 +575,17 @@ export function JobsPageClient({
                 >
                   <IconList className="h-3.5 w-3.5" />
                   List
-                </button>
+                </Button>
               </HighlightItem>
               <HighlightItem value="table">
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  hoverScale={1}
+                  tapScale={0.97}
                   onClick={() => handleViewTypeChange("table")}
                   className={cn(
-                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-semibold font-body transition-colors whitespace-nowrap",
+                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
                     viewType === "table"
                       ? "text-brand"
                       : "text-foreground/80 hover:text-foreground",
@@ -583,92 +593,34 @@ export function JobsPageClient({
                 >
                   <IconListDetails className="h-3.5 w-3.5" />
                   Table
-                </button>
+                </Button>
               </HighlightItem>
             </div>
           </Highlight>
         </div>
 
-        {/* Right group: Density + Actions */}
-        <TooltipProvider delayDuration={200}>
-          <div className="flex items-center gap-0.5">
-            {/* Density */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  hoverScale={1}
-                  tapScale={0.95}
-                  onClick={() => handleCompactChange(false)}
-                  className={cn(
-                    "h-7 w-7 rounded-md",
-                    !compact
-                      ? "bg-brand-light dark:bg-brand/20 text-brand"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <IconRowInsertTop className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">Default density</TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  hoverScale={1}
-                  tapScale={0.95}
-                  onClick={() => handleCompactChange(true)}
-                  className={cn(
-                    "h-7 w-7 rounded-md",
-                    compact
-                      ? "bg-brand-light dark:bg-brand/20 text-brand"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <IconRowInsertBottom className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs">Compact density</TooltipContent>
-            </Tooltip>
+        {/* Right: Display settings + New Job */}
+        <div className="flex items-center gap-1">
+          <DisplaySettingsPopover
+            compact={compact}
+            onCompactChange={handleCompactChange}
+            fields={cardFields}
+            onFieldChange={setCardField}
+            onFieldsReset={resetCardFields}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            viewModeMounted={viewMounted}
+          />
 
-            <div className="h-4 w-px bg-border/70 dark:bg-border/40 mx-0.5 shrink-0" />
-
-            {/* View mode */}
-            {viewMounted && (
-              <ViewModeToggle value={viewMode} onChange={setViewMode} className="border-0 p-0 gap-0" />
-            )}
-
-            {/* Manage Pipeline */}
-            {viewType !== "table" && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setPipelineDialogOpen(true)}
-                    className="h-7 w-7 rounded-md text-muted-foreground hover:text-foreground"
-                  >
-                    <IconAdjustments className="h-3.5 w-3.5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom" className="text-xs">Manage Pipeline</TooltipContent>
-              </Tooltip>
-            )}
-
-            {/* New Job CTA */}
-            <Button
-              onClick={openCreateDialog}
-              size="sm"
-              className="bg-brand text-brand-foreground hover:bg-brand/90 font-body h-7 text-xs px-2.5 ml-0.5 rounded-lg"
-            >
-              <IconPlus className="mr-1 h-3.5 w-3.5" />
-              New Job
-            </Button>
-          </div>
-        </TooltipProvider>
+          <Button
+            onClick={openCreateDialog}
+            size="sm"
+            className="bg-brand text-brand-foreground hover:bg-brand/90 font-body h-7 text-xs px-2.5 rounded-lg"
+          >
+            <IconPlus className="mr-1 h-3.5 w-3.5" />
+            New Job
+          </Button>
+        </div>
       </div>
 
       {error && (
@@ -696,6 +648,7 @@ export function JobsPageClient({
               onStatusChange={handleStatusChange}
               onAddJob={openCreateDialogForStage}
               cardView={compact ? "compact" : "default"}
+              visibleFields={cardFields}
             />
           )}
         </>
@@ -780,9 +733,9 @@ export function JobsPageClient({
         jobId={selectedJobId}
         open={sheetOpen}
         onOpenChange={setSheetOpen}
-        onEdit={handleEditFromSheet}
         onDelete={handleDeleteFromSheet}
         onStatusChange={handleStatusChange}
+        onJobUpdate={handleJobUpdate}
         stages={stages}
       />
 
