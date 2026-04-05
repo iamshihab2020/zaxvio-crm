@@ -395,9 +395,43 @@ export async function toggleChecklistItem(
 
 // ===== PHOTOS =====
 
-export async function getJobPhotos(jobId: string) {
+export async function uploadJobFile(
+  jobId: string,
+  fileData: { base64: string; filename: string; mimeType: string },
+  tag: "before" | "after" | "general" = "general",
+) {
   try {
-    const res = await fetch(`${API_URL}/jobs/${jobId}/photos`, {
+    const res = await fetch(`${API_URL}/jobs/${jobId}/upload`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({
+        data: fileData.base64,
+        filename: fileData.filename,
+        mimeType: fileData.mimeType,
+        tag,
+      }),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to upload file" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function getJobPhotos(jobId: string, tag?: string) {
+  try {
+    const qs = tag ? `?tag=${tag}` : "";
+    const res = await fetch(`${API_URL}/jobs/${jobId}/photos${qs}`, {
       headers: { cookie: await getCookieHeader() },
       cache: "no-store",
     });
@@ -419,6 +453,8 @@ export async function addJobPhoto(
   data: {
     storagePath: string;
     caption?: string;
+    tag?: "before" | "after" | "general";
+    fileSize?: number;
     takenAt?: string;
   },
 ) {
@@ -445,6 +481,34 @@ export async function addJobPhoto(
   }
 }
 
+export async function updateJobPhotoTag(
+  jobId: string,
+  photoId: string,
+  tag: "before" | "after" | "general",
+) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/${jobId}/photos/${photoId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ tag }),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to update photo tag" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
 export async function deleteJobPhoto(jobId: string, photoId: string) {
   try {
     const res = await fetch(`${API_URL}/jobs/${jobId}/photos/${photoId}`, {
@@ -456,6 +520,79 @@ export async function deleteJobPhoto(jobId: string, photoId: string) {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return { error: err.message ?? "Failed to delete photo" };
+    }
+
+    return { error: null };
+  } catch {
+    return { error: "Network error" };
+  }
+}
+
+// ===== DOCUMENTS =====
+
+export async function getJobDocuments(jobId: string) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/${jobId}/documents`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to fetch documents" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function addJobDocument(
+  jobId: string,
+  data: {
+    storagePath: string;
+    fileName: string;
+    fileSize?: number;
+    mimeType?: string;
+    customerId?: string;
+  },
+) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/${jobId}/documents`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify(data),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to add document" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function deleteJobDocument(jobId: string, docId: string) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/${jobId}/documents/${docId}`, {
+      method: "DELETE",
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.message ?? "Failed to delete document" };
     }
 
     return { error: null };

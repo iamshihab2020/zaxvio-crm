@@ -15,12 +15,14 @@ import {
   jobPriorityEnum,
   serviceTypeEnum,
   itemTypeEnum,
+  photoTagEnum,
 } from "./enums";
 import { tenants } from "./tenants";
 import { customers } from "./customers";
 import { catalogItems } from "./catalog";
 import { equipment } from "./equipment";
 import { pipelines } from "./pipelines";
+import { user } from "./auth";
 
 export const jobs = pgTable(
   "jobs",
@@ -117,8 +119,37 @@ export const jobPhotos = pgTable("job_photos", {
     .references(() => jobs.id, { onDelete: "cascade" }),
   storagePath: text("storage_path").notNull(),
   caption: text("caption"),
+  tag: photoTagEnum("tag").notNull().default("general"),
+  uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
+  fileSize: integer("file_size"),
   takenAt: timestamp("taken_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
+
+export const jobDocuments = pgTable(
+  "job_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    customerId: uuid("customer_id"),
+    fileName: text("file_name").notNull(),
+    storagePath: text("storage_path").notNull(),
+    fileSize: integer("file_size"),
+    mimeType: text("mime_type"),
+    uploadedBy: text("uploaded_by").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("idx_job_documents_job_id").on(table.jobId),
+    index("idx_job_documents_tenant_id").on(table.tenantId),
+  ],
+);

@@ -8,6 +8,7 @@ import {
   jobs,
   jobLineItems,
   jobPhotos,
+  jobDocuments,
   jobActivities,
   jobChecklistCompletions,
   checklistTemplates,
@@ -36,6 +37,11 @@ import {
   lineItemParam,
   photoParam,
   addPhotoBody,
+  updatePhotoTagBody,
+  photoTagParam,
+  addDocumentBody,
+  documentParam,
+  uploadFileBody,
 } from "../../lib/schemas/jobs.js";
 
 // ========== HELPERS ==========
@@ -1180,11 +1186,86 @@ export default async function jobRoutes(fastify: FastifyInstance) {
     },
   );
 
+  // ===== FILE UPLOAD =====
+
+  /**
+   * POST /jobs/:id/upload
+   * Upload a file (photo or document) directly to Supabase Storage.
+   * Returns { storagePath, publicUrl, fileSize, mimeType }.
+   * Body: { data: base64, filename, mimeType, tag? }
+   */
+  fastify.post(
+    "/:id/upload",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const tenantId = request.authUser.tenantId!;
+
+      const contentType = request.headers["content-type"] ?? "";
+      if (!contentType.includes("application/json")) {
+        return reply.status(400).send({ message: "Expected JSON body with base64 data" });
+      }
+
+      const parsed = uploadFileBody.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({ message: "Invalid upload body" });
+      }
+
+      const { data: base64, filename, mimeType } = parsed.data;
+      const isPhoto = mimeType.startsWith("image/");
+      const maxBytes = isPhoto ? 20 * 1024 * 1024 : 50 * 1024 * 1024;
+
+      const buffer = Buffer.from(base64, "base64");
+      if (buffer.length > maxBytes) {
+        const limit = isPhoto ? "20MB" : "50MB";
+        return reply.status(400).send({ message: `File exceeds ${limit} limit` });
+      }
+
+      // Verify job exists and belongs to tenant
+      const db = getDb();
+      const job = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
+        .then((r) => r[0]);
+
+      if (!job) {
+        return reply.status(404).send({ message: "Job not found" });
+      }
+
+      const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const storagePath = `${tenantId}/jobs/${id}/${Date.now()}_${safeName}`;
+      const supabase = getSupabaseAdmin();
+
+      const { error: uploadError } = await supabase.storage
+        .from("job-attachments")
+        .upload(storagePath, buffer, { contentType: mimeType, upsert: false });
+
+      if (uploadError) {
+        console.error("[job-upload] Storage error:", uploadError);
+        return reply.status(500).send({ message: "Failed to upload file" });
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("job-attachments")
+        .getPublicUrl(storagePath);
+
+      return reply.status(201).send({
+        data: {
+          storagePath,
+          publicUrl: urlData.publicUrl,
+          fileSize: buffer.length,
+          mimeType,
+        },
+      });
+    },
+  );
+
   // ===== PHOTOS =====
 
   /**
    * GET /jobs/:id/photos
-   * List all photos for a job.
+   * List all photos for a job. Optional ?tag=before|after|general filter.
    */
   fastify.get(
     "/:id/photos",
@@ -1192,23 +1273,44 @@ export default async function jobRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { id } = request.params as { id: string };
       const tenantId = request.authUser.tenantId!;
+      const { tag } = request.query as { tag?: string };
       const db = getDb();
 
+      const tagFilter = tag && ["before", "after", "general"].includes(tag)
+        ? sql`AND ${jobPhotos.tag} = ${tag}::photo_tag`
+        : sql``;
+
       const data = await db
-        .select()
+        .select({
+          id: jobPhotos.id,
+          jobId: jobPhotos.jobId,
+          storagePath: jobPhotos.storagePath,
+          caption: jobPhotos.caption,
+          tag: jobPhotos.tag,
+          uploadedBy: jobPhotos.uploadedBy,
+          fileSize: jobPhotos.fileSize,
+          takenAt: jobPhotos.takenAt,
+          createdAt: jobPhotos.createdAt,
+          uploaderName: user.name,
+        })
         .from(jobPhotos)
+        .leftJoin(user, eq(jobPhotos.uploadedBy, user.id))
         .where(
           and(eq(jobPhotos.tenantId, tenantId), eq(jobPhotos.jobId, id)),
         )
         .orderBy(desc(jobPhotos.createdAt));
 
-      return reply.send({ data });
+      const filtered = tag && ["before", "after", "general"].includes(tag)
+        ? data.filter((p) => p.tag === tag)
+        : data;
+
+      return reply.send({ data: filtered });
     },
   );
 
   /**
    * POST /jobs/:id/photos
-   * Register a photo (frontend uploads to Supabase Storage, sends storagePath).
+   * Register a photo record after upload (storagePath from upload endpoint).
    */
   fastify.post(
     "/:id/photos",
@@ -1223,16 +1325,16 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       const body = request.body as {
         storagePath: string;
         caption?: string;
+        tag?: "before" | "after" | "general";
+        fileSize?: number;
         takenAt?: string;
       };
       const db = getDb();
 
-      // Validate storage path belongs to this tenant
       if (!body.storagePath.startsWith(`${tenantId}/`)) {
         return reply.status(400).send({ message: "Invalid storage path" });
       }
 
-      // Verify job exists
       const job = await db
         .select({ id: jobs.id })
         .from(jobs)
@@ -1250,6 +1352,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           jobId: id,
           storagePath: body.storagePath,
           caption: body.caption || null,
+          tag: body.tag ?? "general",
+          uploadedBy: userId,
+          fileSize: body.fileSize ?? null,
           takenAt: body.takenAt ? new Date(body.takenAt) : null,
         })
         .returning();
@@ -1258,12 +1363,64 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         tenantId,
         jobId: id,
         type: "photo.uploaded",
-        description: "Photo uploaded",
-        metadata: { photoId: photo.id },
+        description: `Photo uploaded (${photo.tag})`,
+        metadata: { photoId: photo.id, tag: photo.tag },
         performedBy: userId,
       });
 
       return reply.status(201).send({ data: photo });
+    },
+  );
+
+  /**
+   * PATCH /jobs/:id/photos/:photoId
+   * Update the tag on a photo.
+   */
+  fastify.patch(
+    "/:id/photos/:photoId",
+    {
+      preHandler: [requireTenant],
+      schema: { params: photoTagParam, body: updatePhotoTagBody },
+    },
+    async (request, reply) => {
+      const { id, photoId } = request.params as { id: string; photoId: string };
+      const tenantId = request.authUser.tenantId!;
+      const userId = request.authUser.userId;
+      const { tag } = request.body as { tag: "before" | "after" | "general" };
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: jobPhotos.id, uploadedBy: jobPhotos.uploadedBy })
+        .from(jobPhotos)
+        .where(
+          and(
+            eq(jobPhotos.tenantId, tenantId),
+            eq(jobPhotos.jobId, id),
+            eq(jobPhotos.id, photoId),
+          ),
+        )
+        .then((r) => r[0]);
+
+      if (!existing) {
+        return reply.status(404).send({ message: "Photo not found" });
+      }
+
+      const [updated] = await db
+        .update(jobPhotos)
+        .set({ tag })
+        .where(and(eq(jobPhotos.tenantId, tenantId), eq(jobPhotos.id, photoId)))
+        .returning();
+
+      await db.insert(jobActivities).values({
+        tenantId,
+        jobId: id,
+        type: "photo.updated",
+        description: `Photo tag changed to ${tag}`,
+        metadata: { photoId, tag },
+        performedBy: userId,
+      });
+
+      return reply.send({ data: updated });
     },
   );
 
@@ -1287,7 +1444,11 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       const db = getDb();
 
       const existing = await db
-        .select({ id: jobPhotos.id, storagePath: jobPhotos.storagePath })
+        .select({
+          id: jobPhotos.id,
+          storagePath: jobPhotos.storagePath,
+          uploadedBy: jobPhotos.uploadedBy,
+        })
         .from(jobPhotos)
         .where(
           and(
@@ -1330,6 +1491,174 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       });
 
       return reply.send({ message: "Photo deleted" });
+    },
+  );
+
+  // ===== DOCUMENTS =====
+
+  /**
+   * GET /jobs/:id/documents
+   * List all documents for a job.
+   */
+  fastify.get(
+    "/:id/documents",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const data = await db
+        .select({
+          id: jobDocuments.id,
+          jobId: jobDocuments.jobId,
+          fileName: jobDocuments.fileName,
+          storagePath: jobDocuments.storagePath,
+          fileSize: jobDocuments.fileSize,
+          mimeType: jobDocuments.mimeType,
+          uploadedBy: jobDocuments.uploadedBy,
+          createdAt: jobDocuments.createdAt,
+          uploaderName: user.name,
+        })
+        .from(jobDocuments)
+        .leftJoin(user, eq(jobDocuments.uploadedBy, user.id))
+        .where(
+          and(eq(jobDocuments.tenantId, tenantId), eq(jobDocuments.jobId, id)),
+        )
+        .orderBy(desc(jobDocuments.createdAt));
+
+      return reply.send({ data });
+    },
+  );
+
+  /**
+   * POST /jobs/:id/documents
+   * Register a document record after upload.
+   */
+  fastify.post(
+    "/:id/documents",
+    {
+      preHandler: [requireTenant],
+      schema: { body: addDocumentBody },
+    },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const tenantId = request.authUser.tenantId!;
+      const userId = request.authUser.userId;
+      const body = request.body as {
+        storagePath: string;
+        fileName: string;
+        fileSize?: number;
+        mimeType?: string;
+        customerId?: string;
+      };
+      const db = getDb();
+
+      if (!body.storagePath.startsWith(`${tenantId}/`)) {
+        return reply.status(400).send({ message: "Invalid storage path" });
+      }
+
+      const job = await db
+        .select({ id: jobs.id, customerId: jobs.customerId })
+        .from(jobs)
+        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
+        .then((r) => r[0]);
+
+      if (!job) {
+        return reply.status(404).send({ message: "Job not found" });
+      }
+
+      const [doc] = await db
+        .insert(jobDocuments)
+        .values({
+          tenantId,
+          jobId: id,
+          customerId: body.customerId ?? job.customerId,
+          fileName: body.fileName,
+          storagePath: body.storagePath,
+          fileSize: body.fileSize ?? null,
+          mimeType: body.mimeType ?? null,
+          uploadedBy: userId,
+        })
+        .returning();
+
+      await db.insert(jobActivities).values({
+        tenantId,
+        jobId: id,
+        type: "document.uploaded",
+        description: `Document uploaded: ${doc.fileName}`,
+        metadata: { documentId: doc.id, fileName: doc.fileName },
+        performedBy: userId,
+      });
+
+      return reply.status(201).send({ data: doc });
+    },
+  );
+
+  /**
+   * DELETE /jobs/:id/documents/:docId
+   * Delete a document from Supabase Storage + DB.
+   */
+  fastify.delete(
+    "/:id/documents/:docId",
+    {
+      preHandler: [requireTenant],
+      schema: { params: documentParam },
+    },
+    async (request, reply) => {
+      const { id, docId } = request.params as { id: string; docId: string };
+      const tenantId = request.authUser.tenantId!;
+      const userId = request.authUser.userId;
+      const db = getDb();
+
+      const existing = await db
+        .select({
+          id: jobDocuments.id,
+          storagePath: jobDocuments.storagePath,
+          fileName: jobDocuments.fileName,
+        })
+        .from(jobDocuments)
+        .where(
+          and(
+            eq(jobDocuments.tenantId, tenantId),
+            eq(jobDocuments.jobId, id),
+            eq(jobDocuments.id, docId),
+          ),
+        )
+        .then((r) => r[0]);
+
+      if (!existing) {
+        return reply.status(404).send({ message: "Document not found" });
+      }
+
+      // Delete from Supabase Storage (best-effort)
+      try {
+        const supabase = getSupabaseAdmin();
+        const pathParts = existing.storagePath.split("/");
+        const bucket = pathParts[0];
+        const filePath = pathParts.slice(1).join("/");
+        if (bucket && filePath) {
+          await supabase.storage.from(bucket).remove([filePath]);
+        }
+      } catch {
+        // best-effort
+      }
+
+      await db
+        .delete(jobDocuments)
+        .where(
+          and(eq(jobDocuments.tenantId, tenantId), eq(jobDocuments.id, docId)),
+        );
+
+      await db.insert(jobActivities).values({
+        tenantId,
+        jobId: id,
+        type: "document.deleted",
+        description: `Document deleted: ${existing.fileName}`,
+        performedBy: userId,
+      });
+
+      return reply.send({ message: "Document deleted" });
     },
   );
 

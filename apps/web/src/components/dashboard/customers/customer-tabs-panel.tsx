@@ -9,6 +9,7 @@ import { CustomerInvoicesTab } from "./customer-invoices-tab";
 import { CustomerEquipmentTab } from "./customer-equipment-tab";
 import { CustomerQuotesTab } from "./customer-quotes-tab";
 import { CustomerAgreementsTab } from "./customer-agreements-tab";
+import { CustomerPhotosTab } from "./customer-photos-tab";
 
 interface CustomerTabsPanelProps {
   customerId: string;
@@ -25,6 +26,7 @@ export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanel
         <TabsTrigger value="quotes">Quotes</TabsTrigger>
         <TabsTrigger value="equipment">Assets</TabsTrigger>
         <TabsTrigger value="agreements">Agreements</TabsTrigger>
+        <TabsTrigger value="photos">Photos</TabsTrigger>
         <TabsTrigger value="activity">Activity</TabsTrigger>
         <TabsTrigger value="notes">Notes</TabsTrigger>
       </TabsList>
@@ -46,6 +48,9 @@ export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanel
       </TabsContent>
       <TabsContent value="agreements" className="mt-4 sm:mt-5">
         <CustomerAgreementsTab customerId={customerId} />
+      </TabsContent>
+      <TabsContent value="photos" className="mt-4 sm:mt-5">
+        <CustomerPhotosTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="activity" className="mt-4 sm:mt-5">
         <CustomerActivityTab customerId={customerId} refreshKey={activityKey} />

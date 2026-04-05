@@ -379,3 +379,25 @@ export async function removeCustomerTag(customerId: string, tagId: string) {
     return { error: "Network error" };
   }
 }
+
+// ===== PHOTOS =====
+
+export async function getCustomerPhotos(customerId: string) {
+  try {
+    const res = await fetch(`${API_URL}/customers/${customerId}/photos`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to fetch photos" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+

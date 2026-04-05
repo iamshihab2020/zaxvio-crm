@@ -14,6 +14,7 @@ import { InvoiceStatusBadge } from "./invoice-status-badge";
 import { InvoiceDetailTab } from "./invoice-detail-tab";
 import { InvoiceLineItemsTab } from "./invoice-line-items-tab";
 import { InvoicePaymentsTab } from "./invoice-payments-tab";
+import { InvoicePhotosTab } from "./invoice-photos-tab";
 import {
   getInvoice,
   sendInvoice,
@@ -186,6 +187,15 @@ export function InvoiceDetailSheet({
                 />
               ),
             },
+            ...(invoice.jobId
+              ? [
+                  {
+                    value: "photos",
+                    label: "Photos",
+                    content: <InvoicePhotosTab jobId={invoice.jobId} />,
+                  },
+                ]
+              : []),
           ]
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps

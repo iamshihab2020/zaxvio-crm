@@ -31,6 +31,24 @@ Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/d
 
 ---
 
+### Job Photo & File Attachment System (2026-04-05)
+- [x] DB migration — `photo_tag` enum, new columns on `job_photos`, new `job_documents` table
+- [x] Drizzle schema updated — `jobPhotos` extended, `jobDocuments` added, relations updated
+- [x] API — upload endpoint, photo tag filter/PATCH, document CRUD, customer photo timeline
+- [x] Server actions — `uploadJobFile`, `updateJobPhotoTag`, document actions, `getCustomerPhotos`
+- [x] Upload modal with photo/doc toggle, tag selector, mobile camera support
+- [x] Photo tag pills (`PhotoTagPill` component)
+- [x] Extended `JobDetailPhotos` — tags, lightbox trigger, upload button, compare button
+- [x] Photo lightbox with keyboard navigation
+- [x] Before/After comparison view
+- [x] `JobDetailDocuments` — file list, download, delete
+- [x] Job tabs panel — "Files" tab with photos + documents sections
+- [x] Customer "Photos" tab — cross-job timeline grouped by job
+- [x] Invoice "Photos" tab — job photo selector with checkboxes
+- [ ] Create `job-attachments` Supabase Storage bucket (manual step in Supabase dashboard)
+
+---
+
 ## Backlog
 
 ### Deferred / Blocked
@@ -76,6 +94,7 @@ All 14 Phase 1 features have been implemented:
 - [x] **Jobs Kanban Board Redesign** (2026-04-04) — Full visual redesign: new pipeline-tabs, badge-forward cards, pill-style column headers, motion.div stagger, AnimatePresence cross-fade
 - [x] **Reports/Analytics Page + Frontend Migration** (2026-04-03) — 5-tab reports (revenue, jobs, customers, quotes/invoices, bookings) with Recharts, CSV export, date range picker
 - [x] **Multi-Pipeline Feature** (2026-04-03) — Multiple pipelines per tenant, pipeline CRUD, scoped Kanban/table views, settings management
+- [x] **Job Photo & File Attachment System** (2026-04-05) — Full upload UI (photo + document), tag pills (before/after/general), lightbox, before/after comparison, customer photo timeline, invoice photo selector. Vertical-agnostic — works for every trade on the platform.
 - [x] **Security Hardening** (2026-04-02) — Fixed IDOR vulnerabilities, added rate limiting, Zod validation on all inputs
 - [x] **Landing Page Redesign** (2026-04-02) — Full visual overhaul
 - [x] **Help Chatbot** (2026-04-02) — Floating chat widget, knowledge base, AI tool calling via Groq

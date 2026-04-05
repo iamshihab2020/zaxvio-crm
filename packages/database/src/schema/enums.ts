@@ -132,3 +132,5 @@ export const deliveryStatusEnum = pgEnum("delivery_status", [
   "delivered",
   "failed",
 ]);
+
+export const photoTagEnum = pgEnum("photo_tag", ["before", "after", "general"]);

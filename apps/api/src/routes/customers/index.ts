@@ -11,6 +11,8 @@ import {
   customerActivities,
   customerTags,
   tags,
+  jobPhotos,
+  jobs,
   user,
   eq,
   and,
@@ -702,6 +704,62 @@ export default async function customerRoutes(fastify: FastifyInstance) {
         );
 
       return reply.send({ message: "Tag removed" });
+    },
+  );
+
+  // ===== PHOTOS =====
+
+  /**
+   * GET /customers/:id/photos
+   * All photos across all jobs for a customer, newest first.
+   * Groups photos with their job title and scheduled_date for the timeline.
+   */
+  fastify.get(
+    "/:id/photos",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const customer = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+        .then((r) => r[0]);
+
+      if (!customer) {
+        return reply.status(404).send({ message: "Customer not found" });
+      }
+
+      const data = await db
+        .select({
+          id: jobPhotos.id,
+          jobId: jobPhotos.jobId,
+          storagePath: jobPhotos.storagePath,
+          caption: jobPhotos.caption,
+          tag: jobPhotos.tag,
+          uploadedBy: jobPhotos.uploadedBy,
+          fileSize: jobPhotos.fileSize,
+          takenAt: jobPhotos.takenAt,
+          createdAt: jobPhotos.createdAt,
+          uploaderName: user.name,
+          jobTitle: jobs.title,
+          jobScheduledDate: jobs.scheduledDate,
+          jobNumber: jobs.jobNumber,
+        })
+        .from(jobPhotos)
+        .innerJoin(jobs, eq(jobPhotos.jobId, jobs.id))
+        .leftJoin(user, eq(jobPhotos.uploadedBy, user.id))
+        .where(
+          and(
+            eq(jobPhotos.tenantId, tenantId),
+            eq(jobs.customerId, id),
+          ),
+        )
+        .orderBy(desc(jobPhotos.createdAt));
+
+      return reply.send({ data });
     },
   );
 }

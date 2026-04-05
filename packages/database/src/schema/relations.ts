@@ -19,7 +19,7 @@ import { catalogItems } from "./catalog";
 import { equipment, refrigerantLogs } from "./equipment";
 import { maintenanceContracts } from "./maintenance";
 import { bookings } from "./bookings";
-import { jobs, jobLineItems, jobPhotos } from "./jobs";
+import { jobs, jobLineItems, jobPhotos, jobDocuments } from "./jobs";
 import { invoices, invoiceLineItems, invoicePayments } from "./invoices";
 import { quotes, quoteLineItems } from "./quotes";
 import { availabilitySchedules, scheduleOverrides } from "./schedule";
@@ -116,6 +116,7 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   calendarEvents: many(calendarEvents),
   notifications: many(notifications),
   notificationChannelConfigs: many(notificationChannelConfig),
+  jobDocuments: many(jobDocuments),
 }));
 
 // --- Subscription relations ---
@@ -252,6 +253,7 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   }),
   lineItems: many(jobLineItems),
   photos: many(jobPhotos),
+  documents: many(jobDocuments),
   checklistCompletions: many(jobChecklistCompletions),
   invoices: many(invoices),
   refrigerantLogs: many(refrigerantLogs),
@@ -281,6 +283,25 @@ export const jobPhotosRelations = relations(jobPhotos, ({ one }) => ({
   job: one(jobs, {
     fields: [jobPhotos.jobId],
     references: [jobs.id],
+  }),
+  uploader: one(user, {
+    fields: [jobPhotos.uploadedBy],
+    references: [user.id],
+  }),
+}));
+
+export const jobDocumentsRelations = relations(jobDocuments, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [jobDocuments.tenantId],
+    references: [tenants.id],
+  }),
+  job: one(jobs, {
+    fields: [jobDocuments.jobId],
+    references: [jobs.id],
+  }),
+  uploader: one(user, {
+    fields: [jobDocuments.uploadedBy],
+    references: [user.id],
   }),
 }));
 

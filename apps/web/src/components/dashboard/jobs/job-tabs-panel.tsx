@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { JobDetailLineItems } from "./job-detail-line-items";
 import { JobDetailChecklist } from "./job-detail-checklist";
 import { JobDetailPhotos } from "./job-detail-photos";
+import { JobDetailDocuments } from "./job-detail-documents";
 import { JobDetailActivities } from "./job-detail-activities";
 import type { JobDetail } from "./job-detail-sheet";
 
@@ -14,7 +15,7 @@ interface JobTabsPanelProps {
 }
 
 export function JobTabsPanel({ job, onUpdate }: JobTabsPanelProps) {
-  const [activeTab, setActiveTab] = useState("line-items");
+  const [activeTab, setActiveTab] = useState<string>("line-items");
 
   return (
     <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -32,10 +33,10 @@ export function JobTabsPanel({ job, onUpdate }: JobTabsPanelProps) {
           Checklist ({job.checklist.length})
         </TabsTrigger>
         <TabsTrigger
-          value="photos"
+          value="files"
           className="cursor-pointer data-[state=active]:border-b-2 data-[state=active]:border-brand rounded-none"
         >
-          Photos ({job.photoCount})
+          Files ({job.photoCount})
         </TabsTrigger>
         <TabsTrigger
           value="activity"
@@ -60,8 +61,13 @@ export function JobTabsPanel({ job, onUpdate }: JobTabsPanelProps) {
             onUpdate={onUpdate}
           />
         </TabsContent>
-        <TabsContent value="photos" className="mt-0">
-          <JobDetailPhotos jobId={job.id} />
+        <TabsContent value="files" className="mt-0">
+          <div className="space-y-6">
+            <JobDetailPhotos jobId={job.id} customerId={job.customerId} />
+            <div className="border-t border-border pt-4">
+              <JobDetailDocuments jobId={job.id} customerId={job.customerId} />
+            </div>
+          </div>
         </TabsContent>
         <TabsContent value="activity" className="mt-0">
           <JobDetailActivities jobId={job.id} />

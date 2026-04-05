@@ -27,6 +27,7 @@ import { JobDetailInfo } from "./job-detail-info";
 import { JobDetailLineItems } from "./job-detail-line-items";
 import { JobDetailChecklist } from "./job-detail-checklist";
 import { JobDetailPhotos } from "./job-detail-photos";
+import { JobDetailDocuments } from "./job-detail-documents";
 import { JobDetailActivities } from "./job-detail-activities";
 import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
 
@@ -226,10 +227,17 @@ export function JobDetailSheet({
               ),
             },
             {
-              value: "photos",
-              label: "Photos",
+              value: "files",
+              label: "Files",
               count: job.photoCount,
-              content: <JobDetailPhotos jobId={job.id} />,
+              content: (
+                <div className="space-y-6">
+                  <JobDetailPhotos jobId={job.id} customerId={job.customerId} />
+                  <div className="border-t border-border pt-4">
+                    <JobDetailDocuments jobId={job.id} customerId={job.customerId} />
+                  </div>
+                </div>
+              ),
             },
             {
               value: "activity",
