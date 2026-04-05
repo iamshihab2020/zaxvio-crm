@@ -30,6 +30,14 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import {
+  adminIdParam,
+  listTenantsQuery,
+  extendTrialBody,
+  overrideSubscriptionBody,
+  patchTenantBody,
+  deleteTenantBody,
+} from "../../lib/schemas/admin.js";
 
 export default async function adminTenantRoutes(fastify: FastifyInstance) {
   /**
@@ -38,20 +46,16 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/",
-    { preHandler: [requireAdmin] },
+    {
+      preHandler: [requireAdmin],
+      schema: { querystring: listTenantsQuery },
+    },
     async (request, reply) => {
-      const {
-        search = "",
-        page = "1",
-        limit = "20",
-        status,
-        sortBy = "createdAt",
-        sortOrder = "desc",
-      } = request.query as Record<string, string>;
+      const { search, page, limit, status, sortBy, sortOrder } = request.query;
 
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const conditions = [];
@@ -135,9 +139,12 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireAdmin] },
+    {
+      preHandler: [requireAdmin],
+      schema: { params: adminIdParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       const tenant = await db
@@ -206,9 +213,12 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/deactivate",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { params: adminIdParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       await db
@@ -233,9 +243,12 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/activate",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { params: adminIdParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       await db
@@ -264,14 +277,11 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
       preHandler: [
         requireAdminTier(["super_admin", "support"]),
       ],
+      schema: { params: adminIdParam, body: extendTrialBody },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { days } = request.body as { days: number };
-
-      if (!days || days < 1 || days > 365) {
-        return reply.status(400).send({ message: "days must be between 1 and 365" });
-      }
+      const { id } = request.params;
+      const { days } = request.body;
 
       const db = getDb();
       const tenant = await db
@@ -314,13 +324,11 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
       preHandler: [
         requireAdminTier(["super_admin", "billing_admin"]),
       ],
+      schema: { params: adminIdParam, body: overrideSubscriptionBody },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { status: newStatus, planName } = request.body as {
-        status?: string;
-        planName?: string;
-      };
+      const { id } = request.params;
+      const { status: newStatus, planName } = request.body;
 
       const db = getDb();
       const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -350,10 +358,13 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { params: adminIdParam, body: patchTenantBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const body = request.body as Record<string, unknown>;
+      const { id } = request.params;
+      const body = request.body;
       const db = getDb();
 
       // Only allow specific fields
@@ -367,7 +378,7 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
         "city",
         "state",
         "zipCode",
-      ];
+      ] as const;
       const updates: Record<string, unknown> = { updatedAt: new Date() };
       for (const field of allowedFields) {
         if (body[field] !== undefined) {
@@ -395,12 +406,13 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { params: adminIdParam, body: deleteTenantBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { confirmBusinessName } = request.body as {
-        confirmBusinessName: string;
-      };
+      const { id } = request.params;
+      const { confirmBusinessName } = request.body;
 
       const db = getDb();
       const tenant = await db
@@ -439,9 +451,12 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/analytics",
-    { preHandler: [requireAdmin] },
+    {
+      preHandler: [requireAdmin],
+      schema: { params: adminIdParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
       const tid = id;
 

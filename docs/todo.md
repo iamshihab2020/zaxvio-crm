@@ -66,6 +66,8 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **Zod Schema Migration** (2026-04-05) — Added Zod schemas to all ~178 API route handlers across 17 domains. Created 16 schema files in `apps/api/src/lib/schemas/`. Removed all `request.body as Record<string, unknown>` casts. Updated CLAUDE.md with mandatory Zod rules.
+
 ### Phase 1 Features (Build Order)
 
 All 14 Phase 1 features have been implemented:

@@ -1,6 +1,11 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
+  idParam,
+  updateAvailabilityBody,
+  createScheduleOverrideBody,
+} from "../../lib/schemas/availability.js";
+import {
   getDb,
   availabilitySchedules,
   scheduleOverrides,
@@ -81,39 +86,18 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
    */
   fastify.put(
     "/",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { body: updateAvailabilityBody } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as {
-        schedule: Array<{
-          dayOfWeek: number;
-          startTime: string;
-          endTime: string;
-          isActive: boolean;
-        }>;
-      };
+      const { schedule } = request.body;
 
-      const { schedule } = body;
-
-      // Validate: exactly 7 items
-      if (!Array.isArray(schedule) || schedule.length !== 7) {
-        return reply.status(400).send({ message: "Schedule must have exactly 7 entries (one per day)" });
-      }
-
-      // Validate each entry
+      // Business logic: no duplicate days, and active entries must have startTime < endTime
       const seenDays = new Set<number>();
       for (const entry of schedule) {
-        if (typeof entry.dayOfWeek !== "number" || entry.dayOfWeek < 0 || entry.dayOfWeek > 6) {
-          return reply.status(400).send({ message: `Invalid dayOfWeek: ${entry.dayOfWeek}. Must be 0-6.` });
-        }
         if (seenDays.has(entry.dayOfWeek)) {
           return reply.status(400).send({ message: `Duplicate dayOfWeek: ${entry.dayOfWeek}` });
         }
         seenDays.add(entry.dayOfWeek);
-
-        if (!/^\d{2}:\d{2}$/.test(entry.startTime) || !/^\d{2}:\d{2}$/.test(entry.endTime)) {
-          return reply.status(400).send({ message: `Invalid time format for day ${entry.dayOfWeek}. Expected HH:MM.` });
-        }
 
         if (entry.isActive && entry.startTime >= entry.endTime) {
           return reply.status(400).send({ message: `startTime must be before endTime for day ${entry.dayOfWeek}` });
@@ -157,21 +141,10 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/overrides",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { body: createScheduleOverrideBody } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as {
-        overrideDate: string;
-        isAvailable: boolean;
-        startTime?: string;
-        endTime?: string;
-        reason?: string;
-      };
-
-      // Validate date format
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(body.overrideDate)) {
-        return reply.status(400).send({ message: "Invalid date format. Expected YYYY-MM-DD." });
-      }
+      const body = request.body;
 
       // Validate date is not in the past
       const today = getTenantToday("America/Chicago");
@@ -230,10 +203,10 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/overrides/:id",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       const existing = await db

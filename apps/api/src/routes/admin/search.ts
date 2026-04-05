@@ -9,6 +9,7 @@ import {
   ilike,
 } from "@hvac-saas/database";
 import { getPlanPrice } from "../../lib/plan-prices.js";
+import { adminSearchQuery } from "../../lib/schemas/admin.js";
 
 export default async function adminSearchRoutes(fastify: FastifyInstance) {
   /**
@@ -21,16 +22,17 @@ export default async function adminSearchRoutes(fastify: FastifyInstance) {
       preHandler: [
         requireAdminTier(["super_admin", "support"]),
       ],
+      schema: { querystring: adminSearchQuery },
     },
     async (request, reply) => {
-      const { q = "", limit = "20" } = request.query as Record<string, string>;
+      const { q, limit } = request.query;
 
       if (!q || q.length < 2) {
         return reply.send({ data: { tenants: [] } });
       }
 
       const db = getDb();
-      const limitNum = Math.min(50, parseInt(limit, 10) || 20);
+      const limitNum = limit;
 
       const tenantResults = await db
         .select({

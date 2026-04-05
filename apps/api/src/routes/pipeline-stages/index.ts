@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -11,6 +12,13 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import {
+  idParam,
+  pipelineStagesQuery,
+  createPipelineStageBody,
+  reorderPipelineStagesBody,
+  updatePipelineStageBody,
+} from "../../lib/schemas/pipelines.js";
 
 const DEFAULT_STAGES = [
   { name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
@@ -95,18 +103,23 @@ async function ensureDefaultStages(
 export { DEFAULT_STAGES, getOrCreateDefaultPipeline, ensureDefaultStages };
 
 export default async function pipelineStagesRoutes(fastify: FastifyInstance) {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
   /**
    * GET /pipeline-stages
    * List stages sorted by sort_order. Auto-seeds defaults if empty.
    * Accepts optional ?pipelineId= query param (defaults to default pipeline).
    * Includes jobCount per stage.
    */
-  fastify.get(
+  f.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: pipelineStagesQuery },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { pipelineId: queryPipelineId } = request.query as { pipelineId?: string };
+      const { pipelineId: queryPipelineId } = request.query;
       const db = getDb();
 
       // Resolve pipeline
@@ -150,21 +163,16 @@ export default async function pipelineStagesRoutes(fastify: FastifyInstance) {
    * Create a new stage. Auto-assigns next sortOrder.
    * Requires pipelineId in body.
    */
-  fastify.post(
+  f.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createPipelineStageBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as { label: string; color?: string; pipelineId: string };
+      const body = request.body;
       const db = getDb();
-
-      if (!body.label?.trim()) {
-        return reply.status(400).send({ message: "label is required" });
-      }
-
-      if (!body.pipelineId) {
-        return reply.status(400).send({ message: "pipelineId is required" });
-      }
 
       // Validate pipeline belongs to tenant
       const pipeline = await db
@@ -232,28 +240,27 @@ export default async function pipelineStagesRoutes(fastify: FastifyInstance) {
    * PATCH /pipeline-stages/reorder
    * Bulk update sortOrder. Body: { order: [stageId, stageId, ...] }
    */
-  fastify.patch(
+  f.patch(
     "/reorder",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: reorderPipelineStagesBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as { order: string[] };
+      const { order } = request.body;
       const db = getDb();
-
-      if (!Array.isArray(body.order) || body.order.length === 0) {
-        return reply.status(400).send({ message: "order array is required" });
-      }
 
       // Update each stage's sortOrder in a single transaction
       await db.transaction(async (tx) => {
-        for (let i = 0; i < body.order.length; i++) {
+        for (let i = 0; i < order.length; i++) {
           await tx
             .update(jobPipelineStages)
             .set({ sortOrder: i, updatedAt: new Date() })
             .where(
               and(
                 eq(jobPipelineStages.tenantId, tenantId),
-                eq(jobPipelineStages.id, body.order[i]),
+                eq(jobPipelineStages.id, order[i]),
               ),
             );
         }
@@ -267,13 +274,16 @@ export default async function pipelineStagesRoutes(fastify: FastifyInstance) {
    * PATCH /pipeline-stages/:id
    * Update label, color. If name changes, also update jobs.status within the pipeline.
    */
-  fastify.patch(
+  f.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updatePipelineStageBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as { label?: string; color?: string };
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -353,11 +363,14 @@ export default async function pipelineStagesRoutes(fastify: FastifyInstance) {
    * DELETE /pipeline-stages/:id
    * Reject if jobs exist in this stage within the pipeline. Require at least 1 stage remaining.
    */
-  fastify.delete(
+  f.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -11,6 +12,11 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import {
+  idParam,
+  createPipelineBody,
+  updatePipelineBody,
+} from "../../lib/schemas/pipelines.js";
 
 function slugify(text: string): string {
   return text
@@ -21,11 +27,13 @@ function slugify(text: string): string {
 }
 
 export default async function pipelineRoutes(fastify: FastifyInstance) {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
   /**
    * GET /pipelines
    * List all pipelines for the tenant with stageCount and jobCount.
    */
-  fastify.get(
+  f.get(
     "/",
     { preHandler: [requireTenant] },
     async (request, reply) => {
@@ -62,22 +70,16 @@ export default async function pipelineRoutes(fastify: FastifyInstance) {
    * POST /pipelines
    * Create a new pipeline. Optionally seed default stages.
    */
-  fastify.post(
+  f.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createPipelineBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as {
-        label: string;
-        isDefault?: boolean;
-        seedDefaultStages?: boolean;
-        copyFromPipelineId?: string;
-      };
+      const body = request.body;
       const db = getDb();
-
-      if (!body.label?.trim()) {
-        return reply.status(400).send({ message: "label is required" });
-      }
 
       const name = slugify(body.label);
       if (!name) {
@@ -203,13 +205,16 @@ export default async function pipelineRoutes(fastify: FastifyInstance) {
    * PATCH /pipelines/:id
    * Update pipeline label and/or isDefault.
    */
-  fastify.patch(
+  f.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updatePipelineBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as { label?: string; isDefault?: boolean };
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -307,11 +312,14 @@ export default async function pipelineRoutes(fastify: FastifyInstance) {
    * DELETE /pipelines/:id
    * Blocked if jobs exist, if it's the only pipeline, or if it's the default.
    */
-  fastify.delete(
+  f.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 

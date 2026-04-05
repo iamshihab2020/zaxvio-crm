@@ -146,6 +146,15 @@ Non-obvious insights, patterns, and mistakes worth remembering.
 - **EditableField state is local, not synced to parent** — `EditableText`, `EditableSelect` etc. manage their own `draft` state. If the parent re-fetches data after a save, the editable field doesn't re-sync unless the `value` prop changes. Two tabs editing the same field can show stale drafts.
 - **`docs/design.md` is the frontend source of truth** — Extracted from CLAUDE.md (2026-04-04) to reduce CLAUDE.md size. All frontend patterns, component APIs, layout rules, and performance rules live there. Update `docs/design.md` when changing frontend conventions.
 
+## Zod Schema Migration (2026-04-05)
+
+- **`fastify-type-provider-zod` needs `withTypeProvider<ZodTypeProvider>()` per-plugin for TypeScript inference** — The compiler is set globally in `server.ts`, but each route plugin receives an untyped `FastifyInstance`. To get full type inference on `request.body`/`request.params`/`request.query`, do `const f = fastify.withTypeProvider<ZodTypeProvider>()` inside the plugin and register all routes on `f` instead of `fastify`. Without this, the schema validates at runtime but TypeScript doesn't narrow the types.
+- **Zod `z.coerce.number()` is required for all querystring numeric params** — HTTP query strings always arrive as strings (e.g., `page="1"`). Plain `z.number()` will fail validation. Use `z.coerce.number().int().min(1).default(1)` for pagination params.
+- **Keep post-catalog-lookup validation guards** — For line item routes that auto-fill `description`/`unitPrice`/`itemType` from a catalog item, the Zod schema marks those fields as optional. The `if (!description || !unitPrice || !itemType)` check AFTER the catalog lookup must stay — it's business logic, not input validation.
+- **Drizzle enum column casts (`as never`) are safe to keep** — Passing a Zod-typed enum string to Drizzle still requires `as never` for some pgEnum columns. This is a Drizzle type limitation, not an unsafe cast on user input. It's expected and harmless.
+- **Override `limit` per-endpoint when bulk loading is needed** — `paginationQuery` caps `limit` at 100 (good for list pages), but Kanban boards need to bulk-load all pipeline jobs at once (e.g., `limit=150`). Override `limit` in the domain-specific query schema: `jobListQuery` extends `paginationQuery` and sets `.max(500)`. Never raise the global `paginationQuery` max — raise it only where the use case requires it.
+- **Schema files belong to one domain** — `apps/api/src/lib/schemas/<domain>.ts` is the standard location. Maintenance contracts went into `equipment.ts` (same asset domain). Pipeline stages went into `pipelines.ts`. Co-location by domain beats file-per-table.
+
 ## File Uploads (2026-04-05)
 
 - **Use base64 JSON transport for file uploads through Fastify** — The codebase has no multipart middleware (`@fastify/multipart`). Logo upload already uses base64 JSON. Follow the same pattern: client reads `File` → `arrayBuffer()` → `Buffer.from(...).toString("base64")` → sends JSON `{ data, filename, mimeType }`. Don't install multipart for one feature.

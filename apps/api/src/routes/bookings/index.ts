@@ -3,6 +3,12 @@ import { requireTenant } from "../../lib/auth-middleware.js";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import {
+  idParam,
+  bookingListQuery,
+  updateBookingBody,
+  convertBookingBody,
+} from "../../lib/schemas/bookings.js";
+import {
   getDb,
   bookings,
   jobs,
@@ -32,22 +38,13 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { querystring: bookingListQuery } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const query = request.query as {
-        status?: string;
-        dateFrom?: string;
-        dateTo?: string;
-        search?: string;
-        page?: string;
-        limit?: string;
-        sortBy?: string;
-        sortOrder?: string;
-      };
+      const query = request.query;
 
-      const page = Math.max(1, parseInt(query.page ?? "1", 10));
-      const limit = Math.min(100, Math.max(1, parseInt(query.limit ?? "20", 10)));
+      const page = query.page;
+      const limit = query.limit;
       const offset = (page - 1) * limit;
 
       const db = getDb();
@@ -81,6 +78,7 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       // Determine sort
       const sortBy = query.sortBy === "createdAt" ? bookings.createdAt : bookings.bookingDate;
       const sortOrder = query.sortOrder === "asc" ? asc(sortBy) : desc(sortBy);
+
 
       const [rawData, totalResult] = await Promise.all([
         db
@@ -182,10 +180,10 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       const booking = await db
@@ -209,11 +207,11 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam, body: updateBookingBody } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { id } = request.params as { id: string };
-      const body = request.body as Record<string, unknown>;
+      const { id } = request.params;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -263,12 +261,12 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/convert-to-job",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam, body: convertBookingBody } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const { id } = request.params as { id: string };
-      const body = (request.body as { pipelineStageId?: string } | null) ?? {};
+      const { id } = request.params;
+      const body = request.body ?? {};
       const db = getDb();
 
       // 1. Fetch booking
@@ -451,10 +449,10 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       const existing = await db

@@ -17,17 +17,13 @@ import {
   gte,
   sql,
 } from "@hvac-saas/database";
-
-const VALID_FREQUENCIES = [
-  "weekly",
-  "biweekly",
-  "monthly",
-  "quarterly",
-  "semi_annual",
-  "annual",
-] as const;
-
-type Frequency = (typeof VALID_FREQUENCIES)[number];
+import {
+  idParam,
+  maintenanceContractListQuery,
+  expiringContractsQuery,
+  createMaintenanceContractBody,
+  updateMaintenanceContractBody,
+} from "../../lib/schemas/equipment.js";
 
 export default async function maintenanceContractRoutes(
   fastify: FastifyInstance,
@@ -38,23 +34,26 @@ export default async function maintenanceContractRoutes(
    */
   fastify.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: maintenanceContractListQuery },
+    },
     async (request, reply) => {
       const {
         search = "",
-        page = "1",
-        limit = "20",
+        page,
+        limit,
         customerId,
         equipmentId,
         isActive,
-        sortBy = "createdAt",
-        sortOrder = "desc",
-      } = request.query as Record<string, string>;
+        sortBy,
+        sortOrder,
+      } = request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const filters = [eq(maintenanceContracts.tenantId, tenantId)];
@@ -67,9 +66,9 @@ export default async function maintenanceContractRoutes(
         filters.push(eq(maintenanceContracts.equipmentId, equipmentId));
       }
 
-      if (isActive === "true") {
+      if (isActive === true) {
         filters.push(eq(maintenanceContracts.isActive, true));
-      } else if (isActive === "false") {
+      } else if (isActive === false) {
         filters.push(eq(maintenanceContracts.isActive, false));
       }
 
@@ -91,9 +90,7 @@ export default async function maintenanceContractRoutes(
         endDate: maintenanceContracts.endDate,
         annualPrice: maintenanceContracts.annualPrice,
       } as const;
-      const sortCol =
-        sortColumnMap[sortBy as keyof typeof sortColumnMap] ??
-        maintenanceContracts.createdAt;
+      const sortCol = sortColumnMap[sortBy] ?? maintenanceContracts.createdAt;
       const orderFn = sortOrder === "asc" ? asc : desc;
 
       const [data, totalResult] = await Promise.all([
@@ -157,16 +154,18 @@ export default async function maintenanceContractRoutes(
    */
   fastify.get(
     "/expiring",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: expiringContractsQuery },
+    },
     async (request, reply) => {
-      const { days = "30" } = request.query as Record<string, string>;
+      const { days } = request.query;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
-      const daysNum = Math.max(1, parseInt(days, 10) || 30);
 
       const today = new Date().toISOString().split("T")[0];
       const futureDate = new Date(
-        Date.now() + daysNum * 24 * 60 * 60 * 1000,
+        Date.now() + days * 24 * 60 * 60 * 1000,
       )
         .toISOString()
         .split("T")[0];
@@ -207,9 +206,12 @@ export default async function maintenanceContractRoutes(
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -268,30 +270,14 @@ export default async function maintenanceContractRoutes(
    */
   fastify.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createMaintenanceContractBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
-
-      if (!body.customerId || typeof body.customerId !== "string") {
-        return reply.status(400).send({ message: "customerId is required" });
-      }
-      if (
-        !body.contractName ||
-        typeof body.contractName !== "string" ||
-        !body.contractName.trim()
-      ) {
-        return reply
-          .status(400)
-          .send({ message: "contractName is required" });
-      }
-      if (!body.startDate || typeof body.startDate !== "string") {
-        return reply.status(400).send({ message: "startDate is required" });
-      }
-      if (!body.endDate || typeof body.endDate !== "string") {
-        return reply.status(400).send({ message: "endDate is required" });
-      }
+      const body = request.body;
 
       const db = getDb();
 
@@ -302,7 +288,7 @@ export default async function maintenanceContractRoutes(
         .where(
           and(
             eq(customers.tenantId, tenantId),
-            eq(customers.id, body.customerId as string),
+            eq(customers.id, body.customerId),
           ),
         )
         .then((r) => r[0]);
@@ -319,7 +305,7 @@ export default async function maintenanceContractRoutes(
           .where(
             and(
               eq(equipment.tenantId, tenantId),
-              eq(equipment.id, body.equipmentId as string),
+              eq(equipment.id, body.equipmentId),
             ),
           )
           .then((r) => r[0]);
@@ -329,47 +315,28 @@ export default async function maintenanceContractRoutes(
         }
       }
 
-      // Validate frequency
-      let frequency: Frequency | undefined;
-      if (body.frequency) {
-        if (
-          !VALID_FREQUENCIES.includes(body.frequency as Frequency)
-        ) {
-          return reply.status(400).send({
-            message: `frequency must be one of: ${VALID_FREQUENCIES.join(", ")}`,
-          });
-        }
-        frequency = body.frequency as Frequency;
-      }
-
       const [item] = await db
         .insert(maintenanceContracts)
         .values({
           tenantId,
-          customerId: body.customerId as string,
-          equipmentId: body.equipmentId
-            ? (body.equipmentId as string)
-            : null,
-          contractName: (body.contractName as string).trim(),
-          startDate: body.startDate as string,
-          endDate: body.endDate as string,
-          frequency: frequency ?? "annual",
-          visitsPerYear: body.visitsPerYear
-            ? parseInt(String(body.visitsPerYear), 10)
-            : 2,
-          annualPrice: body.annualPrice
-            ? String(parseFloat(String(body.annualPrice)))
-            : null,
-          notes: body.notes ? (body.notes as string).trim() : null,
+          customerId: body.customerId,
+          equipmentId: body.equipmentId ?? null,
+          contractName: body.contractName,
+          startDate: body.startDate,
+          endDate: body.endDate,
+          frequency: body.frequency,
+          visitsPerYear: body.visitsPerYear,
+          annualPrice: body.annualPrice != null ? String(body.annualPrice) : null,
+          notes: body.notes ?? null,
         })
         .returning();
 
       // Log activity
       await db.insert(customerActivities).values({
         tenantId,
-        customerId: body.customerId as string,
+        customerId: body.customerId,
         type: "agreement.created",
-        description: `Service agreement created: ${(body.contractName as string).trim()}`,
+        description: `Service agreement created: ${body.contractName}`,
         performedBy: userId,
       });
 
@@ -383,12 +350,15 @@ export default async function maintenanceContractRoutes(
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateMaintenanceContractBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -412,31 +382,22 @@ export default async function maintenanceContractRoutes(
       const changedFields: string[] = [];
 
       if (body.contractName !== undefined) {
-        const val = (body.contractName as string).trim();
-        if (val !== existing.contractName) {
-          updates.contractName = val;
+        if (body.contractName !== existing.contractName) {
+          updates.contractName = body.contractName;
           changedFields.push("contractName");
         }
       }
 
       for (const field of ["startDate", "endDate"] as const) {
         if (body[field] !== undefined) {
-          const val = body[field] as string;
-          if (val !== existing[field]) {
-            updates[field] = val;
+          if (body[field] !== existing[field]) {
+            updates[field] = body[field];
             changedFields.push(field);
           }
         }
       }
 
       if (body.frequency !== undefined) {
-        if (
-          !VALID_FREQUENCIES.includes(body.frequency as Frequency)
-        ) {
-          return reply.status(400).send({
-            message: `frequency must be one of: ${VALID_FREQUENCIES.join(", ")}`,
-          });
-        }
         if (body.frequency !== existing.frequency) {
           updates.frequency = body.frequency;
           changedFields.push("frequency");
@@ -444,17 +405,14 @@ export default async function maintenanceContractRoutes(
       }
 
       if (body.visitsPerYear !== undefined) {
-        const val = parseInt(String(body.visitsPerYear), 10);
-        if (val !== existing.visitsPerYear) {
-          updates.visitsPerYear = val;
+        if (body.visitsPerYear !== existing.visitsPerYear) {
+          updates.visitsPerYear = body.visitsPerYear;
           changedFields.push("visitsPerYear");
         }
       }
 
       if (body.annualPrice !== undefined) {
-        const val = body.annualPrice
-          ? String(parseFloat(String(body.annualPrice)))
-          : null;
+        const val = body.annualPrice != null ? String(body.annualPrice) : null;
         if (val !== existing.annualPrice) {
           updates.annualPrice = val;
           changedFields.push("annualPrice");
@@ -462,7 +420,7 @@ export default async function maintenanceContractRoutes(
       }
 
       if (body.equipmentId !== undefined) {
-        const val = body.equipmentId ? (body.equipmentId as string) : null;
+        const val = body.equipmentId ?? null;
         if (val !== existing.equipmentId) {
           updates.equipmentId = val;
           changedFields.push("equipmentId");
@@ -470,15 +428,14 @@ export default async function maintenanceContractRoutes(
       }
 
       if (body.isActive !== undefined) {
-        const val = Boolean(body.isActive);
-        if (val !== existing.isActive) {
-          updates.isActive = val;
+        if (body.isActive !== existing.isActive) {
+          updates.isActive = body.isActive;
           changedFields.push("isActive");
         }
       }
 
       if (body.notes !== undefined) {
-        const val = body.notes ? (body.notes as string).trim() : null;
+        const val = body.notes ?? null;
         if (val !== existing.notes) {
           updates.notes = val;
           changedFields.push("notes");
@@ -522,9 +479,12 @@ export default async function maintenanceContractRoutes(
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();

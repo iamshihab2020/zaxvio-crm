@@ -12,6 +12,15 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import {
+  idParam,
+  checklistItemParams,
+  checklistListQuery,
+  createChecklistTemplateBody,
+  updateChecklistTemplateBody,
+  addChecklistItemBody,
+  updateChecklistItemBody,
+} from "../../lib/schemas/checklists.js";
 
 export default async function checklistRoutes(fastify: FastifyInstance) {
   /**
@@ -20,18 +29,18 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: checklistListQuery },
+    },
     async (request, reply) => {
-      const { serviceType, showInactive } = request.query as Record<
-        string,
-        string | undefined
-      >;
+      const { serviceType, showInactive } = request.query;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
       const filters = [eq(checklistTemplates.tenantId, tenantId)];
 
-      if (showInactive !== "true") {
+      if (!showInactive) {
         filters.push(eq(checklistTemplates.isActive, true));
       }
 
@@ -70,9 +79,12 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -126,17 +138,13 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createChecklistTemplateBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
-
-      if (!body.name || !(body.name as string).trim()) {
-        return reply.status(400).send({ message: "name is required" });
-      }
-      if (!body.serviceType) {
-        return reply.status(400).send({ message: "serviceType is required" });
-      }
+      const body = request.body;
 
       const db = getDb();
 
@@ -144,28 +152,20 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
         .insert(checklistTemplates)
         .values({
           tenantId,
-          name: (body.name as string).trim(),
+          name: body.name,
           serviceType: body.serviceType as never,
-          isActive: body.isActive !== false,
+          isActive: body.isActive,
         })
         .returning();
 
-      // Insert items if provided
-      const bodyItems = body.items as Array<{
-        label: string;
-        isRequired?: boolean;
-        catalogItemId?: string | null;
-        sortOrder?: number;
-      }> | undefined;
-
-      if (bodyItems && bodyItems.length > 0) {
+      if (body.items && body.items.length > 0) {
         await db.insert(checklistItems).values(
-          bodyItems.map((item, idx) => ({
+          body.items.map((item, idx) => ({
             tenantId,
             templateId: template.id,
-            label: item.label.trim(),
+            label: item.label,
             isRequired: item.isRequired ?? true,
-            catalogItemId: item.catalogItemId || null,
+            catalogItemId: item.catalogItemId ?? null,
             sortOrder: item.sortOrder ?? idx,
           })),
         );
@@ -193,11 +193,14 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateChecklistTemplateBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -216,9 +219,9 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
       }
 
       const updates: Record<string, unknown> = {};
-      if (body.name !== undefined) updates.name = (body.name as string).trim();
+      if (body.name !== undefined) updates.name = body.name;
       if (body.serviceType !== undefined) updates.serviceType = body.serviceType;
-      if (body.isActive !== undefined) updates.isActive = Boolean(body.isActive);
+      if (body.isActive !== undefined) updates.isActive = body.isActive;
 
       if (Object.keys(updates).length === 0) {
         return reply.status(400).send({ message: "No fields to update" });
@@ -245,9 +248,12 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -287,11 +293,14 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/items",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: addChecklistItemBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       // Verify template exists
@@ -310,19 +319,15 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: "Checklist template not found" });
       }
 
-      if (!body.label || !(body.label as string).trim()) {
-        return reply.status(400).send({ message: "label is required" });
-      }
-
       const [item] = await db
         .insert(checklistItems)
         .values({
           tenantId,
           templateId: id,
-          label: (body.label as string).trim(),
-          isRequired: body.isRequired !== false,
-          catalogItemId: (body.catalogItemId as string) || null,
-          sortOrder: (body.sortOrder as number) ?? 0,
+          label: body.label,
+          isRequired: body.isRequired ?? true,
+          catalogItemId: body.catalogItemId ?? null,
+          sortOrder: body.sortOrder ?? 0,
         })
         .returning();
 
@@ -336,14 +341,14 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id/items/:itemId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: checklistItemParams, body: updateChecklistItemBody },
+    },
     async (request, reply) => {
-      const { id, itemId } = request.params as {
-        id: string;
-        itemId: string;
-      };
+      const { id, itemId } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -363,9 +368,9 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
       }
 
       const updates: Record<string, unknown> = {};
-      if (body.label !== undefined) updates.label = (body.label as string).trim();
-      if (body.isRequired !== undefined) updates.isRequired = Boolean(body.isRequired);
-      if (body.catalogItemId !== undefined) updates.catalogItemId = (body.catalogItemId as string) || null;
+      if (body.label !== undefined) updates.label = body.label;
+      if (body.isRequired !== undefined) updates.isRequired = body.isRequired;
+      if (body.catalogItemId !== undefined) updates.catalogItemId = body.catalogItemId ?? null;
       if (body.sortOrder !== undefined) updates.sortOrder = body.sortOrder;
 
       if (Object.keys(updates).length === 0) {
@@ -388,12 +393,12 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id/items/:itemId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: checklistItemParams },
+    },
     async (request, reply) => {
-      const { id, itemId } = request.params as {
-        id: string;
-        itemId: string;
-      };
+      const { id, itemId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 

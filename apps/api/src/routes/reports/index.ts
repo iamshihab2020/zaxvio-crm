@@ -1,20 +1,22 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { getDb } from "@hvac-saas/database";
-import type { ReportSection } from "@hvac-saas/types";
 import { buildDateRangeParams } from "../../services/analytics/types.js";
 import { getReportBySection } from "../../services/analytics/reports.service.js";
+import { reportStatsQuery } from "../../lib/schemas/dashboard.js";
 
 export default async function reportRoutes(fastify: FastifyInstance) {
   fastify.addHook("preHandler", requireTenant);
 
-  fastify.get("/stats", async (request) => {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
+  f.get("/stats", { schema: { querystring: reportStatsQuery } }, async (request) => {
     const db = getDb();
     const tenantId = request.authUser.tenantId!;
-    const query = request.query as { section?: string; from?: string; to?: string };
+    const { section, from, to } = request.query;
 
-    const section = (query.section ?? "revenue") as ReportSection;
-    const params = buildDateRangeParams(tenantId, query.from, query.to);
+    const params = buildDateRangeParams(tenantId, from, to);
 
     const data = await getReportBySection(db, section, params);
     if (!data) {

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -12,6 +13,12 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import {
+  calendarEventsQuery,
+  createCalendarEventBody,
+  updateCalendarEventBody,
+} from "../../lib/schemas/calendar-events.js";
+import { idParam } from "../../lib/schemas/common.js";
 
 /** Convert empty strings to null for optional DB fields */
 function emptyToNull(val: string | undefined | null): string | null {
@@ -20,34 +27,32 @@ function emptyToNull(val: string | undefined | null): string | null {
 }
 
 export default async function calendarEventRoutes(fastify: FastifyInstance) {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
   /**
    * GET /calendar-events
    * List events with date range filters and pagination.
    */
-  fastify.get(
+  f.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: calendarEventsQuery },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const query = request.query as {
-        dateFrom?: string;
-        dateTo?: string;
-        page?: string;
-        limit?: string;
-      };
+      const { dateFrom, dateTo, page, limit } = request.query;
 
-      const page = Math.max(1, parseInt(query.page ?? "1", 10));
-      const limit = Math.min(200, Math.max(1, parseInt(query.limit ?? "50", 10)));
       const offset = (page - 1) * limit;
 
       const db = getDb();
-      const filters: any[] = [eq(calendarEvents.tenantId, tenantId)];
+      const filters: ReturnType<typeof eq>[] = [eq(calendarEvents.tenantId, tenantId)];
 
-      if (query.dateFrom) {
-        filters.push(gte(calendarEvents.eventDate, query.dateFrom));
+      if (dateFrom) {
+        filters.push(gte(calendarEvents.eventDate, dateFrom));
       }
-      if (query.dateTo) {
-        filters.push(lte(calendarEvents.eventDate, query.dateTo));
+      if (dateTo) {
+        filters.push(lte(calendarEvents.eventDate, dateTo));
       }
 
       const whereClause = and(...filters);
@@ -81,12 +86,15 @@ export default async function calendarEventRoutes(fastify: FastifyInstance) {
   /**
    * GET /calendar-events/:id
    */
-  fastify.get(
+  f.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       const [event] = await db
@@ -105,28 +113,15 @@ export default async function calendarEventRoutes(fastify: FastifyInstance) {
   /**
    * POST /calendar-events
    */
-  fastify.post(
+  f.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createCalendarEventBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as {
-        title: string;
-        description?: string;
-        eventDate: string;
-        startTime?: string;
-        endTime?: string;
-        contactName?: string;
-        contactPhone?: string;
-        address?: string;
-        notes?: string;
-        color?: string;
-        customerId?: string;
-      };
-
-      if (!body.title || !body.eventDate) {
-        return reply.status(400).send({ message: "Title and event date are required" });
-      }
+      const body = request.body;
 
       try {
         const db = getDb();
@@ -159,25 +154,16 @@ export default async function calendarEventRoutes(fastify: FastifyInstance) {
   /**
    * PATCH /calendar-events/:id
    */
-  fastify.patch(
+  f.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateCalendarEventBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { id } = request.params as { id: string };
-      const body = request.body as {
-        title?: string;
-        description?: string;
-        eventDate?: string;
-        startTime?: string;
-        endTime?: string;
-        contactName?: string;
-        contactPhone?: string;
-        address?: string;
-        notes?: string;
-        color?: string;
-        customerId?: string | null;
-      };
+      const { id } = request.params;
+      const body = request.body;
 
       const db = getDb();
 
@@ -192,7 +178,7 @@ export default async function calendarEventRoutes(fastify: FastifyInstance) {
       }
 
       try {
-        const updates: Record<string, any> = { updatedAt: sql`now()` };
+        const updates: Record<string, unknown> = { updatedAt: sql`now()` };
         if (body.title !== undefined) updates.title = body.title;
         if (body.description !== undefined) updates.description = emptyToNull(body.description);
         if (body.eventDate !== undefined) updates.eventDate = body.eventDate;
@@ -203,7 +189,7 @@ export default async function calendarEventRoutes(fastify: FastifyInstance) {
         if (body.address !== undefined) updates.address = emptyToNull(body.address);
         if (body.notes !== undefined) updates.notes = emptyToNull(body.notes);
         if (body.color !== undefined) updates.color = body.color;
-        if (body.customerId !== undefined) updates.customerId = emptyToNull(body.customerId as string);
+        if (body.customerId !== undefined) updates.customerId = emptyToNull(body.customerId);
 
         const [updated] = await db
           .update(calendarEvents)
@@ -222,12 +208,15 @@ export default async function calendarEventRoutes(fastify: FastifyInstance) {
   /**
    * DELETE /calendar-events/:id
    */
-  fastify.delete(
+  f.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const db = getDb();
 
       const [existing] = await db

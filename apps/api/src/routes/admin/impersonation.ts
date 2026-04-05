@@ -12,6 +12,11 @@ import {
 } from "@hvac-saas/database";
 import { requireAdmin, requireAdminTier } from "../../lib/auth-middleware.js";
 import { logAdminAction } from "../../lib/admin-audit.js";
+import {
+  startImpersonationBody,
+  endImpersonationBody,
+  cancelImpersonationBody,
+} from "../../lib/schemas/admin.js";
 
 const IMPERSONATION_MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
 
@@ -33,19 +38,14 @@ async function broadcast(
 
 export default async function impersonationRoutes(fastify: FastifyInstance) {
   // ── POST /start — Begin ghost impersonation ───────────────
-  fastify.post<{
-    Body: { tenantId: string; reason: string };
-  }>(
+  fastify.post(
     "/start",
-    { preHandler: [requireAdminTier(["super_admin", "support"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin", "support"])],
+      schema: { body: startImpersonationBody },
+    },
     async (request, reply) => {
       const { tenantId, reason } = request.body;
-
-      if (!tenantId || !reason?.trim()) {
-        return reply
-          .status(400)
-          .send({ message: "tenantId and reason are required" });
-      }
 
       const db = getDb();
 
@@ -142,19 +142,14 @@ export default async function impersonationRoutes(fastify: FastifyInstance) {
   );
 
   // ── POST /request — Request visible impersonation ─────────
-  fastify.post<{
-    Body: { tenantId: string; reason: string };
-  }>(
+  fastify.post(
     "/request",
-    { preHandler: [requireAdminTier(["super_admin", "support"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin", "support"])],
+      schema: { body: startImpersonationBody },
+    },
     async (request, reply) => {
       const { tenantId, reason } = request.body;
-
-      if (!tenantId || !reason?.trim()) {
-        return reply
-          .status(400)
-          .send({ message: "tenantId and reason are required" });
-      }
 
       const db = getDb();
 
@@ -250,19 +245,14 @@ export default async function impersonationRoutes(fastify: FastifyInstance) {
   );
 
   // ── POST /end — End impersonation ─────────────────────────
-  fastify.post<{
-    Body: { sessionId: string };
-  }>(
+  fastify.post(
     "/end",
-    { preHandler: [requireAdmin] },
+    {
+      preHandler: [requireAdmin],
+      schema: { body: endImpersonationBody },
+    },
     async (request, reply) => {
       const { sessionId } = request.body;
-
-      if (!sessionId) {
-        return reply
-          .status(400)
-          .send({ message: "sessionId is required" });
-      }
 
       const db = getDb();
 
@@ -322,17 +312,14 @@ export default async function impersonationRoutes(fastify: FastifyInstance) {
   );
 
   // ── POST /cancel — Cancel a pending request ───────────────
-  fastify.post<{
-    Body: { sessionId: string };
-  }>(
+  fastify.post(
     "/cancel",
-    { preHandler: [requireAdmin] },
+    {
+      preHandler: [requireAdmin],
+      schema: { body: cancelImpersonationBody },
+    },
     async (request, reply) => {
       const { sessionId } = request.body;
-
-      if (!sessionId) {
-        return reply.status(400).send({ message: "sessionId is required" });
-      }
 
       const db = getDb();
 

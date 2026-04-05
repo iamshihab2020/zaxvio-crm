@@ -2,8 +2,17 @@ import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import { dispatchNotification } from "../../lib/notifications.js";
-import { idParam } from "../../lib/schemas/common.js";
-import { assignTagBody, tagIdParam } from "../../lib/schemas/customers.js";
+import { idParam, paginationQuery } from "../../lib/schemas/common.js";
+import {
+  assignTagBody,
+  createCustomerBody,
+  createNoteBody,
+  customerListQuery,
+  noteIdParam,
+  tagIdParam,
+  updateCustomerBody,
+  updateNoteBody,
+} from "../../lib/schemas/customers.js";
 import {
   getDb,
   customers,
@@ -31,21 +40,16 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: customerListQuery },
+    },
     async (request, reply) => {
-      const {
-        search = "",
-        page = "1",
-        limit = "20",
-        sortBy = "createdAt",
-        sortOrder = "desc",
-      } = request.query as Record<string, string>;
+      const { search = "", page, limit, sortBy, sortOrder } = request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-      const offset = (pageNum - 1) * limitNum;
+      const offset = (page - 1) * limit;
 
       const baseFilter = eq(customers.tenantId, tenantId);
 
@@ -62,14 +66,13 @@ export default async function customerRoutes(fastify: FastifyInstance) {
         ? and(baseFilter, searchFilter)
         : baseFilter;
 
-      // Determine sort column
       const sortColumnMap = {
         createdAt: customers.createdAt,
         firstName: customers.firstName,
         lastName: customers.lastName,
         email: customers.email,
       } as const;
-      const sortCol = sortColumnMap[sortBy as keyof typeof sortColumnMap] ?? customers.createdAt;
+      const sortCol = sortColumnMap[sortBy] ?? customers.createdAt;
       const orderFn = sortOrder === "asc" ? asc : desc;
 
       const [data, totalResult] = await Promise.all([
@@ -78,7 +81,7 @@ export default async function customerRoutes(fastify: FastifyInstance) {
           .from(customers)
           .where(whereClause)
           .orderBy(orderFn(sortCol))
-          .limit(limitNum)
+          .limit(limit)
           .offset(offset),
         db
           .select({ total: count() })
@@ -91,10 +94,10 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       return reply.send({
         data,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
+          page,
+          limit,
           total,
-          totalPages: Math.ceil(total / limitNum),
+          totalPages: Math.ceil(total / limit),
         },
       });
     },
@@ -138,36 +141,32 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createCustomerBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
-
-      if (!body.firstName || !body.lastName) {
-        return reply
-          .status(400)
-          .send({ message: "firstName and lastName are required" });
-      }
+      const { firstName, lastName, email, phone, address, city, state, zipCode, notes } = request.body;
 
       const db = getDb();
       const [customer] = await db
         .insert(customers)
         .values({
           tenantId,
-          firstName: body.firstName as string,
-          lastName: body.lastName as string,
-          email: (body.email as string) || null,
-          phone: (body.phone as string) || null,
-          address: (body.address as string) || null,
-          city: (body.city as string) || null,
-          state: (body.state as string) || null,
-          zipCode: (body.zipCode as string) || null,
-          notes: (body.notes as string) || null,
+          firstName,
+          lastName,
+          email: email || null,
+          phone: phone || null,
+          address: address || null,
+          city: city || null,
+          state: state || null,
+          zipCode: zipCode || null,
+          notes: notes || null,
         })
         .returning();
 
-      // Log activity
       await db.insert(customerActivities).values({
         tenantId,
         customerId: customer.id,
@@ -199,9 +198,12 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -225,15 +227,17 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateCustomerBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
-      // Fetch existing for comparison
       const existing = await db
         .select()
         .from(customers)
@@ -288,7 +292,6 @@ export default async function customerRoutes(fastify: FastifyInstance) {
         .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
         .returning();
 
-      // Log activity if fields actually changed
       if (changedFields.length > 0) {
         const readableFields = changedFields
           .map((f) => fieldLabels[f] ?? f)
@@ -313,9 +316,12 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -345,16 +351,17 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/notes",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, querystring: paginationQuery },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const { page = "1", limit = "20" } = request.query as Record<string, string>;
+      const { page, limit } = request.query;
       const db = getDb();
 
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-      const offset = (pageNum - 1) * limitNum;
+      const offset = (page - 1) * limit;
 
       const whereClause = and(
         eq(customerNotes.tenantId, tenantId),
@@ -376,7 +383,7 @@ export default async function customerRoutes(fastify: FastifyInstance) {
           .leftJoin(user, eq(customerNotes.createdBy, user.id))
           .where(whereClause)
           .orderBy(desc(customerNotes.createdAt))
-          .limit(limitNum)
+          .limit(limit)
           .offset(offset),
         db
           .select({ total: count() })
@@ -387,8 +394,8 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       return reply.send({
         data,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
+          page,
+          limit,
           total: totalResult[0]?.total ?? 0,
         },
       });
@@ -401,16 +408,15 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/notes",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: createNoteBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
-
-      if (!body.content || typeof body.content !== "string" || !body.content.trim()) {
-        return reply.status(400).send({ message: "content is required" });
-      }
+      const { content } = request.body;
 
       const db = getDb();
 
@@ -419,12 +425,11 @@ export default async function customerRoutes(fastify: FastifyInstance) {
         .values({
           tenantId,
           customerId: id,
-          content: body.content.trim(),
+          content,
           createdBy: userId,
         })
         .returning();
 
-      // Log activity
       await db.insert(customerActivities).values({
         tenantId,
         customerId: id,
@@ -443,11 +448,14 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id/notes/:noteId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: noteIdParam, body: updateNoteBody },
+    },
     async (request, reply) => {
-      const { id, noteId } = request.params as { id: string; noteId: string };
+      const { id, noteId } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
+      const { content } = request.body;
       const db = getDb();
 
       const existing = await db
@@ -468,10 +476,7 @@ export default async function customerRoutes(fastify: FastifyInstance) {
 
       const [updated] = await db
         .update(customerNotes)
-        .set({
-          content: (body.content as string).trim(),
-          updatedAt: new Date(),
-        })
+        .set({ content, updatedAt: new Date() })
         .where(eq(customerNotes.id, noteId))
         .returning();
 
@@ -485,9 +490,12 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id/notes/:noteId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: noteIdParam },
+    },
     async (request, reply) => {
-      const { id, noteId } = request.params as { id: string; noteId: string };
+      const { id, noteId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -521,16 +529,17 @@ export default async function customerRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/activities",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, querystring: paginationQuery },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const { page = "1", limit = "20" } = request.query as Record<string, string>;
+      const { page, limit } = request.query;
       const db = getDb();
 
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-      const offset = (pageNum - 1) * limitNum;
+      const offset = (page - 1) * limit;
 
       const whereClause = and(
         eq(customerActivities.tenantId, tenantId),
@@ -553,7 +562,7 @@ export default async function customerRoutes(fastify: FastifyInstance) {
           .leftJoin(user, eq(customerActivities.performedBy, user.id))
           .where(whereClause)
           .orderBy(desc(customerActivities.createdAt))
-          .limit(limitNum)
+          .limit(limit)
           .offset(offset),
         db
           .select({ total: count() })
@@ -564,8 +573,8 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       return reply.send({
         data,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
+          page,
+          limit,
           total: totalResult[0]?.total ?? 0,
         },
       });
@@ -585,11 +594,10 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       schema: { params: idParam },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      // Verify customer belongs to this tenant
       const customer = await db
         .select({ id: customers.id })
         .from(customers)
@@ -631,12 +639,11 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       schema: { params: idParam, body: assignTagBody },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { tagId } = request.body as { tagId: string };
+      const { id } = request.params;
+      const { tagId } = request.body;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      // Verify customer belongs to this tenant
       const customer = await db
         .select({ id: customers.id })
         .from(customers)
@@ -646,7 +653,6 @@ export default async function customerRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: "Customer not found" });
       }
 
-      // Verify tag belongs to this tenant
       const tag = await db
         .select({ id: tags.id })
         .from(tags)
@@ -658,10 +664,7 @@ export default async function customerRoutes(fastify: FastifyInstance) {
 
       const [assignment] = await db
         .insert(customerTags)
-        .values({
-          customerId: id,
-          tagId,
-        })
+        .values({ customerId: id, tagId })
         .onConflictDoNothing()
         .returning();
 
@@ -680,11 +683,10 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       schema: { params: tagIdParam },
     },
     async (request, reply) => {
-      const { id, tagId } = request.params as { id: string; tagId: string };
+      const { id, tagId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      // Verify customer belongs to this tenant
       const customer = await db
         .select({ id: customers.id })
         .from(customers)
@@ -712,13 +714,15 @@ export default async function customerRoutes(fastify: FastifyInstance) {
   /**
    * GET /customers/:id/photos
    * All photos across all jobs for a customer, newest first.
-   * Groups photos with their job title and scheduled_date for the timeline.
    */
   fastify.get(
     "/:id/photos",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 

@@ -3,7 +3,11 @@ import { requireAdminTier } from "../../lib/auth-middleware.js";
 import { logAdminAction } from "../../lib/admin-audit.js";
 import { auth } from "../../lib/auth.js";
 import { getDb, user, eq, desc } from "@hvac-saas/database";
-import { passwordSchema } from "../../lib/schemas/auth.js";
+import {
+  adminIdParam,
+  createAdminBody,
+  updateAdminBody,
+} from "../../lib/schemas/admin.js";
 
 const VALID_TIERS = ["super_admin", "support", "billing_admin"] as const;
 
@@ -41,34 +45,12 @@ export default async function adminAdminsRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { body: createAdminBody },
+    },
     async (request, reply) => {
-      const { name, email, password, adminTier, makeOwner } = request.body as {
-        name?: string;
-        email?: string;
-        password?: string;
-        adminTier?: string;
-        makeOwner?: boolean;
-      };
-
-      // Validation
-      if (!name || !name.trim()) {
-        return reply.status(400).send({ message: "Name is required" });
-      }
-      if (!email || !email.includes("@")) {
-        return reply.status(400).send({ message: "Valid email is required" });
-      }
-      const passwordResult = passwordSchema.safeParse(password);
-      if (!passwordResult.success) {
-        return reply
-          .status(400)
-          .send({ message: passwordResult.error.issues[0].message });
-      }
-      if (!adminTier || !VALID_TIERS.includes(adminTier as (typeof VALID_TIERS)[number])) {
-        return reply.status(400).send({
-          message: `adminTier must be one of: ${VALID_TIERS.join(", ")}`,
-        });
-      }
+      const { name, email, password, adminTier, makeOwner } = request.body;
 
       // Only owner can create super_admin users or make owners
       if (adminTier === "super_admin" && !request.authUser.isOwner) {
@@ -86,7 +68,7 @@ export default async function adminAdminsRoutes(fastify: FastifyInstance) {
       let newUserId: string;
       try {
         const result = await auth.api.signUpEmail({
-          body: { name: name.trim(), email: email.trim().toLowerCase(), password: passwordResult.data },
+          body: { name: name.trim(), email: email.trim().toLowerCase(), password },
         });
 
         if (!result?.user?.id) {
@@ -139,16 +121,13 @@ export default async function adminAdminsRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { params: adminIdParam, body: updateAdminBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { adminTier, makeOwner } = request.body as { adminTier?: string; makeOwner?: boolean };
-
-      if (!adminTier || !VALID_TIERS.includes(adminTier as (typeof VALID_TIERS)[number])) {
-        return reply.status(400).send({
-          message: `adminTier must be one of: ${VALID_TIERS.join(", ")}`,
-        });
-      }
+      const { id } = request.params;
+      const { adminTier, makeOwner } = request.body;
 
       // Self-edit prevention
       if (id === request.authUser.userId) {
@@ -230,9 +209,12 @@ export default async function adminAdminsRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { params: adminIdParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
 
       // Self-delete prevention
       if (id === request.authUser.userId) {

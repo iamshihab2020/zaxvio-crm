@@ -1,13 +1,17 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { getDb, tags, eq, and } from "@hvac-saas/database";
+import { idParam, createTagBody, updateTagBody } from "../../lib/schemas/tags.js";
 
 export default async function tagRoutes(fastify: FastifyInstance) {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
   /**
    * GET /tags
    * List all tags for the tenant.
    */
-  fastify.get(
+  f.get(
     "/",
     { preHandler: [requireTenant] },
     async (request, reply) => {
@@ -28,24 +32,23 @@ export default async function tagRoutes(fastify: FastifyInstance) {
    * POST /tags
    * Create a new tag.
    */
-  fastify.post(
+  f.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createTagBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
-
-      if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
-        return reply.status(400).send({ message: "name is required" });
-      }
+      const body = request.body;
 
       const db = getDb();
       const [tag] = await db
         .insert(tags)
         .values({
           tenantId,
-          name: body.name.trim(),
-          color: (body.color as string) || null,
+          name: body.name,
+          color: body.color || null,
         })
         .returning();
 
@@ -57,13 +60,16 @@ export default async function tagRoutes(fastify: FastifyInstance) {
    * PATCH /tags/:id
    * Update a tag.
    */
-  fastify.patch(
+  f.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateTagBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -77,8 +83,8 @@ export default async function tagRoutes(fastify: FastifyInstance) {
       }
 
       const updates: Record<string, unknown> = { updatedAt: new Date() };
-      if ("name" in body) updates.name = (body.name as string).trim();
-      if ("color" in body) updates.color = (body.color as string) || null;
+      if ("name" in body) updates.name = body.name;
+      if ("color" in body) updates.color = body.color || null;
 
       const [updated] = await db
         .update(tags)
@@ -94,11 +100,14 @@ export default async function tagRoutes(fastify: FastifyInstance) {
    * DELETE /tags/:id
    * Delete a tag (cascades to customerTags).
    */
-  fastify.delete(
+  f.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 

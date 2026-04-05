@@ -8,6 +8,7 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import { systemLimitQuery } from "../../lib/schemas/admin.js";
 
 export default async function adminSystemRoutes(fastify: FastifyInstance) {
   /**
@@ -51,11 +52,14 @@ export default async function adminSystemRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/webhooks",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { querystring: systemLimitQuery },
+    },
     async (request, reply) => {
-      const { limit = "100" } = request.query as Record<string, string>;
+      const { limit = 100 } = request.query;
       const db = getDb();
-      const limitNum = Math.min(200, parseInt(limit, 10) || 100);
+      const limitNum = Math.min(200, limit);
 
       const rows = await db
         .select()
@@ -73,11 +77,14 @@ export default async function adminSystemRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/crons",
-    { preHandler: [requireAdminTier(["super_admin"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin"])],
+      schema: { querystring: systemLimitQuery },
+    },
     async (request, reply) => {
-      const { limit = "50" } = request.query as Record<string, string>;
+      const { limit = 50 } = request.query;
       const db = getDb();
-      const limitNum = Math.min(200, parseInt(limit, 10) || 50);
+      const limitNum = Math.min(200, limit);
 
       const rows = await db
         .select()

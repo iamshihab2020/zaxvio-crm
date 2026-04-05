@@ -72,6 +72,89 @@ These docs are the source of truth. Read the relevant ones before starting any t
 5. **Shared query functions** — If the same query is used by multiple features (e.g., dashboard and reports both need revenue totals), extract it into a shared query file. Never duplicate SQL across routes.
 6. **Analytics caching** — Analytics/dashboard endpoints MUST use the `analyticsCache` from `services/analytics/cache.ts` with appropriate TTL presets (`REALTIME: 30s`, `TRENDS: 5min`, `REPORTS: 10min`). Use stale-while-revalidate for chart data.
 
+---
+
+## Zod Validation Rules (MUST FOLLOW)
+
+`fastify-type-provider-zod` is configured in `apps/api/src/server.ts`. All routes MUST use it.
+
+### 1. Every route handler requires a Zod schema
+
+```typescript
+// CORRECT — schema declared, request fields are typed and validated automatically
+fastify.post("/", {
+  preHandler: [requireAuth, requireTenant],
+  schema: { body: createCustomerBody },
+}, async (request, reply) => {
+  const { firstName, lastName, email } = request.body; // fully typed, safe to use
+});
+
+// WRONG — manual cast, no runtime validation
+fastify.post("/", async (request, reply) => {
+  const body = request.body as Record<string, unknown>; // FORBIDDEN
+  const firstName = body.firstName as string;            // FORBIDDEN
+});
+```
+
+### 2. Schema file location
+
+One schema file per domain: `apps/api/src/lib/schemas/<domain>.ts`
+
+```
+apps/api/src/lib/schemas/
+  common.ts           ← idParam, paginationQuery — ALWAYS reuse these
+  auth.ts             ← passwordSchema
+  customers.ts        ← createCustomerBody, updateCustomerBody, customerListQuery, ...
+  jobs.ts             ← createJobBody, updateJobBody, jobListQuery, ...
+  invoices.ts         ← createInvoiceBody, ...
+  quotes.ts           ← createQuoteBody, ...
+  tags.ts             ← createTagBody, ...
+  pipelines.ts        ← createPipelineBody, ...
+  bookings.ts         ← createBookingBody, availabilityQuery, ...
+  catalog.ts          ← createCatalogItemBody, ...
+  equipment.ts        ← createEquipmentBody, ...
+  checklists.ts       ← createChecklistBody, ...
+  calendar-events.ts  ← createEventBody, ...
+  notifications.ts    ← markReadBody, ...
+  tenants.ts          ← updateTenantBody, ...
+  admin.ts            ← createAdminBody, impersonateBody, ...
+  public-booking.ts   ← submitBookingBody, publicSlotsQuery, ...
+```
+
+### 3. Reuse common schemas — never redefine
+
+```typescript
+import { idParam, paginationQuery } from "../lib/schemas/common.js";
+
+// idParam = z.object({ id: z.string().uuid() })
+// paginationQuery = z.object({ page: z.coerce.number()..., limit: ..., search: ... })
+```
+
+### 4. Enum schema pattern
+
+Mirror Drizzle pgEnums as Zod enums in the schema file — never import pgEnum directly into Zod:
+
+```typescript
+// In apps/api/src/lib/schemas/jobs.ts
+export const jobStatusSchema = z.enum(["scheduled", "in_progress", "completed", "cancelled"]);
+export const jobPrioritySchema = z.enum(["low", "normal", "high", "urgent"]);
+```
+
+### 5. Coerce query string numbers
+
+Query params arrive as strings — always use `z.coerce.number()`:
+
+```typescript
+export const listQuery = paginationQuery.extend({
+  page: z.coerce.number().int().min(1).default(1),   // "1" → 1
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+});
+```
+
+### 6. NEVER add a route without a schema
+
+If you write a new route handler, its schema MUST be added to the domain schema file in the same commit. No exceptions.
+
 **Service layer structure:**
 ```
 apps/api/src/services/

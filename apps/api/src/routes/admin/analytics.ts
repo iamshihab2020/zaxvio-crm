@@ -21,6 +21,7 @@ import {
   sql,
   countDistinct,
 } from "@hvac-saas/database";
+import { churnQuery } from "../../lib/schemas/admin.js";
 
 export default async function adminAnalyticsRoutes(fastify: FastifyInstance) {
   /**
@@ -146,13 +147,15 @@ export default async function adminAnalyticsRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/churn",
-    { preHandler: [requireAdmin] },
+    {
+      preHandler: [requireAdmin],
+      schema: { querystring: churnQuery },
+    },
     async (request, reply) => {
-      const { days = "90" } = request.query as { days?: string };
+      const { days } = request.query;
       const db = getDb();
-      const daysNum = parseInt(days, 10) || 90;
       const since = new Date();
-      since.setDate(since.getDate() - daysNum);
+      since.setDate(since.getDate() - days);
 
       const churned = await db
         .select({

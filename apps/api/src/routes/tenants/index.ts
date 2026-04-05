@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireAuth, requireTenant, requireOrgRole } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -13,8 +14,11 @@ import {
   eq,
 } from "@hvac-saas/database";
 import tenantImpersonationRoutes from "./impersonation.js";
+import { updateTenantBody, uploadLogoBody } from "../../lib/schemas/tenants.js";
 
 export default async function tenantRoutes(fastify: FastifyInstance) {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
   // Sub-routes
   await fastify.register(tenantImpersonationRoutes, { prefix: "/impersonation" });
   /**
@@ -22,7 +26,7 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
    *
    * Return the current tenant's data.
    */
-  fastify.get(
+  f.get(
     "/current",
     { preHandler: [requireTenant] },
     async (request, reply) => {
@@ -46,11 +50,14 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
    *
    * Update the current tenant's fields.
    */
-  fastify.patch(
+  f.patch(
     "/current",
-    { preHandler: [requireOrgRole(["owner", "admin"])] },
+    {
+      preHandler: [requireOrgRole(["owner", "admin"])],
+      schema: { body: updateTenantBody },
+    },
     async (request, reply) => {
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
 
       const allowedFields = [
         "businessName",
@@ -77,7 +84,7 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
       const updates: Record<string, unknown> = {};
       for (const field of allowedFields) {
         if (field in body) {
-          updates[field] = body[field];
+          updates[field] = body[field as keyof typeof body];
         }
       }
 
@@ -101,13 +108,16 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
   /**
    * POST /tenants/current/logo
    *
-   * Upload a business logo. Accepts multipart form with a single "logo" file.
+   * Upload a business logo. Accepts JSON body with base64-encoded image.
    * Stores in Supabase Storage "logos" bucket. Updates tenant.logoUrl.
    * Max 2MB, image/* only.
    */
-  fastify.post(
+  f.post(
     "/current/logo",
-    { preHandler: [requireOrgRole(["owner", "admin"])] },
+    {
+      preHandler: [requireOrgRole(["owner", "admin"])],
+      schema: { body: uploadLogoBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
 
@@ -117,35 +127,23 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
         return reply.status(400).send({ message: "Expected JSON body with base64 image data" });
       }
 
-      const body = request.body as {
-        data: string; // base64 encoded image
-        filename: string;
-        mimeType: string;
-      };
+      const { data, filename, mimeType } = request.body;
 
-      if (!body.data || !body.filename || !body.mimeType) {
-        return reply.status(400).send({ message: "data, filename, and mimeType are required" });
-      }
-
-      if (!body.mimeType.startsWith("image/")) {
-        return reply.status(400).send({ message: "Only image files are allowed" });
-      }
-
-      const buffer = Buffer.from(body.data, "base64");
+      const buffer = Buffer.from(data, "base64");
 
       // 2MB limit
       if (buffer.length > 2 * 1024 * 1024) {
         return reply.status(400).send({ message: "Logo must be under 2MB" });
       }
 
-      const ext = body.filename.split(".").pop() ?? "png";
+      const ext = filename.split(".").pop() ?? "png";
       const storagePath = `${tenantId}/logo.${ext}`;
       const supabase = getSupabaseAdmin();
 
       const { error: uploadError } = await supabase.storage
         .from("logos")
         .upload(storagePath, buffer, {
-          contentType: body.mimeType,
+          contentType: mimeType,
           upsert: true,
         });
 
@@ -178,7 +176,7 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
    *
    * Remove the business logo.
    */
-  fastify.delete(
+  f.delete(
     "/current/logo",
     { preHandler: [requireOrgRole(["owner", "admin"])] },
     async (request, reply) => {
@@ -218,7 +216,7 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
    * caller's active organization. Handles the edge case of orgs
    * created before the databaseHook was added.
    */
-  fastify.post(
+  f.post(
     "/initialize",
     { preHandler: [requireAuth] },
     async (request, reply) => {

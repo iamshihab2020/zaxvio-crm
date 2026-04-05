@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -12,22 +13,28 @@ import {
   getNotifications,
   getUnreadCount,
 } from "../../services/notifications.service.js";
+import { idParam } from "../../lib/schemas/common.js";
+import { notificationsQuery, updatePreferencesBody } from "../../lib/schemas/notifications.js";
 
 export default async function notificationRoutes(fastify: FastifyInstance) {
+  const f = fastify.withTypeProvider<ZodTypeProvider>();
+
   /**
    * GET /notifications
    */
-  fastify.get(
+  f.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: notificationsQuery },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const query = request.query as Record<string, string>;
-      const limit = Math.min(parseInt(query.limit ?? "20", 10) || 20, 50);
+      const { limit, cursor } = request.query;
 
       const db = getDb();
-      const result = await getNotifications(db, tenantId, userId, limit, query.cursor);
+      const result = await getNotifications(db, tenantId, userId, limit, cursor);
       return reply.send(result);
     },
   );
@@ -35,7 +42,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
   /**
    * GET /notifications/unread-count
    */
-  fastify.get(
+  f.get(
     "/unread-count",
     { preHandler: [requireTenant] },
     async (request, reply) => {
@@ -52,12 +59,15 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
    * PATCH /notifications/:id/read
    * Mark a single notification as read for the current user.
    */
-  fastify.patch(
+  f.patch(
     "/:id/read",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
       const userId = request.authUser.userId;
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
 
       const db = getDb();
 
@@ -77,7 +87,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
    * PATCH /notifications/read-all
    * Mark all unread notifications as read for the current user.
    */
-  fastify.patch(
+  f.patch(
     "/read-all",
     { preHandler: [requireTenant] },
     async (request, reply) => {
@@ -106,7 +116,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
    * GET /notifications/preferences
    * Get channel preferences for the current user (all notification types).
    */
-  fastify.get(
+  f.get(
     "/preferences",
     { preHandler: [requireTenant] },
     async (request, reply) => {
@@ -134,32 +144,21 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
    * Update channel preferences for the current user.
    * Body: { preferences: [{ type, inApp, email, sms, voice }] }
    */
-  fastify.patch(
+  f.patch(
     "/preferences",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: updatePreferencesBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as {
-        preferences: Array<{
-          type: string;
-          inApp: boolean;
-          email: boolean;
-          sms: boolean;
-          voice: boolean;
-        }>;
-      };
-
-      if (!body.preferences || !Array.isArray(body.preferences)) {
-        return reply
-          .status(400)
-          .send({ message: "preferences array is required" });
-      }
+      const { preferences } = request.body;
 
       const db = getDb();
 
       // Upsert each preference
-      for (const pref of body.preferences) {
+      for (const pref of preferences) {
         await db
           .insert(notificationChannelConfig)
           .values({
@@ -172,7 +171,7 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
             voice: pref.voice,
           })
           .onConflictDoNothing()
-          .then(async (result) => {
+          .then(async () => {
             // If conflict (row exists), update instead
             await db
               .update(notificationChannelConfig)

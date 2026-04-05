@@ -17,6 +17,14 @@ import {
   asc,
   count,
 } from "@hvac-saas/database";
+import {
+  idParam,
+  equipmentListQuery,
+  refrigerantLogListQuery,
+  createEquipmentBody,
+  updateEquipmentBody,
+  addRefrigerantLogBody,
+} from "../../lib/schemas/equipment.js";
 
 export default async function equipmentRoutes(fastify: FastifyInstance) {
   /**
@@ -25,21 +33,24 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: equipmentListQuery },
+    },
     async (request, reply) => {
       const {
         search = "",
-        page = "1",
-        limit = "20",
+        page,
+        limit,
         customerId,
-        sortBy = "createdAt",
-        sortOrder = "desc",
-      } = request.query as Record<string, string>;
+        sortBy,
+        sortOrder,
+      } = request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const filters = [eq(equipment.tenantId, tenantId)];
@@ -68,9 +79,7 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
         installDate: equipment.installDate,
         warrantyExpiry: equipment.warrantyExpiry,
       } as const;
-      const sortCol =
-        sortColumnMap[sortBy as keyof typeof sortColumnMap] ??
-        equipment.createdAt;
+      const sortCol = sortColumnMap[sortBy] ?? equipment.createdAt;
       const orderFn = sortOrder === "asc" ? asc : desc;
 
       const [data, totalResult] = await Promise.all([
@@ -124,9 +133,12 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -169,23 +181,14 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createEquipmentBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
-
-      if (!body.customerId || typeof body.customerId !== "string") {
-        return reply.status(400).send({ message: "customerId is required" });
-      }
-
-      if (
-        !body.equipmentType ||
-        typeof body.equipmentType !== "string" ||
-        !body.equipmentType.trim()
-      ) {
-        return reply.status(400).send({ message: "equipmentType is required" });
-      }
+      const body = request.body;
 
       // Verify customer belongs to tenant
       const db = getDb();
@@ -195,7 +198,7 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
         .where(
           and(
             eq(customers.tenantId, tenantId),
-            eq(customers.id, body.customerId as string),
+            eq(customers.id, body.customerId),
           ),
         )
         .then((r) => r[0]);
@@ -208,32 +211,24 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
         .insert(equipment)
         .values({
           tenantId,
-          customerId: body.customerId as string,
-          equipmentType: (body.equipmentType as string).trim(),
-          brand: body.brand ? (body.brand as string).trim() : null,
-          model: body.model ? (body.model as string).trim() : null,
-          serialNumber: body.serialNumber
-            ? (body.serialNumber as string).trim()
-            : null,
-          installDate: body.installDate
-            ? (body.installDate as string)
-            : null,
-          warrantyExpiry: body.warrantyExpiry
-            ? (body.warrantyExpiry as string)
-            : null,
-          location: body.location
-            ? (body.location as string).trim()
-            : null,
-          notes: body.notes ? (body.notes as string).trim() : null,
+          customerId: body.customerId,
+          equipmentType: body.equipmentType,
+          brand: body.brand ?? null,
+          model: body.model ?? null,
+          serialNumber: body.serialNumber ?? null,
+          installDate: body.installDate ?? null,
+          warrantyExpiry: body.warrantyExpiry ?? null,
+          location: body.location ?? null,
+          notes: body.notes ?? null,
         })
         .returning();
 
       // Log customer activity
       await db.insert(customerActivities).values({
         tenantId,
-        customerId: body.customerId as string,
+        customerId: body.customerId,
         type: "equipment.created",
-        description: `Asset added: ${(body.equipmentType as string).trim()}${body.brand ? ` (${body.brand})` : ""}`,
+        description: `Asset added: ${body.equipmentType}${body.brand ? ` (${body.brand})` : ""}`,
         performedBy: userId,
       });
 
@@ -247,12 +242,15 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateEquipmentBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -281,9 +279,7 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
 
       for (const field of stringFields) {
         if (body[field] !== undefined) {
-          const newVal = body[field]
-            ? (body[field] as string).trim()
-            : null;
+          const newVal = body[field] ?? null;
           if (newVal !== existing[field]) {
             updates[field] = newVal;
             changedFields.push(field);
@@ -294,7 +290,7 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
       const dateFields = ["installDate", "warrantyExpiry"] as const;
       for (const field of dateFields) {
         if (body[field] !== undefined) {
-          const newVal = body[field] ? (body[field] as string) : null;
+          const newVal = body[field] ?? null;
           if (newVal !== existing[field]) {
             updates[field] = newVal;
             changedFields.push(field);
@@ -336,9 +332,12 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
@@ -384,13 +383,13 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/refrigerant-logs",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, querystring: refrigerantLogListQuery },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const { page = "1", limit = "20" } = request.query as Record<
-        string,
-        string
-      >;
+      const { id } = request.params;
+      const { page, limit } = request.query;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -407,8 +406,8 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: "Equipment not found" });
       }
 
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const whereClause = and(
@@ -450,11 +449,14 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/refrigerant-logs",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: addRefrigerantLogBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       // Verify equipment exists and belongs to tenant
@@ -470,51 +472,19 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: "Equipment not found" });
       }
 
-      if (
-        !body.refrigerantType ||
-        typeof body.refrigerantType !== "string" ||
-        !body.refrigerantType.trim()
-      ) {
-        return reply
-          .status(400)
-          .send({ message: "refrigerantType is required" });
-      }
-
-      const validActions = ["added", "recovered", "recycled"];
-      if (!body.action || !validActions.includes(body.action as string)) {
-        return reply.status(400).send({
-          message:
-            "action is required and must be one of: added, recovered, recycled",
-        });
-      }
-
-      if (body.quantity === undefined || body.quantity === null) {
-        return reply.status(400).send({ message: "quantity is required" });
-      }
-      const qty = parseFloat(String(body.quantity));
-      if (isNaN(qty) || qty <= 0) {
-        return reply
-          .status(400)
-          .send({ message: "quantity must be a positive number" });
-      }
-
       const [log] = await db
         .insert(refrigerantLogs)
         .values({
           tenantId,
           equipmentId: id,
-          jobId: body.jobId ? (body.jobId as string) : null,
-          refrigerantType: (body.refrigerantType as string).trim(),
-          action: body.action as "added" | "recovered" | "recycled",
-          quantity: String(qty),
-          unit: body.unit ? (body.unit as string).trim() : "lbs",
-          technicianName: body.technicianName
-            ? (body.technicianName as string).trim()
-            : null,
-          epaCertNumber: body.epaCertNumber
-            ? (body.epaCertNumber as string).trim()
-            : null,
-          notes: body.notes ? (body.notes as string).trim() : null,
+          jobId: body.jobId ?? null,
+          refrigerantType: body.refrigerantType,
+          action: body.action,
+          quantity: String(body.quantity),
+          unit: body.unit,
+          technicianName: body.technicianName ?? null,
+          epaCertNumber: body.epaCertNumber ?? null,
+          notes: body.notes ?? null,
         })
         .returning();
 
@@ -532,9 +502,12 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/history",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 

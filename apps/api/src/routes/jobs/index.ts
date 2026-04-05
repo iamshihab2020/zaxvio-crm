@@ -33,7 +33,7 @@ import {
 import { getSupabaseAdmin } from "@hvac-saas/database";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
 import {
-  updateLineItemBody,
+  idParam,
   lineItemParam,
   photoParam,
   addPhotoBody,
@@ -42,7 +42,18 @@ import {
   addDocumentBody,
   documentParam,
   uploadFileBody,
+  updateLineItemBody,
+  jobListQuery,
+  photoListQuery,
+  createJobBody,
+  updateJobBody,
+  updateJobStatusBody,
+  reorderBody,
+  addLineItemBody,
+  toggleChecklistBody,
+  completionIdParam,
 } from "../../lib/schemas/jobs.js";
+import { paginationQuery } from "../../lib/schemas/common.js";
 
 // ========== HELPERS ==========
 
@@ -96,10 +107,13 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: jobListQuery },
+    },
     async (request, reply) => {
       const {
-        search = "",
+        search,
         status,
         customerId,
         serviceType,
@@ -107,17 +121,15 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         dateFrom,
         dateTo,
         pipelineId,
-        page = "1",
-        limit = "20",
-        sortBy = "scheduledDate",
-        sortOrder = "desc",
-      } = request.query as Record<string, string | undefined>;
+        page,
+        limit,
+        sortBy,
+        sortOrder,
+      } = request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page ?? "1", 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit ?? "20", 10) || 20));
-      const offset = (pageNum - 1) * limitNum;
+      const offset = (page - 1) * limit;
 
       // Build filters
       const filters = [eq(jobs.tenantId, tenantId)];
@@ -167,8 +179,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         priority: jobs.priority,
         totalAmount: jobs.totalAmount,
       } as const;
-      const sortCol =
-        sortColumnMap[sortBy as keyof typeof sortColumnMap] ?? jobs.scheduledDate;
+      const sortCol = sortColumnMap[sortBy] ?? jobs.scheduledDate;
       const orderFn = sortOrder === "asc" ? asc : desc;
 
       const [data, totalResult] = await Promise.all([
@@ -208,7 +219,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           .leftJoin(equipment, eq(jobs.equipmentId, equipment.id))
           .where(whereClause)
           .orderBy(orderFn(sortCol), asc(jobs.sortOrder))
-          .limit(limitNum)
+          .limit(limit)
           .offset(offset),
         db
           .select({ total: count() })
@@ -222,10 +233,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       return reply.send({
         data,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
+          page,
+          limit,
           total,
-          totalPages: Math.ceil(total / limitNum),
+          totalPages: Math.ceil(total / limit),
         },
       });
     },
@@ -237,9 +248,12 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -351,18 +365,14 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: createJobBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
-
-      // Validate required fields
-      if (!body.customerId || !body.serviceType || !body.title || !body.scheduledDate) {
-        return reply.status(400).send({
-          message: "customerId, serviceType, title, and scheduledDate are required",
-        });
-      }
+      const body = request.body;
 
       const db = getDb();
 
@@ -373,7 +383,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         .where(
           and(
             eq(customers.tenantId, tenantId),
-            eq(customers.id, body.customerId as string),
+            eq(customers.id, body.customerId),
           ),
         )
         .then((r) => r[0]);
@@ -383,7 +393,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       }
 
       // Resolve pipeline: use provided or fallback to default
-      let pipelineId = (body.pipelineId as string) || null;
+      let pipelineId = body.pipelineId || null;
       if (!pipelineId) {
         const defaultPipeline = await db
           .select({ id: pipelines.id })
@@ -402,22 +412,22 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         .insert(jobs)
         .values({
           tenantId,
-          customerId: body.customerId as string,
-          bookingId: (body.bookingId as string) || null,
-          equipmentId: (body.equipmentId as string) || null,
+          customerId: body.customerId,
+          bookingId: body.bookingId || null,
+          equipmentId: body.equipmentId || null,
           pipelineId,
           jobNumber: "", // Auto-generated by DB trigger
           serviceType: body.serviceType as never,
-          title: body.title as string,
-          description: (body.description as string) || null,
-          scheduledDate: body.scheduledDate as string,
-          scheduledStart: (body.scheduledStart as string) || null,
-          scheduledEnd: (body.scheduledEnd as string) || null,
-          address: (body.address as string) || null,
+          title: body.title,
+          description: body.description || null,
+          scheduledDate: body.scheduledDate,
+          scheduledStart: body.scheduledStart || null,
+          scheduledEnd: body.scheduledEnd || null,
+          address: body.address || null,
           priority: (body.priority as never) || "standard",
-          status: (body.status as string) || undefined,
-          taxRate: (body.taxRate as string) || "0",
-          notes: (body.notes as string) || null,
+          status: body.status || undefined,
+          taxRate: body.taxRate || "0",
+          notes: body.notes || null,
         })
         .returning();
 
@@ -426,7 +436,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         db,
         job.id,
         tenantId,
-        body.serviceType as string,
+        body.serviceType,
         userId,
       );
 
@@ -442,7 +452,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       // Log customer activity
       await db.insert(customerActivities).values({
         tenantId,
-        customerId: body.customerId as string,
+        customerId: body.customerId,
         type: "job.created",
         description: `Job ${job.jobNumber || "new"} created`,
         metadata: { jobId: job.id },
@@ -467,12 +477,15 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateJobBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -573,17 +586,16 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id/status",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: updateJobStatusBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as { status: string };
+      const { status } = request.body;
       const db = getDb();
-
-      if (!body.status) {
-        return reply.status(400).send({ message: "status is required" });
-      }
 
       const existing = await db
         .select()
@@ -596,14 +608,14 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       }
 
       // No state machine restriction — any status can move to any other
-      if (existing.status === body.status) {
+      if (existing.status === status) {
         return reply.status(400).send({
           message: "Job is already in that status",
         });
       }
 
       // Gate: completion requires all required checklist items
-      if (body.status === "completed") {
+      if (status === "completed") {
         const incompleteRequired = await db
           .select({ id: jobChecklistCompletions.id })
           .from(jobChecklistCompletions)
@@ -628,10 +640,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       }
 
       const updateData: Record<string, unknown> = {
-        status: body.status,
+        status,
         updatedAt: new Date(),
       };
-      if (body.status === "completed") {
+      if (status === "completed") {
         updateData.completedAt = new Date();
       }
 
@@ -646,24 +658,24 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         tenantId,
         jobId: id,
         type: "job.status_changed",
-        description: `Status changed from ${existing.status} to ${body.status}`,
-        metadata: { from: existing.status, to: body.status },
+        description: `Status changed from ${existing.status} to ${status}`,
+        metadata: { from: existing.status, to: status },
         performedBy: userId,
       });
 
       dispatchNotification({
         tenantId,
         type: "job_status_changed",
-        title: `Job ${existing.jobNumber ?? ""} moved to ${body.status}`,
-        description: `Job status changed from ${existing.status} to ${body.status}`,
+        title: `Job ${existing.jobNumber ?? ""} moved to ${status}`,
+        description: `Job status changed from ${existing.status} to ${status}`,
         entityType: "job",
         entityId: id,
         actorId: userId,
-        metadata: { jobNumber: existing.jobNumber, from: existing.status, to: body.status },
+        metadata: { jobNumber: existing.jobNumber, from: existing.status, to: status },
       });
 
       // E-05: Job completion email to customer (fire-and-forget)
-      if (body.status === "completed" && existing.customerId) {
+      if (status === "completed" && existing.customerId) {
         const { sendJobCompletionEmail } = await import("../../lib/email.js");
 
         const [emailCustomer, emailTenant, emailLineItems] = await Promise.all([
@@ -714,9 +726,12 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -744,20 +759,17 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/reorder",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { body: reorderBody },
+    },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as {
-        items: { id: string; sortOrder: number; status?: string }[];
-      };
+      const { items } = request.body;
       const db = getDb();
 
-      if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
-        return reply.status(400).send({ message: "items array is required" });
-      }
-
       await Promise.all(
-        body.items.map((item) => {
+        items.map((item) => {
           const updates: Record<string, unknown> = {
             sortOrder: item.sortOrder,
             updatedAt: new Date(),
@@ -784,9 +796,12 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/line-items",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -811,12 +826,15 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/line-items",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: addLineItemBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       // Verify job exists
@@ -830,9 +848,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         return reply.status(404).send({ message: "Job not found" });
       }
 
-      let description = body.description as string;
-      let unitPrice = body.unitPrice as string;
-      let itemType = body.itemType as string;
+      let description = body.description;
+      let unitPrice = body.unitPrice;
+      let itemType = body.itemType;
 
       // If catalogItemId provided, auto-fill from catalog
       if (body.catalogItemId) {
@@ -842,7 +860,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           .where(
             and(
               eq(catalogItems.tenantId, tenantId),
-              eq(catalogItems.id, body.catalogItemId as string),
+              eq(catalogItems.id, body.catalogItemId),
             ),
           )
           .then((r) => r[0]);
@@ -865,12 +883,12 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         .values({
           tenantId,
           jobId: id,
-          catalogItemId: (body.catalogItemId as string) || null,
+          catalogItemId: body.catalogItemId || null,
           itemType: itemType as never,
           description,
-          quantity: (body.quantity as string) || "1",
+          quantity: body.quantity || "1",
           unitPrice,
-          sortOrder: (body.sortOrder as number) || 0,
+          sortOrder: body.sortOrder || 0,
         })
         .returning();
 
@@ -901,19 +919,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       schema: { params: lineItemParam, body: updateLineItemBody },
     },
     async (request, reply) => {
-      const { id, lineItemId } = request.params as {
-        id: string;
-        lineItemId: string;
-      };
+      const { id, lineItemId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as {
-        description?: string;
-        quantity?: number;
-        unitPrice?: number;
-        sortOrder?: number;
-        itemType?: string;
-      };
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -979,12 +988,12 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id/line-items/:lineItemId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: lineItemParam },
+    },
     async (request, reply) => {
-      const { id, lineItemId } = request.params as {
-        id: string;
-        lineItemId: string;
-      };
+      const { id, lineItemId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
@@ -1029,9 +1038,12 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/checklist",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -1077,15 +1089,15 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id/checklist/:completionId",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: completionIdParam, body: toggleChecklistBody },
+    },
     async (request, reply) => {
-      const { id, completionId } = request.params as {
-        id: string;
-        completionId: string;
-      };
+      const { id, completionId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as { isCompleted: boolean };
+      const body = request.body;
       const db = getDb();
 
       // Fetch completion with checklist item details
@@ -1196,22 +1208,15 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/:id/upload",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, body: uploadFileBody },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
 
-      const contentType = request.headers["content-type"] ?? "";
-      if (!contentType.includes("application/json")) {
-        return reply.status(400).send({ message: "Expected JSON body with base64 data" });
-      }
-
-      const parsed = uploadFileBody.safeParse(request.body);
-      if (!parsed.success) {
-        return reply.status(400).send({ message: "Invalid upload body" });
-      }
-
-      const { data: base64, filename, mimeType } = parsed.data;
+      const { data: base64, filename, mimeType } = request.body;
       const isPhoto = mimeType.startsWith("image/");
       const maxBytes = isPhoto ? 20 * 1024 * 1024 : 50 * 1024 * 1024;
 
@@ -1269,16 +1274,15 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/photos",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, querystring: photoListQuery },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const { tag } = request.query as { tag?: string };
+      const { tag } = request.query;
       const db = getDb();
-
-      const tagFilter = tag && ["before", "after", "general"].includes(tag)
-        ? sql`AND ${jobPhotos.tag} = ${tag}::photo_tag`
-        : sql``;
 
       const data = await db
         .select({
@@ -1300,9 +1304,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         )
         .orderBy(desc(jobPhotos.createdAt));
 
-      const filtered = tag && ["before", "after", "general"].includes(tag)
-        ? data.filter((p) => p.tag === tag)
-        : data;
+      const filtered = tag ? data.filter((p) => p.tag === tag) : data;
 
       return reply.send({ data: filtered });
     },
@@ -1316,19 +1318,13 @@ export default async function jobRoutes(fastify: FastifyInstance) {
     "/:id/photos",
     {
       preHandler: [requireTenant],
-      schema: { body: addPhotoBody },
+      schema: { params: idParam, body: addPhotoBody },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as {
-        storagePath: string;
-        caption?: string;
-        tag?: "before" | "after" | "general";
-        fileSize?: number;
-        takenAt?: string;
-      };
+      const body = request.body;
       const db = getDb();
 
       if (!body.storagePath.startsWith(`${tenantId}/`)) {
@@ -1383,10 +1379,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       schema: { params: photoTagParam, body: updatePhotoTagBody },
     },
     async (request, reply) => {
-      const { id, photoId } = request.params as { id: string; photoId: string };
+      const { id, photoId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const { tag } = request.body as { tag: "before" | "after" | "general" };
+      const { tag } = request.body;
       const db = getDb();
 
       const existing = await db
@@ -1435,10 +1431,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       schema: { params: photoParam },
     },
     async (request, reply) => {
-      const { id, photoId } = request.params as {
-        id: string;
-        photoId: string;
-      };
+      const { id, photoId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
@@ -1502,9 +1495,12 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/documents",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -1539,19 +1535,13 @@ export default async function jobRoutes(fastify: FastifyInstance) {
     "/:id/documents",
     {
       preHandler: [requireTenant],
-      schema: { body: addDocumentBody },
+      schema: { params: idParam, body: addDocumentBody },
     },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body as {
-        storagePath: string;
-        fileName: string;
-        fileSize?: number;
-        mimeType?: string;
-        customerId?: string;
-      };
+      const body = request.body;
       const db = getDb();
 
       if (!body.storagePath.startsWith(`${tenantId}/`)) {
@@ -1606,7 +1596,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       schema: { params: documentParam },
     },
     async (request, reply) => {
-      const { id, docId } = request.params as { id: string; docId: string };
+      const { id, docId } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
@@ -1670,19 +1660,17 @@ export default async function jobRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id/activities",
-    { preHandler: [requireTenant] },
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, querystring: paginationQuery },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const { page = "1", limit = "20" } = request.query as Record<
-        string,
-        string
-      >;
+      const { page, limit } = request.query;
       const db = getDb();
 
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
-      const offset = (pageNum - 1) * limitNum;
+      const offset = (page - 1) * limit;
 
       const whereClause = and(
         eq(jobActivities.tenantId, tenantId),
@@ -1705,7 +1693,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           .leftJoin(user, eq(jobActivities.performedBy, user.id))
           .where(whereClause)
           .orderBy(desc(jobActivities.createdAt))
-          .limit(limitNum)
+          .limit(limit)
           .offset(offset),
         db
           .select({ total: count() })
@@ -1716,10 +1704,10 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       return reply.send({
         data,
         pagination: {
-          page: pageNum,
-          limit: limitNum,
+          page,
+          limit,
           total: totalResult[0]?.total ?? 0,
-          totalPages: Math.ceil((totalResult[0]?.total ?? 0) / limitNum),
+          totalPages: Math.ceil((totalResult[0]?.total ?? 0) / limit),
         },
       });
     },

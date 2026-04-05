@@ -1,6 +1,12 @@
 import type { FastifyInstance } from "fastify";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
+  idParam,
+  catalogListQuery,
+  createCatalogItemBody,
+  updateCatalogItemBody,
+} from "../../lib/schemas/catalog.js";
+import {
   getDb,
   catalogItems,
   eq,
@@ -20,38 +26,37 @@ export default async function catalogRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { querystring: catalogListQuery } },
     async (request, reply) => {
       const {
         search = "",
-        page = "1",
-        limit = "20",
+        page,
+        limit,
         itemType,
-        showArchived = "false",
-        sortBy = "createdAt",
-        sortOrder = "desc",
-      } = request.query as Record<string, string>;
+        showArchived,
+        sortBy,
+        sortOrder,
+      } = request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const filters = [eq(catalogItems.tenantId, tenantId)];
 
       // Only show active items unless showArchived is true
-      if (showArchived !== "true") {
+      if (!showArchived) {
         filters.push(eq(catalogItems.isActive, true));
       }
 
       // Filter by item type
-      const validItemTypes = ["labor", "part", "material", "service_call", "other"];
-      if (itemType && validItemTypes.includes(itemType)) {
+      if (itemType) {
         filters.push(
           eq(
             catalogItems.itemType,
-            itemType as "labor" | "part" | "material" | "service_call" | "other",
+            itemType as never,
           ),
         );
       }
@@ -145,9 +150,9 @@ export default async function catalogRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/:id",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam } },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
@@ -173,59 +178,22 @@ export default async function catalogRoutes(fastify: FastifyInstance) {
    */
   fastify.post(
     "/",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { body: createCatalogItemBody } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
-
-      if (!body.name || typeof body.name !== "string" || !body.name.trim()) {
-        return reply.status(400).send({ message: "name is required" });
-      }
-
-      const validItemTypes = [
-        "labor",
-        "part",
-        "material",
-        "service_call",
-        "other",
-      ];
-      if (!body.itemType || !validItemTypes.includes(body.itemType as string)) {
-        return reply.status(400).send({
-          message:
-            "itemType is required and must be one of: labor, part, material, service_call, other",
-        });
-      }
-
-      if (body.unitPrice === undefined || body.unitPrice === null) {
-        return reply.status(400).send({ message: "unitPrice is required" });
-      }
-      const price = parseFloat(String(body.unitPrice));
-      if (isNaN(price) || price < 0) {
-        return reply
-          .status(400)
-          .send({ message: "unitPrice must be a non-negative number" });
-      }
+      const body = request.body;
 
       const db = getDb();
       const [item] = await db
         .insert(catalogItems)
         .values({
           tenantId,
-          name: (body.name as string).trim(),
-          itemType: body.itemType as
-            | "labor"
-            | "part"
-            | "material"
-            | "service_call"
-            | "other",
-          unitPrice: String(price),
-          unit: ((body.unit as string) || "each").trim(),
-          category: body.category
-            ? (body.category as string).trim()
-            : null,
-          description: body.description
-            ? (body.description as string).trim()
-            : null,
+          name: body.name.trim(),
+          itemType: body.itemType as never,
+          unitPrice: String(body.unitPrice),
+          unit: (body.unit || "each").trim(),
+          category: body.category ? body.category.trim() : null,
+          description: body.description ? body.description.trim() : null,
         })
         .returning();
 
@@ -239,11 +207,11 @@ export default async function catalogRoutes(fastify: FastifyInstance) {
    */
   fastify.patch(
     "/:id",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam, body: updateCatalogItemBody } },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const body = request.body as Record<string, unknown>;
+      const body = request.body;
       const db = getDb();
 
       const existing = await db
@@ -261,57 +229,31 @@ export default async function catalogRoutes(fastify: FastifyInstance) {
       const updates: Record<string, unknown> = {};
 
       if (body.name !== undefined) {
-        if (typeof body.name !== "string" || !body.name.trim()) {
-          return reply.status(400).send({ message: "name cannot be empty" });
-        }
-        updates.name = (body.name as string).trim();
+        updates.name = body.name.trim();
       }
 
       if (body.itemType !== undefined) {
-        const validItemTypes = [
-          "labor",
-          "part",
-          "material",
-          "service_call",
-          "other",
-        ];
-        if (!validItemTypes.includes(body.itemType as string)) {
-          return reply.status(400).send({
-            message:
-              "itemType must be one of: labor, part, material, service_call, other",
-          });
-        }
         updates.itemType = body.itemType;
       }
 
       if (body.unitPrice !== undefined) {
-        const price = parseFloat(String(body.unitPrice));
-        if (isNaN(price) || price < 0) {
-          return reply
-            .status(400)
-            .send({ message: "unitPrice must be a non-negative number" });
-        }
-        updates.unitPrice = String(price);
+        updates.unitPrice = String(body.unitPrice);
       }
 
       if (body.unit !== undefined) {
-        updates.unit = body.unit ? (body.unit as string).trim() : "each";
+        updates.unit = body.unit ? body.unit.trim() : "each";
       }
 
       if (body.category !== undefined) {
-        updates.category = body.category
-          ? (body.category as string).trim()
-          : null;
+        updates.category = body.category ? body.category.trim() : null;
       }
 
       if (body.description !== undefined) {
-        updates.description = body.description
-          ? (body.description as string).trim()
-          : null;
+        updates.description = body.description ? body.description.trim() : null;
       }
 
       if (body.isActive !== undefined) {
-        updates.isActive = Boolean(body.isActive);
+        updates.isActive = body.isActive;
       }
 
       if (Object.keys(updates).length === 0) {
@@ -336,9 +278,9 @@ export default async function catalogRoutes(fastify: FastifyInstance) {
    */
   fastify.delete(
     "/:id",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { params: idParam } },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
+      const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 

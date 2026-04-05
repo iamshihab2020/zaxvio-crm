@@ -17,6 +17,12 @@ import {
   desc,
   count,
 } from "@hvac-saas/database";
+import {
+  adminIdParam,
+  auditLogQuery,
+  impersonationLogQuery,
+  tenantActivityQuery,
+} from "../../lib/schemas/admin.js";
 
 export default async function adminAuditRoutes(fastify: FastifyInstance) {
   /**
@@ -25,18 +31,16 @@ export default async function adminAuditRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/audit-log",
-    { preHandler: [requireAdminTier(["super_admin", "support"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin", "support"])],
+      schema: { querystring: auditLogQuery },
+    },
     async (request, reply) => {
-      const {
-        page = "1",
-        limit = "50",
-        action,
-        adminUserId,
-      } = request.query as Record<string, string>;
+      const { page, limit, action, adminUserId } = request.query;
 
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const conditions = [];
@@ -92,16 +96,16 @@ export default async function adminAuditRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/impersonation-log",
-    { preHandler: [requireAdminTier(["super_admin", "support"])] },
+    {
+      preHandler: [requireAdminTier(["super_admin", "support"])],
+      schema: { querystring: impersonationLogQuery },
+    },
     async (request, reply) => {
-      const {
-        page = "1",
-        limit = "50",
-      } = request.query as Record<string, string>;
+      const { page, limit } = request.query;
 
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const [rows, totalResult] = await Promise.all([
@@ -150,17 +154,17 @@ export default async function adminAuditRoutes(fastify: FastifyInstance) {
    */
   fastify.get(
     "/tenants/:id/activity",
-    { preHandler: [requireAdmin] },
+    {
+      preHandler: [requireAdmin],
+      schema: { params: adminIdParam, querystring: tenantActivityQuery },
+    },
     async (request, reply) => {
-      const { id } = request.params as { id: string };
-      const {
-        page = "1",
-        limit = "50",
-      } = request.query as Record<string, string>;
+      const { id } = request.params;
+      const { page, limit } = request.query;
 
       const db = getDb();
-      const pageNum = Math.max(1, parseInt(page, 10) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
+      const pageNum = page;
+      const limitNum = limit;
       const offset = (pageNum - 1) * limitNum;
 
       const [rows, totalResult] = await Promise.all([
