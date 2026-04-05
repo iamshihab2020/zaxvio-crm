@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { IconBell } from "@tabler/icons-react";
 import {
   Popover,
@@ -73,6 +74,17 @@ export function NotificationBell() {
             </div>
           </ScrollArea>
         )}
+        <Separator />
+        <div className="p-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full text-xs text-muted-foreground hover:text-foreground"
+            asChild
+          >
+            <Link href="/notifications">View all notifications</Link>
+          </Button>
+        </div>
       </PopoverContent>
     </Popover>
   );
