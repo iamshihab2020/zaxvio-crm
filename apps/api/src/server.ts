@@ -35,6 +35,7 @@ import maintenanceContractRoutes from "./routes/maintenance-contracts/index.js";
 import adminRoutes from "./routes/admin/index.js";
 import notificationRoutes from "./routes/notifications/index.js";
 import reportRoutes from "./routes/reports/index.js";
+import conversationRoutes from "./routes/conversations/index.js";
 
 export async function buildServer() {
   const fastify = Fastify({
@@ -138,6 +139,7 @@ export async function buildServer() {
   await fastify.register(adminRoutes, { prefix: "/admin" });
   await fastify.register(notificationRoutes, { prefix: "/notifications" });
   await fastify.register(reportRoutes, { prefix: "/reports" });
+  await fastify.register(conversationRoutes, { prefix: "/conversations" });
 
   fastify.get(
     "/health",

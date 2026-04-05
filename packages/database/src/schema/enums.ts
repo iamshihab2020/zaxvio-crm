@@ -117,6 +117,7 @@ export const notificationTypeEnum = pgEnum("notification_type", [
   "quote_declined",
   "invoice_overdue",
   "team_member_joined",
+  "message_received",
 ]);
 
 export const notificationChannelEnum = pgEnum("notification_channel", [

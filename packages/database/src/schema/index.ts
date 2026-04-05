@@ -28,6 +28,7 @@ export * from "./quote-activities";
 export * from "./tags";
 export * from "./calendar-events";
 export * from "./notifications";
+export * from "./conversations";
 
 // Relations
 export * from "./relations";

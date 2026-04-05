@@ -17,6 +17,7 @@ interface SidebarNavItemProps {
   isCollapsed: boolean;
   showLabel: boolean;
   useTooltip: boolean;
+  badge?: string;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onClick?: () => void;
@@ -31,6 +32,7 @@ export function SidebarNavItem({
   isCollapsed,
   showLabel,
   useTooltip,
+  badge,
   onMouseEnter,
   onMouseLeave,
   onClick,
@@ -52,7 +54,16 @@ export function SidebarNavItem({
       )}
     >
       <Icon className="h-5 w-5 shrink-0" />
-      {showLabel && <span className="truncate">{label}</span>}
+      {showLabel && (
+        <span className="flex flex-1 items-center gap-2 truncate">
+          <span className="truncate">{label}</span>
+          {badge && (
+            <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold leading-none bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400">
+              {badge}
+            </span>
+          )}
+        </span>
+      )}
     </Link>
   );
 

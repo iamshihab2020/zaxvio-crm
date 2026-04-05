@@ -18,7 +18,7 @@ import type {
 } from "@hvac-saas/email";
 
 /** Strip CRLF/tab from email subject to prevent header injection */
-function sanitizeSubject(s: string): string {
+export function sanitizeSubject(s: string): string {
   return s.replace(/[\r\n\t]/g, " ").slice(0, 200);
 }
 
@@ -45,7 +45,7 @@ interface SendEmailOptions {
   tag: string;
 }
 
-async function sendEmail(options: SendEmailOptions): Promise<void> {
+export async function sendEmail(options: SendEmailOptions): Promise<void> {
   const client = getResend();
   if (!client) {
     console.warn(

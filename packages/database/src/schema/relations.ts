@@ -42,6 +42,7 @@ import {
   notificationChannelConfig,
   notificationDeliveries,
 } from "./notifications";
+import { conversations, messages } from "./conversations";
 
 // --- Better Auth: User relations ---
 export const userRelations = relations(user, ({ many }) => ({
@@ -679,3 +680,26 @@ export const notificationDeliveriesRelations = relations(
     }),
   }),
 );
+
+// --- Conversations / Messages relations ---
+export const conversationsRelations = relations(
+  conversations,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [conversations.tenantId],
+      references: [tenants.id],
+    }),
+    customer: one(customers, {
+      fields: [conversations.customerId],
+      references: [customers.id],
+    }),
+    messages: many(messages),
+  }),
+);
+
+export const messagesRelations = relations(messages, ({ one }) => ({
+  conversation: one(conversations, {
+    fields: [messages.conversationId],
+    references: [conversations.id],
+  }),
+}));

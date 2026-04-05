@@ -35,4 +35,5 @@ export const NOTIFICATION_CHANNEL_DEFAULTS: Record<
   quote_declined: { inApp: true, email: true, sms: false, voice: false },
   invoice_overdue: { inApp: true, email: true, sms: false, voice: false },
   team_member_joined: { inApp: true, email: false, sms: false, voice: false },
+  message_received: { inApp: true, email: false, sms: false, voice: false },
 };

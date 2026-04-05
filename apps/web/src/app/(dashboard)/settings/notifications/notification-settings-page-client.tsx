@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { IconBell } from "@tabler/icons-react";
+import { IconBell, IconBellRinging } from "@tabler/icons-react";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import {
@@ -26,6 +26,7 @@ import {
   getNotificationPreferences,
   updateNotificationPreferences,
 } from "@/actions/notifications";
+import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
 
 /** Channel preference defaults when no config row exists */
 const NOTIFICATION_CHANNEL_DEFAULTS: Record<
@@ -65,6 +66,8 @@ interface NotificationSettingsPageClientProps {
 }
 
 export function NotificationSettingsPageClient({ initialPreferences }: NotificationSettingsPageClientProps) {
+  const { permission, requestPermission } = useDesktopNotifications();
+
   const [preferences, setPreferences] = useState<
     Record<string, ChannelConfig>
   >(() => {
@@ -159,6 +162,41 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
   return (
     <TooltipProvider>
       <div className="space-y-6">
+        {/* Desktop Notifications */}
+        <SettingsSection
+          icon={IconBellRinging}
+          title="Desktop Notifications"
+          description="Get browser pop-ups when new messages arrive, even when you're on another tab."
+        >
+          <div className="flex items-center justify-between rounded-lg border border-border p-4">
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Browser notifications
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {permission === "granted"
+                  ? "Enabled — you will receive pop-up alerts for new messages."
+                  : permission === "denied"
+                    ? "Blocked — please allow notifications in your browser settings."
+                    : "Not enabled — click to allow browser notification pop-ups."}
+              </p>
+            </div>
+            <Button
+              variant={permission === "granted" ? "secondary" : "outline"}
+              size="sm"
+              disabled={permission === "granted" || permission === "denied"}
+              onClick={() => void requestPermission()}
+              className="shrink-0"
+            >
+              {permission === "granted"
+                ? "Enabled"
+                : permission === "denied"
+                  ? "Blocked"
+                  : "Enable"}
+            </Button>
+          </div>
+        </SettingsSection>
+
         <SettingsSection
           icon={IconBell}
           title="Notification Preferences"

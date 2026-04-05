@@ -22,6 +22,7 @@ import {
   IconTooltip,
   IconChevronDown,
   IconChartBar,
+  IconMessageCircle,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ import { Logo } from "@/components/logo";
 import { useSidebar, type SidebarMode } from "./sidebar-provider";
 import { SidebarNavItem } from "./sidebar-nav-item";
 
-type NavItem = { href: string; label: string; icon: typeof IconLayoutDashboard };
+type NavItem = { href: string; label: string; icon: typeof IconLayoutDashboard; badge?: string };
 type NavGroup = { label: string; items: NavItem[]; defaultOpen?: boolean };
 
 const standaloneItems: NavItem[] = [
@@ -54,6 +55,7 @@ const navGroups: NavGroup[] = [
     items: [
       { href: "/customers", label: "Customers", icon: IconUsers },
       { href: "/jobs", label: "Jobs", icon: IconBriefcase },
+      { href: "/conversations", label: "Conversations", icon: IconMessageCircle, badge: "Dev" },
     ],
   },
   {
@@ -344,6 +346,7 @@ export function Sidebar() {
                   isCollapsed={isCollapsed && !isHoverExpanded}
                   showLabel={showLabel}
                   useTooltip={useTooltipMode}
+                  badge={item.badge}
                   itemRef={setItemRef(item.href)}
                   onMouseEnter={() => setHoveredHref(item.href)}
                   onMouseLeave={() => setHoveredHref(null)}
@@ -436,6 +439,7 @@ export function Sidebar() {
                           isCollapsed={false}
                           showLabel
                           useTooltip={false}
+                          badge={item.badge}
                           itemRef={setItemRef(item.href)}
                           onMouseEnter={() => setHoveredHref(item.href)}
                           onMouseLeave={() => setHoveredHref(null)}

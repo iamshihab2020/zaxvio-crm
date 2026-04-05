@@ -10,7 +10,15 @@ const entries: KnowledgeEntry[] = [
     keywords: ["navigate", "find", "where", "sidebar", "menu", "page", "go to"],
     question: "How do I navigate the app?",
     answer:
-      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space.",
+      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Conversations** — Send emails to customers, view message history\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space.",
+  },
+  {
+    id: "conversations-feature",
+    category: "general",
+    keywords: ["message", "email", "sms", "conversation", "chat", "contact customer", "send email", "inbox", "messaging"],
+    question: "Can I send messages to my customers?",
+    answer:
+      "Yes! Use the **Conversations** page (in the sidebar) to send emails directly to your customers and view the full message history in a chat-style interface.\n\n**How it works:**\n1. Click **Conversations** in the sidebar\n2. Click **+ New** to start a conversation with a customer\n3. Select a customer and choose **Email** as the channel\n4. Type your message and press Send (or Ctrl+Enter)\n\n**SMS** is coming soon — you'll see it in the channel selector marked as \"Coming Soon\".\n\nConversations update in real-time, so new replies appear instantly without refreshing the page.",
   },
   {
     id: "general-getting-started",
