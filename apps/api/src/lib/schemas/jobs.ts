@@ -42,6 +42,7 @@ export const jobListQuery = paginationQuery.extend({
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
   pipelineId: z.string().uuid().optional(),
+  assigneeId: z.string().optional(),
   sortBy: z
     .enum(["scheduledDate", "createdAt", "jobNumber", "status", "priority", "totalAmount"])
     .default("scheduledDate"),
@@ -70,6 +71,7 @@ export const createJobBody = z.object({
   equipmentId: z.string().uuid().optional(),
   pipelineId: z.string().uuid().optional(),
   bookingId: z.string().uuid().optional(),
+  assigneeId: z.string().optional().nullable(),
 });
 
 export const updateJobBody = z.object({
@@ -85,6 +87,7 @@ export const updateJobBody = z.object({
   taxRate: z.string().optional(),
   equipmentId: z.string().uuid().optional().nullable(),
   pipelineId: z.string().uuid().optional().nullable(),
+  assigneeId: z.string().optional().nullable(),
 });
 
 export const updateJobStatusBody = z.object({

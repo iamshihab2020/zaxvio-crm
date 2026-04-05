@@ -107,11 +107,18 @@ export const auth = betterAuth({
                   currentPeriodEnd: trialEnd,
                 });
 
+                const [defaultPipeline] = await tx.insert(schema.pipelines).values({
+                  tenantId: result[0].id,
+                  name: "default",
+                  label: "Default",
+                  isDefault: true,
+                }).returning();
+
                 await tx.insert(schema.jobPipelineStages).values([
-                  { tenantId: result[0].id, name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
-                  { tenantId: result[0].id, name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: true },
-                  { tenantId: result[0].id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
-                  { tenantId: result[0].id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
+                  { tenantId: result[0].id, pipelineId: defaultPipeline.id, name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
+                  { tenantId: result[0].id, pipelineId: defaultPipeline.id, name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: false },
+                  { tenantId: result[0].id, pipelineId: defaultPipeline.id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: false },
+                  { tenantId: result[0].id, pipelineId: defaultPipeline.id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: false },
                 ]);
               }
             });

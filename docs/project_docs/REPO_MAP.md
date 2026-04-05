@@ -365,6 +365,7 @@ apps/web/
     |   |   |
     |   |   +-- jobs/               # Job management components
     |   |   |   +-- pipeline-tabs.tsx         # Pipeline tab switcher (animated Highlight tabs, always visible)
+    |   |   |   +-- assignee-picker.tsx        # Popover-based team member assignee picker (AssigneePicker)
     |   |   |   +-- job-create-dialog.tsx
     |   |   |   +-- job-detail-activities.tsx
     |   |   |   +-- job-detail-checklist.tsx

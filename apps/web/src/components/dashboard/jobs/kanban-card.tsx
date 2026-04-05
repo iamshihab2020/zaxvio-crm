@@ -18,6 +18,7 @@ import {
   IconMapPin,
 } from "@tabler/icons-react";
 import type { CardFieldVisibility } from "./card-fields-popover";
+import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 
 export interface JobCardData {
   id: string;
@@ -33,6 +34,9 @@ export interface JobCardData {
   totalAmount: string;
   customerFirstName: string | null;
   customerLastName: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  assigneeImage: string | null;
 }
 
 interface KanbanCardProps {
@@ -40,6 +44,8 @@ interface KanbanCardProps {
   onClick: (jobId: string) => void;
   isOverlay?: boolean;
   visibleFields?: CardFieldVisibility;
+  members?: AssigneeMember[];
+  onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
 }
 
 function formatDate(dateStr: string) {
@@ -61,7 +67,14 @@ function getInitials(first: string | null, last: string | null): string {
   return f + l || "?";
 }
 
-export function KanbanCard({ job, onClick, isOverlay, visibleFields }: KanbanCardProps) {
+export function KanbanCard({
+  job,
+  onClick,
+  isOverlay,
+  visibleFields,
+  members,
+  onAssigneeChange,
+}: KanbanCardProps) {
   const {
     attributes,
     listeners,
@@ -96,6 +109,7 @@ export function KanbanCard({ job, onClick, isOverlay, visibleFields }: KanbanCar
 
   const showTopRow = vf.serviceType || vf.priority;
   const showBottomRow = vf.date || vf.time || vf.todayBadge || vf.amount;
+  const hasAssignee = members && onAssigneeChange && !isOverlay;
 
   return (
     <div
@@ -145,15 +159,48 @@ export function KanbanCard({ job, onClick, isOverlay, visibleFields }: KanbanCar
         </p>
       )}
 
-      {/* Customer with initials avatar */}
+      {/* Customer row */}
       {vf.customer && (
         <div className="flex items-center gap-2 mb-2.5">
           <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[10px] font-semibold text-brand dark:bg-brand/20 dark:text-brand">
             {getInitials(job.customerFirstName, job.customerLastName)}
           </span>
-          <span className="text-xs text-muted-foreground font-body truncate">
+          <span className="text-xs text-muted-foreground font-body truncate flex-1">
             {customerName}
           </span>
+
+          {/* Assignee — interactive picker with stopPropagation */}
+          {hasAssignee ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
+              <AssigneePicker
+                value={job.assigneeId}
+                onChange={(id) => onAssigneeChange!(job.id, id)}
+                members={members!}
+                compact
+              />
+            </div>
+          ) : (
+            /* Overlay / no-member fallback: static display */
+            job.assigneeId && job.assigneeName ? (
+              <span title={job.assigneeName} className="shrink-0">
+                {job.assigneeImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={job.assigneeImage}
+                    alt={job.assigneeName}
+                    className="h-5 w-5 rounded-full object-cover ring-1 ring-background"
+                  />
+                ) : (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground ring-1 ring-background">
+                    {job.assigneeName.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </span>
+            ) : null
+          )}
         </div>
       )}
 

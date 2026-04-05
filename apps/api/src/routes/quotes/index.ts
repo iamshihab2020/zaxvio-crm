@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import {
@@ -182,7 +182,7 @@ async function attachChecklistToJob(
 
 // ========== ROUTES ==========
 
-export default async function quoteRoutes(fastify: FastifyInstance) {
+const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
   // ===== QUOTES CRUD =====
 
   /**
@@ -776,9 +776,10 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
         "catalogItemId",
       ];
       const updates: Record<string, unknown> = {};
+      const bodyRecord = body as Record<string, unknown>;
       for (const field of allowedFields) {
-        if (field in body) {
-          updates[field] = body[field];
+        if (field in bodyRecord) {
+          updates[field] = bodyRecord[field];
         }
       }
 
@@ -1445,4 +1446,5 @@ export default async function quoteRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default quoteRoutes;

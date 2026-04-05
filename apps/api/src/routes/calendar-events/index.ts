@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
@@ -26,7 +26,7 @@ function emptyToNull(val: string | undefined | null): string | null {
   return val;
 }
 
-export default async function calendarEventRoutes(fastify: FastifyInstance) {
+const calendarEventRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   /**
@@ -233,4 +233,5 @@ export default async function calendarEventRoutes(fastify: FastifyInstance) {
       return reply.send({ message: "Event deleted" });
     },
   );
-}
+};
+export default calendarEventRoutes;

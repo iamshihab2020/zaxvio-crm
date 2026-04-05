@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   idParam,
@@ -19,7 +19,7 @@ import {
   sql,
 } from "@hvac-saas/database";
 
-export default async function catalogRoutes(fastify: FastifyInstance) {
+const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /catalog
    * List catalog items with search, pagination, filtering.
@@ -305,4 +305,5 @@ export default async function catalogRoutes(fastify: FastifyInstance) {
       return reply.send({ message: "Catalog item deleted" });
     },
   );
-}
+};
+export default catalogRoutes;

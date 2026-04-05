@@ -96,6 +96,7 @@ export async function createJob(data: {
   status?: string;
   equipmentId?: string;
   pipelineId?: string;
+  assigneeId?: string | null;
 }) {
   try {
     const res = await fetch(`${API_URL}/jobs`, {
@@ -134,6 +135,7 @@ export async function updateJob(
     notes?: string;
     taxRate?: string;
     equipmentId?: string | null;
+    assigneeId?: string | null;
   },
 ) {
   try {
@@ -154,6 +156,28 @@ export async function updateJob(
 
     const json = await res.json();
     return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function getJobAssignees() {
+  try {
+    const res = await fetch(`${API_URL}/jobs/assignees`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to fetch assignees" };
+    }
+
+    const json = await res.json();
+    return {
+      data: json.data as Array<{ id: string; name: string; image: string | null; email: string; role: string }>,
+      error: null,
+    };
   } catch {
     return { data: null, error: "Network error" };
   }

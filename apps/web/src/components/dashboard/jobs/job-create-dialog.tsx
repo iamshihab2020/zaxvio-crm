@@ -62,7 +62,9 @@ import {
   type CatalogPickerItem,
 } from "@/components/dashboard/catalog/catalog-item-picker";
 import { createCustomer } from "@/actions/customers";
+import { getJobAssignees } from "@/actions/jobs";
 import { AssetPicker } from "@/components/dashboard/equipment/asset-picker";
+import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 import { toast } from "sonner";
 import type { JobDetail } from "./job-detail-sheet";
 
@@ -100,6 +102,7 @@ export interface JobFormData {
   taxRate: string;
   notes: string;
   status?: string;
+  assigneeId: string | null;
   lineItems: LineItemFormData[];
 }
 
@@ -134,6 +137,7 @@ const emptyForm: Omit<JobFormData, "lineItems"> = {
   description: "",
   taxRate: "0",
   notes: "",
+  assigneeId: null,
 };
 
 export function JobCreateDialog({
@@ -153,6 +157,7 @@ export function JobCreateDialog({
     useState<CustomerSelection | null>(null);
   const [taxEditable, setTaxEditable] = useState(false);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
+  const [members, setMembers] = useState<AssigneeMember[]>([]);
 
   // New line item form
   const [showAddItem, setShowAddItem] = useState(false);
@@ -175,6 +180,7 @@ export function JobCreateDialog({
         description: job.description ?? "",
         taxRate: job.taxRate ? (parseFloat(job.taxRate) * 100).toString() : "0",
         notes: job.notes ?? "",
+        assigneeId: job.assigneeId ?? null,
       });
       setCustomerSelection({
         type: "existing",
@@ -214,6 +220,15 @@ export function JobCreateDialog({
     setShowAddItem(false);
     setItemForm(emptyItemForm);
   }, [job, open, defaultTaxRate]);
+
+  // Fetch org members for assignee picker when dialog opens
+  useEffect(() => {
+    if (open) {
+      getJobAssignees().then((res) => {
+        if (res.data) setMembers(res.data);
+      });
+    }
+  }, [open]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -457,6 +472,15 @@ export function JobCreateDialog({
               onChange={(id) =>
                 setForm((prev) => ({ ...prev, equipmentId: id ?? "" }))
               }
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="font-body">Assignee</Label>
+            <AssigneePicker
+              value={form.assigneeId}
+              onChange={(id) => setForm((prev) => ({ ...prev, assigneeId: id }))}
+              members={members}
             />
           </div>
 

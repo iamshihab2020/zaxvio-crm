@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -22,7 +22,7 @@ import {
   updateChecklistItemBody,
 } from "../../lib/schemas/checklists.js";
 
-export default async function checklistRoutes(fastify: FastifyInstance) {
+const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /checklists
    * List checklist templates with item counts.
@@ -423,4 +423,5 @@ export default async function checklistRoutes(fastify: FastifyInstance) {
       return reply.send({ message: "Checklist item deleted" });
     },
   );
-}
+};
+export default checklistRoutes;

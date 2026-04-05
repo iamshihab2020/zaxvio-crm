@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireAdminTier } from "../../lib/auth-middleware.js";
 import { logAdminAction } from "../../lib/admin-audit.js";
 import { auth } from "../../lib/auth.js";
@@ -11,7 +11,7 @@ import {
 
 const VALID_TIERS = ["super_admin", "support", "billing_admin"] as const;
 
-export default async function adminAdminsRoutes(fastify: FastifyInstance) {
+const adminAdminsRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /admin/admins
    * List all admin users.
@@ -270,4 +270,5 @@ export default async function adminAdminsRoutes(fastify: FastifyInstance) {
       return reply.send({ data: { success: true } });
     },
   );
-}
+};
+export default adminAdminsRoutes;

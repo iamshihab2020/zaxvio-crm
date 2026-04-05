@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireAdminTier } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -11,7 +11,7 @@ import {
 import { getPlanPrice } from "../../lib/plan-prices.js";
 import { adminSearchQuery } from "../../lib/schemas/admin.js";
 
-export default async function adminSearchRoutes(fastify: FastifyInstance) {
+const adminSearchRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /admin/search?q=term
    * Global cross-tenant search.
@@ -70,4 +70,5 @@ export default async function adminSearchRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default adminSearchRoutes;

@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import {
   IconFileDescription,
   IconNote,
   IconDevices2,
+  IconUser,
 } from "@tabler/icons-react";
 import {
   JOB_PRIORITY_LABELS,
@@ -21,6 +23,9 @@ import {
 } from "@/lib/constants/job-options";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import type { JobDetail } from "./job-detail-sheet";
+import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
+import { getJobAssignees, updateJob } from "@/actions/jobs";
+import { toast } from "sonner";
 
 interface PipelineStage {
   id: string;
@@ -33,6 +38,7 @@ interface PipelineStage {
 interface JobInfoPanelProps {
   job: JobDetail;
   stages: PipelineStage[];
+  onUpdate?: () => void;
 }
 
 function formatDate(dateStr: string) {
@@ -53,7 +59,28 @@ function formatTime(timeStr: string) {
   return `${display}:${m} ${amPm}`;
 }
 
-export function JobInfoPanel({ job, stages }: JobInfoPanelProps) {
+export function JobInfoPanel({ job, stages, onUpdate }: JobInfoPanelProps) {
+  const [members, setMembers] = useState<AssigneeMember[]>([]);
+  const [assigneeId, setAssigneeId] = useState<string | null>(job.assigneeId ?? null);
+
+  useEffect(() => {
+    getJobAssignees().then((result) => {
+      if (result.data) setMembers(result.data as AssigneeMember[]);
+    });
+  }, []);
+
+  async function handleAssigneeChange(id: string | null) {
+    const prev = assigneeId;
+    setAssigneeId(id);
+    const result = await updateJob(job.id, { assigneeId: id });
+    if (result.error) {
+      setAssigneeId(prev);
+      toast.error(result.error);
+    } else {
+      onUpdate?.();
+    }
+  }
+
   const currentStage = stages.find((s) => s.name === job.status);
   const statusColors = currentStage ? getStageColors(currentStage.color) : null;
   const statusLabel = currentStage?.label ?? job.status;
@@ -129,6 +156,22 @@ export function JobInfoPanel({ job, stages }: JobInfoPanelProps) {
               </p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Assignee */}
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading flex items-center gap-1.5">
+          <IconUser className="h-3.5 w-3.5" />
+          Assignee
+        </h3>
+        <div className="rounded-md bg-muted/50 p-1">
+          <AssigneePicker
+            value={assigneeId}
+            onChange={handleAssigneeChange}
+            members={members}
+            className="w-full justify-start"
+          />
         </div>
       </div>
 

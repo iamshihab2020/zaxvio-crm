@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -25,9 +25,7 @@ import {
   updateMaintenanceContractBody,
 } from "../../lib/schemas/equipment.js";
 
-export default async function maintenanceContractRoutes(
-  fastify: FastifyInstance,
-) {
+const maintenanceContractRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /maintenance-contracts
    * List contracts with search, pagination, filtering.
@@ -527,4 +525,5 @@ export default async function maintenanceContractRoutes(
       return reply.send({ message: "Service agreement deleted" });
     },
   );
-}
+};
+export default maintenanceContractRoutes;

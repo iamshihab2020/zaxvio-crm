@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireAdminTier } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -10,7 +10,7 @@ import {
 } from "@hvac-saas/database";
 import { systemLimitQuery } from "../../lib/schemas/admin.js";
 
-export default async function adminSystemRoutes(fastify: FastifyInstance) {
+const adminSystemRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /admin/system
    * System health overview.
@@ -95,4 +95,5 @@ export default async function adminSystemRoutes(fastify: FastifyInstance) {
       return reply.send({ data: rows });
     },
   );
-}
+};
+export default adminSystemRoutes;

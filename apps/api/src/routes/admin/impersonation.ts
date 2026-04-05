@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   getDb,
   getSupabaseAdmin,
@@ -36,7 +36,7 @@ async function broadcast(
   }
 }
 
-export default async function impersonationRoutes(fastify: FastifyInstance) {
+const impersonationRoutes: FastifyPluginAsyncZod = async (fastify) => {
   // ── POST /start — Begin ghost impersonation ───────────────
   fastify.post(
     "/start",
@@ -425,4 +425,5 @@ export default async function impersonationRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default impersonationRoutes;

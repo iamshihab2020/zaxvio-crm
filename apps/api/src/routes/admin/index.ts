@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import adminDashboardRoutes from "./dashboard.js";
 import adminTenantRoutes from "./tenants.js";
 import adminAnalyticsRoutes from "./analytics.js";
@@ -8,7 +8,7 @@ import adminSystemRoutes from "./system.js";
 import adminAdminsRoutes from "./admins.js";
 import impersonationRoutes from "./impersonation.js";
 
-export default async function adminRoutes(fastify: FastifyInstance) {
+const adminRoutes: FastifyPluginAsyncZod = async (fastify) => {
   await fastify.register(adminDashboardRoutes, { prefix: "/dashboard" });
   await fastify.register(adminTenantRoutes, { prefix: "/tenants" });
   await fastify.register(adminAnalyticsRoutes, { prefix: "/analytics" });
@@ -17,4 +17,5 @@ export default async function adminRoutes(fastify: FastifyInstance) {
   await fastify.register(adminSystemRoutes, { prefix: "/system" });
   await fastify.register(adminAdminsRoutes, { prefix: "/admins" });
   await fastify.register(impersonationRoutes, { prefix: "/impersonation" });
-}
+};
+export default adminRoutes;

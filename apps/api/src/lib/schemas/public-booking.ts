@@ -37,9 +37,7 @@ export const submitBookingBody = z.object({
     .trim(),
   customerEmail: z.string().email().optional(),
   customerPhone: z.string().optional(),
-  serviceType: z.enum(SERVICE_TYPES, {
-    errorMap: () => ({ message: "Invalid service type." }),
-  }),
+  serviceType: z.enum([...SERVICE_TYPES]),
   bookingDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format. Expected YYYY-MM-DD."),

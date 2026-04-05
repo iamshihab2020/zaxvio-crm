@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
@@ -26,7 +26,7 @@ import {
   addRefrigerantLogBody,
 } from "../../lib/schemas/equipment.js";
 
-export default async function equipmentRoutes(fastify: FastifyInstance) {
+const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /equipment
    * List equipment with search, pagination, optional customerId filter.
@@ -609,4 +609,5 @@ export default async function equipmentRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default equipmentRoutes;

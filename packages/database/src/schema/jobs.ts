@@ -41,6 +41,9 @@ export const jobs = pgTable(
     pipelineId: uuid("pipeline_id").references(() => pipelines.id, {
       onDelete: "set null",
     }),
+    assigneeId: text("assignee_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     jobNumber: text("job_number").notNull(),
     status: text("status").notNull().default("scheduled"),
     priority: jobPriorityEnum("priority").notNull().default("standard"),

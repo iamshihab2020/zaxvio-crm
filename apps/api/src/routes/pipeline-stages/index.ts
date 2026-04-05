@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
@@ -102,7 +102,7 @@ async function ensureDefaultStages(
 
 export { DEFAULT_STAGES, getOrCreateDefaultPipeline, ensureDefaultStages };
 
-export default async function pipelineStagesRoutes(fastify: FastifyInstance) {
+const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   /**
@@ -433,4 +433,5 @@ export default async function pipelineStagesRoutes(fastify: FastifyInstance) {
       return reply.send({ message: "Stage deleted" });
     },
   );
-}
+};
+export default pipelineStagesRoutes;

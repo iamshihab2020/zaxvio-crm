@@ -11,11 +11,7 @@ export const catalogListQuery = paginationQuery.extend({
   itemType: z
     .enum(["labor", "part", "material", "service_call", "other"])
     .optional(),
-  showArchived: z
-    .string()
-    .transform((v) => v === "true")
-    .optional()
-    .default("false"),
+  showArchived: z.coerce.boolean().optional().default(false),
   sortBy: z
     .enum(["createdAt", "name", "unitPrice", "category", "itemType"])
     .default("createdAt"),

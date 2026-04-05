@@ -15,20 +15,12 @@ export const createAdminBody = z.object({
   name: z.string().min(1, "Name is required").trim(),
   email: z.string().email("Valid email is required"),
   password: passwordSchema,
-  adminTier: z.enum(VALID_TIERS, {
-    errorMap: () => ({
-      message: `adminTier must be one of: ${VALID_TIERS.join(", ")}`,
-    }),
-  }),
+  adminTier: z.enum([...VALID_TIERS]),
   makeOwner: z.boolean().optional(),
 });
 
 export const updateAdminBody = z.object({
-  adminTier: z.enum(VALID_TIERS, {
-    errorMap: () => ({
-      message: `adminTier must be one of: ${VALID_TIERS.join(", ")}`,
-    }),
-  }),
+  adminTier: z.enum([...VALID_TIERS]),
   makeOwner: z.boolean().optional(),
 });
 

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   requireAdmin,
   requireAdminTier,
@@ -24,7 +24,7 @@ import {
   tenantActivityQuery,
 } from "../../lib/schemas/admin.js";
 
-export default async function adminAuditRoutes(fastify: FastifyInstance) {
+const adminAuditRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /admin/audit-log
    * Admin actions audit log with pagination and filters.
@@ -193,4 +193,5 @@ export default async function adminAuditRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default adminAuditRoutes;

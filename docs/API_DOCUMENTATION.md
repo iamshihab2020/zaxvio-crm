@@ -1024,6 +1024,23 @@ Delete a tag. Automatically removes all customer-tag associations.
 
 Job management with Kanban pipeline support.
 
+### `GET /jobs/assignees`
+
+**Auth:** `requireTenant`
+
+Returns all org members available to assign to jobs.
+
+**Response:**
+```json
+{
+  "data": [
+    { "id": "user_abc", "name": "Jane Smith", "email": "jane@example.com", "image": null, "role": "member" }
+  ]
+}
+```
+
+---
+
 ### `GET /jobs`
 
 **Auth:** `requireTenant`

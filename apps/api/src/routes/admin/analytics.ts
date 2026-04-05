@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireAdmin } from "../../lib/auth-middleware.js";
 import { getPlanPrice, PLAN_PRICES } from "../../lib/plan-prices.js";
 import {
@@ -23,7 +23,7 @@ import {
 } from "@hvac-saas/database";
 import { churnQuery } from "../../lib/schemas/admin.js";
 
-export default async function adminAnalyticsRoutes(fastify: FastifyInstance) {
+const adminAnalyticsRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /admin/analytics/mrr
    * MRR metrics: current, 30d ago delta, breakdown by plan.
@@ -352,4 +352,5 @@ export default async function adminAnalyticsRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default adminAnalyticsRoutes;

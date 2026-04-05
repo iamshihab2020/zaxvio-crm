@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
@@ -30,7 +30,7 @@ import {
   inArray,
 } from "@hvac-saas/database";
 
-export default async function bookingRoutes(fastify: FastifyInstance) {
+const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /bookings
    *
@@ -482,4 +482,5 @@ export default async function bookingRoutes(fastify: FastifyInstance) {
       return reply.send({ data: updated });
     },
   );
-}
+};
+export default bookingRoutes;

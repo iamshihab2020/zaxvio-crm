@@ -66,7 +66,7 @@ export function JobDetailClient({
         <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 lg:items-start">
           {/* Left Panel */}
           <div className="w-full lg:w-80 shrink-0 rounded-lg border border-border bg-card shadow-sm">
-            <JobInfoPanel job={job} stages={stages} />
+            <JobInfoPanel job={job} stages={stages} onUpdate={refreshJob} />
           </div>
           {/* Center Panel */}
           <div className="flex-1 min-w-0 rounded-lg border border-border bg-card shadow-sm p-4 sm:p-5">

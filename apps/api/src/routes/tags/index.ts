@@ -1,10 +1,10 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { getDb, tags, eq, and } from "@hvac-saas/database";
 import { idParam, createTagBody, updateTagBody } from "../../lib/schemas/tags.js";
 
-export default async function tagRoutes(fastify: FastifyInstance) {
+const tagRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   /**
@@ -128,4 +128,5 @@ export default async function tagRoutes(fastify: FastifyInstance) {
       return reply.send({ message: "Tag deleted" });
     },
   );
-}
+};
+export default tagRoutes;

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import { dispatchNotification } from "../../lib/notifications.js";
@@ -19,6 +19,8 @@ import {
   equipment,
   tenants,
   user,
+  member,
+  organization,
   eq,
   and,
   or,
@@ -98,7 +100,45 @@ async function recalculateJobTotals(
 
 // ========== ROUTES ==========
 
-export default async function jobRoutes(fastify: FastifyInstance) {
+const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
+  /**
+   * GET /jobs/assignees
+   * List all org members available to assign to jobs.
+   */
+  fastify.get(
+    "/assignees",
+    { preHandler: [requireTenant] },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      // Get the org's organizationId from the tenant row
+      const tenant = await db
+        .select({ organizationId: tenants.organizationId })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .then((r) => r[0]);
+
+      if (!tenant) {
+        return reply.status(404).send({ message: "Tenant not found" });
+      }
+
+      const members = await db
+        .select({
+          id: user.id,
+          name: user.name,
+          image: user.image,
+          email: user.email,
+          role: member.role,
+        })
+        .from(member)
+        .innerJoin(user, eq(member.userId, user.id))
+        .where(eq(member.organizationId, tenant.organizationId));
+
+      return reply.send({ data: members });
+    },
+  );
+
   // ===== JOBS CRUD =====
 
   /**
@@ -121,6 +161,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         dateFrom,
         dateTo,
         pipelineId,
+        assigneeId: assigneeFilter,
         page,
         limit,
         sortBy,
@@ -166,6 +207,9 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       }
       if (pipelineId) {
         filters.push(eq(jobs.pipelineId, pipelineId));
+      }
+      if (assigneeFilter) {
+        filters.push(eq(jobs.assigneeId, assigneeFilter));
       }
 
       const whereClause = and(...filters);
@@ -213,10 +257,14 @@ export default async function jobRoutes(fastify: FastifyInstance) {
             equipmentBrand: equipment.brand,
             customerFirstName: customers.firstName,
             customerLastName: customers.lastName,
+            assigneeId: jobs.assigneeId,
+            assigneeName: user.name,
+            assigneeImage: user.image,
           })
           .from(jobs)
           .leftJoin(customers, eq(jobs.customerId, customers.id))
           .leftJoin(equipment, eq(jobs.equipmentId, equipment.id))
+          .leftJoin(user, eq(jobs.assigneeId, user.id))
           .where(whereClause)
           .orderBy(orderFn(sortCol), asc(jobs.sortOrder))
           .limit(limit)
@@ -288,10 +336,14 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           equipmentModel: equipment.model,
           customerFirstName: customers.firstName,
           customerLastName: customers.lastName,
+          assigneeId: jobs.assigneeId,
+          assigneeName: user.name,
+          assigneeImage: user.image,
         })
         .from(jobs)
         .leftJoin(customers, eq(jobs.customerId, customers.id))
         .leftJoin(equipment, eq(jobs.equipmentId, equipment.id))
+        .leftJoin(user, eq(jobs.assigneeId, user.id))
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
         .then((r) => r[0]);
 
@@ -428,6 +480,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
           status: body.status || undefined,
           taxRate: body.taxRate || "0",
           notes: body.notes || null,
+          assigneeId: body.assigneeId || null,
         })
         .returning();
 
@@ -511,6 +564,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         "taxRate",
         "equipmentId",
         "pipelineId",
+        "assigneeId",
       ] as const;
 
       const fieldLabels: Record<string, string> = {
@@ -526,6 +580,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         taxRate: "Tax Rate",
         equipmentId: "Asset",
         pipelineId: "Pipeline",
+        assigneeId: "Assignee",
       };
 
       const updates: Record<string, unknown> = { updatedAt: new Date() };
@@ -868,7 +923,7 @@ export default async function jobRoutes(fastify: FastifyInstance) {
         if (catalogItem) {
           description = description || catalogItem.name;
           unitPrice = unitPrice || catalogItem.unitPrice;
-          itemType = itemType || catalogItem.itemType;
+          itemType = itemType || catalogItem.itemType as "other" | "labor" | "material";
         }
       }
 
@@ -1712,4 +1767,5 @@ export default async function jobRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default jobRoutes;

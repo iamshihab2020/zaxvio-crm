@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import {
@@ -112,7 +112,7 @@ function generateTimeSlots(startTime: string, endTime: string): string[] {
   return slots;
 }
 
-export default async function publicBookingRoutes(fastify: FastifyInstance) {
+const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /public/booking/:slug
    *
@@ -637,4 +637,5 @@ export default async function publicBookingRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default publicBookingRoutes;

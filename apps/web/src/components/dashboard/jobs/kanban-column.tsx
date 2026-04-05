@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
 import type { CardFieldVisibility } from "./card-fields-popover";
+import type { AssigneeMember } from "./assignee-picker";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { IconPlus, IconBriefcase } from "@tabler/icons-react";
 
@@ -29,6 +30,8 @@ interface KanbanColumnProps {
   onAddJob: (stageName: string) => void;
   cardView?: "default" | "compact";
   visibleFields?: CardFieldVisibility;
+  members?: AssigneeMember[];
+  onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
 }
 
 export function KanbanColumn({
@@ -38,6 +41,8 @@ export function KanbanColumn({
   onAddJob,
   cardView = "default",
   visibleFields,
+  members,
+  onAssigneeChange,
 }: KanbanColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: stage.name,
@@ -110,7 +115,13 @@ export function KanbanColumn({
                 {cardView === "compact" ? (
                   <KanbanCardCompact job={job} onClick={onJobClick} visibleFields={visibleFields} />
                 ) : (
-                  <KanbanCard job={job} onClick={onJobClick} visibleFields={visibleFields} />
+                  <KanbanCard
+                    job={job}
+                    onClick={onJobClick}
+                    visibleFields={visibleFields}
+                    members={members}
+                    onAssigneeChange={onAssigneeChange}
+                  />
                 )}
               </motion.div>
             ))}

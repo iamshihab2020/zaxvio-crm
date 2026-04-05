@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   idParam,
@@ -88,7 +88,7 @@ async function recalculateInvoiceTotals(
 
 // ========== ROUTES ==========
 
-export default async function invoiceRoutes(fastify: FastifyInstance) {
+const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
   // ===== INVOICES CRUD =====
 
   /**
@@ -593,7 +593,7 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
         if (catalogItem) {
           description = description || catalogItem.name;
           unitPrice = unitPrice || catalogItem.unitPrice;
-          itemType = itemType || catalogItem.itemType;
+          itemType = itemType || catalogItem.itemType as "other" | "labor" | "material";
         }
       }
 
@@ -676,9 +676,10 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
         "itemType",
       ];
       const updates: Record<string, unknown> = {};
+      const bodyRecord = body as Record<string, unknown>;
       for (const field of allowedFields) {
-        if (field in body) {
-          updates[field] = body[field];
+        if (field in bodyRecord) {
+          updates[field] = bodyRecord[field];
         }
       }
 
@@ -1387,4 +1388,5 @@ export default async function invoiceRoutes(fastify: FastifyInstance) {
       return reply.status(201).send({ data: created });
     },
   );
-}
+};
+export default invoiceRoutes;

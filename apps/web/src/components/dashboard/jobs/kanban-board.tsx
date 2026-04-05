@@ -19,6 +19,7 @@ import { KanbanColumn } from "./kanban-column";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
 import type { CardFieldVisibility } from "./card-fields-popover";
+import type { AssigneeMember } from "./assignee-picker";
 import { reorderJobs } from "@/actions/jobs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
@@ -40,6 +41,8 @@ interface KanbanBoardProps {
   onAddJob: (stageName: string) => void;
   cardView?: "default" | "compact";
   visibleFields?: CardFieldVisibility;
+  members?: AssigneeMember[];
+  onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
 }
 
 export function KanbanBoard({
@@ -50,6 +53,8 @@ export function KanbanBoard({
   onAddJob,
   cardView = "default",
   visibleFields,
+  members,
+  onAssigneeChange,
 }: KanbanBoardProps) {
   const [localJobs, setLocalJobs] = useState<JobCardData[]>(jobs);
   const [activeJob, setActiveJob] = useState<JobCardData | null>(null);
@@ -322,6 +327,8 @@ export function KanbanBoard({
                 onAddJob={onAddJob}
                 cardView={cardView}
                 visibleFields={visibleFields}
+                members={members}
+                onAssigneeChange={onAssigneeChange}
               />
             ))}
           </div>

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import { dispatchNotification } from "../../lib/notifications.js";
@@ -33,7 +33,7 @@ import {
   sql,
 } from "@hvac-saas/database";
 
-export default async function customerRoutes(fastify: FastifyInstance) {
+const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /customers
    * List customers with search, pagination, sorting.
@@ -766,4 +766,5 @@ export default async function customerRoutes(fastify: FastifyInstance) {
       return reply.send({ data });
     },
   );
-}
+};
+export default customerRoutes;

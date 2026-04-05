@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireAuth, requireTenant, requireOrgRole } from "../../lib/auth-middleware.js";
 import {
@@ -16,7 +16,7 @@ import {
 import tenantImpersonationRoutes from "./impersonation.js";
 import { updateTenantBody, uploadLogoBody } from "../../lib/schemas/tenants.js";
 
-export default async function tenantRoutes(fastify: FastifyInstance) {
+const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   // Sub-routes
@@ -313,4 +313,5 @@ export default async function tenantRoutes(fastify: FastifyInstance) {
         .send({ message: "Tenant created", tenantId: tenant.id });
     },
   );
-}
+};
+export default tenantRoutes;

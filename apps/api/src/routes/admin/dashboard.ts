@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireAdmin } from "../../lib/auth-middleware.js";
 import { getPlanPrice } from "../../lib/plan-prices.js";
 import {
@@ -16,7 +16,7 @@ import {
  * Single combined endpoint for the admin dashboard.
  * Returns all KPI data in one request instead of 5 separate calls.
  */
-export default async function adminDashboardRoutes(fastify: FastifyInstance) {
+const adminDashboardRoutes: FastifyPluginAsyncZod = async (fastify) => {
   fastify.get(
     "/",
     { preHandler: [requireAdmin] },
@@ -122,4 +122,5 @@ export default async function adminDashboardRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default adminDashboardRoutes;

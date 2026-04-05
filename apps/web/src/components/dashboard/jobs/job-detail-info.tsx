@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import {
   IconUser,
+  IconUserCheck,
   IconMapPin,
   IconCalendar,
   IconClock,
@@ -27,11 +28,14 @@ import {
   EditableTime,
 } from "@/components/reusable/editable-field";
 import { createInvoiceFromJob } from "@/actions/invoices";
+import { getJobAssignees, updateJob } from "@/actions/jobs";
+import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface JobDetailInfoProps {
   job: JobDetail;
   onFieldSave?: (field: string, value: string) => Promise<void>;
+  onJobUpdate?: () => void;
 }
 
 function InfoRow({
@@ -59,9 +63,38 @@ const SERVICE_TYPE_OPTIONS = Object.entries(SERVICE_TYPE_LABELS).map(([value, la
   label: label as string,
 }));
 
-export function JobDetailInfo({ job, onFieldSave }: JobDetailInfoProps) {
+export function JobDetailInfo({ job, onFieldSave, onJobUpdate }: JobDetailInfoProps) {
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
+  const [members, setMembers] = useState<AssigneeMember[]>([]);
+  const [assigneeId, setAssigneeId] = useState<string | null>(job.assigneeId);
+  const [assigneeLoading, setAssigneeLoading] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    getJobAssignees().then((res) => {
+      if (res.data) setMembers(res.data);
+    });
+  }, []);
+
+  // Keep local assigneeId in sync when job prop changes
+  useEffect(() => {
+    setAssigneeId(job.assigneeId);
+  }, [job.assigneeId]);
+
+  async function handleAssigneeChange(id: string | null) {
+    setAssigneeId(id);
+    setAssigneeLoading(true);
+    const result = await updateJob(job.id, { assigneeId: id });
+    setAssigneeLoading(false);
+    if (result.error) {
+      toast.error(result.error);
+      setAssigneeId(job.assigneeId); // revert
+    } else {
+      const name = members.find((m) => m.id === id)?.name ?? null;
+      toast.success(id ? `Assigned to ${name}` : "Assignee removed");
+      onJobUpdate?.();
+    }
+  }
 
   async function handleGenerateInvoice() {
     setGeneratingInvoice(true);
@@ -95,6 +128,23 @@ export function JobDetailInfo({ job, onFieldSave }: JobDetailInfoProps) {
       {/* Customer — read-only */}
       <InfoRow icon={IconUser} label="Customer">
         <p className="text-sm text-foreground font-body">{customerName}</p>
+      </InfoRow>
+
+      {/* Assignee */}
+      <InfoRow icon={IconUserCheck} label="Assignee">
+        {editable ? (
+          <AssigneePicker
+            value={assigneeId}
+            onChange={handleAssigneeChange}
+            members={members}
+            disabled={assigneeLoading}
+            className="w-full justify-start"
+          />
+        ) : (
+          <p className="text-sm text-foreground font-body">
+            {job.assigneeName ?? "—"}
+          </p>
+        )}
       </InfoRow>
 
       {/* Address */}

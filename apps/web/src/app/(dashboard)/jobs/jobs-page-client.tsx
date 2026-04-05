@@ -37,7 +37,9 @@ import {
   updateJob,
   deleteJob,
   addJobLineItem,
+  getJobAssignees,
 } from "@/actions/jobs";
+import type { AssigneeMember } from "@/components/dashboard/jobs/assignee-picker";
 import { getPipelines } from "@/actions/pipelines";
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { getTenant } from "@/actions/tenants";
@@ -192,6 +194,14 @@ export function JobsPageClient({
 
   // Card field visibility customization
   const { fields: cardFields, setField: setCardField, resetDefaults: resetCardFields } = useCardFieldVisibility();
+
+  // Assignee members for kanban card picker
+  const [assigneeMembers, setAssigneeMembers] = useState<AssigneeMember[]>([]);
+  useEffect(() => {
+    getJobAssignees().then((result) => {
+      if (result.data) setAssigneeMembers(result.data as AssigneeMember[]);
+    });
+  }, []);
 
   const fetchStages = useCallback(async (pipelineId?: string) => {
     const pid = pipelineId ?? selectedPipelineId;
@@ -414,6 +424,28 @@ export function JobsPageClient({
     fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
   }
 
+  async function handleAssigneeChange(jobId: string, assigneeId: string | null) {
+    // Optimistic update on kanban
+    setJobs((prev) =>
+      prev.map((j) => {
+        if (j.id !== jobId) return j;
+        const member = assigneeMembers.find((m) => m.id === assigneeId) ?? null;
+        return {
+          ...j,
+          assigneeId: assigneeId,
+          assigneeName: member?.name ?? null,
+          assigneeImage: member?.image ?? null,
+        };
+      }),
+    );
+    const result = await updateJob(jobId, { assigneeId });
+    if (result.error) {
+      toast.error(result.error);
+      // Revert on error
+      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+    }
+  }
+
   function handleDeleteFromSheet(job: JobDetail) {
     setDeletingJob(job);
     setSheetOpen(false);
@@ -461,6 +493,7 @@ export function JobsPageClient({
         status: data.status || undefined,
         equipmentId: data.equipmentId || undefined,
         pipelineId: selectedPipelineId || undefined,
+        assigneeId: data.assigneeId || undefined,
       });
       if (result.error) {
         setError(result.error);
@@ -649,6 +682,8 @@ export function JobsPageClient({
               onAddJob={openCreateDialogForStage}
               cardView={compact ? "compact" : "default"}
               visibleFields={cardFields}
+              members={assigneeMembers}
+              onAssigneeChange={handleAssigneeChange}
             />
           )}
         </>

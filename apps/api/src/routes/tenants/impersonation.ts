@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   getDb,
   getSupabaseAdmin,
@@ -26,9 +26,7 @@ async function broadcast(
   }
 }
 
-export default async function tenantImpersonationRoutes(
-  fastify: FastifyInstance,
-) {
+const tenantImpersonationRoutes: FastifyPluginAsyncZod = async (fastify) => {
   // ── POST /respond — Tenant accepts or rejects request ─────
   fastify.post<{
     Body: { sessionId: string; approved: boolean };
@@ -185,4 +183,5 @@ export default async function tenantImpersonationRoutes(
       });
     },
   );
-}
+};
+export default tenantImpersonationRoutes;

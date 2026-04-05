@@ -63,6 +63,9 @@ export interface JobDetail {
   equipmentModel: string | null;
   customerFirstName: string | null;
   customerLastName: string | null;
+  assigneeId: string | null;
+  assigneeName: string | null;
+  assigneeImage: string | null;
   completedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -199,7 +202,7 @@ export function JobDetailSheet({
               value: "details",
               label: "Details",
               content: (
-                <JobDetailInfo job={job} onFieldSave={handleFieldSave} />
+                <JobDetailInfo job={job} onFieldSave={handleFieldSave} onJobUpdate={onJobUpdate} />
               ),
             },
             {

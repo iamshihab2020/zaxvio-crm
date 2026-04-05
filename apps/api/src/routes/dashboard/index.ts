@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { getDb } from "@hvac-saas/database";
@@ -6,7 +6,7 @@ import { buildDateRangeParams } from "../../services/analytics/types.js";
 import { getDashboardStats } from "../../services/analytics/dashboard.service.js";
 import { dashboardStatsQuery } from "../../lib/schemas/dashboard.js";
 
-export default async function dashboardRoutes(fastify: FastifyInstance) {
+const dashboardRoutes: FastifyPluginAsyncZod = async (fastify) => {
   fastify.addHook("preHandler", requireTenant);
 
   const f = fastify.withTypeProvider<ZodTypeProvider>();
@@ -22,4 +22,5 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
 
     return { data };
   });
-}
+};
+export default dashboardRoutes;

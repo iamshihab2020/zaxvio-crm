@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   idParam,
@@ -35,7 +35,7 @@ async function seedDefaultAvailability(db: ReturnType<typeof getDb>, tenantId: s
     .orderBy(asc(availabilitySchedules.dayOfWeek));
 }
 
-export default async function availabilityRoutes(fastify: FastifyInstance) {
+const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /availability
    *
@@ -231,4 +231,5 @@ export default async function availabilityRoutes(fastify: FastifyInstance) {
       return reply.status(204).send();
     },
   );
-}
+};
+export default availabilityRoutes;

@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   requireAdmin,
   requireAdminTier,
@@ -39,7 +39,7 @@ import {
   deleteTenantBody,
 } from "../../lib/schemas/admin.js";
 
-export default async function adminTenantRoutes(fastify: FastifyInstance) {
+const adminTenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /admin/tenants
    * List all tenants with search, pagination, sorting, status filter.
@@ -642,4 +642,5 @@ export default async function adminTenantRoutes(fastify: FastifyInstance) {
       });
     },
   );
-}
+};
+export default adminTenantRoutes;

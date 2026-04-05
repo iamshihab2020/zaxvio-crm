@@ -1,4 +1,4 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
@@ -16,7 +16,7 @@ import {
 import { idParam } from "../../lib/schemas/common.js";
 import { notificationsQuery, updatePreferencesBody } from "../../lib/schemas/notifications.js";
 
-export default async function notificationRoutes(fastify: FastifyInstance) {
+const notificationRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
 
   /**
@@ -197,4 +197,5 @@ export default async function notificationRoutes(fastify: FastifyInstance) {
       return reply.send({ success: true });
     },
   );
-}
+};
+export default notificationRoutes;

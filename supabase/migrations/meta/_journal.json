@@ -57,6 +57,13 @@
       "when": 1775385058800,
       "tag": "0007_polite_sinister_six",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1775425828216,
+      "tag": "0008_lean_thundra",
+      "breakpoints": true
     }
   ]
 }
