@@ -43,6 +43,17 @@ When spawning subagents, use `model: "opus"` for planning/research agents and `m
 
 > **Skill**: If the file `skills/consolidate-memory.md` exists locally, follow its methodology whenever consolidating session memory.
 
+## File Access Permissions
+
+**You have full read access to all files in this project.** You may read any file at any time without requesting permission. This includes:
+- Source code files (`.ts`, `.tsx`, `.js`, `.mjs`, `.json`)
+- Configuration files (`.config.ts`, `.config.js`, etc.)
+- Documentation files (`.md`)
+- Schema and migration files (`.sql`, `.prisma`)
+- Any other project files
+
+Use the `Read` tool liberally to understand code structure, patterns, and context. You do NOT need to ask before reading files.
+
 ---
 
 ## Project Overview

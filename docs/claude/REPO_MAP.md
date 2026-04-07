@@ -149,6 +149,10 @@ apps/api/
 |   |   |   +-- index.ts          # CRUD /maintenance-contracts, GET /maintenance-contracts/expiring
 |   |   +-- notifications/
 |   |   |   +-- index.ts          # 6 endpoints: GET list, GET unread-count, PATCH read, PATCH read-all, GET/PATCH preferences
+|   |   +-- conversations/
+|   |   |   +-- index.ts          # Messaging endpoints (list, detail, send, mark-read, etc.)
+|   |   +-- reports/
+|   |   |   +-- index.ts          # Reports endpoints (revenue, jobs, customers, quotes/invoices, bookings)
 |   |   +-- admin/                 # Super admin API routes (prefix: /admin)
 |   |   |   +-- index.ts          # Master plugin, registers sub-routes
 |   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
@@ -200,6 +204,8 @@ apps/api/
 | `/equipment` | requireTenant | CRUD + refrigerant logs sub-resource + history | + |
 | `/maintenance-contracts` | requireTenant | CRUD + expiring contracts | + |
 | `/calendar-events` | requireTenant | CRUD | + |
+| `/conversations` | requireTenant | Messaging: list, detail, send, mark-read | + |
+| `/reports` | requireTenant | Revenue, jobs, customers, quotes/invoices, bookings analytics | + |
 | `/admin/*` | requireAdmin | Tenant mgmt, analytics, audit, impersonation | + |
 | `/webhooks/lemon-squeezy` | Signature | Subscription lifecycle | ~ |
 
@@ -228,6 +234,7 @@ apps/web/
     |   +-- calendar-events.ts   # Calendar event CRUD
     |   +-- catalog.ts
     |   +-- checklists.ts
+    |   +-- conversations.ts     # Messaging actions: list, detail, send, mark-read
     |   +-- customers.ts
     |   +-- dashboard.ts
     |   +-- equipment.ts         # Equipment/asset CRUD + refrigerant logs
@@ -238,6 +245,7 @@ apps/web/
     |   +-- pipeline-stages.ts
     |   +-- pipelines.ts          # Pipeline CRUD (4 actions)
     |   +-- quotes.ts
+    |   +-- reports.ts            # Analytics report actions: revenue, jobs, customers, quotes/invoices, bookings
     |   +-- tags.ts
     |   +-- tenants.ts
     |
@@ -442,6 +450,21 @@ apps/web/
     |   |   |   +-- service-agreement-dialog.tsx
     |   |   |   +-- service-agreement-table.tsx
     |   |   |
+    |   |   +-- conversations/       # Messaging/conversations components
+    |   |   |   +-- conversation-list.tsx        # Two-panel layout (thread list + message view)
+    |   |   |   +-- conversation-thread.tsx      # Chat message display
+    |   |   |   +-- conversation-input.tsx       # Message input with send button
+    |   |   |   +-- conversation-channel-tab.tsx # Email/SMS/voice tabs
+    |   |   |
+    |   |   +-- reports/             # Analytics/reports components
+    |   |   |   +-- revenue-report.tsx           # Revenue trends, MRR, YoY comparison
+    |   |   |   +-- jobs-report.tsx              # Job analytics, pipeline breakdown
+    |   |   |   +-- customers-report.tsx         # Customer acquisition, retention
+    |   |   |   +-- quotes-invoices-report.tsx   # Quote/invoice metrics
+    |   |   |   +-- bookings-report.tsx          # Booking conversion, slots
+    |   |   |   +-- date-range-selector.tsx      # Shared date range picker
+    |   |   |   +-- export-csv-button.tsx        # CSV export functionality
+    |   |   |
     |   |   +-- reusable/            # Shared dashboard-level reusable components
     |   |   |   +-- stats-cards.tsx  # Stats cards grid (clickable filter + filterValue support)
     |   |   |   +-- entity-detail-shell/  # Reusable shell for entity detail views (sidebar/dialog/page)
@@ -562,6 +585,18 @@ apps/web/
         |   +-- service-agreements/
         |   |   +-- page.tsx                         # Service agreements list
         |   |   +-- service-agreements-page-client.tsx
+        |   |
+        |   +-- conversations/
+        |   |   +-- page.tsx                         # Messaging/conversations page
+        |   |   +-- conversations-page-client.tsx    # Two-panel thread + message view
+        |   |
+        |   +-- notifications/
+        |   |   +-- page.tsx                         # Full notifications page (separate from bell)
+        |   |   +-- notifications-page-client.tsx    # Notification list with detailed view
+        |   |
+        |   +-- reports/
+        |   |   +-- page.tsx                         # Reports/analytics dashboard
+        |   |   +-- reports-page-client.tsx          # 5-tab analytics (revenue, jobs, customers, quotes/invoices, bookings)
         |   |
         |   +-- schedule/
         |   |   +-- page.tsx                         # Calendar/schedule view

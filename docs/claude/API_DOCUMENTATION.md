@@ -43,6 +43,8 @@
 - [Refrigerant Logs](#refrigerant-logs)
 - [Equipment Service History](#equipment-service-history)
 - [Service Agreements (Maintenance Contracts)](#service-agreements-maintenance-contracts)
+- [Conversations](#conversations)
+- [Reports](#reports)
 - [Admin Panel](#admin-panel)
 - [Enums & Constants](#enums--constants)
 - [Error Handling](#error-handling)
@@ -4056,6 +4058,277 @@ Delete a service agreement.
   "message": "Service agreement deleted"
 }
 ```
+
+---
+
+## Conversations
+
+Messaging system for multi-channel communication with customers (email, SMS, voice).
+
+### `GET /conversations`
+
+**Auth:** `requireTenant`
+
+List all conversations with customers, organized by channel.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Options |
+|-----------|------|---------|---------|
+| `search` | string | - | Searches customer name, email, phone |
+| `channel` | string | - | `email`, `sms`, `voice` |
+| `customerId` | uuid | - | Filter by customer |
+| `page` | integer | `1` | - |
+| `limit` | integer | `20` | Max: 100 |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "conv_001",
+      "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+      "customerId": "cust_001",
+      "channel": "email",
+      "customerName": "Jane Doe",
+      "customerEmail": "jane.doe@email.com",
+      "unreadCount": 2,
+      "lastMessage": "Thanks for the quick response!",
+      "lastMessageAt": "2026-03-28T14:30:00.000Z",
+      "createdAt": "2026-03-20T10:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 20,
+    "total": 8,
+    "totalPages": 1
+  }
+}
+```
+
+### `GET /conversations/:id`
+
+**Auth:** `requireTenant`
+
+Get conversation details with full message thread.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "id": "conv_001",
+    "tenantId": "550e8400-e29b-41d4-a716-446655440000",
+    "customerId": "cust_001",
+    "channel": "email",
+    "customerName": "Jane Doe",
+    "customerEmail": "jane.doe@email.com",
+    "subject": "AC Repair Follow-up",
+    "messages": [
+      {
+        "id": "msg_001",
+        "senderType": "customer",
+        "senderName": "Jane Doe",
+        "content": "Is the AC fixed?",
+        "sentAt": "2026-03-28T10:00:00.000Z"
+      },
+      {
+        "id": "msg_002",
+        "senderType": "staff",
+        "senderName": "John Smith",
+        "content": "Yes, all fixed! New compressor installed.",
+        "sentAt": "2026-03-28T12:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
+### `POST /conversations/:id/send`
+
+**Auth:** `requireTenant`
+
+Send a message in a conversation.
+
+**Request Body:**
+
+```json
+{
+  "content": "Invoice for AC repair is attached.",
+  "attachmentUrl": null
+}
+```
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "id": "msg_003",
+    "conversationId": "conv_001",
+    "senderType": "staff",
+    "senderName": "John Smith",
+    "content": "Invoice for AC repair is attached.",
+    "sentAt": "2026-03-28T14:30:00.000Z"
+  }
+}
+```
+
+### `PATCH /conversations/:id/mark-read`
+
+**Auth:** `requireTenant`
+
+Mark all messages in a conversation as read.
+
+**Response** `200 OK`
+
+```json
+{
+  "success": true
+}
+```
+
+---
+
+## Reports
+
+Analytics and reporting endpoints for business metrics across all core entities.
+
+### `GET /reports/revenue`
+
+**Auth:** `requireTenant`
+
+Get revenue analytics: total, MRR, YoY comparison, monthly trend.
+
+**Query Parameters:**
+
+| Parameter | Type | Default |
+|-----------|------|---------|
+| `dateFrom` | string | Start of current month |
+| `dateTo` | string | End of current month |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "totalRevenue": "28500.00",
+    "previousRevenue": "24100.00",
+    "revenueChange": "18.2%",
+    "monthlyData": [
+      { "month": "2026-01", "amount": "21000.00" },
+      { "month": "2026-02", "amount": "24100.00" },
+      { "month": "2026-03", "amount": "28500.00" }
+    ]
+  }
+}
+```
+
+### `GET /reports/jobs`
+
+**Auth:** `requireTenant`
+
+Get job analytics: counts by status, pipeline breakdown, average time-to-complete.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "totalJobs": 125,
+    "jobsByStatus": [
+      { "status": "scheduled", "count": 8 },
+      { "status": "in_progress", "count": 3 },
+      { "status": "completed", count: 42 }
+    ],
+    "avgTimeToComplete": "2.5 days"
+  }
+}
+```
+
+### `GET /reports/customers`
+
+**Auth:** `requireTenant`
+
+Get customer analytics: total, new this month, retention rate, lifetime value.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "totalCustomers": 47,
+    "newThisMonth": 3,
+    "retentionRate": "94.5%",
+    "avgLifetimeValue": "3450.00"
+  }
+}
+```
+
+### `GET /reports/quotes-invoices`
+
+**Auth:** `requireTenant`
+
+Get quote and invoice metrics: conversion rate, outstanding balance, aging.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "quoteStats": {
+      "total": 24,
+      "accepted": 16,
+      "conversionRate": "66.7%"
+    },
+    "invoiceStats": {
+      "total": 98,
+      "paid": 85,
+      "outstandingBalance": "15420.00",
+      "overdueCount": 3
+    }
+  }
+}
+```
+
+### `GET /reports/bookings`
+
+**Auth:** `requireTenant`
+
+Get booking analytics: conversion rate, occupancy, revenue per booking.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "totalBookings": 42,
+    "convertedToJobs": 38,
+    "conversionRate": "90.5%",
+    "revenuePerBooking": "678.50"
+  }
+}
+```
+
+### `GET /reports/export`
+
+**Auth:** `requireTenant`
+
+Export report data as CSV.
+
+**Query Parameters:**
+
+| Parameter | Type | Required |
+|-----------|------|----------|
+| `reportType` | string | Yes — `revenue`, `jobs`, `customers`, `quotes-invoices`, or `bookings` |
+| `dateFrom` | string | No |
+| `dateTo` | string | No |
+
+**Response** `200 OK` (Content-Type: `text/csv`)
+
+Returns CSV file with report data.
 
 ---
 
