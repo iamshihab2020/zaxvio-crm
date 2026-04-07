@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
-import { RefreshOnNav } from "@/components/refresh-on-nav";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -53,7 +52,6 @@ export default function RootLayout({
     >
       <body className="min-h-screen font-body antialiased">
         <ThemeProvider>
-          <RefreshOnNav />
           {children}
           <Toaster position="bottom-right" richColors />
         </ThemeProvider>

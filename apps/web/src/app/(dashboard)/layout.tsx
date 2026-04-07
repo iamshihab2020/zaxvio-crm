@@ -10,6 +10,7 @@ import { ImpersonationBar } from "@/components/dashboard/impersonation-bar";
 import { ImpersonationRequestListener } from "@/components/dashboard/impersonation-request-listener";
 import { ImpersonationActiveIndicator } from "@/components/dashboard/impersonation-active-indicator";
 import { HelpChatbot } from "@/components/dashboard/chatbot/help-chatbot";
+import { PageContent } from "@/components/dashboard/page-content";
 
 export default async function DashboardLayout({
   children,
@@ -50,9 +51,9 @@ export default async function DashboardLayout({
             </>
           )}
           <Navbar />
-          <main className={isImpersonating ? "pt-24" : "pt-14"}>
+          <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
             {children}
-          </main>
+          </PageContent>
         </DashboardShell>
         <HelpChatbot />
       </div>
