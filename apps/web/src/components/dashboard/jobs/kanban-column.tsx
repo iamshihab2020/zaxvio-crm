@@ -59,42 +59,36 @@ export function KanbanColumn({
       ref={setNodeRef}
       className={cn(
         "flex flex-col rounded-xl border border-t-[3px] p-3 transition-all duration-200 min-w-[290px] flex-1",
-        "bg-muted/20 dark:bg-muted/10",
+        "bg-card/60 dark:bg-muted/10",
         colors.borderTop,
         isOver
           ? `${colors.bg} ring-2 ${colors.ring}`
-          : "border-border/40 dark:border-border/30",
+          : "border-border dark:border-border/30",
       )}
     >
       {/* Column header */}
-      <div className="mb-3 flex items-center gap-2 shrink-0">
-        <div
-          className={cn(
-            "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1",
-            colors.bg,
-          )}
-        >
-          <span className={cn("h-2 w-2 rounded-full", colors.dot)} />
-          <h3 className={cn("text-xs font-semibold uppercase tracking-wider font-heading", colors.text)}>
-            {stage.label}
-          </h3>
-        </div>
-        <span className="text-xs font-medium text-muted-foreground font-body">
+      <div className={cn("mb-3 flex items-center gap-2.5 shrink-0 rounded-lg px-2.5 py-1.5 -mx-0.5", colors.bg)}>
+        <span className={cn("h-2.5 w-2.5 rounded-full shrink-0", colors.dot)} />
+        <h3 className={cn("text-[11px] font-bold uppercase tracking-widest font-heading flex-1", colors.text)}>
+          {stage.label}
+        </h3>
+        <span className={cn(
+          "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
+          colors.dot, "text-white",
+        )}>
           {jobs.length}
         </span>
-        <div className="ml-auto">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onAddJob(stage.name)}
-            className="h-6 w-6 text-muted-foreground hover:text-foreground"
-            hoverScale={1}
-            tapScale={0.9}
-            title={`Add job to ${stage.label}`}
-          >
-            <IconPlus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => onAddJob(stage.name)}
+          className={cn("h-6 w-6", colors.text, "opacity-60 hover:opacity-100")}
+          hoverScale={1}
+          tapScale={0.9}
+          title={`Add job to ${stage.label}`}
+        >
+          <IconPlus className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       {/* Cards */}
