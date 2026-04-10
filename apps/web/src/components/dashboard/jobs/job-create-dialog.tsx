@@ -4,10 +4,6 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,14 +20,24 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
+import { motion, AnimatePresence } from "motion/react";
 import {
+  IconBriefcase,
+  IconUser,
+  IconClock,
+  IconMapPin,
+  IconFileDescription,
+  IconNotes,
+  IconPackage,
   IconPencil,
   IconPlus,
   IconTrash,
-  IconPackage,
   IconLayoutSidebar,
   IconMaximize,
   IconX,
+  IconCheck,
+  IconTool,
+  IconSettings,
 } from "@tabler/icons-react";
 import {
   Sheet,
@@ -68,6 +74,49 @@ import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 import { toast } from "sonner";
 import type { JobDetail } from "./job-detail-sheet";
 
+/* ── Section wrapper with icon ── */
+function FormSection({
+  icon: Icon,
+  label,
+  children,
+  className,
+}: {
+  icon: React.ElementType;
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-3", className)}>
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground font-body">
+          {label}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ── Animated error message ── */
+function FieldError({ message }: { message?: string }) {
+  return (
+    <AnimatePresence>
+      {message && (
+        <motion.p
+          initial={{ opacity: 0, y: -4 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          className="text-xs text-destructive"
+        >
+          {message}
+        </motion.p>
+      )}
+    </AnimatePresence>
+  );
+}
+
 interface JobCreateDialogProps {
   job?: JobDetail | null;
   open: boolean;
@@ -76,7 +125,6 @@ interface JobCreateDialogProps {
   loading: boolean;
   defaultTaxRate?: string;
   initialStatus?: string;
-  /** Pre-fill customer when creating from customer detail page */
   defaultCustomer?: { id: string; firstName: string; lastName: string } | null;
 }
 
@@ -140,6 +188,12 @@ const emptyForm: Omit<JobFormData, "lineItems"> = {
   assigneeId: null,
 };
 
+const PRIORITY_COLORS: Record<string, string> = {
+  standard: "bg-blue-500",
+  urgent: "bg-amber-500",
+  emergency: "bg-red-500",
+};
+
 export function JobCreateDialog({
   job,
   open,
@@ -158,8 +212,6 @@ export function JobCreateDialog({
   const [taxEditable, setTaxEditable] = useState(false);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const [members, setMembers] = useState<AssigneeMember[]>([]);
-
-  // New line item form
   const [showAddItem, setShowAddItem] = useState(false);
   const [itemForm, setItemForm] = useState<NewItemForm>(emptyItemForm);
 
@@ -221,7 +273,6 @@ export function JobCreateDialog({
     setItemForm(emptyItemForm);
   }, [job, open, defaultTaxRate]);
 
-  // Fetch org members for assignee picker when dialog opens
   useEffect(() => {
     if (open) {
       getJobAssignees().then((res) => {
@@ -331,7 +382,6 @@ export function JobCreateDialog({
     setLineItems((prev) => prev.filter((_, i) => i !== index));
   }
 
-  // Compute summary
   const subtotal = lineItems.reduce(
     (sum, li) =>
       sum + parseFloat(li.quantity || "0") * parseFloat(li.unitPrice || "0"),
@@ -342,10 +392,10 @@ export function JobCreateDialog({
   const total = subtotal + taxAmount;
 
   const isBusy = loading || creatingCustomer;
-  const { mode, setMode, sidebarWidth: prefWidth, setSidebarWidth: setPrefWidth, mounted } = useViewPreference("jobs");
+  const { mode, setMode, sidebarWidth: prefWidth, setSidebarWidth: setPrefWidth } = useViewPreference("jobs");
   const isSidebar = mode === "sidebar";
 
-  /* ── Resizable sidebar width ──────────────────────────────── */
+  /* ── Resizable sidebar width ── */
   const [liveSidebarWidth, setLiveSidebarWidth] = useState(prefWidth);
   const dragWidthRef = useRef(prefWidth);
 
@@ -377,32 +427,41 @@ export function JobCreateDialog({
     [liveSidebarWidth, setPrefWidth],
   );
 
+  /* ── Header ── */
   const header = (
-    <div className="flex items-center justify-between px-6 pt-6 pb-2">
-      <div>
-        <h2 className="font-heading text-lg font-semibold">
-          {isEditing ? "Edit Job" : "Create Job"}
-        </h2>
-        <p className="text-sm text-muted-foreground font-body">
-          {isEditing ? "Update job details." : "Create a new job for a customer."}
-        </p>
+    <div className="flex items-center justify-between px-6 pt-5 pb-3">
+      <div className="flex items-center gap-3">
+        <div className={cn(
+          "flex items-center justify-center h-9 w-9 rounded-lg",
+          PRIORITY_COLORS[form.priority] ?? "bg-blue-500",
+        )}>
+          <IconBriefcase className="h-4.5 w-4.5 text-white" />
+        </div>
+        <div>
+          <h2 className="font-heading text-lg font-semibold leading-tight">
+            {isEditing ? "Edit Job" : "Create Job"}
+          </h2>
+          <p className="text-xs text-muted-foreground font-body mt-0.5">
+            {isEditing ? "Update job details." : "Create a new job for a customer."}
+          </p>
+        </div>
       </div>
       <TooltipProvider delayDuration={300}>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => setMode(isSidebar ? "dialog" : "sidebar")} type="button">
-                {isSidebar ? <IconMaximize className="h-4 w-4" /> : <IconLayoutSidebar className="h-4 w-4" />}
+              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => setMode(isSidebar ? "dialog" : "sidebar")} type="button">
+                {isSidebar ? <IconMaximize className="h-3.5 w-3.5" /> : <IconLayoutSidebar className="h-3.5 w-3.5" />}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              {isSidebar ? "Switch to dialog view" : "Switch to sidebar view"}
+              {isSidebar ? "Switch to dialog" : "Switch to sidebar"}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8 cursor-pointer" onClick={() => onOpenChange(false)} type="button">
-                <IconX className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground" onClick={() => onOpenChange(false)} type="button">
+                <IconX className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">Close</TooltipContent>
@@ -412,445 +471,395 @@ export function JobCreateDialog({
     </div>
   );
 
+  /* ── Form content ── */
   const formContent = (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 min-h-0 flex-1">
+    <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
       <ScrollFadeArea className="flex-1">
-        <div className={`flex gap-6 px-6 pb-3 ${isSidebar ? "flex-col" : "flex-col lg:flex-row"}`}>
-              {/* Left column: Job details */}
-              <div className="flex-1 min-w-0 space-y-4">
-          {/* Customer picker (not shown when editing since customerId can't change) */}
-          {!isEditing && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="font-body">
-                  Customer <span className="text-destructive">*</span>
-                </Label>
-                {customerSelection?.type !== "new" && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      handleCustomerChange({
-                        type: "new",
-                        firstName: "",
-                        lastName: "",
-                        phone: "",
-                        email: "",
-                      })
-                    }
-                    className="gap-1 text-xs text-brand hover:underline font-body h-auto p-0"
-                  >
-                    <IconPlus className="h-3 w-3" />
-                    New Customer
-                  </Button>
-                )}
-              </div>
-              <CustomerPicker
-                value={customerSelection}
-                onChange={handleCustomerChange}
-                error={errors.customerId}
-              />
-              {errors.customerId && customerSelection?.type !== "new" && (
-                <p className="text-sm text-destructive">{errors.customerId}</p>
-              )}
-            </div>
-          )}
-
-          {/* Asset picker */}
-          <div className="space-y-2">
-            <Label className="font-body">Equipment / Asset</Label>
-            <AssetPicker
-              customerId={
-                isEditing
-                  ? form.customerId
-                  : customerSelection?.type === "existing"
-                    ? customerSelection.id
-                    : null
-              }
-              value={form.equipmentId || null}
-              onChange={(id) =>
-                setForm((prev) => ({ ...prev, equipmentId: id ?? "" }))
-              }
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label className="font-body">Assignee</Label>
-            <AssigneePicker
-              value={form.assigneeId}
-              onChange={(id) => setForm((prev) => ({ ...prev, assigneeId: id }))}
-              members={members}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="title" className="font-body">
-              Title <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="title"
-              value={form.title}
-              onChange={(e) => updateField("title", e.target.value)}
-              placeholder="AC repair for living room"
-            />
-            {errors.title && (
-              <p className="text-sm text-destructive">{errors.title}</p>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="font-body">Service Type</Label>
-              <Select value={form.serviceType} onValueChange={(v) => updateField("serviceType", v)}>
-                <SelectTrigger className="h-9 font-body">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {SERVICE_TYPES.map((st) => (
-                    <SelectItem key={st} value={st} className="font-body">
-                      {SERVICE_TYPE_LABELS[st]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label className="font-body">Priority</Label>
-              <Select value={form.priority} onValueChange={(v) => updateField("priority", v)}>
-                <SelectTrigger className="h-9 font-body">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {JOB_PRIORITIES.map((p) => (
-                    <SelectItem key={p} value={p} className="font-body">
-                      {JOB_PRIORITY_LABELS[p]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="scheduledDate" className="font-body">
-                Date <span className="text-destructive">*</span>
-              </Label>
-              <DatePicker
-                id="scheduledDate"
-                value={form.scheduledDate}
-                onChange={(v) => updateField("scheduledDate", v)}
-                placeholder="Pick date"
-              />
-              {errors.scheduledDate && (
-                <p className="text-sm text-destructive">{errors.scheduledDate}</p>
-              )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="scheduledStart" className="font-body">
-                Start Time
-              </Label>
-              <TimePicker
-                id="scheduledStart"
-                value={form.scheduledStart}
-                onChange={(v) => updateField("scheduledStart", v)}
-                placeholder="Start"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="scheduledEnd" className="font-body">
-                End Time
-              </Label>
-              <TimePicker
-                id="scheduledEnd"
-                value={form.scheduledEnd}
-                onChange={(v) => updateField("scheduledEnd", v)}
-                placeholder="End"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address" className="font-body">
-              Address
-            </Label>
-            <Input
-              id="address"
-              value={form.address}
-              onChange={(e) => updateField("address", e.target.value)}
-              placeholder="123 Main St, Houston, TX"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="description" className="font-body">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={form.description}
-              onChange={(e) => updateField("description", e.target.value)}
-              placeholder="Describe the job..."
-              rows={3}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="taxRate" className="font-body">
-                Tax Rate (%)
-              </Label>
-              <div className="flex items-center gap-2">
-                <Input
-                  id="taxRate"
-                  value={form.taxRate}
-                  onChange={(e) => updateField("taxRate", e.target.value)}
-                  placeholder="8.25"
-                  readOnly={!taxEditable}
-                  className={cn(!taxEditable && "bg-muted text-muted-foreground")}
+        <div className={cn(
+          "px-6 pb-4",
+          !isSidebar && !isEditing
+            ? "lg:grid lg:grid-cols-[1fr_280px] lg:gap-6"
+            : "space-y-5",
+        )}>
+          {/* ── Left column: Job details ── */}
+          <div className="space-y-5">
+            {/* Customer picker */}
+            {!isEditing && (
+              <FormSection icon={IconUser} label="Customer">
+                <div className="flex items-center justify-between -mt-1">
+                  <span className="text-xs text-muted-foreground">
+                    Select or create a customer <span className="text-destructive">*</span>
+                  </span>
+                  {customerSelection?.type !== "new" && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        handleCustomerChange({
+                          type: "new",
+                          firstName: "",
+                          lastName: "",
+                          phone: "",
+                          email: "",
+                        })
+                      }
+                      className="gap-1 text-xs text-brand hover:underline font-body h-auto p-0"
+                    >
+                      <IconPlus className="h-3 w-3" />
+                      New Customer
+                    </Button>
+                  )}
+                </div>
+                <CustomerPicker
+                  value={customerSelection}
+                  onChange={handleCustomerChange}
+                  error={errors.customerId}
                 />
-                {!taxEditable && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="shrink-0 h-9 w-9"
-                    onClick={() => setTaxEditable(true)}
-                    title="Override tax rate for this job"
-                  >
-                    <IconPencil className="h-4 w-4" />
-                  </Button>
-                )}
+                <FieldError message={customerSelection?.type !== "new" ? errors.customerId : undefined} />
+              </FormSection>
+            )}
+
+            {/* Equipment / Asset + Assignee */}
+            <FormSection icon={IconSettings} label="Assignment">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Equipment / Asset</Label>
+                  <AssetPicker
+                    customerId={
+                      isEditing
+                        ? form.customerId
+                        : customerSelection?.type === "existing"
+                          ? customerSelection.id
+                          : null
+                    }
+                    value={form.equipmentId || null}
+                    onChange={(id) =>
+                      setForm((prev) => ({ ...prev, equipmentId: id ?? "" }))
+                    }
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Assignee</Label>
+                  <AssigneePicker
+                    value={form.assigneeId}
+                    onChange={(id) => setForm((prev) => ({ ...prev, assigneeId: id }))}
+                    members={members}
+                  />
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {taxEditable
-                  ? "e.g. 8.25 for 8.25%"
-                  : "Using default rate. Click the pencil to override."}
-              </p>
-              {errors.taxRate && (
-                <p className="text-sm text-destructive">{errors.taxRate}</p>
-              )}
+            </FormSection>
+
+            {/* Title */}
+            <div className="space-y-2">
+              <Label htmlFor="title" className="font-body text-sm font-medium">
+                Title <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="title"
+                value={form.title}
+                onChange={(e) => updateField("title", e.target.value)}
+                placeholder="AC repair for living room"
+                className={cn(
+                  "h-10 text-sm",
+                  errors.title && "border-destructive focus-visible:ring-destructive/30",
+                )}
+              />
+              <FieldError message={errors.title} />
+            </div>
+
+            {/* Service Type & Priority */}
+            <FormSection icon={IconTool} label="Service">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Service Type</Label>
+                  <Select value={form.serviceType} onValueChange={(v) => updateField("serviceType", v)}>
+                    <SelectTrigger className="h-9 font-body text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SERVICE_TYPES.map((st) => (
+                        <SelectItem key={st} value={st} className="font-body">
+                          {SERVICE_TYPE_LABELS[st]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Priority</Label>
+                  <Select value={form.priority} onValueChange={(v) => updateField("priority", v)}>
+                    <SelectTrigger className="h-9 font-body text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {JOB_PRIORITIES.map((p) => (
+                        <SelectItem key={p} value={p} className="font-body">
+                          {JOB_PRIORITY_LABELS[p]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </FormSection>
+
+            {/* Date & Time */}
+            <FormSection icon={IconClock} label="Schedule">
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="scheduledDate" className="text-xs text-muted-foreground">
+                    Date <span className="text-destructive">*</span>
+                  </Label>
+                  <DatePicker
+                    id="scheduledDate"
+                    value={form.scheduledDate}
+                    onChange={(v) => updateField("scheduledDate", v)}
+                    placeholder="Pick date"
+                  />
+                  <FieldError message={errors.scheduledDate} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="scheduledStart" className="text-xs text-muted-foreground">
+                    Start Time
+                  </Label>
+                  <TimePicker
+                    id="scheduledStart"
+                    value={form.scheduledStart}
+                    onChange={(v) => updateField("scheduledStart", v)}
+                    placeholder="Start"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="scheduledEnd" className="text-xs text-muted-foreground">
+                    End Time
+                  </Label>
+                  <TimePicker
+                    id="scheduledEnd"
+                    value={form.scheduledEnd}
+                    onChange={(v) => updateField("scheduledEnd", v)}
+                    placeholder="End"
+                  />
+                </div>
+              </div>
+            </FormSection>
+
+            {/* Address */}
+            <FormSection icon={IconMapPin} label="Location">
+              <Input
+                id="address"
+                value={form.address}
+                onChange={(e) => updateField("address", e.target.value)}
+                placeholder="123 Main St, Houston, TX"
+                className="h-9 text-sm"
+              />
+            </FormSection>
+
+            {/* Description */}
+            <FormSection icon={IconFileDescription} label="Description">
+              <Textarea
+                id="description"
+                value={form.description}
+                onChange={(e) => updateField("description", e.target.value)}
+                placeholder="Describe the job..."
+                rows={3}
+                className="text-sm resize-none"
+              />
+            </FormSection>
+
+            {/* Tax & Notes row */}
+            <div className="grid grid-cols-2 gap-4">
+              <FormSection icon={IconSettings} label="Tax Rate">
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="taxRate"
+                    value={form.taxRate}
+                    onChange={(e) => updateField("taxRate", e.target.value)}
+                    placeholder="8.25"
+                    readOnly={!taxEditable}
+                    className={cn("h-9 text-sm", !taxEditable && "bg-muted text-muted-foreground")}
+                  />
+                  {!taxEditable && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 h-9 w-9 cursor-pointer"
+                      onClick={() => setTaxEditable(true)}
+                      title="Override tax rate for this job"
+                    >
+                      <IconPencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                <p className="text-[0.65rem] text-muted-foreground/70">
+                  {taxEditable ? "e.g. 8.25 for 8.25%" : "Default rate. Click pencil to override."}
+                </p>
+                <FieldError message={errors.taxRate} />
+              </FormSection>
+
+              <FormSection icon={IconNotes} label="Notes">
+                <Textarea
+                  id="notes"
+                  value={form.notes}
+                  onChange={(e) => updateField("notes", e.target.value)}
+                  placeholder="Internal notes..."
+                  rows={2}
+                  className="text-sm resize-none"
+                />
+              </FormSection>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes" className="font-body">
-              Notes
-            </Label>
-            <Textarea
-              id="notes"
-              value={form.notes}
-              onChange={(e) => updateField("notes", e.target.value)}
-              placeholder="Internal notes..."
-              rows={2}
-            />
-          </div>
-              </div>
+          {/* ── Right column: Line items (create mode only) ── */}
+          {!isEditing && (
+            <div className={cn(
+              "space-y-3",
+              !isSidebar && "lg:border-l lg:border-border lg:pl-6",
+            )}>
+              <FormSection icon={IconPackage} label="Line Items">
+                {lineItems.length > 0 && (
+                  <span className="text-xs text-muted-foreground -mt-2 block">
+                    {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
+                  </span>
+                )}
 
-              {/* Right column: Line items (only for create mode) */}
-              {!isEditing && (
-                <div className="lg:w-[300px] shrink-0 space-y-3 lg:border-l lg:border-border lg:pl-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <IconPackage className="h-4 w-4" />
-                      <span className="text-xs font-medium uppercase tracking-wider font-body">
-                        Line Items
-                      </span>
-                    </div>
-                    {lineItems.length > 0 && (
-                      <span className="text-xs text-muted-foreground font-body">
-                        {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Existing items */}
+                {/* Existing items */}
+                <AnimatePresence>
                   {lineItems.length > 0 && (
-                    <div className="rounded-md border border-border overflow-hidden">
+                    <motion.div
+                      initial={{ opacity: 0, y: -8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="rounded-md border border-border overflow-hidden"
+                    >
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-border bg-muted/30">
-                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground font-body text-xs">
-                              Item
-                            </th>
-                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-12">
-                              Qty
-                            </th>
-                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-16">
-                              Price
-                            </th>
+                            <th className="px-2 py-1.5 text-left font-medium text-muted-foreground font-body text-xs">Item</th>
+                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-12">Qty</th>
+                            <th className="px-2 py-1.5 text-right font-medium text-muted-foreground font-body text-xs w-16">Price</th>
                             <th className="w-8" />
                           </tr>
                         </thead>
                         <tbody>
                           {lineItems.map((li, idx) => (
-                            <tr
-                              key={idx}
+                            <motion.tr
+                              key={`${li.description}-${idx}`}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: -8 }}
                               className="border-b border-border last:border-0"
                             >
                               <td className="px-2 py-1.5 font-body">
-                                <div className="text-xs text-foreground truncate max-w-[160px]">
-                                  {li.description}
-                                </div>
-                                <div className="text-[10px] text-muted-foreground">
-                                  {ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}
-                                </div>
+                                <div className="text-xs text-foreground truncate max-w-[160px]">{li.description}</div>
+                                <div className="text-[10px] text-muted-foreground">{ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}</div>
                               </td>
-                              <td className="px-2 py-1.5 text-right text-xs text-muted-foreground font-body">
-                                {li.quantity}
-                              </td>
+                              <td className="px-2 py-1.5 text-right text-xs text-muted-foreground font-body">{li.quantity}</td>
                               <td className="px-2 py-1.5 text-right text-xs font-medium font-body">
-                                ${(
-                                  parseFloat(li.quantity || "0") *
-                                  parseFloat(li.unitPrice || "0")
-                                ).toFixed(2)}
+                                ${(parseFloat(li.quantity || "0") * parseFloat(li.unitPrice || "0")).toFixed(2)}
                               </td>
                               <td className="px-1 py-1.5">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeItem(idx)}
-                                  className="h-5 w-5 text-muted-foreground hover:text-destructive"
-                                >
+                                <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(idx)} className="h-5 w-5 text-muted-foreground hover:text-destructive cursor-pointer">
                                   <IconTrash className="h-3 w-3" />
                                 </Button>
                               </td>
-                            </tr>
+                            </motion.tr>
                           ))}
                         </tbody>
                       </table>
-                    </div>
+                    </motion.div>
                   )}
+                </AnimatePresence>
 
-                  {/* Add Line Item button — collapses when form is open */}
-                  <div
-                    className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
-                    style={{ gridTemplateRows: showAddItem ? "0fr" : "1fr", opacity: showAddItem ? 0 : 1 }}
-                  >
-                    <div className="overflow-hidden">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowAddItem(true)}
-                        tabIndex={showAddItem ? -1 : 0}
-                        className="w-full cursor-pointer text-xs"
-                      >
-                        <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                        Add Line Item
-                      </Button>
-                    </div>
+                {/* Add Line Item button */}
+                <div
+                  className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                  style={{ gridTemplateRows: showAddItem ? "0fr" : "1fr", opacity: showAddItem ? 0 : 1 }}
+                >
+                  <div className="overflow-hidden">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setShowAddItem(true)} tabIndex={showAddItem ? -1 : 0} className="w-full cursor-pointer text-xs gap-1.5">
+                      <IconPlus className="h-3.5 w-3.5" />
+                      Add Line Item
+                    </Button>
                   </div>
+                </div>
 
-                  {/* Add item form — expands when open */}
-                  <div
-                    className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
-                    style={{ gridTemplateRows: showAddItem ? "1fr" : "0fr", opacity: showAddItem ? 1 : 0 }}
-                  >
-                    <div className="overflow-hidden">
-                      <div className="rounded-md border border-border p-2.5 space-y-2">
-                        <div>
-                          <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
-                            From catalog (optional)
-                          </label>
-                          <CatalogItemPicker
-                            selectedId={itemForm.catalogItemId}
-                            selectedLabel={itemForm.catalogItemLabel}
-                            onSelect={(item: CatalogPickerItem | null) => {
-                              if (item) {
-                                setItemForm((f) => ({
-                                  ...f,
-                                  catalogItemId: item.id,
-                                  catalogItemLabel: item.name,
-                                  description: item.name,
-                                  unitPrice: parseFloat(item.unitPrice).toFixed(2),
-                                  itemType: item.itemType,
-                                }));
-                              } else {
-                                setItemForm((f) => ({
-                                  ...f,
-                                  catalogItemId: null,
-                                  catalogItemLabel: "",
-                                }));
-                              }
-                            }}
-                          />
-                        </div>
-                        <Input
-                          placeholder="Description"
-                          value={itemForm.description}
-                          onChange={(e) =>
-                            setItemForm((f) => ({ ...f, description: e.target.value }))
-                          }
-                          className="text-sm h-8"
-                          tabIndex={showAddItem ? 0 : -1}
+                {/* Add item form */}
+                <div
+                  className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
+                  style={{ gridTemplateRows: showAddItem ? "1fr" : "0fr", opacity: showAddItem ? 1 : 0 }}
+                >
+                  <div className="overflow-hidden">
+                    <div className="rounded-md border border-border p-2.5 space-y-2">
+                      <div>
+                        <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
+                          From catalog (optional)
+                        </label>
+                        <CatalogItemPicker
+                          selectedId={itemForm.catalogItemId}
+                          selectedLabel={itemForm.catalogItemLabel}
+                          onSelect={(item: CatalogPickerItem | null) => {
+                            if (item) {
+                              setItemForm((f) => ({
+                                ...f,
+                                catalogItemId: item.id,
+                                catalogItemLabel: item.name,
+                                description: item.name,
+                                unitPrice: parseFloat(item.unitPrice).toFixed(2),
+                                itemType: item.itemType,
+                              }));
+                            } else {
+                              setItemForm((f) => ({
+                                ...f,
+                                catalogItemId: null,
+                                catalogItemLabel: "",
+                              }));
+                            }
+                          }}
                         />
-                        <div className="flex gap-2">
-                          <Select value={itemForm.itemType} onValueChange={(v) => setItemForm((f) => ({ ...f, itemType: v }))}>
-                            <SelectTrigger className="h-8 text-xs font-body flex-1">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
-                                <SelectItem key={val} value={val} className="text-xs font-body">
-                                  {label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <Input
-                            placeholder="Qty"
-                            value={itemForm.quantity}
-                            onChange={(e) =>
-                              setItemForm((f) => ({ ...f, quantity: e.target.value }))
-                            }
-                            className="w-14 text-sm h-8"
-                            tabIndex={showAddItem ? 0 : -1}
-                          />
-                          <Input
-                            placeholder="Price"
-                            value={itemForm.unitPrice}
-                            onChange={(e) =>
-                              setItemForm((f) => ({ ...f, unitPrice: e.target.value }))
-                            }
-                            className="w-20 text-sm h-8"
-                            tabIndex={showAddItem ? 0 : -1}
-                          />
-                        </div>
-                        <div className="flex gap-2 justify-end">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-xs cursor-pointer"
-                            tabIndex={showAddItem ? 0 : -1}
-                            onClick={() => {
-                              setShowAddItem(false);
-                              setItemForm(emptyItemForm);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            className="h-7 text-xs bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
-                            tabIndex={showAddItem ? 0 : -1}
-                            onClick={handleAddItem}
-                            disabled={!itemForm.description.trim() || !itemForm.unitPrice.trim()}
-                          >
-                            Add
-                          </Button>
-                        </div>
+                      </div>
+                      <Input
+                        placeholder="Description"
+                        value={itemForm.description}
+                        onChange={(e) => setItemForm((f) => ({ ...f, description: e.target.value }))}
+                        className="text-sm h-8"
+                        tabIndex={showAddItem ? 0 : -1}
+                      />
+                      <div className="flex gap-2">
+                        <Select value={itemForm.itemType} onValueChange={(v) => setItemForm((f) => ({ ...f, itemType: v }))}>
+                          <SelectTrigger className="h-8 text-xs font-body flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(ITEM_TYPE_LABELS).map(([val, label]) => (
+                              <SelectItem key={val} value={val} className="text-xs font-body">{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input placeholder="Qty" value={itemForm.quantity} onChange={(e) => setItemForm((f) => ({ ...f, quantity: e.target.value }))} className="w-14 text-sm h-8" tabIndex={showAddItem ? 0 : -1} />
+                        <Input placeholder="Price" value={itemForm.unitPrice} onChange={(e) => setItemForm((f) => ({ ...f, unitPrice: e.target.value }))} className="w-20 text-sm h-8" tabIndex={showAddItem ? 0 : -1} />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <Button type="button" variant="outline" size="sm" className="h-7 text-xs cursor-pointer" tabIndex={showAddItem ? 0 : -1} onClick={() => { setShowAddItem(false); setItemForm(emptyItemForm); }}>
+                          Cancel
+                        </Button>
+                        <Button type="button" size="sm" className="h-7 text-xs bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer" tabIndex={showAddItem ? 0 : -1} onClick={handleAddItem} disabled={!itemForm.description.trim() || !itemForm.unitPrice.trim()}>
+                          Add
+                        </Button>
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Summary */}
+                {/* Summary */}
+                <AnimatePresence>
                   {lineItems.length > 0 && (
-                    <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5">
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: 8 }}
+                      className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5"
+                    >
                       <div className="flex justify-between text-xs text-muted-foreground font-body">
                         <span>Subtotal</span>
                         <span>${subtotal.toFixed(2)}</span>
@@ -865,45 +874,52 @@ export function JobCreateDialog({
                         <span>Total</span>
                         <span>${total.toFixed(2)}</span>
                       </div>
-                    </div>
+                    </motion.div>
                   )}
+                </AnimatePresence>
 
-                  {lineItems.length === 0 && !showAddItem && (
-                    <p className="text-xs text-muted-foreground text-center py-4 font-body">
-                      Line items are optional during creation.
-                      <br />
-                      You can also add them later.
-                    </p>
-                  )}
-                </div>
-              )}
+                {lineItems.length === 0 && !showAddItem && (
+                  <p className="text-xs text-muted-foreground text-center py-4 font-body">
+                    Line items are optional during creation.
+                    <br />
+                    You can also add them later.
+                  </p>
+                )}
+              </FormSection>
             </div>
-          </ScrollFadeArea>
-          <div className="flex justify-end gap-2 px-6 pb-6 pt-2 border-t border-border">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isBusy}
-              className="cursor-pointer"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
-              disabled={isBusy}
-            >
-              {creatingCustomer
-                ? "Creating customer..."
-                : loading
-                  ? "Saving..."
-                  : isEditing
-                    ? "Save Changes"
-                    : "Create Job"}
-            </Button>
-          </div>
-        </form>
+          )}
+        </div>
+      </ScrollFadeArea>
+
+      {/* ── Footer ── */}
+      <div className="flex items-center justify-between px-6 pb-5 pt-3 border-t border-border">
+        <p className="text-[0.65rem] text-muted-foreground/50 hidden sm:block">
+          Press <kbd className="px-1 py-0.5 rounded bg-muted text-[0.6rem] font-mono">Enter</kbd> to save
+        </p>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button type="button" variant="ghost" size="sm" onClick={() => onOpenChange(false)} disabled={isBusy} className="cursor-pointer text-muted-foreground">
+            Cancel
+          </Button>
+          <Button type="submit" size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer gap-1.5 min-w-[120px]" disabled={isBusy}>
+            {creatingCustomer ? (
+              "Creating customer..."
+            ) : loading ? (
+              "Saving..."
+            ) : isEditing ? (
+              <>
+                <IconCheck className="h-3.5 w-3.5" />
+                Save Changes
+              </>
+            ) : (
+              <>
+                <IconBriefcase className="h-3.5 w-3.5" />
+                Create Job
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+    </form>
   );
 
   if (isSidebar) {

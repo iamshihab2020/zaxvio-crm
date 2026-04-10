@@ -65,9 +65,12 @@ export function KanbanCardCompact({
         if (!isDragging) onClick(job.id);
       }}
       className={cn(
-        "cursor-grab rounded-xl border bg-card px-3 py-2 transition-shadow duration-200",
-        "border-border/60 shadow-sm hover:shadow-[0_4px_12px_-2px_hsl(var(--brand)/0.25)] hover:-translate-y-0.5",
-        "dark:border-border/40 dark:shadow-sm dark:hover:shadow-[0_4px_12px_-2px_hsl(var(--brand)/0.3)]",
+        "cursor-grab rounded-xl border bg-card px-3 py-2",
+        "transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+        "border-border/60 shadow-sm",
+        "hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.25)] hover:border-brand/30",
+        "dark:border-border/40 dark:shadow-sm",
+        "dark:hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.35)] dark:hover:border-brand/40",
         "active:cursor-grabbing",
         isDragging && "opacity-30 z-0",
         isOverlay && "shadow-xl ring-2 ring-brand/30 rotate-2 scale-[1.03]",

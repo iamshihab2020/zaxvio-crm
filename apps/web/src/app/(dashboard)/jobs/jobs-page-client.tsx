@@ -424,6 +424,16 @@ export function JobsPageClient({
     fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
   }
 
+  async function handleJobFieldChange(jobId: string, field: string, value: string) {
+    // Optimistic update
+    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, [field]: value } : j));
+    const result = await updateJob(jobId, { [field]: value });
+    if (result.error) {
+      toast.error(result.error);
+      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+    }
+  }
+
   async function handleAssigneeChange(jobId: string, assigneeId: string | null) {
     // Optimistic update on kanban
     setJobs((prev) =>
@@ -684,6 +694,7 @@ export function JobsPageClient({
               visibleFields={cardFields}
               members={assigneeMembers}
               onAssigneeChange={handleAssigneeChange}
+              onJobFieldChange={handleJobFieldChange}
             />
           )}
         </>

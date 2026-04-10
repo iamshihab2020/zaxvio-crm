@@ -16,8 +16,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 @docs/claude/todo.md
 @docs/claude/lessons.md
 @docs/claude/design.md
-@docs/claude/API_DOCUMENTATION.md
-@docs/claude/REPO_MAP.md
+@docs/claude/API_DOCUMENTATION_1.md
+@docs/claude/API_DOCUMENTATION_2.md
+@docs/claude/API_DOCUMENTATION_3.md
+@docs/claude/API_DOCUMENTATION_4.md
+@docs/claude/API_DOCUMENTATION_5.md
+@docs/claude/REPO_MAP_1.md
+@docs/claude/REPO_MAP_2.md
 
 ---
 
@@ -28,7 +33,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/project_docs/HVAC_SaaS_Phase1_PRD_v2.md` | Product requirements, features, business logic | Before any major feature or architectural task |
 | `docs/project_docs/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` | System diagrams, auth flow, data architecture | Before auth or architecture work |
 | `docs/project_docs/HVAC_Saas_Proposal.md` | Business proposal, market strategy, profit projections | Before business-facing decisions |
-| `docs/claude/REPO_MAP.md` | **Single source of truth for project structure** — check here first to locate files before using Glob/Grep. **ALWAYS update when files are created, renamed, moved, or deleted** | **READ FIRST** before planning, searching, or exploring |
+| `docs/claude/REPO_MAP_1.md` + `REPO_MAP_2.md` | **Single source of truth for project structure** — check here first to locate files before using Glob/Grep. **ALWAYS update when files are created, renamed, moved, or deleted** | **READ FIRST** before planning, searching, or exploring |
 
 ## Model Rules
 

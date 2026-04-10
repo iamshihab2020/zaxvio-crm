@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Sheet,
@@ -20,11 +19,19 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "motion/react";
 import {
+  IconCalendarEvent,
+  IconClock,
+  IconUser,
+  IconMapPin,
+  IconFileDescription,
   IconPalette,
+  IconNotes,
   IconLayoutSidebar,
   IconMaximize,
   IconX,
+  IconCheck,
 } from "@tabler/icons-react";
 import {
   Tooltip,
@@ -38,15 +45,16 @@ import {
 } from "@/components/dashboard/customers/customer-picker";
 import { createCustomer } from "@/actions/customers";
 import { useViewPreference } from "@/hooks/use-view-preference";
+import { cn } from "@/lib/utils";
 import type { CalendarEventData } from "@/actions/calendar-events";
 
 const EVENT_COLORS = [
-  { value: "purple", label: "Purple", class: "bg-purple-500" },
-  { value: "blue", label: "Blue", class: "bg-blue-500" },
-  { value: "green", label: "Green", class: "bg-green-500" },
-  { value: "amber", label: "Amber", class: "bg-amber-500" },
-  { value: "red", label: "Red", class: "bg-red-500" },
-  { value: "teal", label: "Teal", class: "bg-teal-500" },
+  { value: "purple", label: "Purple", class: "bg-purple-500", ring: "ring-purple-500/30" },
+  { value: "blue", label: "Blue", class: "bg-blue-500", ring: "ring-blue-500/30" },
+  { value: "green", label: "Green", class: "bg-green-500", ring: "ring-green-500/30" },
+  { value: "amber", label: "Amber", class: "bg-amber-500", ring: "ring-amber-500/30" },
+  { value: "red", label: "Red", class: "bg-red-500", ring: "ring-red-500/30" },
+  { value: "teal", label: "Teal", class: "bg-teal-500", ring: "ring-teal-500/30" },
 ];
 
 export interface EventFormData {
@@ -86,6 +94,31 @@ interface EventCreateDialogProps {
   defaultEventDate?: string;
   defaultStartTime?: string;
   defaultEndTime?: string;
+}
+
+/* ── Section wrapper with icon ── */
+function FormSection({
+  icon: Icon,
+  label,
+  children,
+  className,
+}: {
+  icon: React.ElementType;
+  label: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("space-y-3", className)}>
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-muted-foreground" />
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground font-body">
+          {label}
+        </span>
+      </div>
+      {children}
+    </div>
+  );
 }
 
 export function EventCreateDialog({
@@ -221,39 +254,46 @@ export function EventCreateDialog({
     setMode(isSidebar ? "dialog" : "sidebar");
   }
 
-  /* ── Header with mode toggle + close ── */
+  const selectedColor = EVENT_COLORS.find((c) => c.value === form.color) ?? EVENT_COLORS[0];
+
+  /* ── Header ── */
   const header = (
-    <div className="flex items-center justify-between px-6 pt-6 pb-2">
-      <div>
-        <h2 className="font-heading text-lg font-semibold">
-          {isEditing ? "Edit Event" : "New Event"}
-        </h2>
-        <p className="text-sm text-muted-foreground font-body">
-          {isEditing
-            ? "Update this calendar event."
-            : "Schedule a quick event on your calendar."}
-        </p>
+    <div className="flex items-center justify-between px-6 pt-5 pb-3">
+      <div className="flex items-center gap-3">
+        <div className={cn("flex items-center justify-center h-9 w-9 rounded-lg", selectedColor.class)}>
+          <IconCalendarEvent className="h-4.5 w-4.5 text-white" />
+        </div>
+        <div>
+          <h2 className="font-heading text-lg font-semibold leading-tight">
+            {isEditing ? "Edit Event" : "New Event"}
+          </h2>
+          <p className="text-xs text-muted-foreground font-body mt-0.5">
+            {isEditing
+              ? "Update this calendar event."
+              : "Schedule a quick event on your calendar."}
+          </p>
+        </div>
       </div>
       <TooltipProvider delayDuration={300}>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-0.5 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 cursor-pointer"
+                className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
                 onClick={toggleMode}
                 type="button"
               >
                 {isSidebar ? (
-                  <IconMaximize className="h-4 w-4" />
+                  <IconMaximize className="h-3.5 w-3.5" />
                 ) : (
-                  <IconLayoutSidebar className="h-4 w-4" />
+                  <IconLayoutSidebar className="h-3.5 w-3.5" />
                 )}
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
-              {isSidebar ? "Switch to dialog view" : "Switch to sidebar view"}
+              {isSidebar ? "Switch to dialog" : "Switch to sidebar"}
             </TooltipContent>
           </Tooltip>
           <Tooltip>
@@ -261,11 +301,11 @@ export function EventCreateDialog({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 cursor-pointer"
+                className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
                 onClick={() => onOpenChange(false)}
                 type="button"
               >
-                <IconX className="h-4 w-4" />
+                <IconX className="h-3.5 w-3.5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
@@ -279,14 +319,17 @@ export function EventCreateDialog({
 
   /* ── Form content ── */
   const formContent = (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 min-h-0 flex-1">
+    <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
       <ScrollFadeArea className="flex-1">
-        <div className={`flex gap-6 px-6 pb-3 ${isSidebar ? "flex-col" : "flex-col lg:flex-row"}`}>
-          {/* Left column: Event details */}
-          <div className="flex-1 min-w-0 space-y-4">
-            {/* Title */}
+        <div className={cn(
+          "px-6 pb-4 space-y-5",
+          !isSidebar && "lg:grid lg:grid-cols-[1fr_280px] lg:gap-6 lg:space-y-0",
+        )}>
+          {/* ── Left column ── */}
+          <div className="space-y-5">
+            {/* Title — prominent, no section header needed */}
             <div className="space-y-2">
-              <Label htmlFor="event-title" className="font-body">
+              <Label htmlFor="event-title" className="font-body text-sm font-medium">
                 Title <span className="text-destructive">*</span>
               </Label>
               <Input
@@ -295,162 +338,209 @@ export function EventCreateDialog({
                 value={form.title}
                 onChange={(e) => updateField("title", e.target.value)}
                 autoFocus
-              />
-              {errors.title && (
-                <p className="text-xs text-destructive">{errors.title}</p>
-              )}
-            </div>
-
-            {/* Date + Times */}
-            <div className={`grid gap-3 ${isSidebar ? "grid-cols-1" : "grid-cols-3"}`}>
-              <div className="space-y-2">
-                <Label htmlFor="event-date" className="font-body">
-                  Date <span className="text-destructive">*</span>
-                </Label>
-                <DatePicker
-                  id="event-date"
-                  value={form.eventDate}
-                  onChange={(v) => updateField("eventDate", v)}
-                  placeholder="Pick date"
-                />
-                {errors.eventDate && (
-                  <p className="text-xs text-destructive">{errors.eventDate}</p>
+                className={cn(
+                  "h-10 text-sm",
+                  errors.title && "border-destructive focus-visible:ring-destructive/30",
                 )}
-              </div>
-              <div className={`${isSidebar ? "grid grid-cols-2 gap-3" : "contents"}`}>
-                <div className="space-y-2">
-                  <Label htmlFor="event-start" className="font-body">
-                    Start Time
-                  </Label>
-                  <TimePicker
-                    id="event-start"
-                    value={form.startTime}
-                    onChange={(v) => updateField("startTime", v)}
-                    placeholder="Start"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="event-end" className="font-body">
-                    End Time
-                  </Label>
-                  <TimePicker
-                    id="event-end"
-                    value={form.endTime}
-                    onChange={(v) => updateField("endTime", v)}
-                    placeholder="End"
-                  />
-                </div>
-              </div>
+              />
+              <AnimatePresence>
+                {errors.title && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    className="text-xs text-destructive"
+                  >
+                    {errors.title}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
-            {/* Customer / Contact */}
-            <div className="space-y-2">
-              <Label className="font-body">Contact</Label>
+            {/* Date & Time section */}
+            <FormSection icon={IconClock} label="Date & Time">
+              <div className={cn("grid gap-3", isSidebar ? "grid-cols-1" : "grid-cols-3")}>
+                <div className="space-y-1.5">
+                  <Label htmlFor="event-date" className="text-xs text-muted-foreground">
+                    Date <span className="text-destructive">*</span>
+                  </Label>
+                  <DatePicker
+                    id="event-date"
+                    value={form.eventDate}
+                    onChange={(v) => updateField("eventDate", v)}
+                    placeholder="Pick date"
+                  />
+                  <AnimatePresence>
+                    {errors.eventDate && (
+                      <motion.p
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                        className="text-xs text-destructive"
+                      >
+                        {errors.eventDate}
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
+                </div>
+                <div className={cn(isSidebar ? "grid grid-cols-2 gap-3" : "contents")}>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="event-start" className="text-xs text-muted-foreground">
+                      Start
+                    </Label>
+                    <TimePicker
+                      id="event-start"
+                      value={form.startTime}
+                      onChange={(v) => updateField("startTime", v)}
+                      placeholder="Start"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="event-end" className="text-xs text-muted-foreground">
+                      End
+                    </Label>
+                    <TimePicker
+                      id="event-end"
+                      value={form.endTime}
+                      onChange={(v) => updateField("endTime", v)}
+                      placeholder="End"
+                    />
+                  </div>
+                </div>
+              </div>
+            </FormSection>
+
+            {/* Contact section */}
+            <FormSection icon={IconUser} label="Contact">
               <CustomerPicker
                 value={customerSelection}
                 onChange={handleCustomerChange}
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-[0.7rem] text-muted-foreground/70">
                 Link an existing customer or create a new one.
               </p>
-            </div>
+            </FormSection>
 
             {/* Address */}
-            <div className="space-y-2">
-              <Label htmlFor="event-address" className="font-body">
-                Address
-              </Label>
+            <FormSection icon={IconMapPin} label="Location">
               <Input
                 id="event-address"
                 placeholder="123 Main St, Houston, TX"
                 value={form.address}
                 onChange={(e) => updateField("address", e.target.value)}
+                className="h-9 text-sm"
               />
-            </div>
+            </FormSection>
           </div>
 
-          {/* Right column: Description, Notes, Color */}
-          <div className={`space-y-4 ${isSidebar ? "" : "lg:w-[300px] shrink-0 lg:border-l lg:border-border lg:pl-6"}`}>
+          {/* ── Right column ── */}
+          <div className={cn(
+            "space-y-5",
+            !isSidebar && "lg:border-l lg:border-border lg:pl-6",
+          )}>
             {/* Description */}
-            <div className="space-y-2">
-              <Label htmlFor="event-desc" className="font-body">
-                Description
-              </Label>
+            <FormSection icon={IconFileDescription} label="Description">
               <Textarea
                 id="event-desc"
                 placeholder="What's this event about..."
                 rows={isSidebar ? 2 : 3}
                 value={form.description}
                 onChange={(e) => updateField("description", e.target.value)}
+                className="text-sm resize-none"
               />
-            </div>
+            </FormSection>
 
             {/* Notes */}
-            <div className="space-y-2">
-              <Label htmlFor="event-notes" className="font-body">
-                Notes
-              </Label>
+            <FormSection icon={IconNotes} label="Notes">
               <Textarea
                 id="event-notes"
                 placeholder="Internal notes..."
                 rows={2}
                 value={form.notes}
                 onChange={(e) => updateField("notes", e.target.value)}
+                className="text-sm resize-none"
               />
-            </div>
+            </FormSection>
 
-            {/* Color */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <IconPalette className="h-4 w-4" />
-                <span className="text-xs font-medium uppercase tracking-wider font-body">
-                  Color
-                </span>
+            {/* Color picker */}
+            <FormSection icon={IconPalette} label="Color">
+              <div className="flex items-center gap-2.5">
+                {EVENT_COLORS.map((c) => {
+                  const isSelected = form.color === c.value;
+                  return (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => updateField("color", c.value)}
+                      className={cn(
+                        "relative h-7 w-7 rounded-full cursor-pointer transition-all duration-200",
+                        c.class,
+                        isSelected
+                          ? `ring-2 ${c.ring} ring-offset-2 ring-offset-background scale-110`
+                          : "opacity-50 hover:opacity-80 hover:scale-105",
+                      )}
+                      title={c.label}
+                    >
+                      <AnimatePresence>
+                        {isSelected && (
+                          <motion.span
+                            initial={{ scale: 0, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0, opacity: 0 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 20 }}
+                            className="absolute inset-0 flex items-center justify-center"
+                          >
+                            <IconCheck className="h-3.5 w-3.5 text-white" />
+                          </motion.span>
+                        )}
+                      </AnimatePresence>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="flex items-center gap-2">
-                {EVENT_COLORS.map((c) => (
-                  <button
-                    key={c.value}
-                    type="button"
-                    onClick={() => updateField("color", c.value)}
-                    className={`h-7 w-7 rounded-full ${c.class} ring-offset-background transition-all cursor-pointer ${
-                      form.color === c.value
-                        ? "ring-2 ring-ring ring-offset-2"
-                        : "opacity-50 hover:opacity-100"
-                    }`}
-                    title={c.label}
-                  />
-                ))}
-              </div>
-            </div>
+            </FormSection>
           </div>
         </div>
       </ScrollFadeArea>
 
-      <div className="flex justify-end gap-2 px-6 pb-6 pt-2 border-t border-border">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => onOpenChange(false)}
-          className="cursor-pointer"
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={loading || creatingCustomer}
-          className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
-        >
-          {creatingCustomer
-            ? "Creating contact..."
-            : loading
-              ? isEditing
-                ? "Saving..."
-                : "Creating..."
-              : isEditing
-                ? "Save Changes"
-                : "Create Event"}
-        </Button>
+      {/* ── Footer ── */}
+      <div className="flex items-center justify-between px-6 pb-5 pt-3 border-t border-border">
+        <p className="text-[0.65rem] text-muted-foreground/50 hidden sm:block">
+          Press <kbd className="px-1 py-0.5 rounded bg-muted text-[0.6rem] font-mono">Enter</kbd> to save
+        </p>
+        <div className="flex items-center gap-2 ml-auto">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => onOpenChange(false)}
+            className="cursor-pointer text-muted-foreground"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            size="sm"
+            disabled={loading || creatingCustomer}
+            className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 min-w-[110px]"
+          >
+            {creatingCustomer ? (
+              "Creating contact..."
+            ) : loading ? (
+              isEditing ? "Saving..." : "Creating..."
+            ) : isEditing ? (
+              <>
+                <IconCheck className="h-3.5 w-3.5" />
+                Save Changes
+              </>
+            ) : (
+              <>
+                <IconCalendarEvent className="h-3.5 w-3.5" />
+                Create Event
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </form>
   );
@@ -476,7 +566,7 @@ export function EventCreateDialog({
   /* ── Dialog mode ── */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[850px] !grid-rows-[auto_1fr] max-h-[90vh] overflow-hidden p-0">
+      <DialogContent className="sm:max-w-[820px] !grid-rows-[auto_1fr] max-h-[85vh] overflow-hidden p-0">
         {header}
         {formContent}
       </DialogContent>

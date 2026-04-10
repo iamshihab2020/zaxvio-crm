@@ -32,6 +32,7 @@ interface KanbanColumnProps {
   visibleFields?: CardFieldVisibility;
   members?: AssigneeMember[];
   onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
+  onJobFieldChange?: (jobId: string, field: string, value: string) => void;
 }
 
 export function KanbanColumn({
@@ -43,6 +44,7 @@ export function KanbanColumn({
   visibleFields,
   members,
   onAssigneeChange,
+  onJobFieldChange,
 }: KanbanColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: stage.name,
@@ -56,10 +58,11 @@ export function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col rounded-xl border p-3 transition-all duration-200 min-w-[290px] flex-1",
+        "flex flex-col rounded-xl border border-t-[3px] p-3 transition-all duration-200 min-w-[290px] flex-1",
         "bg-muted/20 dark:bg-muted/10",
+        colors.borderTop,
         isOver
-          ? `${colors.bg} ring-2 ${colors.ring} border-transparent`
+          ? `${colors.bg} ring-2 ${colors.ring}`
           : "border-border/40 dark:border-border/30",
       )}
     >
@@ -121,6 +124,7 @@ export function KanbanColumn({
                     visibleFields={visibleFields}
                     members={members}
                     onAssigneeChange={onAssigneeChange}
+                    onJobFieldChange={onJobFieldChange}
                   />
                 )}
               </motion.div>

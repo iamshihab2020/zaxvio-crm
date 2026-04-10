@@ -10,83 +10,93 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { motion, useReducedMotion } from "motion/react";
 import { IconUser, IconCalendarEvent, IconMapPin } from "@tabler/icons-react";
 import type { CalendarEvent } from "./schedule-calendar";
+
+/** Check if an event is currently in progress */
+function isEventActive(start: Date, end: Date): boolean {
+  const now = new Date();
+  return now >= start && now <= end;
+}
 
 /**
  * Priority → solid background colors for calendar events.
  * These need to be OPAQUE enough to stand out against both light and dark backgrounds.
  */
+/**
+ * Priority → softer pastel background colors for calendar events (Motion-inspired).
+ */
 const EVENT_COLORS: Record<string, { bg: string; border: string; text: string; subtext: string }> = {
   standard: {
-    bg: "bg-blue-100 dark:bg-blue-900/70",
-    border: "border-l-blue-500 dark:border-l-blue-400",
-    text: "text-blue-900 dark:text-blue-100",
-    subtext: "text-blue-700/80 dark:text-blue-300/70",
+    bg: "bg-blue-50 dark:bg-blue-950/50",
+    border: "border-l-blue-400 dark:border-l-blue-500",
+    text: "text-blue-800 dark:text-blue-200",
+    subtext: "text-blue-600/80 dark:text-blue-400/70",
   },
   urgent: {
-    bg: "bg-amber-100 dark:bg-amber-900/70",
-    border: "border-l-amber-500 dark:border-l-amber-400",
-    text: "text-amber-900 dark:text-amber-100",
-    subtext: "text-amber-700/80 dark:text-amber-300/70",
+    bg: "bg-amber-50 dark:bg-amber-950/50",
+    border: "border-l-amber-400 dark:border-l-amber-500",
+    text: "text-amber-800 dark:text-amber-200",
+    subtext: "text-amber-600/80 dark:text-amber-400/70",
   },
   emergency: {
-    bg: "bg-red-100 dark:bg-red-900/70",
-    border: "border-l-red-500 dark:border-l-red-400",
-    text: "text-red-900 dark:text-red-100",
-    subtext: "text-red-700/80 dark:text-red-300/70",
+    bg: "bg-red-50 dark:bg-red-950/50",
+    border: "border-l-red-400 dark:border-l-red-500",
+    text: "text-red-800 dark:text-red-200",
+    subtext: "text-red-600/80 dark:text-red-400/70",
   },
 };
 
 const BOOKING_COLORS = {
-  bg: "bg-teal-100 dark:bg-teal-900/70",
-  border: "border-l-teal-500 dark:border-l-teal-400",
-  text: "text-teal-900 dark:text-teal-100",
-  subtext: "text-teal-700/80 dark:text-teal-300/70",
+  bg: "bg-teal-50 dark:bg-teal-950/50",
+  border: "border-l-teal-400 dark:border-l-teal-500",
+  text: "text-teal-800 dark:text-teal-200",
+  subtext: "text-teal-600/80 dark:text-teal-400/70",
 };
 
-/** Calendar event (user-created) colors keyed by color name */
+/** Calendar event (user-created) colors keyed by color name — softer pastels */
 const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: string; subtext: string; dot: string }> = {
   purple: {
-    bg: "bg-purple-100 dark:bg-purple-900/70",
-    border: "border-l-purple-500 dark:border-l-purple-400",
-    text: "text-purple-900 dark:text-purple-100",
-    subtext: "text-purple-700/80 dark:text-purple-300/70",
+    bg: "bg-purple-50 dark:bg-purple-950/50",
+    border: "border-l-purple-400 dark:border-l-purple-500",
+    text: "text-purple-800 dark:text-purple-200",
+    subtext: "text-purple-600/80 dark:text-purple-400/70",
     dot: "bg-purple-500",
   },
   blue: {
-    bg: "bg-sky-100 dark:bg-sky-900/70",
-    border: "border-l-sky-500 dark:border-l-sky-400",
-    text: "text-sky-900 dark:text-sky-100",
-    subtext: "text-sky-700/80 dark:text-sky-300/70",
+    bg: "bg-sky-50 dark:bg-sky-950/50",
+    border: "border-l-sky-400 dark:border-l-sky-500",
+    text: "text-sky-800 dark:text-sky-200",
+    subtext: "text-sky-600/80 dark:text-sky-400/70",
     dot: "bg-sky-500",
   },
   green: {
-    bg: "bg-emerald-100 dark:bg-emerald-900/70",
-    border: "border-l-emerald-500 dark:border-l-emerald-400",
-    text: "text-emerald-900 dark:text-emerald-100",
-    subtext: "text-emerald-700/80 dark:text-emerald-300/70",
+    bg: "bg-emerald-50 dark:bg-emerald-950/50",
+    border: "border-l-emerald-400 dark:border-l-emerald-500",
+    text: "text-emerald-800 dark:text-emerald-200",
+    subtext: "text-emerald-600/80 dark:text-emerald-400/70",
     dot: "bg-emerald-500",
   },
   amber: {
-    bg: "bg-orange-100 dark:bg-orange-900/70",
-    border: "border-l-orange-500 dark:border-l-orange-400",
-    text: "text-orange-900 dark:text-orange-100",
-    subtext: "text-orange-700/80 dark:text-orange-300/70",
+    bg: "bg-orange-50 dark:bg-orange-950/50",
+    border: "border-l-orange-400 dark:border-l-orange-500",
+    text: "text-orange-800 dark:text-orange-200",
+    subtext: "text-orange-600/80 dark:text-orange-400/70",
     dot: "bg-orange-500",
   },
   red: {
-    bg: "bg-rose-100 dark:bg-rose-900/70",
-    border: "border-l-rose-500 dark:border-l-rose-400",
-    text: "text-rose-900 dark:text-rose-100",
-    subtext: "text-rose-700/80 dark:text-rose-300/70",
+    bg: "bg-rose-50 dark:bg-rose-950/50",
+    border: "border-l-rose-400 dark:border-l-rose-500",
+    text: "text-rose-800 dark:text-rose-200",
+    subtext: "text-rose-600/80 dark:text-rose-400/70",
     dot: "bg-rose-500",
   },
   teal: {
-    bg: "bg-teal-100 dark:bg-teal-900/70",
-    border: "border-l-teal-500 dark:border-l-teal-400",
-    text: "text-teal-900 dark:text-teal-100",
-    subtext: "text-teal-700/80 dark:text-teal-300/70",
+    bg: "bg-teal-50 dark:bg-teal-950/50",
+    border: "border-l-teal-400 dark:border-l-teal-500",
+    text: "text-teal-800 dark:text-teal-200",
+    subtext: "text-teal-600/80 dark:text-teal-400/70",
     dot: "bg-teal-500",
   },
 };
@@ -119,16 +129,29 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
   const isBooking = r.type === "booking";
   const isCalendarEvent = r.type === "event";
   const colors = getEventColors(r);
+  const active = !event.allDay && isEventActive(event.start, event.end);
+  const reducedMotion = useReducedMotion();
 
   return (
-    <div
+    <motion.div
+      whileHover={reducedMotion ? undefined : { y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      role="button"
+      tabIndex={0}
+      aria-label={
+        isCalendarEvent
+          ? event.title
+          : isBooking
+            ? `Booking for ${r.customerName}`
+            : `Job ${r.jobNumber ?? event.title} for ${r.customerName}`
+      }
       className={cn(
-        "h-full w-full rounded-md px-2 py-1 border-l-[3px] cursor-pointer overflow-hidden",
-        "transition-all hover:brightness-95 dark:hover:brightness-110",
-        "shadow-sm",
+        "h-full w-full rounded-lg px-2 py-1.5 border-l-[3px] cursor-pointer overflow-hidden",
+        "shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
         colors.bg,
         colors.border,
-        isBooking && "border border-l-[3px] border-dashed border-teal-300 dark:border-teal-700",
+        isBooking && "border border-l-[3px] border-dashed border-teal-200 dark:border-teal-800",
+        active && "schedule-event-active",
       )}
     >
       <div className="flex items-center gap-1 min-w-0">
@@ -147,7 +170,7 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
           </span>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
@@ -159,13 +182,19 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
   const priority = r.priority ?? "standard";
   const colors = getEventColors(r);
   const calEvtColors = isCalendarEvent ? CALENDAR_EVENT_COLORS[r.color ?? "purple"] ?? CALENDAR_EVENT_COLORS.purple : null;
+  const reducedMotion = useReducedMotion();
 
   return (
-    <div className={cn(
-      "flex items-center gap-1.5 px-1.5 py-0.5 rounded-md cursor-pointer transition-all min-w-0",
-      "hover:brightness-95 dark:hover:brightness-110",
-      colors.bg,
-    )}>
+    <motion.div
+      whileHover={reducedMotion ? undefined : { x: 2 }}
+      transition={{ type: "spring", stiffness: 400, damping: 25, duration: 0.15 }}
+      role="button"
+      tabIndex={0}
+      className={cn(
+        "flex items-center gap-1.5 px-2 py-0.5 rounded-lg cursor-pointer min-w-0",
+        colors.bg,
+      )}
+    >
       <span
         className={cn(
           "h-2 w-2 shrink-0 rounded-full",
@@ -175,7 +204,7 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
       <span className={cn("truncate text-xs font-semibold", colors.text)}>
         {isCalendarEvent ? event.title : r.jobNumber ?? event.title}
       </span>
-    </div>
+    </motion.div>
   );
 }
 

@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useEffect } from "react";
+import { useCallback, useMemo, useRef, useEffect, type MutableRefObject } from "react";
 import {
   Calendar as BigCalendar,
   dateFnsLocalizer,
   type View,
   type SlotPropGetter,
+  type DayPropGetter,
 } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 
@@ -14,8 +15,10 @@ import {
   parse,
   startOfWeek,
   getDay,
+  isToday,
 } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
+import { AnimatePresence, motion } from "motion/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ScheduleEvent, ScheduleMonthEvent } from "./schedule-event";
 import type { CalendarView } from "./schedule-toolbar";
@@ -66,6 +69,7 @@ interface ScheduleCalendarProps {
   currentDate: Date;
   currentView: CalendarView;
   availability: AvailabilitySlot[];
+  navigationDirection: MutableRefObject<-1 | 0 | 1>;
   onNavigate: (date: Date) => void;
   onViewChange: (view: CalendarView) => void;
   onSelectEvent: (event: CalendarEvent) => void;
@@ -85,6 +89,7 @@ export function ScheduleCalendar({
   currentDate,
   currentView,
   availability,
+  navigationDirection,
   onNavigate,
   onViewChange,
   onSelectEvent,
@@ -120,6 +125,14 @@ export function ScheduleCalendar({
     }),
     [],
   );
+
+  /* ── Today column highlight (week/day views) ── */
+  const dayPropGetter: DayPropGetter = useCallback((date: Date) => {
+    if (isToday(date)) {
+      return { className: "schedule-today-column" };
+    }
+    return {};
+  }, []);
 
   /* ── Drag handlers (prevent booking drag) ── */
   const handleEventDrop = useCallback(
@@ -164,27 +177,25 @@ export function ScheduleCalendar({
 
   const isTimeView = currentView === "week" || currentView === "day";
 
-  /* ── Animate on date/view change ── */
-  const calendarRef = useRef<HTMLDivElement>(null);
-  const prevKeyRef = useRef("");
+  /* ── Directional transition key ── */
   const transitionKey = `${currentView}-${currentDate.toISOString().slice(0, 10)}`;
+  const dir = navigationDirection.current;
 
+  /* ── Scroll to current time on mount/today in week/day views ── */
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (prevKeyRef.current && prevKeyRef.current !== transitionKey && calendarRef.current) {
-      const el = calendarRef.current;
-      // 1. Remove transition, set start state
-      el.style.transition = "none";
-      el.style.opacity = "0";
-      el.style.transform = "translateY(6px)";
-      // 2. Force reflow so browser registers the start state
-      void el.offsetHeight;
-      // 3. Add transition and animate to end state
-      el.style.transition = "opacity 250ms ease-out, transform 250ms ease-out";
-      el.style.opacity = "1";
-      el.style.transform = "translateY(0)";
-    }
-    prevKeyRef.current = transitionKey;
-  }, [transitionKey]);
+    if (!isTimeView) return;
+    const timer = setTimeout(() => {
+      const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]");
+      if (!viewport) return;
+      const now = new Date();
+      const offset = Math.max(0, (now.getHours() + now.getMinutes() / 60) * 72 - viewport.clientHeight / 3);
+      viewport.scrollTo({ top: offset, behavior: "smooth" });
+    }, 100);
+    return () => clearTimeout(timer);
+  // Only scroll on mount or when switching to time view
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTimeView]);
 
   const calendarEl = (
     <DnDCalendar
@@ -200,6 +211,7 @@ export function ScheduleCalendar({
       components={components}
       eventPropGetter={eventPropGetter}
       slotPropGetter={isTimeView ? slotPropGetter : undefined}
+      dayPropGetter={dayPropGetter}
       selectable={!!onSelectSlot}
       onSelectSlot={onSelectSlot}
       longPressThreshold={250}
@@ -213,19 +225,48 @@ export function ScheduleCalendar({
     />
   );
 
+  /* ── Motion variants for directional transitions ── */
+  const isDateNav = dir !== 0;
+  const motionProps = {
+    initial: isDateNav
+      ? { x: dir * 30, opacity: 0 }
+      : { scale: 0.98, opacity: 0 },
+    animate: isDateNav
+      ? { x: 0, opacity: 1 }
+      : { scale: 1, opacity: 1 },
+    exit: isDateNav
+      ? { x: -dir * 30, opacity: 0 }
+      : { scale: 1.02, opacity: 0 },
+    transition: isDateNav
+      ? { duration: 0.2, ease: [0, 0, 0.2, 1] as const }
+      : { type: "spring" as const, stiffness: 300, damping: 30 },
+  };
+
   if (isTimeView) {
     return (
-      <ScrollArea className="flex-1 min-h-0">
-        <div ref={calendarRef} className="schedule-calendar-no-internal-scroll">
-          {calendarEl}
-        </div>
+      <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={transitionKey}
+            {...motionProps}
+            className="schedule-calendar-no-internal-scroll"
+          >
+            {calendarEl}
+          </motion.div>
+        </AnimatePresence>
       </ScrollArea>
     );
   }
 
   return (
-    <div ref={calendarRef} className="flex-1 min-h-0">
-      {calendarEl}
-    </div>
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={transitionKey}
+        {...motionProps}
+        className="flex-1 min-h-0"
+      >
+        {calendarEl}
+      </motion.div>
+    </AnimatePresence>
   );
 }

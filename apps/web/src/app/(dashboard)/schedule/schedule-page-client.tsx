@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, type MutableRefObject } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,6 +27,7 @@ import { ScheduleToolbar, type CalendarView } from "@/components/dashboard/sched
 import { ScheduleFilters } from "@/components/dashboard/schedule/schedule-filters";
 import { ScheduleCalendar, type CalendarEvent } from "@/components/dashboard/schedule/schedule-calendar";
 import { ScheduleSkeleton } from "@/components/dashboard/schedule/schedule-skeleton";
+import { ScheduleTaskPanel, type TaskFilter } from "@/components/dashboard/schedule/schedule-task-panel";
 import type { JobPriority, ServiceType } from "@/lib/constants/job-options";
 
 /* ── Types for bookings ── */
@@ -230,11 +231,39 @@ export function SchedulePageClient() {
   const [deletingJob, setDeletingJob] = useState<JobDetail | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
+  // Navigation direction for calendar transitions (-1 = prev, 0 = view change, 1 = next)
+  const navigationDirection = useRef<-1 | 0 | 1>(0);
+
+  // Task sidebar state
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("schedule-sidebar-open");
+      if (stored !== null) return stored === "true";
+      // Default: open on large screens, closed on small
+      return window.innerWidth >= 1024;
+    }
+    return true;
+  });
+  const [sidebarFilter, setSidebarFilter] = useState<TaskFilter>("today");
+
+  function handleToggleSidebar() {
+    setSidebarOpen((prev) => {
+      const next = !prev;
+      if (typeof window !== "undefined") {
+        localStorage.setItem("schedule-sidebar-open", String(next));
+      }
+      return next;
+    });
+  }
+
   // Calendar event dialog state
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEventData | null>(null);
   const [eventSaving, setEventSaving] = useState(false);
   const [slotInfo, setSlotInfo] = useState<{ date: string; start: string; end: string } | null>(null);
+
+  // Cooldown ref to prevent slot click from reopening dialog immediately after close
+  const dialogClosedAtRef = useRef(0);
 
   // Ref to prevent double-fetch
   const fetchingRef = useRef(false);
@@ -334,6 +363,7 @@ export function SchedulePageClient() {
 
   /* ── View persistence ── */
   function handleViewChange(view: CalendarView) {
+    navigationDirection.current = 0;
     setCurrentView(view);
     if (typeof window !== "undefined") {
       localStorage.setItem("schedule-calendar-view", view);
@@ -342,14 +372,18 @@ export function SchedulePageClient() {
 
   /* ── Navigation ── */
   function handleNavigate(date: Date) {
+    navigationDirection.current = date > currentDate ? 1 : date < currentDate ? -1 : 0;
     setCurrentDate(date);
   }
 
   function handleToday() {
-    setCurrentDate(new Date());
+    const now = new Date();
+    navigationDirection.current = now > currentDate ? 1 : now < currentDate ? -1 : 0;
+    setCurrentDate(now);
   }
 
   function handlePrev() {
+    navigationDirection.current = -1;
     switch (currentView) {
       case "month":
         setCurrentDate((d) => subMonths(d, 1));
@@ -364,6 +398,7 @@ export function SchedulePageClient() {
   }
 
   function handleNext() {
+    navigationDirection.current = 1;
     switch (currentView) {
       case "month":
         setCurrentDate((d) => addMonths(d, 1));
@@ -557,6 +592,11 @@ export function SchedulePageClient() {
 
   /* ── Calendar event CRUD ── */
   function handleSelectSlot({ start, end }: { start: Date; end: Date; action: string }) {
+    // Prevent slot selection from reopening the dialog when clicking outside to close it.
+    // The dialog close and slot click fire in the same event loop, so state check alone
+    // is not reliable. Use a 300ms cooldown after dialog close.
+    if (eventDialogOpen || Date.now() - dialogClosedAtRef.current < 300) return;
+
     const eventDate = format(start, "yyyy-MM-dd");
     const isTimeSlot = currentView === "week" || currentView === "day";
     const startTime = isTimeSlot ? format(start, "HH:mm") : "";
@@ -571,6 +611,19 @@ export function SchedulePageClient() {
     setSlotInfo({ date: format(new Date(), "yyyy-MM-dd"), start: "", end: "" });
     setEditingEvent(null);
     setEventDialogOpen(true);
+  }
+
+  function handleTaskPanelItemClick(type: "job" | "booking" | "event", id: string) {
+    if (type === "job") {
+      setSelectedJobId(id);
+      setSheetOpen(true);
+      router.replace(`/schedule?jobId=${id}`, { scroll: false });
+    } else if (type === "event") {
+      const found = calEvents.find((e) => e.id === id);
+      if (found) handleCalendarEventClick(found);
+    } else {
+      router.push("/bookings");
+    }
   }
 
   function handleCalendarEventClick(calEvent: CalendarEventData) {
@@ -658,40 +711,60 @@ export function SchedulePageClient() {
       {/* Full-height flex column: navbar is h-14 (3.5rem) */}
       <section className="flex flex-col h-[calc(100vh-3.5rem)] p-4 gap-0">
         <PageHeader title="Schedule" subtitle="Plan and organize your appointments and events." className="pb-3" />
-        <Card className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <ScheduleToolbar
-            currentDate={currentDate}
-            currentView={currentView}
-            onNavigate={handleNavigate}
-            onViewChange={handleViewChange}
-            onToday={handleToday}
-            onPrev={handlePrev}
-            onNext={handleNext}
+
+        <div className="flex flex-1 min-h-0 gap-3">
+          {/* Collapsible task sidebar */}
+          <ScheduleTaskPanel
+            open={sidebarOpen}
+            jobs={filteredJobs}
+            bookings={bookings}
+            calEvents={calEvents}
+            filter={sidebarFilter}
+            onFilterChange={setSidebarFilter}
+            onItemClick={handleTaskPanelItemClick}
             onCreateEvent={handleNewEventButton}
-          />
-
-          <ScheduleFilters
-            priorityFilter={priorityFilter}
-            serviceTypeFilter={serviceTypeFilter}
-            showBookings={showBookings}
-            onPriorityChange={setPriorityFilter}
-            onServiceTypeChange={setServiceTypeFilter}
-            onShowBookingsChange={setShowBookings}
-          />
-
-          <ScheduleCalendar
-            events={calendarEvents}
             currentDate={currentDate}
-            currentView={currentView}
-            availability={availability}
-            onNavigate={handleNavigate}
-            onViewChange={handleViewChange}
-            onSelectEvent={handleSelectEvent}
-            onEventDrop={handleEventDrop}
-            onEventResize={handleEventResize}
-            onSelectSlot={handleSelectSlot}
           />
-        </Card>
+
+          {/* Main calendar card */}
+          <Card className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <ScheduleToolbar
+              currentDate={currentDate}
+              currentView={currentView}
+              onNavigate={handleNavigate}
+              onViewChange={handleViewChange}
+              onToday={handleToday}
+              onPrev={handlePrev}
+              onNext={handleNext}
+              onCreateEvent={handleNewEventButton}
+              sidebarOpen={sidebarOpen}
+              onToggleSidebar={handleToggleSidebar}
+            />
+
+            <ScheduleFilters
+              priorityFilter={priorityFilter}
+              serviceTypeFilter={serviceTypeFilter}
+              showBookings={showBookings}
+              onPriorityChange={setPriorityFilter}
+              onServiceTypeChange={setServiceTypeFilter}
+              onShowBookingsChange={setShowBookings}
+            />
+
+            <ScheduleCalendar
+              events={calendarEvents}
+              currentDate={currentDate}
+              currentView={currentView}
+              availability={availability}
+              navigationDirection={navigationDirection}
+              onNavigate={handleNavigate}
+              onViewChange={handleViewChange}
+              onSelectEvent={handleSelectEvent}
+              onEventDrop={handleEventDrop}
+              onEventResize={handleEventResize}
+              onSelectSlot={handleSelectSlot}
+            />
+          </Card>
+        </div>
 
         {/* Job detail sheet (reused from jobs page) */}
         <JobDetailSheet
@@ -721,6 +794,7 @@ export function SchedulePageClient() {
           onOpenChange={(open) => {
             setEventDialogOpen(open);
             if (!open) {
+              dialogClosedAtRef.current = Date.now();
               setEditingEvent(null);
               setSlotInfo(null);
             }

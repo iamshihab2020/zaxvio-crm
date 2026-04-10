@@ -1,13 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { TimePicker } from "@/components/ui/time-picker";
+import {
   JOB_PRIORITY_LABELS,
   JOB_PRIORITY_COLORS,
+  SERVICE_TYPES,
   SERVICE_TYPE_LABELS,
+  JOB_PRIORITIES,
   type JobPriority,
   type ServiceType,
 } from "@/lib/constants/job-options";
@@ -16,6 +26,7 @@ import {
   IconClock,
   IconCurrencyDollar,
   IconMapPin,
+  IconCheck,
 } from "@tabler/icons-react";
 import type { CardFieldVisibility } from "./card-fields-popover";
 import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
@@ -46,6 +57,7 @@ interface KanbanCardProps {
   visibleFields?: CardFieldVisibility;
   members?: AssigneeMember[];
   onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
+  onJobFieldChange?: (jobId: string, field: string, value: string) => void;
 }
 
 function formatDate(dateStr: string) {
@@ -74,6 +86,7 @@ export function KanbanCard({
   visibleFields,
   members,
   onAssigneeChange,
+  onJobFieldChange,
 }: KanbanCardProps) {
   const {
     attributes,
@@ -110,6 +123,16 @@ export function KanbanCard({
   const showTopRow = vf.serviceType || vf.priority;
   const showBottomRow = vf.date || vf.time || vf.todayBadge || vf.amount;
   const hasAssignee = members && onAssigneeChange && !isOverlay;
+  const canEdit = !!onJobFieldChange && !isOverlay;
+
+  // Controlled popover states for inline editors
+  const [serviceTypeOpen, setServiceTypeOpen] = useState(false);
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
+  const [timeOpen, setTimeOpen] = useState(false);
+
+  // Press effect — only fires from card body clicks (popovers stopPropagation on mouseDown)
+  const [pressed, setPressed] = useState(false);
 
   return (
     <div
@@ -118,31 +141,101 @@ export function KanbanCard({
       {...listeners}
       {...attributes}
       data-dragging={isDragging || undefined}
+      onMouseDown={() => setPressed(true)}
+      onMouseUp={() => setPressed(false)}
+      onMouseLeave={() => setPressed(false)}
       onClick={() => {
+        setPressed(false);
         if (!isDragging) onClick(job.id);
       }}
       className={cn(
-        "cursor-grab rounded-xl border bg-card p-3.5 transition-shadow duration-200",
-        "border-border/60 shadow-sm hover:shadow-[0_4px_12px_-2px_hsl(var(--brand)/0.25)] hover:-translate-y-0.5",
-        "dark:border-border/40 dark:shadow-sm dark:hover:shadow-[0_4px_12px_-2px_hsl(var(--brand)/0.3)]",
+        "cursor-grab rounded-xl border bg-card p-3.5",
+        "transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+        "border-border/60 shadow-sm",
+        "hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.25)] hover:border-brand/30",
+        "dark:border-border/40 dark:shadow-sm",
+        "dark:hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.35)] dark:hover:border-brand/40",
         "active:cursor-grabbing",
+        pressed && "scale-[0.98]",
         isDragging && "opacity-30 z-0",
         isOverlay && "shadow-xl ring-2 ring-brand/30 rotate-2 scale-[1.03]",
         job.priority === "emergency" && "animate-pulse-emergency",
       )}
     >
-      {/* Top row: Service type + Priority */}
+      {/* Top row: Service type + Priority (inline editable) */}
       {showTopRow && (
         <div className="flex items-center justify-between mb-2.5">
           {vf.serviceType && (
-            <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0">
-              {SERVICE_TYPE_LABELS[job.serviceType]}
-            </Badge>
+            canEdit ? (
+              <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                <Popover open={serviceTypeOpen} onOpenChange={setServiceTypeOpen}>
+                  <PopoverTrigger asChild>
+                    <button className="cursor-pointer">
+                      <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0 hover:bg-muted/80 transition-colors">
+                        {SERVICE_TYPE_LABELS[job.serviceType]}
+                      </Badge>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-40 p-1" align="start">
+                    {SERVICE_TYPES.map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => { onJobFieldChange!(job.id, "serviceType", st); setServiceTypeOpen(false); }}
+                        className={cn(
+                          "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
+                          job.serviceType === st ? "bg-brand-light/30 text-brand font-medium dark:bg-brand/15" : "hover:bg-muted",
+                        )}
+                      >
+                        {SERVICE_TYPE_LABELS[st as ServiceType]}
+                        {job.serviceType === st && <IconCheck className="h-3 w-3" />}
+                      </button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0">
+                {SERVICE_TYPE_LABELS[job.serviceType]}
+              </Badge>
+            )
           )}
           {vf.priority && (
-            <Badge className={cn("px-2 py-0.5 text-[10px] font-medium border-0", priorityColors.bg, priorityColors.text, !vf.serviceType && "ml-auto")}>
-              {JOB_PRIORITY_LABELS[job.priority]}
-            </Badge>
+            canEdit ? (
+              <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()} className={cn(!vf.serviceType && "ml-auto")}>
+                <Popover open={priorityOpen} onOpenChange={setPriorityOpen}>
+                  <PopoverTrigger asChild>
+                    <button className="cursor-pointer">
+                      <Badge className={cn("px-2 py-0.5 text-[10px] font-medium border-0 hover:opacity-80 transition-opacity", priorityColors.bg, priorityColors.text)}>
+                        {JOB_PRIORITY_LABELS[job.priority]}
+                      </Badge>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-36 p-1" align="end">
+                    {JOB_PRIORITIES.map((p) => {
+                      const pc = JOB_PRIORITY_COLORS[p as JobPriority];
+                      return (
+                        <button
+                          key={p}
+                          onClick={() => { onJobFieldChange!(job.id, "priority", p); setPriorityOpen(false); }}
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
+                            job.priority === p ? "font-medium" : "hover:bg-muted",
+                            pc.bg, pc.text,
+                          )}
+                        >
+                          {JOB_PRIORITY_LABELS[p as JobPriority]}
+                          {job.priority === p && <IconCheck className="h-3 w-3" />}
+                        </button>
+                      );
+                    })}
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <Badge className={cn("px-2 py-0.5 text-[10px] font-medium border-0", priorityColors.bg, priorityColors.text, !vf.serviceType && "ml-auto")}>
+                {JOB_PRIORITY_LABELS[job.priority]}
+              </Badge>
+            )
           )}
         </div>
       )}
@@ -212,21 +305,69 @@ export function KanbanCard({
         </div>
       )}
 
-      {/* Bottom metadata */}
+      {/* Bottom metadata (date + time inline editable) */}
       {showBottomRow && (
         <div className="flex items-center justify-between pt-2.5 border-t border-border/50 dark:border-border/40">
           <div className="flex items-center gap-2.5">
             {vf.date && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <IconCalendar className="h-3 w-3" />
-                <span className="font-body">{formatDate(job.scheduledDate)}</span>
-              </div>
+              canEdit ? (
+                <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  <Popover open={dateOpen} onOpenChange={setDateOpen}>
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                        <IconCalendar className="h-3 w-3" />
+                        <span className="font-body">{formatDate(job.scheduledDate)}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={new Date(job.scheduledDate + "T00:00:00")}
+                        onSelect={(date) => {
+                          if (date) {
+                            const yyyy = date.getFullYear();
+                            const mm = String(date.getMonth() + 1).padStart(2, "0");
+                            const dd = String(date.getDate()).padStart(2, "0");
+                            onJobFieldChange!(job.id, "scheduledDate", `${yyyy}-${mm}-${dd}`);
+                            setDateOpen(false);
+                          }
+                        }}
+                        defaultMonth={new Date(job.scheduledDate + "T00:00:00")}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <IconCalendar className="h-3 w-3" />
+                  <span className="font-body">{formatDate(job.scheduledDate)}</span>
+                </div>
+              )
             )}
             {vf.time && job.scheduledStart && (
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <IconClock className="h-3 w-3" />
-                <span className="font-body">{formatTime(job.scheduledStart)}</span>
-              </div>
+              canEdit ? (
+                <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                  <Popover open={timeOpen} onOpenChange={setTimeOpen}>
+                    <PopoverTrigger asChild>
+                      <button className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
+                        <IconClock className="h-3 w-3" />
+                        <span className="font-body">{formatTime(job.scheduledStart)}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-2" align="start">
+                      <TimePicker
+                        value={job.scheduledStart}
+                        onChange={(v) => { onJobFieldChange!(job.id, "scheduledStart", v); setTimeOpen(false); }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <IconClock className="h-3 w-3" />
+                  <span className="font-body">{formatTime(job.scheduledStart)}</span>
+                </div>
+              )
             )}
             {vf.todayBadge && isToday && (
               <Badge className="bg-brand-light/50 text-brand px-1.5 py-0 text-[9px] font-medium border-0 dark:bg-brand/20">

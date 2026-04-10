@@ -15,6 +15,7 @@ import {
   IconX,
   IconCalendarEvent,
 } from "@tabler/icons-react";
+import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 import {
   JOB_PRIORITIES,
@@ -136,23 +137,41 @@ export function ScheduleFilters({
         </Label>
       </div>
 
-      {/* Active filter badges */}
-      {hasActiveFilters && (
-        <div className="flex items-center gap-1 ml-auto">
+      {/* Active filter badges with enter/exit animation */}
+      <div className="flex items-center gap-1 ml-auto">
+        <AnimatePresence>
           {priorityFilter && (
-            <Badge variant="secondary" className="gap-1 text-xs cursor-pointer" onClick={() => onPriorityChange(null)}>
-              {JOB_PRIORITY_LABELS[priorityFilter]}
-              <IconX className="h-3 w-3" />
-            </Badge>
+            <motion.div
+              key="priority-badge"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              layout
+            >
+              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer" onClick={() => onPriorityChange(null)}>
+                {JOB_PRIORITY_LABELS[priorityFilter]}
+                <IconX className="h-3 w-3" />
+              </Badge>
+            </motion.div>
           )}
           {serviceTypeFilter && (
-            <Badge variant="secondary" className="gap-1 text-xs cursor-pointer" onClick={() => onServiceTypeChange(null)}>
-              {SERVICE_TYPE_LABELS[serviceTypeFilter]}
-              <IconX className="h-3 w-3" />
-            </Badge>
+            <motion.div
+              key="service-badge"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              layout
+            >
+              <Badge variant="secondary" className="gap-1 text-xs cursor-pointer" onClick={() => onServiceTypeChange(null)}>
+                {SERVICE_TYPE_LABELS[serviceTypeFilter]}
+                <IconX className="h-3 w-3" />
+              </Badge>
+            </motion.div>
           )}
-        </div>
-      )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

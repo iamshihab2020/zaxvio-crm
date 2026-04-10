@@ -43,6 +43,7 @@ interface KanbanBoardProps {
   visibleFields?: CardFieldVisibility;
   members?: AssigneeMember[];
   onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
+  onJobFieldChange?: (jobId: string, field: string, value: string) => void;
 }
 
 export function KanbanBoard({
@@ -55,6 +56,7 @@ export function KanbanBoard({
   visibleFields,
   members,
   onAssigneeChange,
+  onJobFieldChange,
 }: KanbanBoardProps) {
   const [localJobs, setLocalJobs] = useState<JobCardData[]>(jobs);
   const [activeJob, setActiveJob] = useState<JobCardData | null>(null);
@@ -329,6 +331,7 @@ export function KanbanBoard({
                 visibleFields={visibleFields}
                 members={members}
                 onAssigneeChange={onAssigneeChange}
+                onJobFieldChange={onJobFieldChange}
               />
             ))}
           </div>
