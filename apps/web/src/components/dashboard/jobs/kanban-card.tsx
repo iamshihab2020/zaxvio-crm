@@ -73,6 +73,32 @@ function formatTime(timeStr: string) {
   return `${display}:${m} ${amPm}`;
 }
 
+const SERVICE_TYPE_DOT: Record<string, string> = {
+  installation: "bg-indigo-500",
+  repair: "bg-orange-500",
+  maintenance: "bg-sky-500",
+  inspection: "bg-violet-500",
+  emergency: "bg-red-500",
+  consultation: "bg-teal-500",
+  other: "bg-gray-400",
+};
+
+const SERVICE_TYPE_BADGE: Record<string, { bg: string; text: string }> = {
+  installation: { bg: "bg-indigo-50 dark:bg-indigo-950/50", text: "text-indigo-700 dark:text-indigo-300" },
+  repair: { bg: "bg-orange-50 dark:bg-orange-950/50", text: "text-orange-700 dark:text-orange-300" },
+  maintenance: { bg: "bg-sky-50 dark:bg-sky-950/50", text: "text-sky-700 dark:text-sky-300" },
+  inspection: { bg: "bg-violet-50 dark:bg-violet-950/50", text: "text-violet-700 dark:text-violet-300" },
+  emergency: { bg: "bg-red-50 dark:bg-red-950/50", text: "text-red-700 dark:text-red-300" },
+  consultation: { bg: "bg-teal-50 dark:bg-teal-950/50", text: "text-teal-700 dark:text-teal-300" },
+  other: { bg: "bg-gray-100 dark:bg-gray-800/50", text: "text-gray-600 dark:text-gray-400" },
+};
+
+const PRIORITY_DOT: Record<string, string> = {
+  standard: "bg-blue-500",
+  urgent: "bg-amber-500",
+  emergency: "bg-red-500",
+};
+
 function getInitials(first: string | null, last: string | null): string {
   const f = first?.charAt(0)?.toUpperCase() ?? "";
   const l = last?.charAt(0)?.toUpperCase() ?? "";
@@ -171,30 +197,31 @@ export function KanbanCard({
                 <Popover open={serviceTypeOpen} onOpenChange={setServiceTypeOpen}>
                   <PopoverTrigger asChild>
                     <button className="cursor-pointer">
-                      <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0 hover:bg-muted/80 transition-colors">
+                      <Badge className={cn("px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0 hover:opacity-80 transition-opacity", SERVICE_TYPE_BADGE[job.serviceType]?.bg ?? "bg-gray-100 dark:bg-gray-800/50", SERVICE_TYPE_BADGE[job.serviceType]?.text ?? "text-gray-600 dark:text-gray-400")}>
                         {SERVICE_TYPE_LABELS[job.serviceType]}
                       </Badge>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-40 p-1" align="start">
+                  <PopoverContent className="w-44 p-1" align="start">
                     {SERVICE_TYPES.map((st) => (
                       <button
                         key={st}
                         onClick={() => { onJobFieldChange!(job.id, "serviceType", st); setServiceTypeOpen(false); }}
                         className={cn(
-                          "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
+                          "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
                           job.serviceType === st ? "bg-brand-light/30 text-brand font-medium dark:bg-brand/15" : "hover:bg-muted",
                         )}
                       >
-                        {SERVICE_TYPE_LABELS[st as ServiceType]}
-                        {job.serviceType === st && <IconCheck className="h-3 w-3" />}
+                        <span className={cn("h-2 w-2 rounded-full shrink-0", SERVICE_TYPE_DOT[st] ?? "bg-gray-400")} />
+                        <span className="flex-1 text-left">{SERVICE_TYPE_LABELS[st as ServiceType]}</span>
+                        {job.serviceType === st && <IconCheck className="h-3 w-3 shrink-0" />}
                       </button>
                     ))}
                   </PopoverContent>
                 </Popover>
               </div>
             ) : (
-              <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0">
+              <Badge className={cn("px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider border-0", SERVICE_TYPE_BADGE[job.serviceType]?.bg ?? "bg-gray-100 dark:bg-gray-800/50", SERVICE_TYPE_BADGE[job.serviceType]?.text ?? "text-gray-600 dark:text-gray-400")}>
                 {SERVICE_TYPE_LABELS[job.serviceType]}
               </Badge>
             )
@@ -210,21 +237,20 @@ export function KanbanCard({
                       </Badge>
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-36 p-1" align="end">
+                  <PopoverContent className="w-40 p-1" align="end">
                     {JOB_PRIORITIES.map((p) => {
-                      const pc = JOB_PRIORITY_COLORS[p as JobPriority];
                       return (
                         <button
                           key={p}
                           onClick={() => { onJobFieldChange!(job.id, "priority", p); setPriorityOpen(false); }}
                           className={cn(
-                            "flex w-full items-center justify-between rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
-                            job.priority === p ? "font-medium" : "hover:bg-muted",
-                            pc.bg, pc.text,
+                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
+                            job.priority === p ? "bg-brand-light/30 text-brand font-medium dark:bg-brand/15" : "hover:bg-muted",
                           )}
                         >
-                          {JOB_PRIORITY_LABELS[p as JobPriority]}
-                          {job.priority === p && <IconCheck className="h-3 w-3" />}
+                          <span className={cn("h-2 w-2 rounded-full shrink-0", PRIORITY_DOT[p] ?? "bg-gray-400")} />
+                          <span className="flex-1 text-left">{JOB_PRIORITY_LABELS[p as JobPriority]}</span>
+                          {job.priority === p && <IconCheck className="h-3 w-3 shrink-0" />}
                         </button>
                       );
                     })}
