@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { bulkIdsBody, bulkToggleActiveBody } from "../../lib/schemas/bulk.js";
 import {
   idParam,
   catalogListQuery,
@@ -17,6 +18,7 @@ import {
   asc,
   count,
   sql,
+  inArray,
 } from "@hvac-saas/database";
 
 const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -303,6 +305,84 @@ const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
         );
 
       return reply.send({ message: "Catalog item deleted" });
+    },
+  );
+  /**
+   * POST /catalog/bulk-delete
+   * Hard delete multiple catalog items.
+   */
+  fastify.post(
+    "/bulk-delete",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: catalogItems.id })
+        .from(catalogItems)
+        .where(
+          and(eq(catalogItems.tenantId, tenantId), inArray(catalogItems.id, ids)),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .delete(catalogItems)
+          .where(
+            and(eq(catalogItems.tenantId, tenantId), inArray(catalogItems.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+    },
+  );
+
+  /**
+   * POST /catalog/bulk-toggle-active
+   * Set isActive to a specific value for multiple catalog items.
+   */
+  fastify.post(
+    "/bulk-toggle-active",
+    { preHandler: [requireTenant], schema: { body: bulkToggleActiveBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids, isActive } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: catalogItems.id })
+        .from(catalogItems)
+        .where(
+          and(eq(catalogItems.tenantId, tenantId), inArray(catalogItems.id, ids)),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .update(catalogItems)
+          .set({ isActive })
+          .where(
+            and(eq(catalogItems.tenantId, tenantId), inArray(catalogItems.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
     },
   );
 };

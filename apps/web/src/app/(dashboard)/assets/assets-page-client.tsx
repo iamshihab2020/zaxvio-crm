@@ -8,6 +8,7 @@ import {
   IconClock,
   IconAlertTriangle,
   IconStack2,
+  IconTrash,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/reusable/page-header";
@@ -18,6 +19,8 @@ import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import {
   AssetTable,
   type AssetRow,
@@ -30,7 +33,10 @@ import {
   getEquipment,
   updateEquipment,
   deleteEquipment,
+  bulkDeleteEquipment,
 } from "@/actions/equipment";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { toast } from "sonner";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -76,6 +82,21 @@ export function AssetsPageClient({
   const [loading, setLoading] = useState(initialAssets.length === 0);
   const [saving, setSaving] = useState(false);
 
+  // Row selection
+  const {
+    selectedIds,
+    toggle,
+    toggleAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+
+  // Bulk action state
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<AssetRow | null>(null);
@@ -108,14 +129,20 @@ export function AssetsPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-fetch on search change (debounced)
+  // Re-fetch on search change (debounced), clear selection
   useEffect(() => {
     if (!search) return;
     const timer = setTimeout(() => {
       fetchAssets(1, search);
+      clearSelection();
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, fetchAssets]);
+  }, [search, fetchAssets]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear selection when status filter changes
+  useEffect(() => {
+    clearSelection();
+  }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute stats client-side
   const stats = useMemo(() => {
@@ -134,6 +161,21 @@ export function AssetsPageClient({
     if (!statusFilter) return assets;
     return assets.filter((a) => getWarrantyStatus(a) === statusFilter);
   }, [assets, statusFilter]);
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkDeleteEquipment(ids);
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    if (result.error && result.succeeded === 0) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Deleted ${result.succeeded} asset${result.succeeded !== 1 ? "s" : ""}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
+      clearSelection();
+      await fetchAssets(pagination.page, search);
+    }
+  }
 
   function openEditDialog(asset: AssetRow) {
     setEditingAsset(asset);
@@ -244,6 +286,11 @@ export function AssetsPageClient({
               onDelete={openDeleteDialog}
               onRowClick={(asset) => router.push(`/assets/${asset.id}`)}
               showCustomer
+              selectedIds={selectedIds}
+              onToggle={toggle}
+              onToggleAll={toggleAll}
+              isAllSelected={isAllSelected(filteredAssets)}
+              isIndeterminate={isIndeterminate(filteredAssets)}
             />
           )}
         </div>
@@ -288,6 +335,33 @@ export function AssetsPageClient({
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
         loading={saving}
+      />
+
+      {/* Bulk action bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        loading={bulkLoading}
+        actions={[
+          {
+            label: "Delete",
+            icon: IconTrash,
+            onClick: () => setBulkDeleteOpen(true),
+            variant: "destructive",
+          },
+        ]}
+      />
+
+      {/* Bulk delete confirmation */}
+      <BulkConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onConfirm={handleBulkDelete}
+        loading={bulkLoading}
+        title={`Delete ${selectedCount} Asset${selectedCount !== 1 ? "s" : ""}`}
+        description={`This will permanently delete ${selectedCount} asset${selectedCount !== 1 ? "s" : ""}. This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
       />
     </section>
   );

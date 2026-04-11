@@ -656,3 +656,89 @@ export async function getJobActivities(
     return { data: null, error: "Network error" };
   }
 }
+
+// ===== BULK OPERATIONS =====
+
+export async function bulkArchiveJobs(ids: string[]) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/bulk-archive`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: (err as { message?: string }).message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}
+
+export async function bulkRestoreJobs(ids: string[]) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/bulk-restore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: (err as { message?: string }).message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}
+
+export async function bulkDeleteJobs(ids: string[]) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/bulk-delete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: (err as { message?: string }).message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}
+
+export async function bulkUpdateJobStatus(ids: string[], status: string) {
+  try {
+    const res = await fetch(`${API_URL}/jobs/bulk-status-update`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids, status }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: (err as { message?: string }).message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}

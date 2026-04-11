@@ -8,6 +8,8 @@ import {
   IconClock,
   IconAlertTriangle,
   IconX,
+  IconTrash,
+  IconPower,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/reusable/page-header";
@@ -18,6 +20,8 @@ import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import {
   ServiceAgreementTable,
   type AgreementRow,
@@ -31,7 +35,11 @@ import {
   createMaintenanceContract,
   updateMaintenanceContract,
   deleteMaintenanceContract,
+  bulkDeleteContracts,
+  bulkToggleContractActive,
 } from "@/actions/maintenance-contracts";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { toast } from "sonner";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -81,6 +89,23 @@ export function ServiceAgreementsPageClient({
   const [loading, setLoading] = useState(initialAgreements.length === 0);
   const [saving, setSaving] = useState(false);
 
+  // Row selection
+  const {
+    selectedIds,
+    toggle,
+    toggleAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+
+  // Bulk action state
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkToggleOpen, setBulkToggleOpen] = useState(false);
+  const [bulkToggleValue, setBulkToggleValue] = useState(false);
+
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingAgreement, setEditingAgreement] =
@@ -115,14 +140,20 @@ export function ServiceAgreementsPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Re-fetch on search change (debounced)
+  // Re-fetch on search change (debounced), clear selection
   useEffect(() => {
     if (!search) return;
     const timer = setTimeout(() => {
       fetchAgreements(1, search);
+      clearSelection();
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, fetchAgreements]);
+  }, [search, fetchAgreements]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Clear selection when status filter changes
+  useEffect(() => {
+    clearSelection();
+  }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Compute stats client-side
   const stats = useMemo(() => {
@@ -142,6 +173,37 @@ export function ServiceAgreementsPageClient({
     if (!statusFilter) return agreements;
     return agreements.filter((a) => getAgreementStatus(a) === statusFilter);
   }, [agreements, statusFilter]);
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkDeleteContracts(ids);
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    if (result.error && result.succeeded === 0) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Deleted ${result.succeeded} agreement${result.succeeded !== 1 ? "s" : ""}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
+      clearSelection();
+      await fetchAgreements(pagination.page, search);
+    }
+  }
+
+  async function handleBulkToggleActive() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkToggleContractActive(ids, bulkToggleValue);
+    setBulkLoading(false);
+    setBulkToggleOpen(false);
+    if (result.error && result.succeeded === 0) {
+      toast.error(result.error);
+    } else {
+      const label = bulkToggleValue ? "activated" : "deactivated";
+      toast.success(`${result.succeeded} agreement${result.succeeded !== 1 ? "s" : ""} ${label}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
+      clearSelection();
+      await fetchAgreements(pagination.page, search);
+    }
+  }
 
   function openCreateDialog() {
     setEditingAgreement(null);
@@ -291,6 +353,11 @@ export function ServiceAgreementsPageClient({
               agreements={filteredAgreements}
               onEdit={openEditDialog}
               onDelete={openDeleteDialog}
+              selectedIds={selectedIds}
+              onToggle={toggle}
+              onToggleAll={toggleAll}
+              isAllSelected={isAllSelected(filteredAgreements)}
+              isIndeterminate={isIndeterminate(filteredAgreements)}
             />
           )}
         </div>
@@ -337,6 +404,57 @@ export function ServiceAgreementsPageClient({
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
         loading={saving}
+      />
+
+      {/* Bulk action bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        loading={bulkLoading}
+        actions={[
+          {
+            label: "Set Active",
+            icon: IconPower,
+            onClick: () => { setBulkToggleValue(true); setBulkToggleOpen(true); },
+            variant: "default",
+          },
+          {
+            label: "Set Inactive",
+            icon: IconPower,
+            onClick: () => { setBulkToggleValue(false); setBulkToggleOpen(true); },
+            variant: "default",
+          },
+          {
+            label: "Delete",
+            icon: IconTrash,
+            onClick: () => setBulkDeleteOpen(true),
+            variant: "destructive",
+          },
+        ]}
+      />
+
+      {/* Bulk delete confirmation */}
+      <BulkConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onConfirm={handleBulkDelete}
+        loading={bulkLoading}
+        title={`Delete ${selectedCount} Agreement${selectedCount !== 1 ? "s" : ""}`}
+        description={`This will permanently delete ${selectedCount} service agreement${selectedCount !== 1 ? "s" : ""}. This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
+
+      {/* Bulk toggle active confirmation */}
+      <BulkConfirmDialog
+        open={bulkToggleOpen}
+        onOpenChange={setBulkToggleOpen}
+        onConfirm={handleBulkToggleActive}
+        loading={bulkLoading}
+        title={`${bulkToggleValue ? "Activate" : "Deactivate"} ${selectedCount} Agreement${selectedCount !== 1 ? "s" : ""}`}
+        description={`This will ${bulkToggleValue ? "activate" : "deactivate"} ${selectedCount} service agreement${selectedCount !== 1 ? "s" : ""}.`}
+        confirmLabel={bulkToggleValue ? "Activate" : "Deactivate"}
+        variant="default"
       />
     </section>
   );

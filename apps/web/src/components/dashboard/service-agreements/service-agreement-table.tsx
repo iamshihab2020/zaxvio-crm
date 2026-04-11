@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,6 +44,12 @@ interface ServiceAgreementTableProps {
   onEdit: (agreement: AgreementRow) => void;
   onDelete: (agreement: AgreementRow) => void;
   showCustomer?: boolean;
+  // Selection props (optional)
+  selectedIds?: Set<string>;
+  onToggle?: (id: string) => void;
+  onToggleAll?: (items: { id: string }[]) => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
 function formatDate(dateStr: string) {
@@ -111,11 +118,27 @@ export function ServiceAgreementTable({
   onEdit,
   onDelete,
   showCustomer = true,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  isAllSelected,
+  isIndeterminate,
 }: ServiceAgreementTableProps) {
+  const selectionEnabled = !!selectedIds && !!onToggle;
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          {selectionEnabled && (
+            <TableHead className="w-10 pl-4">
+              <Checkbox
+                checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                onCheckedChange={() => onToggleAll?.(agreements)}
+                aria-label="Select all"
+              />
+            </TableHead>
+          )}
           <TableHead>Agreement</TableHead>
           {showCustomer && <TableHead>Customer</TableHead>}
           <TableHead className="hidden md:table-cell">Asset</TableHead>
@@ -131,7 +154,19 @@ export function ServiceAgreementTable({
           const status = getStatus(agreement.isActive, agreement.endDate);
 
           return (
-            <TableRow key={agreement.id}>
+            <TableRow
+              key={agreement.id}
+              data-selected={selectionEnabled && selectedIds?.has(agreement.id)}
+            >
+              {selectionEnabled && (
+                <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds?.has(agreement.id) ?? false}
+                    onCheckedChange={() => onToggle(agreement.id)}
+                    aria-label={`Select ${agreement.contractName}`}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <span className="font-medium text-foreground">
                   {agreement.contractName}

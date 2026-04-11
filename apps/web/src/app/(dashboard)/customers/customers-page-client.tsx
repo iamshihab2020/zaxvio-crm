@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin } from "@tabler/icons-react";
+import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff } from "@tabler/icons-react";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
@@ -9,15 +10,22 @@ import { SearchInput } from "@/components/reusable/search-input";
 import { CustomerTable } from "@/components/dashboard/customers/customer-table";
 import { CustomerDialog, type CustomerFormData } from "@/components/dashboard/customers/customer-dialog";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import {
   getCustomers,
   getCustomerStats,
   createCustomer,
   updateCustomer,
   deleteCustomer,
+  bulkArchiveCustomers,
+  bulkRestoreCustomers,
+  bulkDeleteCustomers,
 } from "@/actions/customers";
 import type { Customer } from "@hvac-saas/types";
 
@@ -49,6 +57,7 @@ export function CustomersPageClient({
   const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
   const [pagination, setPagination] = useState<PaginationData>(initialPagination);
   const [search, setSearch] = useState("");
+  const [viewFilter, setViewFilter] = useState("");
   const [loading, setLoading] = useState(initialCustomers.length === 0);
   const [saving, setSaving] = useState(false);
 
@@ -60,6 +69,22 @@ export function CustomersPageClient({
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState(initialStats ?? { total: 0, withEmail: 0, withPhone: 0, withAddress: 0 });
 
+  // Bulk selection
+  const {
+    selectedIds,
+    isSelected,
+    toggle,
+    toggleAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const showingArchived = viewFilter === "archived";
+
   // Refresh stats after mutations (single API call)
   async function refreshStats() {
     const result = await getCustomerStats();
@@ -67,9 +92,9 @@ export function CustomersPageClient({
   }
 
   const fetchCustomers = useCallback(
-    async (page: number, searchTerm: string) => {
+    async (page: number, searchTerm: string, archived = false) => {
       setLoading(true);
-      const result = await getCustomers({ search: searchTerm, page, limit: 15 });
+      const result = await getCustomers({ search: searchTerm, page, limit: 15, showArchived: archived || undefined });
       if (result.data) {
         setCustomers(result.data);
         setPagination(result.pagination ?? { page, limit: 15, total: 0, totalPages: 0 });
@@ -89,13 +114,15 @@ export function CustomersPageClient({
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchCustomers(1, search);
+      fetchCustomers(1, search, showingArchived);
     }, 300);
+    clearSelection();
     return () => clearTimeout(timer);
-  }, [search, fetchCustomers]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, viewFilter, fetchCustomers]);
 
   function handlePageChange(newPage: number) {
-    fetchCustomers(newPage, search);
+    fetchCustomers(newPage, search, showingArchived);
   }
 
   function openCreateDialog() {
@@ -154,9 +181,45 @@ export function CustomersPageClient({
     setSaving(false);
   }
 
+  // Bulk action handlers
+  async function handleBulkArchive() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = showingArchived
+      ? await bulkRestoreCustomers(ids)
+      : await bulkArchiveCustomers(ids);
+    setBulkLoading(false);
+    setBulkArchiveOpen(false);
+    clearSelection();
+    fetchCustomers(pagination.page, search, showingArchived);
+    refreshStats();
+    if (result.succeeded > 0) {
+      toast.success(`${result.succeeded} customer(s) ${showingArchived ? "restored" : "archived"}`);
+    }
+    if (result.failed > 0) {
+      toast.error(`${result.failed} customer(s) could not be ${showingArchived ? "restored" : "archived"}`);
+    }
+  }
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const result = await bulkDeleteCustomers(Array.from(selectedIds));
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    clearSelection();
+    fetchCustomers(pagination.page, search, showingArchived);
+    refreshStats();
+    if (result.succeeded > 0) {
+      toast.success(`${result.succeeded} customer(s) permanently deleted`);
+    }
+    if (result.failed > 0) {
+      toast.error(`${result.failed} customer(s) could not be deleted`);
+    }
+  }
+
   const hasCustomers = customers.length > 0;
-  const showEmptyState = !loading && !hasCustomers && !search;
-  const showNoResults = !loading && !hasCustomers && !!search;
+  const showEmptyState = !loading && !hasCustomers && !search && !showingArchived;
+  const showNoResults = !loading && !hasCustomers && (!!search || showingArchived);
 
   return (
     <section className="p-6">
@@ -203,13 +266,23 @@ export function CustomersPageClient({
 
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Search bar inside card header */}
-          <div className="border-b border-border px-4 py-3">
-            <SearchInput
-              value={search}
-              onChange={setSearch}
-              placeholder="Search by name, email, or phone..."
+          {/* Filter tabs + search in card header */}
+          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+            <StatusFilterTabs
+              options={[
+                { value: "", label: "Active" },
+                { value: "archived", label: "Archived" },
+              ]}
+              value={viewFilter}
+              onChange={setViewFilter}
             />
+            <div className="ml-auto">
+              <SearchInput
+                value={search}
+                onChange={setSearch}
+                placeholder="Search by name, email, or phone..."
+              />
+            </div>
           </div>
 
           {loading && (
@@ -229,6 +302,11 @@ export function CustomersPageClient({
               customers={customers}
               onEdit={openEditDialog}
               onDelete={openDeleteDialog}
+              selectedIds={selectedIds}
+              onToggleSelect={toggle}
+              onToggleSelectAll={() => toggleAll(customers)}
+              isAllSelected={isAllSelected(customers)}
+              isIndeterminate={isIndeterminate(customers)}
             />
           )}
         </div>
@@ -260,6 +338,45 @@ export function CustomersPageClient({
         onConfirm={handleDelete}
         loading={saving}
         description="All jobs, invoices, and notes linked to this customer will also be removed."
+      />
+
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        loading={bulkLoading}
+        actions={
+          showingArchived
+            ? [
+                { label: "Restore", icon: IconArchiveOff, onClick: () => setBulkArchiveOpen(true) },
+                { label: "Delete permanently", icon: IconTrash, onClick: () => setBulkDeleteOpen(true), variant: "destructive" as const },
+              ]
+            : [
+                { label: "Archive", icon: IconArchive, onClick: () => setBulkArchiveOpen(true) },
+                { label: "Delete", icon: IconTrash, onClick: () => setBulkDeleteOpen(true), variant: "destructive" as const },
+              ]
+        }
+      />
+
+      <BulkConfirmDialog
+        open={bulkArchiveOpen}
+        onOpenChange={setBulkArchiveOpen}
+        onConfirm={handleBulkArchive}
+        loading={bulkLoading}
+        title={showingArchived ? "Restore customers" : "Archive customers"}
+        description={`Are you sure you want to ${showingArchived ? "restore" : "archive"} ${selectedCount} customer(s)?`}
+        confirmLabel={showingArchived ? "Restore" : "Archive"}
+        variant={showingArchived ? "default" : "destructive"}
+      />
+
+      <BulkConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onConfirm={handleBulkDelete}
+        loading={bulkLoading}
+        title="Delete customers permanently"
+        description={`Are you sure you want to permanently delete ${selectedCount} customer(s)? This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+        variant="destructive"
       />
     </section>
   );

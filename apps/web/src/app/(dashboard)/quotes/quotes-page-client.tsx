@@ -14,6 +14,9 @@ import {
   IconSend,
   IconCircleCheck,
   IconX,
+  IconArchive,
+  IconArchiveOff,
+  IconTrash,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
@@ -24,6 +27,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import {
   QuoteTable,
   type QuoteRow,
@@ -41,12 +46,16 @@ import { EmptyState } from "@/components/reusable/empty-state";
 import { PageHeader } from "@/components/reusable/page-header";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import {
   getQuotes,
   getQuoteStats,
   createQuote,
   deleteQuote,
   addQuoteLineItem,
+  bulkArchiveQuotes,
+  bulkRestoreQuotes,
+  bulkDeleteQuotes,
 } from "@/actions/quotes";
 import { getTenant } from "@/actions/tenants";
 
@@ -66,6 +75,11 @@ const STATUS_OPTIONS = [
   { value: "accepted", label: "Accepted" },
   { value: "declined", label: "Declined" },
   { value: "expired", label: "Expired" },
+];
+
+const VIEW_OPTIONS = [
+  { value: "", label: "Active" },
+  { value: "archived", label: "Archived" },
 ];
 
 interface PaginationInfo {
@@ -101,6 +115,7 @@ export function QuotesPageClient({
   const [loading, setLoading] = useState(initialQuotes.length === 0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [viewFilter, setViewFilter] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [sortPopoverOpen, setSortPopoverOpen] = useState(false);
@@ -121,6 +136,21 @@ export function QuotesPageClient({
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingQuote, setDeletingQuote] = useState<QuoteDetail | null>(null);
+
+  // Bulk selection
+  const {
+    selectedIds,
+    toggle,
+    toggleAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const showingArchived = viewFilter === "archived";
 
   // Deep-link support
   const searchParams = useSearchParams();
@@ -145,6 +175,7 @@ export function QuotesPageClient({
         limit: 15,
         sortBy,
         sortOrder,
+        showArchived: showingArchived || undefined,
       });
       if (result.data) {
         setQuotes(result.data as QuoteRow[]);
@@ -154,7 +185,7 @@ export function QuotesPageClient({
       }
       setLoading(false);
     },
-    [search, statusFilter, sortBy, sortOrder],
+    [search, statusFilter, sortBy, sortOrder, showingArchived],
   );
 
   // Fetch tenant for default tax rate (skip if server-prefetched)
@@ -171,7 +202,9 @@ export function QuotesPageClient({
   // Fetch quotes on mount and on search/filter change (debounced)
   useEffect(() => {
     const timer = setTimeout(() => fetchQuotes(1), 300);
+    clearSelection();
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchQuotes]);
 
   // Refresh stats after mutations (single API call)
@@ -240,6 +273,42 @@ export function QuotesPageClient({
     }
   }
 
+  // Bulk action handlers
+  async function handleBulkArchive() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = showingArchived
+      ? await bulkRestoreQuotes(ids)
+      : await bulkArchiveQuotes(ids);
+    setBulkLoading(false);
+    setBulkArchiveOpen(false);
+    clearSelection();
+    fetchQuotes(pagination.page);
+    refreshStats();
+    if (result.succeeded > 0) {
+      toast.success(`${result.succeeded} quote(s) ${showingArchived ? "restored" : "archived"}`);
+    }
+    if (result.failed > 0) {
+      toast.error(`${result.failed} quote(s) could not be ${showingArchived ? "restored" : "archived"}`);
+    }
+  }
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const result = await bulkDeleteQuotes(Array.from(selectedIds));
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    clearSelection();
+    fetchQuotes(pagination.page);
+    refreshStats();
+    if (result.succeeded > 0) {
+      toast.success(`${result.succeeded} quote(s) permanently deleted`);
+    }
+    if (result.failed > 0) {
+      toast.error(`${result.failed} quote(s) could not be deleted`);
+    }
+  }
+
   function handleRowClick(id: string) {
     if (viewMode === "page") {
       router.push(`/quotes/${id}`);
@@ -250,8 +319,8 @@ export function QuotesPageClient({
   }
 
   const hasQuotes = quotes.length > 0;
-  const showEmptyState = !loading && !hasQuotes && !search && !statusFilter;
-  const showNoResults = !loading && !hasQuotes && (!!search || !!statusFilter);
+  const showEmptyState = !loading && !hasQuotes && !search && !statusFilter && !showingArchived;
+  const showNoResults = !loading && !hasQuotes && (!!search || !!statusFilter || showingArchived);
 
   return (
     <section className="p-6">
@@ -279,7 +348,6 @@ export function QuotesPageClient({
       )}
 
       {/* Stats Cards */}
-      {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
           stats={[
@@ -297,13 +365,20 @@ export function QuotesPageClient({
       {/* Card wrapper */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Search + filters */}
+          {/* View toggle (Active/Archived) + Status tabs + search */}
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             <StatusFilterTabs
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-              onChange={setStatusFilter}
+              options={VIEW_OPTIONS}
+              value={viewFilter}
+              onChange={setViewFilter}
             />
+            {!showingArchived && (
+              <StatusFilterTabs
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
+            )}
             <div className="ml-auto flex items-center gap-2">
               <SearchInput
                 value={search}
@@ -374,7 +449,15 @@ export function QuotesPageClient({
 
           {/* Table */}
           {!loading && hasQuotes && (
-            <QuoteTable quotes={quotes} onRowClick={handleRowClick} />
+            <QuoteTable
+              quotes={quotes}
+              onRowClick={handleRowClick}
+              selectedIds={selectedIds}
+              onToggleSelect={toggle}
+              onToggleSelectAll={() => toggleAll(quotes)}
+              isAllSelected={isAllSelected(quotes)}
+              isIndeterminate={isIndeterminate(quotes)}
+            />
           )}
         </div>
       )}
@@ -420,6 +503,46 @@ export function QuotesPageClient({
         itemLabel={deletingQuote?.quoteNumber ?? ""}
         description="This will permanently remove the quote and all its line items."
         loading={false}
+      />
+
+      {/* Bulk action bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        loading={bulkLoading}
+        actions={
+          showingArchived
+            ? [
+                { label: "Restore", icon: IconArchiveOff, onClick: () => setBulkArchiveOpen(true) },
+                { label: "Delete permanently", icon: IconTrash, onClick: () => setBulkDeleteOpen(true), variant: "destructive" as const },
+              ]
+            : [
+                { label: "Archive", icon: IconArchive, onClick: () => setBulkArchiveOpen(true) },
+                { label: "Delete", icon: IconTrash, onClick: () => setBulkDeleteOpen(true), variant: "destructive" as const },
+              ]
+        }
+      />
+
+      <BulkConfirmDialog
+        open={bulkArchiveOpen}
+        onOpenChange={setBulkArchiveOpen}
+        onConfirm={handleBulkArchive}
+        loading={bulkLoading}
+        title={showingArchived ? "Restore quotes" : "Archive quotes"}
+        description={`Are you sure you want to ${showingArchived ? "restore" : "archive"} ${selectedCount} quote(s)?`}
+        confirmLabel={showingArchived ? "Restore" : "Archive"}
+        variant={showingArchived ? "default" : "destructive"}
+      />
+
+      <BulkConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onConfirm={handleBulkDelete}
+        loading={bulkLoading}
+        title="Delete quotes permanently"
+        description={`Are you sure you want to permanently delete ${selectedCount} quote(s)? Only draft quotes can be deleted — others will be skipped. This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+        variant="destructive"
       />
     </section>
   );

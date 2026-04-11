@@ -29,3 +29,10 @@ export const updateBookingBody = z.object({
 export const convertBookingBody = z.object({
   pipelineStageId: z.string().uuid().optional(),
 });
+
+// ── Bulk Operations ──────────────────────────────────────────────────────────
+
+export const bulkBookingStatusBody = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+  status: z.enum(["pending", "confirmed", "completed", "cancelled"]),
+});

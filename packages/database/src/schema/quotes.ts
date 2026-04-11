@@ -56,6 +56,7 @@ export const quotes = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("idx_quotes_tenant_quote_number").on(

@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { QuoteStatusBadge } from "./quote-status-badge";
 
 export interface QuoteRow {
@@ -25,6 +26,11 @@ export interface QuoteRow {
 interface QuoteTableProps {
   quotes: QuoteRow[];
   onRowClick: (id: string) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleSelectAll?: () => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
 function formatCurrency(val: string | null) {
@@ -41,12 +47,30 @@ function formatDate(val: string | null) {
   });
 }
 
-export function QuoteTable({ quotes, onRowClick }: QuoteTableProps) {
+export function QuoteTable({
+  quotes,
+  onRowClick,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
+  isAllSelected,
+  isIndeterminate,
+}: QuoteTableProps) {
+  const hasSelection = !!selectedIds && !!onToggleSelect;
+
   return (
     <div className="overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
+            {hasSelection && (
+              <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                  onCheckedChange={() => onToggleSelectAll?.()}
+                />
+              </TableHead>
+            )}
             <TableHead className="font-body">Quote #</TableHead>
             <TableHead className="font-body">Customer</TableHead>
             <TableHead className="font-body">Status</TableHead>
@@ -62,6 +86,14 @@ export function QuoteTable({ quotes, onRowClick }: QuoteTableProps) {
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => onRowClick(q.id)}
             >
+              {hasSelection && (
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.has(q.id)}
+                    onCheckedChange={() => onToggleSelect(q.id)}
+                  />
+                </TableCell>
+              )}
               <TableCell className="font-medium font-body">
                 {q.quoteNumber}
               </TableCell>

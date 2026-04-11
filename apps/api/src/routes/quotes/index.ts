@@ -25,6 +25,9 @@ import {
   count,
   sql,
   user,
+  isNull,
+  isNotNull,
+  inArray,
 } from "@hvac-saas/database";
 import { getSupabaseAdmin } from "@hvac-saas/database";
 import { lt } from "drizzle-orm";
@@ -38,7 +41,9 @@ import {
   updateLineItemBody,
   convertBody,
   activitiesQuery,
+  bulkQuoteStatusBody,
 } from "../../lib/schemas/quotes.js";
+import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 
 // ========== HELPERS ==========
 
@@ -201,6 +206,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         limit,
         sortBy,
         sortOrder,
+        showArchived,
       } = request.query;
 
       const tenantId = request.authUser.tenantId!;
@@ -215,6 +221,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       // Build filters
       const filters = [eq(quotes.tenantId, tenantId)];
+      filters.push(showArchived ? isNotNull(quotes.archivedAt) : isNull(quotes.archivedAt));
 
       if (search) {
         filters.push(
@@ -1444,6 +1451,122 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           totalPages: Math.ceil(total / limitNum),
         },
       });
+    },
+  );
+
+  // ===== BULK OPERATIONS =====
+
+  /**
+   * POST /quotes/bulk-archive
+   * Set archivedAt = now() for the given quote IDs (tenant-scoped).
+   */
+  fastify.post(
+    "/bulk-archive",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      await db
+        .update(quotes)
+        .set({ archivedAt: new Date(), updatedAt: new Date() })
+        .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.id, ids)));
+
+      return reply.send({ message: "Quotes archived", count: ids.length });
+    },
+  );
+
+  /**
+   * POST /quotes/bulk-restore
+   * Clear archivedAt (set to null) for the given quote IDs (tenant-scoped).
+   */
+  fastify.post(
+    "/bulk-restore",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      await db
+        .update(quotes)
+        .set({ archivedAt: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(quotes.tenantId, tenantId),
+            inArray(quotes.id, ids),
+            isNotNull(quotes.archivedAt),
+          ),
+        );
+
+      return reply.send({ message: "Quotes restored", count: ids.length });
+    },
+  );
+
+  /**
+   * POST /quotes/bulk-delete
+   * Hard delete ONLY draft quotes. Non-draft quotes are returned in the errors array.
+   */
+  fastify.post(
+    "/bulk-delete",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: quotes.id, status: quotes.status })
+        .from(quotes)
+        .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.id, ids)));
+
+      const eligible: string[] = [];
+      const errors: { id: string; message: string }[] = [];
+
+      for (const row of existing) {
+        if (row.status === "draft") {
+          eligible.push(row.id);
+        } else {
+          errors.push({
+            id: row.id,
+            message: `Quote is ${row.status}, only draft quotes can be deleted`,
+          });
+        }
+      }
+
+      if (eligible.length > 0) {
+        await db
+          .delete(quotes)
+          .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.id, eligible)));
+      }
+
+      return reply.send({
+        message: "Bulk delete complete",
+        deleted: eligible.length,
+        errors,
+      });
+    },
+  );
+
+  /**
+   * POST /quotes/bulk-status-update
+   * Update status for the given quote IDs (tenant-scoped).
+   */
+  fastify.post(
+    "/bulk-status-update",
+    { preHandler: [requireTenant], schema: { body: bulkQuoteStatusBody } },
+    async (request, reply) => {
+      const { ids, status } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      await db
+        .update(quotes)
+        .set({ status: status as never, updatedAt: new Date() })
+        .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.id, ids)));
+
+      return reply.send({ message: "Quotes updated", count: ids.length });
     },
   );
 };

@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { bulkIdsBody, bulkToggleActiveBody } from "../../lib/schemas/bulk.js";
 import {
   getDb,
   maintenanceContracts,
@@ -16,6 +17,7 @@ import {
   lte,
   gte,
   sql,
+  inArray,
 } from "@hvac-saas/database";
 import {
   idParam,
@@ -523,6 +525,96 @@ const maintenanceContractRoutes: FastifyPluginAsyncZod = async (fastify) => {
       });
 
       return reply.send({ message: "Service agreement deleted" });
+    },
+  );
+  /**
+   * POST /maintenance-contracts/bulk-delete
+   * Hard delete multiple service agreements.
+   */
+  fastify.post(
+    "/bulk-delete",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: maintenanceContracts.id })
+        .from(maintenanceContracts)
+        .where(
+          and(
+            eq(maintenanceContracts.tenantId, tenantId),
+            inArray(maintenanceContracts.id, ids),
+          ),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .delete(maintenanceContracts)
+          .where(
+            and(
+              eq(maintenanceContracts.tenantId, tenantId),
+              inArray(maintenanceContracts.id, validIds),
+            ),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+    },
+  );
+
+  /**
+   * POST /maintenance-contracts/bulk-toggle-active
+   * Set isActive to a specific value for multiple service agreements.
+   */
+  fastify.post(
+    "/bulk-toggle-active",
+    { preHandler: [requireTenant], schema: { body: bulkToggleActiveBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids, isActive } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: maintenanceContracts.id })
+        .from(maintenanceContracts)
+        .where(
+          and(
+            eq(maintenanceContracts.tenantId, tenantId),
+            inArray(maintenanceContracts.id, ids),
+          ),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .update(maintenanceContracts)
+          .set({ isActive, updatedAt: new Date() })
+          .where(
+            and(
+              eq(maintenanceContracts.tenantId, tenantId),
+              inArray(maintenanceContracts.id, validIds),
+            ),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
     },
   );
 };

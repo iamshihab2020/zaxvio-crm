@@ -31,6 +31,9 @@ import {
   sql,
   gte,
   lte,
+  isNull,
+  isNotNull,
+  inArray,
 } from "@hvac-saas/database";
 import { getSupabaseAdmin } from "@hvac-saas/database";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
@@ -54,8 +57,10 @@ import {
   addLineItemBody,
   toggleChecklistBody,
   completionIdParam,
+  bulkJobStatusBody,
 } from "../../lib/schemas/jobs.js";
 import { paginationQuery } from "../../lib/schemas/common.js";
+import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 
 // ========== HELPERS ==========
 
@@ -166,6 +171,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         limit,
         sortBy,
         sortOrder,
+        showArchived,
       } = request.query;
 
       const tenantId = request.authUser.tenantId!;
@@ -174,6 +180,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       // Build filters
       const filters = [eq(jobs.tenantId, tenantId)];
+      filters.push(showArchived ? isNotNull(jobs.archivedAt) : isNull(jobs.archivedAt));
 
       if (search) {
         filters.push(
@@ -1765,6 +1772,163 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           totalPages: Math.ceil((totalResult[0]?.total ?? 0) / limit),
         },
       });
+    },
+  );
+
+  // ===== BULK OPERATIONS =====
+
+  /**
+   * POST /jobs/bulk-archive
+   */
+  fastify.post(
+    "/bulk-archive",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, ids), isNull(jobs.archivedAt)));
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(jobs)
+          .set({ archivedAt: new Date() })
+          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+      }
+
+      const errors =
+        skippedCount > 0
+          ? [{ id: "N/A", message: `${skippedCount} job(s) already archived or not found` }]
+          : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+    },
+  );
+
+  /**
+   * POST /jobs/bulk-restore
+   */
+  fastify.post(
+    "/bulk-restore",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(
+          and(eq(jobs.tenantId, tenantId), inArray(jobs.id, ids), isNotNull(jobs.archivedAt)),
+        );
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(jobs)
+          .set({ archivedAt: null })
+          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+      }
+
+      const errors =
+        skippedCount > 0
+          ? [{ id: "N/A", message: `${skippedCount} job(s) not archived or not found` }]
+          : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+    },
+  );
+
+  /**
+   * POST /jobs/bulk-delete
+   */
+  fastify.post(
+    "/bulk-delete",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, ids)));
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .delete(jobs)
+          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+      }
+
+      const errors =
+        skippedCount > 0
+          ? [{ id: "N/A", message: `${skippedCount} job(s) not found` }]
+          : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+    },
+  );
+
+  /**
+   * POST /jobs/bulk-status-update
+   */
+  fastify.post(
+    "/bulk-status-update",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkJobStatusBody },
+    },
+    async (request, reply) => {
+      const { ids, status } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(
+          and(eq(jobs.tenantId, tenantId), inArray(jobs.id, ids), isNull(jobs.archivedAt)),
+        );
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(jobs)
+          .set({ status, updatedAt: new Date() })
+          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+      }
+
+      const errors =
+        skippedCount > 0
+          ? [{ id: "N/A", message: `${skippedCount} job(s) not found or archived` }]
+          : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
     },
   );
 };

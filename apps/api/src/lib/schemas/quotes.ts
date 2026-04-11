@@ -65,3 +65,10 @@ export const activitiesQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
+
+// ── Bulk Operations ──────────────────────────────────────────────────────────
+
+export const bulkQuoteStatusBody = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+  status: z.enum(["draft", "sent", "accepted", "declined", "expired"]),
+});

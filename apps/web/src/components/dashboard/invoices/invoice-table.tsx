@@ -8,6 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 
 export interface InvoiceRow {
@@ -25,6 +26,11 @@ export interface InvoiceRow {
 interface InvoiceTableProps {
   invoices: InvoiceRow[];
   onRowClick: (id: string) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleSelectAll?: () => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
 function formatCurrency(val: string | null) {
@@ -42,12 +48,30 @@ function formatDate(val: string | null) {
   });
 }
 
-export function InvoiceTable({ invoices, onRowClick }: InvoiceTableProps) {
+export function InvoiceTable({
+  invoices,
+  onRowClick,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
+  isAllSelected,
+  isIndeterminate,
+}: InvoiceTableProps) {
+  const hasSelection = !!selectedIds && !!onToggleSelect;
+
   return (
     <div className="overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
+            {hasSelection && (
+              <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                  onCheckedChange={() => onToggleSelectAll?.()}
+                />
+              </TableHead>
+            )}
             <TableHead className="font-body">Invoice #</TableHead>
             <TableHead className="font-body">Customer</TableHead>
             <TableHead className="font-body">Status</TableHead>
@@ -64,6 +88,14 @@ export function InvoiceTable({ invoices, onRowClick }: InvoiceTableProps) {
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => onRowClick(inv.id)}
             >
+              {hasSelection && (
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.has(inv.id)}
+                    onCheckedChange={() => onToggleSelect(inv.id)}
+                  />
+                </TableCell>
+              )}
               <TableCell className="font-medium font-body">
                 {inv.invoiceNumber}
               </TableCell>

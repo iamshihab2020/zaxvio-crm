@@ -36,6 +36,7 @@ export async function getCustomers(params?: {
   limit?: number;
   sortBy?: string;
   sortOrder?: string;
+  showArchived?: boolean;
 }) {
   try {
     const searchParams = new URLSearchParams();
@@ -44,6 +45,7 @@ export async function getCustomers(params?: {
     if (params?.limit) searchParams.set("limit", String(params.limit));
     if (params?.sortBy) searchParams.set("sortBy", params.sortBy);
     if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+    if (params?.showArchived) searchParams.set("showArchived", "true");
 
     const qs = searchParams.toString();
     const res = await fetch(`${API_URL}/customers${qs ? `?${qs}` : ""}`, {
@@ -398,6 +400,71 @@ export async function getCustomerPhotos(customerId: string) {
     return { data: json.data, error: null };
   } catch {
     return { data: null, error: "Network error" };
+  }
+}
+
+// ===== BULK OPERATIONS =====
+
+export async function bulkArchiveCustomers(ids: string[]) {
+  try {
+    const res = await fetch(`${API_URL}/customers/bulk-archive`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: err.message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}
+
+export async function bulkRestoreCustomers(ids: string[]) {
+  try {
+    const res = await fetch(`${API_URL}/customers/bulk-restore`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: err.message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}
+
+export async function bulkDeleteCustomers(ids: string[]) {
+  try {
+    const res = await fetch(`${API_URL}/customers/bulk-delete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: err.message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
   }
 }
 

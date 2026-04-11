@@ -12,7 +12,9 @@ import {
   updateLineItemBody,
   recordPaymentBody,
   updateInvoiceStatusBody,
+  bulkInvoiceStatusBody,
 } from "../../lib/schemas/invoices.js";
+import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
@@ -32,6 +34,9 @@ import {
   asc,
   count,
   sql,
+  isNull,
+  isNotNull,
+  inArray,
 } from "@hvac-saas/database";
 import { getSupabaseAdmin } from "@hvac-saas/database";
 
@@ -108,6 +113,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         limit,
         sortBy,
         sortOrder,
+        showArchived,
       } = request.query;
 
       const tenantId = request.authUser.tenantId!;
@@ -118,6 +124,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       // Build filters
       const filters = [eq(invoices.tenantId, tenantId)];
+      filters.push(showArchived ? isNotNull(invoices.archivedAt) : isNull(invoices.archivedAt));
 
       if (search) {
         filters.push(
@@ -1295,6 +1302,201 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .returning();
 
       return reply.send({ data: updated });
+    },
+  );
+
+  // ===== BULK OPERATIONS =====
+
+  /**
+   * POST /invoices/bulk-archive
+   * Archive multiple invoices (set archivedAt = now()).
+   * Skips any already archived.
+   */
+  fastify.post(
+    "/bulk-archive",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: invoices.id })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.tenantId, tenantId),
+            inArray(invoices.id, ids),
+            isNull(invoices.archivedAt),
+          ),
+        );
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(invoices)
+          .set({ archivedAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(eq(invoices.tenantId, tenantId), inArray(invoices.id, eligibleIds)),
+          );
+      }
+
+      const errors =
+        skippedCount > 0
+          ? [{ id: "N/A", message: `${skippedCount} invoice(s) already archived or not found` }]
+          : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+    },
+  );
+
+  /**
+   * POST /invoices/bulk-restore
+   * Restore multiple archived invoices (set archivedAt = null).
+   * Skips any that are not currently archived.
+   */
+  fastify.post(
+    "/bulk-restore",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: invoices.id })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.tenantId, tenantId),
+            inArray(invoices.id, ids),
+            isNotNull(invoices.archivedAt),
+          ),
+        );
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(invoices)
+          .set({ archivedAt: null, updatedAt: new Date() })
+          .where(
+            and(eq(invoices.tenantId, tenantId), inArray(invoices.id, eligibleIds)),
+          );
+      }
+
+      const errors =
+        skippedCount > 0
+          ? [{ id: "N/A", message: `${skippedCount} invoice(s) not archived or not found` }]
+          : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+    },
+  );
+
+  /**
+   * POST /invoices/bulk-delete
+   * Hard delete multiple invoices. Only draft invoices may be deleted.
+   * Non-draft invoices are included in the errors array.
+   */
+  fastify.post(
+    "/bulk-delete",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: invoices.id, status: invoices.status })
+        .from(invoices)
+        .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.id, ids)));
+
+      const eligible: string[] = [];
+      const errors: { id: string; message: string }[] = [];
+
+      for (const row of existing) {
+        if (row.status === "draft") {
+          eligible.push(row.id);
+        } else {
+          errors.push({
+            id: row.id,
+            message: `Invoice is ${row.status}, only draft invoices can be deleted`,
+          });
+        }
+      }
+
+      const notFoundCount = ids.length - existing.length;
+      if (notFoundCount > 0) {
+        errors.push({ id: "N/A", message: `${notFoundCount} invoice(s) not found` });
+      }
+
+      if (eligible.length > 0) {
+        await db
+          .delete(invoices)
+          .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.id, eligible)));
+      }
+
+      return reply.send({ succeeded: eligible.length, failed: ids.length - eligible.length, errors });
+    },
+  );
+
+  /**
+   * POST /invoices/bulk-status-update
+   * Update status on multiple non-archived invoices.
+   */
+  fastify.post(
+    "/bulk-status-update",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkInvoiceStatusBody },
+    },
+    async (request, reply) => {
+      const { ids, status } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: invoices.id })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.tenantId, tenantId),
+            inArray(invoices.id, ids),
+            isNull(invoices.archivedAt),
+          ),
+        );
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(invoices)
+          .set({ status: status as never, updatedAt: new Date() })
+          .where(
+            and(eq(invoices.tenantId, tenantId), inArray(invoices.id, eligibleIds)),
+          );
+      }
+
+      const errors =
+        skippedCount > 0
+          ? [{ id: "N/A", message: `${skippedCount} invoice(s) archived or not found, skipped` }]
+          : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
     },
   );
 

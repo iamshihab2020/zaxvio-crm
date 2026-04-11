@@ -74,6 +74,12 @@ zaxvio-crm/
         +-- 20260331000004_add_service_frequency.sql         # Service frequency enum + column
         +-- 20260331000005_add_equipment_id_to_jobs.sql      # Equipment reference on jobs
         +-- 20260402000001_add_multi_pipelines.sql   # Multi-pipeline: pipelines table, FK on stages+jobs, data migration
+        +-- 20260404000001_add_sort_order_to_jobs.sql # Sort order column on jobs
+        +-- 20260405000001_add_booking_source.sql     # Booking source column
+        +-- 20260405000002_job_attachments.sql        # Photo tags, job documents table
+        +-- 20260406000001_add_conversations.sql      # Conversations + messages tables
+        +-- 20260407000001_add_assignee_to_jobs.sql   # Assignee FK on jobs
+        +-- 20260410000001_add_archived_at.sql        # archived_at column on 6 tables + partial indexes
         +-- meta/                                    # Drizzle snapshots + journal
 ```
 
@@ -251,6 +257,7 @@ apps/web/
     |
     +-- hooks/
     |   +-- use-view-preference.ts   # Persist Kanban/Table view toggle
+    |   +-- use-row-selection.ts     # Multi-row selection state for bulk actions
     |   +-- use-notifications.ts     # Real-time notification hook (Supabase broadcast + server actions)
     |
     +-- lib/
@@ -506,6 +513,8 @@ apps/web/
     |   |   +-- status-filter-tabs.tsx     # Animated sliding pill filter tabs
     |   |   +-- table-skeleton.tsx
     |   |   +-- view-mode-toggle.tsx
+    |   |   +-- bulk-action-bar.tsx        # Floating bar for bulk operations (archive, delete, status)
+    |   |   +-- bulk-confirm-dialog.tsx    # Confirmation dialog for bulk operations
     |   |
     |   +-- superadmin/             # Super admin components (red-themed admin panel)
     |       +-- superadmin-sidebar.tsx          # Red-accented collapsible sidebar (6 nav items)

@@ -36,6 +36,7 @@ export const equipment = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_equipment_tenant_customer").on(

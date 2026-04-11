@@ -22,6 +22,7 @@ import {
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { JobCardData } from "./kanban-card";
 
 interface Stage {
@@ -38,6 +39,11 @@ interface JobTableProps {
   sortOrder: "asc" | "desc";
   onSort: (column: string) => void;
   compact?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleSelectAll?: () => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
 function formatCurrency(val: string | null) {
@@ -107,6 +113,11 @@ export function JobTable({
   sortOrder,
   onSort,
   compact,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
+  isAllSelected,
+  isIndeterminate,
 }: JobTableProps) {
   function getStageInfo(statusName: string) {
     const stage = stages.find((s) => s.name === statusName);
@@ -119,6 +130,15 @@ export function JobTable({
       <Table>
         <TableHeader>
           <TableRow>
+            {selectedIds !== undefined && (
+              <TableHead className={cn("w-12", compact && "h-9 px-3")} onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                  onCheckedChange={onToggleSelectAll}
+                  aria-label="Select all"
+                />
+              </TableHead>
+            )}
             <SortableHeader label="Job #" column="jobNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} />
             <TableHead className={cn("font-body", compact && "h-9 px-3 text-xs")}>Title</TableHead>
             <TableHead className={cn("font-body", compact && "h-9 px-3 text-xs")}>Customer</TableHead>
@@ -145,7 +165,17 @@ export function JobTable({
                 key={job.id}
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => onRowClick(job.id)}
+                data-selected={selectedIds?.has(job.id) ? "true" : undefined}
               >
+                {selectedIds !== undefined && (
+                  <TableCell className={cn(cellClass)} onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedIds.has(job.id)}
+                      onCheckedChange={() => onToggleSelect?.(job.id)}
+                      aria-label={`Select job ${job.jobNumber}`}
+                    />
+                  </TableCell>
+                )}
                 <TableCell className={cn("font-medium font-body", cellClass)}>
                   {job.jobNumber}
                 </TableCell>

@@ -38,6 +38,7 @@ export const bookings = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_bookings_tenant_status").on(table.tenantId, table.status),

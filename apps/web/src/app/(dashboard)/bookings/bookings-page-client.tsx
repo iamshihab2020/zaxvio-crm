@@ -4,7 +4,15 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Booking } from "@hvac-saas/types";
-import { getBookings, getBookingStats, updateBooking, cancelBooking, convertBookingToJob } from "@/actions/bookings";
+import {
+  getBookings,
+  getBookingStats,
+  updateBooking,
+  cancelBooking,
+  convertBookingToJob,
+  bulkDeleteBookings,
+  bulkUpdateBookingStatus,
+} from "@/actions/bookings";
 import { getTenant } from "@/actions/tenants";
 import { BookingTable } from "@/components/dashboard/bookings/booking-table";
 import { BookingDetailSheet } from "@/components/dashboard/bookings/booking-detail-sheet";
@@ -13,10 +21,13 @@ import { Pagination } from "@/components/reusable/pagination";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import {
   IconCalendarEvent,
   IconCopy,
@@ -27,6 +38,7 @@ import {
   IconClock,
   IconCircleCheck,
   IconX,
+  IconTrash,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -80,6 +92,24 @@ export function BookingsPageClient({
   const [tenantSlug, setTenantSlug] = useState<string | null>(prefetchedSlug ?? null);
   const [copied, setCopied] = useState(false);
   const [stats, setStats] = useState(initialStats ?? { pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+
+  // Row selection
+  const {
+    selectedIds,
+    isSelected,
+    toggle,
+    toggleAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+
+  // Bulk action state
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
+  const [bulkConfirmStatus, setBulkConfirmStatus] = useState<string>("");
 
   // Sheet / Dialog state — auto-open from URL param (e.g., notification click)
   const bookingIdParam = searchParams.get("bookingId");
@@ -135,9 +165,12 @@ export function BookingsPageClient({
   }
 
   useEffect(() => {
-    const timer = setTimeout(() => fetchBookings(1), 300);
+    const timer = setTimeout(() => {
+      fetchBookings(1);
+      clearSelection();
+    }, 300);
     return () => clearTimeout(timer);
-  }, [fetchBookings]);
+  }, [fetchBookings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const bookingUrl =
     tenantSlug && typeof window !== "undefined"
@@ -151,6 +184,46 @@ export function BookingsPageClient({
     toast.success("Booking link copied!");
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // ===== BULK HANDLERS =====
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkDeleteBookings(ids);
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    if (result.error && result.succeeded === 0) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Deleted ${result.succeeded} booking${result.succeeded !== 1 ? "s" : ""}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
+      clearSelection();
+      fetchBookings(pagination.page);
+      refreshStats();
+    }
+  }
+
+  function openBulkStatusConfirm(status: string) {
+    setBulkConfirmStatus(status);
+    setBulkConfirmOpen(true);
+  }
+
+  async function handleBulkStatusUpdate() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkUpdateBookingStatus(ids, bulkConfirmStatus);
+    setBulkLoading(false);
+    setBulkConfirmOpen(false);
+    if (result.error && result.succeeded === 0) {
+      toast.error(result.error);
+    } else {
+      const label = bulkConfirmStatus.charAt(0).toUpperCase() + bulkConfirmStatus.slice(1);
+      toast.success(`Marked ${result.succeeded} booking${result.succeeded !== 1 ? "s" : ""} as ${label}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
+      clearSelection();
+      fetchBookings(pagination.page);
+      refreshStats();
+    }
+  }
 
   const handleRowClick = (id: string) => {
     setSelectedBookingId(id);
@@ -340,6 +413,11 @@ export function BookingsPageClient({
               onConfirm={handleConfirm}
               onConvert={handleConvertClick}
               onCancel={handleCancelClick}
+              selectedIds={selectedIds}
+              onToggle={toggle}
+              onToggleAll={toggleAll}
+              isAllSelected={isAllSelected(bookings)}
+              isIndeterminate={isIndeterminate(bookings)}
             />
           )}
         </div>
@@ -382,6 +460,55 @@ export function BookingsPageClient({
         onOpenChange={setConvertOpen}
         onConfirm={handleConvertConfirm}
         loading={convertLoading}
+      />
+
+      {/* Bulk action bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        loading={bulkLoading}
+        actions={[
+          {
+            label: "Mark Confirmed",
+            icon: IconCircleCheck,
+            onClick: () => openBulkStatusConfirm("confirmed"),
+          },
+          {
+            label: "Mark Completed",
+            icon: IconCheck,
+            onClick: () => openBulkStatusConfirm("completed"),
+          },
+          {
+            label: "Delete",
+            icon: IconTrash,
+            onClick: () => setBulkDeleteOpen(true),
+            variant: "destructive",
+          },
+        ]}
+      />
+
+      {/* Bulk delete confirmation */}
+      <BulkConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onConfirm={handleBulkDelete}
+        loading={bulkLoading}
+        title={`Delete ${selectedCount} Booking${selectedCount !== 1 ? "s" : ""}`}
+        description={`This will permanently delete ${selectedCount} booking${selectedCount !== 1 ? "s" : ""}. This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
+
+      {/* Bulk status update confirmation */}
+      <BulkConfirmDialog
+        open={bulkConfirmOpen}
+        onOpenChange={setBulkConfirmOpen}
+        onConfirm={handleBulkStatusUpdate}
+        loading={bulkLoading}
+        title={`Update ${selectedCount} Booking${selectedCount !== 1 ? "s" : ""}`}
+        description={`This will mark ${selectedCount} booking${selectedCount !== 1 ? "s" : ""} as ${bulkConfirmStatus}.`}
+        confirmLabel="Update"
+        variant="default"
       />
     </section>
   );

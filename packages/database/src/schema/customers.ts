@@ -29,6 +29,7 @@ export const customers = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_customers_tenant_email").on(table.tenantId, table.email),

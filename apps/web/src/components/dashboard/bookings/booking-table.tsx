@@ -11,6 +11,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +53,12 @@ interface BookingTableProps {
   onConfirm: (id: string) => void;
   onConvert: (id: string) => void;
   onCancel: (id: string) => void;
+  // Selection props (optional — omit to disable selection)
+  selectedIds?: Set<string>;
+  onToggle?: (id: string) => void;
+  onToggleAll?: (items: { id: string }[]) => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
 function formatDate(dateStr: string): string {
@@ -82,11 +89,27 @@ export function BookingTable({
   onConfirm,
   onConvert,
   onCancel,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  isAllSelected,
+  isIndeterminate,
 }: BookingTableProps) {
+  const selectionEnabled = !!selectedIds && !!onToggle;
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          {selectionEnabled && (
+            <TableHead className="w-10 pl-4">
+              <Checkbox
+                checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                onCheckedChange={() => onToggleAll?.(bookings)}
+                aria-label="Select all"
+              />
+            </TableHead>
+          )}
           <TableHead>Customer</TableHead>
           <TableHead className="w-[140px]">Phone</TableHead>
           <TableHead className="w-[120px]">Service</TableHead>
@@ -104,7 +127,17 @@ export function BookingTable({
             key={booking.id}
             className="cursor-pointer"
             onClick={() => onViewDetail(booking.id)}
+            data-selected={selectionEnabled && selectedIds?.has(booking.id)}
           >
+            {selectionEnabled && (
+              <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds?.has(booking.id) ?? false}
+                  onCheckedChange={() => onToggle(booking.id)}
+                  aria-label={`Select booking for ${booking.customerName}`}
+                />
+              </TableCell>
+            )}
             <TableCell>
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">

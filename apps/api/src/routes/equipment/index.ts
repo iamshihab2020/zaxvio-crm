@@ -1,5 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import {
   getDb,
   equipment,
@@ -16,6 +17,9 @@ import {
   desc,
   asc,
   count,
+  isNull,
+  isNotNull,
+  inArray,
 } from "@hvac-saas/database";
 import {
   idParam,
@@ -45,6 +49,7 @@ const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
         customerId,
         sortBy,
         sortOrder,
+        showArchived,
       } = request.query;
 
       const tenantId = request.authUser.tenantId!;
@@ -54,6 +59,7 @@ const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const offset = (pageNum - 1) * limitNum;
 
       const filters = [eq(equipment.tenantId, tenantId)];
+      filters.push(showArchived ? isNotNull(equipment.archivedAt) : isNull(equipment.archivedAt));
 
       if (customerId) {
         filters.push(eq(equipment.customerId, customerId));
@@ -607,6 +613,132 @@ const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
           refrigerantLogs: logs,
         },
       });
+    },
+  );
+  /**
+   * POST /equipment/bulk-archive
+   * Soft-archive multiple equipment items by setting archivedAt.
+   */
+  fastify.post(
+    "/bulk-archive",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: equipment.id })
+        .from(equipment)
+        .where(
+          and(
+            eq(equipment.tenantId, tenantId),
+            inArray(equipment.id, ids),
+            isNull(equipment.archivedAt),
+          ),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found or already archived",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .update(equipment)
+          .set({ archivedAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(eq(equipment.tenantId, tenantId), inArray(equipment.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+    },
+  );
+
+  /**
+   * POST /equipment/bulk-restore
+   * Restore multiple archived equipment items by clearing archivedAt.
+   */
+  fastify.post(
+    "/bulk-restore",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: equipment.id })
+        .from(equipment)
+        .where(
+          and(
+            eq(equipment.tenantId, tenantId),
+            inArray(equipment.id, ids),
+            isNotNull(equipment.archivedAt),
+          ),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found or not archived",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .update(equipment)
+          .set({ archivedAt: null, updatedAt: new Date() })
+          .where(
+            and(eq(equipment.tenantId, tenantId), inArray(equipment.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+    },
+  );
+
+  /**
+   * POST /equipment/bulk-delete
+   * Hard delete multiple equipment items.
+   */
+  fastify.post(
+    "/bulk-delete",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: equipment.id })
+        .from(equipment)
+        .where(
+          and(eq(equipment.tenantId, tenantId), inArray(equipment.id, ids)),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .delete(equipment)
+          .where(
+            and(eq(equipment.tenantId, tenantId), inArray(equipment.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
     },
   );
 };

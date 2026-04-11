@@ -171,3 +171,47 @@ export async function deleteCatalogItem(id: string) {
     return { error: "Network error" };
   }
 }
+
+// ===== BULK OPERATIONS =====
+
+export async function bulkDeleteCatalogItems(ids: string[]) {
+  try {
+    const res = await fetch(`${API_URL}/catalog/bulk-delete`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: err.message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}
+
+export async function bulkToggleCatalogActive(ids: string[], isActive: boolean) {
+  try {
+    const res = await fetch(`${API_URL}/catalog/bulk-toggle-active`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({ ids, isActive }),
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { succeeded: 0, failed: ids.length, errors: [], error: err.message ?? "Failed" };
+    }
+    return await res.json();
+  } catch {
+    return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
+  }
+}

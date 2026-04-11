@@ -2,11 +2,13 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
+import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import {
   idParam,
   bookingListQuery,
   updateBookingBody,
   convertBookingBody,
+  bulkBookingStatusBody,
 } from "../../lib/schemas/bookings.js";
 import {
   getDb,
@@ -28,6 +30,8 @@ import {
   count,
   sql,
   inArray,
+  isNull,
+  isNotNull,
 } from "@hvac-saas/database";
 
 const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -49,6 +53,7 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const db = getDb();
       const filters: any[] = [eq(bookings.tenantId, tenantId)];
+      filters.push(query.showArchived ? isNotNull(bookings.archivedAt) : isNull(bookings.archivedAt));
 
       if (query.status) {
         filters.push(eq(bookings.status, query.status as any));
@@ -480,6 +485,172 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .returning();
 
       return reply.send({ data: updated });
+    },
+  );
+  /**
+   * POST /bookings/bulk-archive
+   * Soft-archive multiple bookings by setting archivedAt.
+   */
+  fastify.post(
+    "/bulk-archive",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(
+          and(
+            eq(bookings.tenantId, tenantId),
+            inArray(bookings.id, ids),
+            isNull(bookings.archivedAt),
+          ),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found or already archived",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .update(bookings)
+          .set({ archivedAt: new Date(), updatedAt: new Date() })
+          .where(
+            and(eq(bookings.tenantId, tenantId), inArray(bookings.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+    },
+  );
+
+  /**
+   * POST /bookings/bulk-restore
+   * Restore multiple archived bookings by clearing archivedAt.
+   */
+  fastify.post(
+    "/bulk-restore",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(
+          and(
+            eq(bookings.tenantId, tenantId),
+            inArray(bookings.id, ids),
+            isNotNull(bookings.archivedAt),
+          ),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found or not archived",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .update(bookings)
+          .set({ archivedAt: null, updatedAt: new Date() })
+          .where(
+            and(eq(bookings.tenantId, tenantId), inArray(bookings.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+    },
+  );
+
+  /**
+   * POST /bookings/bulk-delete
+   * Hard delete multiple bookings regardless of status.
+   */
+  fastify.post(
+    "/bulk-delete",
+    { preHandler: [requireTenant], schema: { body: bulkIdsBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(
+          and(eq(bookings.tenantId, tenantId), inArray(bookings.id, ids)),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .delete(bookings)
+          .where(
+            and(eq(bookings.tenantId, tenantId), inArray(bookings.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+    },
+  );
+
+  /**
+   * POST /bookings/bulk-status-update
+   * Update the status of multiple bookings at once.
+   */
+  fastify.post(
+    "/bulk-status-update",
+    { preHandler: [requireTenant], schema: { body: bulkBookingStatusBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { ids, status } = request.body;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(
+          and(eq(bookings.tenantId, tenantId), inArray(bookings.id, ids)),
+        );
+
+      const validIds = existing.map((r) => r.id);
+      const invalidIds = ids.filter((id) => !validIds.includes(id));
+
+      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
+        id,
+        reason: "Not found",
+      }));
+
+      if (validIds.length > 0) {
+        await db
+          .update(bookings)
+          .set({ status: status as never, updatedAt: new Date() })
+          .where(
+            and(eq(bookings.tenantId, tenantId), inArray(bookings.id, validIds)),
+          );
+      }
+
+      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
     },
   );
 };

@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,6 +42,12 @@ interface AssetTableProps {
   onDelete: (asset: AssetRow) => void;
   onRowClick?: (asset: AssetRow) => void;
   showCustomer?: boolean;
+  // Selection props (optional)
+  selectedIds?: Set<string>;
+  onToggle?: (id: string) => void;
+  onToggleAll?: (items: { id: string }[]) => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
 function getWarrantyStatus(warrantyExpiry: string | null) {
@@ -76,11 +83,27 @@ export function AssetTable({
   onDelete,
   onRowClick,
   showCustomer = false,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  isAllSelected,
+  isIndeterminate,
 }: AssetTableProps) {
+  const selectionEnabled = !!selectedIds && !!onToggle;
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          {selectionEnabled && (
+            <TableHead className="w-10 pl-4">
+              <Checkbox
+                checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                onCheckedChange={() => onToggleAll?.(assets)}
+                aria-label="Select all"
+              />
+            </TableHead>
+          )}
           <TableHead>Type</TableHead>
           {showCustomer && <TableHead>Customer</TableHead>}
           <TableHead>Brand / Model</TableHead>
@@ -99,7 +122,17 @@ export function AssetTable({
               key={asset.id}
               className={onRowClick ? "cursor-pointer" : ""}
               onClick={() => onRowClick?.(asset)}
+              data-selected={selectionEnabled && selectedIds?.has(asset.id)}
             >
+              {selectionEnabled && (
+                <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds?.has(asset.id) ?? false}
+                    onCheckedChange={() => onToggle(asset.id)}
+                    aria-label={`Select ${asset.equipmentType}`}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <div>
                   <span className="font-medium text-foreground">

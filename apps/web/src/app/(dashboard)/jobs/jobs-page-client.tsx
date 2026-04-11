@@ -38,7 +38,12 @@ import {
   deleteJob,
   addJobLineItem,
   getJobAssignees,
+  bulkDeleteJobs,
+  bulkUpdateJobStatus,
 } from "@/actions/jobs";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import type { AssigneeMember } from "@/components/dashboard/jobs/assignee-picker";
 import { getPipelines } from "@/actions/pipelines";
 import { getPipelineStages } from "@/actions/pipeline-stages";
@@ -53,6 +58,8 @@ import {
   IconListDetails,
   IconList,
   IconPlus,
+  IconStatusChange,
+  IconTrash,
 } from "@tabler/icons-react";
 import { PageHeader } from "@/components/reusable/page-header";
 import { cn } from "@/lib/utils";
@@ -146,6 +153,19 @@ export function JobsPageClient({
   const [tableSortBy, setTableSortBy] = useState("scheduledDate");
   const [tableSortOrder, setTableSortOrder] = useState<"asc" | "desc">("asc");
   const [tableLoading, setTableLoading] = useState(false);
+
+  // Bulk selection (table view only)
+  const {
+    selectedIds,
+    toggle: toggleSelect,
+    toggleAll: toggleSelectAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   function handleViewTypeChange(type: "board" | "list" | "table") {
     setViewType(type);
@@ -382,6 +402,44 @@ export function JobsPageClient({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, priorityFilter, serviceTypeFilter, fetchJobs]);
+
+  // Clear selection when filters or pipeline change
+  useEffect(() => {
+    clearSelection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, priorityFilter, serviceTypeFilter, selectedPipelineId]);
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkDeleteJobs(ids);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Deleted ${result.succeeded ?? ids.length} job(s)`);
+      clearSelection();
+      setBulkDeleteOpen(false);
+      fetchJobsForTable(1, tableSortBy, tableSortOrder);
+      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+      fetchStages();
+    }
+    setBulkLoading(false);
+  }
+
+  async function handleBulkStatusUpdate(status: string) {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkUpdateJobStatus(ids, status);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Updated ${result.succeeded ?? ids.length} job(s) to "${status}"`);
+      clearSelection();
+      fetchJobsForTable(1, tableSortBy, tableSortOrder);
+      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+    }
+    setBulkLoading(false);
+  }
 
   function handleJobClick(jobId: string) {
     if (viewMode === "page") {
@@ -756,6 +814,11 @@ export function JobsPageClient({
                       sortOrder={tableSortOrder}
                       onSort={handleTableSort}
                       compact={compact}
+                      selectedIds={selectedIds}
+                      onToggleSelect={toggleSelect}
+                      onToggleSelectAll={() => toggleSelectAll(tableJobs)}
+                      isAllSelected={isAllSelected(tableJobs)}
+                      isIndeterminate={isIndeterminate(tableJobs)}
                     />
                   )}
                 </div>
@@ -811,6 +874,44 @@ export function JobsPageClient({
         pipelineId={selectedPipelineId}
         onStagesChange={fetchStages}
       />
+
+      {/* Bulk action bar — only shown in table view */}
+      {viewType === "table" && (
+        <>
+          <BulkActionBar
+            selectedCount={selectedCount}
+            onClearSelection={clearSelection}
+            loading={bulkLoading}
+            actions={[
+              ...stages.map((stage) => ({
+                label: stage.label,
+                icon: IconStatusChange,
+                onClick: () => handleBulkStatusUpdate(stage.name),
+                variant: "secondary" as const,
+              })),
+              {
+                label: "Delete",
+                icon: IconTrash,
+                onClick: () => setBulkDeleteOpen(true),
+                variant: "destructive" as const,
+              },
+            ]}
+          />
+
+          <BulkConfirmDialog
+            open={bulkDeleteOpen}
+            onOpenChange={setBulkDeleteOpen}
+            onConfirm={handleBulkDelete}
+            loading={bulkLoading}
+            title={`Delete ${selectedCount} Job${selectedCount !== 1 ? "s" : ""}?`}
+            description={`This will permanently delete ${selectedCount} selected job${selectedCount !== 1 ? "s" : ""} and all related data (line items, photos, checklist completions).`}
+            warning="This action cannot be undone."
+            confirmLabel="Delete Jobs"
+            variant="destructive"
+          />
+
+        </>
+      )}
     </section>
   );
 }

@@ -151,3 +151,10 @@ export const uploadFileBody = z.object({
   mimeType: z.string().min(1).max(100),
   tag: z.enum(["before", "after", "general"]).optional().default("general"),
 });
+
+// ── Bulk Operations ──────────────────────────────────────────────────────────
+
+export const bulkJobStatusBody = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+  status: z.enum(["scheduled", "in_progress", "completed", "cancelled"]),
+});

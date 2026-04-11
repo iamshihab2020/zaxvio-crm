@@ -12,12 +12,17 @@ import {
   IconSend,
   IconCircleCheck,
   IconAlertTriangle,
+  IconArchive,
+  IconArchiveOff,
+  IconTrash,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import {
   InvoiceTable,
   type InvoiceRow,
@@ -34,11 +39,15 @@ import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
+import { useRowSelection } from "@/hooks/use-row-selection";
 import {
   getInvoices,
   getInvoiceStats,
   createInvoice,
   deleteInvoice,
+  bulkArchiveInvoices,
+  bulkRestoreInvoices,
+  bulkDeleteInvoices,
 } from "@/actions/invoices";
 import { getTenant } from "@/actions/tenants";
 
@@ -50,6 +59,11 @@ const STATUS_OPTIONS = [
   { value: "partially_paid", label: "Partial" },
   { value: "overdue", label: "Overdue" },
   { value: "void", label: "Void" },
+];
+
+const VIEW_OPTIONS = [
+  { value: "", label: "Active" },
+  { value: "archived", label: "Archived" },
 ];
 
 interface PaginationInfo {
@@ -85,6 +99,7 @@ export function InvoicesPageClient({
   const [loading, setLoading] = useState(initialInvoices.length === 0);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [viewFilter, setViewFilter] = useState("");
   const [pagination, setPagination] = useState<PaginationInfo>(
     initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
   );
@@ -93,9 +108,7 @@ export function InvoicesPageClient({
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(
-    null,
-  );
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
 
   // Create dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -103,9 +116,22 @@ export function InvoicesPageClient({
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deletingInvoice, setDeletingInvoice] = useState<InvoiceDetail | null>(
-    null,
-  );
+  const [deletingInvoice, setDeletingInvoice] = useState<InvoiceDetail | null>(null);
+
+  // Bulk selection
+  const {
+    selectedIds,
+    toggle,
+    toggleAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const showingArchived = viewFilter === "archived";
 
   // Deep-link support
   const searchParams = useSearchParams();
@@ -130,6 +156,7 @@ export function InvoicesPageClient({
         limit: 15,
         sortBy: "createdAt",
         sortOrder: "desc",
+        showArchived: showingArchived || undefined,
       });
       if (result.data) {
         setInvoices(result.data as InvoiceRow[]);
@@ -139,7 +166,7 @@ export function InvoicesPageClient({
       }
       setLoading(false);
     },
-    [search, statusFilter],
+    [search, statusFilter, showingArchived],
   );
 
   // Fetch tenant for default tax rate (skip if server-prefetched)
@@ -156,7 +183,9 @@ export function InvoicesPageClient({
   // Fetch invoices on mount and on search/filter change (debounced)
   useEffect(() => {
     const timer = setTimeout(() => fetchInvoices(1), 300);
+    clearSelection();
     return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchInvoices]);
 
   // Refresh stats after mutations (single API call)
@@ -204,6 +233,42 @@ export function InvoicesPageClient({
     }
   }
 
+  // Bulk action handlers
+  async function handleBulkArchive() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = showingArchived
+      ? await bulkRestoreInvoices(ids)
+      : await bulkArchiveInvoices(ids);
+    setBulkLoading(false);
+    setBulkArchiveOpen(false);
+    clearSelection();
+    fetchInvoices(pagination.page);
+    refreshStats();
+    if (result.succeeded > 0) {
+      toast.success(`${result.succeeded} invoice(s) ${showingArchived ? "restored" : "archived"}`);
+    }
+    if (result.failed > 0) {
+      toast.error(`${result.failed} invoice(s) could not be ${showingArchived ? "restored" : "archived"}`);
+    }
+  }
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const result = await bulkDeleteInvoices(Array.from(selectedIds));
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    clearSelection();
+    fetchInvoices(pagination.page);
+    refreshStats();
+    if (result.succeeded > 0) {
+      toast.success(`${result.succeeded} invoice(s) permanently deleted`);
+    }
+    if (result.failed > 0) {
+      toast.error(`${result.failed} invoice(s) could not be deleted`);
+    }
+  }
+
   function handleRowClick(id: string) {
     if (viewMode === "page") {
       router.push(`/invoices/${id}`);
@@ -214,8 +279,8 @@ export function InvoicesPageClient({
   }
 
   const hasInvoices = invoices.length > 0;
-  const showEmptyState = !loading && !hasInvoices && !search && !statusFilter;
-  const showNoResults = !loading && !hasInvoices && (!!search || !!statusFilter);
+  const showEmptyState = !loading && !hasInvoices && !search && !statusFilter && !showingArchived;
+  const showNoResults = !loading && !hasInvoices && (!!search || !!statusFilter || showingArchived);
 
   return (
     <section className="p-6">
@@ -260,13 +325,20 @@ export function InvoicesPageClient({
       {/* Card wrapper — search + filters + table */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          {/* Search + filters in card header */}
+          {/* View toggle (Active/Archived) + Status tabs + search in card header */}
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             <StatusFilterTabs
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-              onChange={setStatusFilter}
+              options={VIEW_OPTIONS}
+              value={viewFilter}
+              onChange={setViewFilter}
             />
+            {!showingArchived && (
+              <StatusFilterTabs
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={setStatusFilter}
+              />
+            )}
             <div className="ml-auto flex items-center gap-2">
               <SearchInput
                 value={search}
@@ -295,7 +367,15 @@ export function InvoicesPageClient({
 
           {/* Table */}
           {!loading && hasInvoices && (
-            <InvoiceTable invoices={invoices} onRowClick={handleRowClick} />
+            <InvoiceTable
+              invoices={invoices}
+              onRowClick={handleRowClick}
+              selectedIds={selectedIds}
+              onToggleSelect={toggle}
+              onToggleSelectAll={() => toggleAll(invoices)}
+              isAllSelected={isAllSelected(invoices)}
+              isIndeterminate={isIndeterminate(invoices)}
+            />
           )}
         </div>
       )}
@@ -341,6 +421,46 @@ export function InvoicesPageClient({
         itemLabel={deletingInvoice?.invoiceNumber ?? ""}
         description="This will permanently remove the invoice and all its line items and payment records."
         loading={false}
+      />
+
+      {/* Bulk action bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        loading={bulkLoading}
+        actions={
+          showingArchived
+            ? [
+                { label: "Restore", icon: IconArchiveOff, onClick: () => setBulkArchiveOpen(true) },
+                { label: "Delete permanently", icon: IconTrash, onClick: () => setBulkDeleteOpen(true), variant: "destructive" as const },
+              ]
+            : [
+                { label: "Archive", icon: IconArchive, onClick: () => setBulkArchiveOpen(true) },
+                { label: "Delete", icon: IconTrash, onClick: () => setBulkDeleteOpen(true), variant: "destructive" as const },
+              ]
+        }
+      />
+
+      <BulkConfirmDialog
+        open={bulkArchiveOpen}
+        onOpenChange={setBulkArchiveOpen}
+        onConfirm={handleBulkArchive}
+        loading={bulkLoading}
+        title={showingArchived ? "Restore invoices" : "Archive invoices"}
+        description={`Are you sure you want to ${showingArchived ? "restore" : "archive"} ${selectedCount} invoice(s)?`}
+        confirmLabel={showingArchived ? "Restore" : "Archive"}
+        variant={showingArchived ? "default" : "destructive"}
+      />
+
+      <BulkConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onConfirm={handleBulkDelete}
+        loading={bulkLoading}
+        title="Delete invoices permanently"
+        description={`Are you sure you want to permanently delete ${selectedCount} invoice(s)? Only draft invoices can be deleted — others will be skipped. This action cannot be undone.`}
+        confirmLabel="Delete permanently"
+        variant="destructive"
       />
     </section>
   );

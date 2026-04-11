@@ -92,3 +92,10 @@ export const recordPaymentBody = z.object({
 export const updateInvoiceStatusBody = z.object({
   status: z.string().min(1),
 });
+
+// ── Bulk Operations ──────────────────────────────────────────────────────────
+
+export const bulkInvoiceStatusBody = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+  status: z.enum(["draft", "sent", "paid", "overdue", "void", "partially_paid"]),
+});

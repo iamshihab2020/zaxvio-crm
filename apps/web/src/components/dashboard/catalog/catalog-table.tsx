@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,6 +32,12 @@ interface CatalogTableProps {
   onEdit: (item: CatalogItem) => void;
   onArchiveToggle: (item: CatalogItem) => void;
   onDelete: (item: CatalogItem) => void;
+  // Selection props (optional)
+  selectedIds?: Set<string>;
+  onToggle?: (id: string) => void;
+  onToggleAll?: (items: { id: string }[]) => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
 const itemTypeBadgeStyles: Record<string, string> = {
@@ -60,11 +67,27 @@ export function CatalogTable({
   onEdit,
   onArchiveToggle,
   onDelete,
+  selectedIds,
+  onToggle,
+  onToggleAll,
+  isAllSelected,
+  isIndeterminate,
 }: CatalogTableProps) {
+  const selectionEnabled = !!selectedIds && !!onToggle;
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
+          {selectionEnabled && (
+            <TableHead className="w-10 pl-4">
+              <Checkbox
+                checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                onCheckedChange={() => onToggleAll?.(items)}
+                aria-label="Select all"
+              />
+            </TableHead>
+          )}
           <TableHead>Name</TableHead>
           <TableHead>Type</TableHead>
           <TableHead>Category</TableHead>
@@ -76,7 +99,19 @@ export function CatalogTable({
       </TableHeader>
       <TableBody>
         {items.map((item) => (
-          <TableRow key={item.id}>
+          <TableRow
+            key={item.id}
+            data-selected={selectionEnabled && selectedIds?.has(item.id)}
+          >
+            {selectionEnabled && (
+              <TableCell className="pl-4" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={selectedIds?.has(item.id) ?? false}
+                  onCheckedChange={() => onToggle(item.id)}
+                  aria-label={`Select ${item.name}`}
+                />
+              </TableCell>
+            )}
             <TableCell className="font-medium text-foreground">
               {item.name}
             </TableCell>
@@ -111,7 +146,7 @@ export function CatalogTable({
                 </Badge>
               </TableCell>
             )}
-            <TableCell>
+            <TableCell onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="icon" className="h-8 w-8">

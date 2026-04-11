@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { IconPlus, IconListDetails } from "@tabler/icons-react";
+import { IconPlus, IconListDetails, IconTrash, IconArchive, IconArchiveOff } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { CatalogTable } from "@/components/dashboard/catalog/catalog-table";
 import { CatalogItemDialog, type CatalogItemFormData } from "@/components/dashboard/catalog/catalog-item-dialog";
 import { CatalogFilters } from "@/components/dashboard/catalog/catalog-filters";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
@@ -16,7 +18,11 @@ import {
   createCatalogItem,
   updateCatalogItem,
   deleteCatalogItem,
+  bulkDeleteCatalogItems,
+  bulkToggleCatalogActive,
 } from "@/actions/catalog";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { toast } from "sonner";
 import type { CatalogItem } from "@hvac-saas/types";
 
 interface PaginationData {
@@ -41,6 +47,23 @@ export function CatalogSettingsPageClient() {
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Row selection
+  const {
+    selectedIds,
+    toggle,
+    toggleAll,
+    clearSelection,
+    isAllSelected,
+    isIndeterminate,
+    selectedCount,
+  } = useRowSelection();
+
+  // Bulk action state
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkToggleOpen, setBulkToggleOpen] = useState(false);
+  const [bulkToggleValue, setBulkToggleValue] = useState(false);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -83,16 +106,48 @@ export function CatalogSettingsPageClient() {
     fetchCategories();
   }, [fetchItems, fetchCategories]);
 
-  // Debounced search
+  // Debounced search/filter, clear selection
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchItems(1, search, filterItemType, showArchived);
+      clearSelection();
     }, 300);
     return () => clearTimeout(timer);
-  }, [search, filterItemType, showArchived, fetchItems]);
+  }, [search, filterItemType, showArchived, fetchItems]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handlePageChange(newPage: number) {
     fetchItems(newPage, search, filterItemType, showArchived);
+  }
+
+  async function handleBulkDelete() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkDeleteCatalogItems(ids);
+    setBulkLoading(false);
+    setBulkDeleteOpen(false);
+    if (result.error && result.succeeded === 0) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Deleted ${result.succeeded} item${result.succeeded !== 1 ? "s" : ""}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
+      clearSelection();
+      fetchItems(pagination.page, search, filterItemType, showArchived);
+    }
+  }
+
+  async function handleBulkToggleActive() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const result = await bulkToggleCatalogActive(ids, bulkToggleValue);
+    setBulkLoading(false);
+    setBulkToggleOpen(false);
+    if (result.error && result.succeeded === 0) {
+      toast.error(result.error);
+    } else {
+      const label = bulkToggleValue ? "activated" : "archived";
+      toast.success(`${result.succeeded} item${result.succeeded !== 1 ? "s" : ""} ${label}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
+      clearSelection();
+      fetchItems(pagination.page, search, filterItemType, showArchived);
+    }
   }
 
   function openCreateDialog() {
@@ -240,6 +295,11 @@ export function CatalogSettingsPageClient() {
               onEdit={openEditDialog}
               onArchiveToggle={handleArchiveToggle}
               onDelete={openDeleteDialog}
+              selectedIds={selectedIds}
+              onToggle={toggle}
+              onToggleAll={toggleAll}
+              isAllSelected={isAllSelected(items)}
+              isIndeterminate={isIndeterminate(items)}
             />
           )}
         </div>
@@ -271,6 +331,57 @@ export function CatalogSettingsPageClient() {
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
         loading={saving}
+      />
+
+      {/* Bulk action bar */}
+      <BulkActionBar
+        selectedCount={selectedCount}
+        onClearSelection={clearSelection}
+        loading={bulkLoading}
+        actions={[
+          {
+            label: "Set Active",
+            icon: IconArchiveOff,
+            onClick: () => { setBulkToggleValue(true); setBulkToggleOpen(true); },
+            variant: "default",
+          },
+          {
+            label: "Archive",
+            icon: IconArchive,
+            onClick: () => { setBulkToggleValue(false); setBulkToggleOpen(true); },
+            variant: "default",
+          },
+          {
+            label: "Delete",
+            icon: IconTrash,
+            onClick: () => setBulkDeleteOpen(true),
+            variant: "destructive",
+          },
+        ]}
+      />
+
+      {/* Bulk delete confirmation */}
+      <BulkConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={setBulkDeleteOpen}
+        onConfirm={handleBulkDelete}
+        loading={bulkLoading}
+        title={`Delete ${selectedCount} Item${selectedCount !== 1 ? "s" : ""}`}
+        description={`This will permanently delete ${selectedCount} catalog item${selectedCount !== 1 ? "s" : ""}. This action cannot be undone.`}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
+
+      {/* Bulk toggle active/archive confirmation */}
+      <BulkConfirmDialog
+        open={bulkToggleOpen}
+        onOpenChange={setBulkToggleOpen}
+        onConfirm={handleBulkToggleActive}
+        loading={bulkLoading}
+        title={`${bulkToggleValue ? "Activate" : "Archive"} ${selectedCount} Item${selectedCount !== 1 ? "s" : ""}`}
+        description={`This will ${bulkToggleValue ? "restore and activate" : "archive"} ${selectedCount} catalog item${selectedCount !== 1 ? "s" : ""}.`}
+        confirmLabel={bulkToggleValue ? "Activate" : "Archive"}
+        variant="default"
       />
     </div>
   );

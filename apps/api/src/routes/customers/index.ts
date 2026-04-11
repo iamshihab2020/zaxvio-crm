@@ -3,6 +3,7 @@ import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import { idParam, paginationQuery } from "../../lib/schemas/common.js";
+import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import {
   assignTagBody,
   createCustomerBody,
@@ -27,6 +28,9 @@ import {
   and,
   or,
   ilike,
+  isNull,
+  isNotNull,
+  inArray,
   desc,
   asc,
   count,
@@ -45,13 +49,14 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       schema: { querystring: customerListQuery },
     },
     async (request, reply) => {
-      const { search = "", page, limit, sortBy, sortOrder } = request.query;
+      const { search = "", page, limit, sortBy, sortOrder, showArchived } = request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
       const offset = (page - 1) * limit;
 
       const baseFilter = eq(customers.tenantId, tenantId);
+      const archiveFilter = showArchived ? isNotNull(customers.archivedAt) : isNull(customers.archivedAt);
 
       const searchFilter = search
         ? or(
@@ -62,9 +67,7 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           )
         : undefined;
 
-      const whereClause = searchFilter
-        ? and(baseFilter, searchFilter)
-        : baseFilter;
+      const whereClause = and(baseFilter, archiveFilter, searchFilter);
 
       const sortColumnMap = {
         createdAt: customers.createdAt,
@@ -340,6 +343,121 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)));
 
       return reply.send({ message: "Customer deleted" });
+    },
+  );
+
+  // ===== BULK OPERATIONS =====
+
+  /**
+   * POST /customers/bulk-archive
+   * Archive multiple customers (set archived_at).
+   */
+  fastify.post(
+    "/bulk-archive",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, ids), isNull(customers.archivedAt)));
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(customers)
+          .set({ archivedAt: new Date() })
+          .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, eligibleIds)));
+      }
+
+      const errors = skippedCount > 0
+        ? [{ id: "N/A", message: `${skippedCount} customer(s) already archived or not found` }]
+        : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+    },
+  );
+
+  /**
+   * POST /customers/bulk-restore
+   * Restore multiple archived customers.
+   */
+  fastify.post(
+    "/bulk-restore",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, ids), isNotNull(customers.archivedAt)));
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .update(customers)
+          .set({ archivedAt: null })
+          .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, eligibleIds)));
+      }
+
+      const errors = skippedCount > 0
+        ? [{ id: "N/A", message: `${skippedCount} customer(s) not archived or not found` }]
+        : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+    },
+  );
+
+  /**
+   * POST /customers/bulk-delete
+   * Permanently delete multiple customers.
+   */
+  fastify.post(
+    "/bulk-delete",
+    {
+      preHandler: [requireTenant],
+      schema: { body: bulkIdsBody },
+    },
+    async (request, reply) => {
+      const { ids } = request.body;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const existing = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, ids)));
+
+      const eligibleIds = existing.map((r) => r.id);
+      const skippedCount = ids.length - eligibleIds.length;
+
+      if (eligibleIds.length > 0) {
+        await db
+          .delete(customers)
+          .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, eligibleIds)));
+      }
+
+      const errors = skippedCount > 0
+        ? [{ id: "N/A", message: `${skippedCount} customer(s) not found` }]
+        : [];
+
+      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
     },
   );
 

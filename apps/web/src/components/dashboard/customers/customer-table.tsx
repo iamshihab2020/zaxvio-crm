@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Customer } from "@hvac-saas/types";
 
 function formatPhone(phone: string | null): string {
@@ -50,16 +51,39 @@ interface CustomerTableProps {
   customers: Customer[];
   onEdit: (customer: Customer) => void;
   onDelete: (customer: Customer) => void;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleSelectAll?: () => void;
+  isAllSelected?: boolean;
+  isIndeterminate?: boolean;
 }
 
-export function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProps) {
+export function CustomerTable({
+  customers,
+  onEdit,
+  onDelete,
+  selectedIds,
+  onToggleSelect,
+  onToggleSelectAll,
+  isAllSelected,
+  isIndeterminate,
+}: CustomerTableProps) {
   const router = useRouter();
+  const hasSelection = !!selectedIds && !!onToggleSelect;
 
   return (
     <TooltipProvider>
       <Table>
         <TableHeader>
           <TableRow>
+            {hasSelection && (
+              <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
+                  onCheckedChange={() => onToggleSelectAll?.()}
+                />
+              </TableHead>
+            )}
             <TableHead className="font-body">Name</TableHead>
             <TableHead className="font-body">Email</TableHead>
             <TableHead className="font-body">Phone</TableHead>
@@ -75,6 +99,14 @@ export function CustomerTable({ customers, onEdit, onDelete }: CustomerTableProp
               className="cursor-pointer"
               onClick={() => router.push(`/customers/${customer.id}`)}
             >
+              {hasSelection && (
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <Checkbox
+                    checked={selectedIds.has(customer.id)}
+                    onCheckedChange={() => onToggleSelect(customer.id)}
+                  />
+                </TableCell>
+              )}
               <TableCell>
                 <div className="flex items-center gap-2.5">
                   <Avatar className="h-8 w-8">
