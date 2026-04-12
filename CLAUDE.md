@@ -23,6 +23,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 @docs/claude/API_DOCUMENTATION_5.md
 @docs/claude/REPO_MAP_1.md
 @docs/claude/REPO_MAP_2.md
+@docs/claude/deferred-fixes/README.md
 
 ---
 

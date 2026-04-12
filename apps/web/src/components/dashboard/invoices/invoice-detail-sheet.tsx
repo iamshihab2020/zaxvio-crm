@@ -22,6 +22,7 @@ import {
   voidInvoice,
 } from "@/actions/invoices";
 import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
+import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
 
 export interface InvoiceDetail {
   id: string;
@@ -86,6 +87,8 @@ export function InvoiceDetailSheet({
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [loading, setLoading] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
+  const [voidDialogOpen, setVoidDialogOpen] = useState(false);
+  const [voidLoading, setVoidLoading] = useState(false);
 
   useEffect(() => {
     if (!invoiceId || !open) {
@@ -125,13 +128,16 @@ export function InvoiceDetailSheet({
     window.open(url, "_blank");
   }
 
-  async function handleVoid() {
+  async function confirmVoid() {
     if (!invoice) return;
+    setVoidLoading(true);
     const result = await voidInvoice(invoice.id);
+    setVoidLoading(false);
     if (result.error) {
       toast.error(result.error);
     } else {
       toast.success("Invoice voided");
+      setVoidDialogOpen(false);
       refreshDetail();
       onDataChange();
     }
@@ -149,7 +155,7 @@ export function InvoiceDetailSheet({
                   invoice={invoice}
                   onSend={handleSend}
                   onDownloadPdf={handleDownloadPdf}
-                  onVoid={handleVoid}
+                  onVoid={() => setVoidDialogOpen(true)}
                   sendLoading={sendLoading}
                 />
               ),
@@ -203,6 +209,7 @@ export function InvoiceDetailSheet({
   );
 
   return (
+    <>
     <EntityDetailShell
       entityType="invoices"
       entityRoute="/invoices"
@@ -252,5 +259,16 @@ export function InvoiceDetailSheet({
       )}
       tabs={tabs}
     />
+
+    <ConfirmActionDialog
+      title="Void Invoice"
+      description={`Are you sure you want to void invoice ${invoice?.invoiceNumber ?? ""}? This action cannot be undone.`}
+      open={voidDialogOpen}
+      onOpenChange={setVoidDialogOpen}
+      onConfirm={confirmVoid}
+      confirmLabel="Void Invoice"
+      loading={voidLoading}
+    />
+    </>
   );
 }

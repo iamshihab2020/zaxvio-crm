@@ -24,6 +24,9 @@ export interface InvoiceEmailProps {
   balanceDue: number;
   paymentInstructions?: string | null;
   viewInvoiceUrl?: string | null;
+  termsConditions?: string | null;
+  footerMessage?: string | null;
+  licenseNumber?: string | null;
 }
 
 export function InvoiceEmail({
@@ -43,6 +46,9 @@ export function InvoiceEmail({
   balanceDue,
   paymentInstructions,
   viewInvoiceUrl,
+  termsConditions,
+  footerMessage,
+  licenseNumber,
 }: InvoiceEmailProps) {
   const firstName = customerName.split(" ")[0];
 
@@ -102,8 +108,22 @@ export function InvoiceEmail({
         </>
       )}
 
+      {termsConditions && (
+        <>
+          <Hr style={dividerStyle} />
+          <Heading as="h3">Terms & Conditions</Heading>
+          <Text style={paymentInstructionsStyle}>{termsConditions}</Text>
+        </>
+      )}
+
       <Hr style={dividerStyle} />
 
+      <Text style={footerNoteStyle}>
+        {footerMessage ?? "Thank you for your business!"}
+      </Text>
+      {licenseNumber && (
+        <Text style={footerNoteStyle}>License: {licenseNumber}</Text>
+      )}
       <Text style={footerNoteStyle}>
         A PDF copy of this invoice is attached. If you have any questions,{" "}
         {businessPhone

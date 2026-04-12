@@ -94,6 +94,16 @@ export function InvoiceLineItemsTab({
       toast.error("Description and unit price are required");
       return;
     }
+    const qty = parseFloat(form.quantity);
+    const price = parseFloat(form.unitPrice);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Quantity must be a positive number");
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      toast.error("Unit price must be zero or a positive number");
+      return;
+    }
     setSaving(true);
     const result = await addInvoiceLineItem(invoiceId, {
       description: form.description,
@@ -126,6 +136,20 @@ export function InvoiceLineItemsTab({
 
   async function handleSaveEdit() {
     if (!editingId) return;
+    if (!editForm.description.trim() || !editForm.unitPrice.trim()) {
+      toast.error("Description and unit price are required");
+      return;
+    }
+    const qty = parseFloat(editForm.quantity);
+    const price = parseFloat(editForm.unitPrice);
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Quantity must be a positive number");
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      toast.error("Unit price must be zero or a positive number");
+      return;
+    }
     setSaving(true);
     const result = await updateInvoiceLineItem(invoiceId, editingId, {
       description: editForm.description,

@@ -39,12 +39,38 @@ import reportRoutes from "./routes/reports/index.js";
 import conversationRoutes from "./routes/conversations/index.js";
 
 export async function buildServer() {
+  const isDev = process.env.NODE_ENV !== "production";
+
   const fastify = Fastify({
     logger: {
-      transport:
-        process.env.NODE_ENV !== "production"
-          ? { target: "pino-pretty" }
-          : undefined,
+      level: isDev ? "debug" : "info",
+      transport: isDev
+        ? {
+            target: "pino-pretty",
+            options: {
+              colorize: true,
+              translateTime: "SYS:HH:MM:ss",
+              ignore: "pid,hostname,emoji",
+              messageFormat: "{emoji} {msg}",
+              customColors:
+                "fatal:bgRed,error:red,warn:yellow,info:cyan,debug:gray,trace:gray",
+              levelFirst: true,
+            },
+          }
+        : undefined,
+      formatters: {
+        level(label: string) {
+          const emojis: Record<string, string> = {
+            trace: "🔬",
+            debug: "🐛",
+            info: "✅",
+            warn: "⚠️ ",
+            error: "❌",
+            fatal: "💀",
+          };
+          return { level: label, emoji: emojis[label] ?? "📝" };
+        },
+      },
     },
   });
 

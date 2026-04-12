@@ -85,7 +85,7 @@ async function recalculateInvoiceTotals(
       subtotal: subtotal.toFixed(2),
       taxAmount: taxAmount.toFixed(2),
       totalAmount: totalAmount.toFixed(2),
-      balanceDue: balanceDue.toFixed(2),
+      balanceDue: Math.max(0, balanceDue).toFixed(2),
       updatedAt: new Date(),
     })
     .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)));
@@ -231,9 +231,11 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           sent: sql<number>`COUNT(*) FILTER (WHERE status = 'sent')`,
           paid: sql<number>`COUNT(*) FILTER (WHERE status = 'paid')`,
           overdue: sql<number>`COUNT(*) FILTER (WHERE status = 'overdue')`,
+          partially_paid: sql<number>`COUNT(*) FILTER (WHERE status = 'partially_paid')`,
+          void: sql<number>`COUNT(*) FILTER (WHERE status = 'void')`,
         })
         .from(invoices)
-        .where(eq(invoices.tenantId, tenantId));
+        .where(and(eq(invoices.tenantId, tenantId), isNull(invoices.archivedAt)));
 
       return reply.send({
         data: {
@@ -241,6 +243,8 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           sent: Number(result.sent),
           paid: Number(result.paid),
           overdue: Number(result.overdue),
+          partially_paid: Number(result.partially_paid),
+          void: Number(result.void),
         },
       });
     },
@@ -693,7 +697,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const [updated] = await db
         .update(invoiceLineItems)
         .set(updates)
-        .where(eq(invoiceLineItems.id, lineItemId))
+        .where(and(eq(invoiceLineItems.id, lineItemId), eq(invoiceLineItems.tenantId, tenantId)))
         .returning();
 
       await recalculateInvoiceTotals(db, id, tenantId);
@@ -748,7 +752,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       await db
         .delete(invoiceLineItems)
-        .where(eq(invoiceLineItems.id, lineItemId));
+        .where(and(eq(invoiceLineItems.id, lineItemId), eq(invoiceLineItems.tenantId, tenantId)));
 
       await recalculateInvoiceTotals(db, id, tenantId);
 
@@ -955,7 +959,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       await db
         .delete(invoicePayments)
-        .where(eq(invoicePayments.id, paymentId));
+        .where(and(eq(invoicePayments.id, paymentId), eq(invoicePayments.tenantId, tenantId)));
 
       // Recalculate amountPaid
       const inv = await db
@@ -1053,7 +1057,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         db
           .select()
           .from(customers)
-          .where(eq(customers.id, inv.customerId))
+          .where(and(eq(customers.id, inv.customerId), eq(customers.tenantId, tenantId)))
           .then((r) => r[0]),
         db
           .select()
@@ -1127,6 +1131,9 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
             totalAmount: Number(inv.totalAmount ?? 0),
             balanceDue: Number(inv.balanceDue ?? inv.totalAmount ?? 0),
             paymentInstructions: tenant?.invoicePaymentInstructions ?? null,
+            termsConditions: tenant?.invoiceTermsConditions ?? null,
+            footerMessage: tenant?.invoiceFooterMessage ?? null,
+            licenseNumber: tenant?.licenseNumber ?? null,
           },
           pdf: {
             buffer: Buffer.from(pdfBuffer),
@@ -1195,7 +1202,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         db
           .select()
           .from(customers)
-          .where(eq(customers.id, inv.customerId))
+          .where(and(eq(customers.id, inv.customerId), eq(customers.tenantId, tenantId)))
           .then((r) => r[0]),
         db
           .select()

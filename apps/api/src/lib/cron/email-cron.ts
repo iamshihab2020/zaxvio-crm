@@ -48,7 +48,7 @@ export async function processOverdueInvoiceReminders(): Promise<void> {
       .from(invoices)
       .where(
         and(
-          eq(invoices.status, "sent" as never),
+          or(eq(invoices.status, "sent" as never), eq(invoices.status, "overdue" as never)),
           lt(invoices.dueDate, today),
           gt(invoices.balanceDue, "0"),
           or(
@@ -88,10 +88,10 @@ export async function processOverdueInvoiceReminders(): Promise<void> {
           },
         });
 
-        // Mark reminder sent
+        // Mark reminder sent and set status to overdue
         await db
           .update(invoices)
-          .set({ lastOverdueReminderAt: now })
+          .set({ lastOverdueReminderAt: now, status: "overdue" as never })
           .where(eq(invoices.id, inv.id));
 
         console.info(`[email-cron] E-07 sent for invoice ${inv.invoiceNumber} (${daysOverdue}d overdue)`);

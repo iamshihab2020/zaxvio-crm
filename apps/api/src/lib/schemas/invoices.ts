@@ -67,7 +67,7 @@ export const updateInvoiceBody = z.object({
 export const addLineItemBody = z.object({
   description: z.string().optional(),
   unitPrice: z.string().optional(),
-  itemType: z.enum(["labor", "material", "other"]).optional(),
+  itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
   quantity: z.string().optional(),
   catalogItemId: z.string().uuid().optional(),
   sortOrder: z.number().int().min(0).optional(),
@@ -78,19 +78,21 @@ export const updateLineItemBody = z.object({
   quantity: z.string().optional(),
   unitPrice: z.string().optional(),
   sortOrder: z.number().int().min(0).optional(),
-  itemType: z.enum(["labor", "material", "other"]).optional(),
+  itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
 });
 
 export const recordPaymentBody = z.object({
-  amount: z.string().min(1),
-  paymentMethod: z.string().optional(),
+  amount: z.string().min(1).regex(/^\d+(\.\d{1,2})?$/, "Must be a valid dollar amount"),
+  paymentMethod: z
+    .enum(["cash", "check", "credit_card", "bank_transfer", "other"])
+    .optional(),
   paymentDate: z.string().optional(),
   referenceNumber: z.string().optional(),
   notes: z.string().optional(),
 });
 
 export const updateInvoiceStatusBody = z.object({
-  status: z.string().min(1),
+  status: z.enum(["draft", "sent", "paid", "overdue", "void", "partially_paid"]),
 });
 
 // ── Bulk Operations ──────────────────────────────────────────────────────────
