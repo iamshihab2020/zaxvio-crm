@@ -14,11 +14,14 @@ import {
   getDb,
   bookings,
   jobs,
+  jobLineItems,
   customers,
   tenants,
   jobActivities,
   pipelines,
   jobPipelineStages,
+  quotes,
+  quoteLineItems,
   eq,
   and,
   or,
@@ -398,7 +401,67 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         })
         .returning();
 
-      // 6. Auto-attach checklist
+      // 6a. If booking is linked to a quote, copy quote line items + totals
+      if (booking.quoteId) {
+        const quote = await db
+          .select({
+            id: quotes.id,
+            quoteNumber: quotes.quoteNumber,
+            subtotal: quotes.subtotal,
+            taxRate: quotes.taxRate,
+            taxAmount: quotes.taxAmount,
+            discountAmount: quotes.discountAmount,
+            totalAmount: quotes.totalAmount,
+          })
+          .from(quotes)
+          .where(and(eq(quotes.id, booking.quoteId), eq(quotes.tenantId, tenantId)))
+          .then((r) => r[0]);
+
+        if (quote) {
+          // Copy quote line items to job
+          const quoteItems = await db
+            .select()
+            .from(quoteLineItems)
+            .where(and(eq(quoteLineItems.tenantId, tenantId), eq(quoteLineItems.quoteId, quote.id)))
+            .orderBy(asc(quoteLineItems.sortOrder));
+
+          if (quoteItems.length > 0) {
+            await db.insert(jobLineItems).values(
+              quoteItems.map((item) => ({
+                tenantId,
+                jobId: job.id,
+                catalogItemId: item.catalogItemId,
+                itemType: item.itemType,
+                description: item.description,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                sortOrder: item.sortOrder ?? 0,
+              })),
+            );
+          }
+
+          // Copy quote totals to job
+          await db
+            .update(jobs)
+            .set({
+              title: `Job from ${quote.quoteNumber}`,
+              subtotal: quote.subtotal,
+              taxRate: quote.taxRate,
+              taxAmount: quote.taxAmount,
+              totalAmount: quote.totalAmount,
+              updatedAt: new Date(),
+            })
+            .where(and(eq(jobs.id, job.id), eq(jobs.tenantId, tenantId)));
+
+          // Mark quote as converted
+          await db
+            .update(quotes)
+            .set({ convertedToJobId: job.id, updatedAt: new Date() })
+            .where(and(eq(quotes.id, quote.id), eq(quotes.tenantId, tenantId)));
+        }
+      }
+
+      // 6b. Auto-attach checklist
       await attachChecklistToJob(db, job.id, tenantId, booking.serviceType, userId);
 
       // 7. Update booking status to confirmed (if pending)

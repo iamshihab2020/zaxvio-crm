@@ -6,6 +6,7 @@ const publicPaths = [
   "/signup",
   "/forgot-password",
   "/book",
+  "/quote",
   "/ref",
 ];
 

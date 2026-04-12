@@ -47,6 +47,7 @@ export const submitBookingBody = z.object({
   address: z.string().optional(),
   description: z.string().optional(),
   source: z.enum(["portal", "embed", "widget"]).optional().default("portal"),
+  quoteId: z.string().uuid().optional(),
 });
 
 export type SubmitBookingBody = z.infer<typeof submitBookingBody>;

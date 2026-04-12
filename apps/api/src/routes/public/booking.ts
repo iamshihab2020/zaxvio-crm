@@ -477,6 +477,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
             description: body.description?.trim() || null,
             status: "pending",
             source: body.source ?? "portal",
+            quoteId: body.quoteId ?? null,
           })
           .returning();
       }).catch((err) => {

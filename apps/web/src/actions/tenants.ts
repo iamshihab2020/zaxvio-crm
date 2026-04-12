@@ -86,6 +86,9 @@ export async function updateTenant(data: {
   invoiceFooterMessage?: string;
   quoteTermsConditions?: string;
   quoteFooterMessage?: string;
+  quoteOnlineAcceptanceEnabled?: boolean;
+  quotePostAcceptanceScheduling?: boolean;
+  quoteAutoConvertToJob?: boolean;
 }) {
   try {
     const res = await fetch(`${API_URL}/tenants/current`, {

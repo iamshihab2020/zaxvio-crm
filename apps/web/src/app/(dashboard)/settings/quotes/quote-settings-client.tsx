@@ -7,15 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
-import { IconFileDescription, IconInfoCircle } from "@tabler/icons-react";
+import { Switch } from "@/components/ui/switch";
+import { IconAlertTriangle, IconFileDescription, IconInfoCircle, IconLink } from "@tabler/icons-react";
 import { getTenant, updateTenant } from "@/actions/tenants";
 
 interface TenantData {
   id: string;
+  slug: string;
   quoteTermsConditions: string | null;
   quoteFooterMessage: string | null;
   invoiceTermsConditions: string | null;
   invoiceFooterMessage: string | null;
+  quoteOnlineAcceptanceEnabled: boolean | null;
+  quotePostAcceptanceScheduling: boolean | null;
+  quoteAutoConvertToJob: boolean | null;
 }
 
 interface QuoteSettingsClientProps {
@@ -30,6 +35,11 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
   const [footerMessage, setFooterMessage] = useState(initialTenant?.quoteFooterMessage ?? "");
   const [fallbackTerms, setFallbackTerms] = useState(initialTenant?.invoiceTermsConditions ?? "");
   const [fallbackFooter, setFallbackFooter] = useState(initialTenant?.invoiceFooterMessage ?? "");
+  const [slug, setSlug] = useState(initialTenant?.slug ?? "");
+  const [onlineAcceptance, setOnlineAcceptance] = useState(initialTenant?.quoteOnlineAcceptanceEnabled ?? true);
+  const [postAcceptanceScheduling, setPostAcceptanceScheduling] = useState(initialTenant?.quotePostAcceptanceScheduling ?? false);
+  const [autoConvertToJob, setAutoConvertToJob] = useState(initialTenant?.quoteAutoConvertToJob ?? false);
+  const [savingToggle, setSavingToggle] = useState<string | null>(null);
 
   useEffect(() => {
     if (initialTenant) return;
@@ -39,10 +49,14 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
         setError(result.error);
       } else {
         const data = result.data as TenantData;
+        setSlug(data.slug ?? "");
         setTermsConditions(data.quoteTermsConditions ?? "");
         setFooterMessage(data.quoteFooterMessage ?? "");
         setFallbackTerms(data.invoiceTermsConditions ?? "");
         setFallbackFooter(data.invoiceFooterMessage ?? "");
+        setOnlineAcceptance(data.quoteOnlineAcceptanceEnabled ?? true);
+        setPostAcceptanceScheduling(data.quotePostAcceptanceScheduling ?? false);
+        setAutoConvertToJob(data.quoteAutoConvertToJob ?? false);
       }
       setLoading(false);
     }
@@ -50,7 +64,55 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleSave() {
+  // Auto-save a single toggle immediately
+  async function autoSaveToggle(
+    field: "quoteOnlineAcceptanceEnabled" | "quotePostAcceptanceScheduling" | "quoteAutoConvertToJob",
+    value: boolean,
+  ) {
+    // Update local state immediately for instant feedback
+    if (field === "quoteOnlineAcceptanceEnabled") {
+      setOnlineAcceptance(value);
+      // Turn off dependent toggles when disabling online acceptance
+      if (!value) {
+        setPostAcceptanceScheduling(false);
+        setAutoConvertToJob(false);
+      }
+    }
+    if (field === "quotePostAcceptanceScheduling") {
+      setPostAcceptanceScheduling(value);
+      if (value && !slug) {
+        toast.warning("Your booking portal link is not set up yet. Make sure your business profile has a slug configured.");
+      } else if (value) {
+        toast.info("Customers will see a booking link after accepting quotes. Make sure your availability is configured in Settings \u203A Scheduling.");
+      }
+    }
+    if (field === "quoteAutoConvertToJob") setAutoConvertToJob(value);
+
+    setSavingToggle(field);
+
+    // Build update payload — include dependent resets if disabling online acceptance
+    const payload: Record<string, boolean> = { [field]: value };
+    if (field === "quoteOnlineAcceptanceEnabled" && !value) {
+      payload.quotePostAcceptanceScheduling = false;
+      payload.quoteAutoConvertToJob = false;
+    }
+
+    const result = await updateTenant(payload as Parameters<typeof updateTenant>[0]);
+    setSavingToggle(null);
+
+    if (result.error) {
+      toast.error("Failed to save setting");
+      // Revert on failure
+      if (field === "quoteOnlineAcceptanceEnabled") setOnlineAcceptance(!value);
+      if (field === "quotePostAcceptanceScheduling") setPostAcceptanceScheduling(!value);
+      if (field === "quoteAutoConvertToJob") setAutoConvertToJob(!value);
+    } else {
+      toast.success("Setting saved");
+    }
+  }
+
+  // Save text fields (Terms & Footer) — explicit button
+  async function handleSaveText() {
     setSaving(true);
     const result = await updateTenant({
       quoteTermsConditions: termsConditions || undefined,
@@ -102,7 +164,86 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2">
+      <div className="lg:col-span-2 space-y-6">
+        <SettingsSection icon={IconLink} title="Online Quote Acceptance">
+          <div className="space-y-5">
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label className="font-body text-sm font-medium">
+                  Enable online acceptance
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Allow customers to accept or decline quotes from a link in the email.
+                </p>
+              </div>
+              <Switch
+                checked={onlineAcceptance}
+                onCheckedChange={(v) => autoSaveToggle("quoteOnlineAcceptanceEnabled", v)}
+                disabled={savingToggle !== null}
+              />
+            </div>
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label className="font-body text-sm font-medium">
+                  Post-acceptance scheduling
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  After accepting, let customers pick a preferred date &amp; time.
+                </p>
+              </div>
+              <Switch
+                checked={postAcceptanceScheduling}
+                onCheckedChange={(v) => autoSaveToggle("quotePostAcceptanceScheduling", v)}
+                disabled={!onlineAcceptance || savingToggle !== null}
+              />
+            </div>
+
+            {postAcceptanceScheduling && (
+              <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5">
+                <div className="flex items-start gap-2">
+                  <IconAlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <div className="text-xs text-amber-800 dark:text-amber-300 font-body space-y-1">
+                    <p>
+                      After accepting a quote, customers will see a link to your booking portal
+                      {slug && (
+                        <>
+                          :{" "}
+                          <span className="font-mono text-[11px] bg-amber-100 dark:bg-amber-900/40 px-1 py-0.5 rounded">
+                            /book/{slug}
+                          </span>
+                        </>
+                      )}
+                    </p>
+                    <p>
+                      Make sure your availability schedule is configured in{" "}
+                      <a href="/settings/bookings" className="underline font-medium hover:no-underline">
+                        Settings &rsaquo; Scheduling
+                      </a>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between gap-4">
+              <div className="space-y-0.5">
+                <Label className="font-body text-sm font-medium">
+                  Auto-create job
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Automatically create a job when a quote is accepted online.
+                </p>
+              </div>
+              <Switch
+                checked={autoConvertToJob}
+                onCheckedChange={(v) => autoSaveToggle("quoteAutoConvertToJob", v)}
+                disabled={!onlineAcceptance || savingToggle !== null}
+              />
+            </div>
+          </div>
+        </SettingsSection>
+
         <SettingsSection icon={IconFileDescription} title="Quote PDF Settings">
           <div className="space-y-4">
             <div className="space-y-2">
@@ -145,7 +286,7 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
 
             <div className="flex justify-end">
               <Button
-                onClick={handleSave}
+                onClick={handleSaveText}
                 disabled={saving}
                 className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
               >

@@ -99,18 +99,20 @@ export function QuoteEmail({
 
       {viewQuoteUrl && (
         <Section style={ctaStyle}>
-          <BrandButton href={viewQuoteUrl}>View Estimate</BrandButton>
+          <BrandButton href={viewQuoteUrl}>View &amp; Respond</BrandButton>
         </Section>
       )}
 
       <Hr style={dividerStyle} />
 
       <Text style={footerNoteStyle}>
-        A PDF copy of this estimate is attached. Ready to proceed? Just reply to
-        this email or{" "}
+        A PDF copy of this estimate is attached.{" "}
+        {viewQuoteUrl
+          ? "You can accept or decline this estimate online using the button above, or reply to this email"
+          : "Ready to proceed? Just reply to this email"}{" "}
         {businessPhone
-          ? `call us at ${businessPhone}`
-          : "get in touch"}{" "}
+          ? `or call us at ${businessPhone}`
+          : "or get in touch"}{" "}
         and we&apos;ll get you scheduled.
       </Text>
     </EmailLayout>

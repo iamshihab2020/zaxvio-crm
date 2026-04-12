@@ -38,6 +38,9 @@ export const tenants = pgTable(
     invoiceFooterMessage: text("invoice_footer_message"),
     quoteTermsConditions: text("quote_terms_conditions"),
     quoteFooterMessage: text("quote_footer_message"),
+    quoteOnlineAcceptanceEnabled: boolean("quote_online_acceptance_enabled").default(true),
+    quotePostAcceptanceScheduling: boolean("quote_post_acceptance_scheduling").default(false),
+    quoteAutoConvertToJob: boolean("quote_auto_convert_to_job").default(false),
     referralSource: referralSourceEnum("referral_source").default("organic"),
     trialExpiryEmailSentAt: timestamp("trial_expiry_email_sent_at", {
       withTimezone: true,

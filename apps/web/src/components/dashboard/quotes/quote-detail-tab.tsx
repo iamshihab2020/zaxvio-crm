@@ -65,6 +65,9 @@ interface QuoteDetailTabProps {
     customerPhone: string | null;
     customerAddress: string | null;
     convertedToJobId: string | null;
+    declineReason: string | null;
+    customerScheduledDate: string | null;
+    customerScheduledTime: string | null;
   };
   onSend: () => void;
   onDownloadPdf: () => void;
@@ -218,6 +221,34 @@ export function QuoteDetailTab({
           <p className="text-sm font-body">{formatDate(quote.expiryDate)}</p>
         </div>
       </div>
+
+      {/* Online Response Info */}
+      {(quote.declineReason || quote.customerScheduledDate) && (
+        <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+          {quote.declineReason && (
+            <div>
+              <p className="text-xs text-muted-foreground font-body mb-0.5">
+                Decline Reason (from customer)
+              </p>
+              <p className="text-sm font-body text-foreground">
+                &ldquo;{quote.declineReason}&rdquo;
+              </p>
+            </div>
+          )}
+          {quote.customerScheduledDate && (
+            <div>
+              <p className="text-xs text-muted-foreground font-body mb-0.5">
+                Customer&apos;s Preferred Appointment
+              </p>
+              <p className="text-sm font-body text-foreground">
+                {formatDate(quote.customerScheduledDate)}
+                {quote.customerScheduledTime &&
+                  ` at ${quote.customerScheduledTime}`}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Customer */}
       <div>

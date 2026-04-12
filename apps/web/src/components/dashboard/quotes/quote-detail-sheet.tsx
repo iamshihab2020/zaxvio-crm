@@ -43,6 +43,9 @@ export interface QuoteDetail {
   equipmentBrand: string | null;
   equipmentModel: string | null;
   convertedToJobId: string | null;
+  declineReason: string | null;
+  customerScheduledDate: string | null;
+  customerScheduledTime: string | null;
   customerFirstName: string | null;
   customerLastName: string | null;
   customerEmail: string | null;

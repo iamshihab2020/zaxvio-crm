@@ -232,6 +232,10 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
     fields: [bookings.customerId],
     references: [customers.id],
   }),
+  quote: one(quotes, {
+    fields: [bookings.quoteId],
+    references: [quotes.id],
+  }),
 }));
 
 // --- Job relations ---

@@ -58,6 +58,8 @@ import {
   bulkDeleteQuotes,
 } from "@/actions/quotes";
 import { getTenant } from "@/actions/tenants";
+import { getSupabaseBrowserClient } from "@/lib/supabase-client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 
 const SORT_OPTIONS = [
   { value: "createdAt", label: "Date Created" },
@@ -206,6 +208,38 @@ export function QuotesPageClient({
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchQuotes]);
+
+  // Subscribe to real-time quote updates (e.g., customer accepts/declines online)
+  useEffect(() => {
+    let mounted = true;
+    let channelRef: RealtimeChannel | null = null;
+
+    async function subscribe() {
+      const { data: tenant } = await getTenant();
+      if (!tenant?.id || !mounted) return;
+
+      const supabase = getSupabaseBrowserClient();
+      channelRef = supabase
+        .channel(`quotes:${tenant.id}`)
+        .on("broadcast", { event: "quote_updated" }, () => {
+          if (!mounted) return;
+          fetchQuotes(pagination.page);
+          refreshStats();
+        })
+        .subscribe();
+    }
+
+    void subscribe();
+
+    return () => {
+      mounted = false;
+      if (channelRef) {
+        const supabase = getSupabaseBrowserClient();
+        void supabase.removeChannel(channelRef);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Refresh stats after mutations (single API call)
   async function refreshStats() {

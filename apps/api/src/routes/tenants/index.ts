@@ -79,6 +79,9 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
         "invoiceFooterMessage",
         "quoteTermsConditions",
         "quoteFooterMessage",
+        "quoteOnlineAcceptanceEnabled",
+        "quotePostAcceptanceScheduling",
+        "quoteAutoConvertToJob",
       ] as const;
 
       const updates: Record<string, unknown> = {};

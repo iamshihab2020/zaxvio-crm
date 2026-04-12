@@ -20,6 +20,9 @@ export const updateTenantBody = z.object({
   invoiceFooterMessage: z.string().optional(),
   quoteTermsConditions: z.string().optional(),
   quoteFooterMessage: z.string().optional(),
+  quoteOnlineAcceptanceEnabled: z.boolean().optional(),
+  quotePostAcceptanceScheduling: z.boolean().optional(),
+  quoteAutoConvertToJob: z.boolean().optional(),
 });
 
 export const uploadLogoBody = z.object({

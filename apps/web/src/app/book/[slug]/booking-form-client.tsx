@@ -12,6 +12,13 @@ import { submitPublicBooking, getPublicAvailability, getPublicSlots } from "@/ac
 import { IconShieldCheck } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 
+interface InitialCustomer {
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  address: string;
+}
+
 interface BookingFormClientProps {
   slug: string;
   businessName: string;
@@ -19,6 +26,9 @@ interface BookingFormClientProps {
   serviceTypes: string[];
   embed?: boolean;
   source?: "portal" | "embed" | "widget";
+  initialCustomer?: InitialCustomer;
+  initialService?: string;
+  quoteId?: string;
 }
 
 interface TimeSlot {
@@ -33,18 +43,23 @@ export function BookingFormClient({
   serviceTypes,
   embed = false,
   source = "portal",
+  initialCustomer,
+  initialService,
+  quoteId,
 }: BookingFormClientProps) {
   const router = useRouter();
-  const [step, setStep] = useState(1);
-  const [prevStep, setPrevStep] = useState(1);
-  const [serviceType, setServiceType] = useState<ServiceType | null>(null);
+  const [step, setStep] = useState(initialService ? 2 : 1);
+  const [prevStep, setPrevStep] = useState(initialService ? 2 : 1);
+  const [serviceType, setServiceType] = useState<ServiceType | null>(
+    (initialService as ServiceType) ?? null,
+  );
   const [date, setDate] = useState<string | null>(null);
   const [time, setTime] = useState<string | null>(null);
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
-    customerName: "",
-    customerPhone: "",
-    customerEmail: "",
-    address: "",
+    customerName: initialCustomer?.customerName ?? "",
+    customerPhone: initialCustomer?.customerPhone ?? "",
+    customerEmail: initialCustomer?.customerEmail ?? "",
+    address: initialCustomer?.address ?? "",
     description: "",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -172,6 +187,7 @@ export function BookingFormClient({
       address: customerInfo.address.trim() || undefined,
       description: customerInfo.description.trim() || undefined,
       source,
+      quoteId: quoteId || undefined,
     });
 
     setSubmitting(false);

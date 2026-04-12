@@ -6,6 +6,21 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Public Quote Acceptance Portal (2026-04-11)
+- [x] DB migration — `access_token`, `decline_reason`, `customer_scheduled_date/time` on quotes, 3 settings on tenants
+- [x] Drizzle schema updated — quotes + tenants
+- [x] Shared `convertQuoteToJob()` helper extracted from quotes route
+- [x] Public API — 3 endpoints at `/public/quote/:token` (view, accept, decline)
+- [x] Quote email wired — generates access token on send, populates `viewQuoteUrl`
+- [x] Email template updated — "View & Respond" button text, conditional footer
+- [x] Public quote page — `/quote/[token]` with review, respond, scheduling, confirmation steps
+- [x] Quote portal components — review card, response buttons, confirmation, expired view
+- [x] Server actions — `getPublicQuote`, `acceptPublicQuote`, `declinePublicQuote`
+- [x] Settings UI — 3 toggles in Quote Settings (online acceptance, scheduling, auto-convert)
+- [x] Quote detail UI — shows decline reason and customer-scheduled date
+- [x] Middleware updated — `/quote` added to public paths
+- [ ] Create `quotes` Supabase Storage bucket (manual step in Supabase dashboard, if not exists)
+
 ### Unified List Page Migration (2026-04-04)
 Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/design.md`).
 - [x] Reusable components created: `SearchInput`, `StatusFilterTabs`, `PageHeader`

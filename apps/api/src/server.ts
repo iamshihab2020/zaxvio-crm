@@ -28,6 +28,7 @@ import quoteRoutes from "./routes/quotes/index.js";
 import dashboardRoutes from "./routes/dashboard/index.js";
 import availabilityRoutes from "./routes/availability/index.js";
 import publicBookingRoutes from "./routes/public/booking.js";
+import publicQuoteRoutes from "./routes/public/quote.js";
 import bookingRoutes from "./routes/bookings/index.js";
 import calendarEventRoutes from "./routes/calendar-events/index.js";
 import equipmentRoutes from "./routes/equipment/index.js";
@@ -132,6 +133,7 @@ export async function buildServer() {
   await fastify.register(dashboardRoutes, { prefix: "/dashboard" });
   await fastify.register(availabilityRoutes, { prefix: "/availability" });
   await fastify.register(publicBookingRoutes, { prefix: "/public/booking" });
+  await fastify.register(publicQuoteRoutes, { prefix: "/public/quote" });
   await fastify.register(bookingRoutes, { prefix: "/bookings" });
   await fastify.register(calendarEventRoutes, { prefix: "/calendar-events" });
   await fastify.register(equipmentRoutes, { prefix: "/equipment" });

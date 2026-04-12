@@ -10,6 +10,7 @@ import {
 import { bookingStatusEnum, serviceTypeEnum } from "./enums";
 import { tenants } from "./tenants";
 import { customers } from "./customers";
+import { quotes } from "./quotes";
 
 export const bookings = pgTable(
   "bookings",
@@ -19,6 +20,9 @@ export const bookings = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: "cascade" }),
     customerId: uuid("customer_id").references(() => customers.id, {
+      onDelete: "set null",
+    }),
+    quoteId: uuid("quote_id").references(() => quotes.id, {
       onDelete: "set null",
     }),
     customerName: text("customer_name").notNull(),

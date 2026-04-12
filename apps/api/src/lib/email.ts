@@ -287,7 +287,7 @@ export async function sendQuoteEmail(data: {
   const html = await renderQuoteEmail(data.props);
   await sendEmail({
     to: data.to,
-    subject: sanitizeSubject(`Estimate ${data.props.quoteNumber} from ${data.props.businessName}`),
+    subject: sanitizeSubject(`Your estimate from ${data.props.businessName} is ready — ${data.props.quoteNumber}`),
     html,
     attachments: data.pdf ? [{ filename: data.pdf.filename, content: data.pdf.buffer }] : undefined,
     tag: "E-13:quote",

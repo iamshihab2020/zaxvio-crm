@@ -50,6 +50,10 @@ export const quotes = pgTable(
     convertedToJobId: uuid("converted_to_job_id").references(() => jobs.id, {
       onDelete: "set null",
     }),
+    accessToken: text("access_token"),
+    declineReason: text("decline_reason"),
+    customerScheduledDate: date("customer_scheduled_date"),
+    customerScheduledTime: text("customer_scheduled_time"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
