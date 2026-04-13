@@ -14,10 +14,10 @@
 7. **Never use `template.tsx` for route group layouts** — causes remount on every navigation, breaks browser history. Always use `layout.tsx`.
 8. **Housekeeping on every change** — When adding, modifying, or removing anything (new routes, components, schema files, actions, API endpoints, migrations, etc.), update **all** of these in the same commit:
    - `docs/project_docs/REPO_MAP.md` — add/remove/rename file entries
-   - `docs/claude/API_DOCUMENTATION.md` — add/update/remove endpoint docs (method, path, auth, request/response shapes)
+   - `docs/claude/api-docs/API_DOCUMENTATION_*.md` — add/update/remove endpoint docs (method, path, auth, request/response shapes)
    - `apps/web/src/lib/chatbot/knowledge-base.ts` — add/edit/remove FAQ entries for affected features
    - `docs/claude/todo.md` — mark completed items, add new tasks if needed
-   - `docs/claude/lessons.md` — add any non-obvious insights, gotchas, or corrections from the work
+   - `docs/claude/lessons/<topic>.md` — add any non-obvious insights, gotchas, or corrections to the appropriate topic file
 9. **`docs/claude/todo.md` formatting rules** — Keep the todo file clean, concise, and current:
    - **Three sections only**: `## In Progress`, `## Backlog`, `## Completed`
    - **In Progress** — only genuinely open work with unchecked `[ ]` items. Move here when you start working on something. Never leave completed items lingering.
@@ -28,11 +28,19 @@
    - **Mark done immediately** — check off `[x]` items and move to Completed as soon as work is done, not in batches.
    - **Use absolute dates** — never "next Thursday" or "tomorrow". Always `YYYY-MM-DD`.
    - **No orphan checkboxes** — every `[ ]` must be under an active In Progress or Backlog item. If it's done, check it. If it's abandoned, remove it.
-10. **`docs/claude/lessons.md` MUST be updated after every session** — This is the project's institutional memory. Rules:
+10. **Lessons are split into topic files under `docs/claude/lessons/`** — This is the project's institutional memory. **NEVER write lessons to the index file `docs/claude/lessons.md`** — write to the appropriate sub-file:
+    - `lessons/backend-stack.md` — Drizzle ORM, Supabase, Fastify, Zod schemas
+    - `lessons/auth-flow.md` — Better Auth, auth flow, org plugin
+    - `lessons/frontend-nextjs.md` — Next.js 14, UI/UX patterns, calendar, charts, animations, AI SDK
+    - `lessons/booking-availability.md` — Booking portal, availability, public quote acceptance
+    - `lessons/tenant-security.md` — Tenant init/settings, security hardening, multi-pipeline
+    - `lessons/jobs-customers.md` — Job API, customer-to-job flow, dual-view page
+    - `lessons/features-misc.md` — Equipment/assets, file uploads, conversations, bulk ops, project maintenance
+    - **If no file fits**, create a new `lessons/<topic>.md` file and add it to the index in `lessons.md` + the `@` references in `CLAUDE.md`.
     - **When to add**: After ANY user correction, hard-won debugging insight, library gotcha, workaround, or non-obvious pattern discovery. If you struggled with something for more than 5 minutes, it's a lesson.
     - **When to update**: If an existing lesson is outdated or wrong (e.g., library upgraded, workaround no longer needed), update or remove it.
-    - **Format**: Group by topic (existing sections or new ones). Each bullet: bold the takeaway, then explain why. Keep it specific and actionable — "don't do X because Y" not "be careful with X".
-    - **Not for code patterns** — Don't log things derivable from reading the code. Log the *surprise*: the thing that wasn't obvious, that cost time, that would bite someone again.
-    - **Review at session start** — Always skim `docs/claude/lessons.md` before starting work to avoid repeating past mistakes.
-    - **NEVER let it go stale** — If multiple sessions pass without a lessons update, something is wrong. Every significant piece of work teaches something.
+    - **Format**: Each bullet: bold the takeaway, then explain why. Keep it specific and actionable — "don't do X because Y" not "be careful with X".
+    - **Not for code patterns** — Don't log things derivable from reading the code. Log the *surprise*.
+    - **Review at session start** — Always skim relevant lesson files before starting work to avoid repeating past mistakes.
+    - **NEVER let it go stale** — If multiple sessions pass without a lessons update, something is wrong.
 11. **Check `docs/claude/deferred-fixes/` before building any feature** — This folder tracks known bugs and validation gaps discovered during end-to-end audits that were deferred because the related feature wasn't live yet. Before implementing a feature (payments, SMS, billing, etc.), check for matching deferred fixes and resolve them in the same PR. When auditing a flow, log any issues that can't be fixed immediately as deferred fixes with severity, file paths, line numbers, and suggested fix. Mark issues `FIXED` with date when resolved.

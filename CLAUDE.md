@@ -4,26 +4,43 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ---
 
-## Context Files (auto-loaded by Claude Code)
+## Context Files (auto-loaded every session)
 
-@docs/claude/strict-rules.md
-@docs/claude/api-rules.md
-@docs/claude/security-rules.md
-@docs/claude/architecture.md
-@docs/claude/workflow.md
-@docs/claude/memory-system.md
-@docs/claude/planner.md
+### Rules (always loaded — these are instructions)
+@docs/claude/rules/strict-rules.md
+@docs/claude/rules/api-rules.md
+@docs/claude/rules/security-rules.md
+
+### Workflow & Planning (always loaded)
+@docs/claude/workflow/workflow.md
+@docs/claude/workflow/planner.md
 @docs/claude/todo.md
-@docs/claude/lessons.md
-@docs/claude/design.md
-@docs/claude/API_DOCUMENTATION_1.md
-@docs/claude/API_DOCUMENTATION_2.md
-@docs/claude/API_DOCUMENTATION_3.md
-@docs/claude/API_DOCUMENTATION_4.md
-@docs/claude/API_DOCUMENTATION_5.md
-@docs/claude/REPO_MAP_1.md
-@docs/claude/REPO_MAP_2.md
-@docs/claude/deferred-fixes/README.md
+
+## On-Demand Files (read when needed — do NOT add `@` prefix)
+
+Read these files with the `Read` tool when the task requires them. **Do not guess from memory — always read first.**
+
+| File | When to Read |
+|------|-------------|
+| `docs/claude/workflow/memory-system.md` | When consolidating memory or managing session persistence |
+| `docs/claude/reference/architecture.md` | Before architectural decisions, understanding data flows |
+| `docs/claude/reference/design.md` | Before ANY frontend/UI work (colors, components, layout patterns) |
+| `docs/claude/reference/REPO_MAP_1.md` | When locating files, planning features, or exploring the codebase |
+| `docs/claude/reference/REPO_MAP_2.md` | When locating packages, DB tables, or auth architecture |
+| `docs/claude/api-docs/API_DOCUMENTATION_1.md` | When working on auth, tenants, dashboard, customers, tags endpoints |
+| `docs/claude/api-docs/API_DOCUMENTATION_2.md` | When working on jobs, quotes, line items endpoints |
+| `docs/claude/api-docs/API_DOCUMENTATION_3.md` | When working on invoices, catalog, checklists, pipelines endpoints |
+| `docs/claude/api-docs/API_DOCUMENTATION_4.md` | When working on bookings, equipment, service agreements, conversations endpoints |
+| `docs/claude/api-docs/API_DOCUMENTATION_5.md` | When working on reports, admin panel, or need enums/error reference |
+| `docs/claude/lessons.md` | Index — skim to find which lesson file to read |
+| `docs/claude/lessons/backend-stack.md` | When working with Drizzle, Supabase, Fastify, or Zod |
+| `docs/claude/lessons/auth-flow.md` | When working on auth, Better Auth, or session management |
+| `docs/claude/lessons/frontend-nextjs.md` | When working on Next.js, UI components, calendar, charts |
+| `docs/claude/lessons/booking-availability.md` | When working on bookings, availability, or public portals |
+| `docs/claude/lessons/tenant-security.md` | When working on tenant init, security, or pipelines |
+| `docs/claude/lessons/jobs-customers.md` | When working on jobs, customers, or entity conversion flows |
+| `docs/claude/lessons/features-misc.md` | When working on equipment, uploads, conversations, or bulk ops |
+| `docs/claude/deferred-fixes/README.md` | Before building any feature — check for known deferred bugs |
 
 ---
 
@@ -34,7 +51,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `docs/project_docs/HVAC_SaaS_Phase1_PRD_v2.md` | Product requirements, features, business logic | Before any major feature or architectural task |
 | `docs/project_docs/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` | System diagrams, auth flow, data architecture | Before auth or architecture work |
 | `docs/project_docs/HVAC_Saas_Proposal.md` | Business proposal, market strategy, profit projections | Before business-facing decisions |
-| `docs/claude/REPO_MAP_1.md` + `REPO_MAP_2.md` | **Single source of truth for project structure** — check here first to locate files before using Glob/Grep. **ALWAYS update when files are created, renamed, moved, or deleted** | **READ FIRST** before planning, searching, or exploring |
+| `docs/claude/reference/REPO_MAP_1.md` + `REPO_MAP_2.md` | **Single source of truth for project structure** — check here first to locate files before using Glob/Grep. **ALWAYS update when files are created, renamed, moved, or deleted** | **READ FIRST** before planning, searching, or exploring |
 
 ## Model Rules
 
@@ -45,7 +62,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 When spawning subagents, use `model: "opus"` for planning/research agents and `model: "sonnet"` for coding agents.
 
-> **Skill**: Use `docs/claude/planner.md` **PROACTIVELY** whenever the user requests feature implementation, architectural changes, or complex refactoring. Enter plan mode, follow the planner format, and write the plan to `docs/claude/todo.md` before writing any code.
+> **Skill**: Use `docs/claude/workflow/planner.md` **PROACTIVELY** whenever the user requests feature implementation, architectural changes, or complex refactoring. Enter plan mode, follow the planner format, and write the plan to `docs/claude/todo.md` before writing any code.
 
 > **Skill**: If the file `skills/consolidate-memory.md` exists locally, follow its methodology whenever consolidating session memory.
 
@@ -133,6 +150,6 @@ pnpm seed:admin             # Create admin user (uses ADMIN_SEED_EMAIL + ADMIN_S
 
 ## Frontend Design & Performance Rules
 
-> **Full reference**: [`docs/claude/design.md`](docs/claude/design.md) — color system, typography, icons, animations, component library, layout patterns, conventions, performance rules.
+> **Full reference**: [`docs/claude/reference/design.md`](docs/claude/reference/design.md) — color system, typography, icons, animations, component library, layout patterns, conventions, performance rules.
 >
-> Read `docs/claude/design.md` before any frontend work. Update it when design patterns change.
+> Read `docs/claude/reference/design.md` before any frontend work. Update it when design patterns change.

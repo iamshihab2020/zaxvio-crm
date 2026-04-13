@@ -20,6 +20,8 @@ Tracked bugs, validation gaps, and improvements discovered during end-to-end flo
 | File | Domain | Deferred Issues | Last Audited |
 |------|--------|-----------------|--------------|
 | [invoices.md](./invoices.md) | Invoice system | 5 | 2026-04-12 |
+| [bookings.md](./bookings.md) | Public booking, booking→job, availability, booking form | 26 | 2026-04-13 |
+| [tenants.md](./tenants.md) | Tenant init, settings, slug, logo upload, middleware | 12 | 2026-04-13 |
 
 ## Rules
 
