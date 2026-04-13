@@ -5,6 +5,7 @@ import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   pipelines,
+  jobPipelineStages,
   jobs,
   jobLineItems,
   jobPhotos,
@@ -64,6 +65,19 @@ import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 
 // ========== HELPERS ==========
 
+/** Escape LIKE/ILIKE wildcards so user input is treated literally. */
+function escapeLike(str: string): string {
+  return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
+/** Valid status transitions for the job state machine. */
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  scheduled: ["in_progress", "cancelled"],
+  in_progress: ["completed", "cancelled"],
+  completed: [], // terminal state
+  cancelled: ["scheduled"], // allow re-scheduling
+};
+
 async function recalculateJobTotals(
   db: ReturnType<typeof getDb>,
   jobId: string,
@@ -112,7 +126,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.get(
     "/assignees",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: {} },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
@@ -183,13 +197,14 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       filters.push(showArchived ? isNotNull(jobs.archivedAt) : isNull(jobs.archivedAt));
 
       if (search) {
+        const s = escapeLike(search);
         filters.push(
           or(
-            ilike(jobs.jobNumber, `%${search}%`),
-            ilike(jobs.title, `%${search}%`),
-            ilike(jobs.description, `%${search}%`),
-            ilike(customers.firstName, `%${search}%`),
-            ilike(customers.lastName, `%${search}%`),
+            ilike(jobs.jobNumber, `%${s}%`),
+            ilike(jobs.title, `%${s}%`),
+            ilike(jobs.description, `%${s}%`),
+            ilike(customers.firstName, `%${s}%`),
+            ilike(customers.lastName, `%${s}%`),
           )!,
         );
       }
@@ -451,9 +466,24 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Customer not found" });
       }
 
-      // Resolve pipeline: use provided or fallback to default
-      let pipelineId = body.pipelineId || null;
-      if (!pipelineId) {
+      // Resolve pipeline: validate provided or fallback to default
+      let pipelineId: string | null = null;
+      if (body.pipelineId) {
+        const pipeline = await db
+          .select({ id: pipelines.id })
+          .from(pipelines)
+          .where(
+            and(
+              eq(pipelines.tenantId, tenantId),
+              eq(pipelines.id, body.pipelineId),
+            ),
+          )
+          .then((r) => r[0]);
+        if (!pipeline) {
+          return reply.status(400).send({ message: "Pipeline not found" });
+        }
+        pipelineId = pipeline.id;
+      } else {
         const defaultPipeline = await db
           .select({ id: pipelines.id })
           .from(pipelines)
@@ -466,6 +496,33 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .then((r) => r[0]);
         pipelineId = defaultPipeline?.id ?? null;
       }
+
+      // Fetch tenant for defaultTaxRate and assignee validation
+      const tenantRecord = await db
+        .select({ organizationId: tenants.organizationId, defaultTaxRate: tenants.defaultTaxRate })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .then((r) => r[0]);
+
+      // Validate assignee is an org member
+      if (body.assigneeId && tenantRecord) {
+        const isMember = await db
+          .select({ id: member.id })
+          .from(member)
+          .where(
+            and(
+              eq(member.userId, body.assigneeId),
+              eq(member.organizationId, tenantRecord.organizationId),
+            ),
+          )
+          .then((r) => r[0]);
+        if (!isMember) {
+          return reply.status(400).send({ message: "Assignee is not a member of this organization" });
+        }
+      }
+
+      // Use tenant's defaultTaxRate if no taxRate provided
+      const taxRate = body.taxRate || tenantRecord?.defaultTaxRate || "0";
 
       const [job] = await db
         .insert(jobs)
@@ -484,8 +541,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           scheduledEnd: body.scheduledEnd || null,
           address: body.address || null,
           priority: (body.priority as never) || "standard",
-          status: body.status || undefined,
-          taxRate: body.taxRate || "0",
+          taxRate,
           notes: body.notes || null,
           assigneeId: body.assigneeId || null,
         })
@@ -523,7 +579,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const [created] = await db
         .select()
         .from(jobs)
-        .where(eq(jobs.id, job.id));
+        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, job.id)));
 
       emitPlatformEvent(tenantId, "job_created", userId);
 
@@ -556,6 +612,68 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       if (!existing) {
         return reply.status(404).send({ message: "Job not found" });
+      }
+
+      if (existing.archivedAt) {
+        return reply.status(400).send({ message: "Cannot modify an archived job" });
+      }
+
+      // Validate pipelineId belongs to tenant and has a matching stage for current status
+      if (body.pipelineId) {
+        const pipeline = await db
+          .select({ id: pipelines.id })
+          .from(pipelines)
+          .where(
+            and(
+              eq(pipelines.tenantId, tenantId),
+              eq(pipelines.id, body.pipelineId),
+            ),
+          )
+          .then((r) => r[0]);
+        if (!pipeline) {
+          return reply.status(400).send({ message: "Pipeline not found" });
+        }
+
+        // Ensure the job's current status has a matching stage in the target pipeline
+        const matchingStage = await db
+          .select({ id: jobPipelineStages.id })
+          .from(jobPipelineStages)
+          .where(
+            and(
+              eq(jobPipelineStages.pipelineId, body.pipelineId),
+              eq(jobPipelineStages.name, existing.status),
+            ),
+          )
+          .then((r) => r[0]);
+        if (!matchingStage) {
+          return reply.status(400).send({
+            message: `Target pipeline has no stage matching current job status "${existing.status}"`,
+          });
+        }
+      }
+
+      // Validate assignee is an org member
+      if (body.assigneeId) {
+        const tenant = await db
+          .select({ organizationId: tenants.organizationId })
+          .from(tenants)
+          .where(eq(tenants.id, tenantId))
+          .then((r) => r[0]);
+        if (tenant) {
+          const isMember = await db
+            .select({ id: member.id })
+            .from(member)
+            .where(
+              and(
+                eq(member.userId, body.assigneeId),
+                eq(member.organizationId, tenant.organizationId),
+              ),
+            )
+            .then((r) => r[0]);
+          if (!isMember) {
+            return reply.status(400).send({ message: "Assignee is not a member of this organization" });
+          }
+        }
       }
 
       const allowedFields = [
@@ -669,10 +787,21 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Job not found" });
       }
 
-      // No state machine restriction — any status can move to any other
+      if (existing.archivedAt) {
+        return reply.status(400).send({ message: "Cannot modify an archived job" });
+      }
+
       if (existing.status === status) {
         return reply.status(400).send({
           message: "Job is already in that status",
+        });
+      }
+
+      // Enforce status transition state machine
+      const allowed = VALID_TRANSITIONS[existing.status];
+      if (!allowed || !allowed.includes(status)) {
+        return reply.status(400).send({
+          message: `Cannot transition from "${existing.status}" to "${status}"`,
         });
       }
 
@@ -807,6 +936,34 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Job not found" });
       }
 
+      // Clean up storage files before FK cascade deletes DB records
+      const [photos, docs] = await Promise.all([
+        db
+          .select({ storagePath: jobPhotos.storagePath })
+          .from(jobPhotos)
+          .where(
+            and(eq(jobPhotos.tenantId, tenantId), eq(jobPhotos.jobId, id)),
+          ),
+        db
+          .select({ storagePath: jobDocuments.storagePath })
+          .from(jobDocuments)
+          .where(
+            and(
+              eq(jobDocuments.tenantId, tenantId),
+              eq(jobDocuments.jobId, id),
+            ),
+          ),
+      ]);
+      const allPaths = [...photos, ...docs].map((f) => f.storagePath);
+      if (allPaths.length > 0) {
+        try {
+          const supabase = getSupabaseAdmin();
+          await supabase.storage.from("job-attachments").remove(allPaths);
+        } catch {
+          // best-effort — still proceed with delete
+        }
+      }
+
       await db
         .delete(jobs)
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
@@ -830,23 +987,52 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { items } = request.body;
       const db = getDb();
 
-      await Promise.all(
-        items.map((item) => {
+      // Pre-fetch current status for items that include a status change
+      const itemsWithStatus = items.filter((i) => i.status);
+      let currentStatusMap: Map<string, string> = new Map();
+      if (itemsWithStatus.length > 0) {
+        const currentJobs = await db
+          .select({ id: jobs.id, status: jobs.status })
+          .from(jobs)
+          .where(
+            and(
+              eq(jobs.tenantId, tenantId),
+              inArray(jobs.id, itemsWithStatus.map((i) => i.id)),
+            ),
+          );
+        currentStatusMap = new Map(currentJobs.map((j) => [j.id, j.status]));
+      }
+
+      const skipped: string[] = [];
+
+      await db.transaction(async (tx) => {
+        for (const item of items) {
           const updates: Record<string, unknown> = {
             sortOrder: item.sortOrder,
             updatedAt: new Date(),
           };
           if (item.status) {
+            const currentStatus = currentStatusMap.get(item.id);
+            if (currentStatus) {
+              const allowed = VALID_TRANSITIONS[currentStatus];
+              if (!allowed || !allowed.includes(item.status)) {
+                skipped.push(item.id);
+                continue;
+              }
+            }
             updates.status = item.status;
+            if (item.status === "completed") {
+              updates.completedAt = new Date();
+            }
           }
-          return db
+          await tx
             .update(jobs)
             .set(updates)
             .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, item.id)));
-        }),
-      );
+        }
+      });
 
-      return reply.send({ success: true });
+      return reply.send({ success: true, skipped });
     },
   );
 
@@ -899,9 +1085,9 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body;
       const db = getDb();
 
-      // Verify job exists
+      // Verify job exists and is not archived
       const job = await db
-        .select({ id: jobs.id })
+        .select({ id: jobs.id, archivedAt: jobs.archivedAt })
         .from(jobs)
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
         .then((r) => r[0]);
@@ -910,8 +1096,12 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Job not found" });
       }
 
+      if (job.archivedAt) {
+        return reply.status(400).send({ message: "Cannot modify an archived job" });
+      }
+
       let description = body.description;
-      let unitPrice = body.unitPrice;
+      let unitPrice: string | number | undefined = body.unitPrice;
       let itemType = body.itemType;
 
       // If catalogItemId provided, auto-fill from catalog
@@ -929,12 +1119,12 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
         if (catalogItem) {
           description = description || catalogItem.name;
-          unitPrice = unitPrice || catalogItem.unitPrice;
-          itemType = itemType || catalogItem.itemType as "other" | "labor" | "material";
+          unitPrice = unitPrice ?? catalogItem.unitPrice;
+          itemType = itemType || (catalogItem.itemType as "labor" | "part" | "material" | "service_call" | "other");
         }
       }
 
-      if (!description || !unitPrice || !itemType) {
+      if (!description || unitPrice == null || !itemType) {
         return reply.status(400).send({
           message: "description, unitPrice, and itemType are required",
         });
@@ -948,8 +1138,8 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           catalogItemId: body.catalogItemId || null,
           itemType: itemType as never,
           description,
-          quantity: body.quantity || "1",
-          unitPrice,
+          quantity: String(body.quantity ?? 1),
+          unitPrice: String(unitPrice),
           sortOrder: body.sortOrder || 0,
         })
         .returning();
@@ -1076,7 +1266,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Line item not found" });
       }
 
-      await db.delete(jobLineItems).where(eq(jobLineItems.id, lineItemId));
+      await db
+        .delete(jobLineItems)
+        .where(
+          and(eq(jobLineItems.tenantId, tenantId), eq(jobLineItems.id, lineItemId)),
+        );
 
       await recalculateJobTotals(db, id, tenantId);
 
@@ -1219,7 +1413,12 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           const catalogItem = await db
             .select()
             .from(catalogItems)
-            .where(eq(catalogItems.id, completion.catalogItemId))
+            .where(
+              and(
+                eq(catalogItems.id, completion.catalogItemId),
+                eq(catalogItems.tenantId, tenantId),
+              ),
+            )
             .then((r) => r[0]);
 
           if (catalogItem) {
@@ -1346,6 +1545,14 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { tag } = request.query;
       const db = getDb();
 
+      const filters = [
+        eq(jobPhotos.tenantId, tenantId),
+        eq(jobPhotos.jobId, id),
+      ];
+      if (tag) {
+        filters.push(eq(jobPhotos.tag, tag));
+      }
+
       const data = await db
         .select({
           id: jobPhotos.id,
@@ -1361,14 +1568,10 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         })
         .from(jobPhotos)
         .leftJoin(user, eq(jobPhotos.uploadedBy, user.id))
-        .where(
-          and(eq(jobPhotos.tenantId, tenantId), eq(jobPhotos.jobId, id)),
-        )
+        .where(and(...filters))
         .orderBy(desc(jobPhotos.createdAt));
 
-      const filtered = tag ? data.filter((p) => p.tag === tag) : data;
-
-      return reply.send({ data: filtered });
+      return reply.send({ data });
     },
   );
 
@@ -1518,15 +1721,10 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Photo not found" });
       }
 
-      // Delete from Supabase Storage
+      // Delete from Supabase Storage (storagePath is the full path within the bucket)
       try {
         const supabase = getSupabaseAdmin();
-        const pathParts = existing.storagePath.split("/");
-        const bucket = pathParts[0];
-        const filePath = pathParts.slice(1).join("/");
-        if (bucket && filePath) {
-          await supabase.storage.from(bucket).remove([filePath]);
-        }
+        await supabase.storage.from("job-attachments").remove([existing.storagePath]);
       } catch {
         // Storage deletion is best-effort — still delete the DB record
       }
@@ -1683,15 +1881,10 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Document not found" });
       }
 
-      // Delete from Supabase Storage (best-effort)
+      // Delete from Supabase Storage (storagePath is the full path within the bucket)
       try {
         const supabase = getSupabaseAdmin();
-        const pathParts = existing.storagePath.split("/");
-        const bucket = pathParts[0];
-        const filePath = pathParts.slice(1).join("/");
-        if (bucket && filePath) {
-          await supabase.storage.from(bucket).remove([filePath]);
-        }
+        await supabase.storage.from("job-attachments").remove([existing.storagePath]);
       } catch {
         // best-effort
       }
@@ -1904,31 +2097,108 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const { ids, status } = request.body;
       const tenantId = request.authUser.tenantId!;
+      const userId = request.authUser.userId;
       const db = getDb();
 
       const existing = await db
-        .select({ id: jobs.id })
+        .select({ id: jobs.id, status: jobs.status })
         .from(jobs)
         .where(
           and(eq(jobs.tenantId, tenantId), inArray(jobs.id, ids), isNull(jobs.archivedAt)),
         );
 
-      const eligibleIds = existing.map((r) => r.id);
-      const skippedCount = ids.length - eligibleIds.length;
+      let eligibleIds = existing.map((r) => r.id);
+      const skippedNotFound = ids.length - existing.length;
+      const errors: { id: string; message: string }[] = [];
 
-      if (eligibleIds.length > 0) {
-        await db
-          .update(jobs)
-          .set({ status, updatedAt: new Date() })
-          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+      if (skippedNotFound > 0) {
+        errors.push({ id: "N/A", message: `${skippedNotFound} job(s) not found or archived` });
       }
 
-      const errors =
-        skippedCount > 0
-          ? [{ id: "N/A", message: `${skippedCount} job(s) not found or archived` }]
-          : [];
+      // Filter by valid state machine transitions
+      const transitionFiltered = existing.filter((j) => {
+        const allowed = VALID_TRANSITIONS[j.status];
+        return allowed && allowed.includes(status);
+      });
+      const invalidTransitions = existing.length - transitionFiltered.length;
+      if (invalidTransitions > 0) {
+        errors.push({ id: "N/A", message: `${invalidTransitions} job(s) cannot transition to "${status}"` });
+      }
+      eligibleIds = transitionFiltered.map((r) => r.id);
 
-      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+      // If completing, enforce checklist gate
+      if (status === "completed" && eligibleIds.length > 0) {
+        const incompleteJobs = await db
+          .select({ jobId: jobChecklistCompletions.jobId })
+          .from(jobChecklistCompletions)
+          .innerJoin(
+            checklistItems,
+            eq(jobChecklistCompletions.checklistItemId, checklistItems.id),
+          )
+          .where(
+            and(
+              eq(jobChecklistCompletions.tenantId, tenantId),
+              inArray(jobChecklistCompletions.jobId, eligibleIds),
+              eq(checklistItems.isRequired, true),
+              eq(jobChecklistCompletions.isCompleted, false),
+            ),
+          );
+
+        const blockedJobIds = new Set(incompleteJobs.map((r) => r.jobId));
+        if (blockedJobIds.size > 0) {
+          errors.push({
+            id: "N/A",
+            message: `${blockedJobIds.size} job(s) have incomplete required checklist items`,
+          });
+          eligibleIds = eligibleIds.filter((id) => !blockedJobIds.has(id));
+        }
+      }
+
+      if (eligibleIds.length > 0) {
+        const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
+        if (status === "completed") {
+          updateData.completedAt = new Date();
+        }
+
+        await db
+          .update(jobs)
+          .set(updateData)
+          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+
+        // Log activity for each updated job
+        await db.insert(jobActivities).values(
+          eligibleIds.map((jobId) => ({
+            tenantId,
+            jobId,
+            type: "job.status_changed",
+            description: `Status bulk-changed to ${status}`,
+            metadata: { to: status, bulk: true },
+            performedBy: userId,
+          })),
+        );
+
+        // Dispatch notifications for each updated job
+        const updatedJobs = await db
+          .select({ id: jobs.id, jobNumber: jobs.jobNumber, status: jobs.status })
+          .from(jobs)
+          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+
+        for (const j of updatedJobs) {
+          dispatchNotification({
+            tenantId,
+            type: "job_status_changed",
+            title: `Job ${j.jobNumber ?? ""} moved to ${status}`,
+            description: `Job status bulk-changed to ${status}`,
+            entityType: "job",
+            entityId: j.id,
+            actorId: userId,
+            metadata: { jobNumber: j.jobNumber, to: status, bulk: true },
+          });
+        }
+      }
+
+      const failedCount = ids.length - eligibleIds.length;
+      return reply.send({ succeeded: eligibleIds.length, failed: failedCount, errors });
     },
   );
 };

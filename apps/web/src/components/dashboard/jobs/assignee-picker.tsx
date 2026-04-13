@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { IconUserCircle, IconCheck } from "@tabler/icons-react";
+import { IconUserCircle, IconCheck, IconSelector } from "@tabler/icons-react";
 
 export interface AssigneeMember {
   id: string;
@@ -25,6 +25,8 @@ interface AssigneePickerProps {
   className?: string;
   /** Show avatar-only trigger (no text) — for kanban cards */
   compact?: boolean;
+  /** Render as a full-width outline form field — for create/edit dialogs */
+  asFormField?: boolean;
 }
 
 function getInitials(name: string): string {
@@ -73,6 +75,7 @@ export function AssigneePicker({
   disabled,
   className,
   compact,
+  asFormField,
 }: AssigneePickerProps) {
   const [open, setOpen] = useState(false);
 
@@ -104,6 +107,33 @@ export function AssigneePicker({
               </span>
             )}
           </button>
+        ) : asFormField ? (
+          <Button
+            variant="outline"
+            disabled={disabled}
+            hoverScale={1}
+            tapScale={0.98}
+            className={cn(
+              "w-full justify-between font-normal font-body",
+              !selected && "text-muted-foreground",
+              className,
+            )}
+          >
+            <span className="flex items-center gap-2 truncate">
+              {selected ? (
+                <>
+                  <MemberAvatar member={selected} size="xs" />
+                  <span className="truncate">{selected.name}</span>
+                </>
+              ) : (
+                <>
+                  <IconUserCircle className="h-4 w-4 shrink-0" />
+                  <span>No assignee</span>
+                </>
+              )}
+            </span>
+            <IconSelector className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
         ) : (
           <Button
             variant="ghost"

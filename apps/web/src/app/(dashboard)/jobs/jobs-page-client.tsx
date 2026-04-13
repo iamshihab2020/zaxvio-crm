@@ -11,7 +11,7 @@ const KanbanBoard = dynamic(
     import("@/components/dashboard/jobs/kanban-board").then((m) => ({
       default: m.KanbanBoard,
     })),
-  { ssr: false }
+  { ssr: false, loading: () => <KanbanSkeleton columnCount={4} /> }
 );
 import { KanbanSkeleton } from "@/components/dashboard/jobs/kanban-skeleton";
 import { JobFilters } from "@/components/dashboard/jobs/job-filters";
@@ -40,6 +40,8 @@ import {
   getJobAssignees,
   bulkDeleteJobs,
   bulkUpdateJobStatus,
+  bulkArchiveJobs,
+  bulkRestoreJobs,
 } from "@/actions/jobs";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
@@ -60,8 +62,11 @@ import {
   IconPlus,
   IconStatusChange,
   IconTrash,
+  IconArchive,
+  IconArchiveOff,
 } from "@tabler/icons-react";
 import { PageHeader } from "@/components/reusable/page-header";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { cn } from "@/lib/utils";
 import {
   Highlight,
@@ -118,34 +123,34 @@ export function JobsPageClient({
   });
   const [jobs, setJobs] = useState<JobCardData[]>(initialJobs as JobCardData[]);
   const [stages, setStages] = useState<PipelineStageWithCount[]>(initialStages as PipelineStageWithCount[]);
-  const [loading, setLoading] = useState(initialJobs.length === 0);
+  const hasServerData = initialPipelineId !== null && initialPipelines.length > 0;
+  const [loading, setLoading] = useState(!hasServerData);
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<JobPriority | null>(null);
   const [serviceTypeFilter, setServiceTypeFilter] = useState<ServiceType | null>(null);
 
-  // View type: board vs list vs table (persisted)
-  const [viewType, setViewType] = useState<"board" | "list" | "table">(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("jobs-view-type");
-      if (stored === "table" || stored === "list") return stored;
-      const legacy = localStorage.getItem("jobs-view-mode");
-      if (legacy === "table") return "table";
-      return "board";
-    }
-    return "board";
-  });
+  // View type: board vs list vs table (persisted — SSR-safe default)
+  const [viewType, setViewType] = useState<"board" | "list" | "table">("board");
+  // Compact density (persisted — SSR-safe default)
+  const [compact, setCompact] = useState(false);
 
-  // Compact density (persisted)
-  const [compact, setCompact] = useState(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("jobs-compact");
-      if (stored === "true") return true;
-      const legacy = localStorage.getItem("jobs-view-mode") ?? localStorage.getItem("jobs-card-view");
-      if (legacy === "compact") return true;
-      return false;
+  // Hydrate localStorage preferences after mount
+  useEffect(() => {
+    const storedType = localStorage.getItem("jobs-view-type");
+    if (storedType === "table" || storedType === "list") {
+      setViewType(storedType);
+    } else {
+      const legacy = localStorage.getItem("jobs-view-mode");
+      if (legacy === "table") setViewType("table");
     }
-    return false;
-  });
+    const storedCompact = localStorage.getItem("jobs-compact");
+    if (storedCompact === "true") {
+      setCompact(true);
+    } else {
+      const legacyCompact = localStorage.getItem("jobs-view-mode") ?? localStorage.getItem("jobs-card-view");
+      if (legacyCompact === "compact") setCompact(true);
+    }
+  }, []);
 
   // Table-specific state
   const [tableJobs, setTableJobs] = useState<JobCardData[]>([]);
@@ -166,6 +171,11 @@ export function JobsPageClient({
   } = useRowSelection();
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
+
+  // Active vs Archived view (table view only)
+  const [viewFilter, setViewFilter] = useState("");
+  const showingArchived = viewFilter === "archived";
 
   function handleViewTypeChange(type: "board" | "list" | "table") {
     setViewType(type);
@@ -185,6 +195,7 @@ export function JobsPageClient({
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   const handledJobIdParam = useRef(false);
+  const pipelineChangingRef = useRef(false);
   useEffect(() => {
     const jobIdParam = searchParams.get("jobId");
     if (jobIdParam && !handledJobIdParam.current) {
@@ -272,6 +283,7 @@ export function JobsPageClient({
       searchTerm?: string,
       priority?: JobPriority | null,
       serviceType?: ServiceType | null,
+      archived?: boolean,
     ) => {
       setTableLoading(true);
       const result = await getJobs({
@@ -279,6 +291,7 @@ export function JobsPageClient({
         priority: (priority !== undefined ? priority : priorityFilter) ?? undefined,
         serviceType: (serviceType !== undefined ? serviceType : serviceTypeFilter) ?? undefined,
         pipelineId: selectedPipelineId ?? undefined,
+        showArchived: (archived !== undefined ? archived : showingArchived) || undefined,
         page,
         limit: 15,
         sortBy,
@@ -296,7 +309,21 @@ export function JobsPageClient({
       }
       setTableLoading(false);
     },
-    [search, priorityFilter, serviceTypeFilter, selectedPipelineId],
+    [search, priorityFilter, serviceTypeFilter, selectedPipelineId, showingArchived],
+  );
+
+  const refreshBothViews = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (viewType === "table") {
+        await Promise.all([
+          fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: opts?.silent }),
+          fetchJobsForTable(tablePagination.page, tableSortBy, tableSortOrder),
+        ]);
+      } else {
+        await fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: opts?.silent });
+      }
+    },
+    [fetchJobs, fetchJobsForTable, search, priorityFilter, serviceTypeFilter, viewType, tablePagination.page, tableSortBy, tableSortOrder],
   );
 
   // Set pipeline URL param immediately from localStorage (before API call)
@@ -353,6 +380,7 @@ export function JobsPageClient({
       initialFetchSkipped.current = false;
       return;
     }
+    pipelineChangingRef.current = true;
     fetchJobs("", null, null, { pipelineId: selectedPipelineId });
     if (viewType === "table") {
       fetchJobsForTable(1, tableSortBy, tableSortOrder, "", null, null);
@@ -391,8 +419,12 @@ export function JobsPageClient({
     }
   }, [viewType, fetchJobsForTable, tableSortBy, tableSortOrder]);
 
-  // Debounced search + filter
+  // Debounced search + filter (skip when pipeline just changed — pipeline effect already fetched)
   useEffect(() => {
+    if (pipelineChangingRef.current) {
+      pipelineChangingRef.current = false;
+      return;
+    }
     const timer = setTimeout(() => {
       fetchJobs(search, priorityFilter, serviceTypeFilter);
       if (viewType === "table") {
@@ -407,7 +439,15 @@ export function JobsPageClient({
   useEffect(() => {
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, priorityFilter, serviceTypeFilter, selectedPipelineId]);
+  }, [search, priorityFilter, serviceTypeFilter, selectedPipelineId, viewFilter]);
+
+  // Re-fetch table when Active/Archived tab changes
+  useEffect(() => {
+    if (viewType === "table") {
+      fetchJobsForTable(1, tableSortBy, tableSortOrder, search, priorityFilter, serviceTypeFilter, showingArchived);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewFilter]);
 
   async function handleBulkDelete() {
     setBulkLoading(true);
@@ -419,6 +459,25 @@ export function JobsPageClient({
       toast.success(`Deleted ${result.succeeded ?? ids.length} job(s)`);
       clearSelection();
       setBulkDeleteOpen(false);
+      fetchJobsForTable(1, tableSortBy, tableSortOrder);
+      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+      fetchStages();
+    }
+    setBulkLoading(false);
+  }
+
+  async function handleBulkArchive() {
+    setBulkLoading(true);
+    const ids = Array.from(selectedIds);
+    const action = showingArchived ? bulkRestoreJobs : bulkArchiveJobs;
+    const label = showingArchived ? "Restored" : "Archived";
+    const result = await action(ids);
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`${label} ${result.succeeded ?? ids.length} job(s)`);
+      clearSelection();
+      setBulkArchiveOpen(false);
       fetchJobsForTable(1, tableSortBy, tableSortOrder);
       fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
       fetchStages();
@@ -451,7 +510,7 @@ export function JobsPageClient({
   }
 
   function handleStatusChange() {
-    fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+    refreshBothViews({ silent: true });
     fetchStages();
   }
 
@@ -463,6 +522,7 @@ export function JobsPageClient({
   }
 
   function handleTablePageChange(page: number) {
+    clearSelection();
     fetchJobsForTable(page, tableSortBy, tableSortOrder);
   }
 
@@ -479,7 +539,7 @@ export function JobsPageClient({
   }
 
   function handleJobUpdate() {
-    fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+    refreshBothViews({ silent: true });
   }
 
   async function handleJobFieldChange(jobId: string, field: string, value: string) {
@@ -543,7 +603,7 @@ export function JobsPageClient({
       } else {
         setDialogOpen(false);
         toast.success("Job updated");
-        fetchJobs(search, priorityFilter, serviceTypeFilter);
+        refreshBothViews();
       }
     } else {
       const result = await createJob({
@@ -583,7 +643,7 @@ export function JobsPageClient({
         }
         setDialogOpen(false);
         toast.success("Job created");
-        fetchJobs(search, priorityFilter, serviceTypeFilter);
+        refreshBothViews();
         fetchStages();
       }
     }
@@ -600,7 +660,7 @@ export function JobsPageClient({
       toast.success("Job deleted");
       setDeleteDialogOpen(false);
       setDeletingJob(null);
-      fetchJobs(search, priorityFilter, serviceTypeFilter);
+      refreshBothViews();
       fetchStages();
     }
     setSaving(false);
@@ -741,6 +801,15 @@ export function JobsPageClient({
             </p>
           )}
 
+          {!loading && !stagesReady && !showNoResults && (
+            <div className="py-16 text-center">
+              <p className="text-sm text-muted-foreground mb-2">No pipeline stages configured</p>
+              <Button variant="outline" size="sm" onClick={() => setPipelineDialogOpen(true)}>
+                Manage Stages
+              </Button>
+            </div>
+          )}
+
           {!loading && stagesReady && !showNoResults && (
             <KanbanBoard
               jobs={jobs}
@@ -793,6 +862,17 @@ export function JobsPageClient({
             {viewType === "table" && (
               <>
                 <div className="rounded-lg border border-border bg-card overflow-hidden">
+                  <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                    <StatusFilterTabs
+                      options={[
+                        { value: "", label: "Active" },
+                        { value: "archived", label: "Archived" },
+                      ]}
+                      value={viewFilter}
+                      onChange={setViewFilter}
+                    />
+                  </div>
+
                   {tableLoading && (
                     <div className="p-4">
                       <TableSkeleton columns={8} rows={10} />
@@ -882,20 +962,41 @@ export function JobsPageClient({
             selectedCount={selectedCount}
             onClearSelection={clearSelection}
             loading={bulkLoading}
-            actions={[
-              ...stages.map((stage) => ({
-                label: stage.label,
-                icon: IconStatusChange,
-                onClick: () => handleBulkStatusUpdate(stage.name),
-                variant: "secondary" as const,
-              })),
-              {
-                label: "Delete",
-                icon: IconTrash,
-                onClick: () => setBulkDeleteOpen(true),
-                variant: "destructive" as const,
-              },
-            ]}
+            actions={
+              showingArchived
+                ? [
+                    {
+                      label: "Restore",
+                      icon: IconArchiveOff,
+                      onClick: () => setBulkArchiveOpen(true),
+                    },
+                    {
+                      label: "Delete permanently",
+                      icon: IconTrash,
+                      onClick: () => setBulkDeleteOpen(true),
+                      variant: "destructive" as const,
+                    },
+                  ]
+                : [
+                    ...stages.map((stage) => ({
+                      label: stage.label,
+                      icon: IconStatusChange,
+                      onClick: () => handleBulkStatusUpdate(stage.name),
+                      variant: "secondary" as const,
+                    })),
+                    {
+                      label: "Archive",
+                      icon: IconArchive,
+                      onClick: () => setBulkArchiveOpen(true),
+                    },
+                    {
+                      label: "Delete",
+                      icon: IconTrash,
+                      onClick: () => setBulkDeleteOpen(true),
+                      variant: "destructive" as const,
+                    },
+                  ]
+            }
           />
 
           <BulkConfirmDialog
@@ -908,6 +1009,20 @@ export function JobsPageClient({
             warning="This action cannot be undone."
             confirmLabel="Delete Jobs"
             variant="destructive"
+          />
+
+          <BulkConfirmDialog
+            open={bulkArchiveOpen}
+            onOpenChange={setBulkArchiveOpen}
+            onConfirm={handleBulkArchive}
+            loading={bulkLoading}
+            title={showingArchived
+              ? `Restore ${selectedCount} Job${selectedCount !== 1 ? "s" : ""}?`
+              : `Archive ${selectedCount} Job${selectedCount !== 1 ? "s" : ""}?`}
+            description={showingArchived
+              ? `This will restore ${selectedCount} selected job${selectedCount !== 1 ? "s" : ""} back to the active list.`
+              : `This will archive ${selectedCount} selected job${selectedCount !== 1 ? "s" : ""}. Archived jobs can be restored later.`}
+            confirmLabel={showingArchived ? "Restore Jobs" : "Archive Jobs"}
           />
 
         </>

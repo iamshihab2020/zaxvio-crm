@@ -11,6 +11,7 @@ import { bookingStatusEnum, serviceTypeEnum } from "./enums";
 import { tenants } from "./tenants";
 import { customers } from "./customers";
 import { quotes } from "./quotes";
+import { jobs } from "./jobs";
 
 export const bookings = pgTable(
   "bookings",
@@ -35,6 +36,9 @@ export const bookings = pgTable(
     description: text("description"),
     status: bookingStatusEnum("status").notNull().default("pending"),
     source: text("source").notNull().default("portal"),
+    convertedToJobId: uuid("converted_to_job_id").references(() => jobs.id, {
+      onDelete: "set null",
+    }),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

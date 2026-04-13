@@ -92,6 +92,10 @@ export function JobDetailLineItems({
       toast.error("Description and unit price are required");
       return;
     }
+    const qty = parseFloat(form.quantity);
+    const price = parseFloat(form.unitPrice);
+    if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
+    if (isNaN(price) || price < 0) { toast.error("Unit price must be a valid number"); return; }
     setSaving(true);
     const result = await addJobLineItem(jobId, {
       description: form.description,
@@ -124,6 +128,10 @@ export function JobDetailLineItems({
 
   async function handleSaveEdit() {
     if (!editingId) return;
+    const qty = parseFloat(editForm.quantity);
+    const price = parseFloat(editForm.unitPrice);
+    if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
+    if (isNaN(price) || price < 0) { toast.error("Unit price must be a valid number"); return; }
     setSaving(true);
     const result = await updateJobLineItem(jobId, editingId, {
       description: editForm.description,
@@ -141,6 +149,7 @@ export function JobDetailLineItems({
   }
 
   async function handleDelete(lineItemId: string) {
+    if (!window.confirm("Delete this line item?")) return;
     const result = await removeJobLineItem(jobId, lineItemId);
     if (result.error) {
       toast.error(result.error);

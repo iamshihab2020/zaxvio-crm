@@ -15,6 +15,7 @@ import {
 } from "@hvac-saas/database";
 import tenantImpersonationRoutes from "./impersonation.js";
 import { updateTenantBody, uploadLogoBody } from "../../lib/schemas/tenants.js";
+import { DEFAULT_STAGES } from "../pipeline-stages/index.js";
 
 const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
@@ -266,50 +267,59 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
-      const [tenant] = await db
-        .insert(tenants)
-        .values({
-          organizationId: org.id,
-          businessName: org.name,
-          ownerName: creator?.name ?? "Owner",
-          email: creator?.email ?? "",
-          slug: org.slug ?? org.id,
-          trialEndsAt,
-        })
-        .returning();
+      const tenant = await db.transaction(async (tx) => {
+        const [newTenant] = await tx
+          .insert(tenants)
+          .values({
+            organizationId: org.id,
+            businessName: org.name,
+            ownerName: creator?.name ?? "Owner",
+            email: creator?.email ?? "",
+            slug: org.slug ?? org.id,
+            trialEndsAt,
+          })
+          .returning();
 
-      await db.insert(tenantSubscriptions).values({
-        tenantId: tenant.id,
-        status: "trialing",
-        currentPeriodStart: new Date(),
-        currentPeriodEnd: trialEndsAt,
+        await tx.insert(tenantSubscriptions).values({
+          tenantId: newTenant.id,
+          status: "trialing",
+          currentPeriodStart: new Date(),
+          currentPeriodEnd: trialEndsAt,
+        });
+
+        // Seed default pipeline and stages (reuse shared DEFAULT_STAGES)
+        const [defaultPipeline] = await tx.insert(pipelines).values({
+          tenantId: newTenant.id,
+          name: "default",
+          label: "Default",
+          isDefault: true,
+        }).returning();
+
+        await tx.insert(jobPipelineStages).values(
+          DEFAULT_STAGES.map((s) => ({
+            tenantId: newTenant.id,
+            pipelineId: defaultPipeline.id,
+            name: s.name,
+            label: s.label,
+            color: s.color,
+            sortOrder: s.sortOrder,
+            isDefault: s.isDefault,
+          })),
+        );
+
+        // Seed default availability schedule (Mon-Fri 8am-5pm)
+        await tx.insert(availabilitySchedules).values(
+          [0, 1, 2, 3, 4, 5, 6].map((day) => ({
+            tenantId: newTenant.id,
+            dayOfWeek: day,
+            startTime: "08:00",
+            endTime: "17:00",
+            isActive: day >= 1 && day <= 5, // Mon-Fri active, Sat-Sun inactive
+          })),
+        );
+
+        return newTenant;
       });
-
-      // Seed default pipeline and stages
-      const [defaultPipeline] = await db.insert(pipelines).values({
-        tenantId: tenant.id,
-        name: "default",
-        label: "Default",
-        isDefault: true,
-      }).returning();
-
-      await db.insert(jobPipelineStages).values([
-        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
-        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: true },
-        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
-        { tenantId: tenant.id, pipelineId: defaultPipeline.id, name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
-      ]);
-
-      // Seed default availability schedule (Mon-Fri 8am-5pm)
-      await db.insert(availabilitySchedules).values(
-        [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-          tenantId: tenant.id,
-          dayOfWeek: day,
-          startTime: "08:00",
-          endTime: "17:00",
-          isActive: day >= 1 && day <= 5, // Mon-Fri active, Sat-Sun inactive
-        })),
-      );
 
       return reply
         .status(201)

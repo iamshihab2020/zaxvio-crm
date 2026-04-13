@@ -38,7 +38,7 @@ export const jobListQuery = paginationQuery.extend({
   status: z.enum(["scheduled", "in_progress", "completed", "cancelled"]).optional(),
   customerId: z.string().uuid().optional(),
   serviceType: z.string().optional(),
-  priority: z.enum(["low", "standard", "high", "urgent"]).optional(),
+  priority: z.enum(["standard", "urgent", "emergency"]).optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),
   pipelineId: z.string().uuid().optional(),
@@ -64,30 +64,29 @@ export const createJobBody = z.object({
   scheduledStart: z.string().optional(),
   scheduledEnd: z.string().optional(),
   address: z.string().optional(),
-  priority: z.enum(["low", "standard", "high", "urgent"]).optional(),
-  status: z.string().optional(),
-  taxRate: z.string().optional(),
+  priority: z.enum(["standard", "urgent", "emergency"]).optional(),
+  taxRate: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   notes: z.string().optional(),
   equipmentId: z.string().uuid().optional(),
   pipelineId: z.string().uuid().optional(),
   bookingId: z.string().uuid().optional(),
-  assigneeId: z.string().optional().nullable(),
+  assigneeId: z.string().min(1).optional().nullable(),
 });
 
 export const updateJobBody = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional(),
-  priority: z.enum(["low", "standard", "high", "urgent"]).optional(),
+  priority: z.enum(["standard", "urgent", "emergency"]).optional(),
   serviceType: z.string().optional(),
   scheduledDate: z.string().optional(),
   scheduledStart: z.string().optional(),
   scheduledEnd: z.string().optional(),
   address: z.string().optional(),
   notes: z.string().optional(),
-  taxRate: z.string().optional(),
+  taxRate: z.string().regex(/^\d+(\.\d+)?$/).optional(),
   equipmentId: z.string().uuid().optional().nullable(),
   pipelineId: z.string().uuid().optional().nullable(),
-  assigneeId: z.string().optional().nullable(),
+  assigneeId: z.string().min(1).optional().nullable(),
 });
 
 export const updateJobStatusBody = z.object({
@@ -99,16 +98,16 @@ export const reorderBody = z.object({
     z.object({
       id: z.string().uuid(),
       sortOrder: z.number().int().min(0),
-      status: z.string().optional(),
+      status: z.enum(["scheduled", "in_progress", "completed", "cancelled"]).optional(),
     }),
   ).min(1),
 });
 
 export const addLineItemBody = z.object({
   description: z.string().optional(),
-  unitPrice: z.string().optional(),
-  itemType: z.enum(["labor", "material", "other"]).optional(),
-  quantity: z.string().optional(),
+  unitPrice: z.coerce.number().min(0).optional(),
+  itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
+  quantity: z.coerce.number().positive().optional(),
   catalogItemId: z.string().uuid().optional(),
   sortOrder: z.number().int().min(0).optional(),
 });
@@ -118,7 +117,7 @@ export const updateLineItemBody = z.object({
   quantity: z.coerce.number().positive().optional(),
   unitPrice: z.coerce.number().min(0).optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
-  itemType: z.enum(["labor", "material", "other"]).optional(),
+  itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
 });
 
 export const toggleChecklistBody = z.object({

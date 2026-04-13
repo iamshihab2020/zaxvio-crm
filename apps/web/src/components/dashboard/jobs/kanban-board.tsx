@@ -64,6 +64,7 @@ export function KanbanBoard({
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const pendingMoveRef = useRef(false);
+  const snapshotRef = useRef<JobCardData[]>([]);
 
   // Sync from parent when jobs change — skip if a move is pending
   if (jobs !== localJobs && !activeJob && !pendingMoveRef.current) {
@@ -196,6 +197,7 @@ export function KanbanBoard({
       isDraggingScroll.current = false;
       document.body.style.cursor = "";
     }
+    snapshotRef.current = [...localJobs];
     const job = event.active.data.current?.job as JobCardData | undefined;
     if (job) setActiveJob(job);
   }
@@ -271,10 +273,15 @@ export function KanbanBoard({
           return [...otherJobs, ...reordered];
         });
 
-        // Fire-and-forget persist
+        // Persist with error revert
         reorderJobs(
           reordered.map((j, i) => ({ id: j.id, sortOrder: i, status: overStage! })),
-        );
+        ).then((result) => {
+          if (result.error) {
+            setLocalJobs(snapshotRef.current);
+            toast.error("Failed to reorder");
+          }
+        });
       }
     }
 
@@ -283,7 +290,7 @@ export function KanbanBoard({
     const originalJob = jobs.find((j) => j.id === activeId);
     if (job && originalJob && job.status !== originalJob.status) {
       const targetStage = stages.find((s) => s.name === job.status);
-      const snapshot = [...localJobs];
+      const snapshot = snapshotRef.current;
 
       // Block parent sync while API is in flight
       pendingMoveRef.current = true;

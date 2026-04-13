@@ -279,23 +279,16 @@ const pipelineRoutes: FastifyPluginAsyncZod = async (fastify) => {
         const [updated] = await db
           .select()
           .from(pipelines)
-          .where(eq(pipelines.id, id));
+          .where(and(eq(pipelines.tenantId, tenantId), eq(pipelines.id, id)));
         return reply.send({ data: updated });
       }
 
       if (body.isDefault === false && existing.isDefault) {
-        // Cannot unset default if it's the only pipeline
-        const totalPipelines = await db
-          .select({ total: count() })
-          .from(pipelines)
-          .where(eq(pipelines.tenantId, tenantId));
-
-        if ((totalPipelines[0]?.total ?? 0) <= 1) {
-          return reply.status(400).send({
-            message:
-              "Cannot unset default on the only pipeline. Set another pipeline as default first.",
-          });
-        }
+        // Cannot unset default — set another pipeline as default instead
+        return reply.status(400).send({
+          message:
+            "Cannot unset default pipeline directly. Set another pipeline as default instead.",
+        });
       }
 
       const [updated] = await db

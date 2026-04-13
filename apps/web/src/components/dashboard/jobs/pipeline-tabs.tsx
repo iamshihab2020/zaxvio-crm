@@ -34,7 +34,7 @@ export function PipelineTabs({
 }: PipelineTabsProps) {
   const [open, setOpen] = useState(false);
 
-  if (pipelines.length === 0) return null;
+  if (pipelines.length === 0) return <span className="text-xs text-muted-foreground px-2">No pipelines</span>;
 
   const selected = pipelines.find((p) => p.id === selectedId);
 

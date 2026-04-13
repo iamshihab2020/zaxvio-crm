@@ -8,10 +8,6 @@ import {
   quoteActivities,
   jobs,
   jobLineItems,
-  jobActivities,
-  jobChecklistCompletions,
-  checklistTemplates,
-  checklistItems,
   catalogItems,
   customers,
   equipment,
@@ -132,59 +128,6 @@ async function recalculateQuoteTotals(
       updatedAt: new Date(),
     })
     .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
-}
-
-async function attachChecklistToJob(
-  db: ReturnType<typeof getDb>,
-  jobId: string,
-  tenantId: string,
-  serviceType: string,
-  userId: string,
-) {
-  const template = await db
-    .select()
-    .from(checklistTemplates)
-    .where(
-      and(
-        eq(checklistTemplates.tenantId, tenantId),
-        eq(checklistTemplates.serviceType, serviceType as never),
-        eq(checklistTemplates.isActive, true),
-      ),
-    )
-    .then((r) => r[0]);
-
-  if (!template) return;
-
-  const items = await db
-    .select()
-    .from(checklistItems)
-    .where(
-      and(
-        eq(checklistItems.tenantId, tenantId),
-        eq(checklistItems.templateId, template.id),
-      ),
-    )
-    .orderBy(asc(checklistItems.sortOrder));
-
-  if (items.length === 0) return;
-
-  await db.insert(jobChecklistCompletions).values(
-    items.map((item) => ({
-      tenantId,
-      jobId,
-      checklistItemId: item.id,
-      isCompleted: false,
-    })),
-  );
-
-  await db.insert(jobActivities).values({
-    tenantId,
-    jobId,
-    type: "checklist.attached",
-    description: `Checklist "${template.name}" attached (${items.length} items)`,
-    metadata: { templateId: template.id, templateName: template.name },
-    performedBy: userId,
-  });
 }
 
 // ========== ROUTES ==========
@@ -1278,10 +1221,21 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       const { convertQuoteToJob } = await import("../../lib/quote-to-job.js");
-      const { jobId } = await convertQuoteToJob(db, q, {
-        pipelineStageId: body.pipelineStageId,
-        performedBy: userId,
-      });
+      let jobId: string;
+      try {
+        ({ jobId } = await convertQuoteToJob(db, q, {
+          pipelineStageId: body.pipelineStageId,
+          serviceType: body.serviceType,
+          scheduledDate: q.customerScheduledDate ?? undefined,
+          scheduledTime: q.customerScheduledTime ?? undefined,
+          performedBy: userId,
+        }));
+      } catch (err) {
+        if (err instanceof Error && err.message === "ALREADY_CONVERTED") {
+          return reply.status(400).send({ message: "This quote has already been converted to a job" });
+        }
+        throw err;
+      }
 
       const [createdJob] = await db
         .select()

@@ -386,6 +386,26 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           return reply.status(400).send({ message: "Job not found" });
         }
         jobTaxRate = job.taxRate;
+
+        // Prevent duplicate invoices for the same job
+        const existingInvoice = await db
+          .select({ id: invoices.id, invoiceNumber: invoices.invoiceNumber })
+          .from(invoices)
+          .where(
+            and(
+              eq(invoices.tenantId, tenantId),
+              eq(invoices.jobId, body.jobId!),
+              sql`${invoices.status} != 'void'`,
+            ),
+          )
+          .then((r) => r[0]);
+
+        if (existingInvoice) {
+          return reply.status(400).send({
+            message: `An active invoice already exists for this job (${existingInvoice.invoiceNumber})`,
+            existingInvoiceId: existingInvoice.id,
+          });
+        }
       }
 
       const [invoice] = await db
@@ -1531,19 +1551,24 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Job not found" });
       }
 
-      // Check if an invoice already exists for this job
+      // Check if a non-void invoice already exists for this job
       const existingInvoice = await db
-        .select({ id: invoices.id })
+        .select({ id: invoices.id, invoiceNumber: invoices.invoiceNumber })
         .from(invoices)
         .where(
-          and(eq(invoices.tenantId, tenantId), eq(invoices.jobId, jobId)),
+          and(
+            eq(invoices.tenantId, tenantId),
+            eq(invoices.jobId, jobId),
+            sql`${invoices.status} != 'void'`,
+          ),
         )
         .then((r) => r[0]);
 
       if (existingInvoice) {
-        return reply
-          .status(400)
-          .send({ message: "An invoice already exists for this job" });
+        return reply.status(400).send({
+          message: `An active invoice already exists for this job (${existingInvoice.invoiceNumber})`,
+          existingInvoiceId: existingInvoice.id,
+        });
       }
 
       // Create invoice

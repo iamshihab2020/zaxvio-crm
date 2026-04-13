@@ -54,7 +54,8 @@ function formatCurrency(val: string | null) {
 
 function formatDate(val: string | null) {
   if (!val) return "\u2014";
-  return new Date(val).toLocaleDateString("en-US", {
+  const dateStr = val.length > 10 ? val.split("T")[0] : val;
+  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

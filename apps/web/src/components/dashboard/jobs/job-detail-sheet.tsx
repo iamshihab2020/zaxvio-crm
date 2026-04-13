@@ -139,7 +139,12 @@ export function JobDetailSheet({
   async function refreshDetail() {
     if (!jobId) return;
     const res = await getJob(jobId);
-    if (res.data) setJob(res.data as JobDetail);
+    if (!res.data) {
+      toast.error("This job no longer exists");
+      onOpenChange(false);
+      return;
+    }
+    setJob(res.data as JobDetail);
   }
 
   async function handleStatusAction(newStatus: string) {

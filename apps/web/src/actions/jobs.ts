@@ -27,6 +27,7 @@ export async function getJobs(params?: {
   limit?: number;
   sortBy?: string;
   sortOrder?: string;
+  showArchived?: boolean;
 }) {
   try {
     const searchParams = new URLSearchParams();
@@ -42,6 +43,7 @@ export async function getJobs(params?: {
     if (params?.limit) searchParams.set("limit", String(params.limit));
     if (params?.sortBy) searchParams.set("sortBy", params.sortBy);
     if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+    if (params?.showArchived) searchParams.set("showArchived", "true");
 
     const qs = searchParams.toString();
     const res = await fetch(`${API_URL}/jobs${qs ? `?${qs}` : ""}`, {

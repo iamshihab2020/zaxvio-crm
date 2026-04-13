@@ -301,6 +301,9 @@ export function JobCreateDialog({
 
     if (!form.title.trim()) newErrors.title = "Title is required";
     if (!form.scheduledDate) newErrors.scheduledDate = "Date is required";
+    if (form.scheduledStart && form.scheduledEnd && form.scheduledEnd <= form.scheduledStart) {
+      newErrors.scheduledEnd = "End time must be after start time";
+    }
 
     const taxRateNum = parseFloat(form.taxRate || "0");
     if (form.taxRate && isNaN(taxRateNum)) {
@@ -364,6 +367,10 @@ export function JobCreateDialog({
 
   function handleAddItem() {
     if (!itemForm.description.trim() || !itemForm.unitPrice.trim()) return;
+    const qty = parseFloat(itemForm.quantity);
+    const price = parseFloat(itemForm.unitPrice);
+    if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
+    if (isNaN(price) || price < 0) { toast.error("Unit price must be a valid number"); return; }
     setLineItems((prev) => [
       ...prev,
       {
@@ -545,6 +552,7 @@ export function JobCreateDialog({
                     value={form.assigneeId}
                     onChange={(id) => setForm((prev) => ({ ...prev, assigneeId: id }))}
                     members={members}
+                    asFormField
                   />
                 </div>
               </div>
@@ -640,6 +648,9 @@ export function JobCreateDialog({
                     onChange={(v) => updateField("scheduledEnd", v)}
                     placeholder="End"
                   />
+                  {errors.scheduledEnd && (
+                    <p className="text-xs text-destructive mt-1">{errors.scheduledEnd}</p>
+                  )}
                 </div>
               </div>
             </FormSection>

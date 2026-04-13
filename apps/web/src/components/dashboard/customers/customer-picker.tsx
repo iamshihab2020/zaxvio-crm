@@ -87,10 +87,11 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
     }
   }, []);
 
-  // Prefetch customers on mount (dialog open) so data is ready instantly
+  // Fetch customers when popover opens (lazy — not on every mount)
   useEffect(() => {
+    if (!popoverOpen) return;
     fetchCustomers("");
-  }, [fetchCustomers]);
+  }, [popoverOpen, fetchCustomers]);
 
   // Refetch when user searches inside the popover
   useEffect(() => {

@@ -14,8 +14,11 @@ import {
  * Finds the active template matching the service type, creates completion
  * entries for all items, and logs an activity.
  */
+/** Accepts both the regular db client and transaction objects. */
 export async function attachChecklistToJob(
-  db: ReturnType<typeof getDb>,
+  // Drizzle tx objects share the same query API but have a different type.
+  // Widen to accept both by omitting the $client property check.
+  db: Omit<ReturnType<typeof getDb>, "$client">,
   jobId: string,
   tenantId: string,
   serviceType: string,

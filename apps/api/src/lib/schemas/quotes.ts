@@ -59,6 +59,9 @@ export const updateLineItemBody = z.object({
 
 export const convertBody = z.object({
   pipelineStageId: z.string().uuid().optional(),
+  serviceType: z
+    .enum(["installation", "repair", "maintenance", "inspection", "emergency", "consultation", "other"])
+    .optional(),
 });
 
 export const activitiesQuery = z.object({

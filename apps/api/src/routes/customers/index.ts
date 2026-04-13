@@ -23,6 +23,8 @@ import {
   tags,
   jobPhotos,
   jobs,
+  invoices,
+  quotes,
   user,
   eq,
   and,
@@ -338,6 +340,21 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Customer not found" });
       }
 
+      // Safety guard: refuse delete if customer has related entities
+      const [[{ count: jc }], [{ count: ic }], [{ count: qc }]] = await Promise.all([
+        db.select({ count: count() }).from(jobs)
+          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.customerId, id), isNull(jobs.archivedAt))),
+        db.select({ count: count() }).from(invoices)
+          .where(and(eq(invoices.tenantId, tenantId), eq(invoices.customerId, id))),
+        db.select({ count: count() }).from(quotes)
+          .where(and(eq(quotes.tenantId, tenantId), eq(quotes.customerId, id))),
+      ]);
+      if (Number(jc) > 0 || Number(ic) > 0 || Number(qc) > 0) {
+        return reply.status(400).send({
+          message: `Cannot delete customer with ${jc} job(s), ${ic} invoice(s), and ${qc} quote(s). Delete or archive them first.`,
+        });
+      }
+
       await db
         .delete(customers)
         .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)));
@@ -444,20 +461,51 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .from(customers)
         .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, ids)));
 
-      const eligibleIds = existing.map((r) => r.id);
-      const skippedCount = ids.length - eligibleIds.length;
+      const foundIds = existing.map((r) => r.id);
+      const notFoundCount = ids.length - foundIds.length;
 
-      if (eligibleIds.length > 0) {
+      // Check which customers have related entities (jobs/invoices/quotes)
+      const [relatedJobs, relatedInvoices, relatedQuotes] = await Promise.all([
+        foundIds.length > 0
+          ? db.select({ customerId: jobs.customerId, count: count() }).from(jobs)
+              .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.customerId, foundIds), isNull(jobs.archivedAt)))
+              .groupBy(jobs.customerId)
+          : [],
+        foundIds.length > 0
+          ? db.select({ customerId: invoices.customerId, count: count() }).from(invoices)
+              .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.customerId, foundIds)))
+              .groupBy(invoices.customerId)
+          : [],
+        foundIds.length > 0
+          ? db.select({ customerId: quotes.customerId, count: count() }).from(quotes)
+              .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.customerId, foundIds)))
+              .groupBy(quotes.customerId)
+          : [],
+      ]);
+
+      const blockedIds = new Set([
+        ...relatedJobs.map((r) => r.customerId),
+        ...relatedInvoices.map((r) => r.customerId),
+        ...relatedQuotes.map((r) => r.customerId),
+      ].filter((id): id is string => id !== null));
+
+      const deletableIds = foundIds.filter((id) => !blockedIds.has(id));
+
+      if (deletableIds.length > 0) {
         await db
           .delete(customers)
-          .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, eligibleIds)));
+          .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, deletableIds)));
       }
 
-      const errors = skippedCount > 0
-        ? [{ id: "N/A", message: `${skippedCount} customer(s) not found` }]
-        : [];
+      const errors: { id: string; message: string }[] = [];
+      if (notFoundCount > 0) {
+        errors.push({ id: "N/A", message: `${notFoundCount} customer(s) not found` });
+      }
+      for (const blockedId of blockedIds) {
+        errors.push({ id: blockedId, message: "Customer has related jobs, invoices, or quotes and cannot be deleted" });
+      }
 
-      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+      return reply.send({ succeeded: deletableIds.length, failed: notFoundCount + blockedIds.size, errors });
     },
   );
 
