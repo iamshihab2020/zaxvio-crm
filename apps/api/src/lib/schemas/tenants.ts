@@ -1,25 +1,44 @@
 import { z } from "zod";
 
+const ALLOWED_IMAGE_TYPES = [
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "image/gif",
+] as const;
+
+const ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif"];
+
+export { ALLOWED_EXTENSIONS };
+
 export const updateTenantBody = z.object({
-  businessName: z.string().min(1).optional(),
-  ownerName: z.string().min(1).optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zipCode: z.string().optional(),
-  defaultTaxRate: z.number().min(0).max(100).optional(),
-  googleReviewUrl: z.string().url().optional().or(z.literal("")),
-  logoUrl: z.string().url().optional().or(z.literal("")).nullable(),
-  timezone: z.string().optional(),
-  licenseNumber: z.string().optional(),
-  invoicePaymentTerms: z.string().optional(),
-  invoicePaymentInstructions: z.string().optional(),
-  invoiceTermsConditions: z.string().optional(),
-  invoiceFooterMessage: z.string().optional(),
-  quoteTermsConditions: z.string().optional(),
-  quoteFooterMessage: z.string().optional(),
+  businessName: z.string().min(1).max(200).optional(),
+  ownerName: z.string().min(1).max(200).optional(),
+  email: z.string().email().max(200).optional(),
+  phone: z.string().max(30).optional(),
+  address: z.string().max(200).optional(),
+  city: z.string().max(200).optional(),
+  state: z.string().max(200).optional(),
+  zipCode: z.string().max(20).optional(),
+  defaultTaxRate: z.coerce.number().min(0).max(100).optional(),
+  googleReviewUrl: z
+    .string()
+    .url()
+    .max(2000)
+    .refine((u) => u.startsWith("https://") || u.startsWith("http://"), {
+      message: "URL must use http or https protocol",
+    })
+    .optional()
+    .or(z.literal("")),
+  logoUrl: z.string().url().max(2000).optional().or(z.literal("")).nullable(),
+  timezone: z.string().max(100).optional(),
+  licenseNumber: z.string().max(100).optional(),
+  invoicePaymentTerms: z.string().max(500).optional(),
+  invoicePaymentInstructions: z.string().max(2000).optional(),
+  invoiceTermsConditions: z.string().max(5000).optional(),
+  invoiceFooterMessage: z.string().max(1000).optional(),
+  quoteTermsConditions: z.string().max(5000).optional(),
+  quoteFooterMessage: z.string().max(1000).optional(),
   quoteOnlineAcceptanceEnabled: z.boolean().optional(),
   quotePostAcceptanceScheduling: z.boolean().optional(),
   quoteAutoConvertToJob: z.boolean().optional(),
@@ -27,6 +46,19 @@ export const updateTenantBody = z.object({
 
 export const uploadLogoBody = z.object({
   data: z.string().min(1),
-  filename: z.string().min(1),
-  mimeType: z.string().regex(/^image\//),
+  filename: z
+    .string()
+    .min(1)
+    .max(255)
+    .refine((f) => !/[/\\:]/.test(f), {
+      message: "Filename contains invalid characters",
+    })
+    .refine(
+      (f) => {
+        const ext = f.split(".").pop()?.toLowerCase();
+        return ext !== undefined && ALLOWED_EXTENSIONS.includes(ext);
+      },
+      { message: "Invalid file extension — allowed: png, jpg, jpeg, webp, gif" },
+    ),
+  mimeType: z.enum(ALLOWED_IMAGE_TYPES),
 });

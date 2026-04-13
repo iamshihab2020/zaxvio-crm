@@ -6,16 +6,22 @@ import {
   getSupabaseAdmin,
   tenants,
   tenantSubscriptions,
-  pipelines,
-  jobPipelineStages,
   availabilitySchedules,
   user,
   organization,
   eq,
 } from "@hvac-saas/database";
 import tenantImpersonationRoutes from "./impersonation.js";
-import { updateTenantBody, uploadLogoBody } from "../../lib/schemas/tenants.js";
-import { DEFAULT_STAGES } from "../pipeline-stages/index.js";
+import {
+  updateTenantBody,
+  uploadLogoBody,
+  ALLOWED_EXTENSIONS,
+} from "../../lib/schemas/tenants.js";
+import {
+  getOrCreateDefaultPipeline,
+  ensureDefaultStages,
+} from "../pipeline-stages/index.js";
+import { stripHtmlTags } from "../../lib/sanitize.js";
 
 const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
@@ -96,6 +102,24 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "No valid fields to update" });
       }
 
+      // Sanitize text fields that render in emails/PDFs
+      const SANITIZE_FIELDS = [
+        "businessName", "ownerName", "address", "city", "state",
+        "invoicePaymentTerms", "invoicePaymentInstructions",
+        "invoiceTermsConditions", "invoiceFooterMessage",
+        "quoteTermsConditions", "quoteFooterMessage", "licenseNumber",
+      ];
+      for (const field of SANITIZE_FIELDS) {
+        if (typeof updates[field] === "string") {
+          updates[field] = stripHtmlTags(updates[field] as string);
+        }
+      }
+
+      // DB stores defaultTaxRate as text
+      if (updates.defaultTaxRate !== undefined) {
+        updates.defaultTaxRate = String(updates.defaultTaxRate);
+      }
+
       updates.updatedAt = new Date();
 
       const db = getDb();
@@ -140,7 +164,10 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Logo must be under 2MB" });
       }
 
-      const ext = filename.split(".").pop() ?? "png";
+      const ext = filename.split(".").pop()?.toLowerCase() ?? "png";
+      if (!ALLOWED_EXTENSIONS.includes(ext)) {
+        return reply.status(400).send({ message: "Invalid file extension" });
+      }
       const storagePath = `${tenantId}/logo.${ext}`;
       const supabase = getSupabaseAdmin();
 
@@ -234,19 +261,6 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const db = getDb();
 
-      // Check if tenant already exists (idempotent)
-      const existing = await db
-        .select({ id: tenants.id })
-        .from(tenants)
-        .where(eq(tenants.organizationId, activeOrganizationId))
-        .then((r) => r[0]);
-
-      if (existing) {
-        return reply
-          .status(200)
-          .send({ message: "Tenant already exists", tenantId: existing.id });
-      }
-
       // Fetch org + user details
       const [org, creator] = await Promise.all([
         db
@@ -267,63 +281,64 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
-      const tenant = await db.transaction(async (tx) => {
-        const [newTenant] = await tx
-          .insert(tenants)
-          .values({
-            organizationId: org.id,
-            businessName: org.name,
-            ownerName: creator?.name ?? "Owner",
-            email: creator?.email ?? "",
-            slug: org.slug ?? org.id,
-            trialEndsAt,
-          })
-          .returning();
+      // Step 1: Insert tenant with conflict guard (idempotent)
+      await db
+        .insert(tenants)
+        .values({
+          organizationId: org.id,
+          businessName: org.name,
+          ownerName: creator?.name ?? "Owner",
+          email: creator?.email ?? "",
+          slug: org.slug ?? org.id,
+          trialEndsAt,
+        })
+        .onConflictDoNothing();
 
-        await tx.insert(tenantSubscriptions).values({
-          tenantId: newTenant.id,
+      // Step 2: Always fetch the tenant (whether just created or already existed)
+      const tenant = await db
+        .select()
+        .from(tenants)
+        .where(eq(tenants.organizationId, activeOrganizationId))
+        .then((r) => r[0]);
+
+      if (!tenant) {
+        return reply.status(500).send({ message: "Failed to resolve tenant" });
+      }
+
+      // Step 3: Idempotent child resource seeding — each insert is independently safe to retry
+
+      // Subscription
+      await db
+        .insert(tenantSubscriptions)
+        .values({
+          tenantId: tenant.id,
           status: "trialing",
           currentPeriodStart: new Date(),
           currentPeriodEnd: trialEndsAt,
-        });
+        })
+        .onConflictDoNothing();
 
-        // Seed default pipeline and stages (reuse shared DEFAULT_STAGES)
-        const [defaultPipeline] = await tx.insert(pipelines).values({
-          tenantId: newTenant.id,
-          name: "default",
-          label: "Default",
-          isDefault: true,
-        }).returning();
+      // Pipeline + stages (already idempotent via getOrCreateDefaultPipeline/ensureDefaultStages)
+      const defaultPipeline = await getOrCreateDefaultPipeline(db, tenant.id);
+      await ensureDefaultStages(db, tenant.id, defaultPipeline.id);
 
-        await tx.insert(jobPipelineStages).values(
-          DEFAULT_STAGES.map((s) => ({
-            tenantId: newTenant.id,
-            pipelineId: defaultPipeline.id,
-            name: s.name,
-            label: s.label,
-            color: s.color,
-            sortOrder: s.sortOrder,
-            isDefault: s.isDefault,
-          })),
-        );
-
-        // Seed default availability schedule (Mon-Fri 8am-5pm)
-        await tx.insert(availabilitySchedules).values(
+      // Availability schedules (unique index on tenantId + dayOfWeek)
+      await db
+        .insert(availabilitySchedules)
+        .values(
           [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-            tenantId: newTenant.id,
+            tenantId: tenant.id,
             dayOfWeek: day,
             startTime: "08:00",
             endTime: "17:00",
-            isActive: day >= 1 && day <= 5, // Mon-Fri active, Sat-Sun inactive
+            isActive: day >= 1 && day <= 5,
           })),
-        );
-
-        return newTenant;
-      });
+        )
+        .onConflictDoNothing();
 
       return reply
-        .status(201)
-        .send({ message: "Tenant created", tenantId: tenant.id });
+        .status(200)
+        .send({ message: "Tenant initialized", tenantId: tenant.id });
     },
   );
 };

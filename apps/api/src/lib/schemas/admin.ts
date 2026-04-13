@@ -45,15 +45,23 @@ export const overrideSubscriptionBody = z.object({
 });
 
 export const patchTenantBody = z.object({
-  businessName: z.string().optional(),
-  ownerName: z.string().optional(),
-  email: z.string().email().optional(),
-  phone: z.string().optional(),
-  slug: z.string().optional(),
-  address: z.string().optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  zipCode: z.string().optional(),
+  businessName: z.string().max(200).optional(),
+  ownerName: z.string().max(200).optional(),
+  email: z.string().email().max(200).optional(),
+  phone: z.string().max(30).optional(),
+  slug: z
+    .string()
+    .min(2)
+    .max(63)
+    .regex(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/, {
+      message:
+        "Slug must be lowercase alphanumeric with hyphens, cannot start/end with hyphen",
+    })
+    .optional(),
+  address: z.string().max(200).optional(),
+  city: z.string().max(200).optional(),
+  state: z.string().max(200).optional(),
+  zipCode: z.string().max(20).optional(),
 });
 
 export const deleteTenantBody = z.object({

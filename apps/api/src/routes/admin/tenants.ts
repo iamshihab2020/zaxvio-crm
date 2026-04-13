@@ -22,6 +22,7 @@ import {
   adminImpersonationSessions,
   eq,
   and,
+  ne,
   or,
   gte,
   ilike,
@@ -30,6 +31,7 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import { stripHtmlTags } from "../../lib/sanitize.js";
 import {
   adminIdParam,
   listTenantsQuery,
@@ -367,6 +369,18 @@ const adminTenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body;
       const db = getDb();
 
+      // Slug uniqueness check before update
+      if (body.slug) {
+        const conflict = await db
+          .select({ id: tenants.id })
+          .from(tenants)
+          .where(and(eq(tenants.slug, body.slug), ne(tenants.id, id)))
+          .then((r) => r[0]);
+        if (conflict) {
+          return reply.status(409).send({ message: "Slug already in use" });
+        }
+      }
+
       // Only allow specific fields
       const allowedFields = [
         "businessName",
@@ -383,6 +397,14 @@ const adminTenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
       for (const field of allowedFields) {
         if (body[field] !== undefined) {
           updates[field] = body[field];
+        }
+      }
+
+      // Sanitize text fields
+      const SANITIZE_FIELDS = ["businessName", "ownerName", "address", "city", "state"];
+      for (const field of SANITIZE_FIELDS) {
+        if (typeof updates[field] === "string") {
+          updates[field] = stripHtmlTags(updates[field] as string);
         }
       }
 

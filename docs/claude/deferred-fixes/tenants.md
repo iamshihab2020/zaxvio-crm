@@ -7,7 +7,7 @@
 
 ## High — Data Integrity / Security
 
-### DF-TEN-01: Race condition in /tenants/initialize — no conflict guard `DEFERRED`
+### DF-TEN-01: Race condition in /tenants/initialize — no conflict guard `FIXED 2026-04-14`
 
 - **Severity:** HIGH (concurrent calls cause 500 DB unique constraint violation)
 - **File:** `apps/api/src/routes/tenants/index.ts` lines ~237-282
@@ -17,7 +17,7 @@
 
 ---
 
-### DF-TEN-02: Admin slug update has no uniqueness check `DEFERRED`
+### DF-TEN-02: Admin slug update has no uniqueness check `FIXED 2026-04-14`
 
 - **Severity:** HIGH (500 error instead of graceful 409 on slug conflict)
 - **File:** `apps/api/src/routes/admin/tenants.ts` lines ~370-399
@@ -26,7 +26,7 @@
 
 ---
 
-### DF-TEN-03: Divergent seeding — afterCreate hook never seeds availability schedules `DEFERRED`
+### DF-TEN-03: Divergent seeding — afterCreate hook never seeds availability schedules `FIXED 2026-04-14`
 
 - **Severity:** HIGH (tenants created without availability → public booking portal shows no available dates)
 - **File:** `apps/api/src/lib/auth.ts` lines ~110-122 vs. `apps/api/src/routes/tenants/index.ts` lines ~310-319
@@ -39,7 +39,7 @@
 
 ---
 
-### DF-TEN-04: Incomplete idempotency — retry after partial failure skips child seeding `DEFERRED`
+### DF-TEN-04: Incomplete idempotency — retry after partial failure skips child seeding `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (tenant stuck with missing pipeline stages or availability after failed init)
 - **File:** `apps/api/src/routes/tenants/index.ts` lines ~237-246
@@ -50,7 +50,7 @@
 
 ## Medium — Validation Gaps / Security
 
-### DF-TEN-05: No max length on any text fields in updateTenantBody `DEFERRED`
+### DF-TEN-05: No max length on any text fields in updateTenantBody `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (DoS via megabyte-length strings in business name, invoice terms, etc.)
 - **File:** `apps/api/src/lib/schemas/tenants.ts` lines ~3-25
@@ -62,7 +62,7 @@
 
 ---
 
-### DF-TEN-06: No HTML/script sanitization on fields that render in emails and PDFs `DEFERRED`
+### DF-TEN-06: No HTML/script sanitization on fields that render in emails and PDFs `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (stored HTML/script injection in invoice/quote emails and PDFs)
 - **File:** `apps/api/src/lib/schemas/tenants.ts` lines ~3-25
@@ -73,7 +73,7 @@
 
 ---
 
-### DF-TEN-07: Logo filename allows path separators — potential storage path injection `DEFERRED`
+### DF-TEN-07: Logo filename allows path separators — potential storage path injection `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (arbitrary storage path via crafted filename)
 - **File:** `apps/api/src/routes/tenants/index.ts` line ~143; `apps/api/src/lib/schemas/tenants.ts` line ~30
@@ -88,7 +88,7 @@
 
 ---
 
-### DF-TEN-08: Logo upload accepts SVG and arbitrary MIME types `DEFERRED`
+### DF-TEN-08: Logo upload accepts SVG and arbitrary MIME types `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (SVG with embedded scripts served from public Supabase URL)
 - **File:** `apps/api/src/routes/tenants/index.ts` line ~149; `apps/api/src/lib/schemas/tenants.ts` line ~31
@@ -97,7 +97,7 @@
 
 ---
 
-### DF-TEN-09: No slug format validation in admin edit schema `DEFERRED`
+### DF-TEN-09: No slug format validation in admin edit schema `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (admin can set URL-unsafe slugs that break booking portal)
 - **File:** `apps/api/src/lib/schemas/admin.ts` line ~52
@@ -106,7 +106,7 @@
 
 ---
 
-### DF-TEN-10: `defaultTaxRate` type mismatch — Zod expects number, DB/frontend sends string `DEFERRED`
+### DF-TEN-10: `defaultTaxRate` type mismatch — Zod expects number, DB/frontend sends string `FIXED 2026-04-14`
 
 - **Severity:** LOW (potential silent validation failure for tax rate updates)
 - **File:** `apps/api/src/lib/schemas/tenants.ts` line ~12 vs. `apps/web/src/actions/tenants.ts` line ~79
@@ -117,7 +117,7 @@
 
 ## Low Severity
 
-### DF-TEN-11: Broken booking portal URLs on admin slug change — no redirect `DEFERRED`
+### DF-TEN-11: Broken booking portal URLs on admin slug change — no redirect `DEFERRED (low priority, UI warning)`
 
 - **Severity:** LOW (operational risk — all shared booking links break immediately)
 - **File:** `apps/api/src/routes/admin/tenants.ts` lines ~370-399
@@ -129,7 +129,7 @@
 
 ---
 
-### DF-TEN-12: afterCreate hook failures are silently swallowed `DEFERRED`
+### DF-TEN-12: afterCreate hook failures are silently swallowed `FIXED 2026-04-14`
 
 - **Severity:** LOW (tenant row never created; user appears signed up but has no org context)
 - **File:** `apps/api/src/lib/auth.ts` lines ~125-129
