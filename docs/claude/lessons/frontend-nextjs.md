@@ -1,5 +1,7 @@
 # Lessons: Frontend (Next.js, UI/UX, Calendar, Charts)
 
+> Related: [[design]] | [[architecture]] | [[strict-rules]] | [[lessons]]
+
 ## Next.js 14
 
 - **next.config.ts not supported in Next.js 14** — Must use `.mjs` or `.js` extension. TypeScript config support was added in Next.js 15.

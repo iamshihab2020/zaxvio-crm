@@ -1,5 +1,7 @@
 # Planning Methodology
 
+> Related: [[workflow]] | [[todo]] | [[architecture]] | [[REPO_MAP_1]]
+
 **ALWAYS use this methodology before writing any code for non-trivial tasks** (3+ steps, architectural decisions, new features, or complex refactoring).
 
 ## When to Plan

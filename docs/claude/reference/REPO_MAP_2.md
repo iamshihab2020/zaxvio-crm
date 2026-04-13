@@ -1,4 +1,8 @@
 # REPO_MAP — Part 2: Packages, Database, Auth, Build Progress
+
+> **Part 2 of 2** — Packages, database schema, auth architecture, build progress
+> - [[REPO_MAP_1|Part 1]]: Root config, API routes, web app structure, components
+> - [[REPO_MAP_2|Part 2]]: Packages, database schema, auth architecture, build progress *(this file)*
 ## Packages
 
 ### `packages/database/` — Drizzle ORM + Supabase Client

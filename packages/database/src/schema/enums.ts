@@ -110,6 +110,7 @@ export const adminTierEnum = pgEnum("admin_tier", [
 
 export const notificationTypeEnum = pgEnum("notification_type", [
   "booking_received",
+  "booking_cancelled",
   "job_status_changed",
   "invoice_paid",
   "customer_created",

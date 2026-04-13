@@ -11,23 +11,24 @@ export function getTenantToday(timezone: string): string {
 
 /**
  * Get "tomorrow" as YYYY-MM-DD in the tenant's timezone.
+ * Uses UTC construction to avoid server-local timezone issues (DF-BK-19).
  */
 export function getTenantTomorrow(timezone: string): string {
-  const now = new Date();
-  const todayStr = now.toLocaleDateString("en-CA", { timeZone: timezone });
-  const tomorrow = new Date(todayStr);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  const todayStr = getTenantToday(timezone);
+  const [y, m, d] = todayStr.split("-").map(Number);
+  const tomorrow = new Date(Date.UTC(y, m - 1, d + 1));
   return tomorrow.toISOString().split("T")[0];
 }
 
 /**
  * Get a date N months from now as YYYY-MM-DD.
+ * Uses UTC construction to avoid server-local timezone issues (DF-BK-19).
  */
 export function getMaxBookingDate(timezone: string, monthsAhead: number = 3): string {
   const todayStr = getTenantToday(timezone);
-  const d = new Date(todayStr);
-  d.setMonth(d.getMonth() + monthsAhead);
-  return d.toISOString().split("T")[0];
+  const [y, m, d] = todayStr.split("-").map(Number);
+  const future = new Date(Date.UTC(y, m - 1 + monthsAhead, d));
+  return future.toISOString().split("T")[0];
 }
 
 /**

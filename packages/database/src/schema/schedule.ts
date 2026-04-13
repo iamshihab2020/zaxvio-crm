@@ -7,6 +7,7 @@ import {
   integer,
   boolean,
   timestamp,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 
@@ -22,7 +23,9 @@ export const availabilitySchedules = pgTable("availability_schedules", {
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("availability_schedules_tenant_day_unique").on(table.tenantId, table.dayOfWeek),
+]);
 
 export const scheduleOverrides = pgTable("schedule_overrides", {
   id: uuid("id").primaryKey().defaultRandom(),

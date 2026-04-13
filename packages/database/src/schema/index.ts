@@ -25,6 +25,7 @@ export * from "./customer-notes";
 export * from "./customer-activities";
 export * from "./job-activities";
 export * from "./quote-activities";
+export * from "./booking-activities";
 export * from "./tags";
 export * from "./calendar-events";
 export * from "./notifications";

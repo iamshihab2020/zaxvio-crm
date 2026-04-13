@@ -1,5 +1,7 @@
 # Lessons: Booking & Availability Flows
 
+> Related: [[API_DOCUMENTATION_4|API Docs: Bookings]] | [[deferred-fixes/README|Deferred Fixes]] | [[jobs-customers]] | [[lessons]]
+
 ## Booking & Availability Flows (2026-04-13)
 
 - **Two initialization code paths diverge silently** — The `afterCreate` hook in `auth.ts` and the `/tenants/initialize` route both seed tenant data, but the hook only seeds pipeline stages (not availability schedules). When the hook succeeds, `/initialize` returns early ("already exists") without seeding availability. Result: tenants with no public booking availability. Fix: always seed each child resource idempotently, regardless of whether the tenant row already existed.

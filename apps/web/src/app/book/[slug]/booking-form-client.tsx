@@ -68,6 +68,7 @@ export function BookingFormClient({
   // Pre-fetched data caches
   const [availabilityCache, setAvailabilityCache] = useState<Map<string, Set<string>>>(new Map());
   const [slotsCache, setSlotsCache] = useState<Map<string, TimeSlot[]>>(new Map());
+  const [slotsFetchedAt, setSlotsFetchedAt] = useState<Map<string, number>>(new Map());
   const [initialLoading, setInitialLoading] = useState(true);
 
   // Animation state
@@ -114,16 +115,22 @@ export function BookingFormClient({
       // 2. Fetch slots for ALL available dates in parallel (batched)
       const BATCH_SIZE = 5;
       const slotResults = new Map<string, TimeSlot[]>();
+      const fetchTimes = new Map<string, number>();
+      const fetchedNow = Date.now();
       for (let i = 0; i < allDates.length; i += BATCH_SIZE) {
         const batch = allDates.slice(i, i + BATCH_SIZE);
         const results = await Promise.all(
           batch.map((d) => getPublicSlots(slug, d).then((r) => ({ date: d, slots: r.data?.slots }))),
         );
         for (const { date: d, slots } of results) {
-          if (slots) slotResults.set(d, slots);
+          if (slots) {
+            slotResults.set(d, slots);
+            fetchTimes.set(d, fetchedNow);
+          }
         }
         // Update cache progressively so it's available as soon as possible
         setSlotsCache(new Map(slotResults));
+        setSlotsFetchedAt(new Map(fetchTimes));
       }
     }
     prefetchEverything();
@@ -161,9 +168,31 @@ export function BookingFormClient({
     goToStep(2);
   };
 
+  // DF-BK-24: Refresh stale slots (older than 5 minutes) when user selects a date
+  const STALE_THRESHOLD_MS = 5 * 60 * 1000;
+  const refreshSlotsIfStale = useCallback(async (dateStr: string) => {
+    const fetchedAt = slotsFetchedAt.get(dateStr);
+    if (fetchedAt && Date.now() - fetchedAt < STALE_THRESHOLD_MS) return;
+
+    const result = await getPublicSlots(slug, dateStr);
+    if (result.data?.slots) {
+      setSlotsCache((prev) => {
+        const next = new Map(prev);
+        next.set(dateStr, result.data.slots);
+        return next;
+      });
+      setSlotsFetchedAt((prev) => {
+        const next = new Map(prev);
+        next.set(dateStr, Date.now());
+        return next;
+      });
+    }
+  }, [slug, slotsFetchedAt]);
+
   const handleDateSelect = (d: string) => {
     setDate(d);
     setTime(null);
+    refreshSlotsIfStale(d);
     goToStep(3);
   };
 

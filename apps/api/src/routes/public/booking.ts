@@ -100,13 +100,15 @@ async function getAvailabilityWindow(
 /**
  * Generate 1-hour time slot start times within a window.
  * E.g., "08:00"-"17:00" → ["08:00", "09:00", ..., "16:00"]
+ * If start has minutes (e.g. "08:30"), rounds up to next whole hour (DF-BK-17).
  */
 function generateTimeSlots(startTime: string, endTime: string): string[] {
   const slots: string[] = [];
-  const [startH] = startTime.split(":").map(Number);
+  const [startH, startM] = startTime.split(":").map(Number);
   const [endH] = endTime.split(":").map(Number);
+  const firstHour = startM > 0 ? startH + 1 : startH;
 
-  for (let h = startH; h < endH; h++) {
+  for (let h = firstHour; h < endH; h++) {
     slots.push(`${String(h).padStart(2, "0")}:00`);
   }
   return slots;
@@ -169,7 +171,8 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const year = parseInt(yearStr, 10);
       const monthNum = parseInt(monthStr, 10);
       const firstOfMonth = `${month}-01`;
-      const lastOfMonth = new Date(year, monthNum, 0).toISOString().split("T")[0]; // Last day
+      const lastDay = new Date(year, monthNum, 0).getDate();
+      const lastOfMonth = `${yearStr}-${monthStr.padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
 
       // Clamp to valid booking window
       const rangeStart = firstOfMonth < tomorrow ? tomorrow : firstOfMonth;
@@ -209,7 +212,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
               endTime: "17:00",
               isActive: day >= 1 && day <= 5,
             })),
-          );
+          ).onConflictDoNothing();
           weeklySchedule = await db
             .select()
             .from(availabilitySchedules)
@@ -381,6 +384,11 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "No availability on the selected date." });
       }
 
+      // Validate slot alignment — only whole-hour slots are valid (DF-BK-16)
+      if (!body.preferredTime.endsWith(":00")) {
+        return reply.status(400).send({ message: "Booking time must be on the hour (e.g., 09:00, 10:00)." });
+      }
+
       // Check the time falls within the availability window
       if (body.preferredTime < window.startTime || body.preferredTime >= window.endTime) {
         return reply.status(400).send({ message: "Selected time is outside available hours." });
@@ -392,59 +400,65 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const trimmedPhone = body.customerPhone?.trim() || null;
       const trimmedAddress = body.address?.trim() || null;
 
-      // 1. Resolve or create customer
-      let customerId: string | null = null;
-
-      // Try matching by email first (most reliable), then by phone
-      const matchConditions = [];
-      if (trimmedEmail) {
-        matchConditions.push(eq(customers.email, trimmedEmail));
-      }
-      if (trimmedPhone) {
-        matchConditions.push(eq(customers.phone, trimmedPhone));
-      }
-
-      if (matchConditions.length > 0) {
-        const existingCustomer = await db
-          .select({ id: customers.id })
-          .from(customers)
-          .where(
-            and(
-              eq(customers.tenantId, tenant.id),
-              or(...matchConditions),
-            ),
-          )
-          .limit(1)
-          .then((r) => r[0]);
-
-        if (existingCustomer) {
-          customerId = existingCustomer.id;
-        }
-      }
-
-      // Create new customer if no match found
-      if (!customerId) {
-        const nameParts = trimmedName.split(/\s+/);
-        const firstName = nameParts[0] || trimmedName;
-        const lastName = nameParts.slice(1).join(" ") || "";
-
-        const [newCustomer] = await db
-          .insert(customers)
-          .values({
-            tenantId: tenant.id,
-            firstName,
-            lastName,
-            email: trimmedEmail,
-            phone: trimmedPhone,
-            address: trimmedAddress,
-          })
-          .returning();
-
-        customerId = newCustomer.id;
-      }
-
-      // 2. Create booking with linked customer (double-booking guard in transaction)
+      // Customer lookup + booking creation in a single transaction to prevent
+      // duplicate customers from concurrent submissions (DF-BK-07)
       const [created] = await db.transaction(async (tx) => {
+        // 1. Resolve or create customer
+        // Sequential lookup: email first, then phone fallback (DF-BK-06)
+        let customerId: string | null = null;
+
+        if (trimmedEmail) {
+          const byEmail = await tx
+            .select({ id: customers.id })
+            .from(customers)
+            .where(
+              and(
+                eq(customers.tenantId, tenant.id),
+                eq(sql`lower(${customers.email})`, trimmedEmail.toLowerCase()),
+              ),
+            )
+            .limit(1)
+            .then((r) => r[0]);
+          if (byEmail) customerId = byEmail.id;
+        }
+
+        if (!customerId && trimmedPhone) {
+          const byPhone = await tx
+            .select({ id: customers.id })
+            .from(customers)
+            .where(
+              and(
+                eq(customers.tenantId, tenant.id),
+                eq(customers.phone, trimmedPhone),
+              ),
+            )
+            .limit(1)
+            .then((r) => r[0]);
+          if (byPhone) customerId = byPhone.id;
+        }
+
+        // Create new customer if no match found
+        if (!customerId) {
+          const nameParts = trimmedName.split(/\s+/);
+          const firstName = nameParts[0] || trimmedName;
+          const lastName = nameParts.slice(1).join(" ") || "";
+
+          const [newCustomer] = await tx
+            .insert(customers)
+            .values({
+              tenantId: tenant.id,
+              firstName,
+              lastName,
+              email: trimmedEmail,
+              phone: trimmedPhone,
+              address: trimmedAddress,
+            })
+            .returning();
+
+          customerId = newCustomer.id;
+        }
+
+        // 2. Double-booking guard
         const existing = await tx
           .select({ id: bookings.id })
           .from(bookings)
@@ -594,7 +608,10 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.get(
     "/:slug/status/:bookingId",
-    { schema: { params: bookingSlugAndIdParam } },
+    {
+      schema: { params: bookingSlugAndIdParam },
+      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+    },
     async (request, reply) => {
       const { slug, bookingId } = request.params;
 

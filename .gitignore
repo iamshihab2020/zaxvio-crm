@@ -34,3 +34,5 @@ scripts/memory/*.md
 # Misc
 *.log
 *.tsbuildinfo
+docs/claude/.obsidian
+

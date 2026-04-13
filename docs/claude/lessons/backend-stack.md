@@ -1,5 +1,7 @@
 # Lessons: Backend Stack (Fastify, Drizzle, Supabase, Zod)
 
+> Related: [[api-rules]] | [[architecture]] | [[API_DOCUMENTATION_1|API Docs]] | [[lessons]]
+
 ## Drizzle ORM
 
 - **Scaffold packages need placeholder `.ts` files** — TypeScript errors with `TS18003` if a `tsconfig.json` includes a dir with no `.ts` files. Add empty `export {};` index files to empty packages.

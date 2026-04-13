@@ -1,5 +1,7 @@
 # Workflow Orchestration
 
+> Related: [[planner]] | [[memory-system]] | [[todo]] | [[lessons]] | [[strict-rules]]
+
 ## Plan Mode Default
 - Enter plan mode for ANY non-trivial task (3+ steps or architectural decisions)
 - If something goes sideways, STOP and re-plan — don't keep pushing

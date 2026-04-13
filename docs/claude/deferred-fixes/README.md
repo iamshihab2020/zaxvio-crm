@@ -1,5 +1,7 @@
 # Deferred Fixes
 
+> Related: [[todo]] | [[strict-rules]] | [[bookings]] | [[tenants]] | [[invoices]]
+
 Tracked bugs, validation gaps, and improvements discovered during end-to-end flow audits. These are **real issues** found in the codebase that are deferred because the related feature isn't live yet or the fix is lower priority.
 
 ## How This Works

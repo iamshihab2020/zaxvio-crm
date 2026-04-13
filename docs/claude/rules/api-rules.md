@@ -1,5 +1,7 @@
 # API Architecture Rules (MUST FOLLOW)
 
+> Related: [[strict-rules]] | [[security-rules]] | [[architecture]] | [[backend-stack]] | [[API_DOCUMENTATION_1|API Docs]]
+
 1. **Service layer for business logic** — Route handlers MUST be thin: validate input, call a service function, return the response. Never put SQL queries, data transformations, or business logic directly in route handlers. Service files live in `apps/api/src/services/`.
 2. **Query layer separation** — Complex or reusable SQL queries MUST live in dedicated query files under `services/<domain>/queries/`. Each function accepts `(db, params)` and returns typed data. Route handlers never call `db.execute()` or `db.select()` directly.
 3. **Hybrid ORM approach** — Use Drizzle query builder for simple CRUD and aggregations. Use `db.execute(sql\`...\`)` only for PostgreSQL-specific features (`generate_series`, CTEs, window functions, `CASE WHEN` bucketing). Never fight the ORM — if it takes >10 minutes to express a query in Drizzle, use raw SQL.

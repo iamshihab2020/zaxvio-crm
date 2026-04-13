@@ -2,6 +2,7 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
+import { dispatchNotification } from "../../lib/notifications.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import {
   idParam,
@@ -13,6 +14,7 @@ import {
 import {
   getDb,
   bookings,
+  bookingActivities,
   jobs,
   jobLineItems,
   customers,
@@ -257,6 +259,42 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
         .returning();
 
+      const userId = request.authUser.userId;
+
+      // DF-BK-21: Log activity for status changes
+      if (updates.status && updates.status !== existing.status) {
+        await db.insert(bookingActivities).values({
+          tenantId,
+          bookingId: id,
+          type: "booking.status_changed",
+          description: `Status changed from "${existing.status}" to "${updates.status}"`,
+          metadata: { previousStatus: existing.status, newStatus: updates.status },
+          performedBy: userId,
+        });
+      }
+
+      // DF-BK-23: Send confirmation email when status changes to "confirmed"
+      if (updates.status === "confirmed" && existing.status !== "confirmed" && existing.customerEmail) {
+        const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]);
+        const { sendBookingConfirmedEmail } = await import("../../lib/email.js");
+        const serviceLabel = existing.serviceType.charAt(0).toUpperCase() + existing.serviceType.slice(1);
+
+        sendBookingConfirmedEmail({
+          to: existing.customerEmail,
+          props: {
+            customerName: existing.customerName,
+            businessName: tenant?.businessName ?? "Service Business",
+            businessLogoUrl: tenant?.logoUrl ?? null,
+            businessPhone: tenant?.phone ?? null,
+            businessAddress: tenant?.address ?? null,
+            serviceType: serviceLabel,
+            scheduledDate: new Date(existing.bookingDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+            scheduledTime: existing.preferredTime ?? "TBD",
+            address: existing.address ?? null,
+          },
+        }).catch((err) => console.error("[email] E-04 booking confirmed failed:", err));
+      }
+
       return reply.send({ data: updated });
     },
   );
@@ -350,6 +388,22 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
             }
           }
 
+          // Phone fallback if email didn't match (DF-BK-10)
+          if (!customerId && booking.customerPhone) {
+            const byPhone = await tx
+              .select({ id: customers.id })
+              .from(customers)
+              .where(
+                and(
+                  eq(customers.tenantId, tenantId),
+                  eq(customers.phone, booking.customerPhone),
+                ),
+              )
+              .limit(1)
+              .then((r) => r[0]);
+            if (byPhone) customerId = byPhone.id;
+          }
+
           // Create new customer if not found
           if (!customerId) {
             const nameParts = booking.customerName.trim().split(/\s+/);
@@ -387,6 +441,7 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         const pipelineId = defaultPipeline?.id ?? null;
 
         // 5. Resolve pipeline stage (user-selected or first default)
+        // Status = pipeline stage name (used for kanban board matching)
         let status = "scheduled";
         if (body.pipelineStageId) {
           const selectedStage = await tx
@@ -521,7 +576,19 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // If reply was already sent (error case), stop here
       if (!job) return;
 
-      emitPlatformEvent(tenantId, "booking_received", userId);
+      emitPlatformEvent(tenantId, "job_created", userId);
+
+      // DF-BK-20: Notify team of job created from booking
+      dispatchNotification({
+        tenantId,
+        type: "job_status_changed",
+        title: `Job created from booking`,
+        description: `${booking.serviceType} job for ${booking.customerName}`,
+        entityType: "job",
+        entityId: job.id,
+        actorId: userId,
+        metadata: { bookingId: booking.id, action: "created_from_booking" },
+      });
 
       // E-04: Booking confirmed email to customer (fire-and-forget, outside transaction)
       if (booking.customerEmail) {
@@ -579,11 +646,35 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.send({ data: existing }); // Idempotent
       }
 
+      const userId = request.authUser.userId;
+
       const [updated] = await db
         .update(bookings)
         .set({ status: "cancelled", updatedAt: new Date() })
-        .where(eq(bookings.id, id))
+        .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
         .returning();
+
+      // DF-BK-21: Log cancel activity
+      await db.insert(bookingActivities).values({
+        tenantId,
+        bookingId: id,
+        type: "booking.cancelled",
+        description: `Booking cancelled (was "${existing.status}")`,
+        metadata: { previousStatus: existing.status },
+        performedBy: userId,
+      });
+
+      // DF-BK-22: Notify team of cancellation
+      dispatchNotification({
+        tenantId,
+        type: "booking_cancelled",
+        title: `Booking cancelled — ${existing.customerName}`,
+        description: `${existing.serviceType} booking on ${existing.bookingDate} was cancelled`,
+        entityType: "booking",
+        entityId: id,
+        actorId: userId,
+        metadata: { bookingDate: existing.bookingDate, serviceType: existing.serviceType },
+      });
 
       return reply.send({ data: updated });
     },
@@ -727,31 +818,51 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { ids, status } = request.body;
       const db = getDb();
 
+      // Status transition validation (DF-BK-09)
+      const VALID_TRANSITIONS: Record<string, string[]> = {
+        pending: ["confirmed", "cancelled"],
+        confirmed: ["completed", "cancelled"],
+        // completed and cancelled are terminal — no transitions allowed
+      };
+
       const existing = await db
-        .select({ id: bookings.id })
+        .select({ id: bookings.id, status: bookings.status })
         .from(bookings)
         .where(
           and(eq(bookings.tenantId, tenantId), inArray(bookings.id, ids)),
         );
 
-      const validIds = existing.map((r) => r.id);
-      const invalidIds = ids.filter((id) => !validIds.includes(id));
+      const foundIds = new Set(existing.map((r) => r.id));
+      const errors: { id: string; reason: string }[] = [];
 
-      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
-        id,
-        reason: "Not found",
-      }));
+      // Report not-found IDs
+      for (const id of ids) {
+        if (!foundIds.has(id)) {
+          errors.push({ id, reason: "Not found" });
+        }
+      }
 
-      if (validIds.length > 0) {
+      // Filter to only bookings with valid transitions
+      const eligibleIds: string[] = [];
+      for (const row of existing) {
+        const allowed = VALID_TRANSITIONS[row.status];
+        if (!allowed || !allowed.includes(status)) {
+          errors.push({ id: row.id, reason: `Cannot transition from "${row.status}" to "${status}"` });
+        } else {
+          eligibleIds.push(row.id);
+        }
+      }
+
+      if (eligibleIds.length > 0) {
         await db
           .update(bookings)
           .set({ status: status as never, updatedAt: new Date() })
           .where(
-            and(eq(bookings.tenantId, tenantId), inArray(bookings.id, validIds)),
+            and(eq(bookings.tenantId, tenantId), inArray(bookings.id, eligibleIds)),
           );
       }
 
-      return reply.send({ succeeded: validIds.length, failed: errors.length, errors });
+      return reply.send({ succeeded: eligibleIds.length, failed: errors.length, errors });
     },
   );
 };

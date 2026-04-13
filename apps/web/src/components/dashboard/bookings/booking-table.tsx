@@ -35,7 +35,6 @@ import {
 } from "@tabler/icons-react";
 
 interface BookingWithJob extends Booking {
-  convertedToJobId?: string | null;
   convertedJobNumber?: string | null;
   convertedJobStatus?: string | null;
 }

@@ -1,5 +1,7 @@
 # Lessons: Jobs, Customers & Entity Flows
 
+> Related: [[API_DOCUMENTATION_2|API Docs: Jobs]] | [[booking-availability]] | [[api-rules]] | [[lessons]]
+
 ## Job API Audit (2026-04-12)
 
 - **Zod enum schemas MUST match DB pgEnum exactly** — `jobPriorityEnum` is `["standard", "urgent", "emergency"]` but the Zod schema had `["low", "standard", "high", "urgent"]`. This would crash at runtime on insert. Always cross-reference `packages/database/src/schema/enums.ts` when defining Zod enums in schema files.

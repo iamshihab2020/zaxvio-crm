@@ -28,6 +28,7 @@ export const NOTIFICATION_CHANNEL_DEFAULTS: Record<
   { inApp: boolean; email: boolean; sms: boolean; voice: boolean }
 > = {
   booking_received: { inApp: true, email: true, sms: false, voice: false },
+  booking_cancelled: { inApp: true, email: true, sms: false, voice: false },
   job_status_changed: { inApp: true, email: true, sms: false, voice: false },
   invoice_paid: { inApp: true, email: true, sms: false, voice: false },
   customer_created: { inApp: true, email: false, sms: false, voice: false },

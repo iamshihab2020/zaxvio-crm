@@ -1,5 +1,7 @@
 # Lessons: Authentication (Better Auth + Next.js)
 
+> Related: [[security-rules]] | [[architecture]] | [[tenant-security]] | [[lessons]]
+
 ## Better Auth + Fastify Integration
 
 - **Fastify consumes request body before toNodeHandler** — `toNodeHandler(auth)` hangs on POST requests because Fastify's body parser reads the stream before Better Auth can. Solution: use `auth.handler()` with a manually reconstructed Fetch API `Request` object that includes `JSON.stringify(request.body)`.

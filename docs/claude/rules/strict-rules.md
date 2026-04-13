@@ -1,5 +1,7 @@
 # Strict Rules (MUST FOLLOW)
 
+> Related: [[api-rules]] | [[security-rules]] | [[todo]] | [[lessons]] | [[deferred-fixes/README|Deferred Fixes]]
+
 1. **All migration SQL must be idempotent** — use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`. See PRD for full pattern reference.
 2. **All `.md` files except `CLAUDE.md` live in `docs/`**.
 3. **Component Organization**:
@@ -44,3 +46,8 @@
     - **Review at session start** — Always skim relevant lesson files before starting work to avoid repeating past mistakes.
     - **NEVER let it go stale** — If multiple sessions pass without a lessons update, something is wrong.
 11. **Check `docs/claude/deferred-fixes/` before building any feature** — This folder tracks known bugs and validation gaps discovered during end-to-end audits that were deferred because the related feature wasn't live yet. Before implementing a feature (payments, SMS, billing, etc.), check for matching deferred fixes and resolve them in the same PR. When auditing a flow, log any issues that can't be fixed immediately as deferred fixes with severity, file paths, line numbers, and suggested fix. Mark issues `FIXED` with date when resolved.
+12. **Obsidian wikilinks in all `docs/claude/` files** — The `docs/` folder is an Obsidian vault. When creating or editing any `.md` file under `docs/claude/`:
+    - **Always add a `> Related:` line** after the `#` title with `[[wikilinks]]` to connected notes (e.g., `> Related: [[api-rules]] | [[architecture]] | [[lessons]]`)
+    - **Use `[[note-name]]` syntax** for cross-references, not markdown links (`[text](path)`)
+    - **Multi-part files** (API docs, REPO_MAP) must include a navigation block listing all parts with `[[wikilinks]]`
+    - **New files** must link to at least 2-3 related existing notes, and those notes should link back

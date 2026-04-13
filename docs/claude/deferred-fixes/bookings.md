@@ -7,7 +7,7 @@
 
 ## Critical — Fix Immediately
 
-### DF-BK-01: DELETE /bookings/:id missing tenantId in UPDATE WHERE clause `DEFERRED`
+### DF-BK-01: DELETE /bookings/:id missing tenantId in UPDATE WHERE clause `FIXED 2026-04-14`
 
 - **Severity:** CRITICAL (defense-in-depth violation, TOCTOU risk)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines 582-586
@@ -19,7 +19,7 @@
 
 ---
 
-### DF-BK-02: Hardcoded "America/Chicago" in availability routes `DEFERRED`
+### DF-BK-02: Hardcoded "America/Chicago" in availability routes `FIXED 2026-04-14`
 
 - **Severity:** CRITICAL (wrong behavior for non-Central-timezone tenants)
 - **File:** `apps/api/src/routes/availability/index.ts` lines ~64 and ~150
@@ -33,7 +33,7 @@
 
 ---
 
-### DF-BK-03: Pipeline stage name used as job status in convert-to-job `DEFERRED`
+### DF-BK-03: Pipeline stage name used as job status in convert-to-job `NOT A BUG`
 
 - **Severity:** CRITICAL (data corruption — arbitrary strings as job status)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~391-407
@@ -42,7 +42,7 @@
 
 ---
 
-### DF-BK-04: Wrong platform event type on booking→job conversion `DEFERRED`
+### DF-BK-04: Wrong platform event type on booking→job conversion `FIXED 2026-04-14`
 
 - **Severity:** HIGH (bad analytics — every conversion counted as a new booking)
 - **File:** `apps/api/src/routes/bookings/index.ts` line ~524
@@ -53,7 +53,7 @@
 
 ## High — Data Integrity / Security
 
-### DF-BK-05: Case-sensitive email matching in public booking submit `DEFERRED`
+### DF-BK-05: Case-sensitive email matching in public booking submit `FIXED 2026-04-14`
 
 - **Severity:** HIGH (duplicate customer records for same person)
 - **File:** `apps/api/src/routes/public/booking.ts` lines ~409-415
@@ -63,7 +63,7 @@
 
 ---
 
-### DF-BK-06: Customer OR-match allows phone to shadow email match `DEFERRED`
+### DF-BK-06: Customer OR-match allows phone to shadow email match `FIXED 2026-04-14`
 
 - **Severity:** HIGH (wrong customer linked to booking)
 - **File:** `apps/api/src/routes/public/booking.ts` lines ~398-423
@@ -78,7 +78,7 @@
 
 ---
 
-### DF-BK-07: Race condition — customer creation outside transaction `DEFERRED`
+### DF-BK-07: Race condition — customer creation outside transaction `FIXED 2026-04-14`
 
 - **Severity:** HIGH (duplicate customers from concurrent submissions)
 - **File:** `apps/api/src/routes/public/booking.ts` lines ~396-490
@@ -87,7 +87,7 @@
 
 ---
 
-### DF-BK-08: `convertedToJobId` never written on booking row `DEFERRED`
+### DF-BK-08: `convertedToJobId` never written on booking row `FIXED (pre-existing)`
 
 - **Severity:** HIGH (data inconsistency — column exists but is always null)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~300-530
@@ -100,7 +100,7 @@
 
 ---
 
-### DF-BK-09: Bulk status update bypasses status machine guards `DEFERRED`
+### DF-BK-09: Bulk status update bypasses status machine guards `FIXED 2026-04-14`
 
 - **Severity:** HIGH (invalid lifecycle transitions — cancelled booking reset to pending)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~720-756
@@ -109,7 +109,7 @@
 
 ---
 
-### DF-BK-10: Convert-to-job doesn't match customer by phone `DEFERRED`
+### DF-BK-10: Convert-to-job doesn't match customer by phone `FIXED 2026-04-14`
 
 - **Severity:** HIGH (customer not linked when booking has phone-only)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~334-353
@@ -118,7 +118,7 @@
 
 ---
 
-### DF-BK-11: Race condition — lazy-seeding of availability has no concurrency guard `DEFERRED`
+### DF-BK-11: Race condition — lazy-seeding of availability has no concurrency guard `FIXED 2026-04-14`
 
 - **Severity:** HIGH (duplicate availability rows from concurrent requests)
 - **File:** `apps/api/src/routes/availability/index.ts` (GET /availability) and `apps/api/src/routes/public/booking.ts` (GET /public/booking/:slug/availability)
@@ -131,7 +131,7 @@
 
 ## Medium — Validation Gaps
 
-### DF-BK-12: `preferredTime` validates format but not value range `DEFERRED`
+### DF-BK-12: `preferredTime` validates format but not value range `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (accepts `99:99` or `25:61`)
 - **File:** `apps/api/src/lib/schemas/public-booking.ts` line ~46
@@ -146,7 +146,7 @@
 
 ---
 
-### DF-BK-13: `bookingDate` validates format but not calendar validity `DEFERRED`
+### DF-BK-13: `bookingDate` validates format but not calendar validity `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (accepts `2025-13-45`, `2025-02-30`)
 - **File:** `apps/api/src/lib/schemas/public-booking.ts` line ~43
@@ -155,7 +155,7 @@
 
 ---
 
-### DF-BK-14: No phone format or length validation `DEFERRED`
+### DF-BK-14: No phone format or length validation `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (arbitrary strings accepted, including very long ones)
 - **File:** `apps/api/src/lib/schemas/public-booking.ts` line ~39
@@ -164,7 +164,7 @@
 
 ---
 
-### DF-BK-15: `customerName` has no max length `DEFERRED`
+### DF-BK-15: `customerName` has no max length `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (DoS via very long name stored in DB + email templates)
 - **File:** `apps/api/src/lib/schemas/public-booking.ts` line ~34
@@ -173,7 +173,7 @@
 
 ---
 
-### DF-BK-16: No slot alignment validation on booking submit `DEFERRED`
+### DF-BK-16: No slot alignment validation on booking submit `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (off-hour submissions like "08:37" are accepted)
 - **File:** `apps/api/src/routes/public/booking.ts` line ~385
@@ -182,7 +182,7 @@
 
 ---
 
-### DF-BK-17: `generateTimeSlots` ignores minutes in start/end times `DEFERRED`
+### DF-BK-17: `generateTimeSlots` ignores minutes in start/end times `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (first slot wrong if availability starts at :30)
 - **File:** `apps/api/src/routes/public/booking.ts` lines ~104-113
@@ -191,7 +191,7 @@
 
 ---
 
-### DF-BK-18: Month-end calculation uses server local timezone `DEFERRED`
+### DF-BK-18: Month-end calculation uses server local timezone `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (off-by-one date on non-UTC servers)
 - **File:** `apps/api/src/routes/public/booking.ts` line ~172
@@ -200,7 +200,7 @@
 
 ---
 
-### DF-BK-19: `getTenantTomorrow` fragile on non-UTC developer machines `DEFERRED`
+### DF-BK-19: `getTenantTomorrow` fragile on non-UTC developer machines `FIXED 2026-04-14`
 
 - **Severity:** MEDIUM (silent wrong date in local dev, fine on Vercel/UTC servers)
 - **File:** `apps/api/src/lib/timezone.ts` lines ~15-21
@@ -211,7 +211,7 @@
 
 ## Missing Features / Low Severity
 
-### DF-BK-20: No notification dispatched for job created via booking conversion `DEFERRED`
+### DF-BK-20: No notification dispatched for job created via booking conversion `FIXED 2026-04-14`
 
 - **Severity:** LOW (team members not notified of new job)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~515-530
@@ -220,7 +220,7 @@
 
 ---
 
-### DF-BK-21: No activity log for booking status changes `DEFERRED`
+### DF-BK-21: No activity log for booking status changes `FIXED 2026-04-14`
 
 - **Severity:** LOW (no audit trail for booking status lifecycle)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~216-262 (PATCH)
@@ -229,7 +229,7 @@
 
 ---
 
-### DF-BK-22: No customer/team notification when booking is cancelled `DEFERRED`
+### DF-BK-22: No customer/team notification when booking is cancelled `FIXED 2026-04-14`
 
 - **Severity:** LOW (customer has no way to know booking was cancelled)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~556-590
@@ -238,7 +238,7 @@
 
 ---
 
-### DF-BK-23: No confirmation email when booking confirmed via PATCH `DEFERRED`
+### DF-BK-23: No confirmation email when booking confirmed via PATCH `FIXED 2026-04-14`
 
 - **Severity:** LOW (customer never knows their booking was confirmed)
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~216-262
@@ -247,7 +247,7 @@
 
 ---
 
-### DF-BK-24: Stale slot cache in frontend booking form `DEFERRED`
+### DF-BK-24: Stale slot cache in frontend booking form `FIXED 2026-04-14`
 
 - **Severity:** LOW (double-booking UX confusion, backend correctly rejects)
 - **File:** `apps/web/src/app/book/[slug]/booking-form-client.tsx` lines ~89-130
@@ -256,7 +256,7 @@
 
 ---
 
-### DF-BK-25: Frontend requires phone; API allows email-only `DEFERRED`
+### DF-BK-25: Frontend requires phone; API allows email-only `FIXED (pre-existing)`
 
 - **Severity:** LOW (customers without phone cannot book despite API supporting it)
 - **File:** `apps/web/src/components/dashboard/` (booking step info component)
@@ -265,7 +265,7 @@
 
 ---
 
-### DF-BK-26: Public booking status endpoint has no rate limiting `DEFERRED`
+### DF-BK-26: Public booking status endpoint has no rate limiting `FIXED 2026-04-14`
 
 - **Severity:** LOW (booking detail accessible to anyone with booking UUID)
 - **File:** `apps/api/src/routes/public/booking.ts` (GET /public/booking/:slug/status/:bookingId)
@@ -276,4 +276,29 @@
 
 ## Fixed Issues
 
-_(Move resolved issues here with date)_
+- **DF-BK-01** (2026-04-14) — Added tenantId to cancel UPDATE WHERE clause
+- **DF-BK-02** (2026-04-14) — Availability routes now load tenant timezone from DB
+- **DF-BK-03** — NOT A BUG: jobs.status stores pipeline stage name by design (used for kanban matching)
+- **DF-BK-04** (2026-04-14) — Changed platform event to "job_created"
+- **DF-BK-05** (2026-04-14) — Case-insensitive email matching via `lower()`
+- **DF-BK-06** (2026-04-14) — Sequential email-first, phone-fallback lookup
+- **DF-BK-07** (2026-04-14) — Customer lookup+creation moved inside booking transaction
+- **DF-BK-08** (pre-existing) — `convertedToJobId` is set + duplicate guard via `jobs.bookingId` join
+- **DF-BK-09** (2026-04-14) — Bulk status update now validates transitions via VALID_TRANSITIONS map
+- **DF-BK-10** (2026-04-14) — Convert-to-job now checks phone fallback after email
+- **DF-BK-11** (2026-04-14) — Added unique index on (tenant_id, day_of_week) + onConflictDoNothing
+- **DF-BK-12** (2026-04-14) — preferredTime validated for 0-23h, 0-59m range
+- **DF-BK-13** (2026-04-14) — bookingDate validated as real calendar date
+- **DF-BK-14** (2026-04-14) — Phone format regex + max(20) length
+- **DF-BK-15** (2026-04-14) — customerName max(100) added
+- **DF-BK-16** (2026-04-14) — Slot alignment validation (must end in :00)
+- **DF-BK-17** (2026-04-14) — generateTimeSlots rounds up start minutes
+- **DF-BK-18** (2026-04-14) — Month-end calculated via string arithmetic, not toISOString()
+- **DF-BK-19** (2026-04-14) — getTenantTomorrow/getMaxBookingDate use Date.UTC construction
+- **DF-BK-20** (2026-04-14) — dispatchNotification on booking→job conversion
+- **DF-BK-21** (2026-04-14) — Booking activities table + activity logging on PATCH status change and cancel
+- **DF-BK-22** (2026-04-14) — dispatchNotification (booking_cancelled) on cancel endpoint
+- **DF-BK-23** (2026-04-14) — E-04 confirmation email sent when PATCH sets status to "confirmed"
+- **DF-BK-24** (2026-04-14) — Stale slot refresh (5-min threshold) on date select in booking form
+- **DF-BK-25** (pre-existing) — API validates "phone or email" correctly
+- **DF-BK-26** (2026-04-14) — Rate limit (10/min) on public booking status endpoint

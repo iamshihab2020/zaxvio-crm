@@ -6,13 +6,13 @@ Non-obvious insights, patterns, and mistakes worth remembering. Split by topic f
 
 | File | Topics | Lessons |
 |------|--------|---------|
-| [lessons/backend-stack.md](lessons/backend-stack.md) | Drizzle ORM, Supabase, Fastify, Zod schemas | 28 |
-| [lessons/auth-flow.md](lessons/auth-flow.md) | Better Auth + Fastify integration, auth flow, org plugin | 16 |
-| [lessons/frontend-nextjs.md](lessons/frontend-nextjs.md) | Next.js 14, UI/UX patterns, react-big-calendar, charts, animations, AI SDK | 40 |
-| [lessons/booking-availability.md](lessons/booking-availability.md) | Booking portal, availability, public quote acceptance | 20 |
-| [lessons/tenant-security.md](lessons/tenant-security.md) | Tenant init/settings, security hardening, multi-pipeline | 12 |
-| [lessons/jobs-customers.md](lessons/jobs-customers.md) | Job API audit, customer-to-job flow, dual-view page | 20 |
-| [lessons/features-misc.md](lessons/features-misc.md) | Equipment/assets, file uploads, conversations, bulk ops, maintenance | 22 |
+| [[backend-stack]] | Drizzle ORM, Supabase, Fastify, Zod schemas | 28 |
+| [[auth-flow]] | Better Auth + Fastify integration, auth flow, org plugin | 16 |
+| [[frontend-nextjs]] | Next.js 14, UI/UX patterns, react-big-calendar, charts, animations, AI SDK | 40 |
+| [[booking-availability]] | Booking portal, availability, public quote acceptance | 20 |
+| [[tenant-security]] | Tenant init/settings, security hardening, multi-pipeline | 12 |
+| [[jobs-customers]] | Job API audit, customer-to-job flow, dual-view page | 20 |
+| [[features-misc]] | Equipment/assets, file uploads, conversations, bulk ops, maintenance | 22 |
 
 ## Rules
 

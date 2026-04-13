@@ -32,6 +32,7 @@ import { customerNotes } from "./customer-notes";
 import { customerActivities } from "./customer-activities";
 import { jobActivities } from "./job-activities";
 import { quoteActivities } from "./quote-activities";
+import { bookingActivities } from "./booking-activities";
 import { tags, customerTags } from "./tags";
 import { pipelines } from "./pipelines";
 import { jobPipelineStages } from "./pipeline-stages";
@@ -223,7 +224,7 @@ export const maintenanceContractsRelations = relations(
 );
 
 // --- Booking relations ---
-export const bookingsRelations = relations(bookings, ({ one }) => ({
+export const bookingsRelations = relations(bookings, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [bookings.tenantId],
     references: [tenants.id],
@@ -236,6 +237,7 @@ export const bookingsRelations = relations(bookings, ({ one }) => ({
     fields: [bookings.quoteId],
     references: [quotes.id],
   }),
+  activities: many(bookingActivities),
 }));
 
 // --- Job relations ---
@@ -580,6 +582,25 @@ export const quoteActivitiesRelations = relations(
     }),
     performer: one(user, {
       fields: [quoteActivities.performedBy],
+      references: [user.id],
+    }),
+  }),
+);
+
+// --- Booking Activities relations ---
+export const bookingActivitiesRelations = relations(
+  bookingActivities,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [bookingActivities.tenantId],
+      references: [tenants.id],
+    }),
+    booking: one(bookings, {
+      fields: [bookingActivities.bookingId],
+      references: [bookings.id],
+    }),
+    performer: one(user, {
+      fields: [bookingActivities.performedBy],
       references: [user.id],
     }),
   }),

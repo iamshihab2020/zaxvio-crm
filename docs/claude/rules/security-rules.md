@@ -1,5 +1,7 @@
 # Security Rules (MUST FOLLOW)
 
+> Related: [[strict-rules]] | [[api-rules]] | [[tenant-security]] | [[auth-flow]]
+
 1. **Tenant isolation in EVERY query**: Every `UPDATE`, `DELETE`, and `SELECT` on tenant-scoped tables MUST include `tenantId` in the WHERE clause. Never use only the record ID. Pattern: `and(eq(table.tenantId, tenantId), eq(table.id, id))`.
 2. **Zod validation on ALL request inputs**: Every route handler MUST use Zod schemas for `params`, `body`, and `query` via `fastify-type-provider-zod`. Never use `as Record<string, unknown>`, `as any`, or manual type casts on request data.
 3. **Never trust client-side cookies for authorization**: Role/permission checks must use server-side session verification (`getServerSession()` or `auth.api.getSession()`). Client-set cookies are for UI hints only.

@@ -1,5 +1,7 @@
 # Lessons: Features & Miscellaneous
 
+> Related: [[API_DOCUMENTATION_4|API Docs: Equipment/Conversations]] | [[backend-stack]] | [[strict-rules]] | [[lessons]]
+
 ## Equipment/Assets & Service Agreements (2026-03-31)
 
 - **DB schema was already ahead** — equipment, refrigerant_logs, and maintenance_contracts tables existed from initial migration but had no API routes, actions, or frontend. Lesson: always check what schema already exists before planning.

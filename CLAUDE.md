@@ -80,42 +80,43 @@ packages/email/     @hvac-saas/email — React Email templates
 
 ---
 
-## On-Demand Files (read with `Read` tool when needed)
+## Knowledge Base (Obsidian MCP — `obsidian-brain`)
 
-**Do not guess from memory — always read the file first.**
+The project knowledge base lives in an Obsidian vault (`docs/` folder). An MCP server (`obsidian-brain`) is connected. **Use it as your first step** when you need context — it's faster and cheaper than loading entire files.
 
-### Reference & Architecture
+### How to use it
+
+1. **Before planning or coding**, search the vault for relevant context:
+   - Starting a feature? Search for the entity name (e.g., "bookings", "invoices")
+   - Debugging? Search for the library/pattern (e.g., "Drizzle", "Better Auth")
+   - Frontend work? Search for "design" or the component type
+   - Check deferred fixes? Search for "deferred" + the feature name
+
+2. **Search first, then read selectively.** Don't load entire files into context. Use vault search to find the relevant note, then read only what you need.
+
+3. **Only fall back to `Read` tool** for files outside the vault (e.g., `docs/project_docs/`) or when Obsidian is unavailable.
+
+### What's in the vault
+
+| Folder | Contents |
+|--------|----------|
+| `rules/` | Strict rules, API rules, security rules — coding constraints |
+| `reference/` | Architecture, design system, repo map (REPO_MAP_1, REPO_MAP_2) |
+| `api-docs/` | Full API documentation (5 parts, by domain) |
+| `lessons/` | Hard-won lessons by topic (backend, auth, frontend, bookings, security, jobs, misc) |
+| `workflow/` | Workflow orchestration, planner methodology, memory system |
+| `deferred-fixes/` | Known bugs deferred until features are live |
+| `todo.md` | Current task tracking |
+
+### When to search (MUST do)
+
+- **Before implementing any feature**: search for the entity name + "deferred" to catch known bugs
+- **Before planning**: search for the domain to find architecture notes, API docs, and lessons
+- **After a user correction**: search for existing lessons on the topic before adding a new one
+- **Before frontend work**: search "design" to find component patterns, color tokens, layout rules
+
+### Files outside the vault (use `Read` tool)
 | File | When to Read |
 |------|-------------|
-| `docs/claude/reference/architecture.md` | Before architectural decisions, understanding data flows |
-| `docs/claude/reference/design.md` | Before ANY frontend/UI work (colors, components, layouts) |
-| `docs/claude/reference/REPO_MAP_1.md` | Locating files, planning features — **read first before Glob/Grep** |
-| `docs/claude/reference/REPO_MAP_2.md` | Packages, DB tables, auth architecture |
-| `docs/claude/workflow/memory-system.md` | When consolidating memory or managing session persistence |
-
-### API Documentation
-| File | Covers |
-|------|--------|
-| `docs/claude/api-docs/API_DOCUMENTATION_1.md` | Auth, tenants, dashboard, customers, tags |
-| `docs/claude/api-docs/API_DOCUMENTATION_2.md` | Jobs, quotes, line items |
-| `docs/claude/api-docs/API_DOCUMENTATION_3.md` | Invoices, catalog, checklists, pipelines |
-| `docs/claude/api-docs/API_DOCUMENTATION_4.md` | Bookings, equipment, service agreements, conversations |
-| `docs/claude/api-docs/API_DOCUMENTATION_5.md` | Reports, admin panel, enums, errors |
-
-### Lessons Learned (read relevant file before working in that area)
-| File | Topics |
-|------|--------|
-| `docs/claude/lessons/backend-stack.md` | Drizzle, Supabase, Fastify, Zod |
-| `docs/claude/lessons/auth-flow.md` | Better Auth, sessions, org plugin |
-| `docs/claude/lessons/frontend-nextjs.md` | Next.js, UI components, calendar, charts |
-| `docs/claude/lessons/booking-availability.md` | Bookings, availability, public portals |
-| `docs/claude/lessons/tenant-security.md` | Tenant init, security, pipelines |
-| `docs/claude/lessons/jobs-customers.md` | Jobs, customers, entity conversion flows |
-| `docs/claude/lessons/features-misc.md` | Equipment, uploads, conversations, bulk ops |
-
-### Project Documents
-| File | When to Read |
-|------|-------------|
-| `docs/claude/deferred-fixes/README.md` | **Before building any feature** — check for known deferred bugs |
 | `docs/project_docs/HVAC_SaaS_Phase1_PRD_v2.md` | Product requirements, business logic |
 | `docs/project_docs/HVAC_SaaS_System_Diagrams_and_Unified_Auth.md` | System diagrams, auth flow |

@@ -9,6 +9,7 @@ import {
   getDb,
   availabilitySchedules,
   scheduleOverrides,
+  tenants,
   eq,
   and,
   gte,
@@ -27,7 +28,7 @@ async function seedDefaultAvailability(db: ReturnType<typeof getDb>, tenantId: s
       endTime: "17:00",
       isActive: day >= 1 && day <= 5,
     })),
-  );
+  ).onConflictDoNothing();
   return db
     .select()
     .from(availabilitySchedules)
@@ -49,6 +50,11 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
+      // Load tenant timezone (DF-BK-02)
+      const tenantRow = await db.select({ timezone: tenants.timezone })
+        .from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]);
+      const tz = tenantRow?.timezone ?? "America/Chicago";
+
       let [weeklySchedule, overrides] = await Promise.all([
         db
           .select()
@@ -61,7 +67,7 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .where(
             and(
               eq(scheduleOverrides.tenantId, tenantId),
-              gte(scheduleOverrides.overrideDate, getTenantToday("America/Chicago")),
+              gte(scheduleOverrides.overrideDate, getTenantToday(tz)),
             ),
           )
           .orderBy(asc(scheduleOverrides.overrideDate)),
@@ -145,9 +151,15 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const body = request.body;
+      const db = getDb();
+
+      // Load tenant timezone (DF-BK-02)
+      const tenantRow = await db.select({ timezone: tenants.timezone })
+        .from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]);
+      const tz = tenantRow?.timezone ?? "America/Chicago";
 
       // Validate date is not in the past
-      const today = getTenantToday("America/Chicago");
+      const today = getTenantToday(tz);
       if (body.overrideDate < today) {
         return reply.status(400).send({ message: "Override date cannot be in the past." });
       }
@@ -161,8 +173,6 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
           return reply.status(400).send({ message: "startTime must be before endTime." });
         }
       }
-
-      const db = getDb();
 
       // Check for duplicate
       const existing = await db

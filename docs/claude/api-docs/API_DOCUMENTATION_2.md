@@ -1,4 +1,11 @@
 # API Documentation — Part 2: Jobs & Quotes
+
+> **Part 2 of 5** — Jobs, Quotes, Line Items
+> - [[API_DOCUMENTATION_1|Part 1]]: Auth, Tenants, Dashboard, Customers, Tags
+> - [[API_DOCUMENTATION_2|Part 2]]: Jobs, Quotes, Line Items *(this file)*
+> - [[API_DOCUMENTATION_3|Part 3]]: Invoices, Catalog, Checklists, Pipelines
+> - [[API_DOCUMENTATION_4|Part 4]]: Bookings, Equipment, Service Agreements, Conversations
+> - [[API_DOCUMENTATION_5|Part 5]]: Reports, Admin Panel, Enums, Errors
 ## Jobs
 
 Job management with Kanban pipeline support.

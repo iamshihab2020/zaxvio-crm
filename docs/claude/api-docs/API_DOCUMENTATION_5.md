@@ -1,4 +1,11 @@
 # API Documentation — Part 5: Reports, Admin, Enums, Errors
+
+> **Part 5 of 5** — Reports, Admin Panel, Enums, Errors
+> - [[API_DOCUMENTATION_1|Part 1]]: Auth, Tenants, Dashboard, Customers, Tags
+> - [[API_DOCUMENTATION_2|Part 2]]: Jobs, Quotes, Line Items
+> - [[API_DOCUMENTATION_3|Part 3]]: Invoices, Catalog, Checklists, Pipelines
+> - [[API_DOCUMENTATION_4|Part 4]]: Bookings, Equipment, Service Agreements, Conversations
+> - [[API_DOCUMENTATION_5|Part 5]]: Reports, Admin Panel, Enums, Errors *(this file)*
 ## Reports
 
 Analytics and reporting endpoints for business metrics across all core entities.

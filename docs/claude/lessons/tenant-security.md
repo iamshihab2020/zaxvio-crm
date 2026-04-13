@@ -1,5 +1,7 @@
 # Lessons: Tenant Management & Security
 
+> Related: [[security-rules]] | [[auth-flow]] | [[API_DOCUMENTATION_1|API Docs: Tenants]] | [[lessons]]
+
 ## Tenant Initialization & Settings (2026-04-13)
 
 - **`/tenants/initialize` needs `onConflictDoNothing`** — The route checks for existing tenant then inserts — classic TOCTOU. Two concurrent calls (sign-up hook + frontend retry) cause a unique constraint 500. The insert should use `.onConflictDoNothing()` like the `afterCreate` hook does.

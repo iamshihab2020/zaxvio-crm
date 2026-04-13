@@ -1,5 +1,9 @@
 # REPO_MAP.md — HVAC SaaS Platform (Zaxvio CRM)
 
+> **Part 1 of 2** — Root config, apps (API + web), routes, components
+> - [[REPO_MAP_1|Part 1]]: Root config, API routes, web app structure, components *(this file)*
+> - [[REPO_MAP_2|Part 2]]: Packages, database schema, auth architecture, build progress
+
 > **Product**: HVAC Field Service Management SaaS for solo contractors (1-3 person teams)
 > **Stack**: Next.js 14 + Fastify + Supabase + Drizzle ORM + Better Auth + Lemon Squeezy
 > **Monorepo**: Turborepo + pnpm workspaces

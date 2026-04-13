@@ -1,5 +1,7 @@
 # Frontend Design System
 
+> Related: [[architecture]] | [[frontend-nextjs]] | [[strict-rules]] | [[REPO_MAP_1]]
+
 > **Source of truth** for all frontend design patterns, component conventions, layout structures, and UI/UX principles in the Zaxvio CRM web app (`apps/web/`).
 
 ---
