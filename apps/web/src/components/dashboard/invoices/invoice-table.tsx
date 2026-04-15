@@ -8,6 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { getInvoice } from "@/actions/invoices";
 import { Checkbox } from "@/components/ui/checkbox";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 
@@ -57,6 +60,7 @@ export function InvoiceTable({
   isAllSelected,
   isIndeterminate,
 }: InvoiceTableProps) {
+  const queryClient = useQueryClient();
   const hasSelection = !!selectedIds && !!onToggleSelect;
 
   return (
@@ -87,6 +91,13 @@ export function InvoiceTable({
               key={inv.id}
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => onRowClick(inv.id)}
+              onMouseEnter={() => {
+                queryClient.prefetchQuery({
+                  queryKey: queryKeys.invoices.detail(inv.id),
+                  queryFn: () => getInvoice(inv.id),
+                  staleTime: 30_000,
+                });
+              }}
             >
               {hasSelection && (
                 <TableCell onClick={(e) => e.stopPropagation()}>

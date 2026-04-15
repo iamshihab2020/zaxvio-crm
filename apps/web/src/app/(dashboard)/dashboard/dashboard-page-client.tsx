@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { format, startOfMonth } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { toast } from "sonner";
 import type { DashboardStats } from "@hvac-saas/types";
-import { getDashboardStats } from "@/actions/dashboard";
+import { useDashboardStats } from "@/hooks/queries";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { PageHeader } from "@/components/reusable/page-header";
 import { DashboardSkeleton } from "@/components/dashboard/home/dashboard-skeleton";
@@ -19,17 +18,17 @@ import { TodaySchedule } from "@/components/dashboard/home/today-schedule";
 import { InvoiceAging } from "@/components/dashboard/home/invoice-aging";
 import { QuoteConversion } from "@/components/dashboard/home/quote-conversion";
 
-function getTodayString(): string {
-  return new Date().toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-}
-
 function getRevenueTitle(dateRange: DateRange | undefined): string {
   if (!dateRange?.from || !dateRange?.to) return "Revenue";
   return `Revenue — ${format(dateRange.from, "MMM d")} – ${format(dateRange.to, "MMM d, yyyy")}`;
+}
+
+function toDateParams(range: DateRange | undefined) {
+  if (!range?.from || !range?.to) return undefined;
+  return {
+    from: format(range.from, "yyyy-MM-dd"),
+    to: format(range.to, "yyyy-MM-dd"),
+  };
 }
 
 interface DashboardPageClientProps {
@@ -37,41 +36,25 @@ interface DashboardPageClientProps {
 }
 
 export function DashboardPageClient({ initialStats = null }: DashboardPageClientProps) {
-  const [stats, setStats] = useState<DashboardStats | null>(initialStats);
-  const [loading, setLoading] = useState(!initialStats);
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: startOfMonth(new Date()),
     to: new Date(),
   });
 
-  const fetchStats = useCallback(async (range: DateRange | undefined) => {
-    setLoading(true);
-    const params = range?.from && range?.to
-      ? { from: format(range.from, "yyyy-MM-dd"), to: format(range.to, "yyyy-MM-dd") }
-      : undefined;
+  const dateParams = toDateParams(dateRange);
 
-    const { data, error } = await getDashboardStats(params);
-    if (error) {
-      toast.error(error);
-    }
-    setStats(data);
-    setLoading(false);
-  }, []);
+  const { data: result, isLoading } = useDashboardStats(
+    dateParams,
+    initialStats ? { data: initialStats, error: null } : undefined,
+  );
 
-  useEffect(() => {
-    if (initialStats) return;
-    fetchStats(dateRange);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const stats = result?.data ?? null;
 
   const handleDateRangeChange = (range: DateRange | undefined) => {
     setDateRange(range);
-    if (range?.from && range?.to) {
-      fetchStats(range);
-    }
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <section className="p-6">
         <DashboardSkeleton />

@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { format, subMonths, subYears } from "date-fns";
 import type { DateRange } from "react-day-picker";
-import { toast } from "sonner";
 import {
   IconCash,
   IconBriefcase,
@@ -19,7 +18,7 @@ import type {
   QuoteInvoiceReportData,
   BookingReportData,
 } from "@hvac-saas/types";
-import { getReportStats } from "@/actions/reports";
+import { useReportStats } from "@/hooks/queries";
 import { DateRangePicker, type DatePreset } from "@/components/ui/date-range-picker";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -67,93 +66,33 @@ export function ReportsPageClient() {
     from: subMonths(new Date(), 3),
     to: new Date(),
   });
-  const [tabData, setTabData] = useState<TabDataMap>({
-    revenue: null,
-    jobs: null,
-    customers: null,
-    "quotes-invoices": null,
-    bookings: null,
-  });
-  const [tabLoading, setTabLoading] = useState<Record<ReportSection, boolean>>({
-    revenue: false,
-    jobs: false,
-    customers: false,
-    "quotes-invoices": false,
-    bookings: false,
-  });
-  const [initialLoading, setInitialLoading] = useState(true);
 
-  // Track which date range each tab was fetched for
-  const tabDateRef = useRef<Record<ReportSection, string>>({
-    revenue: "",
-    jobs: "",
-    customers: "",
-    "quotes-invoices": "",
-    bookings: "",
+  const from = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+  const to = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
+  const dateKey = useMemo(() => (from && to ? `${from}_${to}` : ""), [from, to]);
+
+  const { data: tabData, isLoading } = useReportStats({
+    section: activeTab,
+    from,
+    to,
   });
 
-  const dateKey = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) return "";
-    return `${format(dateRange.from, "yyyy-MM-dd")}_${format(dateRange.to, "yyyy-MM-dd")}`;
-  }, [dateRange]);
-
-  const fetchSection = useCallback(
-    async (section: ReportSection) => {
-      if (!dateRange?.from || !dateRange?.to) return;
-
-      // Skip if already fetched for this date range
-      if (tabDateRef.current[section] === dateKey && tabData[section]) return;
-
-      setTabLoading((prev) => ({ ...prev, [section]: true }));
-
-      const { data, error } = await getReportStats({
-        section,
-        from: format(dateRange.from, "yyyy-MM-dd"),
-        to: format(dateRange.to, "yyyy-MM-dd"),
-      });
-
-      if (error) {
-        toast.error(error);
-      } else {
-        setTabData((prev) => ({ ...prev, [section]: data }));
-        tabDateRef.current[section] = dateKey;
-      }
-
-      setTabLoading((prev) => ({ ...prev, [section]: false }));
-      setInitialLoading(false);
-    },
-    [dateRange, dateKey, tabData],
+  // Build the TabDataMap shape expected by renderTabContent
+  const tabDataMap: TabDataMap = useMemo(
+    () => ({
+      revenue: activeTab === "revenue" ? (tabData as RevenueReportData) ?? null : null,
+      jobs: activeTab === "jobs" ? (tabData as JobReportData) ?? null : null,
+      customers: activeTab === "customers" ? (tabData as CustomerReportData) ?? null : null,
+      "quotes-invoices":
+        activeTab === "quotes-invoices"
+          ? (tabData as QuoteInvoiceReportData) ?? null
+          : null,
+      bookings: activeTab === "bookings" ? (tabData as BookingReportData) ?? null : null,
+    }),
+    [activeTab, tabData],
   );
 
-  // Fetch active tab on mount and when tab changes
-  useEffect(() => {
-    fetchSection(activeTab);
-  }, [activeTab, fetchSection]);
-
-  // When date range changes, invalidate all tabs and fetch active
-  const handleDateRangeChange = useCallback(
-    (range: DateRange | undefined) => {
-      setDateRange(range);
-      // Invalidate all cached data
-      tabDateRef.current = {
-        revenue: "",
-        jobs: "",
-        customers: "",
-        "quotes-invoices": "",
-        bookings: "",
-      };
-      setTabData({
-        revenue: null,
-        jobs: null,
-        customers: null,
-        "quotes-invoices": null,
-        bookings: null,
-      });
-    },
-    [],
-  );
-
-  if (initialLoading && !tabData[activeTab]) {
+  if (isLoading && !tabData) {
     return (
       <section className="p-6">
         <ReportsSkeleton />
@@ -171,10 +110,10 @@ export function ReportsPageClient() {
           <div className="flex items-center gap-2">
             <DateRangePicker
               dateRange={dateRange}
-              onDateRangeChange={handleDateRangeChange}
+              onDateRangeChange={setDateRange}
               extraPresets={EXTRA_PRESETS}
             />
-            <ExportCsvButton section={activeTab} data={tabData[activeTab]} />
+            <ExportCsvButton section={activeTab} data={tabDataMap[activeTab]} />
           </div>
         </div>
       </Fade>
@@ -199,11 +138,11 @@ export function ReportsPageClient() {
 
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value} className="mt-0">
-            {tabLoading[tab.value] ? (
+            {isLoading && activeTab === tab.value ? (
               <ReportsTabSkeleton />
             ) : (
               <Fade inView inViewOnce key={`${tab.value}-${dateKey}`} delay={0}>
-                {renderTabContent(tab.value, tabData)}
+                {renderTabContent(tab.value, tabDataMap)}
               </Fade>
             )}
           </TabsContent>

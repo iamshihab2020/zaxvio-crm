@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff } from "@tabler/icons-react";
-import { toast } from "sonner";
 import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
@@ -17,16 +17,18 @@ import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
-  getCustomers,
-  getCustomerStats,
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-  bulkArchiveCustomers,
-  bulkRestoreCustomers,
-  bulkDeleteCustomers,
-} from "@/actions/customers";
+  useCustomers,
+  useCustomerStats,
+  useCreateCustomer,
+  useUpdateCustomer,
+  useDeleteCustomer,
+  useBulkArchiveCustomers,
+  useBulkRestoreCustomers,
+  useBulkDeleteCustomers,
+  prefetchCustomers,
+} from "@/hooks/queries";
 import type { Customer } from "@hvac-saas/types";
 
 interface PaginationData {
@@ -43,6 +45,9 @@ interface CustomerStats {
   withAddress: number;
 }
 
+const DEFAULT_PAGINATION: PaginationData = { page: 1, limit: 15, total: 0, totalPages: 0 };
+const DEFAULT_STATS: CustomerStats = { total: 0, withEmail: 0, withPhone: 0, withAddress: 0 };
+
 interface CustomersPageClientProps {
   initialCustomers?: Customer[];
   initialPagination?: PaginationData;
@@ -51,15 +56,15 @@ interface CustomersPageClientProps {
 
 export function CustomersPageClient({
   initialCustomers = [],
-  initialPagination = { page: 1, limit: 15, total: 0, totalPages: 0 },
+  initialPagination = DEFAULT_PAGINATION,
   initialStats,
 }: CustomersPageClientProps) {
-  const [customers, setCustomers] = useState<Customer[]>(initialCustomers);
-  const [pagination, setPagination] = useState<PaginationData>(initialPagination);
+  // UI state
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(initialPagination.page);
   const [viewFilter, setViewFilter] = useState("");
-  const [loading, setLoading] = useState(initialCustomers.length === 0);
-  const [saving, setSaving] = useState(false);
+  const showingArchived = viewFilter === "archived";
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -67,7 +72,6 @@ export function CustomersPageClient({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [stats, setStats] = useState(initialStats ?? { total: 0, withEmail: 0, withPhone: 0, withAddress: 0 });
 
   // Bulk selection
   const {
@@ -80,58 +84,65 @@ export function CustomersPageClient({
     isIndeterminate,
     selectedCount,
   } = useRowSelection();
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const showingArchived = viewFilter === "archived";
 
-  // Refresh stats after mutations (single API call)
-  async function refreshStats() {
-    const result = await getCustomerStats();
-    if (result.data) setStats(result.data);
+  // ── Queries ────────────────────────────────────────────────
+  const queryClient = useQueryClient();
+  const listParams = { search: debouncedSearch, page, limit: 15, showArchived: showingArchived || undefined };
+  const customersQuery = useCustomers(listParams);
+  const statsQuery = useCustomerStats();
+
+  const customers = customersQuery.data?.data ?? [];
+  const pagination = customersQuery.data?.pagination ?? DEFAULT_PAGINATION;
+  const loading = customersQuery.isLoading;
+  const stats = statsQuery.data?.data ?? DEFAULT_STATS;
+
+  // Prefetch next page
+  useEffect(() => {
+    if (pagination && page < pagination.totalPages) {
+      prefetchCustomers(queryClient, { ...listParams, page: page + 1 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pagination?.totalPages]);
+
+  // ── Mutations ──────────────────────────────────────────────
+  const createMutation = useCreateCustomer();
+  const updateMutation = useUpdateCustomer();
+  const deleteMutation = useDeleteCustomer();
+  const bulkArchiveMutation = useBulkArchiveCustomers();
+  const bulkRestoreMutation = useBulkRestoreCustomers();
+  const bulkDeleteMutation = useBulkDeleteCustomers();
+
+  const saving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const bulkLoading = bulkArchiveMutation.isPending || bulkRestoreMutation.isPending || bulkDeleteMutation.isPending;
+
+  // ── Handlers ───────────────────────────────────────────────
+  function handlePageChange(newPage: number) {
+    setPage(newPage);
   }
 
-  const fetchCustomers = useCallback(
-    async (page: number, searchTerm: string, archived = false) => {
-      setLoading(true);
-      const result = await getCustomers({ search: searchTerm, page, limit: 15, showArchived: archived || undefined });
-      if (result.data) {
-        setCustomers(result.data);
-        setPagination(result.pagination ?? { page, limit: 15, total: 0, totalPages: 0 });
-      }
-      setLoading(false);
-    },
-    [],
-  );
-
-  // Fetch on mount (skip if server-prefetched)
-  useEffect(() => {
-    if (initialCustomers.length > 0) return;
-    fetchCustomers(1, "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Debounced search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchCustomers(1, search, showingArchived);
-    }, 300);
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
     clearSelection();
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, viewFilter, fetchCustomers]);
+  }
 
-  function handlePageChange(newPage: number) {
-    fetchCustomers(newPage, search, showingArchived);
+  function handleViewFilterChange(value: string) {
+    setViewFilter(value);
+    setPage(1);
+    clearSelection();
   }
 
   function openCreateDialog() {
     setEditingCustomer(null);
+    setError(null);
     setDialogOpen(true);
   }
 
   function openEditDialog(customer: Customer) {
     setEditingCustomer(customer);
+    setError(null);
     setDialogOpen(true);
   }
 
@@ -140,81 +151,45 @@ export function CustomersPageClient({
     setDeleteDialogOpen(true);
   }
 
-  async function handleSave(data: CustomerFormData) {
-    setSaving(true);
+  function handleSave(data: CustomerFormData) {
     setError(null);
     if (editingCustomer) {
-      const result = await updateCustomer(editingCustomer.id, data);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setDialogOpen(false);
-        fetchCustomers(pagination.page, search);
-        refreshStats();
-      }
+      updateMutation.mutate({ id: editingCustomer.id, data }, {
+        onSuccess: (res) => { if (!res.error) setDialogOpen(false); },
+      });
     } else {
-      const result = await createCustomer(data);
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setDialogOpen(false);
-        fetchCustomers(1, search);
-        refreshStats();
-      }
+      createMutation.mutate(data, {
+        onSuccess: (res) => {
+          if (!res.error) { setDialogOpen(false); setPage(1); }
+        },
+      });
     }
-    setSaving(false);
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!deletingCustomer) return;
-    setSaving(true);
     setError(null);
-    const result = await deleteCustomer(deletingCustomer.id);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setDeleteDialogOpen(false);
-      setDeletingCustomer(null);
-      fetchCustomers(pagination.page, search);
-      refreshStats();
-    }
-    setSaving(false);
+    deleteMutation.mutate(deletingCustomer.id, {
+      onSuccess: (res) => {
+        if (!res.error) { setDeleteDialogOpen(false); setDeletingCustomer(null); }
+      },
+    });
   }
 
-  // Bulk action handlers
-  async function handleBulkArchive() {
-    setBulkLoading(true);
+  function handleBulkArchive() {
     const ids = Array.from(selectedIds);
-    const result = showingArchived
-      ? await bulkRestoreCustomers(ids)
-      : await bulkArchiveCustomers(ids);
-    setBulkLoading(false);
-    setBulkArchiveOpen(false);
-    clearSelection();
-    fetchCustomers(pagination.page, search, showingArchived);
-    refreshStats();
-    if (result.succeeded > 0) {
-      toast.success(`${result.succeeded} customer(s) ${showingArchived ? "restored" : "archived"}`);
-    }
-    if (result.failed > 0) {
-      toast.error(`${result.failed} customer(s) could not be ${showingArchived ? "restored" : "archived"}`);
+    const onDone = () => { setBulkArchiveOpen(false); clearSelection(); };
+    if (showingArchived) {
+      bulkRestoreMutation.mutate(ids, { onSuccess: onDone });
+    } else {
+      bulkArchiveMutation.mutate(ids, { onSuccess: onDone });
     }
   }
 
-  async function handleBulkDelete() {
-    setBulkLoading(true);
-    const result = await bulkDeleteCustomers(Array.from(selectedIds));
-    setBulkLoading(false);
-    setBulkDeleteOpen(false);
-    clearSelection();
-    fetchCustomers(pagination.page, search, showingArchived);
-    refreshStats();
-    if (result.succeeded > 0) {
-      toast.success(`${result.succeeded} customer(s) permanently deleted`);
-    }
-    if (result.failed > 0) {
-      toast.error(`${result.failed} customer(s) could not be deleted`);
-    }
+  function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds), {
+      onSuccess: () => { setBulkDeleteOpen(false); clearSelection(); },
+    });
   }
 
   const hasCustomers = customers.length > 0;
@@ -274,12 +249,12 @@ export function CustomersPageClient({
                 { value: "archived", label: "Archived" },
               ]}
               value={viewFilter}
-              onChange={setViewFilter}
+              onChange={handleViewFilterChange}
             />
             <div className="ml-auto">
               <SearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={handleSearchChange}
                 placeholder="Search by name, email, or phone..."
               />
             </div>

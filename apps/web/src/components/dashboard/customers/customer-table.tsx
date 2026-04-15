@@ -1,6 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { getCustomer } from "@/actions/customers";
 import {
   Table,
   TableBody,
@@ -69,6 +72,7 @@ export function CustomerTable({
   isIndeterminate,
 }: CustomerTableProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const hasSelection = !!selectedIds && !!onToggleSelect;
 
   return (
@@ -98,6 +102,13 @@ export function CustomerTable({
               key={customer.id}
               className="cursor-pointer"
               onClick={() => router.push(`/customers/${customer.id}`)}
+              onMouseEnter={() => {
+                queryClient.prefetchQuery({
+                  queryKey: queryKeys.customers.detail(customer.id),
+                  queryFn: () => getCustomer(customer.id),
+                  staleTime: 30_000,
+                });
+              }}
             >
               {hasSelection && (
                 <TableCell onClick={(e) => e.stopPropagation()}>

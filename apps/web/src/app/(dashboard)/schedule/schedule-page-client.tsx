@@ -1,22 +1,24 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, type MutableRefObject } from "react";
+import { useState, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import {
+  useBookings,
+  useCalendarEvents,
+  useCreateCalendarEvent,
+  useUpdateCalendarEvent,
+} from "@/hooks/queries";
 import { Card } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from "date-fns";
 
 import { getJobs, updateJob, deleteJob } from "@/actions/jobs";
-import { getBookings, getAvailability } from "@/actions/bookings";
+import { getAvailability } from "@/actions/bookings";
 import { getPipelineStages } from "@/actions/pipeline-stages";
-import {
-  getCalendarEvents,
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
-  type CalendarEventData,
-} from "@/actions/calendar-events";
+import { type CalendarEventData } from "@/actions/calendar-events";
 import type { JobCardData } from "@/components/dashboard/jobs/kanban-card";
 import { JobDetailSheet, type JobDetail } from "@/components/dashboard/jobs/job-detail-sheet";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
@@ -195,6 +197,7 @@ function calEventToCalendarEvent(evt: CalendarEventData): CalendarEvent {
 export function SchedulePageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   // Calendar state
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -205,14 +208,6 @@ export function SchedulePageClient() {
     }
     return "week";
   });
-
-  // Data state
-  const [jobs, setJobs] = useState<JobCardData[]>([]);
-  const [bookings, setBookings] = useState<BookingData[]>([]);
-  const [calEvents, setCalEvents] = useState<CalendarEventData[]>([]);
-  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
-  const [stages, setStages] = useState<PipelineStage[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Filter state
   const [priorityFilter, setPriorityFilter] = useState<JobPriority | null>(null);
@@ -229,7 +224,6 @@ export function SchedulePageClient() {
   const [editingJob, setEditingJob] = useState<JobDetail | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [deletingJob, setDeletingJob] = useState<JobDetail | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Navigation direction for calendar transitions (-1 = prev, 0 = view change, 1 = next)
   const navigationDirection = useRef<-1 | 0 | 1>(0);
@@ -259,107 +253,105 @@ export function SchedulePageClient() {
   // Calendar event dialog state
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
   const [editingEvent, setEditingEvent] = useState<CalendarEventData | null>(null);
-  const [eventSaving, setEventSaving] = useState(false);
   const [slotInfo, setSlotInfo] = useState<{ date: string; start: string; end: string } | null>(null);
 
   // Cooldown ref to prevent slot click from reopening dialog immediately after close
   const dialogClosedAtRef = useRef(0);
 
-  // Ref to prevent double-fetch
-  const fetchingRef = useRef(false);
+  /* ── Queries ── */
+  const { dateFrom, dateTo } = getDateRange(currentDate, currentView);
 
-  // Date range cache: avoids refetching when revisiting previously viewed ranges
-  const MAX_CACHE_ENTRIES = 10;
-  const dataCache = useRef(
-    new Map<string, { jobs: JobCardData[]; bookings: BookingData[]; events: CalendarEventData[] }>(),
-  );
-
-  /** Clear the date range cache (call after mutations) */
-  const clearCache = useCallback(() => {
-    dataCache.current.clear();
-  }, []);
-
-  /* ── Fetch data ── */
-  const fetchData = useCallback(
-    async (date: Date, view: CalendarView) => {
-      if (fetchingRef.current) return;
-
-      const { dateFrom, dateTo } = getDateRange(date, view);
-      const cacheKey = `${dateFrom}_${dateTo}`;
-
-      // Serve from cache instantly (no loading state)
-      const cached = dataCache.current.get(cacheKey);
-      if (cached) {
-        setJobs(cached.jobs);
-        setBookings(cached.bookings);
-        setCalEvents(cached.events);
-        setLoading(false);
-        return;
-      }
-
-      fetchingRef.current = true;
-
-      try {
-        const [jobsRes, bookingsRes, eventsRes] = await Promise.all([
-          getJobs({ dateFrom, dateTo, limit: 200, sortBy: "scheduledDate", sortOrder: "asc" }),
-          getBookings({ dateFrom, dateTo, limit: 200 }),
-          getCalendarEvents({ dateFrom, dateTo, limit: 200 }),
-        ]);
-
-        const newJobs = jobsRes.data ?? [];
-        const newBookings = bookingsRes.data ?? [];
-        const newEvents = eventsRes.data ?? [];
-
-        // Store in cache (evict oldest entry if at capacity)
-        if (dataCache.current.size >= MAX_CACHE_ENTRIES) {
-          const firstKey = dataCache.current.keys().next().value;
-          if (firstKey !== undefined) dataCache.current.delete(firstKey);
-        }
-        dataCache.current.set(cacheKey, {
-          jobs: newJobs,
-          bookings: newBookings,
-          events: newEvents,
-        });
-
-        setJobs(newJobs);
-        setBookings(newBookings);
-        setCalEvents(newEvents);
-      } finally {
-        fetchingRef.current = false;
-        setLoading(false);
-      }
+  const jobsQuery = useQuery({
+    queryKey: queryKeys.jobs.list({ dateFrom, dateTo, schedule: true }),
+    queryFn: async (): Promise<JobCardData[]> => {
+      const result = await getJobs({ dateFrom, dateTo, limit: 200, sortBy: "scheduledDate", sortOrder: "asc" });
+      return (result.data ?? []) as JobCardData[];
     },
-    [],
-  );
+  });
 
-  // Initial load: availability + stages + data
-  useEffect(() => {
-    async function init() {
-      const [availRes, stagesRes] = await Promise.all([
-        getAvailability(),
-        getPipelineStages(),
-      ]);
+  const bookingsQuery = useBookings({ dateFrom, dateTo, limit: 200, schedule: true });
 
-      if (availRes.data?.weeklySchedule) {
-        setAvailability(availRes.data.weeklySchedule);
-      }
-      if (stagesRes.data) {
-        setStages(stagesRes.data);
-      }
+  const calEventsQuery = useCalendarEvents({ dateFrom, dateTo, limit: 200 });
 
-      await fetchData(currentDate, currentView);
-    }
-    init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const availabilityQuery = useQuery({
+    queryKey: queryKeys.bookings.availability(),
+    queryFn: async () => {
+      const result = await getAvailability();
+      return (result.data?.weeklySchedule as AvailabilitySlot[]) ?? [];
+    },
+    staleTime: 5 * 60 * 1000, // 5 min — rarely changes
+  });
 
-  // Refetch when date/view changes
-  useEffect(() => {
-    if (!loading) {
-      fetchData(currentDate, currentView);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDate, currentView]);
+  const stagesQuery = useQuery({
+    queryKey: queryKeys.pipelines.all,
+    queryFn: async () => {
+      const result = await getPipelineStages();
+      return (result.data as PipelineStage[]) ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // Derived data
+  const jobs = jobsQuery.data ?? [];
+  const bookings = (bookingsQuery.data?.data ?? []) as BookingData[];
+  const calEvents = (calEventsQuery.data?.data ?? []) as CalendarEventData[];
+  const availability = availabilityQuery.data ?? [];
+  const stages = stagesQuery.data ?? [];
+  const loading = jobsQuery.isLoading || bookingsQuery.isLoading || calEventsQuery.isLoading;
+
+  /** Invalidate all schedule-related queries */
+  function invalidateScheduleData() {
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+    queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+  }
+
+  /* ── Mutations ── */
+
+  const updateJobMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: { scheduledDate: string; scheduledStart: string; scheduledEnd: string } }) => {
+      const result = await updateJob(id, data);
+      if (result.error) throw new Error(result.error);
+      return result;
+    },
+    onSuccess: () => {
+      invalidateScheduleData();
+    },
+  });
+
+  const deleteJobMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const result = await deleteJob(id);
+      if (result.error) throw new Error(result.error);
+      return result;
+    },
+    onSuccess: () => {
+      toast.success("Job deleted");
+      setDeletingJob(null);
+      setSheetOpen(false);
+      setSelectedJobId(null);
+      invalidateScheduleData();
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+
+  // Drag/drop calendar event update — kept inline for optimistic update + revert pattern
+  const updateCalEventMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+      const { updateCalendarEvent } = await import("@/actions/calendar-events");
+      const result = await updateCalendarEvent(id, data);
+      if (result.error) throw new Error(result.error);
+      return result;
+    },
+    onSuccess: () => {
+      invalidateScheduleData();
+    },
+  });
+
+  const createCalEventMutation = useCreateCalendarEvent();
+  const updateCalEventSaveMutation = useUpdateCalendarEvent();
 
   /* ── View persistence ── */
   function handleViewChange(view: CalendarView) {
@@ -450,22 +442,24 @@ export function SchedulePageClient() {
       const startTime = format(start, "HH:mm");
       const endTime = format(end, "HH:mm");
 
-      const prevEvents = [...calEvents];
-      setCalEvents((prev) =>
-        prev.map((e) =>
-          e.id === event.id
-            ? { ...e, eventDate, startTime, endTime }
-            : e,
-        ),
+      // Optimistic update
+      queryClient.setQueryData(
+        queryKeys.calendar.events({ dateFrom, dateTo, limit: 200 }),
+        (old: { data?: CalendarEventData[] } | undefined) => ({
+          ...old,
+          data: (old?.data ?? []).map((e) =>
+            e.id === event.id ? { ...e, eventDate, startTime, endTime } : e,
+          ),
+        }),
       );
 
-      const result = await updateCalendarEvent(event.id, { eventDate, startTime, endTime });
-      if (result.error) {
-        setCalEvents(prevEvents);
-        toast.error(result.error);
-      } else {
-        clearCache();
+      try {
+        await updateCalEventMutation.mutateAsync({ id: event.id, data: { eventDate, startTime, endTime } });
         toast.success(`Event moved to ${format(start, "MMM d, h:mm a")}`);
+      } catch (error) {
+        // Revert optimistic update by refetching
+        queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+        toast.error(error instanceof Error ? error.message : "Failed to move event");
       }
       return;
     }
@@ -475,27 +469,21 @@ export function SchedulePageClient() {
     const scheduledEnd = format(end, "HH:mm");
 
     // Optimistic update
-    const prevJobs = [...jobs];
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === event.id
-          ? { ...j, scheduledDate, scheduledStart, scheduledEnd }
-          : j,
-      ),
+    queryClient.setQueryData(
+      queryKeys.jobs.list({ dateFrom, dateTo, schedule: true }),
+      (old: JobCardData[] | undefined) =>
+        (old ?? []).map((j) =>
+          j.id === event.id ? { ...j, scheduledDate, scheduledStart, scheduledEnd } : j,
+        ),
     );
 
-    const result = await updateJob(event.id, {
-      scheduledDate,
-      scheduledStart,
-      scheduledEnd,
-    });
-
-    if (result.error) {
-      setJobs(prevJobs);
-      toast.error(result.error);
-    } else {
-      clearCache();
+    try {
+      await updateJobMutation.mutateAsync({ id: event.id, data: { scheduledDate, scheduledStart, scheduledEnd } });
       toast.success(`Job rescheduled to ${format(start, "MMM d, h:mm a")}`);
+    } catch (error) {
+      // Revert optimistic update by refetching
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+      toast.error(error instanceof Error ? error.message : "Failed to reschedule job");
     }
   }
 
@@ -513,19 +501,22 @@ export function SchedulePageClient() {
       const startTime = format(start, "HH:mm");
       const endTime = format(end, "HH:mm");
 
-      const prevEvents = [...calEvents];
-      setCalEvents((prev) =>
-        prev.map((e) =>
-          e.id === event.id ? { ...e, eventDate, startTime, endTime } : e,
-        ),
+      // Optimistic update
+      queryClient.setQueryData(
+        queryKeys.calendar.events({ dateFrom, dateTo, limit: 200 }),
+        (old: { data?: CalendarEventData[] } | undefined) => ({
+          ...old,
+          data: (old?.data ?? []).map((e) =>
+            e.id === event.id ? { ...e, eventDate, startTime, endTime } : e,
+          ),
+        }),
       );
 
-      const result = await updateCalendarEvent(event.id, { eventDate, startTime, endTime });
-      if (result.error) {
-        setCalEvents(prevEvents);
-        toast.error(result.error);
-      } else {
-        clearCache();
+      try {
+        await updateCalEventMutation.mutateAsync({ id: event.id, data: { eventDate, startTime, endTime } });
+      } catch (error) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
+        toast.error(error instanceof Error ? error.message : "Failed to resize event");
       }
       return;
     }
@@ -534,26 +525,20 @@ export function SchedulePageClient() {
     const scheduledStart = format(start, "HH:mm");
     const scheduledEnd = format(end, "HH:mm");
 
-    const prevJobs = [...jobs];
-    setJobs((prev) =>
-      prev.map((j) =>
-        j.id === event.id
-          ? { ...j, scheduledDate, scheduledStart, scheduledEnd }
-          : j,
-      ),
+    // Optimistic update
+    queryClient.setQueryData(
+      queryKeys.jobs.list({ dateFrom, dateTo, schedule: true }),
+      (old: JobCardData[] | undefined) =>
+        (old ?? []).map((j) =>
+          j.id === event.id ? { ...j, scheduledDate, scheduledStart, scheduledEnd } : j,
+        ),
     );
 
-    const result = await updateJob(event.id, {
-      scheduledDate,
-      scheduledStart,
-      scheduledEnd,
-    });
-
-    if (result.error) {
-      setJobs(prevJobs);
-      toast.error(result.error);
-    } else {
-      clearCache();
+    try {
+      await updateJobMutation.mutateAsync({ id: event.id, data: { scheduledDate, scheduledStart, scheduledEnd } });
+    } catch (error) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+      toast.error(error instanceof Error ? error.message : "Failed to resize job");
     }
   }
 
@@ -567,27 +552,13 @@ export function SchedulePageClient() {
     setDeletingJob(job);
   }
 
-  async function confirmDelete() {
+  function confirmDelete() {
     if (!deletingJob) return;
-    setDeleteLoading(true);
-    const result = await deleteJob(deletingJob.id);
-    setDeleteLoading(false);
-
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Job deleted");
-      setDeletingJob(null);
-      setSheetOpen(false);
-      setSelectedJobId(null);
-      clearCache();
-      fetchData(currentDate, currentView);
-    }
+    deleteJobMutation.mutate(deletingJob.id);
   }
 
   function handleStatusChange() {
-    clearCache();
-    fetchData(currentDate, currentView);
+    invalidateScheduleData();
   }
 
   /* ── Calendar event CRUD ── */
@@ -632,55 +603,46 @@ export function SchedulePageClient() {
     setEventDialogOpen(true);
   }
 
+  function closeEventDialog() {
+    setEventDialogOpen(false);
+    setEditingEvent(null);
+    setSlotInfo(null);
+    invalidateScheduleData();
+  }
+
   async function handleEventSave(data: EventFormData) {
-    setEventSaving(true);
-    try {
-      if (editingEvent) {
-        const result = await updateCalendarEvent(editingEvent.id, {
-          title: data.title,
-          eventDate: data.eventDate,
-          startTime: data.startTime || undefined,
-          endTime: data.endTime || undefined,
-          contactName: data.contactName || undefined,
-          contactPhone: data.contactPhone || undefined,
-          address: data.address || undefined,
-          description: data.description || undefined,
-          notes: data.notes || undefined,
-          color: data.color,
-          customerId: data.customerId,
-        });
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
-        toast.success("Event updated");
-      } else {
-        const result = await createCalendarEvent({
-          title: data.title,
-          eventDate: data.eventDate,
-          startTime: data.startTime || undefined,
-          endTime: data.endTime || undefined,
-          contactName: data.contactName || undefined,
-          contactPhone: data.contactPhone || undefined,
-          address: data.address || undefined,
-          description: data.description || undefined,
-          notes: data.notes || undefined,
-          color: data.color,
-          customerId: data.customerId ?? undefined,
-        });
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
-        toast.success("Event created");
-      }
-      setEventDialogOpen(false);
-      setEditingEvent(null);
-      setSlotInfo(null);
-      clearCache();
-      fetchData(currentDate, currentView);
-    } finally {
-      setEventSaving(false);
+    const eventPayload = {
+      title: data.title,
+      eventDate: data.eventDate,
+      startTime: data.startTime || undefined,
+      endTime: data.endTime || undefined,
+      contactName: data.contactName || undefined,
+      contactPhone: data.contactPhone || undefined,
+      address: data.address || undefined,
+      description: data.description || undefined,
+      notes: data.notes || undefined,
+      color: data.color,
+      customerId: data.customerId ?? undefined,
+    };
+
+    if (editingEvent) {
+      updateCalEventSaveMutation.mutate(
+        { id: editingEvent.id, data: eventPayload },
+        {
+          onSuccess: (res) => {
+            if (!res.error) {
+              toast.success("Event updated");
+              closeEventDialog();
+            }
+          },
+        },
+      );
+    } else {
+      createCalEventMutation.mutate(eventPayload, {
+        onSuccess: (res) => {
+          if (!res.error) closeEventDialog();
+        },
+      });
     }
   }
 
@@ -700,6 +662,8 @@ export function SchedulePageClient() {
       : []),
     ...calEvents.map(calEventToCalendarEvent),
   ];
+
+  const eventSaving = createCalEventMutation.isPending || updateCalEventSaveMutation.isPending;
 
   /* ── Loading state ── */
   if (loading) {
@@ -782,7 +746,7 @@ export function SchedulePageClient() {
           open={!!deletingJob}
           onOpenChange={(open) => !open && setDeletingJob(null)}
           onConfirm={confirmDelete}
-          loading={deleteLoading}
+          loading={deleteJobMutation.isPending}
           entityName="job"
           itemLabel={deletingJob?.jobNumber ?? ""}
         />

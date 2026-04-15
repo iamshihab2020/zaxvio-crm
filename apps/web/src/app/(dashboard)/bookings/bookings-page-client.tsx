@@ -1,19 +1,22 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Booking } from "@hvac-saas/types";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
-  getBookings,
-  getBookingStats,
-  updateBooking,
-  cancelBooking,
-  convertBookingToJob,
-  bulkDeleteBookings,
-  bulkUpdateBookingStatus,
-} from "@/actions/bookings";
-import { getTenant } from "@/actions/tenants";
+  useBookings,
+  useBookingStats,
+  useUpdateBooking,
+  useConvertBookingToJob,
+  useCancelBooking,
+  useBulkDeleteBookings,
+  useBulkUpdateBookingStatus,
+  useTenantSettings,
+  prefetchBookings,
+} from "@/hooks/queries";
 import { BookingTable } from "@/components/dashboard/bookings/booking-table";
 import { BookingDetailSheet } from "@/components/dashboard/bookings/booking-detail-sheet";
 import { ConvertToJobDialog } from "@/components/reusable/convert-to-job-dialog";
@@ -82,16 +85,14 @@ export function BookingsPageClient({
 }: BookingsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [bookings, setBookings] = useState<Booking[]>(initialBookings);
-  const [loading, setLoading] = useState(initialBookings.length === 0);
+
+  // UI state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [pagination, setPagination] = useState<PaginationInfo>(
-    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
-  );
-  const [tenantSlug, setTenantSlug] = useState<string | null>(prefetchedSlug ?? null);
+  const [page, setPage] = useState(1);
   const [copied, setCopied] = useState(false);
-  const [stats, setStats] = useState(initialStats ?? { pending: 0, confirmed: 0, completed: 0, cancelled: 0 });
+
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // Row selection
   const {
@@ -106,7 +107,6 @@ export function BookingsPageClient({
   } = useRowSelection();
 
   // Bulk action state
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkConfirmStatus, setBulkConfirmStatus] = useState<string>("");
@@ -117,60 +117,69 @@ export function BookingsPageClient({
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(bookingIdParam);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelId, setCancelId] = useState<string | null>(null);
-  const [cancelLoading, setCancelLoading] = useState(false);
   const [convertOpen, setConvertOpen] = useState(false);
   const [convertId, setConvertId] = useState<string | null>(null);
-  const [convertLoading, setConvertLoading] = useState(false);
 
-  // Fetch tenant slug on mount (skip if server-prefetched)
+  // Reset page & selection when search/filter changes
+  // (debouncedSearch drives the query, so page reset is immediate on raw search change)
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
+    clearSelection();
+  };
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+    clearSelection();
+  };
+
+  // ── Queries ────────────────────────────────────────────────
+
+  const listParams = {
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    page,
+    limit: 15,
+    sortBy: "bookingDate",
+    sortOrder: "asc",
+  };
+
+  const bookingsQuery = useBookings(listParams);
+  const statsQuery = useBookingStats();
+  const tenantQuery = useTenantSettings();
+
+  // ── Derived state ──────────────────────────────────────────
+
+  const bookings = (bookingsQuery.data?.data ?? []) as Booking[];
+  const pagination = bookingsQuery.data?.pagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 };
+  const loading = bookingsQuery.isLoading;
+  const stats = statsQuery.data?.data ?? { pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+  const tenantSlug = tenantQuery.data?.data?.slug ?? prefetchedSlug ?? null;
+
+  // Prefetch next page
+  const queryClient = useQueryClient();
   useEffect(() => {
-    if (prefetchedSlug) return;
-    async function loadTenant() {
-      const result = await getTenant();
-      if (result.data?.slug) {
-        setTenantSlug(result.data.slug);
-      }
+    if (pagination && page < pagination.totalPages) {
+      prefetchBookings(queryClient, { ...listParams, page: page + 1 });
     }
-    loadTenant();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page, pagination?.totalPages]);
 
-  const fetchBookings = useCallback(async (page: number = 1) => {
-    setLoading(true);
-    const result = await getBookings({
-      search: search || undefined,
-      status: statusFilter || undefined,
-      page,
-      limit: 15,
-      sortBy: "bookingDate",
-      sortOrder: "asc",
-    });
+  // ── Mutations ──────────────────────────────────────────────
 
-    if (result.data) {
-      setBookings(result.data);
-      setPagination({
-        page: result.pagination?.page ?? 1,
-        limit: result.pagination?.limit ?? 20,
-        total: result.pagination?.total ?? 0,
-        totalPages: result.pagination?.totalPages ?? 0,
-      });
-    }
-    setLoading(false);
-  }, [search, statusFilter]);
+  const confirmMutation = useUpdateBooking();
+  const cancelMutation = useCancelBooking();
+  const convertMutation = useConvertBookingToJob();
+  const bulkDeleteMutation = useBulkDeleteBookings();
+  const bulkStatusMutation = useBulkUpdateBookingStatus();
 
-  // Refresh stats after mutations (single API call)
-  async function refreshStats() {
-    const result = await getBookingStats();
-    if (result.data) setStats(result.data);
-  }
+  // Derive loading states from mutations
+  const cancelLoading = cancelMutation.isPending;
+  const convertLoading = convertMutation.isPending;
+  const bulkLoading = bulkDeleteMutation.isPending || bulkStatusMutation.isPending;
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchBookings(1);
-      clearSelection();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [fetchBookings]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Handlers ───────────────────────────────────────────────
 
   const bookingUrl =
     tenantSlug && typeof window !== "undefined"
@@ -185,44 +194,29 @@ export function BookingsPageClient({
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // ===== BULK HANDLERS =====
-
-  async function handleBulkDelete() {
-    setBulkLoading(true);
-    const ids = Array.from(selectedIds);
-    const result = await bulkDeleteBookings(ids);
-    setBulkLoading(false);
-    setBulkDeleteOpen(false);
-    if (result.error && result.succeeded === 0) {
-      toast.error(result.error);
-    } else {
-      toast.success(`Deleted ${result.succeeded} booking${result.succeeded !== 1 ? "s" : ""}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
-      clearSelection();
-      fetchBookings(pagination.page);
-      refreshStats();
-    }
-  }
-
   function openBulkStatusConfirm(status: string) {
     setBulkConfirmStatus(status);
     setBulkConfirmOpen(true);
   }
 
-  async function handleBulkStatusUpdate() {
-    setBulkLoading(true);
+  async function handleBulkDelete() {
     const ids = Array.from(selectedIds);
-    const result = await bulkUpdateBookingStatus(ids, bulkConfirmStatus);
-    setBulkLoading(false);
-    setBulkConfirmOpen(false);
-    if (result.error && result.succeeded === 0) {
-      toast.error(result.error);
-    } else {
-      const label = bulkConfirmStatus.charAt(0).toUpperCase() + bulkConfirmStatus.slice(1);
-      toast.success(`Marked ${result.succeeded} booking${result.succeeded !== 1 ? "s" : ""} as ${label}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
-      clearSelection();
-      fetchBookings(pagination.page);
-      refreshStats();
-    }
+    bulkDeleteMutation.mutate(ids, {
+      onSuccess: () => {
+        setBulkDeleteOpen(false);
+        clearSelection();
+      },
+    });
+  }
+
+  async function handleBulkStatusUpdate() {
+    const ids = Array.from(selectedIds);
+    bulkStatusMutation.mutate({ ids, status: bulkConfirmStatus }, {
+      onSuccess: () => {
+        setBulkConfirmOpen(false);
+        clearSelection();
+      },
+    });
   }
 
   const handleRowClick = (id: string) => {
@@ -231,14 +225,7 @@ export function BookingsPageClient({
   };
 
   const handleConfirm = async (id: string) => {
-    const result = await updateBooking(id, { status: "confirmed" });
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Booking confirmed");
-      fetchBookings(pagination.page);
-      refreshStats();
-    }
+    confirmMutation.mutate({ id, data: { status: "confirmed" } });
   };
 
   const handleCancelClick = (id: string) => {
@@ -248,17 +235,9 @@ export function BookingsPageClient({
 
   const handleCancelConfirm = async () => {
     if (!cancelId) return;
-    setCancelLoading(true);
-    const result = await cancelBooking(cancelId);
-    setCancelLoading(false);
-    setCancelOpen(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Booking cancelled");
-      fetchBookings(pagination.page);
-      refreshStats();
-    }
+    cancelMutation.mutate(cancelId, {
+      onSuccess: () => setCancelOpen(false),
+    });
   };
 
   const handleConvertClick = (id: string) => {
@@ -268,16 +247,14 @@ export function BookingsPageClient({
 
   const handleConvertConfirm = async (pipelineStageId: string) => {
     if (!convertId) return;
-    setConvertLoading(true);
-    const result = await convertBookingToJob(convertId, pipelineStageId);
-    setConvertLoading(false);
-    setConvertOpen(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Booking converted to job");
-      router.push(`/jobs/${result.data.id}`);
-    }
+    convertMutation.mutate({ id: convertId, pipelineStageId }, {
+      onSuccess: (res) => {
+        setConvertOpen(false);
+        if (!res.error && res.data?.id) {
+          router.push(`/jobs/${res.data.id}`);
+        }
+      },
+    });
   };
 
   const hasBookings = bookings.length > 0;
@@ -357,7 +334,7 @@ export function BookingsPageClient({
           { label: "Cancelled", count: stats.cancelled, icon: IconX, color: "text-muted-foreground", bg: "bg-muted/50" },
         ]}
         activeFilter={statusFilter}
-        onFilterChange={setStatusFilter}
+        onFilterChange={handleStatusFilterChange}
         className="mb-4"
       />
 
@@ -380,12 +357,12 @@ export function BookingsPageClient({
             <StatusFilterTabs
               options={STATUS_OPTIONS}
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={handleStatusFilterChange}
             />
             <div className="ml-auto flex items-center gap-2">
               <SearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={handleSearchChange}
                 placeholder="Search bookings..."
               />
             </div>
@@ -415,7 +392,7 @@ export function BookingsPageClient({
               onCancel={handleCancelClick}
               selectedIds={selectedIds}
               onToggle={toggle}
-              onToggleAll={toggleAll}
+              onToggleAll={() => toggleAll(bookings)}
               isAllSelected={isAllSelected(bookings)}
               isIndeterminate={isIndeterminate(bookings)}
             />
@@ -429,7 +406,7 @@ export function BookingsPageClient({
           page={pagination.page}
           totalPages={pagination.totalPages}
           total={pagination.total}
-          onPageChange={(p) => fetchBookings(p)}
+          onPageChange={(p) => setPage(p)}
           entityName="booking"
         />
       )}

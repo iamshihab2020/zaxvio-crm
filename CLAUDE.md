@@ -78,6 +78,8 @@ packages/email/     @hvac-saas/email — React Email templates
 
 > **Skill**: If `skills/consolidate-memory.md` exists locally, follow its methodology when consolidating session memory.
 
+> **Skill**: If the user asks to generate, write, or review a PRD, follow the methodology in `docs/claude/workflow/prd-generator/SKILL.md`.
+
 ---
 
 ## Knowledge Base (Obsidian MCP — `obsidian-brain`)

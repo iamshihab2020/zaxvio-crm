@@ -4,8 +4,17 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useViewPreference } from "@/hooks/use-view-preference";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { queryKeys } from "@/lib/query-keys";
 import { toast } from "sonner";
+import {
+  useBulkDeleteJobs,
+  useBulkArchiveJobs,
+  useBulkRestoreJobs,
+  useBulkUpdateJobStatus,
+} from "@/hooks/queries";
 const KanbanBoard = dynamic(
   () =>
     import("@/components/dashboard/jobs/kanban-board").then((m) => ({
@@ -38,10 +47,6 @@ import {
   deleteJob,
   addJobLineItem,
   getJobAssignees,
-  bulkDeleteJobs,
-  bulkUpdateJobStatus,
-  bulkArchiveJobs,
-  bulkRestoreJobs,
 } from "@/actions/jobs";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
@@ -111,8 +116,8 @@ export function JobsPageClient({
 }: JobsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("jobs");
-  const [pipelinesData, setPipelinesData] = useState<PipelineData[]>(initialPipelines);
   const [selectedPipelineId, setSelectedPipelineId] = useState<string | null>(() => {
     if (typeof window === "undefined") return initialPipelineId;
     const urlPipeline = new URLSearchParams(window.location.search).get("pipeline");
@@ -121,13 +126,13 @@ export function JobsPageClient({
     if (stored) return stored;
     return initialPipelineId;
   });
-  const [jobs, setJobs] = useState<JobCardData[]>(initialJobs as JobCardData[]);
-  const [stages, setStages] = useState<PipelineStageWithCount[]>(initialStages as PipelineStageWithCount[]);
   const hasServerData = initialPipelineId !== null && initialPipelines.length > 0;
-  const [loading, setLoading] = useState(!hasServerData);
   const [search, setSearch] = useState("");
   const [priorityFilter, setPriorityFilter] = useState<JobPriority | null>(null);
   const [serviceTypeFilter, setServiceTypeFilter] = useState<ServiceType | null>(null);
+  const debouncedSearch = useDebouncedValue(search, 300);
+  const debouncedPriority = useDebouncedValue(priorityFilter, 300);
+  const debouncedServiceType = useDebouncedValue(serviceTypeFilter, 300);
 
   // View type: board vs list vs table (persisted — SSR-safe default)
   const [viewType, setViewType] = useState<"board" | "list" | "table">("board");
@@ -153,11 +158,9 @@ export function JobsPageClient({
   }, []);
 
   // Table-specific state
-  const [tableJobs, setTableJobs] = useState<JobCardData[]>([]);
-  const [tablePagination, setTablePagination] = useState({ page: 1, totalPages: 1, total: 0 });
+  const [tablePage, setTablePage] = useState(1);
   const [tableSortBy, setTableSortBy] = useState("scheduledDate");
   const [tableSortOrder, setTableSortOrder] = useState<"asc" | "desc">("asc");
-  const [tableLoading, setTableLoading] = useState(false);
 
   // Bulk selection (table view only)
   const {
@@ -169,7 +172,6 @@ export function JobsPageClient({
     isIndeterminate,
     selectedCount,
   } = useRowSelection();
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
 
@@ -180,9 +182,6 @@ export function JobsPageClient({
   function handleViewTypeChange(type: "board" | "list" | "table") {
     setViewType(type);
     localStorage.setItem("jobs-view-type", type);
-    if (type === "table") {
-      fetchJobsForTable(1, tableSortBy, tableSortOrder);
-    }
   }
 
   function handleCompactChange(value: boolean) {
@@ -221,110 +220,185 @@ export function JobsPageClient({
   const [initialStatus, setInitialStatus] = useState<string | undefined>(undefined);
 
   const [error, setError] = useState<string | null>(null);
-  const [defaultTaxRate, setDefaultTaxRate] = useState<string | undefined>(prefetchedTaxRate);
 
   // Card field visibility customization
   const { fields: cardFields, setField: setCardField, resetDefaults: resetCardFields } = useCardFieldVisibility();
 
-  // Assignee members for kanban card picker
-  const [assigneeMembers, setAssigneeMembers] = useState<AssigneeMember[]>([]);
+  // ── Queries ────────────────────────────────────────────────
+
+  // Pipelines
+  const pipelinesQuery = useQuery({
+    queryKey: queryKeys.pipelines.list(),
+    queryFn: async () => {
+      const result = await getPipelines();
+      return (result.data ?? []) as PipelineData[];
+    },
+    initialData: initialPipelines.length > 0 ? initialPipelines : undefined,
+    staleTime: 30_000,
+  });
+  const pipelinesData = pipelinesQuery.data ?? [];
+
+  // Resolve pipeline ID from URL/localStorage/default when pipelines load (only once)
+  const pipelineResolved = useRef(initialPipelines.length > 0);
   useEffect(() => {
-    getJobAssignees().then((result) => {
-      if (result.data) setAssigneeMembers(result.data as AssigneeMember[]);
-    });
-  }, []);
+    if (pipelineResolved.current) return;
+    if (pipelinesData.length === 0) return;
+    pipelineResolved.current = true;
 
-  const fetchStages = useCallback(async (pipelineId?: string) => {
-    const pid = pipelineId ?? selectedPipelineId;
-    if (!pid) return;
-    const result = await getPipelineStages(pid);
-    if (result.data) {
-      setStages(result.data as PipelineStageWithCount[]);
+    const urlPipeline = searchParams.get("pipeline");
+    const storedPipeline = typeof window !== "undefined"
+      ? localStorage.getItem("jobs-pipeline-id")
+      : null;
+
+    let resolvedId: string | null = null;
+    if (urlPipeline && pipelinesData.some((p) => p.id === urlPipeline)) {
+      resolvedId = urlPipeline;
+    } else if (storedPipeline && pipelinesData.some((p) => p.id === storedPipeline)) {
+      resolvedId = storedPipeline;
+    } else {
+      resolvedId = pipelinesData.find((p) => p.isDefault)?.id ?? pipelinesData[0]?.id ?? null;
     }
-  }, [selectedPipelineId]);
 
-  const fetchJobs = useCallback(
-    async (
-      searchTerm: string,
-      priority: JobPriority | null,
-      serviceType: ServiceType | null,
-      { silent = false, pipelineId }: { silent?: boolean; pipelineId?: string } = {},
-    ) => {
-      const pid = pipelineId ?? selectedPipelineId;
-      if (!silent) setLoading(true);
-      const [jobsResult, stagesResult] = await Promise.all([
-        getJobs({
-          search: searchTerm || undefined,
-          priority: priority ?? undefined,
-          serviceType: serviceType ?? undefined,
-          pipelineId: pid ?? undefined,
-          limit: 150,
-          sortBy: "scheduledDate",
-          sortOrder: "asc",
-        }),
-        !silent && pid ? getPipelineStages(pid) : Promise.resolve(null),
-      ]);
-      if (jobsResult.data) {
-        setJobs(jobsResult.data as JobCardData[]);
+    if (resolvedId) {
+      setSelectedPipelineId(resolvedId);
+      localStorage.setItem("jobs-pipeline-id", resolvedId);
+      if (searchParams.get("pipeline") !== resolvedId) {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("pipeline", resolvedId);
+        router.replace(`/jobs?${params.toString()}`);
       }
-      if (stagesResult?.data) {
-        setStages(stagesResult.data as PipelineStageWithCount[]);
-      }
-      if (!silent) setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pipelinesData]);
+
+  // Pipeline stages
+  const stagesQuery = useQuery({
+    queryKey: queryKeys.pipelines.stages(selectedPipelineId ?? "__none__"),
+    queryFn: async () => {
+      const result = await getPipelineStages(selectedPipelineId!);
+      return (result.data ?? []) as PipelineStageWithCount[];
     },
-    [selectedPipelineId],
-  );
+    enabled: !!selectedPipelineId,
+    initialData: initialStages.length > 0 ? (initialStages as PipelineStageWithCount[]) : undefined,
+    staleTime: 15_000,
+  });
+  const stages = stagesQuery.data ?? [];
 
-  const fetchJobsForTable = useCallback(
-    async (
-      page: number,
-      sortBy: string,
-      sortOrder: "asc" | "desc",
-      searchTerm?: string,
-      priority?: JobPriority | null,
-      serviceType?: ServiceType | null,
-      archived?: boolean,
-    ) => {
-      setTableLoading(true);
+  // Board/List jobs (all jobs for current pipeline, no pagination)
+  const boardJobsParams = {
+    search: debouncedSearch || undefined,
+    priority: debouncedPriority ?? undefined,
+    serviceType: debouncedServiceType ?? undefined,
+    pipelineId: selectedPipelineId ?? undefined,
+  };
+  const boardJobsQuery = useQuery({
+    queryKey: queryKeys.jobs.list({ ...boardJobsParams, view: "board" }),
+    queryFn: async () => {
       const result = await getJobs({
-        search: (searchTerm ?? search) || undefined,
-        priority: (priority !== undefined ? priority : priorityFilter) ?? undefined,
-        serviceType: (serviceType !== undefined ? serviceType : serviceTypeFilter) ?? undefined,
-        pipelineId: selectedPipelineId ?? undefined,
-        showArchived: (archived !== undefined ? archived : showingArchived) || undefined,
-        page,
-        limit: 15,
-        sortBy,
-        sortOrder,
+        ...boardJobsParams,
+        limit: 150,
+        sortBy: "scheduledDate",
+        sortOrder: "asc",
       });
-      if (result.data) {
-        setTableJobs(result.data as JobCardData[]);
-      }
-      if (result.pagination) {
-        setTablePagination({
-          page: result.pagination.page ?? page,
-          totalPages: result.pagination.totalPages ?? 1,
-          total: result.pagination.total ?? 0,
-        });
-      }
-      setTableLoading(false);
+      return (result.data ?? []) as JobCardData[];
     },
-    [search, priorityFilter, serviceTypeFilter, selectedPipelineId, showingArchived],
-  );
+    enabled: !!selectedPipelineId,
+    initialData: initialJobs.length > 0 ? (initialJobs as JobCardData[]) : undefined,
+    staleTime: 10_000,
+  });
+  const jobs = boardJobsQuery.data ?? [];
 
-  const refreshBothViews = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      if (viewType === "table") {
-        await Promise.all([
-          fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: opts?.silent }),
-          fetchJobsForTable(tablePagination.page, tableSortBy, tableSortOrder),
-        ]);
-      } else {
-        await fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: opts?.silent });
-      }
+  // Table jobs (paginated, separate query)
+  const tableJobsParams = {
+    search: debouncedSearch || undefined,
+    priority: debouncedPriority ?? undefined,
+    serviceType: debouncedServiceType ?? undefined,
+    pipelineId: selectedPipelineId ?? undefined,
+    showArchived: showingArchived || undefined,
+    page: tablePage,
+    sortBy: tableSortBy,
+    sortOrder: tableSortOrder,
+  };
+  const tableJobsQuery = useQuery({
+    queryKey: queryKeys.jobs.list({ ...tableJobsParams, view: "table" }),
+    queryFn: async () => {
+      const result = await getJobs({
+        ...tableJobsParams,
+        limit: 15,
+      });
+      return {
+        data: (result.data ?? []) as JobCardData[],
+        pagination: result.pagination ?? { page: tablePage, totalPages: 1, total: 0 },
+      };
     },
-    [fetchJobs, fetchJobsForTable, search, priorityFilter, serviceTypeFilter, viewType, tablePagination.page, tableSortBy, tableSortOrder],
-  );
+    enabled: !!selectedPipelineId && viewType === "table",
+    placeholderData: (prev) => prev,
+    staleTime: 10_000,
+  });
+  const tableJobs = tableJobsQuery.data?.data ?? [];
+  const tablePagination = tableJobsQuery.data?.pagination ?? { page: tablePage, totalPages: 1, total: 0 };
+  const tableLoading = tableJobsQuery.isLoading || tableJobsQuery.isFetching;
+
+  // Prefetch next page (table view only)
+  useEffect(() => {
+    if (viewType === "table" && tablePagination && tablePage < tablePagination.totalPages) {
+      const nextPageParams = { ...tableJobsParams, page: tablePage + 1 };
+      queryClient.prefetchQuery({
+        queryKey: queryKeys.jobs.list({ ...nextPageParams, view: "table" }),
+        queryFn: async () => {
+          const result = await getJobs({ ...nextPageParams, limit: 15 });
+          return {
+            data: (result.data ?? []) as JobCardData[],
+            pagination: result.pagination ?? { page: tablePage + 1, totalPages: 1, total: 0 },
+          };
+        },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tablePage, tablePagination?.totalPages, viewType]);
+
+  // Assignees
+  const assigneesQuery = useQuery({
+    queryKey: queryKeys.jobs.assignees(),
+    queryFn: async () => {
+      const result = await getJobAssignees();
+      return (result.data ?? []) as AssigneeMember[];
+    },
+    staleTime: 60_000,
+  });
+  const assigneeMembers = assigneesQuery.data ?? [];
+
+  // Tenant tax rate
+  const tenantQuery = useQuery({
+    queryKey: queryKeys.tenant.settings(),
+    queryFn: async () => {
+      const result = await getTenant();
+      return result.data?.defaultTaxRate as string | undefined;
+    },
+    enabled: !prefetchedTaxRate,
+    initialData: prefetchedTaxRate,
+    staleTime: 120_000,
+  });
+  const defaultTaxRate = tenantQuery.data ?? prefetchedTaxRate;
+
+  // Loading state — show loading only when board/list data is loading (not table)
+  const loading = (!hasServerData && boardJobsQuery.isLoading) || !selectedPipelineId;
+
+  // ── Invalidation helpers ──────────────────────────────────
+
+  const invalidateAll = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    if (selectedPipelineId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pipelines.stages(selectedPipelineId) });
+    }
+  }, [queryClient, selectedPipelineId]);
+
+  const invalidateJobsAndStages = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+    if (selectedPipelineId) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.pipelines.stages(selectedPipelineId) });
+    }
+  }, [queryClient, selectedPipelineId]);
 
   // Set pipeline URL param immediately from localStorage (before API call)
   useEffect(() => {
@@ -336,43 +410,7 @@ export function JobsPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Load pipelines on mount (skip if server-prefetched)
-  useEffect(() => {
-    if (initialPipelines.length > 0) return;
-    getPipelines().then((result) => {
-      if (result.data) {
-        const pList = result.data as PipelineData[];
-        setPipelinesData(pList);
-
-        const urlPipeline = searchParams.get("pipeline");
-        const storedPipeline = typeof window !== "undefined"
-          ? localStorage.getItem("jobs-pipeline-id")
-          : null;
-
-        let resolvedId: string | null = null;
-        if (urlPipeline && pList.some((p) => p.id === urlPipeline)) {
-          resolvedId = urlPipeline;
-        } else if (storedPipeline && pList.some((p) => p.id === storedPipeline)) {
-          resolvedId = storedPipeline;
-        } else {
-          resolvedId = pList.find((p) => p.isDefault)?.id ?? pList[0]?.id ?? null;
-        }
-
-        if (resolvedId) {
-          setSelectedPipelineId(resolvedId);
-          localStorage.setItem("jobs-pipeline-id", resolvedId);
-          if (searchParams.get("pipeline") !== resolvedId) {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("pipeline", resolvedId);
-            router.replace(`/jobs?${params.toString()}`);
-          }
-        }
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // When pipeline changes, refetch data (skip initial if prefetched)
+  // When pipeline changes, reset filters
   const initialFetchSkipped = useRef(initialJobs.length > 0);
   useEffect(() => {
     if (!selectedPipelineId) return;
@@ -381,13 +419,10 @@ export function JobsPageClient({
       return;
     }
     pipelineChangingRef.current = true;
-    fetchJobs("", null, null, { pipelineId: selectedPipelineId });
-    if (viewType === "table") {
-      fetchJobsForTable(1, tableSortBy, tableSortOrder, "", null, null);
-    }
     setSearch("");
     setPriorityFilter(null);
     setServiceTypeFilter(null);
+    setTablePage(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPipelineId]);
 
@@ -399,106 +434,56 @@ export function JobsPageClient({
     router.replace(`/jobs?${params.toString()}`);
   }
 
-  // Fetch tenant default tax rate on mount (skip if server-prefetched)
-  useEffect(() => {
-    if (prefetchedTaxRate) return;
-    getTenant().then((result) => {
-      if (result.data?.defaultTaxRate) {
-        setDefaultTaxRate(result.data.defaultTaxRate as string);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Fetch table data when starting in table mode
-  const initialTableFetchDone = useRef(false);
-  useEffect(() => {
-    if (viewType === "table" && !initialTableFetchDone.current) {
-      initialTableFetchDone.current = true;
-      fetchJobsForTable(1, tableSortBy, tableSortOrder, "", null, null);
-    }
-  }, [viewType, fetchJobsForTable, tableSortBy, tableSortOrder]);
-
-  // Debounced search + filter (skip when pipeline just changed — pipeline effect already fetched)
-  useEffect(() => {
-    if (pipelineChangingRef.current) {
-      pipelineChangingRef.current = false;
-      return;
-    }
-    const timer = setTimeout(() => {
-      fetchJobs(search, priorityFilter, serviceTypeFilter);
-      if (viewType === "table") {
-        fetchJobsForTable(1, tableSortBy, tableSortOrder, search, priorityFilter, serviceTypeFilter);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, priorityFilter, serviceTypeFilter, fetchJobs]);
-
   // Clear selection when filters or pipeline change
   useEffect(() => {
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, priorityFilter, serviceTypeFilter, selectedPipelineId, viewFilter]);
+  }, [debouncedSearch, debouncedPriority, debouncedServiceType, selectedPipelineId, viewFilter]);
 
-  // Re-fetch table when Active/Archived tab changes
-  useEffect(() => {
-    if (viewType === "table") {
-      fetchJobsForTable(1, tableSortBy, tableSortOrder, search, priorityFilter, serviceTypeFilter, showingArchived);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewFilter]);
+  // ── Mutations (reusable hooks — toast + invalidation handled internally) ──
 
-  async function handleBulkDelete() {
-    setBulkLoading(true);
-    const ids = Array.from(selectedIds);
-    const result = await bulkDeleteJobs(ids);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success(`Deleted ${result.succeeded ?? ids.length} job(s)`);
-      clearSelection();
-      setBulkDeleteOpen(false);
-      fetchJobsForTable(1, tableSortBy, tableSortOrder);
-      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
-      fetchStages();
-    }
-    setBulkLoading(false);
+  const bulkDeleteMutation = useBulkDeleteJobs();
+  const bulkArchiveMutation = useBulkArchiveJobs();
+  const bulkRestoreMutation = useBulkRestoreJobs();
+  const bulkStatusMutation = useBulkUpdateJobStatus();
+
+  function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds), {
+      onSuccess: (res) => {
+        if (!res.error) {
+          clearSelection();
+          setBulkDeleteOpen(false);
+          invalidateJobsAndStages();
+        }
+      },
+    });
   }
 
-  async function handleBulkArchive() {
-    setBulkLoading(true);
-    const ids = Array.from(selectedIds);
-    const action = showingArchived ? bulkRestoreJobs : bulkArchiveJobs;
-    const label = showingArchived ? "Restored" : "Archived";
-    const result = await action(ids);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success(`${label} ${result.succeeded ?? ids.length} job(s)`);
-      clearSelection();
-      setBulkArchiveOpen(false);
-      fetchJobsForTable(1, tableSortBy, tableSortOrder);
-      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
-      fetchStages();
-    }
-    setBulkLoading(false);
+  function handleBulkArchive() {
+    const mutation = showingArchived ? bulkRestoreMutation : bulkArchiveMutation;
+    mutation.mutate(Array.from(selectedIds), {
+      onSuccess: (res) => {
+        if (!res.error) {
+          clearSelection();
+          setBulkArchiveOpen(false);
+          invalidateJobsAndStages();
+        }
+      },
+    });
   }
 
-  async function handleBulkStatusUpdate(status: string) {
-    setBulkLoading(true);
-    const ids = Array.from(selectedIds);
-    const result = await bulkUpdateJobStatus(ids, status);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success(`Updated ${result.succeeded ?? ids.length} job(s) to "${status}"`);
-      clearSelection();
-      fetchJobsForTable(1, tableSortBy, tableSortOrder);
-      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
-    }
-    setBulkLoading(false);
+  function handleBulkStatusUpdate(status: string) {
+    bulkStatusMutation.mutate({ ids: Array.from(selectedIds), status }, {
+      onSuccess: (res) => {
+        if (!res.error) {
+          clearSelection();
+          invalidateAll();
+        }
+      },
+    });
   }
+
+  const bulkLoading = bulkDeleteMutation.isPending || bulkArchiveMutation.isPending || bulkRestoreMutation.isPending || bulkStatusMutation.isPending;
 
   function handleJobClick(jobId: string) {
     if (viewMode === "page") {
@@ -510,20 +495,18 @@ export function JobsPageClient({
   }
 
   function handleStatusChange() {
-    refreshBothViews({ silent: true });
-    fetchStages();
+    invalidateAll();
   }
 
   function handleTableSort(column: string) {
     const newOrder = tableSortBy === column && tableSortOrder === "asc" ? "desc" : "asc";
     setTableSortBy(column);
     setTableSortOrder(newOrder);
-    fetchJobsForTable(tablePagination.page, column, newOrder);
   }
 
   function handleTablePageChange(page: number) {
     clearSelection();
-    fetchJobsForTable(page, tableSortBy, tableSortOrder);
+    setTablePage(page);
   }
 
   function openCreateDialog() {
@@ -539,38 +522,42 @@ export function JobsPageClient({
   }
 
   function handleJobUpdate() {
-    refreshBothViews({ silent: true });
+    invalidateAll();
   }
 
   async function handleJobFieldChange(jobId: string, field: string, value: string) {
-    // Optimistic update
-    setJobs((prev) => prev.map((j) => j.id === jobId ? { ...j, [field]: value } : j));
+    // Optimistic update on board jobs via query cache
+    queryClient.setQueryData<JobCardData[]>(
+      queryKeys.jobs.list({ ...boardJobsParams, view: "board" }),
+      (old) => old?.map((j) => j.id === jobId ? { ...j, [field]: value } : j),
+    );
     const result = await updateJob(jobId, { [field]: value });
     if (result.error) {
       toast.error(result.error);
-      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     }
   }
 
   async function handleAssigneeChange(jobId: string, assigneeId: string | null) {
-    // Optimistic update on kanban
-    setJobs((prev) =>
-      prev.map((j) => {
-        if (j.id !== jobId) return j;
-        const member = assigneeMembers.find((m) => m.id === assigneeId) ?? null;
-        return {
-          ...j,
-          assigneeId: assigneeId,
-          assigneeName: member?.name ?? null,
-          assigneeImage: member?.image ?? null,
-        };
-      }),
+    // Optimistic update on kanban via query cache
+    queryClient.setQueryData<JobCardData[]>(
+      queryKeys.jobs.list({ ...boardJobsParams, view: "board" }),
+      (old) =>
+        old?.map((j) => {
+          if (j.id !== jobId) return j;
+          const member = assigneeMembers.find((m) => m.id === assigneeId) ?? null;
+          return {
+            ...j,
+            assigneeId: assigneeId,
+            assigneeName: member?.name ?? null,
+            assigneeImage: member?.image ?? null,
+          };
+        }),
     );
     const result = await updateJob(jobId, { assigneeId });
     if (result.error) {
       toast.error(result.error);
-      // Revert on error
-      fetchJobs(search, priorityFilter, serviceTypeFilter, { silent: true });
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     }
   }
 
@@ -603,7 +590,7 @@ export function JobsPageClient({
       } else {
         setDialogOpen(false);
         toast.success("Job updated");
-        refreshBothViews();
+        invalidateAll();
       }
     } else {
       const result = await createJob({
@@ -643,8 +630,7 @@ export function JobsPageClient({
         }
         setDialogOpen(false);
         toast.success("Job created");
-        refreshBothViews();
-        fetchStages();
+        invalidateJobsAndStages();
       }
     }
     setSaving(false);
@@ -660,8 +646,7 @@ export function JobsPageClient({
       toast.success("Job deleted");
       setDeleteDialogOpen(false);
       setDeletingJob(null);
-      refreshBothViews();
-      fetchStages();
+      invalidateJobsAndStages();
     }
     setSaving(false);
   }
@@ -952,7 +937,11 @@ export function JobsPageClient({
         onOpenChange={setPipelineDialogOpen}
         stages={stages}
         pipelineId={selectedPipelineId}
-        onStagesChange={fetchStages}
+        onStagesChange={() => {
+          if (selectedPipelineId) {
+            queryClient.invalidateQueries({ queryKey: queryKeys.pipelines.stages(selectedPipelineId) });
+          }
+        }}
       />
 
       {/* Bulk action bar — only shown in table view */}

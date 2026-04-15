@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -25,11 +25,13 @@ import {
 } from "@/components/dashboard/checklists/checklist-template-dialog";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import {
-  getChecklistTemplates,
+  useChecklistTemplates,
+  useCreateChecklistTemplate,
+  useUpdateChecklistTemplate,
+  useDeleteChecklistTemplate,
+} from "@/hooks/queries";
+import {
   getChecklistTemplate,
-  createChecklistTemplate,
-  updateChecklistTemplate,
-  deleteChecklistTemplate,
   addChecklistItem,
   updateChecklistItem,
   deleteChecklistItem,
@@ -72,40 +74,37 @@ interface ChecklistsPageClientProps {
 export function ChecklistsPageClient({
   initialTemplates = [],
 }: ChecklistsPageClientProps) {
-  const [templates, setTemplates] = useState<ChecklistTemplate[]>(initialTemplates);
-  const [loading, setLoading] = useState(initialTemplates.length === 0);
-  const [saving, setSaving] = useState(false);
+  // UI state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [filterServiceType, setFilterServiceType] = useState("");
+  const [filterOpen, setFilterOpen] = useState(false);
 
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<TemplateWithItems | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingTemplate, setDeletingTemplate] = useState<ChecklistTemplate | null>(null);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [savingItems, setSavingItems] = useState(false);
 
-  const fetchTemplates = useCallback(async () => {
-    setLoading(true);
-    const result = await getChecklistTemplates({
-      serviceType: filterServiceType || undefined,
-      showInactive: statusFilter === "inactive" || statusFilter === "",
-    });
-    if (result.data) {
-      setTemplates(result.data);
-    }
-    setLoading(false);
-  }, [filterServiceType, statusFilter]);
+  // ── Queries ────────────────────────────────────────────────
+  const listParams = {
+    serviceType: filterServiceType || undefined,
+    showInactive: statusFilter === "inactive" || statusFilter === "",
+  };
+  const templatesQuery = useChecklistTemplates(listParams);
 
-  // Fetch on mount (skip if server-prefetched), re-fetch on filter change
-  useEffect(() => {
-    if (initialTemplates.length > 0 && !filterServiceType && !statusFilter) return;
-    fetchTemplates();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchTemplates]);
+  const templates = (templatesQuery.data?.data ?? []) as ChecklistTemplate[];
+  const loading = templatesQuery.isLoading;
 
-  // Compute stats client-side
+  // ── Mutations ──────────────────────────────────────────────
+  const createMutation = useCreateChecklistTemplate();
+  const updateMutation = useUpdateChecklistTemplate();
+  const deleteMutation = useDeleteChecklistTemplate();
+
+  const saving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending || savingItems;
+
+  // ── Derived ────────────────────────────────────────────────
   const stats = useMemo(() => {
     let active = 0, inactive = 0;
     for (const t of templates) {
@@ -115,26 +114,18 @@ export function ChecklistsPageClient({
     return { total: templates.length, active, inactive };
   }, [templates]);
 
-  // Client-side search + status filtering
   const filteredTemplates = useMemo(() => {
     let result = templates;
-
-    // Status filter
-    if (statusFilter === "active") {
-      result = result.filter((t) => t.isActive);
-    } else if (statusFilter === "inactive") {
-      result = result.filter((t) => !t.isActive);
-    }
-
-    // Search filter
+    if (statusFilter === "active") result = result.filter((t) => t.isActive);
+    else if (statusFilter === "inactive") result = result.filter((t) => !t.isActive);
     if (search) {
       const lowerSearch = search.toLowerCase();
       result = result.filter((t) => t.name.toLowerCase().includes(lowerSearch));
     }
-
     return result;
   }, [templates, statusFilter, search]);
 
+  // ── Handlers ───────────────────────────────────────────────
   function openCreateDialog() {
     setEditingTemplate(null);
     setDialogOpen(true);
@@ -156,106 +147,81 @@ export function ChecklistsPageClient({
   }
 
   async function handleSave(data: TemplateFormData) {
-    setSaving(true);
-
     if (editingTemplate) {
-      const metaResult = await updateChecklistTemplate(editingTemplate.id, {
-        name: data.name,
-        serviceType: data.serviceType,
-        isActive: data.isActive,
-      });
+      // Update template meta, then sync items
+      setSavingItems(true);
+      try {
+        const metaResult = await updateMutation.mutateAsync({
+          id: editingTemplate.id,
+          data: { name: data.name, serviceType: data.serviceType, isActive: data.isActive },
+        });
+        if (metaResult.error) { setSavingItems(false); return; }
 
-      if (metaResult.error) {
-        toast.error(metaResult.error);
-        setSaving(false);
-        return;
+        const existingItems = editingTemplate.items ?? [];
+        const newItems = data.items;
+        const newItemIds = new Set(newItems.filter((i) => i.id).map((i) => i.id));
+        const toDelete = existingItems.filter((e) => !newItemIds.has(e.id));
+        const toUpdate = newItems.filter((i) => i.id);
+        const toCreate = newItems.filter((i) => !i.id);
+
+        await Promise.all([
+          ...toDelete.map((item) => deleteChecklistItem(editingTemplate.id, item.id)),
+          ...toUpdate.map((item) =>
+            updateChecklistItem(editingTemplate.id, item.id!, {
+              label: item.label,
+              isRequired: item.isRequired,
+              catalogItemId: item.catalogItemId,
+              sortOrder: item.sortOrder,
+            }),
+          ),
+          ...toCreate.map((item) =>
+            addChecklistItem(editingTemplate.id, {
+              label: item.label,
+              isRequired: item.isRequired,
+              catalogItemId: item.catalogItemId,
+              sortOrder: item.sortOrder,
+            }),
+          ),
+        ]);
+
+        setDialogOpen(false);
+      } catch {
+        toast.error("Failed to save checklist items");
+      } finally {
+        setSavingItems(false);
       }
-
-      const existingItems = editingTemplate.items ?? [];
-      const newItems = data.items;
-
-      const newItemIds = new Set(newItems.filter((i) => i.id).map((i) => i.id));
-      const toDelete = existingItems.filter((e) => !newItemIds.has(e.id));
-      const toUpdate = newItems.filter((i) => i.id);
-      const toCreate = newItems.filter((i) => !i.id);
-
-      await Promise.all([
-        ...toDelete.map((item) =>
-          deleteChecklistItem(editingTemplate.id, item.id),
-        ),
-        ...toUpdate.map((item) =>
-          updateChecklistItem(editingTemplate.id, item.id!, {
+    } else {
+      createMutation.mutate(
+        {
+          name: data.name,
+          serviceType: data.serviceType,
+          isActive: data.isActive,
+          items: data.items.map((item) => ({
             label: item.label,
             isRequired: item.isRequired,
             catalogItemId: item.catalogItemId,
             sortOrder: item.sortOrder,
-          }),
-        ),
-        ...toCreate.map((item) =>
-          addChecklistItem(editingTemplate.id, {
-            label: item.label,
-            isRequired: item.isRequired,
-            catalogItemId: item.catalogItemId,
-            sortOrder: item.sortOrder,
-          }),
-        ),
-      ]);
-
-      toast.success("Checklist template updated");
-    } else {
-      const result = await createChecklistTemplate({
-        name: data.name,
-        serviceType: data.serviceType,
-        isActive: data.isActive,
-        items: data.items.map((item) => ({
-          label: item.label,
-          isRequired: item.isRequired,
-          catalogItemId: item.catalogItemId,
-          sortOrder: item.sortOrder,
-        })),
-      });
-
-      if (result.error) {
-        toast.error(result.error);
-        setSaving(false);
-        return;
-      }
-
-      toast.success("Checklist template created");
-    }
-
-    setDialogOpen(false);
-    setSaving(false);
-    fetchTemplates();
-  }
-
-  async function handleToggleActive(template: ChecklistTemplate) {
-    const result = await updateChecklistTemplate(template.id, {
-      isActive: !template.isActive,
-    });
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success(
-        template.isActive ? "Template deactivated" : "Template activated",
+          })),
+        },
+        { onSuccess: (res) => { if (!res.error) setDialogOpen(false); } },
       );
-      fetchTemplates();
     }
   }
 
-  async function handleDelete() {
+  function handleToggleActive(template: ChecklistTemplate) {
+    updateMutation.mutate({ id: template.id, data: { isActive: !template.isActive } });
+  }
+
+  function handleDelete() {
     if (!deletingTemplate) return;
-    setSaving(true);
-    const result = await deleteChecklistTemplate(deletingTemplate.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Checklist template deleted");
-      setDeleteDialogOpen(false);
-      setDeletingTemplate(null);
-      fetchTemplates();
-    }
-    setSaving(false);
+    deleteMutation.mutate(deletingTemplate.id, {
+      onSuccess: (res) => {
+        if (!res.error) {
+          setDeleteDialogOpen(false);
+          setDeletingTemplate(null);
+        }
+      },
+    });
   }
 
   const hasTemplates = filteredTemplates.length > 0;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   IconPlus,
   IconListDetails,
@@ -20,13 +21,15 @@ import { Pagination } from "@/components/reusable/pagination";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { CatalogTable } from "@/components/dashboard/catalog/catalog-table";
 import { CatalogItemDialog, type CatalogItemFormData } from "@/components/dashboard/catalog/catalog-item-dialog";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
-  getCatalogItems,
-  getCatalogCategories,
-  createCatalogItem,
-  updateCatalogItem,
-  deleteCatalogItem,
-} from "@/actions/catalog";
+  useCatalogItems,
+  useCatalogCategories,
+  useCreateCatalogItem,
+  useUpdateCatalogItem,
+  useDeleteCatalogItem,
+  prefetchCatalogItems,
+} from "@/hooks/queries";
 import type { CatalogItem } from "@hvac-saas/types";
 import {
   Popover,
@@ -61,6 +64,8 @@ interface PaginationData {
   totalPages: number;
 }
 
+const DEFAULT_PAGINATION: PaginationData = { page: 1, limit: 15, total: 0, totalPages: 0 };
+
 interface CatalogPageClientProps {
   initialItems?: CatalogItem[];
   initialPagination?: PaginationData;
@@ -72,71 +77,55 @@ export function CatalogPageClient({
   initialPagination,
   initialCategories = [],
 }: CatalogPageClientProps) {
-  const [items, setItems] = useState<CatalogItem[]>(initialItems);
-  const [pagination, setPagination] = useState<PaginationData>(
-    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
-  );
+  // UI state
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(initialPagination?.page ?? 1);
   const [filterItemType, setFilterItemType] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const [categories, setCategories] = useState<string[]>(initialCategories);
-  const [loading, setLoading] = useState(initialItems.length === 0);
-  const [saving, setSaving] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
+  // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<CatalogItem | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingItem, setDeletingItem] = useState<CatalogItem | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchItems = useCallback(
-    async (page: number, searchTerm: string, itemType: string, archived: boolean) => {
-      setLoading(true);
-      const result = await getCatalogItems({
-        search: searchTerm,
-        page,
-        limit: 15,
-        itemType: itemType || undefined,
-        showArchived: archived,
-      });
-      if (result.data) {
-        setItems(result.data);
-        setPagination(
-          result.pagination ?? { page, limit: 15, total: 0, totalPages: 0 },
-        );
-      }
-      setLoading(false);
-    },
-    [],
-  );
+  // ── Queries ────────────────────────────────────────────────
+  const listParams = {
+    search: debouncedSearch,
+    page,
+    limit: 15,
+    itemType: filterItemType || undefined,
+    showArchived,
+  };
+  const itemsQuery = useCatalogItems(listParams);
+  const categoriesQuery = useCatalogCategories();
 
-  const fetchCategories = useCallback(async () => {
-    const result = await getCatalogCategories();
-    if (result.data) {
-      setCategories(result.data);
+  const items = itemsQuery.data?.data ?? [];
+  const pagination = itemsQuery.data?.pagination ?? DEFAULT_PAGINATION;
+  const loading = itemsQuery.isLoading;
+  const categories = categoriesQuery.data?.data ?? [];
+
+  // Prefetch next page
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (pagination && page < pagination.totalPages) {
+      prefetchCatalogItems(queryClient, { ...listParams, page: page + 1 });
     }
-  }, []);
-
-  // Fetch on mount (skip if server-prefetched)
-  useEffect(() => {
-    if (initialItems.length > 0) return;
-    fetchItems(1, "", "", false);
-    fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page, pagination?.totalPages]);
 
-  // Re-fetch on filter/search change (debounced)
-  useEffect(() => {
-    if (!search && !filterItemType && !showArchived) return;
-    const timer = setTimeout(() => {
-      fetchItems(1, search, filterItemType, showArchived);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, filterItemType, showArchived, fetchItems]);
+  // ── Mutations ──────────────────────────────────────────────
+  const createMutation = useCreateCatalogItem();
+  const updateMutation = useUpdateCatalogItem();
+  const deleteMutation = useDeleteCatalogItem();
 
-  // Compute stats client-side
+  const saving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+
+  // ── Derived ────────────────────────────────────────────────
   const stats = useMemo(() => {
     let labor = 0, part = 0, material = 0, service = 0;
     for (const item of items) {
@@ -155,17 +144,25 @@ export function CatalogPageClient({
 
   const selectedCategoryLabel = filterCategory || "All Categories";
 
+  // ── Handlers ───────────────────────────────────────────────
   function handlePageChange(newPage: number) {
-    fetchItems(newPage, search, filterItemType, showArchived);
+    setPage(newPage);
+  }
+
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
   }
 
   function openCreateDialog() {
     setEditingItem(null);
+    setError(null);
     setDialogOpen(true);
   }
 
   function openEditDialog(item: CatalogItem) {
     setEditingItem(item);
+    setError(null);
     setDialogOpen(true);
   }
 
@@ -174,70 +171,59 @@ export function CatalogPageClient({
     setDeleteDialogOpen(true);
   }
 
-  async function handleSave(data: CatalogItemFormData) {
-    setSaving(true);
+  function handleSave(data: CatalogItemFormData) {
     setError(null);
+    const payload = {
+      name: data.name,
+      itemType: data.itemType,
+      unitPrice: data.unitPrice,
+      unit: data.unit,
+      category: data.category || undefined,
+      description: data.description || undefined,
+    };
     if (editingItem) {
-      const result = await updateCatalogItem(editingItem.id, {
-        name: data.name,
-        itemType: data.itemType,
-        unitPrice: data.unitPrice,
-        unit: data.unit,
-        category: data.category || undefined,
-        description: data.description || undefined,
-      });
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setDialogOpen(false);
-        fetchItems(pagination.page, search, filterItemType, showArchived);
-        fetchCategories();
-      }
+      updateMutation.mutate(
+        { id: editingItem.id, data: payload },
+        {
+          onSuccess: (res) => {
+            if (res.error) { setError(res.error); return; }
+            setDialogOpen(false);
+          },
+        },
+      );
     } else {
-      const result = await createCatalogItem({
-        name: data.name,
-        itemType: data.itemType,
-        unitPrice: data.unitPrice,
-        unit: data.unit,
-        category: data.category || undefined,
-        description: data.description || undefined,
+      createMutation.mutate(payload, {
+        onSuccess: (res) => {
+          if (res.error) { setError(res.error); return; }
+          setDialogOpen(false);
+          setPage(1);
+        },
       });
-      if (result.error) {
-        setError(result.error);
-      } else {
-        setDialogOpen(false);
-        fetchItems(1, search, filterItemType, showArchived);
-        fetchCategories();
-      }
     }
-    setSaving(false);
   }
 
-  async function handleArchiveToggle(item: CatalogItem) {
-    setSaving(true);
+  function handleArchiveToggle(item: CatalogItem) {
     setError(null);
-    const result = await updateCatalogItem(item.id, { isActive: !item.isActive });
-    if (result.error) {
-      setError(result.error);
-    } else {
-      fetchItems(pagination.page, search, filterItemType, showArchived);
-    }
-    setSaving(false);
+    updateMutation.mutate(
+      { id: item.id, data: { isActive: !item.isActive } },
+      {
+        onSuccess: (res) => {
+          if (res.error) setError(res.error);
+        },
+      },
+    );
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!deletingItem) return;
-    setSaving(true);
     setError(null);
-    const result = await deleteCatalogItem(deletingItem.id);
-    if (result.error) {
-      setError(result.error);
-    } else {
-      setDeleteDialogOpen(false);
-      setDeletingItem(null);
-      fetchItems(pagination.page, search, filterItemType, showArchived);
-    }
-    setSaving(false);
+    deleteMutation.mutate(deletingItem.id, {
+      onSuccess: (res) => {
+        if (res.error) { setError(res.error); return; }
+        setDeleteDialogOpen(false);
+        setDeletingItem(null);
+      },
+    });
   }
 
   const hasItems = items.length > 0;
@@ -302,7 +288,7 @@ export function CatalogPageClient({
             <div className="ml-auto flex items-center gap-2">
               <SearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={handleSearchChange}
                 placeholder="Search catalog..."
               />
 

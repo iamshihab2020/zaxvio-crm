@@ -11,6 +11,7 @@ import { ImpersonationRequestListener } from "@/components/dashboard/impersonati
 import { ImpersonationActiveIndicator } from "@/components/dashboard/impersonation-active-indicator";
 import { HelpChatbot } from "@/components/dashboard/chatbot/help-chatbot";
 import { PageContent } from "@/components/dashboard/page-content";
+import { GlobalFetchIndicator } from "@/components/dashboard/global-fetch-indicator";
 
 export default async function DashboardLayout({
   children,
@@ -50,6 +51,7 @@ export default async function DashboardLayout({
               <ImpersonationActiveIndicator />
             </>
           )}
+          <GlobalFetchIndicator />
           <Navbar />
           <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
             {children}

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -52,7 +53,9 @@ export default function RootLayout({
     >
       <body className="min-h-screen font-body antialiased">
         <ThemeProvider>
-          {children}
+          <QueryProvider>
+            {children}
+          </QueryProvider>
           <Toaster position="bottom-right" richColors />
         </ThemeProvider>
       </body>

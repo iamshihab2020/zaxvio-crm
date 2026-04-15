@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
-import { toast } from "sonner";
 import {
   IconPlus,
   IconFileInvoice,
@@ -40,16 +40,18 @@ import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { useQueryClient } from "@tanstack/react-query";
 import {
-  getInvoices,
-  getInvoiceStats,
-  createInvoice,
-  deleteInvoice,
-  bulkArchiveInvoices,
-  bulkRestoreInvoices,
-  bulkDeleteInvoices,
-} from "@/actions/invoices";
-import { getTenant } from "@/actions/tenants";
+  useInvoices,
+  useInvoiceStats,
+  useCreateInvoice,
+  useDeleteInvoice,
+  useBulkArchiveInvoices,
+  useBulkRestoreInvoices,
+  useBulkDeleteInvoices,
+  useTenantSettings,
+  prefetchInvoices,
+} from "@/hooks/queries";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -95,16 +97,16 @@ export function InvoicesPageClient({
 }: InvoicesPageClientProps) {
   const router = useRouter();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("invoices");
-  const [invoices, setInvoices] = useState<InvoiceRow[]>(initialInvoices);
-  const [loading, setLoading] = useState(initialInvoices.length === 0);
+
+  // UI state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [viewFilter, setViewFilter] = useState("");
-  const [pagination, setPagination] = useState<PaginationInfo>(
-    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
-  );
-  const [defaultTaxRate, setDefaultTaxRate] = useState(prefetchedTaxRate);
-  const [stats, setStats] = useState(initialStats ?? { draft: 0, sent: 0, paid: 0, overdue: 0 });
+  const [page, setPage] = useState(1);
+  const showingArchived = viewFilter === "archived";
+
+  // Debounce search for query key
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -112,7 +114,6 @@ export function InvoicesPageClient({
 
   // Create dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -128,10 +129,8 @@ export function InvoicesPageClient({
     isIndeterminate,
     selectedCount,
   } = useRowSelection();
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const showingArchived = viewFilter === "archived";
 
   // Deep-link support
   const searchParams = useSearchParams();
@@ -146,127 +145,112 @@ export function InvoicesPageClient({
     }
   }, [searchParams]);
 
-  const fetchInvoices = useCallback(
-    async (page = 1) => {
-      setLoading(true);
-      const result = await getInvoices({
-        search: search || undefined,
-        status: statusFilter || undefined,
-        page,
-        limit: 15,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-        showArchived: showingArchived || undefined,
-      });
-      if (result.data) {
-        setInvoices(result.data as InvoiceRow[]);
-        if (result.pagination) {
-          setPagination(result.pagination as PaginationInfo);
-        }
-      }
-      setLoading(false);
-    },
-    [search, statusFilter, showingArchived],
-  );
-
-  // Fetch tenant for default tax rate (skip if server-prefetched)
+  // Reset page to 1 when filters change
   useEffect(() => {
-    if (prefetchedTaxRate !== "0") return;
-    getTenant().then((res) => {
-      if (res.data?.defaultTaxRate) {
-        setDefaultTaxRate(res.data.defaultTaxRate);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Fetch invoices on mount and on search/filter change (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => fetchInvoices(1), 300);
+    setPage(1);
     clearSelection();
-    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchInvoices]);
+  }, [debouncedSearch, statusFilter, viewFilter]);
 
-  // Refresh stats after mutations (single API call)
-  async function refreshStats() {
-    const result = await getInvoiceStats();
-    if (result.data) setStats(result.data);
-  }
+  // ── Queries ────────────────────────────────────────────────
 
-  async function handleCreate(data: InvoiceFormData) {
-    setSaving(true);
-    const result = await createInvoice({
-      customerId: data.customerId,
-      issuedDate: data.issuedDate || undefined,
-      dueDate: data.dueDate || undefined,
-      taxRate: data.taxRate,
-      discountAmount: data.discountAmount || undefined,
-      notes: data.notes || undefined,
-    });
-    setSaving(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Invoice created");
-      setCreateDialogOpen(false);
-      fetchInvoices(1);
-      refreshStats();
-      if (result.data?.id) {
-        setSelectedInvoiceId(result.data.id);
-        setSheetOpen(true);
-      }
+  const listParams = {
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    page,
+    limit: 15,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+    showArchived: showingArchived || undefined,
+  };
+
+  const invoicesQuery = useInvoices(listParams);
+  const statsQuery = useInvoiceStats();
+  const tenantQuery = useTenantSettings();
+
+  // Derived state
+  const invoices = (invoicesQuery.data?.data ?? []) as InvoiceRow[];
+  const pagination = (invoicesQuery.data?.pagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 }) as PaginationInfo;
+  const loading = invoicesQuery.isPending;
+  const rawStats = statsQuery.data?.data as InvoiceStats | undefined;
+  const stats = rawStats ?? { draft: 0, sent: 0, paid: 0, overdue: 0 };
+  const defaultTaxRate = (prefetchedTaxRate !== "0" ? prefetchedTaxRate : tenantQuery.data?.data?.defaultTaxRate) ?? "0";
+
+  // Prefetch next page
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (pagination && page < pagination.totalPages) {
+      prefetchInvoices(queryClient, { ...listParams, page: page + 1 });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pagination?.totalPages]);
+
+  // ── Mutations ──────────────────────────────────────────────
+
+  const createMutation = useCreateInvoice();
+  const deleteMutation = useDeleteInvoice();
+  const bulkArchiveMut = useBulkArchiveInvoices();
+  const bulkRestoreMut = useBulkRestoreInvoices();
+  const bulkDeleteMutation = useBulkDeleteInvoices();
+
+  // Derived mutation state
+  const saving = createMutation.isPending;
+  const bulkLoading = bulkArchiveMut.isPending || bulkRestoreMut.isPending || bulkDeleteMutation.isPending;
+
+  // ── Handlers ───────────────────────────────────────────────
+
+  function handleCreate(data: InvoiceFormData) {
+    createMutation.mutate(
+      {
+        customerId: data.customerId,
+        issuedDate: data.issuedDate || undefined,
+        dueDate: data.dueDate || undefined,
+        taxRate: data.taxRate,
+        discountAmount: data.discountAmount || undefined,
+        notes: data.notes || undefined,
+      },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setCreateDialogOpen(false);
+          if (res.data?.id) {
+            setSelectedInvoiceId(res.data.id);
+            setSheetOpen(true);
+          }
+        },
+      },
+    );
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!deletingInvoice) return;
-    const result = await deleteInvoice(deletingInvoice.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Invoice deleted");
-      setDeleteDialogOpen(false);
-      setDeletingInvoice(null);
-      fetchInvoices(pagination.page);
-      refreshStats();
-    }
+    deleteMutation.mutate(deletingInvoice.id, {
+      onSuccess: (res) => {
+        if (res.error) return;
+        setDeleteDialogOpen(false);
+        setDeletingInvoice(null);
+      },
+    });
   }
 
-  // Bulk action handlers
-  async function handleBulkArchive() {
-    setBulkLoading(true);
+  function handleBulkArchive() {
     const ids = Array.from(selectedIds);
-    const result = showingArchived
-      ? await bulkRestoreInvoices(ids)
-      : await bulkArchiveInvoices(ids);
-    setBulkLoading(false);
-    setBulkArchiveOpen(false);
-    clearSelection();
-    fetchInvoices(pagination.page);
-    refreshStats();
-    if (result.succeeded > 0) {
-      toast.success(`${result.succeeded} invoice(s) ${showingArchived ? "restored" : "archived"}`);
-    }
-    if (result.failed > 0) {
-      toast.error(`${result.failed} invoice(s) could not be ${showingArchived ? "restored" : "archived"}`);
-    }
+    const mut = showingArchived ? bulkRestoreMut : bulkArchiveMut;
+    mut.mutate(ids, {
+      onSettled: () => {
+        setBulkArchiveOpen(false);
+        clearSelection();
+      },
+    });
   }
 
-  async function handleBulkDelete() {
-    setBulkLoading(true);
-    const result = await bulkDeleteInvoices(Array.from(selectedIds));
-    setBulkLoading(false);
-    setBulkDeleteOpen(false);
-    clearSelection();
-    fetchInvoices(pagination.page);
-    refreshStats();
-    if (result.succeeded > 0) {
-      toast.success(`${result.succeeded} invoice(s) permanently deleted`);
-    }
-    if (result.failed > 0) {
-      toast.error(`${result.failed} invoice(s) could not be deleted`);
-    }
+  function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds), {
+      onSettled: () => {
+        setBulkDeleteOpen(false);
+        clearSelection();
+      },
+    });
   }
 
   function handleRowClick(id: string) {
@@ -386,7 +370,7 @@ export function InvoicesPageClient({
           page={pagination.page}
           totalPages={pagination.totalPages}
           total={pagination.total}
-          onPageChange={(p) => fetchInvoices(p)}
+          onPageChange={(p) => setPage(p)}
           entityName="invoice"
         />
       )}
@@ -409,7 +393,7 @@ export function InvoicesPageClient({
           setDeletingInvoice(inv);
           setDeleteDialogOpen(true);
         }}
-        onDataChange={() => { fetchInvoices(pagination.page); refreshStats(); }}
+        onDataChange={() => { invoicesQuery.refetch(); statsQuery.refetch(); }}
       />
 
       {/* Delete confirmation */}
@@ -420,7 +404,7 @@ export function InvoicesPageClient({
         entityName="Invoice"
         itemLabel={deletingInvoice?.invoiceNumber ?? ""}
         description="This will permanently remove the invoice and all its line items and payment records."
-        loading={false}
+        loading={deleteMutation.isPending}
       />
 
       {/* Bulk action bar */}

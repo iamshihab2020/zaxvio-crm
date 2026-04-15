@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { IconBell, IconBellRinging } from "@tabler/icons-react";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
@@ -22,10 +22,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  getNotificationPreferences,
-  updateNotificationPreferences,
-} from "@/actions/notifications";
+import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/hooks/queries";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
 
 /** Channel preference defaults when no config row exists */
@@ -61,6 +58,24 @@ interface ChannelConfig {
   voice: boolean;
 }
 
+/** Parse raw API data into a Record<string, ChannelConfig> keyed by notification type */
+function buildPreferencesMap(
+  data: Array<{ notificationType: string; inApp: boolean; email: boolean; sms: boolean; voice: boolean }> | undefined,
+): Record<string, ChannelConfig> {
+  const map: Record<string, ChannelConfig> = {};
+  for (const nt of NOTIFICATION_TYPES) {
+    const saved = data?.find((d) => d.notificationType === nt.type);
+    const defaults = NOTIFICATION_CHANNEL_DEFAULTS[nt.type] ?? { inApp: true, email: true, sms: false, voice: false };
+    map[nt.type] = {
+      inApp: saved?.inApp ?? defaults.inApp,
+      email: saved?.email ?? defaults.email,
+      sms: saved?.sms ?? defaults.sms,
+      voice: saved?.voice ?? defaults.voice,
+    };
+  }
+  return map;
+}
+
 interface NotificationSettingsPageClientProps {
   initialPreferences?: Array<{ notificationType: string; inApp: boolean; email: boolean; sms: boolean; voice: boolean }>;
 }
@@ -68,95 +83,64 @@ interface NotificationSettingsPageClientProps {
 export function NotificationSettingsPageClient({ initialPreferences }: NotificationSettingsPageClientProps) {
   const { permission, requestPermission } = useDesktopNotifications();
 
-  const [preferences, setPreferences] = useState<
-    Record<string, ChannelConfig>
-  >(() => {
-    if (initialPreferences && initialPreferences.length > 0) {
-      const map: Record<string, ChannelConfig> = {};
-      for (const nt of NOTIFICATION_TYPES) {
-        const saved = initialPreferences.find((d) => d.notificationType === nt.type);
-        const defaults = NOTIFICATION_CHANNEL_DEFAULTS[nt.type] ?? { inApp: true, email: true, sms: false, voice: false };
-        map[nt.type] = {
-          inApp: saved?.inApp ?? defaults.inApp,
-          email: saved?.email ?? defaults.email,
-          sms: saved?.sms ?? defaults.sms,
-          voice: saved?.voice ?? defaults.voice,
-        };
-      }
-      return map;
-    }
-    return {};
-  });
-  const [isLoading, setIsLoading] = useState(!initialPreferences || initialPreferences.length === 0);
-  const [isSaving, setIsSaving] = useState(false);
+  // Local edits layered on top of server data
+  const [localEdits, setLocalEdits] = useState<Record<string, Partial<ChannelConfig>>>({});
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
   } | null>(null);
 
-  useEffect(() => {
-    if (initialPreferences && initialPreferences.length > 0) return;
-    async function load() {
-      const { data } = await getNotificationPreferences();
+  // ── Query ─────────────────────────────────────────────────
+  const prefsQuery = useNotificationPreferences();
 
-      const map: Record<string, ChannelConfig> = {};
-      for (const nt of NOTIFICATION_TYPES) {
-        const saved = data?.find(
-          (d: { notificationType: string }) =>
-            d.notificationType === nt.type,
-        );
-        const defaults = NOTIFICATION_CHANNEL_DEFAULTS[nt.type] ?? {
-          inApp: true,
-          email: true,
-          sms: false,
-          voice: false,
-        };
-        map[nt.type] = saved
-          ? {
-              inApp: saved.inApp,
-              email: saved.email,
-              sms: saved.sms,
-              voice: saved.voice,
-            }
-          : defaults;
-      }
-      setPreferences(map);
-      setIsLoading(false);
+  const serverPreferences = prefsQuery.data
+    ? buildPreferencesMap(prefsQuery.data.data)
+    : initialPreferences && initialPreferences.length > 0
+      ? buildPreferencesMap(initialPreferences)
+      : {};
+  const isLoading = prefsQuery.isLoading;
+
+  // Merge server data with local edits
+  const preferences: Record<string, ChannelConfig> = {};
+  for (const nt of NOTIFICATION_TYPES) {
+    const server = serverPreferences[nt.type];
+    const local = localEdits[nt.type];
+    if (server) {
+      preferences[nt.type] = { ...server, ...local };
     }
+  }
 
-    void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // ── Mutation ──────────────────────────────────────────────
+  const saveMutation = useUpdateNotificationPreferences();
 
   const handleToggle = (
     type: string,
     channel: keyof ChannelConfig,
     checked: boolean,
   ) => {
-    setPreferences((prev) => ({
+    setLocalEdits((prev) => ({
       ...prev,
       [type]: { ...prev[type], [channel]: checked },
     }));
     setMessage(null);
   };
 
-  const handleSave = async () => {
-    setIsSaving(true);
+  const handleSave = () => {
     setMessage(null);
-
     const prefs = NOTIFICATION_TYPES.map((nt) => ({
       type: nt.type,
       ...preferences[nt.type],
     }));
-
-    const { error } = await updateNotificationPreferences(prefs);
-
-    if (error) {
-      setMessage({ type: "error", text: error });
-    } else {
-      setMessage({ type: "success", text: "Preferences saved" });
-    }
-    setIsSaving(false);
+    saveMutation.mutate(prefs, {
+      onSuccess: (result) => {
+        if (result.error) {
+          setMessage({ type: "error", text: result.error });
+        } else {
+          setMessage({ type: "success", text: "Preferences saved" });
+          setLocalEdits({});
+        }
+      },
+    });
   };
 
   return (
@@ -315,10 +299,10 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
               <div className="flex justify-end pt-2">
                 <Button
                   onClick={handleSave}
-                  disabled={isSaving}
+                  disabled={saveMutation.isPending}
                   className="bg-brand text-brand-foreground hover:bg-brand/90"
                 >
-                  {isSaving ? "Saving..." : "Save Preferences"}
+                  {saveMutation.isPending ? "Saving..." : "Save Preferences"}
                 </Button>
               </div>
             </>

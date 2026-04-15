@@ -8,6 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { getJob } from "@/actions/jobs";
 import {
   IconArrowUp,
   IconArrowDown,
@@ -120,6 +123,8 @@ export function JobTable({
   isAllSelected,
   isIndeterminate,
 }: JobTableProps) {
+  const queryClient = useQueryClient();
+
   function getStageInfo(statusName: string) {
     const stage = stages.find((s) => s.name === statusName);
     if (!stage) return { label: statusName, colors: getStageColors("gray") };
@@ -166,6 +171,13 @@ export function JobTable({
                 key={job.id}
                 className="cursor-pointer hover:bg-muted/50"
                 onClick={() => onRowClick(job.id)}
+                onMouseEnter={() => {
+                  queryClient.prefetchQuery({
+                    queryKey: queryKeys.jobs.detail(job.id),
+                    queryFn: () => getJob(job.id),
+                    staleTime: 30_000,
+                  });
+                }}
                 data-selected={selectedIds?.has(job.id) ? "true" : undefined}
               >
                 {selectedIds !== undefined && (

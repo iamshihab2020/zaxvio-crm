@@ -263,6 +263,27 @@ apps/web/
     |   +-- use-view-preference.ts   # Persist Kanban/Table view toggle
     |   +-- use-row-selection.ts     # Multi-row selection state for bulk actions
     |   +-- use-notifications.ts     # Real-time notification hook (Supabase broadcast + server actions)
+    |   +-- use-debounced-value.ts   # Generic debounce hook (value + delay → debounced value)
+    |   +-- queries/                 # TanStack Query hooks (one file per domain)
+    |       +-- index.ts                       # Barrel export for all query hooks
+    |       +-- use-customers.ts               # Customer queries & mutations
+    |       +-- use-jobs.ts                    # Job queries & mutations
+    |       +-- use-invoices.ts                # Invoice queries & mutations
+    |       +-- use-quotes.ts                  # Quote queries & mutations
+    |       +-- use-bookings.ts                # Booking queries & mutations
+    |       +-- use-dashboard.ts               # Dashboard stats query
+    |       +-- use-reports.ts                 # Reports query
+    |       +-- use-pipelines.ts               # Pipeline queries & mutations
+    |       +-- use-equipment.ts               # Equipment queries & mutations
+    |       +-- use-catalog.ts                 # Catalog queries & mutations
+    |       +-- use-checklists.ts              # Checklist queries & mutations
+    |       +-- use-calendar.ts                # Calendar event queries & mutations
+    |       +-- use-service-agreements.ts      # Service agreement queries & mutations
+    |       +-- use-notifications.ts           # Notification queries & mutations
+    |       +-- use-tenant.ts                  # Tenant settings query & mutation
+    |       +-- use-tags.ts                    # Tag queries & mutations
+    |       +-- use-conversations.ts           # Conversation queries & mutations
+    |       +-- use-admin.ts                   # Admin panel queries & mutations
     |
     +-- lib/
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
@@ -270,6 +291,7 @@ apps/web/
     |   +-- supabase-client.ts       # Browser Supabase client for Realtime subscriptions (anon key)
     |   +-- format.ts                # formatCurrency(), formatRelativeTime() helpers
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
+    |   +-- query-keys.ts            # Centralized TanStack Query key factory for 18 domains
     |   +-- constants/
     |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
@@ -283,6 +305,7 @@ apps/web/
     |   +-- theme-provider.tsx       # next-themes wrapper
     |   +-- theme-toggle.tsx         # Light/dark toggle button
     |   +-- under-development.tsx    # Placeholder for unbuilt pages
+    |   +-- query-provider.tsx       # QueryClientProvider wrapper with global TanStack Query defaults
     |   |
     |   +-- ui/                      # shadcn/ui primitives (28 components)
     |   |   +-- accordion.tsx
@@ -336,6 +359,7 @@ apps/web/
     |   |
     |   +-- dashboard/               # Dashboard-specific components (by entity)
     |   |   +-- dashboard-shell.tsx  # Shell layout (sidebar + navbar + content)
+    |   |   +-- global-fetch-indicator.tsx  # Background refetch progress bar (TanStack Query isFetching)
     |   |   +-- navbar.tsx           # Top navigation bar
     |   |   +-- impersonation-bar.tsx # Admin-only floating bar during impersonation (exit button + timer)
     |   |   +-- impersonation-request-listener.tsx # Tenant-side: realtime listener + permission dialog for visible impersonation

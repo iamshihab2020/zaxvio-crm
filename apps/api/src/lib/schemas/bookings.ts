@@ -8,6 +8,7 @@ export { idParam };
 // ── Querystrings ──────────────────────────────────────────────────────────────
 
 export const bookingListQuery = paginationQuery.extend({
+  limit: z.coerce.number().int().min(1).max(200).default(20),
   status: z.enum(["pending", "confirmed", "completed", "cancelled"]).optional(),
   dateFrom: z.string().optional(),
   dateTo: z.string().optional(),

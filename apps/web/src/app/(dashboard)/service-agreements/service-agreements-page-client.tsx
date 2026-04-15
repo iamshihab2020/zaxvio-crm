@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   IconFileCheck,
   IconPlus,
@@ -30,16 +31,17 @@ import {
   ServiceAgreementDialog,
   type AgreementSaveData,
 } from "@/components/dashboard/service-agreements/service-agreement-dialog";
-import {
-  getMaintenanceContracts,
-  createMaintenanceContract,
-  updateMaintenanceContract,
-  deleteMaintenanceContract,
-  bulkDeleteContracts,
-  bulkToggleContractActive,
-} from "@/actions/maintenance-contracts";
 import { useRowSelection } from "@/hooks/use-row-selection";
-import { toast } from "sonner";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import {
+  useServiceAgreements,
+  useCreateServiceAgreement,
+  useUpdateServiceAgreement,
+  useDeleteServiceAgreement,
+  useBulkDeleteServiceAgreements,
+  useBulkToggleServiceAgreementActive,
+  prefetchServiceAgreements,
+} from "@/hooks/queries";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -55,6 +57,13 @@ interface PaginationData {
   total: number;
   totalPages: number;
 }
+
+const DEFAULT_PAGINATION: PaginationData = {
+  page: 1,
+  limit: 15,
+  total: 0,
+  totalPages: 0,
+};
 
 function getAgreementStatus(agreement: AgreementRow): string {
   const now = new Date();
@@ -80,14 +89,11 @@ export function ServiceAgreementsPageClient({
   initialAgreements = [],
   initialPagination,
 }: ServiceAgreementsPageClientProps) {
-  const [agreements, setAgreements] = useState<AgreementRow[]>(initialAgreements);
-  const [pagination, setPagination] = useState<PaginationData>(
-    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
-  );
+  // UI state
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(initialPagination?.page ?? 1);
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading, setLoading] = useState(initialAgreements.length === 0);
-  const [saving, setSaving] = useState(false);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // Row selection
   const {
@@ -101,7 +107,6 @@ export function ServiceAgreementsPageClient({
   } = useRowSelection();
 
   // Bulk action state
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkToggleOpen, setBulkToggleOpen] = useState(false);
   const [bulkToggleValue, setBulkToggleValue] = useState(false);
@@ -114,50 +119,55 @@ export function ServiceAgreementsPageClient({
   const [deletingAgreement, setDeletingAgreement] =
     useState<AgreementRow | null>(null);
 
-  const fetchAgreements = useCallback(
-    async (page: number, searchTerm: string) => {
-      setLoading(true);
-      const result = await getMaintenanceContracts({
-        search: searchTerm,
-        page,
-        limit: 15,
-      });
-      if (result.data) {
-        setAgreements(result.data as AgreementRow[]);
-        if (result.pagination) {
-          setPagination(result.pagination as PaginationData);
-        }
-      }
-      setLoading(false);
-    },
-    [],
-  );
-
-  // Fetch on mount (skip if server-prefetched)
-  useEffect(() => {
-    if (initialAgreements.length > 0) return;
-    fetchAgreements(1, "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Re-fetch on search change (debounced), clear selection
-  useEffect(() => {
-    if (!search) return;
-    const timer = setTimeout(() => {
-      fetchAgreements(1, search);
-      clearSelection();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, fetchAgreements]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Clear selection when status filter changes
-  useEffect(() => {
+  // Reset page when search changes
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    setPage(1);
     clearSelection();
-  }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  };
+
+  // Reset selection when status filter changes
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    clearSelection();
+  };
+
+  // ── Query ─────────────────────────────────────────────────
+  const listParams = { search: debouncedSearch, page, limit: 15 };
+  const agreementsQuery = useServiceAgreements(listParams);
+
+  const agreements = (agreementsQuery.data?.data ?? []) as AgreementRow[];
+  const pagination =
+    (agreementsQuery.data?.pagination as PaginationData | undefined) ??
+    DEFAULT_PAGINATION;
+  const loading = agreementsQuery.isLoading;
+
+  // Prefetch next page
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (pagination && page < pagination.totalPages) {
+      prefetchServiceAgreements(queryClient, { ...listParams, page: page + 1 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pagination?.totalPages]);
+
+  // ── Mutations ─────────────────────────────────────────────
+  const createMutation = useCreateServiceAgreement();
+  const updateMutation = useUpdateServiceAgreement();
+  const deleteMutation = useDeleteServiceAgreement();
+  const bulkDeleteMutation = useBulkDeleteServiceAgreements();
+  const bulkToggleActiveMutation = useBulkToggleServiceAgreementActive();
+
+  const saving = createMutation.isPending || updateMutation.isPending || deleteMutation.isPending;
+  const bulkLoading =
+    bulkDeleteMutation.isPending || bulkToggleActiveMutation.isPending;
 
   // Compute stats client-side
   const stats = useMemo(() => {
-    let active = 0, expiring = 0, expired = 0, inactive = 0;
+    let active = 0,
+      expiring = 0,
+      expired = 0,
+      inactive = 0;
     for (const a of agreements) {
       const status = getAgreementStatus(a);
       if (status === "active") active++;
@@ -173,37 +183,6 @@ export function ServiceAgreementsPageClient({
     if (!statusFilter) return agreements;
     return agreements.filter((a) => getAgreementStatus(a) === statusFilter);
   }, [agreements, statusFilter]);
-
-  async function handleBulkDelete() {
-    setBulkLoading(true);
-    const ids = Array.from(selectedIds);
-    const result = await bulkDeleteContracts(ids);
-    setBulkLoading(false);
-    setBulkDeleteOpen(false);
-    if (result.error && result.succeeded === 0) {
-      toast.error(result.error);
-    } else {
-      toast.success(`Deleted ${result.succeeded} agreement${result.succeeded !== 1 ? "s" : ""}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
-      clearSelection();
-      await fetchAgreements(pagination.page, search);
-    }
-  }
-
-  async function handleBulkToggleActive() {
-    setBulkLoading(true);
-    const ids = Array.from(selectedIds);
-    const result = await bulkToggleContractActive(ids, bulkToggleValue);
-    setBulkLoading(false);
-    setBulkToggleOpen(false);
-    if (result.error && result.succeeded === 0) {
-      toast.error(result.error);
-    } else {
-      const label = bulkToggleValue ? "activated" : "deactivated";
-      toast.success(`${result.succeeded} agreement${result.succeeded !== 1 ? "s" : ""} ${label}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
-      clearSelection();
-      await fetchAgreements(pagination.page, search);
-    }
-  }
 
   function openCreateDialog() {
     setEditingAgreement(null);
@@ -221,55 +200,66 @@ export function ServiceAgreementsPageClient({
   }
 
   async function handleSave(data: AgreementSaveData) {
-    setSaving(true);
     if (editingAgreement) {
-      const result = await updateMaintenanceContract(editingAgreement.id, {
-        contractName: data.contractName,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        frequency: data.frequency,
-        visitsPerYear: parseInt(data.visitsPerYear, 10) || 2,
-        annualPrice: data.annualPrice ? parseFloat(data.annualPrice) : null,
-        notes: data.notes || undefined,
-      });
-      if (!result.error) {
-        setDialogOpen(false);
-        await fetchAgreements(pagination.page, search);
-      }
+      updateMutation.mutate(
+        {
+          id: editingAgreement.id,
+          data: {
+            contractName: data.contractName,
+            startDate: data.startDate,
+            endDate: data.endDate,
+            frequency: data.frequency,
+            visitsPerYear: parseInt(data.visitsPerYear, 10) || 2,
+            annualPrice: data.annualPrice ? parseFloat(data.annualPrice) : null,
+            notes: data.notes || undefined,
+          },
+        },
+        { onSuccess: (res) => { if (!res.error) setDialogOpen(false); } },
+      );
     } else {
-      const result = await createMaintenanceContract({
-        customerId: data.customerId,
-        contractName: data.contractName,
-        startDate: data.startDate,
-        endDate: data.endDate,
-        frequency: data.frequency,
-        visitsPerYear: parseInt(data.visitsPerYear, 10) || 2,
-        annualPrice: data.annualPrice ? parseFloat(data.annualPrice) : undefined,
-        notes: data.notes || undefined,
-      });
-      if (!result.error) {
-        setDialogOpen(false);
-        await fetchAgreements(1, search);
-      }
+      createMutation.mutate(
+        {
+          customerId: data.customerId,
+          contractName: data.contractName,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          frequency: data.frequency,
+          visitsPerYear: parseInt(data.visitsPerYear, 10) || 2,
+          annualPrice: data.annualPrice ? parseFloat(data.annualPrice) : undefined,
+          notes: data.notes || undefined,
+        },
+        { onSuccess: (res) => { if (!res.error) { setDialogOpen(false); setPage(1); } } },
+      );
     }
-    setSaving(false);
   }
 
   async function handleDelete() {
     if (!deletingAgreement) return;
-    setSaving(true);
-    const result = await deleteMaintenanceContract(deletingAgreement.id);
-    if (!result.error) {
-      setDeleteDialogOpen(false);
-      setDeletingAgreement(null);
-      await fetchAgreements(pagination.page, search);
-    }
-    setSaving(false);
+    deleteMutation.mutate(deletingAgreement.id, {
+      onSuccess: (res) => {
+        if (!res.error) { setDeleteDialogOpen(false); setDeletingAgreement(null); }
+      },
+    });
+  }
+
+  async function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds), {
+      onSuccess: () => { setBulkDeleteOpen(false); clearSelection(); },
+    });
+  }
+
+  async function handleBulkToggleActive() {
+    bulkToggleActiveMutation.mutate(
+      { ids: Array.from(selectedIds), isActive: bulkToggleValue },
+      { onSuccess: () => { setBulkToggleOpen(false); clearSelection(); } },
+    );
   }
 
   const hasAgreements = filteredAgreements.length > 0;
-  const showEmptyState = !loading && agreements.length === 0 && !search && !statusFilter;
-  const showNoResults = !loading && !hasAgreements && (!!search || !!statusFilter);
+  const showEmptyState =
+    !loading && agreements.length === 0 && !search && !statusFilter;
+  const showNoResults =
+    !loading && !hasAgreements && (!!search || !!statusFilter);
 
   return (
     <section className="p-6">
@@ -293,13 +283,37 @@ export function ServiceAgreementsPageClient({
       {!showEmptyState && (
         <StatsCards
           stats={[
-            { label: "Active", count: stats.active, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
-            { label: "Expiring", count: stats.expiring, icon: IconClock, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40" },
-            { label: "Expired", count: stats.expired, icon: IconAlertTriangle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40" },
-            { label: "Inactive", count: stats.inactive, icon: IconX, color: "text-muted-foreground", bg: "bg-muted/50" },
+            {
+              label: "Active",
+              count: stats.active,
+              icon: IconCircleCheck,
+              color: "text-green-600 dark:text-green-400",
+              bg: "bg-green-50 dark:bg-green-950/40",
+            },
+            {
+              label: "Expiring",
+              count: stats.expiring,
+              icon: IconClock,
+              color: "text-amber-600 dark:text-amber-400",
+              bg: "bg-amber-50 dark:bg-amber-950/40",
+            },
+            {
+              label: "Expired",
+              count: stats.expired,
+              icon: IconAlertTriangle,
+              color: "text-red-600 dark:text-red-400",
+              bg: "bg-red-50 dark:bg-red-950/40",
+            },
+            {
+              label: "Inactive",
+              count: stats.inactive,
+              icon: IconX,
+              color: "text-muted-foreground",
+              bg: "bg-muted/50",
+            },
           ]}
           activeFilter={statusFilter}
-          onFilterChange={setStatusFilter}
+          onFilterChange={handleStatusFilterChange}
           className="mb-4"
         />
       )}
@@ -322,12 +336,12 @@ export function ServiceAgreementsPageClient({
             <StatusFilterTabs
               options={STATUS_OPTIONS}
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={handleStatusFilterChange}
             />
             <div className="ml-auto flex items-center gap-2">
               <SearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={handleSearchChange}
                 placeholder="Search agreements..."
               />
             </div>
@@ -343,7 +357,16 @@ export function ServiceAgreementsPageClient({
           {/* No results */}
           {showNoResults && (
             <p className="py-12 text-center text-sm text-muted-foreground font-body">
-              No agreements found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
+              No agreements found
+              {search ? (
+                <>
+                  {" "}
+                  matching &ldquo;{search}&rdquo;
+                </>
+              ) : (
+                " for this filter"
+              )}
+              .
             </p>
           )}
 
@@ -369,7 +392,7 @@ export function ServiceAgreementsPageClient({
           page={pagination.page}
           totalPages={pagination.totalPages}
           total={pagination.total}
-          onPageChange={(p) => fetchAgreements(p, search)}
+          onPageChange={(p) => setPage(p)}
           entityName="agreement"
         />
       )}
@@ -382,9 +405,7 @@ export function ServiceAgreementsPageClient({
                 startDate: editingAgreement.startDate,
                 endDate: editingAgreement.endDate,
                 frequency: editingAgreement.frequency ?? "annual",
-                visitsPerYear: String(
-                  editingAgreement.visitsPerYear ?? 2,
-                ),
+                visitsPerYear: String(editingAgreement.visitsPerYear ?? 2),
                 annualPrice: editingAgreement.annualPrice ?? "",
                 notes: editingAgreement.notes ?? "",
                 equipmentId: editingAgreement.equipmentId ?? "",
@@ -415,13 +436,19 @@ export function ServiceAgreementsPageClient({
           {
             label: "Set Active",
             icon: IconPower,
-            onClick: () => { setBulkToggleValue(true); setBulkToggleOpen(true); },
+            onClick: () => {
+              setBulkToggleValue(true);
+              setBulkToggleOpen(true);
+            },
             variant: "default",
           },
           {
             label: "Set Inactive",
             icon: IconPower,
-            onClick: () => { setBulkToggleValue(false); setBulkToggleOpen(true); },
+            onClick: () => {
+              setBulkToggleValue(false);
+              setBulkToggleOpen(true);
+            },
             variant: "default",
           },
           {

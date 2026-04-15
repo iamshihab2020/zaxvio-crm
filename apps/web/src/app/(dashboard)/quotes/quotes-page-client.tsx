@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { queryKeys } from "@/lib/query-keys";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
-import { toast } from "sonner";
 import {
   IconPlus,
   IconFileText,
@@ -48,15 +50,17 @@ import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import {
-  getQuotes,
-  getQuoteStats,
-  createQuote,
-  deleteQuote,
-  addQuoteLineItem,
-  bulkArchiveQuotes,
-  bulkRestoreQuotes,
-  bulkDeleteQuotes,
-} from "@/actions/quotes";
+  useQuotes,
+  useQuoteStats,
+  useCreateQuote,
+  useDeleteQuote,
+  useBulkArchiveQuotes,
+  useBulkRestoreQuotes,
+  useBulkDeleteQuotes,
+  useTenantSettings,
+  prefetchQuotes,
+} from "@/hooks/queries";
+import { addQuoteLineItem } from "@/actions/quotes";
 import { getTenant } from "@/actions/tenants";
 import { getSupabaseBrowserClient } from "@/lib/supabase-client";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -112,20 +116,21 @@ export function QuotesPageClient({
   initialStats,
 }: QuotesPageClientProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("quotes");
-  const [quotes, setQuotes] = useState<QuoteRow[]>(initialQuotes);
-  const [loading, setLoading] = useState(initialQuotes.length === 0);
+
+  // UI state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [viewFilter, setViewFilter] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [sortPopoverOpen, setSortPopoverOpen] = useState(false);
-  const [pagination, setPagination] = useState<PaginationInfo>(
-    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
-  );
-  const [defaultTaxRate, setDefaultTaxRate] = useState(prefetchedTaxRate);
-  const [stats, setStats] = useState(initialStats ?? { draft: 0, sent: 0, accepted: 0, declined: 0 });
+  const [page, setPage] = useState(1);
+  const showingArchived = viewFilter === "archived";
+
+  // Debounce search for query key
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -133,7 +138,6 @@ export function QuotesPageClient({
 
   // Create dialog
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
 
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -149,10 +153,8 @@ export function QuotesPageClient({
     isIndeterminate,
     selectedCount,
   } = useRowSelection();
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const showingArchived = viewFilter === "archived";
 
   // Deep-link support
   const searchParams = useSearchParams();
@@ -167,47 +169,44 @@ export function QuotesPageClient({
     }
   }, [searchParams]);
 
-  const fetchQuotes = useCallback(
-    async (page = 1) => {
-      setLoading(true);
-      const result = await getQuotes({
-        search: search || undefined,
-        status: statusFilter || undefined,
-        page,
-        limit: 15,
-        sortBy,
-        sortOrder,
-        showArchived: showingArchived || undefined,
-      });
-      if (result.data) {
-        setQuotes(result.data as QuoteRow[]);
-        if (result.pagination) {
-          setPagination(result.pagination as PaginationInfo);
-        }
-      }
-      setLoading(false);
-    },
-    [search, statusFilter, sortBy, sortOrder, showingArchived],
-  );
-
-  // Fetch tenant for default tax rate (skip if server-prefetched)
+  // Reset page to 1 when filters change
   useEffect(() => {
-    if (prefetchedTaxRate !== "0") return;
-    getTenant().then((res) => {
-      if (res.data?.defaultTaxRate) {
-        setDefaultTaxRate(res.data.defaultTaxRate);
-      }
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Fetch quotes on mount and on search/filter change (debounced)
-  useEffect(() => {
-    const timer = setTimeout(() => fetchQuotes(1), 300);
+    setPage(1);
     clearSelection();
-    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchQuotes]);
+  }, [debouncedSearch, statusFilter, viewFilter, sortBy, sortOrder]);
+
+  // ── Queries ────────────────────────────────────────────────
+
+  const listParams = {
+    search: debouncedSearch || undefined,
+    status: statusFilter || undefined,
+    page,
+    limit: 15,
+    sortBy,
+    sortOrder,
+    showArchived: showingArchived || undefined,
+  };
+
+  const quotesQuery = useQuotes(listParams);
+  const statsQuery = useQuoteStats();
+  const tenantQuery = useTenantSettings();
+
+  // Derived state
+  const quotes = (quotesQuery.data?.data ?? []) as QuoteRow[];
+  const pagination = (quotesQuery.data?.pagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 }) as PaginationInfo;
+  const loading = quotesQuery.isPending;
+  const rawStats = statsQuery.data?.data as QuoteStats | undefined;
+  const stats = rawStats ?? { draft: 0, sent: 0, accepted: 0, declined: 0 };
+  const defaultTaxRate = (prefetchedTaxRate !== "0" ? prefetchedTaxRate : tenantQuery.data?.data?.defaultTaxRate) ?? "0";
+
+  // Prefetch next page
+  useEffect(() => {
+    if (pagination && page < pagination.totalPages) {
+      prefetchQuotes(queryClient, { ...listParams, page: page + 1 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [page, pagination?.totalPages]);
 
   // Subscribe to real-time quote updates (e.g., customer accepts/declines online)
   useEffect(() => {
@@ -223,8 +222,7 @@ export function QuotesPageClient({
         .channel(`quotes:${tenant.id}`)
         .on("broadcast", { event: "quote_updated" }, () => {
           if (!mounted) return;
-          fetchQuotes(pagination.page);
-          refreshStats();
+          queryClient.invalidateQueries({ queryKey: queryKeys.quotes.all });
         })
         .subscribe();
     }
@@ -241,106 +239,86 @@ export function QuotesPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Refresh stats after mutations (single API call)
-  async function refreshStats() {
-    const result = await getQuoteStats();
-    if (result.data) setStats(result.data);
+  // ── Mutations ──────────────────────────────────────────────
+
+  const createMutation = useCreateQuote();
+  const deleteMutation = useDeleteQuote();
+  const bulkArchiveMut = useBulkArchiveQuotes();
+  const bulkRestoreMut = useBulkRestoreQuotes();
+  const bulkDeleteMutation = useBulkDeleteQuotes();
+
+  // Derived mutation state
+  const saving = createMutation.isPending;
+  const bulkLoading = bulkArchiveMut.isPending || bulkRestoreMut.isPending || bulkDeleteMutation.isPending;
+
+  // ── Handlers ───────────────────────────────────────────────
+
+  function handleCreate(data: QuoteFormData) {
+    createMutation.mutate(
+      {
+        customerId: data.customerId,
+        issuedDate: data.issuedDate || undefined,
+        expiryDate: data.expiryDate || undefined,
+        taxRate: data.taxRate,
+        discountAmount: data.discountAmount || undefined,
+        notes: data.notes || undefined,
+        equipmentId: data.equipmentId || undefined,
+      },
+      {
+        onSuccess: async (res) => {
+          if (res.error) return;
+          // Add line items if any were provided during creation
+          const quoteId = res.data?.id;
+          if (quoteId && data.lineItems && data.lineItems.length > 0) {
+            for (const li of data.lineItems) {
+              await addQuoteLineItem(quoteId, {
+                description: li.description,
+                itemType: li.itemType,
+                quantity: li.quantity,
+                unitPrice: li.unitPrice,
+                ...(li.catalogItemId ? { catalogItemId: li.catalogItemId } : {}),
+              });
+            }
+          }
+          setCreateDialogOpen(false);
+          if (quoteId) {
+            setSelectedQuoteId(quoteId);
+            setSheetOpen(true);
+          }
+        },
+      },
+    );
   }
 
-  async function handleCreate(data: QuoteFormData) {
-    setSaving(true);
-    const result = await createQuote({
-      customerId: data.customerId,
-      issuedDate: data.issuedDate || undefined,
-      expiryDate: data.expiryDate || undefined,
-      taxRate: data.taxRate,
-      discountAmount: data.discountAmount || undefined,
-      notes: data.notes || undefined,
-      equipmentId: data.equipmentId || undefined,
-    });
-    if (result.error) {
-      setSaving(false);
-      toast.error(result.error);
-      return;
-    }
-
-    // Add line items if any were provided during creation
-    const quoteId = result.data?.id;
-    if (quoteId && data.lineItems && data.lineItems.length > 0) {
-      for (const li of data.lineItems) {
-        await addQuoteLineItem(quoteId, {
-          description: li.description,
-          itemType: li.itemType,
-          quantity: li.quantity,
-          unitPrice: li.unitPrice,
-          ...(li.catalogItemId ? { catalogItemId: li.catalogItemId } : {}),
-        });
-      }
-    }
-
-    setSaving(false);
-    toast.success("Quote created");
-    setCreateDialogOpen(false);
-    fetchQuotes(1);
-    refreshStats();
-    if (quoteId) {
-      setSelectedQuoteId(quoteId);
-      setSheetOpen(true);
-    }
-  }
-
-  async function handleDelete() {
+  function handleDelete() {
     if (!deletingQuote) return;
-    const result = await deleteQuote(deletingQuote.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote deleted");
-      setDeleteDialogOpen(false);
-      setDeletingQuote(null);
-      const targetPage =
-        quotes.length === 1 && pagination.page > 1
-          ? pagination.page - 1
-          : pagination.page;
-      fetchQuotes(targetPage);
-      refreshStats();
-    }
+    deleteMutation.mutate(deletingQuote.id, {
+      onSuccess: (res) => {
+        if (res.error) return;
+        setDeleteDialogOpen(false);
+        setDeletingQuote(null);
+      },
+    });
   }
 
-  // Bulk action handlers
-  async function handleBulkArchive() {
-    setBulkLoading(true);
+  function handleBulkArchive() {
     const ids = Array.from(selectedIds);
-    const result = showingArchived
-      ? await bulkRestoreQuotes(ids)
-      : await bulkArchiveQuotes(ids);
-    setBulkLoading(false);
-    setBulkArchiveOpen(false);
-    clearSelection();
-    fetchQuotes(pagination.page);
-    refreshStats();
-    if (result.succeeded > 0) {
-      toast.success(`${result.succeeded} quote(s) ${showingArchived ? "restored" : "archived"}`);
-    }
-    if (result.failed > 0) {
-      toast.error(`${result.failed} quote(s) could not be ${showingArchived ? "restored" : "archived"}`);
-    }
+    const mut = showingArchived ? bulkRestoreMut : bulkArchiveMut;
+    mut.mutate(ids, {
+      onSettled: () => {
+        setBulkArchiveOpen(false);
+        clearSelection();
+      },
+    });
   }
 
-  async function handleBulkDelete() {
-    setBulkLoading(true);
-    const result = await bulkDeleteQuotes(Array.from(selectedIds));
-    setBulkLoading(false);
-    setBulkDeleteOpen(false);
-    clearSelection();
-    fetchQuotes(pagination.page);
-    refreshStats();
-    if (result.succeeded > 0) {
-      toast.success(`${result.succeeded} quote(s) permanently deleted`);
-    }
-    if (result.failed > 0) {
-      toast.error(`${result.failed} quote(s) could not be deleted`);
-    }
+  function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds), {
+      onSettled: () => {
+        setBulkDeleteOpen(false);
+        clearSelection();
+      },
+    });
   }
 
   function handleRowClick(id: string) {
@@ -502,7 +480,7 @@ export function QuotesPageClient({
           page={pagination.page}
           totalPages={pagination.totalPages}
           total={pagination.total}
-          onPageChange={(p) => fetchQuotes(p)}
+          onPageChange={(p) => setPage(p)}
           entityName="quote"
         />
       )}
@@ -525,7 +503,7 @@ export function QuotesPageClient({
           setDeletingQuote(q);
           setDeleteDialogOpen(true);
         }}
-        onDataChange={() => { fetchQuotes(pagination.page); refreshStats(); }}
+        onDataChange={() => { quotesQuery.refetch(); statsQuery.refetch(); }}
       />
 
       {/* Delete confirmation */}
@@ -536,7 +514,7 @@ export function QuotesPageClient({
         entityName="Quote"
         itemLabel={deletingQuote?.quoteNumber ?? ""}
         description="This will permanently remove the quote and all its line items."
-        loading={false}
+        loading={deleteMutation.isPending}
       />
 
       {/* Bulk action bar */}

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/reusable/page-header";
@@ -10,6 +11,7 @@ import {
   markNotificationRead,
   markAllNotificationsRead,
 } from "@/actions/notifications";
+import { queryKeys } from "@/lib/query-keys";
 import type { NotificationWithReadStatus } from "@hvac-saas/types";
 
 interface NotificationsPageClientProps {
@@ -21,34 +23,116 @@ export function NotificationsPageClient({
   initialNotifications,
   initialNextCursor = null,
 }: NotificationsPageClientProps) {
-  const [notifications, setNotifications] =
-    useState<NotificationWithReadStatus[]>(initialNotifications);
+  const queryClient = useQueryClient();
+
+  // Use TanStack Query for the initial page of notifications
+  const notificationsQuery = useQuery({
+    queryKey: queryKeys.notifications.list({ limit: 50 }),
+    queryFn: () => getNotifications({ limit: 50 }),
+    initialData: {
+      data: initialNotifications,
+      nextCursor: initialNextCursor,
+      error: null,
+    },
+  });
+
+  // Additional pages loaded via "Load more" are appended here
+  const [extraNotifications, setExtraNotifications] = useState<
+    NotificationWithReadStatus[]
+  >([]);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [nextCursor, setNextCursor] = useState<string | null>(initialNextCursor);
-  const [markingAll, setMarkingAll] = useState(false);
+  const [nextCursor, setNextCursor] = useState<string | null>(
+    initialNextCursor,
+  );
+
+  // Combine query data with manually-loaded extras
+  const notifications = useMemo(() => {
+    const base = (notificationsQuery.data?.data ??
+      []) as NotificationWithReadStatus[];
+    return [...base, ...extraNotifications];
+  }, [notificationsQuery.data, extraNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
-  const markAsRead = useCallback(async (id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
-    );
-    await markNotificationRead(id);
-  }, []);
+  // Optimistic mark-as-read via TanStack mutation
+  const markReadMutation = useMutation({
+    mutationFn: (id: string) => markNotificationRead(id),
+    onMutate: async (id: string) => {
+      // Optimistically update the query cache
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.notifications.list({ limit: 50 }),
+      });
+      queryClient.setQueryData(
+        queryKeys.notifications.list({ limit: 50 }),
+        (old: typeof notificationsQuery.data | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: (old.data as NotificationWithReadStatus[]).map((n) =>
+              n.id === id ? { ...n, isRead: true } : n,
+            ),
+          };
+        },
+      );
+      // Also update extras
+      setExtraNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)),
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.all,
+      });
+    },
+  });
 
-  const markAllAsRead = useCallback(async () => {
-    setMarkingAll(true);
-    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
-    await markAllNotificationsRead();
-    setMarkingAll(false);
-  }, []);
+  const markAllReadMutation = useMutation({
+    mutationFn: () => markAllNotificationsRead(),
+    onMutate: async () => {
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.notifications.list({ limit: 50 }),
+      });
+      queryClient.setQueryData(
+        queryKeys.notifications.list({ limit: 50 }),
+        (old: typeof notificationsQuery.data | undefined) => {
+          if (!old?.data) return old;
+          return {
+            ...old,
+            data: (old.data as NotificationWithReadStatus[]).map((n) => ({
+              ...n,
+              isRead: true,
+            })),
+          };
+        },
+      );
+      setExtraNotifications((prev) =>
+        prev.map((n) => ({ ...n, isRead: true })),
+      );
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.notifications.all,
+      });
+    },
+  });
+
+  const markAsRead = useCallback(
+    (id: string) => {
+      markReadMutation.mutate(id);
+    },
+    [markReadMutation],
+  );
+
+  const markAllAsRead = useCallback(() => {
+    markAllReadMutation.mutate();
+  }, [markAllReadMutation]);
 
   const loadMore = useCallback(async () => {
     if (!nextCursor || loadingMore) return;
     setLoadingMore(true);
     const result = await getNotifications({ limit: 50, cursor: nextCursor });
     if (result.data) {
-      setNotifications((prev) => [
+      setExtraNotifications((prev) => [
         ...prev,
         ...(result.data as NotificationWithReadStatus[]),
       ]);
@@ -70,7 +154,7 @@ export function NotificationsPageClient({
           <Button
             variant="outline"
             size="sm"
-            disabled={unreadCount === 0 || markingAll}
+            disabled={unreadCount === 0 || markAllReadMutation.isPending}
             onClick={markAllAsRead}
           >
             Mark all as read
@@ -102,7 +186,11 @@ export function NotificationsPageClient({
                 description={notif.description}
                 entityType={notif.entityType}
                 entityId={notif.entityId}
-                createdAt={notif.createdAt}
+                createdAt={
+                  notif.createdAt instanceof Date
+                    ? notif.createdAt.toISOString()
+                    : notif.createdAt
+                }
                 isRead={notif.isRead}
                 onMarkRead={markAsRead}
               />

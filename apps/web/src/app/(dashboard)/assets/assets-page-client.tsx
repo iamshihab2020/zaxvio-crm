@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
   IconDevices2,
@@ -29,14 +30,15 @@ import {
   AssetDialog,
   type AssetFormData,
 } from "@/components/dashboard/equipment/asset-dialog";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import {
-  getEquipment,
-  updateEquipment,
-  deleteEquipment,
-  bulkDeleteEquipment,
-} from "@/actions/equipment";
+  useEquipment,
+  useUpdateEquipment,
+  useDeleteEquipment,
+  useBulkDeleteEquipment,
+  prefetchEquipment,
+} from "@/hooks/queries";
 import { useRowSelection } from "@/hooks/use-row-selection";
-import { toast } from "sonner";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -51,6 +53,8 @@ interface PaginationData {
   total: number;
   totalPages: number;
 }
+
+const DEFAULT_PAGINATION: PaginationData = { page: 1, limit: 15, total: 0, totalPages: 0 };
 
 function getWarrantyStatus(asset: AssetRow): string {
   if (!asset.warrantyExpiry) return "expired";
@@ -73,14 +77,12 @@ export function AssetsPageClient({
   initialPagination,
 }: AssetsPageClientProps) {
   const router = useRouter();
-  const [assets, setAssets] = useState<AssetRow[]>(initialAssets);
-  const [pagination, setPagination] = useState<PaginationData>(
-    initialPagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 },
-  );
+
+  // UI state
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(initialPagination?.page ?? 1);
   const [statusFilter, setStatusFilter] = useState("");
-  const [loading, setLoading] = useState(initialAssets.length === 0);
-  const [saving, setSaving] = useState(false);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   // Row selection
   const {
@@ -94,7 +96,6 @@ export function AssetsPageClient({
   } = useRowSelection();
 
   // Bulk action state
-  const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   // Dialog state
@@ -103,48 +104,32 @@ export function AssetsPageClient({
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingAsset, setDeletingAsset] = useState<AssetRow | null>(null);
 
-  const fetchAssets = useCallback(
-    async (page: number, searchTerm: string) => {
-      setLoading(true);
-      const result = await getEquipment({
-        search: searchTerm,
-        page,
-        limit: 15,
-      });
-      if (result.data) {
-        setAssets(result.data as AssetRow[]);
-        if (result.pagination) {
-          setPagination(result.pagination as PaginationData);
-        }
-      }
-      setLoading(false);
-    },
-    [],
-  );
+  // ── Queries ────────────────────────────────────────────────
+  const listParams = { search: debouncedSearch, page, limit: 15 };
+  const assetsQuery = useEquipment(listParams);
 
-  // Fetch on mount (skip if server-prefetched)
+  const assets = (assetsQuery.data?.data ?? []) as AssetRow[];
+  const pagination = (assetsQuery.data?.pagination ?? DEFAULT_PAGINATION) as PaginationData;
+  const loading = assetsQuery.isLoading;
+
+  // Prefetch next page
+  const queryClient = useQueryClient();
   useEffect(() => {
-    if (initialAssets.length > 0) return;
-    fetchAssets(1, "");
+    if (pagination && page < pagination.totalPages) {
+      prefetchEquipment(queryClient, { ...listParams, page: page + 1 });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page, pagination?.totalPages]);
 
-  // Re-fetch on search change (debounced), clear selection
-  useEffect(() => {
-    if (!search) return;
-    const timer = setTimeout(() => {
-      fetchAssets(1, search);
-      clearSelection();
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [search, fetchAssets]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ── Mutations ──────────────────────────────────────────────
+  const updateMutation = useUpdateEquipment();
+  const deleteMutation = useDeleteEquipment();
+  const bulkDeleteMutation = useBulkDeleteEquipment();
 
-  // Clear selection when status filter changes
-  useEffect(() => {
-    clearSelection();
-  }, [statusFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  const saving = updateMutation.isPending || deleteMutation.isPending;
+  const bulkLoading = bulkDeleteMutation.isPending;
 
-  // Compute stats client-side
+  // ── Derived ────────────────────────────────────────────────
   const stats = useMemo(() => {
     let underWarranty = 0, expiring = 0, expired = 0;
     for (const a of assets) {
@@ -156,25 +141,20 @@ export function AssetsPageClient({
     return { total: pagination.total, underWarranty, expiring, expired };
   }, [assets, pagination.total]);
 
-  // Client-side status filtering
   const filteredAssets = useMemo(() => {
     if (!statusFilter) return assets;
     return assets.filter((a) => getWarrantyStatus(a) === statusFilter);
   }, [assets, statusFilter]);
 
-  async function handleBulkDelete() {
-    setBulkLoading(true);
-    const ids = Array.from(selectedIds);
-    const result = await bulkDeleteEquipment(ids);
-    setBulkLoading(false);
-    setBulkDeleteOpen(false);
-    if (result.error && result.succeeded === 0) {
-      toast.error(result.error);
-    } else {
-      toast.success(`Deleted ${result.succeeded} asset${result.succeeded !== 1 ? "s" : ""}${result.failed > 0 ? ` (${result.failed} failed)` : ""}`);
-      clearSelection();
-      await fetchAssets(pagination.page, search);
-    }
+  // ── Handlers ───────────────────────────────────────────────
+  function handleSearchChange(value: string) {
+    setSearch(value);
+    setPage(1);
+    clearSelection();
+  }
+
+  function handlePageChange(newPage: number) {
+    setPage(newPage);
   }
 
   function openEditDialog(asset: AssetRow) {
@@ -187,27 +167,32 @@ export function AssetsPageClient({
     setDeleteDialogOpen(true);
   }
 
-  async function handleSave(data: AssetFormData) {
+  function handleSave(data: AssetFormData) {
     if (!editingAsset) return;
-    setSaving(true);
-    const result = await updateEquipment(editingAsset.id, data);
-    if (!result.error) {
-      setDialogOpen(false);
-      await fetchAssets(pagination.page, search);
-    }
-    setSaving(false);
+    updateMutation.mutate(
+      { id: editingAsset.id, data },
+      { onSuccess: (res) => { if (!res.error) setDialogOpen(false); } },
+    );
   }
 
-  async function handleDelete() {
+  function handleDelete() {
     if (!deletingAsset) return;
-    setSaving(true);
-    const result = await deleteEquipment(deletingAsset.id);
-    if (!result.error) {
-      setDeleteDialogOpen(false);
-      setDeletingAsset(null);
-      await fetchAssets(pagination.page, search);
-    }
-    setSaving(false);
+    deleteMutation.mutate(deletingAsset.id, {
+      onSuccess: (res) => {
+        if (!res.error) {
+          setDeleteDialogOpen(false);
+          setDeletingAsset(null);
+        }
+      },
+    });
+  }
+
+  function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds), {
+      onSuccess: (res) => {
+        if (!res.error) { setBulkDeleteOpen(false); clearSelection(); }
+      },
+    });
   }
 
   const hasAssets = filteredAssets.length > 0;
@@ -246,39 +231,36 @@ export function AssetsPageClient({
         />
       )}
 
-      {/* Card wrapper — search + filters + table */}
+      {/* Card wrapper */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="flex items-center gap-3 border-b border-border px-4 py-3">
             <StatusFilterTabs
               options={STATUS_OPTIONS}
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={(v) => { setStatusFilter(v); clearSelection(); }}
             />
             <div className="ml-auto flex items-center gap-2">
               <SearchInput
                 value={search}
-                onChange={setSearch}
+                onChange={handleSearchChange}
                 placeholder="Search by type, brand, model, serial..."
               />
             </div>
           </div>
 
-          {/* Loading skeleton */}
           {loading && (
             <div className="p-4">
               <TableSkeleton columns={6} rows={5} />
             </div>
           )}
 
-          {/* No results */}
           {showNoResults && (
             <p className="py-12 text-center text-sm text-muted-foreground font-body">
               No assets found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
             </p>
           )}
 
-          {/* Table */}
           {!loading && hasAssets && (
             <AssetTable
               assets={filteredAssets}
@@ -296,13 +278,12 @@ export function AssetsPageClient({
         </div>
       )}
 
-      {/* Pagination */}
       {!loading && hasAssets && pagination.totalPages > 1 && (
         <Pagination
           page={pagination.page}
           totalPages={pagination.totalPages}
           total={pagination.total}
-          onPageChange={(p) => fetchAssets(p, search)}
+          onPageChange={handlePageChange}
           entityName="asset"
         />
       )}
@@ -337,7 +318,6 @@ export function AssetsPageClient({
         loading={saving}
       />
 
-      {/* Bulk action bar */}
       <BulkActionBar
         selectedCount={selectedCount}
         onClearSelection={clearSelection}
@@ -352,7 +332,6 @@ export function AssetsPageClient({
         ]}
       />
 
-      {/* Bulk delete confirmation */}
       <BulkConfirmDialog
         open={bulkDeleteOpen}
         onOpenChange={setBulkDeleteOpen}

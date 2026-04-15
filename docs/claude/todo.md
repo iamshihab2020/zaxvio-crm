@@ -9,20 +9,6 @@ Task tracking for the Zaxvio CRM project.
 ## In Progress
 
 ### Public Quote Acceptance Portal — Remaining
-
-### Public Quote Acceptance Portal (2026-04-11)
-- [x] DB migration — `access_token`, `decline_reason`, `customer_scheduled_date/time` on quotes, 3 settings on tenants
-- [x] Drizzle schema updated — quotes + tenants
-- [x] Shared `convertQuoteToJob()` helper extracted from quotes route
-- [x] Public API — 3 endpoints at `/public/quote/:token` (view, accept, decline)
-- [x] Quote email wired — generates access token on send, populates `viewQuoteUrl`
-- [x] Email template updated — "View & Respond" button text, conditional footer
-- [x] Public quote page — `/quote/[token]` with review, respond, scheduling, confirmation steps
-- [x] Quote portal components — review card, response buttons, confirmation, expired view
-- [x] Server actions — `getPublicQuote`, `acceptPublicQuote`, `declinePublicQuote`
-- [x] Settings UI — 3 toggles in Quote Settings (online acceptance, scheduling, auto-convert)
-- [x] Quote detail UI — shows decline reason and customer-scheduled date
-- [x] Middleware updated — `/quote` added to public paths
 - [ ] Create `quotes` Supabase Storage bucket (manual step in Supabase dashboard, if not exists)
 
 ### Unified List Page Migration (2026-04-04)
@@ -46,24 +32,7 @@ Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/d
 - [x] Created `docs/design.md` — extracted frontend patterns from CLAUDE.md
 - [ ] Update `docs/project_docs/REPO_MAP.md` with new files
 
-- [x] **EntityDetailShell Refactor** (2026-04-04) — Extracted reusable entity detail shell from 4 duplicated files (jobs, invoices, quotes, bookings). Removed ~1,350 lines of duplication. New components in `components/dashboard/reusable/entity-detail-shell/`. Redesigned header with toolbar pill, lazy tab rendering, dark/light mode safe.
-
----
-
-### Job Photo & File Attachment System (2026-04-05)
-- [x] DB migration — `photo_tag` enum, new columns on `job_photos`, new `job_documents` table
-- [x] Drizzle schema updated — `jobPhotos` extended, `jobDocuments` added, relations updated
-- [x] API — upload endpoint, photo tag filter/PATCH, document CRUD, customer photo timeline
-- [x] Server actions — `uploadJobFile`, `updateJobPhotoTag`, document actions, `getCustomerPhotos`
-- [x] Upload modal with photo/doc toggle, tag selector, mobile camera support
-- [x] Photo tag pills (`PhotoTagPill` component)
-- [x] Extended `JobDetailPhotos` — tags, lightbox trigger, upload button, compare button
-- [x] Photo lightbox with keyboard navigation
-- [x] Before/After comparison view
-- [x] `JobDetailDocuments` — file list, download, delete
-- [x] Job tabs panel — "Files" tab with photos + documents sections
-- [x] Customer "Photos" tab — cross-job timeline grouped by job
-- [x] Invoice "Photos" tab — job photo selector with checkboxes
+### Job Photo & File Attachment System — Remaining
 - [ ] Create `job-attachments` Supabase Storage bucket (manual step in Supabase dashboard)
 
 ---
@@ -85,6 +54,10 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **TanStack Query Migration (Phases 1-4)** (2026-04-15) — Full client-side data layer: QueryClientProvider, centralized query keys, 18 reusable hook files (queries + mutations), all 14 page-clients migrated to reusable hooks, global background refetch indicator, hover-prefetch on 4 tables, pagination prefetch on 9 pages, staleTime tuning per domain. Conversations page deferred (Supabase Realtime architecture).
+- [x] **Public Quote Acceptance Portal** (2026-04-11) — DB migration, public API (3 endpoints), email template, public quote page with review/respond/scheduling/confirmation steps, server actions, settings UI, quote detail UI. Manual step remaining: create `quotes` Supabase Storage bucket.
+- [x] **EntityDetailShell Refactor** (2026-04-04) — Extracted reusable entity detail shell from 4 duplicated files. Removed ~1,350 lines of duplication.
+- [x] **Job Photo & File Attachment System** (2026-04-05) — Full upload UI, tag pills, lightbox, before/after comparison, customer photo timeline, invoice photo selector. Manual step remaining: create `job-attachments` Supabase Storage bucket.
 - [x] **Deferred Tenant Fixes (DF-TEN-01 to 12)** (2026-04-14) — Fixed 11 of 12 deferred tenant issues: idempotent /tenants/initialize with onConflictDoNothing, admin slug uniqueness check + format validation, max lengths on all text fields, HTML tag stripping for email/PDF-rendered fields, defaultTaxRate coercion, logo MIME allowlist (blocks SVG), filename path traversal prevention. DF-TEN-11 (slug redirect warning) deferred as low-priority UI concern.
 - [x] **Jobs Page & Conversion Flow Audit Fixes** (2026-04-13) — Fixed 28 bugs across 6 phases: frontend stale data (refreshBothViews helper, pipelineChangingRef guard), optimistic update snapshot timing, line item numeric validation, time ordering validation, delete confirmation, SSR hydration mismatch, loading flash, timezone normalization, empty states for 0 stages/0 pipelines, dynamic import fallback, externally-deleted-job handling in detail sheet, duplicate invoice prevention (void-aware), dead code removal in quotes route.
 - [x] **Job API Route Audit Fixes** (2026-04-13) — Fixed 22 issues across 5 phases: schema enum mismatches (priority, itemType, status), status transition state machine, bulk checklist gate, assignee/pipeline tenant validation, archived job guards, storage bucket fix, LIKE escaping, reorder transaction, tenantId defense-in-depth. Frontend: Active/Archived tabs with bulk archive/restore in jobs table view.

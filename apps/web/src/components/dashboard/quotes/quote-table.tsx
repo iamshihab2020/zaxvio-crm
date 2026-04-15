@@ -8,6 +8,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useQueryClient } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { getQuote } from "@/actions/quotes";
 import { Checkbox } from "@/components/ui/checkbox";
 import { QuoteStatusBadge } from "./quote-status-badge";
 
@@ -56,6 +59,7 @@ export function QuoteTable({
   isAllSelected,
   isIndeterminate,
 }: QuoteTableProps) {
+  const queryClient = useQueryClient();
   const hasSelection = !!selectedIds && !!onToggleSelect;
 
   return (
@@ -85,6 +89,13 @@ export function QuoteTable({
               key={q.id}
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => onRowClick(q.id)}
+              onMouseEnter={() => {
+                queryClient.prefetchQuery({
+                  queryKey: queryKeys.quotes.detail(q.id),
+                  queryFn: () => getQuote(q.id),
+                  staleTime: 30_000,
+                });
+              }}
             >
               {hasSelection && (
                 <TableCell onClick={(e) => e.stopPropagation()}>
