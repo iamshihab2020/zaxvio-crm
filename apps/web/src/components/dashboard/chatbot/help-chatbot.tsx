@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { IconMessageChatbot } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { useChatbot } from "@/hooks/use-chatbot";
+import { onOpenChatbot } from "@/lib/chatbot/bus";
 import { ChatbotPanel } from "./chatbot-panel";
 
 export function HelpChatbot() {
@@ -26,6 +27,8 @@ export function HelpChatbot() {
       setHasOpened(true);
     }
   }, [isOpen, hasOpened]);
+
+  useEffect(() => onOpenChatbot(() => setIsOpen(true)), [setIsOpen]);
 
   return (
     <>

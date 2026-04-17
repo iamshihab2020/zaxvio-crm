@@ -99,8 +99,19 @@ export async function getWeeklyRevenue(db: DbClient, tenantId: string) {
   return z.array(sparklineAmountRow).parse(rows);
 }
 
-/** Job pipeline for dashboard (includes stage_name for mapping). */
-export async function getDashboardPipeline(db: DbClient, tenantId: string) {
+/**
+ * Job pipeline stage distribution for the dashboard.
+ * If `pipelineId` is provided, scopes to that pipeline; otherwise falls back to the tenant's default pipeline.
+ */
+export async function getDashboardPipeline(
+  db: DbClient,
+  tenantId: string,
+  pipelineId?: string | null,
+) {
+  const pipelineJoin = pipelineId
+    ? sql`INNER JOIN pipelines p ON p.id = jps.pipeline_id AND p.id = ${pipelineId}`
+    : sql`INNER JOIN pipelines p ON p.id = jps.pipeline_id AND p.is_default = true`;
+
   const rows = await db.execute(sql`
     SELECT
       jps.name AS stage_name,
@@ -108,7 +119,7 @@ export async function getDashboardPipeline(db: DbClient, tenantId: string) {
       jps.color AS stage_color,
       COUNT(j.id)::text AS job_count
     FROM job_pipeline_stages jps
-    INNER JOIN pipelines p ON p.id = jps.pipeline_id AND p.is_default = true
+    ${pipelineJoin}
     LEFT JOIN jobs j
       ON j.status = jps.name AND j.pipeline_id = jps.pipeline_id
     WHERE jps.tenant_id = ${tenantId}

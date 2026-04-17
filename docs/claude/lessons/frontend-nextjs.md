@@ -11,6 +11,13 @@
 - **Never use `template.tsx` for route group layouts** — `template.tsx` remounts on every navigation, destroying browser history state and breaking back/forward. Always use `layout.tsx` for route groups. Only use `template.tsx` for rare cases like per-page entry animations.
 - **Route groups for organization only, not competing layouts** — Auth pages (`(auth)/`) should NOT have their own `layout.tsx` if there's already a root layout. Competing layout trees cause rendering conflicts. Use a shared wrapper component (e.g., `AuthShell`) instead.
 
+## Dashboard Redesign (2026-04-17)
+
+- **Use a pub/sub "bus" to trigger a singleton client component from other pages** — `HelpChatbot` is mounted once in `(dashboard)/layout.tsx`, so each call to `useChatbot()` elsewhere creates its own independent state. To let a button on any page open the already-mounted chatbot, created `lib/chatbot/bus.ts` that dispatches a `chatbot:open` CustomEvent; the chatbot component listens and flips `isOpen`. **Why:** lifting `useChatbot` to a React context would force every page to re-render on message state changes.
+- **Recharts revenue chart granularity must match the generate_series step** — When toggling 1D/1W/1M/6M/1Y/ALL tabs, switch BOTH the date range AND the SQL `date_trunc` bucket (`day`/`week`/`month`). If they mismatch, the chart shows either a single flat bar or a jagged line. **How to apply:** always derive granularity from the selected range length — see `rangeFromPreset()` in `dashboard-page-client.tsx`.
+- **AgendaTimeline auto-picks mode from date-range span, not a user toggle** — 1 day → hourly layout, 2–14 days → grouped list with day headers, >14 days → condensed list. **Why:** keeps the widget useful across every range the revenue chart supports without adding a second control the user has to learn.
+- **localStorage widget prefs must hydrate after first render** — `useDashboardWidgetPrefs` initializes with defaults and only reads localStorage in `useEffect`. If you read localStorage during render (SSR/CSR mismatch), Next hydration will throw "text content did not match." The `hydrated` flag is returned for consumers that care; most widgets just use `visible` (it flips from default to stored value on first client paint — visually harmless).
+
 ## Frontend Architecture (2026-04-04)
 
 - **Page titles are decentralized after navbar cleanup** — Titles moved from a central `pageTitles` map in `navbar.tsx` to individual `<PageHeader>` components per page. New pages can easily miss adding a header. No compile-time check catches this.

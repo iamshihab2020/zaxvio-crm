@@ -107,6 +107,13 @@ export const repeatOneTimeRow = z.object({
   onetime_count: z.string(),
 });
 
+export const retentionTrendRow = z.object({
+  month: z.string(),
+  month_label: z.string(),
+  repeat_count: z.string(),
+  total_count: z.string(),
+});
+
 // ── Quotes & Invoices ──
 
 export const quoteFunnelRow = z.object({

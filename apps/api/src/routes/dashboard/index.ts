@@ -15,10 +15,10 @@ const dashboardRoutes: FastifyPluginAsyncZod = async (fastify) => {
   f.get("/stats", { schema: { querystring: dashboardStatsQuery } }, async (request) => {
     const db = getDb();
     const tenantId = request.authUser.tenantId!;
-    const { from, to } = request.query;
+    const { from, to, granularity, pipelineId } = request.query;
 
     const params = buildDateRangeParams(tenantId, from, to);
-    const data = await getDashboardStats(db, params);
+    const data = await getDashboardStats(db, params, granularity, pipelineId ?? null);
 
     return { data };
   });

@@ -16,6 +16,8 @@ async function getCookieHeader() {
 export async function getDashboardStats(params?: {
   from?: string;
   to?: string;
+  granularity?: "day" | "week" | "month";
+  pipelineId?: string;
 }): Promise<{
   data: DashboardStats | null;
   error: string | null;
@@ -24,6 +26,8 @@ export async function getDashboardStats(params?: {
     const searchParams = new URLSearchParams();
     if (params?.from) searchParams.set("from", params.from);
     if (params?.to) searchParams.set("to", params.to);
+    if (params?.granularity) searchParams.set("granularity", params.granularity);
+    if (params?.pipelineId) searchParams.set("pipelineId", params.pipelineId);
 
     const qs = searchParams.toString();
     const url = `${API_URL}/dashboard/stats${qs ? `?${qs}` : ""}`;

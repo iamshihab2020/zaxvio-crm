@@ -1,9 +1,14 @@
 import { z } from "zod";
 
+/** Revenue trend granularity for GET /dashboard/stats */
+export const revenueGranularitySchema = z.enum(["day", "week", "month"]);
+
 /** Query params for GET /dashboard/stats */
 export const dashboardStatsQuery = z.object({
   from: z.string().optional(),
   to: z.string().optional(),
+  granularity: revenueGranularitySchema.optional().default("month"),
+  pipelineId: z.string().uuid().optional(),
 });
 
 /** Valid section names for GET /reports/stats */

@@ -7,6 +7,7 @@ import {
   topCustomerJobsRow,
   repeatOneTimeRow,
   totalCountRow,
+  retentionTrendRow,
 } from "../schemas.js";
 
 /** New customers by month with generate_series zero-fill. */
@@ -114,6 +115,52 @@ export async function getActiveCustomerCount(db: DbClient, tenantId: string) {
       AND scheduled_date >= CURRENT_DATE - INTERVAL '90 days'
   `);
   return z.array(totalCountRow).parse(rows);
+}
+
+/**
+ * Monthly repeat-customer rate: % of customers with ≥2 completed jobs whose latest job falls in the bucket.
+ * Each row is a month bucket; repeat_count = customers with ≥2 total jobs (lifetime) that had a job this month;
+ * total_count = distinct customers who had any job this month.
+ */
+export async function getRepeatCustomerRateByMonth(
+  db: DbClient,
+  tenantId: string,
+  from: string,
+  to: string,
+) {
+  const rows = await db.execute(sql`
+    WITH lifetime AS (
+      SELECT customer_id, COUNT(*)::int AS total_jobs
+      FROM jobs
+      WHERE tenant_id = ${tenantId}
+      GROUP BY customer_id
+    ),
+    monthly AS (
+      SELECT
+        date_trunc('month', j.scheduled_date)::date AS bucket,
+        j.customer_id,
+        (l.total_jobs > 1) AS is_repeat
+      FROM jobs j
+      INNER JOIN lifetime l ON l.customer_id = j.customer_id
+      WHERE j.tenant_id = ${tenantId}
+        AND j.scheduled_date >= ${from}::date
+        AND j.scheduled_date <= ${to}::date
+    )
+    SELECT
+      to_char(m.bucket, 'YYYY-MM') AS month,
+      to_char(m.bucket, 'Mon YYYY') AS month_label,
+      COALESCE(COUNT(DISTINCT CASE WHEN monthly.is_repeat THEN monthly.customer_id END), 0)::text AS repeat_count,
+      COALESCE(COUNT(DISTINCT monthly.customer_id), 0)::text AS total_count
+    FROM generate_series(
+      date_trunc('month', ${from}::date),
+      date_trunc('month', ${to}::date),
+      INTERVAL '1 month'
+    ) AS m(bucket)
+    LEFT JOIN monthly ON monthly.bucket = m.bucket
+    GROUP BY m.bucket
+    ORDER BY m.bucket
+  `);
+  return z.array(retentionTrendRow).parse(rows);
 }
 
 /** Total customer count (all time). */

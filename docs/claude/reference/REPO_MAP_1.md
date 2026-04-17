@@ -374,16 +374,23 @@ apps/web/
     |   |   +-- sidebar-nav-item.tsx # Nav item component
     |   |   |
     |   |   +-- home/               # KPI Dashboard components
+    |   |   |   +-- agenda-timeline.tsx          # Right-column agenda (day/week/range modes) — NEW
+    |   |   |   +-- customize-widgets-popover.tsx # Show/hide widget toggles — NEW
     |   |   |   +-- dashboard-skeleton.tsx
+    |   |   |   +-- dashboard-toolbar.tsx        # Ask AI + Customize + Last updated — NEW
     |   |   |   +-- invoice-aging.tsx
-    |   |   |   +-- job-pipeline-chart.tsx
-    |   |   |   +-- kpi-card.tsx
-    |   |   |   +-- kpi-grid.tsx
+    |   |   |   +-- job-pipeline-chart.tsx       # (legacy, still importable)
+    |   |   |   +-- jobs-management-panel.tsx    # Status/Priority/Service tabs — NEW
+    |   |   |   +-- kpi-card.tsx                 # (legacy sparkline variant)
+    |   |   |   +-- kpi-grid.tsx                 # (legacy, replaced by KpiPill trio)
+    |   |   |   +-- kpi-pill.tsx                 # Reference-style KPI pill — NEW
     |   |   |   +-- overdue-alert-banner.tsx
     |   |   |   +-- quick-actions.tsx
     |   |   |   +-- quote-conversion.tsx
     |   |   |   +-- recent-activity-feed.tsx
-    |   |   |   +-- revenue-chart.tsx
+    |   |   |   +-- retention-chart.tsx          # Monthly repeat-customer rate bars — NEW
+    |   |   |   +-- revenue-chart.tsx            # (legacy, replaced by RevenueRangeChart)
+    |   |   |   +-- revenue-range-chart.tsx      # 1D/1W/1M/6M/1Y/ALL area chart — NEW
     |   |   |   +-- today-schedule.tsx
     |   |   |
     |   |   +-- customers/          # Customer components

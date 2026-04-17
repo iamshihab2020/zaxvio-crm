@@ -4,7 +4,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { getDashboardStats } from "@/actions/dashboard";
 
 export function useDashboardStats(
-  dateParams?: { from: string; to: string },
+  dateParams?: { from: string; to: string; granularity?: "day" | "week" | "month"; pipelineId?: string },
   initialData?: Awaited<ReturnType<typeof getDashboardStats>>,
 ) {
   return useQuery({

@@ -1,17 +1,12 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import {
-  JOB_PRIORITY_COLORS,
-  type JobPriority,
-} from "@/lib/constants/job-options";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { motion, useReducedMotion } from "motion/react";
-import { IconUser, IconCalendarEvent, IconMapPin } from "@tabler/icons-react";
+import { IconUser, IconCalendarEvent } from "@tabler/icons-react";
+import {
+  AgendaHoverCard,
+  type AgendaDetails,
+} from "@/components/dashboard/shared/agenda-hover-card";
 import type { CalendarEvent } from "./schedule-calendar";
 
 /** Check if an event is currently in progress */
@@ -115,6 +110,58 @@ export interface ScheduleEventProps {
   [key: string]: any;
 }
 
+function toAgendaDetails(event: CalendarEvent): AgendaDetails {
+  const r = event.resource;
+  const colors = getEventColors(r);
+  const dotColorHex =
+    r.type === "booking"
+      ? "#14b8a6"
+      : r.type === "event"
+        ? (CALENDAR_EVENT_COLORS[r.color ?? "purple"] ? hexFromColorName(r.color ?? "purple") : "#6366f1")
+        : r.priority === "emergency"
+          ? "#ef4444"
+          : r.priority === "urgent"
+            ? "#f59e0b"
+            : "hsl(var(--brand))";
+  return {
+    kind: r.type,
+    title:
+      r.type === "event"
+        ? event.title
+        : r.type === "booking"
+          ? "Booking"
+          : r.jobNumber ?? event.title,
+    subtitle: r.customerName,
+    customerName: r.customerName,
+    address: r.address,
+    serviceType: r.serviceType,
+    priority: r.priority,
+    start: event.start,
+    end: event.end,
+    href:
+      r.type === "job" && r.jobNumber
+        ? `/jobs?job=${encodeURIComponent(r.jobNumber)}`
+        : r.type === "booking"
+          ? `/bookings?booking=${event.id}`
+          : `/schedule`,
+    color: dotColorHex,
+  };
+  // `colors` unused here but kept importable in case future inlined UI wants it
+  void colors;
+}
+
+function hexFromColorName(name: string): string {
+  const map: Record<string, string> = {
+    purple: "#a855f7",
+    blue: "#3b82f6",
+    green: "#22c55e",
+    red: "#ef4444",
+    amber: "#f59e0b",
+    teal: "#14b8a6",
+  };
+  return map[name] ?? "#6366f1";
+}
+
 function getEventColors(r: CalendarEvent["resource"]) {
   if (r.type === "event") {
     return CALENDAR_EVENT_COLORS[r.color ?? "purple"] ?? CALENDAR_EVENT_COLORS.purple;
@@ -208,106 +255,28 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
   );
 }
 
-/** Main event wrapper for week/day views — renders tooltip on hover */
+/** Main event wrapper for week/day views — renders hover card with rich details */
 export function ScheduleEvent({ event }: ScheduleEventProps) {
-  const r = event.resource;
-  const isBooking = r.type === "booking";
-  const isCalendarEvent = r.type === "event";
-
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="h-full w-full">
-          {event.allDay ? (
-            <MonthEventContent event={event} />
-          ) : (
-            <TimedEventContent event={event} />
-          )}
-        </div>
-      </TooltipTrigger>
-      <TooltipContent
-        side="right"
-        className="max-w-xs bg-popover text-popover-foreground border border-border shadow-lg p-3 z-[60]"
-      >
-        <div className="space-y-1.5">
-          <p className="font-heading font-semibold text-sm">
-            {isCalendarEvent
-              ? event.title
-              : isBooking
-                ? "Booking"
-                : r.jobNumber}
-            {!isBooking && !isCalendarEvent && r.jobNumber && (
-              <span className="font-normal text-muted-foreground"> — {event.title.replace(`${r.jobNumber} — `, "")}</span>
-            )}
-          </p>
-          {r.customerName && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <IconUser className="h-3 w-3" />
-              {r.customerName}
-            </p>
-          )}
-          {r.address && (
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <IconMapPin className="h-3 w-3" />
-              <span className="truncate">{r.address}</span>
-            </p>
-          )}
-          <div className="flex items-center gap-2 text-xs">
-            {r.priority && !isBooking && !isCalendarEvent && (
-              <span className={cn(
-                "inline-flex items-center rounded-full px-1.5 py-0.5 font-medium",
-                JOB_PRIORITY_COLORS[r.priority as JobPriority]?.bg,
-                JOB_PRIORITY_COLORS[r.priority as JobPriority]?.text,
-              )}>
-                {r.priority}
-              </span>
-            )}
-            {r.serviceType && (
-              <span className="text-muted-foreground capitalize">{r.serviceType}</span>
-            )}
-            {isCalendarEvent && (
-              <span className="text-muted-foreground">Event</span>
-            )}
-          </div>
-        </div>
-      </TooltipContent>
-    </Tooltip>
+    <AgendaHoverCard details={toAgendaDetails(event)}>
+      <div className="h-full w-full cursor-pointer">
+        {event.allDay ? (
+          <MonthEventContent event={event} />
+        ) : (
+          <TimedEventContent event={event} />
+        )}
+      </div>
+    </AgendaHoverCard>
   );
 }
 
 /** Month-specific event wrapper (used by react-big-calendar month view) */
 export function ScheduleMonthEvent({ event }: ScheduleEventProps) {
-  const r = event.resource;
-
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="h-full w-full">
-          <MonthEventContent event={event} />
-        </div>
-      </TooltipTrigger>
-      <TooltipContent
-        side="right"
-        className="max-w-xs bg-popover text-popover-foreground border border-border shadow-lg p-3 z-[60]"
-      >
-        <div className="space-y-1.5">
-          <p className="font-heading font-semibold text-sm">
-            {r.type === "event" ? event.title : r.type === "booking" ? "Booking" : r.jobNumber ?? event.title}
-          </p>
-          {r.customerName && (
-            <p className="text-xs text-muted-foreground">{r.customerName}</p>
-          )}
-          {r.priority && r.type === "job" && (
-            <span className={cn(
-              "inline-flex items-center rounded-full px-1.5 py-0.5 text-xs font-medium",
-              JOB_PRIORITY_COLORS[r.priority as JobPriority]?.bg,
-              JOB_PRIORITY_COLORS[r.priority as JobPriority]?.text,
-            )}>
-              {r.priority}
-            </span>
-          )}
-        </div>
-      </TooltipContent>
-    </Tooltip>
+    <AgendaHoverCard details={toAgendaDetails(event)}>
+      <div className="h-full w-full cursor-pointer">
+        <MonthEventContent event={event} />
+      </div>
+    </AgendaHoverCard>
   );
 }

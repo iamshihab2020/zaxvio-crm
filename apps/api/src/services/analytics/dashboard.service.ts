@@ -1,5 +1,5 @@
 import type { DbClient, DateRangeParams } from "./types.js";
-import type { DashboardStats } from "@hvac-saas/types";
+import type { DashboardStats, DashboardRevenueGranularity } from "@hvac-saas/types";
 import { pInt, pFloat } from "./helpers.js";
 import { analyticsCache, CACHE_TTL } from "./cache.js";
 import * as revenueQ from "./queries/revenue.js";
@@ -12,14 +12,21 @@ import * as dashboardQ from "./queries/dashboard-only.js";
 export async function getDashboardStats(
   db: DbClient,
   params: DateRangeParams,
+  granularity: DashboardRevenueGranularity = "month",
+  pipelineId: string | null = null,
 ): Promise<DashboardStats> {
-  const cacheParams = { from: params.rangeFrom, to: params.rangeTo };
+  const cacheParams = {
+    from: params.rangeFrom,
+    to: params.rangeTo,
+    granularity,
+    pipelineId: pipelineId ?? "default",
+  };
 
   return analyticsCache.getOrFetch(
     params.tenantId,
     "dashboard",
     cacheParams,
-    () => fetchDashboardStats(db, params),
+    () => fetchDashboardStats(db, params, granularity, pipelineId),
     { ttlMs: CACHE_TTL.REALTIME, staleWhileRevalidate: true },
   );
 }
@@ -27,6 +34,8 @@ export async function getDashboardStats(
 async function fetchDashboardStats(
   db: DbClient,
   params: DateRangeParams,
+  granularity: DashboardRevenueGranularity,
+  pipelineId: string | null,
 ): Promise<DashboardStats> {
   const { tenantId, rangeFrom, rangeTo, prevFrom, prevTo } = params;
 
@@ -50,6 +59,9 @@ async function fetchDashboardStats(
     quoteSummaryResult,
     weeklyJobVolumeResult,
     weeklyRevenueResult,
+    retentionResult,
+    priorityBreakdownResult,
+    serviceBreakdownResult,
   ] = await Promise.all([
     // 1. Jobs today
     jobsQ.getJobsToday(db, tenantId),
@@ -65,10 +77,10 @@ async function fetchDashboardStats(
     bookingsQ.getPendingBookingCount(db, tenantId),
     // 7. Overdue invoices
     quotesInvoicesQ.getOverdueInvoiceSummary(db, tenantId),
-    // 8. Job pipeline
-    dashboardQ.getDashboardPipeline(db, tenantId),
-    // 9. Revenue trend (last 6 months)
-    revenueQ.getRevenueTrendByMonth(db, tenantId, formatPastMonths(5), formatToday()),
+    // 8. Job pipeline (respects selected pipeline or falls back to default)
+    dashboardQ.getDashboardPipeline(db, tenantId, pipelineId),
+    // 9. Revenue trend — respects selected range + granularity
+    revenueQ.getRevenueTrend(db, tenantId, rangeFrom, rangeTo, granularity),
     // 10. Recent activity
     dashboardQ.getRecentActivity(db, tenantId),
     // 11. Previous revenue
@@ -89,6 +101,12 @@ async function fetchDashboardStats(
     dashboardQ.getWeeklyJobVolume(db, tenantId),
     // 19. Weekly revenue sparkline
     dashboardQ.getWeeklyRevenue(db, tenantId),
+    // 20. Repeat-customer retention trend (last 6 months, independent of range)
+    customersQ.getRepeatCustomerRateByMonth(db, tenantId, formatPastMonths(5), formatToday()),
+    // 21. Priority breakdown for range
+    jobsQ.getJobsByPriority(db, params),
+    // 22. Service type breakdown for range
+    jobsQ.getJobsByServiceType(db, params),
   ]);
 
   const quoteSummaryRow = quoteSummaryResult[0];
@@ -175,7 +193,35 @@ async function fetchDashboardStats(
       day: row.day,
       value: pFloat(row.amount),
     })),
+    retentionTrend: retentionResult.map((row) => {
+      const total = pInt(row.total_count);
+      const repeat = pInt(row.repeat_count);
+      return {
+        month: row.month,
+        monthLabel: row.month_label,
+        repeatCount: repeat,
+        totalCount: total,
+        repeatRate: total > 0 ? Math.round((repeat / total) * 100) : 0,
+      };
+    }),
+    revenueGranularity: granularity,
+    priorityBreakdown: priorityBreakdownResult.map((r) => ({
+      key: r.priority,
+      label: titleCase(r.priority),
+      count: pInt(r.count),
+    })),
+    serviceBreakdown: serviceBreakdownResult.map((r) => ({
+      key: r.service_type,
+      label: titleCase(r.service_type),
+      count: pInt(r.count),
+    })),
+    selectedPipelineId: pipelineId,
   };
+}
+
+function titleCase(input: string | null | undefined): string {
+  if (!input) return "Other";
+  return input.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
 // ── Date helpers ──
@@ -187,12 +233,6 @@ function formatToday(): string {
 function formatYesterday(): string {
   const d = new Date();
   d.setDate(d.getDate() - 1);
-  return d.toISOString().split("T")[0];
-}
-
-function formatPastDays(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
   return d.toISOString().split("T")[0];
 }
 

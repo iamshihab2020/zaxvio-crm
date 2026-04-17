@@ -11,6 +11,60 @@ import {
   totalAmountRow,
 } from "../schemas.js";
 
+/**
+ * Revenue trend with configurable granularity (day/week/month) and generate_series zero-fill.
+ * Returns rows keyed by the bucket's starting date.
+ */
+export async function getRevenueTrend(
+  db: DbClient,
+  tenantId: string,
+  from: string,
+  to: string,
+  granularity: "day" | "week" | "month" = "month",
+) {
+  if (granularity === "day") {
+    const rows = await db.execute(sql`
+      SELECT
+        to_char(m.bucket, 'YYYY-MM-DD') AS month,
+        to_char(m.bucket, 'Mon DD') AS month_label,
+        COALESCE(SUM(ip.amount::numeric), 0)::text AS amount
+      FROM generate_series(
+        date_trunc('day', ${from}::date),
+        date_trunc('day', ${to}::date),
+        INTERVAL '1 day'
+      ) AS m(bucket)
+      LEFT JOIN invoice_payments ip
+        ON ip.tenant_id = ${tenantId}
+        AND ip.payment_date >= m.bucket
+        AND ip.payment_date < m.bucket + INTERVAL '1 day'
+      GROUP BY m.bucket
+      ORDER BY m.bucket
+    `);
+    return z.array(revenueTrendRow).parse(rows);
+  }
+  if (granularity === "week") {
+    const rows = await db.execute(sql`
+      SELECT
+        to_char(m.bucket, 'YYYY-MM-DD') AS month,
+        to_char(m.bucket, '"W"IW YYYY') AS month_label,
+        COALESCE(SUM(ip.amount::numeric), 0)::text AS amount
+      FROM generate_series(
+        date_trunc('week', ${from}::date),
+        date_trunc('week', ${to}::date),
+        INTERVAL '1 week'
+      ) AS m(bucket)
+      LEFT JOIN invoice_payments ip
+        ON ip.tenant_id = ${tenantId}
+        AND ip.payment_date >= m.bucket
+        AND ip.payment_date < m.bucket + INTERVAL '1 week'
+      GROUP BY m.bucket
+      ORDER BY m.bucket
+    `);
+    return z.array(revenueTrendRow).parse(rows);
+  }
+  return getRevenueTrendByMonth(db, tenantId, from, to);
+}
+
 /** Monthly revenue trend with generate_series zero-fill. */
 export async function getRevenueTrendByMonth(
   db: DbClient,

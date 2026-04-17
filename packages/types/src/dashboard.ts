@@ -25,6 +25,22 @@ export interface DashboardRevenueTrendItem {
   amount: number;
 }
 
+export type DashboardRevenueGranularity = "day" | "week" | "month";
+
+export interface DashboardRetentionPoint {
+  month: string;
+  monthLabel: string;
+  repeatRate: number; // 0-100
+  repeatCount: number;
+  totalCount: number;
+}
+
+export interface DashboardCategoryCount {
+  key: string;
+  label: string;
+  count: number;
+}
+
 export interface DashboardActivityItem {
   id: string;
   type: "job" | "quote";
@@ -76,4 +92,9 @@ export interface DashboardStats {
   quoteSummary: DashboardQuoteSummary;
   weeklyJobVolume: DashboardSparklinePoint[];
   weeklyRevenue: DashboardSparklinePoint[];
+  retentionTrend: DashboardRetentionPoint[];
+  revenueGranularity: DashboardRevenueGranularity;
+  priorityBreakdown: DashboardCategoryCount[];
+  serviceBreakdown: DashboardCategoryCount[];
+  selectedPipelineId: string | null;
 }

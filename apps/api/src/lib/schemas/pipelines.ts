@@ -4,6 +4,23 @@ export const idParam = z.object({
   id: z.string().uuid(),
 });
 
+/**
+ * Allowed pipeline stage color keys — mirrors the frontend's STAGE_COLOR_PRESETS
+ * in `apps/web/src/lib/constants/stage-color-presets.ts`. Keep in sync if new
+ * presets are added. Validated here to prevent garbage values making it into
+ * the DB where they'd render as no-color dots on the dashboard.
+ */
+export const stageColorKey = z.enum([
+  "blue",
+  "brand",
+  "green",
+  "red",
+  "purple",
+  "amber",
+  "teal",
+  "gray",
+]);
+
 // ── Pipelines ────────────────────────────────────────────────────────────────
 
 export const createPipelineBody = z.object({
@@ -26,7 +43,7 @@ export const pipelineStagesQuery = z.object({
 
 export const createPipelineStageBody = z.object({
   label: z.string().min(1),
-  color: z.string().optional(),
+  color: stageColorKey.optional(),
   pipelineId: z.string().uuid(),
 });
 
@@ -36,5 +53,5 @@ export const reorderPipelineStagesBody = z.object({
 
 export const updatePipelineStageBody = z.object({
   label: z.string().min(1).optional(),
-  color: z.string().optional(),
+  color: stageColorKey.optional(),
 });

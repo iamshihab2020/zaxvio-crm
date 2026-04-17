@@ -383,6 +383,12 @@ Returns all KPI metrics, charts, and activity data in a single response. Powers 
 |-----------|------|---------|-------------|
 | `from` | string (ISO date) | First day of current month | Period start |
 | `to` | string (ISO date) | Last day of current month | Period end |
+| `granularity` | `"day" \| "week" \| "month"` | `"month"` | Bucket size for `revenueTrend` series |
+
+**Added fields in response `data`:**
+
+- `revenueGranularity`: echoes the granularity used to compute `revenueTrend`.
+- `retentionTrend`: last-6-months array of `{ month, monthLabel, repeatRate (0-100), repeatCount, totalCount }` — percentage of customers who had a job in that month and had ≥2 lifetime jobs.
 
 **Response** `200 OK`
 

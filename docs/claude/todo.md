@@ -8,6 +8,19 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Dashboard Redesign (2026-04-17)
+- [x] Backend: `getRevenueTrend` with `day|week|month` granularity
+- [x] Backend: `getRepeatCustomerRateByMonth` for retention trend
+- [x] Backend: `/dashboard/stats` accepts `granularity` query param, returns `retentionTrend` + `revenueGranularity`
+- [x] Frontend: new widgets — `KpiPill`, `DashboardToolbar`, `RevenueRangeChart` (1D/1W/1M/6M/1Y/ALL), `JobsManagementPanel` (Status/Priority/Service tabs), `RetentionChart`, `AgendaTimeline` (day/week/range modes)
+- [x] Frontend: `CustomizeWidgetsPopover` + `useDashboardWidgetPrefs` (localStorage-backed show/hide)
+- [x] Frontend: Ask AI button wires to existing chatbot via `lib/chatbot/bus.ts`
+- [x] Frontend: Last-updated indicator using TanStack `dataUpdatedAt`
+- [x] Installed `chart.js` + `react-chartjs-2` as future fallback deps (not used yet)
+- [x] Update chatbot knowledge base with "Can I customize the dashboard?"
+- [x] Update REPO_MAP_1.md with new files
+- [x] Update API_DOCUMENTATION_1.md with `granularity` param + retention field
+
 ### Public Quote Acceptance Portal — Remaining
 - [ ] Create `quotes` Supabase Storage bucket (manual step in Supabase dashboard, if not exists)
 

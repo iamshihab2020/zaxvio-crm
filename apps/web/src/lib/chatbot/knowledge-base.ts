@@ -62,7 +62,23 @@ const entries: KnowledgeEntry[] = [
     keywords: ["dashboard", "home", "overview", "stats", "metrics", "kpi"],
     question: "What does the dashboard show?",
     answer:
-      "The **Dashboard** is your home page showing key business metrics:\n\n• **KPI Cards** — Jobs today (with emergency badge), open invoices, outstanding balance, monthly revenue, active customers, upcoming bookings\n• **Overdue Invoices Alert** — Amber banner if you have overdue invoices\n• **Quick Actions** — Buttons to create a new job, customer, or view invoices/schedule\n• **Revenue Chart** — Area chart showing last 6 months of revenue\n• **Job Pipeline Chart** — Horizontal bars showing jobs by pipeline stage\n• **Recent Activity** — Last 10 activities from jobs and quotes with timestamps",
+      "The **Dashboard** is your home page showing key business metrics:\n\n• **KPI Pills** — Jobs today, conversion rate, avg customer value — each with a trend vs previous period\n• **Revenue Chart** — Area chart with **1D / 1W / 1M / 6M / 1Y / ALL** tabs. Switching tabs changes the date range and granularity\n• **Jobs Management** — Segmented panel with Status / Priority / Service tabs\n• **Retention Rate** — Monthly bar chart of repeat-customer rate\n• **Agenda Timeline** (right column) — events + scheduled jobs from your selected date range. Single day = hourly view, 2–14 days = grouped list, longer ranges = condensed view\n• **Activity Feed** — Last 10 activities across jobs and quotes\n• **Ask AI** button opens this chatbot — **Customize Widget** lets you show/hide any panel",
+  },
+  {
+    id: "dashboard-customize",
+    category: "dashboard",
+    keywords: ["customize", "hide", "show", "widget", "layout", "personalize", "preferences"],
+    question: "Can I customize the dashboard?",
+    answer:
+      "Yes. Click **Customize Widget** in the dashboard toolbar. You'll get a toggle list for every widget (KPI pills, revenue chart, jobs management, retention, agenda, overdue alert, activity feed). Flip switches off to hide panels — your choices are saved in this browser and survive reloads. Click **Reset** to restore defaults.",
+  },
+  {
+    id: "dashboard-revenue-range",
+    category: "dashboard",
+    keywords: ["revenue", "1d", "1w", "1m", "6m", "1y", "all", "range", "granularity", "chart"],
+    question: "How do the 1D/1W/1M/6M/1Y/ALL tabs on the revenue chart work?",
+    answer:
+      "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, hourly/day bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe whole dashboard (KPIs, jobs management, agenda) reflects the same range.",
   },
   {
     id: "dashboard-quick-actions",

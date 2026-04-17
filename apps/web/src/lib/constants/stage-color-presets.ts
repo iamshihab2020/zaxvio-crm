@@ -5,6 +5,8 @@ export interface StageColorSet {
   border: string;
   borderTop: string;
   ring: string;
+  /** Raw hex/hsl value for inline `style.backgroundColor` (charts, SVG, etc.). */
+  hex: string;
 }
 
 export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
@@ -15,6 +17,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-blue-200 dark:border-blue-800",
     borderTop: "border-t-blue-500",
     ring: "ring-blue-300/40 dark:ring-blue-600/40",
+    hex: "#3b82f6",
   },
   brand: {
     dot: "bg-brand",
@@ -23,6 +26,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-brand/30 dark:border-brand/40",
     borderTop: "border-t-brand",
     ring: "ring-brand/30 dark:ring-brand/30",
+    hex: "hsl(var(--brand))",
   },
   green: {
     dot: "bg-green-500",
@@ -31,6 +35,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-green-200 dark:border-green-800",
     borderTop: "border-t-green-500",
     ring: "ring-green-300/40 dark:ring-green-600/40",
+    hex: "#22c55e",
   },
   red: {
     dot: "bg-red-500",
@@ -39,6 +44,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-red-200 dark:border-red-800",
     borderTop: "border-t-red-500",
     ring: "ring-red-300/40 dark:ring-red-600/40",
+    hex: "#ef4444",
   },
   purple: {
     dot: "bg-purple-500",
@@ -47,6 +53,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-purple-200 dark:border-purple-800",
     borderTop: "border-t-purple-500",
     ring: "ring-purple-300/40 dark:ring-purple-600/40",
+    hex: "#a855f7",
   },
   amber: {
     dot: "bg-amber-500",
@@ -55,6 +62,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-amber-200 dark:border-amber-800",
     borderTop: "border-t-amber-500",
     ring: "ring-amber-300/40 dark:ring-amber-600/40",
+    hex: "#f59e0b",
   },
   gray: {
     dot: "bg-muted-foreground",
@@ -63,6 +71,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-border",
     borderTop: "border-t-muted-foreground",
     ring: "ring-muted-foreground/20",
+    hex: "#94a3b8",
   },
   teal: {
     dot: "bg-teal-500",
@@ -71,6 +80,7 @@ export const STAGE_COLOR_PRESETS: Record<string, StageColorSet> = {
     border: "border-teal-200 dark:border-teal-800",
     borderTop: "border-t-teal-500",
     ring: "ring-teal-300/40 dark:ring-teal-600/40",
+    hex: "#14b8a6",
   },
 };
 
