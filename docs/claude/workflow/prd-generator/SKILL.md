@@ -5,6 +5,8 @@ description: Generate comprehensive Product Requirements Documents (PRDs) for pr
 
 # PRD Generator
 
+> Related: [[workflow]] | [[planner]] | [[todo]] | [[strict-rules]]
+
 ## Overview
 
 Generate comprehensive, well-structured Product Requirements Documents (PRDs) that follow industry best practices. This skill helps product managers create clear, actionable requirements documents that align stakeholders and guide development teams.

@@ -111,8 +111,6 @@ export function AssigneePicker({
           <Button
             variant="outline"
             disabled={disabled}
-            hoverScale={1}
-            tapScale={0.98}
             className={cn(
               "w-full justify-between font-normal font-body",
               !selected && "text-muted-foreground",
@@ -139,8 +137,6 @@ export function AssigneePicker({
             variant="ghost"
             size="sm"
             disabled={disabled}
-            hoverScale={1}
-            tapScale={0.97}
             className={cn(
               "h-7 gap-1.5 px-2 text-xs font-body rounded-lg",
               selected

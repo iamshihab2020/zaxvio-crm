@@ -1,5 +1,7 @@
 # Product Requirements Document Template
 
+> Related: [[SKILL|PRD Generator]] | [[user_story_examples]] | [[metrics_frameworks]]
+
 This template provides a comprehensive structure for creating Product Requirements Documents (PRDs). Adapt sections based on your needs and project scope.
 
 ---

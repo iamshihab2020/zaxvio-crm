@@ -85,8 +85,6 @@ export function EditableText({
           type="button"
           variant="ghost"
           size="icon"
-          hoverScale={1}
-          tapScale={0.95}
           onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
           className="shrink-0 h-6 w-6 text-brand hover:text-brand/80"
         >
@@ -101,8 +99,6 @@ export function EditableText({
       type="button"
       variant="ghost"
       size="sm"
-      hoverScale={1}
-      tapScale={0.97}
       onClick={() => setEditing(true)}
       className={cn(
         "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
@@ -196,8 +192,6 @@ export function EditableTextarea({
       type="button"
       variant="ghost"
       size="sm"
-      hoverScale={1}
-      tapScale={0.97}
       onClick={() => setEditing(true)}
       className={cn(
         "group inline-flex items-start gap-1 text-left hover:text-brand h-auto p-0 w-full justify-start",
@@ -272,8 +266,6 @@ export function EditableSelect({
           type="button"
           variant="ghost"
           size="sm"
-          hoverScale={1}
-          tapScale={0.97}
           className={cn(
             "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
             saving && "opacity-50 pointer-events-none",
@@ -296,8 +288,6 @@ export function EditableSelect({
             key={option.value}
             variant="ghost"
             size="sm"
-            hoverScale={1}
-            tapScale={0.97}
             onClick={() => handleSelect(option.value)}
             className={cn(
               "flex w-full items-center gap-2 h-8 rounded-md px-2 text-sm font-body justify-start",
@@ -379,8 +369,6 @@ export function EditableDate({
           type="button"
           variant="ghost"
           size="sm"
-          hoverScale={1}
-          tapScale={0.97}
           className={cn(
             "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
             saving && "opacity-50 pointer-events-none",
@@ -465,8 +453,6 @@ export function EditableTime({
           type="button"
           variant="ghost"
           size="sm"
-          hoverScale={1}
-          tapScale={0.97}
           className={cn(
             "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
             saving && "opacity-50 pointer-events-none",

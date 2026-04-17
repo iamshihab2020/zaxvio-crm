@@ -83,8 +83,6 @@ export function KanbanColumn({
           size="icon"
           onClick={() => onAddJob(stage.name)}
           className={cn("h-6 w-6", colors.text, "opacity-60 hover:opacity-100")}
-          hoverScale={1}
-          tapScale={0.9}
           title={`Add job to ${stage.label}`}
         >
           <IconPlus className="h-3.5 w-3.5" />
@@ -152,8 +150,6 @@ export function KanbanColumn({
             <Button
               variant="ghost"
               size="sm"
-              hoverScale={1}
-              tapScale={0.97}
               onClick={() => onAddJob(stage.name)}
               className="w-full h-8 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand font-body rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
             >

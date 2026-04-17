@@ -44,8 +44,6 @@ export function PipelineTabs({
         <Button
           variant="ghost"
           size="sm"
-          hoverScale={1}
-          tapScale={0.97}
           className="h-7 gap-1.5 px-2.5 text-xs font-semibold font-body rounded-lg hover:bg-muted/60"
         >
           <span className="truncate max-w-[140px]">
@@ -60,8 +58,6 @@ export function PipelineTabs({
             key={pipeline.id}
             variant="ghost"
             size="sm"
-            hoverScale={1}
-            tapScale={0.97}
             onClick={() => {
               onSelect(pipeline.id);
               setOpen(false);
@@ -86,8 +82,6 @@ export function PipelineTabs({
             <Button
               variant="ghost"
               size="sm"
-              hoverScale={1}
-              tapScale={0.97}
               onClick={() => {
                 setOpen(false);
                 onManageStages();

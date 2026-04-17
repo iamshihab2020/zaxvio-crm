@@ -103,7 +103,7 @@ export function Navbar() {
 
         <div className="mx-1 h-5 w-px bg-border/50" />
 
-        <DropdownMenu>
+        <DropdownMenu modal={false}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"

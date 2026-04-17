@@ -691,8 +691,6 @@ export function JobsPageClient({
                 <Button
                   variant="ghost"
                   size="sm"
-                  hoverScale={1}
-                  tapScale={0.97}
                   onClick={() => handleViewTypeChange("board")}
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
@@ -709,8 +707,6 @@ export function JobsPageClient({
                 <Button
                   variant="ghost"
                   size="sm"
-                  hoverScale={1}
-                  tapScale={0.97}
                   onClick={() => handleViewTypeChange("list")}
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
@@ -727,8 +723,6 @@ export function JobsPageClient({
                 <Button
                   variant="ghost"
                   size="sm"
-                  hoverScale={1}
-                  tapScale={0.97}
                   onClick={() => handleViewTypeChange("table")}
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",

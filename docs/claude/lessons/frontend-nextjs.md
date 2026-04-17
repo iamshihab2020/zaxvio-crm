@@ -45,6 +45,18 @@
 - **CSS animations don't trigger on rbc date changes** — react-big-calendar updates content in-place without remounting. CSS `animation` on `.rbc-month-view` only runs once on mount. Fix: use `useEffect` watching a `transitionKey` (view + date), imperatively set `opacity: 0` + `transform`, force reflow with `void el.offsetHeight`, then set end state with `transition`. The reflow forces the browser to paint the start state before transitioning.
 - **"+N more" popup overlay needs explicit styling** — The default popup has a white background that clashes with dark mode. Override `.rbc-overlay` with `background: hsl(var(--popover))`, proper border-radius, shadow, and `z-index: 50`.
 
+## TanStack Query + Next.js Server Actions (2026-04-15)
+
+- **NEVER pass server actions directly as `mutationFn`** — `mutationFn: createCustomer` breaks because TanStack Query stores variables in its internal state, altering the object's prototype chain. When React's server action serializer later tries to send the arguments, it rejects them with *"Only plain objects, and a few built-ins, can be passed to Server Actions. Classes or null prototypes are not supported."* Always wrap in an arrow function: `mutationFn: (data) => createCustomer(data)`. This applies to ALL mutations — create, update, delete, bulk ops. Queries already use this pattern (`queryFn: () => getCustomers(params)`) so they're unaffected.
+- **Arrow wrapper is mandatory for every mutation, no exceptions** — Even single-arg mutations like `deleteCustomer(id)` must use `(id: string) => deleteCustomer(id)`. The issue is not about argument count — it's about TQ's internal state management corrupting the object identity before React serializes it.
+- **Reusable hooks live in `hooks/queries/use-*.ts` with barrel export from `index.ts`** — 18 hook files covering all domains. Each hook handles toast + cache invalidation in `onSuccess`. Pages import from `@/hooks/queries` and provide per-call `onSuccess` callbacks for UI state (close dialogs, reset forms) via `mutation.mutate(data, { onSuccess: (res) => { if (!res.error) closeDialog(); } })`.
+- **Query keys are centralized in `lib/query-keys.ts`** — Factory pattern: `queryKeys.customers.list(params)`, `queryKeys.customers.detail(id)`, `queryKeys.customers.all` (for invalidation). Never define keys inline in components.
+- **`staleTime` is domain-specific** — Pipelines, tenant settings, tags, catalog categories: 5min (rarely change). Detail views: 30s (enables prefetch benefit). Lists, notifications, conversations: 0 (must be fresh). Dashboard: 60s. Reports: 5min.
+- **Hover-prefetch on table rows** — Use `queryClient.prefetchQuery()` with `staleTime: 30_000` on `onMouseEnter`. No debounce needed — `prefetchQuery` is a no-op when data is cached and fresh.
+- **Pagination prefetch** — `useEffect` watching `page` and `totalPages` to prefetch page N+1 via the reusable `prefetchX(qc, params)` helpers exported from each hook file.
+- **Bulk action response shape** — Bulk server actions return `{ succeeded, failed, errors, message? }` at the top level, NOT `{ data: { message } }`. Toast with `res.message`, not `res.data?.message`.
+- **Global background refetch indicator** — `GlobalFetchIndicator` in `components/dashboard/global-fetch-indicator.tsx` uses `useIsFetching()` with a 300ms delay to show a thin progress bar. Uses `motion/react` (NOT `framer-motion`).
+
 ## Kanban & Animation (2026-04-04)
 
 - **`motion/react` stagger is per-card, not batched** — Each kanban card gets its own `transition={{ delay: index * 0.04 }}`. With 50+ cards, that's 50 separate animation tasks. Unlike CSS `@keyframes` with `animation-delay`, motion/react doesn't batch these. Consider limiting stagger to the first ~10 cards.

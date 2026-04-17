@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -134,13 +134,6 @@ export function Sidebar() {
     }));
   }, [jobsPipelineId]);
 
-  // All resolved items (with query params) for indicator tracking
-  const allResolvedItems = useMemo(() => [
-    ...standaloneItems,
-    ...resolvedNavGroups.flatMap((g) => g.items),
-    { href: "/settings/profile", label: "Settings", icon: IconSettings },
-  ], [resolvedNavGroups]);
-
   // Collapsible group state
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [groupsMounted, setGroupsMounted] = useState(false);
@@ -170,89 +163,6 @@ export function Sidebar() {
     });
   }
 
-  // Indicator refs + state
-  const itemRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
-  const sidebarRef = useRef<HTMLElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [indicator, setIndicator] = useState({ top: 0, height: 0, opacity: 0 });
-  const [hoveredHref, setHoveredHref] = useState<string | null>(null);
-  const [pendingHref, setPendingHref] = useState<string | null>(null);
-
-  // Clear pending state when pathname catches up (navigation completes)
-  useEffect(() => {
-    setPendingHref(null);
-  }, [pathname]);
-
-  const getActiveHref = useCallback(() => {
-    return allResolvedItems.find((item) => {
-      const base = basePath(item.href);
-      return pathname === base || pathname.startsWith(base + "/");
-    })?.href ?? null;
-  }, [pathname, allResolvedItems]);
-
-  const updateIndicator = useCallback(
-    (targetHref: string | null) => {
-      if (!targetHref) {
-        setIndicator((prev) => ({ ...prev, opacity: 0 }));
-        return;
-      }
-      const el = itemRefs.current.get(targetHref);
-      const sidebar = sidebarRef.current;
-      if (el && sidebar) {
-        const sidebarRect = sidebar.getBoundingClientRect();
-        const elRect = el.getBoundingClientRect();
-        const top = elRect.top - sidebarRect.top;
-
-        // Hide indicator if item is scrolled out of the visible nav area
-        // (header is ~56px, bottom section ~80px)
-        const minVisible = 56;
-        const maxVisible = sidebarRect.height - 80;
-        const isVisible =
-          top + elRect.height > minVisible && top < maxVisible;
-
-        setIndicator({
-          top,
-          height: elRect.height,
-          opacity: isVisible ? 1 : 0,
-        });
-      }
-    },
-    [],
-  );
-
-  const activeHref = getActiveHref();
-  const targetHref = hoveredHref ?? pendingHref ?? activeHref;
-
-  const handleNavClick = useCallback((href: string) => {
-    if (href !== activeHref) {
-      setPendingHref(href);
-    }
-  }, [activeHref]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => updateIndicator(targetHref), 30);
-    return () => clearTimeout(timer);
-  }, [targetHref, updateIndicator, isEffectivelyExpanded]);
-
-  useEffect(() => {
-    const handleResize = () => updateIndicator(targetHref);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [targetHref, updateIndicator]);
-
-  // Recalculate indicator on scroll (items move but indicator is absolute on aside)
-  useEffect(() => {
-    const scrollRoot = scrollAreaRef.current;
-    if (!scrollRoot) return;
-    // Radix ScrollArea renders a viewport div as the first child
-    const viewport = scrollRoot.querySelector("[data-radix-scroll-area-viewport]");
-    if (!viewport) return;
-
-    const handleScroll = () => updateIndicator(targetHref);
-    viewport.addEventListener("scroll", handleScroll, { passive: true });
-    return () => viewport.removeEventListener("scroll", handleScroll);
-  }, [targetHref, updateIndicator]);
-
   const handleMouseEnter = () => {
     if (isCollapsed && mode === "hover-expand") {
       setHoverExpanded(true);
@@ -263,18 +173,7 @@ export function Sidebar() {
     if (isHoverExpanded) {
       setHoverExpanded(false);
     }
-    setHoveredHref(null);
   };
-
-  function setItemRef(href: string) {
-    return (el: HTMLAnchorElement | null) => {
-      if (el) {
-        itemRefs.current.set(href, el);
-      } else {
-        itemRefs.current.delete(href);
-      }
-    };
-  }
 
   // Shift sidebar down when impersonation bar is visible
   const [isImpersonating, setIsImpersonating] = useState(false);
@@ -285,7 +184,6 @@ export function Sidebar() {
   return (
     <TooltipProvider delayDuration={0}>
       <aside
-        ref={sidebarRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
@@ -295,16 +193,6 @@ export function Sidebar() {
           isHoverExpanded && "shadow-xl",
         )}
       >
-        {/* Sliding indicator */}
-        <div
-          className="absolute left-3 right-3 rounded-md bg-brand-light transition-all duration-300 ease-in-out pointer-events-none"
-          style={{
-            top: indicator.top,
-            height: indicator.height,
-            opacity: indicator.opacity,
-          }}
-        />
-
         {/* Header: Logo + Collapse toggle */}
         <div className="relative z-10 flex h-14 items-center border-b border-border px-3">
           <Link href="/dashboard" className="flex-1 overflow-hidden">
@@ -325,7 +213,6 @@ export function Sidebar() {
 
         {/* Nav items — scrollable */}
         <ScrollArea
-          ref={scrollAreaRef}
           className={cn(
             "flex-1",
             !isEffectivelyExpanded && "scrollbar-none [&_[data-radix-scroll-area-scrollbar]]:hidden",
@@ -347,10 +234,6 @@ export function Sidebar() {
                   showLabel={showLabel}
                   useTooltip={useTooltipMode}
                   badge={item.badge}
-                  itemRef={setItemRef(item.href)}
-                  onMouseEnter={() => setHoveredHref(item.href)}
-                  onMouseLeave={() => setHoveredHref(null)}
-                  onClick={() => handleNavClick(item.href)}
                 />
               );
             })}
@@ -384,10 +267,6 @@ export function Sidebar() {
                             isCollapsed
                             showLabel={false}
                             useTooltip={useTooltipMode}
-                            itemRef={setItemRef(item.href)}
-                            onMouseEnter={() => setHoveredHref(item.href)}
-                            onMouseLeave={() => setHoveredHref(null)}
-                            onClick={() => handleNavClick(item.href)}
                           />
                         );
                       })}
@@ -440,10 +319,6 @@ export function Sidebar() {
                           showLabel
                           useTooltip={false}
                           badge={item.badge}
-                          itemRef={setItemRef(item.href)}
-                          onMouseEnter={() => setHoveredHref(item.href)}
-                          onMouseLeave={() => setHoveredHref(null)}
-                          onClick={() => handleNavClick(item.href)}
                         />
                       );
                     })}
@@ -499,10 +374,6 @@ export function Sidebar() {
             isCollapsed={isCollapsed && !isHoverExpanded}
             showLabel={showLabel}
             useTooltip={useTooltipMode}
-            itemRef={setItemRef("/settings/profile")}
-            onMouseEnter={() => setHoveredHref("/settings/profile")}
-            onMouseLeave={() => setHoveredHref(null)}
-            onClick={() => handleNavClick("/settings/profile")}
           />
         </div>
       </aside>

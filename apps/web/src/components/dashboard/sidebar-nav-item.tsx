@@ -18,10 +18,6 @@ interface SidebarNavItemProps {
   showLabel: boolean;
   useTooltip: boolean;
   badge?: string;
-  onMouseEnter?: () => void;
-  onMouseLeave?: () => void;
-  onClick?: () => void;
-  itemRef?: React.RefCallback<HTMLAnchorElement>;
 }
 
 export function SidebarNavItem({
@@ -33,24 +29,16 @@ export function SidebarNavItem({
   showLabel,
   useTooltip,
   badge,
-  onMouseEnter,
-  onMouseLeave,
-  onClick,
-  itemRef,
 }: SidebarNavItemProps) {
   const link = (
     <Link
-      ref={itemRef}
       href={href}
-      onClick={onClick}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
       className={cn(
         "relative z-10 flex h-10 w-full items-center rounded-md px-3 text-sm font-medium font-body transition-colors duration-200",
         showLabel ? "justify-start gap-3" : "justify-center px-0",
         isActive
-          ? "text-brand"
-          : "text-muted-foreground hover:text-brand",
+          ? "text-brand bg-brand-light"
+          : "text-muted-foreground hover:text-brand hover:bg-brand-light/50",
       )}
     >
       <Icon className="h-5 w-5 shrink-0" />

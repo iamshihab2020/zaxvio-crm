@@ -1,5 +1,7 @@
 # User Story Examples & Best Practices
 
+> Related: [[SKILL|PRD Generator]] | [[prd_template]] | [[metrics_frameworks]]
+
 A comprehensive guide to writing effective user stories with real-world examples across different domains.
 
 ---

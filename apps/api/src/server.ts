@@ -84,9 +84,11 @@ export async function buildServer() {
     credentials: true,
   });
 
-  // Global rate limit: 100 req/min per IP
+  // Global rate limit per IP.
+  // Prod: 100/min (authenticated API default).
+  // Dev: effectively unlimited to avoid blocking HMR / multi-tab refetches.
   await fastify.register(rateLimit, {
-    max: 100,
+    max: isDev ? 100_000 : 100,
     timeWindow: "1 minute",
   });
 
@@ -110,11 +112,32 @@ export async function buildServer() {
   // --- Better Auth handler ---
   // Use auth.handler() with a reconstructed Fetch Request instead of toNodeHandler,
   // because Fastify consumes the request body before the Node handler can read it.
+  //
+  // Rate limits (per IP, 1-minute window):
+  //   - Strict mutations (sign-in/sign-up/forgot-password/reset-password): 10/min prod, unlimited dev.
+  //     Tight cap prevents credential brute force and mass account creation.
+  //   - Other auth calls (get-session, organization reads, sign-out): 120/min prod, unlimited dev.
+  //     These fire on every page load; capping them low breaks UX.
+  const STRICT_AUTH_PREFIXES = [
+    "/api/auth/sign-in",
+    "/api/auth/sign-up",
+    "/api/auth/forgot-password",
+    "/api/auth/reset-password",
+  ];
+  const isStrictAuthPath = (url: string) =>
+    STRICT_AUTH_PREFIXES.some((p) => url.startsWith(p));
+
   fastify.route({
     method: ["GET", "POST"],
     url: "/api/auth/*",
     config: {
-      rateLimit: { max: 10, timeWindow: "1 minute" },
+      rateLimit: {
+        max: (req) => {
+          if (isDev) return 100_000;
+          return isStrictAuthPath(req.url) ? 10 : 120;
+        },
+        timeWindow: "1 minute",
+      },
     },
     async handler(request, reply) {
       const url = new URL(

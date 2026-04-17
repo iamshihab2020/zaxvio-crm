@@ -123,8 +123,6 @@ export function DisplaySettingsPopover({
         <Button
           variant="ghost"
           size="sm"
-          hoverScale={1}
-          tapScale={0.97}
           className="h-7 gap-1.5 px-2 text-xs font-body text-muted-foreground hover:text-foreground rounded-lg"
         >
           <IconAdjustmentsHorizontal className="h-3.5 w-3.5" />
@@ -141,8 +139,6 @@ export function DisplaySettingsPopover({
             <Button
               variant="ghost"
               size="sm"
-              hoverScale={1}
-              tapScale={0.97}
               onClick={() => onCompactChange(false)}
               className={cn(
                 "flex-1 h-7 rounded-md px-2.5 text-xs font-body font-medium",
@@ -156,8 +152,6 @@ export function DisplaySettingsPopover({
             <Button
               variant="ghost"
               size="sm"
-              hoverScale={1}
-              tapScale={0.97}
               onClick={() => onCompactChange(true)}
               className={cn(
                 "flex-1 h-7 rounded-md px-2.5 text-xs font-body font-medium",
@@ -186,8 +180,6 @@ export function DisplaySettingsPopover({
                     key={mode}
                     variant="ghost"
                     size="sm"
-                    hoverScale={1}
-                    tapScale={0.97}
                     onClick={() => onViewModeChange(mode)}
                     className={cn(
                       "flex w-full items-center gap-2 h-7 rounded-md px-2 text-xs font-body justify-start",
@@ -237,8 +229,6 @@ export function DisplaySettingsPopover({
           <Button
             variant="ghost"
             size="sm"
-            hoverScale={1}
-            tapScale={0.97}
             onClick={onFieldsReset}
             className="w-full h-6 rounded-md text-[11px] text-muted-foreground hover:text-foreground font-body"
           >

@@ -1,5 +1,7 @@
 # Product Metrics Frameworks
 
+> Related: [[SKILL|PRD Generator]] | [[prd_template]] | [[user_story_examples]]
+
 A comprehensive guide to choosing and implementing product metrics frameworks for measuring success.
 
 ---

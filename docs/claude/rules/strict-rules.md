@@ -45,8 +45,14 @@
     - **Not for code patterns** — Don't log things derivable from reading the code. Log the *surprise*.
     - **Review at session start** — Always skim relevant lesson files before starting work to avoid repeating past mistakes.
     - **NEVER let it go stale** — If multiple sessions pass without a lessons update, something is wrong.
-11. **Check `docs/claude/deferred-fixes/` before building any feature** — This folder tracks known bugs and validation gaps discovered during end-to-end audits that were deferred because the related feature wasn't live yet. Before implementing a feature (payments, SMS, billing, etc.), check for matching deferred fixes and resolve them in the same PR. When auditing a flow, log any issues that can't be fixed immediately as deferred fixes with severity, file paths, line numbers, and suggested fix. Mark issues `FIXED` with date when resolved.
-12. **Obsidian wikilinks in all `docs/claude/` files** — The `docs/` folder is an Obsidian vault. When creating or editing any `.md` file under `docs/claude/`:
+11. **TanStack Query mutation rules (CRITICAL)**:
+    - **NEVER pass server actions directly as `mutationFn`** — `mutationFn: createCustomer` breaks React's server action serialization. TanStack Query's internal state management alters the object prototype, causing *"Only plain objects can be passed to Server Actions"* errors. **Always wrap in an arrow function**: `mutationFn: (data) => createCustomer(data)`.
+    - **All mutations use reusable hooks** from `hooks/queries/use-*.ts`. Hooks handle toast + cache invalidation. Pages provide per-call `onSuccess` for UI state: `mutation.mutate(data, { onSuccess: (res) => { if (!res.error) closeDialog(); } })`.
+    - **Query keys are centralized** in `lib/query-keys.ts` — never define keys inline.
+    - **Bulk action responses** use `res.message` (top-level), NOT `res.data?.message`.
+    - **Import from `@/hooks/queries`** (barrel export), not from individual hook files.
+12. **Check `docs/claude/deferred-fixes/` before building any feature** — This folder tracks known bugs and validation gaps discovered during end-to-end audits that were deferred because the related feature wasn't live yet. Before implementing a feature (payments, SMS, billing, etc.), check for matching deferred fixes and resolve them in the same PR. When auditing a flow, log any issues that can't be fixed immediately as deferred fixes with severity, file paths, line numbers, and suggested fix. Mark issues `FIXED` with date when resolved.
+13. **Obsidian wikilinks in all `docs/claude/` files** — The `docs/` folder is an Obsidian vault. When creating or editing any `.md` file under `docs/claude/`:
     - **Always add a `> Related:` line** after the `#` title with `[[wikilinks]]` to connected notes (e.g., `> Related: [[api-rules]] | [[architecture]] | [[lessons]]`)
     - **Use `[[note-name]]` syntax** for cross-references, not markdown links (`[text](path)`)
     - **Multi-part files** (API docs, REPO_MAP) must include a navigation block listing all parts with `[[wikilinks]]`

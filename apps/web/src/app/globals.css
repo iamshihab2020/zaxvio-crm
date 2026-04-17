@@ -5,6 +5,15 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+    overflow-y: scroll;
+  }
+
+  /* With overflow-y: scroll on <html>, the viewport scrollbar is always
+     present, so Radix's RemoveScroll should not compensate with margin.
+     This prevents content shift when Dialog/Dropdown/Popover opens. */
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
   }
 
   :root {
