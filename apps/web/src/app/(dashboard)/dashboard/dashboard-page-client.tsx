@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { addDays, differenceInCalendarDays, format, startOfMonth, subDays, subMonths, subYears } from "date-fns";
+import { differenceInCalendarDays, format, startOfMonth, subDays, subMonths, subYears } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
   IconBriefcase,
@@ -26,6 +26,10 @@ import { RevenueRangeChart, type RevenueRange } from "@/components/dashboard/hom
 import { JobsManagementPanel } from "@/components/dashboard/home/jobs-management-panel";
 import { RetentionChart } from "@/components/dashboard/home/retention-chart";
 import { AgendaTimeline } from "@/components/dashboard/home/agenda-timeline";
+import { InvoiceAging } from "@/components/dashboard/home/invoice-aging";
+import { QuoteConversion } from "@/components/dashboard/home/quote-conversion";
+import { RevenueByServiceChart } from "@/components/dashboard/home/revenue-by-service-chart";
+import { TopCustomersCard } from "@/components/dashboard/home/top-customers-card";
 import { useDashboardWidgetPrefs } from "@/hooks/use-dashboard-widget-prefs";
 
 function toDateParams(
@@ -110,11 +114,6 @@ export function DashboardPageClient({ initialStats = null }: DashboardPageClient
     setGranularity(gr);
   };
 
-  // Agenda has its own fixed window (next 7 days from today), independent of
-  // the revenue date range, so long ranges like 1Y/ALL don't bloat the list.
-  const agendaFrom = format(new Date(), "yyyy-MM-dd");
-  const agendaTo = format(addDays(new Date(), 7), "yyyy-MM-dd");
-
   const avgCustomerValue = useMemo(() => {
     if (!stats) return 0;
     const active = stats.kpis.activeCustomers.count;
@@ -165,77 +164,95 @@ export function DashboardPageClient({ initialStats = null }: DashboardPageClient
           <OverdueAlertBanner overdueInvoices={stats.overdueInvoices} />
         )}
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
-          <div className="space-y-6">
-            {prefs.visible.kpis && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <KpiPill
-                  icon={IconBriefcase}
-                  accent="brand"
-                  label="Jobs Today"
-                  value={String(stats.kpis.jobsToday.count)}
-                  currentValue={stats.kpis.jobsToday.count}
-                  previousValue={stats.kpis.jobsToday.yesterdayCount}
-                  comparisonLabel="vs yesterday"
-                  sparklineData={stats.weeklyJobVolume}
-                  href="/jobs"
-                />
-                <KpiPill
-                  icon={IconTrendingUp}
-                  accent="indigo"
-                  label="Conversion Rate"
-                  value={`${stats.quoteSummary.conversionRate}%`}
-                />
-                <KpiPill
-                  icon={IconUserDollar}
-                  accent="emerald"
-                  label="Avg Customer Value"
-                  value={formatCurrency(avgCustomerValue)}
-                  currentValue={avgCustomerValue}
-                  previousValue={avgCustomerValuePrev}
-                  sparklineData={stats.weeklyRevenue}
-                />
-              </div>
-            )}
+        <div className="space-y-6">
+          {/* Row 1: KPI pills */}
+          {prefs.visible.kpis && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <KpiPill
+                icon={IconBriefcase}
+                accent="brand"
+                label="Jobs Today"
+                value={String(stats.kpis.jobsToday.count)}
+                currentValue={stats.kpis.jobsToday.count}
+                previousValue={stats.kpis.jobsToday.yesterdayCount}
+                comparisonLabel="vs yesterday"
+                sparklineData={stats.weeklyJobVolume}
+                href="/jobs"
+              />
+              <KpiPill
+                icon={IconTrendingUp}
+                accent="indigo"
+                label="Conversion Rate"
+                value={`${stats.quoteSummary.conversionRate}%`}
+              />
+              <KpiPill
+                icon={IconUserDollar}
+                accent="emerald"
+                label="Avg Customer Value"
+                value={formatCurrency(avgCustomerValue)}
+                currentValue={avgCustomerValue}
+                previousValue={avgCustomerValuePrev}
+                sparklineData={stats.weeklyRevenue}
+              />
+            </div>
+          )}
 
-            {prefs.visible.revenue && (
-              <RevenueRangeChart
-                data={stats.revenueTrend}
-                granularity={stats.revenueGranularity}
-                currentValue={stats.kpis.thisMonthRevenue.amount}
-                previousValue={stats.kpis.thisMonthRevenue.previousAmount}
-                range={revenueRange}
-                onRangeChange={handleRevenueRangeChange}
+          {/* Row 2: Revenue hero (full width) */}
+          {prefs.visible.revenue && (
+            <RevenueRangeChart
+              data={stats.revenueTrend}
+              granularity={stats.revenueGranularity}
+              currentValue={stats.kpis.thisMonthRevenue.amount}
+              previousValue={stats.kpis.thisMonthRevenue.previousAmount}
+              range={revenueRange}
+              onRangeChange={handleRevenueRangeChange}
+            />
+          )}
+
+          {/* Row 3: Jobs Management + Agenda side-by-side */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {prefs.visible.jobsManagement && (
+              <JobsManagementPanel
+                pipeline={stats.jobPipeline}
+                priorityBreakdown={stats.priorityBreakdown}
+                serviceBreakdown={stats.serviceBreakdown}
+                pipelineId={pipelineId}
+                onPipelineChange={setPipelineId}
               />
             )}
-
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {prefs.visible.jobsManagement && (
-                <JobsManagementPanel
-                  pipeline={stats.jobPipeline}
-                  priorityBreakdown={stats.priorityBreakdown}
-                  serviceBreakdown={stats.serviceBreakdown}
-                  pipelineId={pipelineId}
-                  onPipelineChange={setPipelineId}
-                />
-              )}
-              {prefs.visible.retention && (
-                <RetentionChart data={stats.retentionTrend} />
-              )}
-            </div>
-
-            {prefs.visible.activity && (
-              <RecentActivityFeed activities={stats.recentActivity} />
+            {prefs.visible.agenda && (
+              <AgendaTimeline agenda={stats.agenda} />
             )}
           </div>
 
-          {prefs.visible.agenda && (
-            // Natural height — the card sizes to its content so it doesn't
-            // leave empty space on short lists. No sticky positioning (that
-            // caused column jumps when the pipeline Select opened).
-            <div>
-              <AgendaTimeline from={agendaFrom} to={agendaTo} />
-            </div>
+          {/* Row 4: Retention + Quote Funnel */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {prefs.visible.retention && (
+              <RetentionChart data={stats.retentionTrend} />
+            )}
+            {prefs.visible.quoteFunnel && (
+              <QuoteConversion data={stats.quoteSummary} />
+            )}
+          </div>
+
+          {/* Row 5: Invoice Aging + Revenue by Service */}
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {prefs.visible.invoiceAging && (
+              <InvoiceAging data={stats.invoiceAging} />
+            )}
+            {prefs.visible.revenueByService && (
+              <RevenueByServiceChart data={stats.serviceRevenue} />
+            )}
+          </div>
+
+          {/* Row 6: Top Customers (full width) */}
+          {prefs.visible.topCustomers && (
+            <TopCustomersCard data={stats.topCustomers} />
+          )}
+
+          {/* Row 7: Activity Feed (full width) */}
+          {prefs.visible.activity && (
+            <RecentActivityFeed activities={stats.recentActivity} />
           )}
         </div>
       </div>

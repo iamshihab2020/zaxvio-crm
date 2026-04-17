@@ -384,11 +384,16 @@ Returns all KPI metrics, charts, and activity data in a single response. Powers 
 | `from` | string (ISO date) | First day of current month | Period start |
 | `to` | string (ISO date) | Last day of current month | Period end |
 | `granularity` | `"day" \| "week" \| "month"` | `"month"` | Bucket size for `revenueTrend` series |
+| `pipelineId` | string (uuid) | default pipeline | Scope `jobPipeline` to a specific pipeline; falls back to default when omitted |
 
 **Added fields in response `data`:**
 
 - `revenueGranularity`: echoes the granularity used to compute `revenueTrend`.
 - `retentionTrend`: last-6-months array of `{ month, monthLabel, repeatRate (0-100), repeatCount, totalCount }` — percentage of customers who had a job in that month and had ≥2 lifetime jobs.
+- `priorityBreakdown` / `serviceBreakdown`: `{ key, label, count }[]` — jobs in the selected range grouped by priority and service type; feeds the Jobs Management panel tabs.
+- `serviceRevenue`: `{ serviceType, label, amount }[]` — paid-invoice revenue grouped by job service type for the selected range; feeds the Revenue by Service card.
+- `topCustomers`: `{ id, name, revenue, jobCount }[]` — top customers by paid-invoice revenue in the selected range (max 10 from the DB query; UI shows top 5).
+- `selectedPipelineId`: `string | null` — the pipeline the response is scoped to (when `pipelineId` query param is provided; otherwise `null` = default pipeline).
 
 **Response** `200 OK`
 

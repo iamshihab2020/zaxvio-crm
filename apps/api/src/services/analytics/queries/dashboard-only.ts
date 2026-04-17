@@ -7,6 +7,9 @@ import {
   sparklineCountRow,
   sparklineAmountRow,
   dashboardPipelineRow,
+  upcomingEventRow,
+  upcomingJobRow,
+  upcomingBookingRow,
 } from "../schemas.js";
 
 /** Recent activity (UNION of job_activities + quote_activities). */
@@ -97,6 +100,92 @@ export async function getWeeklyRevenue(db: DbClient, tenantId: string) {
     ORDER BY d.day
   `);
   return z.array(sparklineAmountRow).parse(rows);
+}
+
+/** Calendar events in a forward window (dashboard agenda). */
+export async function getUpcomingEvents(
+  db: DbClient,
+  tenantId: string,
+  from: string,
+  to: string,
+) {
+  const rows = await db.execute(sql`
+    SELECT
+      id::text,
+      title,
+      description,
+      event_date::text,
+      start_time::text,
+      end_time::text,
+      contact_name,
+      address,
+      color
+    FROM calendar_events
+    WHERE tenant_id = ${tenantId}
+      AND event_date >= ${from}::date
+      AND event_date <= ${to}::date
+    ORDER BY event_date ASC, start_time ASC NULLS LAST
+    LIMIT 100
+  `);
+  return z.array(upcomingEventRow).parse(rows);
+}
+
+/** Scheduled jobs in a forward window (dashboard agenda). */
+export async function getUpcomingJobs(
+  db: DbClient,
+  tenantId: string,
+  from: string,
+  to: string,
+) {
+  const rows = await db.execute(sql`
+    SELECT
+      j.id::text,
+      j.job_number,
+      j.title,
+      (c.first_name || ' ' || c.last_name) AS customer_name,
+      j.address,
+      j.service_type::text,
+      j.priority::text,
+      j.scheduled_date::text,
+      j.scheduled_start::text,
+      j.scheduled_end::text
+    FROM jobs j
+    LEFT JOIN customers c ON c.id = j.customer_id
+    WHERE j.tenant_id = ${tenantId}
+      AND j.archived_at IS NULL
+      AND j.scheduled_date >= ${from}::date
+      AND j.scheduled_date <= ${to}::date
+    ORDER BY j.scheduled_date ASC, j.scheduled_start ASC NULLS LAST
+    LIMIT 50
+  `);
+  return z.array(upcomingJobRow).parse(rows);
+}
+
+/** Bookings in a forward window (dashboard agenda). */
+export async function getUpcomingBookings(
+  db: DbClient,
+  tenantId: string,
+  from: string,
+  to: string,
+) {
+  const rows = await db.execute(sql`
+    SELECT
+      id::text,
+      customer_name,
+      service_type::text,
+      booking_date::text,
+      preferred_time::text,
+      address,
+      description
+    FROM bookings
+    WHERE tenant_id = ${tenantId}
+      AND archived_at IS NULL
+      AND booking_date >= ${from}::date
+      AND booking_date <= ${to}::date
+    ORDER BY booking_date ASC, preferred_time ASC NULLS LAST
+    LIMIT 50
+  `);
+  return z.array(upcomingBookingRow).parse(rows);
 }
 
 /**

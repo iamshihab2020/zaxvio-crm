@@ -62,6 +62,11 @@ async function fetchDashboardStats(
     retentionResult,
     priorityBreakdownResult,
     serviceBreakdownResult,
+    serviceRevenueResult,
+    topCustomersResult,
+    agendaEventsResult,
+    agendaJobsResult,
+    agendaBookingsResult,
   ] = await Promise.all([
     // 1. Jobs today
     jobsQ.getJobsToday(db, tenantId),
@@ -107,6 +112,14 @@ async function fetchDashboardStats(
     jobsQ.getJobsByPriority(db, params),
     // 22. Service type breakdown for range
     jobsQ.getJobsByServiceType(db, params),
+    // 23. Revenue composition by service type
+    revenueQ.getRevenueByServiceType(db, params),
+    // 24. Top customers by revenue in range
+    revenueQ.getTopCustomersByRevenue(db, params),
+    // 25-27. Agenda (next 7 days, independent of range)
+    dashboardQ.getUpcomingEvents(db, tenantId, formatToday(), formatDaysFromNow(7)),
+    dashboardQ.getUpcomingJobs(db, tenantId, formatToday(), formatDaysFromNow(7)),
+    dashboardQ.getUpcomingBookings(db, tenantId, formatToday(), formatDaysFromNow(7)),
   ]);
 
   const quoteSummaryRow = quoteSummaryResult[0];
@@ -216,7 +229,60 @@ async function fetchDashboardStats(
       count: pInt(r.count),
     })),
     selectedPipelineId: pipelineId,
+    serviceRevenue: serviceRevenueResult.map((row) => ({
+      serviceType: row.service_type ?? "other",
+      label: titleCase(row.service_type),
+      amount: pFloat(row.amount),
+    })),
+    topCustomers: topCustomersResult.map((row) => ({
+      id: row.id,
+      name: row.name ?? "Customer",
+      revenue: pFloat(row.revenue),
+      jobCount: pInt(row.job_count),
+    })),
+    agenda: {
+      from: formatToday(),
+      to: formatDaysFromNow(7),
+      events: agendaEventsResult.map((r) => ({
+        id: r.id,
+        title: r.title,
+        description: r.description,
+        eventDate: r.event_date,
+        startTime: r.start_time,
+        endTime: r.end_time,
+        contactName: r.contact_name,
+        address: r.address,
+        color: r.color,
+      })),
+      jobs: agendaJobsResult.map((r) => ({
+        id: r.id,
+        jobNumber: r.job_number,
+        title: r.title,
+        customerName: r.customer_name,
+        address: r.address,
+        serviceType: r.service_type,
+        priority: r.priority,
+        scheduledDate: r.scheduled_date,
+        scheduledStart: r.scheduled_start,
+        scheduledEnd: r.scheduled_end,
+      })),
+      bookings: agendaBookingsResult.map((r) => ({
+        id: r.id,
+        customerName: r.customer_name,
+        serviceType: r.service_type,
+        bookingDate: r.booking_date,
+        preferredTime: r.preferred_time,
+        address: r.address,
+        description: r.description,
+      })),
+    },
   };
+}
+
+function formatDaysFromNow(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  return d.toISOString().split("T")[0];
 }
 
 function titleCase(input: string | null | undefined): string {

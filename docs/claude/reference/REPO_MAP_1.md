@@ -389,9 +389,11 @@ apps/web/
     |   |   |   +-- quote-conversion.tsx
     |   |   |   +-- recent-activity-feed.tsx
     |   |   |   +-- retention-chart.tsx          # Monthly repeat-customer rate bars — NEW
+    |   |   |   +-- revenue-by-service-chart.tsx # Horizontal bars, top 6 services + "Other" — NEW
     |   |   |   +-- revenue-chart.tsx            # (legacy, replaced by RevenueRangeChart)
     |   |   |   +-- revenue-range-chart.tsx      # 1D/1W/1M/6M/1Y/ALL area chart — NEW
     |   |   |   +-- today-schedule.tsx
+    |   |   |   +-- top-customers-card.tsx       # Ranked list of top 5 customers by revenue — NEW
     |   |   |
     |   |   +-- customers/          # Customer components
     |   |   |   +-- customer-activity-tab.tsx

@@ -114,6 +114,41 @@ export const retentionTrendRow = z.object({
   total_count: z.string(),
 });
 
+export const upcomingEventRow = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string().nullable(),
+  event_date: z.string(),
+  start_time: z.string().nullable(),
+  end_time: z.string().nullable(),
+  contact_name: z.string().nullable(),
+  address: z.string().nullable(),
+  color: z.string().nullable(),
+});
+
+export const upcomingJobRow = z.object({
+  id: z.string(),
+  job_number: z.string(),
+  title: z.string().nullable(),
+  customer_name: z.string().nullable(),
+  address: z.string().nullable(),
+  service_type: z.string().nullable(),
+  priority: z.string().nullable(),
+  scheduled_date: z.string().nullable(),
+  scheduled_start: z.string().nullable(),
+  scheduled_end: z.string().nullable(),
+});
+
+export const upcomingBookingRow = z.object({
+  id: z.string(),
+  customer_name: z.string(),
+  service_type: z.string().nullable(),
+  booking_date: z.string(),
+  preferred_time: z.string().nullable(),
+  address: z.string().nullable(),
+  description: z.string().nullable(),
+});
+
 // ── Quotes & Invoices ──
 
 export const quoteFunnelRow = z.object({

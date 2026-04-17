@@ -20,7 +20,13 @@ import {
 export function usePipelines() {
   return useQuery({
     queryKey: queryKeys.pipelines.list(),
-    queryFn: () => getPipelines(),
+    // Unwrap the server-action envelope so this cache entry is always a
+    // bare Pipeline[] — matches the /jobs page's queryFn and prevents
+    // "pipelines.find is not a function" when both mount with the same key.
+    queryFn: async () => {
+      const res = await getPipelines();
+      return res.data ?? [];
+    },
     staleTime: 5 * 60_000, // pipelines rarely change
   });
 }

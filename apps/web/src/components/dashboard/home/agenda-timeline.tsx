@@ -3,47 +3,22 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { format, differenceInCalendarDays, parseISO, isValid } from "date-fns";
-import { useCalendarEvents } from "@/hooks/queries/use-calendar";
-import { useJobs } from "@/hooks/queries/use-jobs";
-import { useBookings } from "@/hooks/queries/use-bookings";
-import type { CalendarEventData } from "@/actions/calendar-events";
-import { Skeleton } from "@/components/ui/skeleton";
+import type {
+  DashboardAgenda,
+  DashboardAgendaBooking,
+  DashboardAgendaEvent,
+  DashboardAgendaJob,
+} from "@hvac-saas/types";
 import { AgendaHoverCard, type AgendaDetails } from "@/components/dashboard/shared/agenda-hover-card";
 import { cn } from "@/lib/utils";
 
 interface AgendaTimelineProps {
-  from: string; // YYYY-MM-DD
-  to: string; // YYYY-MM-DD
-}
-
-interface AgendaJob {
-  id: string;
-  jobNumber?: string;
-  title?: string;
-  customerName?: string | null;
-  serviceType?: string | null;
-  address?: string | null;
-  scheduledDate?: string | null;
-  scheduledStart?: string | null;
-  scheduledEnd?: string | null;
-  priority?: string | null;
+  agenda: DashboardAgenda;
 }
 
 type AgendaKind = "event" | "job" | "booking";
 
-type AgendaItem = AgendaDetails & {
-  id: string;
-};
-
-interface AgendaBooking {
-  id: string;
-  customerName?: string | null;
-  serviceType?: string | null;
-  bookingDate?: string | null;
-  preferredTime?: string | null;
-  address?: string | null;
-  description?: string | null;
-}
+type AgendaItem = AgendaDetails & { id: string };
 
 const HOUR_START = 8;
 const HOUR_END = 20;
@@ -60,7 +35,7 @@ function parseDateAt(date: string, time: string | null): Date | null {
   return d;
 }
 
-function eventToItem(e: CalendarEventData): AgendaItem {
+function eventToItem(e: DashboardAgendaEvent): AgendaItem {
   const start = parseDateAt(e.eventDate, e.startTime);
   const end = parseDateAt(e.eventDate, e.endTime);
   return {
@@ -78,7 +53,7 @@ function eventToItem(e: CalendarEventData): AgendaItem {
   };
 }
 
-function bookingToItem(b: AgendaBooking): AgendaItem {
+function bookingToItem(b: DashboardAgendaBooking): AgendaItem {
   const start = parseDateAt(b.bookingDate ?? "", b.preferredTime ?? null);
   return {
     id: `booking-${b.id}`,
@@ -100,7 +75,7 @@ function titleCase(s: string): string {
   return s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function jobToItem(j: AgendaJob): AgendaItem {
+function jobToItem(j: DashboardAgendaJob): AgendaItem {
   // Prefer full scheduled_start timestamp; fall back to scheduledDate + start time.
   const start = (() => {
     if (j.scheduledStart) {
@@ -117,7 +92,7 @@ function jobToItem(j: AgendaJob): AgendaItem {
   return {
     id: `job-${j.id}`,
     kind: "job",
-    title: j.jobNumber ?? j.title ?? "Job",
+    title: j.jobNumber || j.title || "Job",
     subtitle: j.customerName ?? undefined,
     customerName: j.customerName ?? undefined,
     address: j.address ?? undefined,
@@ -135,42 +110,18 @@ function jobToItem(j: AgendaJob): AgendaItem {
   };
 }
 
-export function AgendaTimeline({ from, to }: AgendaTimelineProps) {
-  const { data: eventsRes, isLoading: eventsLoading } = useCalendarEvents({
-    dateFrom: from,
-    dateTo: to,
-    limit: 100,
-  });
-
-  // Jobs scheduled anywhere in the window — not just today.
-  const { data: jobsRes, isLoading: jobsLoading } = useJobs({
-    dateFrom: from,
-    dateTo: to,
-    limit: 100,
-    showArchived: false,
-  });
-
-  // Bookings in the window
-  const { data: bookingsRes, isLoading: bookingsLoading } = useBookings({
-    dateFrom: from,
-    dateTo: to,
-    limit: 100,
-  });
-
-  const isLoading = eventsLoading || jobsLoading || bookingsLoading;
-
+export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
+  const { from, to, events, jobs, bookings } = agenda;
   const items = useMemo<AgendaItem[]>(() => {
-    const eventItems = (eventsRes?.data ?? []).map(eventToItem);
-    const jobItems = ((jobsRes?.data ?? []) as AgendaJob[]).map(jobToItem);
-    const bookingItems = ((bookingsRes?.data ?? []) as AgendaBooking[]).map(
-      bookingToItem,
-    );
+    const eventItems = events.map(eventToItem);
+    const jobItems = jobs.map(jobToItem);
+    const bookingItems = bookings.map(bookingToItem);
     return [...eventItems, ...jobItems, ...bookingItems].sort((a, b) => {
       const ax = a.start?.getTime() ?? Number.POSITIVE_INFINITY;
       const bx = b.start?.getTime() ?? Number.POSITIVE_INFINITY;
       return ax - bx;
     });
-  }, [eventsRes, jobsRes, bookingsRes]);
+  }, [events, jobs, bookings]);
 
   const mode = useMemo<"day" | "week" | "range">(() => {
     try {
@@ -199,9 +150,7 @@ export function AgendaTimeline({ from, to }: AgendaTimelineProps) {
         </Link>
       </div>
 
-      {isLoading ? (
-        <AgendaSkeleton />
-      ) : items.length === 0 ? (
+      {items.length === 0 ? (
         <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center">
           <div className="text-sm font-body text-muted-foreground">
             Nothing scheduled
@@ -243,18 +192,6 @@ function KindBadge({ kind }: { kind: AgendaKind }) {
   );
 }
 
-function AgendaSkeleton() {
-  return (
-    <div className="mt-4 space-y-3">
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="flex gap-3">
-          <Skeleton className="h-3 w-10" />
-          <Skeleton className="h-12 flex-1 rounded-xl" />
-        </div>
-      ))}
-    </div>
-  );
-}
 
 function DayTimeline({ items }: { items: AgendaItem[] }) {
   const hours = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);

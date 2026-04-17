@@ -65,7 +65,7 @@ export function JobsManagementPanel({
 }: JobsManagementPanelProps) {
   const [segment, setSegment] = useState<Segment>("status");
   const { data: pipelinesRes } = usePipelines();
-  const pipelines = (pipelinesRes?.data ?? []) as Pipeline[];
+  const pipelines = (pipelinesRes ?? []) as Pipeline[];
 
   const buckets: Bucket[] = useMemo(() => {
     if (segment === "status") {

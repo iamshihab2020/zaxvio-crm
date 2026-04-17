@@ -11,6 +11,14 @@
 - **Never use `template.tsx` for route group layouts** — `template.tsx` remounts on every navigation, destroying browser history state and breaking back/forward. Always use `layout.tsx` for route groups. Only use `template.tsx` for rare cases like per-page entry animations.
 - **Route groups for organization only, not competing layouts** — Auth pages (`(auth)/`) should NOT have their own `layout.tsx` if there's already a root layout. Competing layout trees cause rendering conflicts. Use a shared wrapper component (e.g., `AuthShell`) instead.
 
+## Dashboard data consolidation (2026-04-17)
+
+- **Colocate related data in one backend endpoint rather than 3 client hooks.** `AgendaTimeline` originally fired `useCalendarEvents` + `useJobs` + `useBookings` on mount — three parallel REST calls, each ~1-3s on the `/jobs` list (which hydrates assignees, tags, pipeline stages). Net: ~10s to render agenda while the rest of the dashboard loaded instantly from a single `/dashboard/stats` call. **Fix:** added `getUpcomingEvents` / `getUpcomingJobs` / `getUpcomingBookings` queries to `dashboard-only.ts` and returned them as `stats.agenda` from `/dashboard/stats`. Client drops the 3 hooks and consumes the prop directly. One cache entry, one roundtrip, no waterfall. **When to do this:** a client page renders multiple independent lists/objects fetched on mount — fold them into the page's primary server call.
+
+## TanStack Query + server-action envelopes (2026-04-17)
+
+- **Two consumers of the same `queryKey` MUST agree on the cached value shape.** `usePipelines()` (hook) and the `/jobs` page's inline `useQuery` both use `queryKeys.pipelines.list()`. One returned the raw server-action envelope `{ data: Pipeline[], error: string | null }`; the other unwrapped to `Pipeline[]`. Whichever mounted first poisoned the cache for the other, causing `pipelines.find is not a function` at runtime. **Rule:** inside any `queryFn` that calls a server action, always do `const res = await action(); return res.data ?? [];` — never let the envelope leak into the cache. The `.data?.data` ternary in the consumer is a workaround, not a fix.
+
 ## Dashboard Redesign (2026-04-17)
 
 - **Use a pub/sub "bus" to trigger a singleton client component from other pages** — `HelpChatbot` is mounted once in `(dashboard)/layout.tsx`, so each call to `useChatbot()` elsewhere creates its own independent state. To let a button on any page open the already-mounted chatbot, created `lib/chatbot/bus.ts` that dispatches a `chatbot:open` CustomEvent; the chatbot component listens and flips `isOpen`. **Why:** lifting `useChatbot` to a React context would force every page to re-render on message state changes.

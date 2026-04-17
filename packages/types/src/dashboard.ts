@@ -41,6 +41,62 @@ export interface DashboardCategoryCount {
   count: number;
 }
 
+export interface DashboardServiceRevenue {
+  serviceType: string;
+  label: string;
+  amount: number;
+}
+
+export interface DashboardTopCustomer {
+  id: string;
+  name: string;
+  revenue: number;
+  jobCount: number;
+}
+
+export interface DashboardAgendaEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  eventDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  contactName: string | null;
+  address: string | null;
+  color: string | null;
+}
+
+export interface DashboardAgendaJob {
+  id: string;
+  jobNumber: string;
+  title: string | null;
+  customerName: string | null;
+  address: string | null;
+  serviceType: string | null;
+  priority: string | null;
+  scheduledDate: string | null;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+}
+
+export interface DashboardAgendaBooking {
+  id: string;
+  customerName: string;
+  serviceType: string | null;
+  bookingDate: string;
+  preferredTime: string | null;
+  address: string | null;
+  description: string | null;
+}
+
+export interface DashboardAgenda {
+  from: string;
+  to: string;
+  events: DashboardAgendaEvent[];
+  jobs: DashboardAgendaJob[];
+  bookings: DashboardAgendaBooking[];
+}
+
 export interface DashboardActivityItem {
   id: string;
   type: "job" | "quote";
@@ -97,4 +153,7 @@ export interface DashboardStats {
   priorityBreakdown: DashboardCategoryCount[];
   serviceBreakdown: DashboardCategoryCount[];
   selectedPipelineId: string | null;
+  serviceRevenue: DashboardServiceRevenue[];
+  topCustomers: DashboardTopCustomer[];
+  agenda: DashboardAgenda;
 }

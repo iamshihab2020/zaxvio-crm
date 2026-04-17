@@ -7,6 +7,10 @@ export type WidgetKey =
   | "revenue"
   | "jobsManagement"
   | "retention"
+  | "invoiceAging"
+  | "quoteFunnel"
+  | "revenueByService"
+  | "topCustomers"
   | "agenda"
   | "overdueAlert"
   | "activity";
@@ -16,7 +20,11 @@ export const ALL_WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "revenue", label: "Revenue Chart" },
   { key: "jobsManagement", label: "Jobs Management" },
   { key: "retention", label: "Retention Rate" },
-  { key: "agenda", label: "Agenda Timeline" },
+  { key: "invoiceAging", label: "Invoice Aging" },
+  { key: "quoteFunnel", label: "Quote Funnel" },
+  { key: "revenueByService", label: "Revenue by Service" },
+  { key: "topCustomers", label: "Top Customers" },
+  { key: "agenda", label: "Agenda" },
   { key: "overdueAlert", label: "Overdue Alert" },
   { key: "activity", label: "Activity Feed" },
 ];
@@ -28,6 +36,10 @@ const DEFAULT_VISIBLE: Record<WidgetKey, boolean> = {
   revenue: true,
   jobsManagement: true,
   retention: true,
+  invoiceAging: true,
+  quoteFunnel: true,
+  revenueByService: true,
+  topCustomers: true,
   agenda: true,
   overdueAlert: true,
   activity: true,
