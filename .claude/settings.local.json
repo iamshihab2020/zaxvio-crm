@@ -84,7 +84,8 @@
       "Bash(powershell -ExecutionPolicy Bypass -File install.ps1)",
       "Bash(curl -s http://localhost:4000/quotes?page=1\\\\&limit=5)",
       "Bash(curl:*)",
-      "Bash(xargs -I {} grep -l \"crypto\\\\|nanoid\\\\|uuid\" {})"
+      "Bash(xargs -I {} grep -l \"crypto\\\\|nanoid\\\\|uuid\" {})",
+      "Bash(cd *)"
     ]
   }
 }
