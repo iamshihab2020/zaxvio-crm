@@ -1,6 +1,6 @@
 # Todo
 
-> Related: [[workflow]] | [[planner]] | [[lessons]] | [[deferred-fixes/README|Deferred Fixes]]
+> Related: [[workflow]] | [[planner]] | [[lessons]] | [[decisions]] | [[deferred-fixes/README|Deferred Fixes]]
 
 Task tracking for the Zaxvio CRM project.
 
@@ -8,22 +8,22 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
-### Dashboard Redesign (2026-04-17)
-- [x] Backend: `getRevenueTrend` with `day|week|month` granularity
-- [x] Backend: `getRepeatCustomerRateByMonth` for retention trend
-- [x] Backend: `/dashboard/stats` accepts `granularity` + `pipelineId` query params, returns `retentionTrend`, `revenueGranularity`, `priorityBreakdown`, `serviceBreakdown`, `serviceRevenue`, `topCustomers`, `selectedPipelineId`
-- [x] Frontend: new widgets — `KpiPill`, `DashboardToolbar`, `RevenueRangeChart`, `JobsManagementPanel`, `RetentionChart`, `AgendaTimeline`, `InvoiceAging` (restyled), `QuoteConversion`/Quote Funnel (restyled), `RevenueByServiceChart`, `TopCustomersCard`
-- [x] Frontend: `CustomizeWidgetsPopover` + `useDashboardWidgetPrefs` (localStorage-backed show/hide for all 11 widget keys)
-- [x] Frontend: `AgendaHoverCard` shared between dashboard agenda and schedule calendar
-- [x] Frontend: Ask AI button wires to existing chatbot via `lib/chatbot/bus.ts`
-- [x] Frontend: Last-updated indicator using TanStack `dataUpdatedAt`
-- [x] Agenda now fetches events + jobs + bookings for next 7 days with kind badges
-- [x] Jobs Management uses DB stage colors via `STAGE_COLOR_PRESETS.hex` + pipeline selector + Zod enum on backend
-- [x] Fix: `usePipelines()` queryFn unwraps server-action envelope (prevents cache-shape collision with `/jobs` page)
-- [x] Update chatbot knowledge base + REPO_MAP_1 + API_DOCUMENTATION_1 + lessons
+### Page-by-Page Audits (2026-07-27)
+Reports live in [[reports/README|docs/claude/reports/]]. One file per page.
+- [x] `/dashboard` — [[dashboard|report]]: 29 findings audited and **all 29 fixed** (2026-07-27)
+- [x] `/reports` — [[reports-page|report]]: 28 findings audited and **all 28 fixed** (2026-07-27)
+- [ ] Next page to audit — user picks
 
-### Public Quote Acceptance Portal — Remaining
-- [ ] Create `quotes` Supabase Storage bucket (manual step in Supabase dashboard, if not exists)
+**Verify after the first tenant has real data** (blocked on [[#Post-Neon Cleanup]] — DB has no users):
+- [ ] DASH-07 — confirm the revenue headline equals the sum of the chart across a week/month boundary
+- [ ] Confirm dashboard job counts match the Jobs page after a bulk archive
+- [ ] Confirm the overdue banner count equals the row count on `/invoices?status=overdue`
+- [ ] REP-02 — confirm the "previous period" line on `/reports` plots the period immediately before the selected one (alignment is proven; the *numbers* have never been seen)
+- [ ] Confirm `/reports` booking and customer totals now match their list pages after a bulk archive
+
+### Storage Buckets — Remaining (blocked on R2, see [[decisions|ADR-001]])
+- [ ] Create the `quotes` prefix/bucket in Cloudflare R2 (quote PDFs)
+- [ ] Create the `job-attachments` prefix/bucket in Cloudflare R2 (job photos + documents)
 
 ### Unified List Page Migration (2026-04-04)
 Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/design.md`).
@@ -43,15 +43,20 @@ Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/d
 - [ ] 10 AI tools: greet, answer_help, create customer/event/job/invoice/quote/catalog_item/equipment/booking
 
 ### Design System Docs (2026-04-04)
-- [x] Created `docs/design.md` — extracted frontend patterns from CLAUDE.md
 - [ ] Update `docs/project_docs/REPO_MAP.md` with new files
-
-### Job Photo & File Attachment System — Remaining
-- [ ] Create `job-attachments` Supabase Storage bucket (manual step in Supabase dashboard)
 
 ---
 
 ## Backlog
+
+### Post-Neon Cleanup (2026-07-26)
+
+- [ ] **Provision Cloudflare R2 and fill in the credentials** — code is done and the API boots without it, but uploads fail until set. Create two buckets (public + private; see [[decisions|ADR-001]] for why two), then set `R2_*` in the root `.env` and `NEXT_PUBLIC_R2_PUBLIC_URL` in `apps/web/.env.local`. The startup banner reports whether it is configured.
+- [ ] **Verify a real sender domain in Resend** — API key is valid but the account has zero verified domains and `RESEND_FROM_EMAIL` is still `noreply@yourdomain.com`. Every send 403s until this is done; the API startup banner warns about it.
+- [ ] **Set `ADMIN_SEED_EMAIL` to a real address, then run `pnpm seed:admin`** — the Neon database has no users yet.
+- [ ] **Reconcile `supabase/migrations/`** — 32 of 42 files are missing from `meta/_journal.json`, so `db:migrate` skips them. Either re-baseline the journal or move the hand-written SQL somewhere it can't be mistaken for a tracked migration. (Folder name is now a misnomer — Supabase is gone.)
+- [ ] **Declare `env` keys in `turbo.json`** — no task declares any, so hosted builds (env from the platform, not a file) can cache-hit stale and inline a wrong `NEXT_PUBLIC_API_URL`.
+- [ ] **End-to-end test the SSE stream with a real session** — the event bus is unit-verified (routing, tenant isolation, unsubscribe) and `/events` correctly 401s unauthenticated, but no authenticated browser round-trip has been run because the database has no users yet.
 
 ### Deferred / Blocked
 
@@ -68,6 +73,11 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **Reports Audit + Full Remediation** (2026-07-27) — Audited `/reports` end-to-end ([[reports-page|report]]), found 28 issues, fixed all 28. Critical: a failed request rendered as "No data available for this period" (a 500 read as "you earned nothing this quarter"); the previous-period comparison zipped two `generate_series` results *by index* so "Last month" plotted March against January and dropped February; the CSV export was an OWASP formula-injection vector reachable from the unauthenticated booking portal (now [[security-rules]] §7). Also: new `queries/buckets.ts` gives every trend day/week/month granularity ("Last 7 days" was a one-bar chart), a bucket-aligned `compareFrom`/`compareTo` window that makes the comparison line and the KPI deltas agree, `archived_at` filters on booking/customer/invoice/quote analytics (the Jobs tab already had them, so one page applied two rules), tenant timezone in `getActiveVsInactiveCustomers` and every `created_at` boundary, the two hardcoded-zero KPI fields computed, the whole data path typed as a union discriminated on `section` (was `any` + five casts), per-card error boundaries, sr-only tables on 13 charts, SSR prefetch, a complete CSV with BOM and the range in the filename, and drill-through to `/customers/:id`. `WidgetErrorBoundary`, `ChartDataTable` and `LoadErrorState` moved to `components/reusable/`. Verified 134/134 SQL + date-maths against Neon, 31/31 CSV, 5/5 endpoint contract. The API docs for this page described six endpoints that never existed — rewritten.
+- [x] **Dashboard Audit + Full Remediation** (2026-07-27) — Audited `/dashboard` end-to-end ([[dashboard|report]]), found 29 issues, fixed all 29. Critical: unhandled rejection in the analytics cache's background revalidate could kill the API process; agenda rendered every job at "12:00 AM" (`parseISO` on a Postgres `time` column); `initialData` seeded every query key so changing the date range showed stale data and never refetched. Also: tenant timezone plumbed end-to-end (was UTC everywhere despite `tenants.timezone` existing), one definition of "overdue" derived from `due_date` across dashboard + invoice list + stats, revenue chart clamped to the requested window, uniform `archived_at` filtering, priority colours keyed off the real DB enum (`emergency` had rendered identically to `standard`), query fan-out 27→21 by deleting unused payload, new `GET /dashboard/pipeline`, cache gained in-flight dedup + a size bound + write invalidation via one `onResponse` hook, per-widget error boundaries, chart a11y tables, drill-through links (which required teaching Jobs/Invoices/Quotes to read filter params, and fixed a pre-existing bug where agenda rows never opened their detail sheet). Default widget set trimmed 11→6.
+- [x] **Dashboard Redesign** (2026-04-17) — New widget set (KpiPill trio, RevenueRangeChart with 1D–ALL tabs, JobsManagementPanel, RetentionChart, AgendaTimeline, RevenueByServiceChart, TopCustomersCard), CustomizeWidgetsPopover + localStorage prefs, agenda folded into `/dashboard/stats` to kill a 3-call waterfall.
+- [x] **Drop Supabase: R2 Storage + SSE Realtime** (2026-07-26) — Removed Supabase entirely ([[decisions|ADR-001]]). Storage → Cloudflare R2 via `@aws-sdk/client-s3` (new `apps/api/src/lib/storage.ts`, 9 call sites across jobs/invoices/quotes/tenants, two buckets for public/private separation). Realtime → SSE: new `lib/event-bus.ts` + `GET /events`, replacing 5 broadcast senders and 6 browser listeners with a shared `EventSource` (`lib/event-stream.ts` + `hooks/use-event-stream.ts`). Deleted `packages/database/src/supabase.ts` and `apps/web/src/lib/supabase-client.ts`, dropped `@supabase/supabase-js` from both packages. Fixed two latent bugs found on the way: the impersonation indicator listened on a channel nothing published to, and Supabase channels had no authorization (any user could listen to any tenant) — `/events` now scopes by session and gates cross-tenant access to admins.
+- [x] **Neon Migration + Env Audit** (2026-07-26) — Moved `DATABASE_URL` from the deleted Supabase project to Neon (PostgreSQL 18.4); `db:push` created 50 tables, then applied the 2 unjournaled trigger migrations by hand (4 functions, 12 triggers). Split env by boundary: root `.env` = backend only, `apps/web/.env.local` = frontend only; rewrote both `.env.example` files and added `apps/web/.env.example`. Added Zod env validation for web (`apps/web/src/lib/env.ts`) + `experimental.instrumentationHook` so it runs at boot. Fixed `@types/react` v19→v18 in `apps/api` (unblocked `pnpm build`/`typecheck`, 167→0 errors), `/health` returning 500 on a raw JSON Schema, `seed-admin` bypassing the shared `passwordSchema`, and the placeholder `RESEND_FROM_EMAIL` default.
 - [x] **TanStack Query Migration (Phases 1-4)** (2026-04-15) — Full client-side data layer: QueryClientProvider, centralized query keys, 18 reusable hook files (queries + mutations), all 14 page-clients migrated to reusable hooks, global background refetch indicator, hover-prefetch on 4 tables, pagination prefetch on 9 pages, staleTime tuning per domain. Conversations page deferred (Supabase Realtime architecture).
 - [x] **Public Quote Acceptance Portal** (2026-04-11) — DB migration, public API (3 endpoints), email template, public quote page with review/respond/scheduling/confirmation steps, server actions, settings UI, quote detail UI. Manual step remaining: create `quotes` Supabase Storage bucket.
 - [x] **EntityDetailShell Refactor** (2026-04-04) — Extracted reusable entity detail shell from 4 duplicated files. Removed ~1,350 lines of duplication.

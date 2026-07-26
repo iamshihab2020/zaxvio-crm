@@ -1,8 +1,8 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { dispatchNotification } from "../../lib/notifications.js";
+import { publish } from "../../lib/event-bus.js";
 import {
   getDb,
-  getSupabaseAdmin,
   quotes,
   quoteLineItems,
   quoteActivities,
@@ -19,17 +19,10 @@ import {
   declineQuoteBody,
 } from "../../lib/schemas/public-quote.js";
 
-/** Broadcast quote status change via Supabase Realtime so the dashboard updates live. */
+/** Broadcast quote status change over SSE so the dashboard updates live. */
 async function broadcastQuoteUpdate(tenantId: string, quoteId: string, status: string, quoteNumber: string | null) {
   try {
-    const supabase = getSupabaseAdmin();
-    const channel = supabase.channel(`quotes:${tenantId}`);
-    await channel.send({
-      type: "broadcast",
-      event: "quote_updated",
-      payload: { quoteId, status, quoteNumber },
-    });
-    await supabase.removeChannel(channel);
+    publish(tenantId, "quotes", "quote_updated", { quoteId, status, quoteNumber });
   } catch (err) {
     console.error("[public-quote] broadcast failed:", err);
   }

@@ -17,6 +17,7 @@ import type {
 } from "@hvac-saas/types";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatCurrency } from "@/lib/format";
+import { ChartDataTable } from "@/components/reusable/chart-data-table";
 import { cn } from "@/lib/utils";
 
 export type RevenueRange = "1D" | "1W" | "1M" | "6M" | "1Y" | "ALL";
@@ -133,7 +134,7 @@ export function RevenueRangeChart({
         </ToggleGroup>
       </div>
 
-      <div className="relative mt-4 h-[280px] w-full">
+      <div className="relative mt-4 h-[280px] w-full" aria-hidden={hasData}>
         {hasData ? (
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
@@ -187,6 +188,12 @@ export function RevenueRangeChart({
           <EmptyRevenueState />
         )}
       </div>
+
+      <ChartDataTable
+        caption={`Revenue by ${granularity}`}
+        columns={["Period", "Revenue"]}
+        rows={data.map((d) => [d.monthLabel, formatCurrency(d.amount)])}
+      />
     </div>
   );
 }

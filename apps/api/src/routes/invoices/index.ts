@@ -37,8 +37,9 @@ import {
   isNull,
   isNotNull,
   inArray,
+  notInArray,
 } from "@hvac-saas/database";
-import { getSupabaseAdmin } from "@hvac-saas/database";
+import { uploadFile, downloadFile } from "../../lib/storage.js";
 
 // ========== HELPERS ==========
 
@@ -137,7 +138,18 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         );
       }
 
-      if (status) {
+      if (status === "overdue") {
+        // Overdue is derived from due_date, not the stored status — the status
+        // column only flips when the overdue cron runs, so filtering on it would
+        // return fewer invoices than the dashboard banner and aging widget count.
+        // Same definition as `getOverdueInvoiceSummary`.
+        filters.push(
+          and(
+            notInArray(invoices.status, ["paid", "void"]),
+            sql`${invoices.dueDate} < (now() AT TIME ZONE ${request.authUser.tenantTimezone})::date`,
+          )!,
+        );
+      } else if (status) {
         filters.push(eq(invoices.status, status as never));
       }
       if (customerId) {
@@ -230,7 +242,12 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           draft: sql<number>`COUNT(*) FILTER (WHERE status = 'draft')`,
           sent: sql<number>`COUNT(*) FILTER (WHERE status = 'sent')`,
           paid: sql<number>`COUNT(*) FILTER (WHERE status = 'paid')`,
-          overdue: sql<number>`COUNT(*) FILTER (WHERE status = 'overdue')`,
+          // Derived from due_date, matching the list filter and the dashboard —
+          // not the stored status, which lags until the overdue cron runs.
+          overdue: sql<number>`COUNT(*) FILTER (
+            WHERE status NOT IN ('paid', 'void')
+              AND due_date < (now() AT TIME ZONE ${request.authUser.tenantTimezone})::date
+          )`,
           partially_paid: sql<number>`COUNT(*) FILTER (WHERE status = 'partially_paid')`,
           void: sql<number>`COUNT(*) FILTER (WHERE status = 'void')`,
         })
@@ -1035,7 +1052,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   /**
    * POST /invoices/:id/send
-   * Generate PDF → upload to Supabase Storage → set status to sent.
+   * Generate PDF → upload to R2 → set status to sent.
    */
   fastify.post(
     "/:id/send",
@@ -1097,14 +1114,9 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         tenant,
       );
 
-      // Upload to Supabase Storage
+      // Upload to R2 (private bucket — streamed back through this API)
       const storagePath = `${tenantId}/${inv.id}.pdf`;
-      const supabase = getSupabaseAdmin();
-
-      await supabase.storage.from("invoices").upload(storagePath, pdfBuffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
+      await uploadFile("invoices", storagePath, pdfBuffer, "application/pdf");
 
       // Update invoice
       await db
@@ -1188,15 +1200,11 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Invoice not found" });
       }
 
-      // If PDF exists in storage, stream it
+      // If PDF exists in storage, stream it (falls through to regeneration if missing)
       if (inv.pdfStoragePath) {
-        const supabase = getSupabaseAdmin();
-        const { data, error } = await supabase.storage
-          .from("invoices")
-          .download(inv.pdfStoragePath);
+        const buffer = await downloadFile("invoices", inv.pdfStoragePath);
 
-        if (!error && data) {
-          const buffer = Buffer.from(await data.arrayBuffer());
+        if (buffer) {
           return reply
             .type("application/pdf")
             .header(

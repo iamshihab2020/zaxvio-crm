@@ -10,6 +10,8 @@ import type { useDashboardWidgetPrefs } from "@/hooks/use-dashboard-widget-prefs
 
 interface DashboardToolbarProps {
   updatedAt: number | undefined;
+  /** True while a refetch is in flight, so the freshness dot can say so. */
+  isFetching?: boolean;
   prefs: ReturnType<typeof useDashboardWidgetPrefs>;
   rightSlot?: React.ReactNode;
 }
@@ -37,6 +39,7 @@ function useRelativeTime(ts: number | undefined) {
 
 export function DashboardToolbar({
   updatedAt,
+  isFetching = false,
   prefs,
   rightSlot,
 }: DashboardToolbarProps) {
@@ -58,18 +61,25 @@ export function DashboardToolbar({
       </div>
       <div className="flex flex-wrap items-center gap-3">
         {updatedAt && (
-          <span className="inline-flex items-center gap-1.5 text-xs font-body text-muted-foreground">
+          <span
+            aria-live="polite"
+            className="inline-flex items-center gap-1.5 text-xs font-body text-muted-foreground"
+          >
             <span
               className={
-                isFresh
-                  ? "h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
-                  : "h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
+                isFetching
+                  ? "h-1.5 w-1.5 animate-pulse rounded-full bg-brand"
+                  : isFresh
+                    ? "h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
+                    : "h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
               }
               aria-hidden
             />
-            {isFresh ? (
+            {isFetching ? (
+              "Refreshing…"
+            ) : isFresh ? (
               <>
-                <IconCheck className="h-3 w-3 text-emerald-600" />
+                <IconCheck className="h-3 w-3 text-emerald-600" aria-hidden />
                 {relLabel}
               </>
             ) : (

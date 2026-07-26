@@ -5,6 +5,7 @@ import type { TablerIcon } from "@tabler/icons-react";
 import { IconTrendingUp, IconTrendingDown } from "@tabler/icons-react";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import type { DashboardSparklinePoint } from "@hvac-saas/types";
+import { WidgetWindowBadge } from "./widget-window-badge";
 import { cn } from "@/lib/utils";
 
 interface KpiPillProps {
@@ -18,16 +19,29 @@ interface KpiPillProps {
   sparklineData?: DashboardSparklinePoint[];
   href?: string;
   accent?: "brand" | "indigo" | "emerald";
+  /** Small line under the value, e.g. "3 unpaid invoices". */
+  footnote?: string;
+  footnoteTone?: "muted" | "danger";
+  /** Set when this metric ignores the dashboard date picker. */
+  windowLabel?: string;
 }
 
-function computeTrend(current: number, previous: number) {
+type Trend =
+  | { kind: "none" }
+  | { kind: "new" }
+  | { kind: "pct"; pct: number; direction: "up" | "down" };
+
+/**
+ * Growth from a zero baseline is not "+100%" — that is a real number meaning
+ * "doubled", and printing it for 0 → 4 jobs is simply wrong. Report it as new.
+ */
+function computeTrend(current: number, previous: number): Trend {
   if (previous === 0) {
-    if (current === 0) return { pct: 0, direction: "neutral" as const };
-    return { pct: 100, direction: "up" as const };
+    return current === 0 ? { kind: "none" } : { kind: "new" };
   }
   const pct = Math.round(((current - previous) / previous) * 100);
-  if (pct === 0) return { pct: 0, direction: "neutral" as const };
-  return { pct: Math.abs(pct), direction: pct > 0 ? ("up" as const) : ("down" as const) };
+  if (pct === 0) return { kind: "none" };
+  return { kind: "pct", pct: Math.abs(pct), direction: pct > 0 ? "up" : "down" };
 }
 
 const ACCENT_STYLES: Record<
@@ -65,23 +79,42 @@ export function KpiPill({
   sparklineData,
   href,
   accent = "brand",
+  footnote,
+  footnoteTone = "muted",
+  windowLabel,
 }: KpiPillProps) {
   const trend =
     currentValue !== undefined && previousValue !== undefined
       ? computeTrend(currentValue, previousValue)
-      : null;
+      : { kind: "none" as const };
 
-  const isPositive = trend
-    ? trendInverted
-      ? trend.direction === "down"
-      : trend.direction === "up"
-    : null;
+  const isPositive =
+    trend.kind === "pct"
+      ? trendInverted
+        ? trend.direction === "down"
+        : trend.direction === "up"
+      : true;
 
   const accentStyle = ACCENT_STYLES[accent];
   const gradientId = `kpi-spark-${accentStyle.id}-${label.replace(/\s+/g, "")}`;
 
+  // Charts are decorative here; the number beside them carries the meaning.
+  // Screen readers get one sentence rather than an unreadable SVG.
+  const ariaLabel = [
+    `${label}: ${value}`,
+    trend.kind === "pct"
+      ? `${trend.direction === "up" ? "up" : "down"} ${trend.pct} percent ${comparisonLabel}`
+      : trend.kind === "new"
+        ? `new ${comparisonLabel}`
+        : null,
+    footnote,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   const content = (
     <div
+      aria-label={ariaLabel}
       className={cn(
         "group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all",
         href && "cursor-pointer hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-lg",
@@ -94,9 +127,12 @@ export function KpiPill({
         aria-hidden
       />
 
-      {/* Sparkline background */}
+      {/* Sparkline background — decorative, described by the card's aria-label */}
       {sparklineData && sparklineData.length > 0 && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 opacity-60">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 opacity-60"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={sparklineData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
               <defs>
@@ -120,7 +156,7 @@ export function KpiPill({
       )}
 
       <div className="relative flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
+        <div className="flex min-w-0 items-center gap-2.5">
           {Icon && (
             <div
               className={cn(
@@ -128,26 +164,34 @@ export function KpiPill({
                 accentStyle.iconBg,
               )}
             >
-              <Icon className={cn("h-4 w-4", accentStyle.iconColor)} />
+              <Icon className={cn("h-4 w-4", accentStyle.iconColor)} aria-hidden />
             </div>
           )}
-          <span className="text-xs font-body text-muted-foreground">{label}</span>
+          <span className="truncate text-xs font-body text-muted-foreground">
+            {label}
+          </span>
+          {windowLabel && <WidgetWindowBadge label={windowLabel} />}
         </div>
-        {trend && trend.direction !== "neutral" && (
+        {trend.kind === "pct" && (
           <span
             className={cn(
-              "inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium font-body",
+              "inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium font-body",
               isPositive
                 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                 : "bg-rose-500/10 text-rose-600 dark:text-rose-400",
             )}
           >
             {trend.direction === "up" ? (
-              <IconTrendingUp className="h-3 w-3" />
+              <IconTrendingUp className="h-3 w-3" aria-hidden />
             ) : (
-              <IconTrendingDown className="h-3 w-3" />
+              <IconTrendingDown className="h-3 w-3" aria-hidden />
             )}
             {trend.pct}%
+          </span>
+        )}
+        {trend.kind === "new" && (
+          <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium font-body text-emerald-600 dark:text-emerald-400">
+            New
           </span>
         )}
       </div>
@@ -156,14 +200,33 @@ export function KpiPill({
         <span className="font-heading text-3xl font-semibold tracking-tight text-foreground">
           {value}
         </span>
-        {trend && trend.direction !== "neutral" && (
+        {trend.kind !== "none" && (
           <span className="text-[11px] font-body text-muted-foreground">
             {comparisonLabel}
           </span>
         )}
       </div>
+
+      {footnote && (
+        <div
+          className={cn(
+            "relative mt-1 text-[11px] font-body",
+            footnoteTone === "danger"
+              ? "font-medium text-rose-600 dark:text-rose-400"
+              : "text-muted-foreground",
+          )}
+        >
+          {footnote}
+        </div>
+      )}
     </div>
   );
 
-  return href ? <Link href={href}>{content}</Link> : content;
+  return href ? (
+    <Link href={href} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+      {content}
+    </Link>
+  ) : (
+    content
+  );
 }

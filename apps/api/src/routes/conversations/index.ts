@@ -183,7 +183,7 @@ const conversationRoutes: FastifyPluginAsyncZod = async (fastify) => {
         senderId: userId,
       });
 
-      // Broadcast via Supabase Realtime (fire-and-forget)
+      // Broadcast over SSE (fire-and-forget)
       void broadcastNewMessage(tenantId, conversationId, message);
 
       return reply.status(201).send({ data: message });

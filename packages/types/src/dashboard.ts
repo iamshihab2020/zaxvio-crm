@@ -1,10 +1,11 @@
 export interface DashboardKpis {
   jobsToday: { count: number; emergencyCount: number; yesterdayCount: number };
-  openInvoices: { count: number; previousCount: number };
-  outstandingBalance: { amount: number; previousAmount: number };
-  thisMonthRevenue: { amount: number; previousAmount: number };
+  /** Every unpaid invoice, right now — not scoped to the selected date range. */
+  outstandingBalance: { amount: number; invoiceCount: number };
+  /** Revenue collected inside the selected date range, vs the preceding equal span. */
+  rangeRevenue: { amount: number; previousAmount: number };
+  /** Distinct customers with a job in the trailing 90 days. */
   activeCustomers: { count: number };
-  upcomingBookings: { count: number };
 }
 
 export interface DashboardOverdueInvoices {
@@ -107,19 +108,12 @@ export interface DashboardActivityItem {
   createdAt: string;
 }
 
-export interface DashboardTodayJob {
-  id: string;
-  jobNumber: string;
-  customerName: string;
-  scheduledStart: string | null;
-  scheduledEnd: string | null;
-  status: string;
-  priority: string;
-  serviceType: string;
-}
-
+/**
+ * Standard AR aging. `"90"` is 61-90 days late and `"90plus"` is over 90 —
+ * previously everything past 60 days was lumped into a bucket named `90plus`.
+ */
 export interface DashboardAgingBucket {
-  bucket: "current" | "30" | "60" | "90plus";
+  bucket: "current" | "30" | "60" | "90" | "90plus";
   count: number;
   amount: number;
 }
@@ -138,12 +132,17 @@ export interface DashboardSparklinePoint {
 }
 
 export interface DashboardStats {
+  /**
+   * The range the backend actually used, resolved in the tenant's timezone.
+   * The client displays this rather than recomputing "this month" from the
+   * browser clock, which can land in a different month than the tenant is in.
+   */
+  range: { from: string; to: string };
   kpis: DashboardKpis;
   overdueInvoices: DashboardOverdueInvoices;
   jobPipeline: DashboardPipelineItem[];
   revenueTrend: DashboardRevenueTrendItem[];
   recentActivity: DashboardActivityItem[];
-  todaySchedule: DashboardTodayJob[];
   invoiceAging: DashboardAgingBucket[];
   quoteSummary: DashboardQuoteSummary;
   weeklyJobVolume: DashboardSparklinePoint[];
@@ -152,7 +151,6 @@ export interface DashboardStats {
   revenueGranularity: DashboardRevenueGranularity;
   priorityBreakdown: DashboardCategoryCount[];
   serviceBreakdown: DashboardCategoryCount[];
-  selectedPipelineId: string | null;
   serviceRevenue: DashboardServiceRevenue[];
   topCustomers: DashboardTopCustomer[];
   agenda: DashboardAgenda;

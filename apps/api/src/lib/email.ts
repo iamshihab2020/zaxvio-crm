@@ -54,9 +54,18 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     return;
   }
 
+  // env.ts guarantees a sender whenever RESEND_API_KEY is set; this narrows the type.
+  const from = env.RESEND_FROM_EMAIL;
+  if (!from) {
+    console.warn(
+      `[email:${options.tag}] RESEND_FROM_EMAIL not configured — skipping email to ${options.to}`
+    );
+    return;
+  }
+
   try {
     await client.emails.send({
-      from: env.RESEND_FROM_EMAIL,
+      from,
       to: options.to,
       subject: options.subject,
       html: options.html,

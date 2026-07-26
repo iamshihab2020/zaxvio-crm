@@ -3,7 +3,6 @@ import { z } from "zod";
 import type { DbClient } from "../types.js";
 import {
   activityRow,
-  todayJobRow,
   sparklineCountRow,
   sparklineAmountRow,
   dashboardPipelineRow,
@@ -11,6 +10,16 @@ import {
   upcomingJobRow,
   upcomingBookingRow,
 } from "../schemas.js";
+
+/**
+ * "Today" in the tenant's timezone, as a SQL `date`.
+ *
+ * Postgres `CURRENT_DATE` uses the session timezone, which is UTC on Neon — a US
+ * Central tenant would see the dashboard roll over at 6-7 PM local.
+ */
+function tenantToday(timezone: string) {
+  return sql`(now() AT TIME ZONE ${timezone})::date`;
+}
 
 /** Recent activity (UNION of job_activities + quote_activities). */
 export async function getRecentActivity(db: DbClient, tenantId: string, limit = 10) {
@@ -25,7 +34,7 @@ export async function getRecentActivity(db: DbClient, tenantId: string, limit = 
         COALESCE(j.job_number, 'JOB') AS entity_label,
         ja.created_at::text AS created_at
       FROM job_activities ja
-      LEFT JOIN jobs j ON j.id = ja.job_id
+      LEFT JOIN jobs j ON j.id = ja.job_id AND j.tenant_id = ${tenantId}
       WHERE ja.tenant_id = ${tenantId}
       ORDER BY ja.created_at DESC
       LIMIT ${limit}
@@ -41,7 +50,7 @@ export async function getRecentActivity(db: DbClient, tenantId: string, limit = 
         COALESCE(q.quote_number, 'QT') AS entity_label,
         qa.created_at::text AS created_at
       FROM quote_activities qa
-      LEFT JOIN quotes q ON q.id = qa.quote_id
+      LEFT JOIN quotes q ON q.id = qa.quote_id AND q.tenant_id = ${tenantId}
       WHERE qa.tenant_id = ${tenantId}
       ORDER BY qa.created_at DESC
       LIMIT ${limit}
@@ -52,50 +61,42 @@ export async function getRecentActivity(db: DbClient, tenantId: string, limit = 
   return z.array(activityRow).parse(rows);
 }
 
-/** Today's scheduled jobs with customer info. */
-export async function getTodaySchedule(db: DbClient, tenantId: string, limit = 20) {
-  const rows = await db.execute(sql`
-    SELECT
-      j.id,
-      j.job_number,
-      c.first_name || ' ' || c.last_name AS customer_name,
-      j.scheduled_start::text,
-      j.scheduled_end::text,
-      j.status,
-      j.priority,
-      j.service_type
-    FROM jobs j
-    LEFT JOIN customers c ON c.id = j.customer_id
-    WHERE j.tenant_id = ${tenantId}
-      AND j.scheduled_date = CURRENT_DATE
-    ORDER BY j.scheduled_start ASC NULLS LAST
-    LIMIT ${limit}
-  `);
-  return z.array(todayJobRow).parse(rows);
-}
-
-/** Weekly job volume sparkline (last 7 days). */
-export async function getWeeklyJobVolume(db: DbClient, tenantId: string) {
+/** Weekly job volume sparkline (last 7 days, tenant-local). */
+export async function getWeeklyJobVolume(
+  db: DbClient,
+  tenantId: string,
+  timezone: string,
+) {
+  const today = tenantToday(timezone);
   const rows = await db.execute(sql`
     SELECT
       d.day::date::text AS day,
       COUNT(j.id)::text AS count
-    FROM generate_series(CURRENT_DATE - 6, CURRENT_DATE, '1 day') AS d(day)
-    LEFT JOIN jobs j ON j.tenant_id = ${tenantId} AND j.scheduled_date = d.day
+    FROM generate_series(${today} - 6, ${today}, '1 day') AS d(day)
+    LEFT JOIN jobs j
+      ON j.tenant_id = ${tenantId}
+      AND j.archived_at IS NULL
+      AND j.scheduled_date = d.day
     GROUP BY d.day
     ORDER BY d.day
   `);
   return z.array(sparklineCountRow).parse(rows);
 }
 
-/** Weekly revenue sparkline (last 7 days). */
-export async function getWeeklyRevenue(db: DbClient, tenantId: string) {
+/** Weekly revenue sparkline (last 7 days, tenant-local). */
+export async function getWeeklyRevenue(
+  db: DbClient,
+  tenantId: string,
+  timezone: string,
+) {
+  const today = tenantToday(timezone);
   const rows = await db.execute(sql`
     SELECT
       d.day::date::text AS day,
       COALESCE(SUM(ip.amount::numeric), 0)::text AS amount
-    FROM generate_series(CURRENT_DATE - 6, CURRENT_DATE, '1 day') AS d(day)
-    LEFT JOIN invoice_payments ip ON ip.tenant_id = ${tenantId} AND ip.payment_date::date = d.day
+    FROM generate_series(${today} - 6, ${today}, '1 day') AS d(day)
+    LEFT JOIN invoice_payments ip
+      ON ip.tenant_id = ${tenantId} AND ip.payment_date::date = d.day
     GROUP BY d.day
     ORDER BY d.day
   `);
@@ -150,9 +151,10 @@ export async function getUpcomingJobs(
       j.scheduled_start::text,
       j.scheduled_end::text
     FROM jobs j
-    LEFT JOIN customers c ON c.id = j.customer_id
+    LEFT JOIN customers c ON c.id = j.customer_id AND c.tenant_id = ${tenantId}
     WHERE j.tenant_id = ${tenantId}
       AND j.archived_at IS NULL
+      AND j.status <> 'cancelled'
       AND j.scheduled_date >= ${from}::date
       AND j.scheduled_date <= ${to}::date
     ORDER BY j.scheduled_date ASC, j.scheduled_start ASC NULLS LAST
@@ -180,6 +182,7 @@ export async function getUpcomingBookings(
     FROM bookings
     WHERE tenant_id = ${tenantId}
       AND archived_at IS NULL
+      AND status <> 'cancelled'
       AND booking_date >= ${from}::date
       AND booking_date <= ${to}::date
     ORDER BY booking_date ASC, preferred_time ASC NULLS LAST
@@ -190,7 +193,8 @@ export async function getUpcomingBookings(
 
 /**
  * Job pipeline stage distribution for the dashboard.
- * If `pipelineId` is provided, scopes to that pipeline; otherwise falls back to the tenant's default pipeline.
+ * If `pipelineId` is provided, scopes to that pipeline; otherwise falls back to the
+ * tenant's default pipeline.
  */
 export async function getDashboardPipeline(
   db: DbClient,
@@ -198,8 +202,14 @@ export async function getDashboardPipeline(
   pipelineId?: string | null,
 ) {
   const pipelineJoin = pipelineId
-    ? sql`INNER JOIN pipelines p ON p.id = jps.pipeline_id AND p.id = ${pipelineId}`
-    : sql`INNER JOIN pipelines p ON p.id = jps.pipeline_id AND p.is_default = true`;
+    ? sql`INNER JOIN pipelines p
+            ON p.id = jps.pipeline_id
+           AND p.id = ${pipelineId}
+           AND p.tenant_id = ${tenantId}`
+    : sql`INNER JOIN pipelines p
+            ON p.id = jps.pipeline_id
+           AND p.is_default = true
+           AND p.tenant_id = ${tenantId}`;
 
   const rows = await db.execute(sql`
     SELECT
@@ -210,7 +220,10 @@ export async function getDashboardPipeline(
     FROM job_pipeline_stages jps
     ${pipelineJoin}
     LEFT JOIN jobs j
-      ON j.status = jps.name AND j.pipeline_id = jps.pipeline_id
+      ON j.status = jps.name
+      AND j.pipeline_id = jps.pipeline_id
+      AND j.tenant_id = ${tenantId}
+      AND j.archived_at IS NULL
     WHERE jps.tenant_id = ${tenantId}
     GROUP BY jps.name, jps.label, jps.color, jps.sort_order
     ORDER BY jps.sort_order

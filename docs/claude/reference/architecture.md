@@ -1,6 +1,6 @@
 # Architecture
 
-> Related: [[api-rules]] | [[design]] | [[REPO_MAP_1]] | [[REPO_MAP_2]] | [[backend-stack]] | [[auth-flow]]
+> Related: [[api-rules]] | [[design]] | [[REPO_MAP_1]] | [[REPO_MAP_2]] | [[backend-stack]] | [[auth-flow]] | [[decisions]]
 
 ## Monorepo Structure
 

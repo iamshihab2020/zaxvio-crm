@@ -8,141 +8,111 @@
 > - [[API_DOCUMENTATION_5|Part 5]]: Reports, Admin Panel, Enums, Errors *(this file)*
 ## Reports
 
-Analytics and reporting endpoints for business metrics across all core entities.
+> Rewritten 2026-07-27 during the [[reports-page|/reports audit remediation]]. This
+> section previously documented six endpoints (`/reports/revenue`, `/reports/jobs`,
+> `/reports/customers`, `/reports/quotes-invoices`, `/reports/bookings`,
+> `/reports/export`) — **none of them exist**. There is one endpoint, and CSV is
+> generated client-side.
 
-### `GET /reports/revenue`
+### `GET /reports/stats`
 
 **Auth:** `requireTenant`
+**Source:** `apps/api/src/routes/reports/index.ts` → `services/analytics/reports.service.ts`
+**Cache:** `CACHE_TTL.REPORTS` (10 min) with stale-while-revalidate, keyed on
+`tenant + section + from + to + tz + granularity`. Invalidated for the whole tenant
+by the `onResponse` hook in `server.ts` after any successful mutating request.
 
-Get revenue analytics: total, MRR, YoY comparison, monthly trend.
+One section per request — 6-9 parallel queries rather than all 37.
 
 **Query Parameters:**
 
-| Parameter | Type | Default |
-|-----------|------|---------|
-| `dateFrom` | string | Start of current month |
-| `dateTo` | string | End of current month |
+| Parameter | Type | Default | Notes |
+|-----------|------|---------|-------|
+| `section` | enum | `revenue` | `revenue` · `jobs` · `customers` · `quotes-invoices` · `bookings` |
+| `from` | `YYYY-MM-DD` | 1st of the current month **in the tenant's timezone** | 400 on any other format |
+| `to` | `YYYY-MM-DD` | today in the tenant's timezone | |
+| `granularity` | enum | inferred from the span | `day` (≤31d) · `week` (≤120d) · `month` |
 
-**Response** `200 OK`
-
-```json
-{
-  "data": {
-    "totalRevenue": "28500.00",
-    "previousRevenue": "24100.00",
-    "revenueChange": "18.2%",
-    "monthlyData": [
-      { "month": "2026-01", "amount": "21000.00" },
-      { "month": "2026-02", "amount": "24100.00" },
-      { "month": "2026-03", "amount": "28500.00" }
-    ]
-  }
-}
-```
-
-### `GET /reports/jobs`
-
-**Auth:** `requireTenant`
-
-Get job analytics: counts by status, pipeline breakdown, average time-to-complete.
-
-**Response** `200 OK`
+**Response** `200 OK` — a discriminated union on `section`:
 
 ```json
 {
   "data": {
-    "totalJobs": 125,
-    "jobsByStatus": [
-      { "status": "scheduled", "count": 8 },
-      { "status": "in_progress", "count": 3 },
-      { "status": "completed", count: 42 }
-    ],
-    "avgTimeToComplete": "2.5 days"
+    "section": "revenue",
+    "range":        { "from": "2026-03-01", "to": "2026-03-31" },
+    "compareRange": { "from": "2026-02-01", "to": "2026-02-28" },
+    "granularity": "month",
+    "data": { "...": "section payload, see below" }
   }
 }
 ```
 
-### `GET /reports/customers`
+`range` is authoritative — the browser cannot compute "month to date in the
+tenant's timezone", so it renders what came back rather than what it guessed.
 
-**Auth:** `requireTenant`
+`compareRange` is the current range shifted back by **exactly its own bucket
+count**, so the two trend series always have the same number of points and can
+be paired index-for-index. A day-span comparison window (still available
+internally as `prevFrom`/`prevTo`, used by `/dashboard`) does not guarantee that:
+`2026-03-01..2026-03-31` at month granularity produced one current bucket and
+two previous ones, so "Last month" plotted March against January.
 
-Get customer analytics: total, new this month, retention rate, lifetime value.
+**Section payloads** — full shapes in `packages/types/src/reports.ts`:
 
-**Response** `200 OK`
+| `section` | Payload | Datasets |
+|-----------|---------|----------|
+| `revenue` | `RevenueReportData` | `revenueTrend` (current + `previous`/`previousLabel`, nullable), `revenueByServiceType`, `revenueByPaymentMethod`, `avgJobValueTrend`, `collectionRate`, `topCustomersByRevenue`, `kpis` |
+| `jobs` | `JobReportData` | `jobVolumeTrend`, `jobsByStatus`, `jobsByPriority`, `jobsByServiceType`, `avgCompletionDays`, `pipelineDistribution`, `kpis` |
+| `customers` | `CustomerReportData` | `newCustomersTrend`, `growthRate`, `activeVsInactive`, `topCustomersByJobCount`, `repeatVsOneTime`, `kpis` |
+| `quotes-invoices` | `QuoteInvoiceReportData` | `quoteConversionFunnel`, `invoiceStatusDistribution`, `invoiceAgingDetail`, `avgDaysToPayment`, `overdueInvoiceTrend`, `quoteKpis`, `invoiceKpis` |
+| `bookings` | `BookingReportData` | `bookingVolumeTrend`, `bookingsByServiceType`, `bookingConversionRate`, `bookingsByDayOfWeek`, `kpis` |
+
+Example (`section=revenue`, abridged):
 
 ```json
 {
-  "data": {
-    "totalCustomers": 47,
-    "newThisMonth": 3,
-    "retentionRate": "94.5%",
-    "avgLifetimeValue": "3450.00"
+  "revenueTrend": [
+    { "month": "2026-03", "monthLabel": "Mar 2026", "current": 28500,
+      "previous": 24100, "previousLabel": "Feb 2026" }
+  ],
+  "revenueByServiceType":   [{ "serviceType": "repair", "label": "Repair", "amount": 12400 }],
+  "revenueByPaymentMethod": [{ "method": "cash", "label": "Cash", "amount": 3100 }],
+  "avgJobValueTrend":       [{ "month": "2026-03", "monthLabel": "Mar 2026", "avgValue": 842.5 }],
+  "collectionRate": { "totalInvoiced": 31000, "totalCollected": 28500, "rate": 92 },
+  "topCustomersByRevenue": [
+    { "id": "uuid", "name": "Jane Doe", "revenue": 4200, "jobCount": 3 }
+  ],
+  "kpis": {
+    "totalRevenue": 28500, "previousRevenue": 24100,
+    "avgJobValue": 842.5, "previousAvgJobValue": 790
   }
 }
 ```
 
-### `GET /reports/quotes-invoices`
+`revenueTrend[].previous` is `number | null`. Null means the bucket has no
+counterpart — the chart breaks the line rather than drawing a false £0.
 
-**Auth:** `requireTenant`
+**Errors**
 
-Get quote and invoice metrics: conversion rate, outstanding balance, aging.
+| Status | When |
+|--------|------|
+| `400` | `section`, `granularity`, `from` or `to` fails Zod validation — including an unknown section, so there is no "unknown section" success path |
+| `401` | No session |
+| `500` | Query failure. **Never** a `200` carrying an error string: the client rendered that as "No data available for this period" |
 
-**Response** `200 OK`
+**Counting rules** (shared with `/dashboard`, see [[API_DOCUMENTATION_1|Part 1]]):
+- Archived rows are excluded from every job, booking, customer, invoice and quote metric.
+- Payment-sourced metrics carry **no** archived filter — archiving a document does not un-collect cash.
+- "Overdue" is derived from `due_date` in the tenant's timezone, never from `status = 'overdue'`.
+- `created_at` (timestamptz) boundaries are resolved as `(created_at AT TIME ZONE $tz)::date`.
 
-```json
-{
-  "data": {
-    "quoteStats": {
-      "total": 24,
-      "accepted": 16,
-      "conversionRate": "66.7%"
-    },
-    "invoiceStats": {
-      "total": 98,
-      "paid": 85,
-      "outstandingBalance": "15420.00",
-      "overdueCount": 3
-    }
-  }
-}
-```
+### CSV export
 
-### `GET /reports/bookings`
-
-**Auth:** `requireTenant`
-
-Get booking analytics: conversion rate, occupancy, revenue per booking.
-
-**Response** `200 OK`
-
-```json
-{
-  "data": {
-    "totalBookings": 42,
-    "convertedToJobs": 38,
-    "conversionRate": "90.5%",
-    "revenuePerBooking": "678.50"
-  }
-}
-```
-
-### `GET /reports/export`
-
-**Auth:** `requireTenant`
-
-Export report data as CSV.
-
-**Query Parameters:**
-
-| Parameter | Type | Required |
-|-----------|------|----------|
-| `reportType` | string | Yes — `revenue`, `jobs`, `customers`, `quotes-invoices`, or `bookings` |
-| `dateFrom` | string | No |
-| `dateTo` | string | No |
-
-**Response** `200 OK` (Content-Type: `text/csv`)
-
-Returns CSV file with report data.
+There is **no export endpoint**. `apps/web/src/components/dashboard/reports/export-csv-button.tsx`
+builds the file in the browser from the section payload already on screen:
+every dataset for the section, a UTF-8 BOM, the date range in the filename
+(`revenue-report-2026-03-01_to_2026-03-31.csv`), and formula-injection escaping
+per [[security-rules]] §7.
 
 ---
 
@@ -1030,3 +1000,50 @@ GET /docs
 ```
 
 This provides a Swagger UI interface for testing endpoints directly in the browser (development only).
+
+---
+
+## Real-Time Events (SSE)
+
+Replaces Supabase Realtime — see [[decisions|ADR-001]].
+
+### `GET /events`
+
+Server-Sent Events stream (`text/event-stream`). Long-lived: the connection stays
+open and the server pushes frames as they occur.
+
+**Auth**: session cookie (`requireAuth`). Connect from the browser with
+`new EventSource(url, { withCredentials: true })`.
+
+**Query params**
+
+| Param | Type | Notes |
+|---|---|---|
+| `tenantId` | uuid, optional | **Admin only.** Listen to another tenant's stream — used by the superadmin impersonation dialog. Non-admins get `403`. Omit it and the stream is scoped to your own tenant. |
+
+**Frame format** — the SSE `event:` field carries the *channel*, so one connection
+serves all four. The inner event name is in the JSON payload:
+
+```
+event: notifications
+data: {"event":"new_notification","payload":{...}}
+```
+
+**Channels and events**
+
+| Channel | Events | Published by |
+|---|---|---|
+| `notifications` | `new_notification` | `lib/notifications.ts` |
+| `conversations` | `new_message` | `services/conversations.service.ts` |
+| `quotes` | `quote_updated` | `routes/public/quote.ts` |
+| `impersonation` | `request`, `response`, `cancel`, `exit` | `routes/admin/impersonation.ts`, `routes/tenants/impersonation.ts` |
+
+Also emits `connected` once on open, and a `: ping` comment every 25s to keep
+idle proxies from closing the stream. Clients reconnect automatically after 3s.
+
+**Client usage**: `useEventStream(channel, event, handler)` from
+`@/hooks/use-event-stream` — all subscribers share one connection per tab.
+
+> **Single-instance only.** The backing event bus is in-process, so a second API
+> instance would not see events published by the first. Scaling out means
+> swapping `lib/event-bus.ts` for Redis pub/sub.

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { readUrlStatus, QUOTE_STATUSES } from "@/lib/url-filters";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { queryKeys } from "@/lib/query-keys";
@@ -61,9 +62,7 @@ import {
   prefetchQuotes,
 } from "@/hooks/queries";
 import { addQuoteLineItem } from "@/actions/quotes";
-import { getTenant } from "@/actions/tenants";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useEventStream } from "@/hooks/use-event-stream";
 
 const SORT_OPTIONS = [
   { value: "createdAt", label: "Date Created" },
@@ -121,7 +120,10 @@ export function QuotesPageClient({
 
   // UI state
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  // Seeded from ?status= so dashboard drill-through links land pre-filtered.
+  const [statusFilter, setStatusFilter] = useState(() =>
+    readUrlStatus(QUOTE_STATUSES),
+  );
   const [viewFilter, setViewFilter] = useState("");
   const [sortBy, setSortBy] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
@@ -209,35 +211,9 @@ export function QuotesPageClient({
   }, [page, pagination?.totalPages]);
 
   // Subscribe to real-time quote updates (e.g., customer accepts/declines online)
-  useEffect(() => {
-    let mounted = true;
-    let channelRef: RealtimeChannel | null = null;
-
-    async function subscribe() {
-      const { data: tenant } = await getTenant();
-      if (!tenant?.id || !mounted) return;
-
-      const supabase = getSupabaseBrowserClient();
-      channelRef = supabase
-        .channel(`quotes:${tenant.id}`)
-        .on("broadcast", { event: "quote_updated" }, () => {
-          if (!mounted) return;
-          queryClient.invalidateQueries({ queryKey: queryKeys.quotes.all });
-        })
-        .subscribe();
-    }
-
-    void subscribe();
-
-    return () => {
-      mounted = false;
-      if (channelRef) {
-        const supabase = getSupabaseBrowserClient();
-        void supabase.removeChannel(channelRef);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  useEventStream("quotes", "quote_updated", () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.quotes.all });
+  });
 
   // ── Mutations ──────────────────────────────────────────────
 

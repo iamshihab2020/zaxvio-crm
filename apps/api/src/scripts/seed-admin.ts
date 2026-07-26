@@ -5,6 +5,7 @@ import { resolve } from "path";
 config({ path: resolve(import.meta.dirname, "../../../../.env") });
 
 import { auth } from "../lib/auth.js";
+import { passwordSchema } from "../lib/schemas/auth.js";
 import { closeDb } from "@hvac-saas/database";
 import postgres from "postgres";
 
@@ -19,8 +20,13 @@ async function seedAdmin() {
     process.exit(1);
   }
 
-  if (password.length < 8) {
-    console.error("ADMIN_SEED_PASSWORD must be at least 8 characters");
+  // Enforce the same policy as every other password entry point (security rule #8)
+  const passwordCheck = passwordSchema.safeParse(password);
+  if (!passwordCheck.success) {
+    console.error("ADMIN_SEED_PASSWORD does not meet the password policy:");
+    for (const issue of passwordCheck.error.issues) {
+      console.error(`  • ${issue.message}`);
+    }
     process.exit(1);
   }
 

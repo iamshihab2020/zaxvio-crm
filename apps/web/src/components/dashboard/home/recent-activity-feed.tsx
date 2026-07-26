@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import type { DashboardActivityItem } from "@hvac-saas/types";
 import { formatRelativeTime } from "@/lib/format";
+import { WidgetWindowBadge } from "./widget-window-badge";
 import { cn } from "@/lib/utils";
 
 interface RecentActivityFeedProps {
@@ -44,10 +45,13 @@ export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="font-heading text-base font-semibold">
-            Recent Activity
-          </CardTitle>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <CardTitle className="font-heading text-base font-semibold">
+              Recent Activity
+            </CardTitle>
+            <WidgetWindowBadge label="Latest 10" />
+          </div>
         </div>
       </CardHeader>
       <CardContent className="px-0 pb-0">

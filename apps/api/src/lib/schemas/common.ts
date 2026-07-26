@@ -10,3 +10,8 @@ export const paginationQuery = z.object({
 export const idParam = z.object({
   id: z.string().uuid(),
 });
+
+export const healthResponse = z.object({
+  status: z.literal("ok"),
+  timestamp: z.string(),
+});

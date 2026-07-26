@@ -7,9 +7,18 @@ export type ReportSection =
   | "quotes-invoices"
   | "bookings";
 
+/** Bucket size for every trend on the page. */
+export type ReportGranularity = "day" | "week" | "month";
+
+export interface ReportRange {
+  from: string; // YYYY-MM-DD
+  to: string; // YYYY-MM-DD
+}
+
 // ── Shared primitives ──
 
 export interface ReportTrendPoint {
+  /** Bucket key: `YYYY-MM` for month buckets, `YYYY-MM-DD` for day/week. */
   month: string;
   monthLabel: string;
 }
@@ -25,7 +34,14 @@ export interface ReportCategoryItem {
 export interface RevenueReportData {
   revenueTrend: (ReportTrendPoint & {
     current: number;
-    previous: number;
+    /**
+     * The matching bucket of the comparison period, or `null` when there is no
+     * counterpart. Null rather than 0 so the chart breaks the line instead of
+     * drawing a false "revenue fell to zero".
+     */
+    previous: number | null;
+    /** Label of the bucket `previous` came from, e.g. "Feb 2026". */
+    previousLabel: string | null;
   })[];
   revenueByServiceType: { serviceType: string; label: string; amount: number }[];
   revenueByPaymentMethod: {
@@ -162,9 +178,35 @@ export interface BookingReportData {
 
 // ── Union response ──
 
+/**
+ * Every response echoes back what the server actually resolved. `range` is
+ * authoritative: the browser cannot compute month-to-date in the tenant's
+ * timezone, so the picker renders what came back rather than what it guessed.
+ */
+export interface ReportEnvelopeMeta {
+  range: ReportRange;
+  /** Window the "previous period" series and KPI deltas were measured over. */
+  compareRange: ReportRange;
+  granularity: ReportGranularity;
+}
+
+/**
+ * Discriminated on `section`, so `switch (res.section)` narrows `res.data` to
+ * the right shape with no casts. The client also uses the discriminant to check
+ * that a cached payload belongs to the tab currently being rendered.
+ */
 export type ReportSectionResponse =
-  | { section: "revenue"; data: RevenueReportData }
-  | { section: "jobs"; data: JobReportData }
-  | { section: "customers"; data: CustomerReportData }
-  | { section: "quotes-invoices"; data: QuoteInvoiceReportData }
-  | { section: "bookings"; data: BookingReportData };
+  | (ReportEnvelopeMeta & { section: "revenue"; data: RevenueReportData })
+  | (ReportEnvelopeMeta & { section: "jobs"; data: JobReportData })
+  | (ReportEnvelopeMeta & { section: "customers"; data: CustomerReportData })
+  | (ReportEnvelopeMeta & {
+      section: "quotes-invoices";
+      data: QuoteInvoiceReportData;
+    })
+  | (ReportEnvelopeMeta & { section: "bookings"; data: BookingReportData });
+
+/** The payload type for one section, e.g. `ReportDataFor<"jobs">`. */
+export type ReportDataFor<S extends ReportSection> = Extract<
+  ReportSectionResponse,
+  { section: S }
+>["data"];

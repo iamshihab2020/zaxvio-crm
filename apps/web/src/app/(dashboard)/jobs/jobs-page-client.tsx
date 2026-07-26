@@ -77,7 +77,12 @@ import {
   Highlight,
   HighlightItem,
 } from "@/components/animate-ui/primitives/effects/highlight";
-import type { JobPriority, ServiceType } from "@/lib/constants/job-options";
+import {
+  JOB_PRIORITIES,
+  SERVICE_TYPES,
+  type JobPriority,
+  type ServiceType,
+} from "@/lib/constants/job-options";
 
 interface PipelineData {
   id: string;
@@ -97,6 +102,19 @@ interface PipelineStageWithCount {
   sortOrder: number;
   isDefault: boolean;
   jobCount: number;
+}
+
+/**
+ * Read a query param and return it only if it is a member of `allowed`.
+ * Guards against a hand-edited URL putting an unknown value into filter state.
+ */
+function readUrlEnumParam<T extends string>(
+  key: string,
+  allowed: readonly T[],
+): T | null {
+  if (typeof window === "undefined") return null;
+  const value = new URLSearchParams(window.location.search).get(key);
+  return value && (allowed as readonly string[]).includes(value) ? (value as T) : null;
 }
 
 interface JobsPageClientProps {
@@ -128,8 +146,15 @@ export function JobsPageClient({
   });
   const hasServerData = initialPipelineId !== null && initialPipelines.length > 0;
   const [search, setSearch] = useState("");
-  const [priorityFilter, setPriorityFilter] = useState<JobPriority | null>(null);
-  const [serviceTypeFilter, setServiceTypeFilter] = useState<ServiceType | null>(null);
+  // Seeded from the URL so dashboard drill-through links land pre-filtered.
+  // Read via window.location (not useSearchParams) to match how selectedPipelineId
+  // above initialises, and to stay SSR-safe inside a lazy initialiser.
+  const [priorityFilter, setPriorityFilter] = useState<JobPriority | null>(() =>
+    readUrlEnumParam("priority", JOB_PRIORITIES),
+  );
+  const [serviceTypeFilter, setServiceTypeFilter] = useState<ServiceType | null>(() =>
+    readUrlEnumParam("serviceType", SERVICE_TYPES),
+  );
   const debouncedSearch = useDebouncedValue(search, 300);
   const debouncedPriority = useDebouncedValue(priorityFilter, 300);
   const debouncedServiceType = useDebouncedValue(serviceTypeFilter, 300);

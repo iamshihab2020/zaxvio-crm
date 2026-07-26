@@ -14,6 +14,9 @@ import {
 
 export type AdminTier = "super_admin" | "support" | "billing_admin";
 
+/** Mirrors the `tenants.timezone` column default. Used until a tenant is resolved. */
+export const DEFAULT_TENANT_TIMEZONE = "America/Chicago";
+
 export interface AuthUser {
   userId: string;
   email: string;
@@ -23,6 +26,8 @@ export interface AuthUser {
   isOwner: boolean;
   activeOrganizationId: string | null;
   tenantId: string | null;
+  /** IANA timezone for the resolved tenant. Drives every "today" boundary in analytics. */
+  tenantTimezone: string;
   orgRole: string | null;
   isImpersonating: boolean;
   impersonationSessionId: string | null;
@@ -67,6 +72,7 @@ export async function requireAuth(
     isOwner: false,
     activeOrganizationId: session.session.activeOrganizationId ?? null,
     tenantId: null,
+    tenantTimezone: DEFAULT_TENANT_TIMEZONE,
     orgRole: null,
     isImpersonating: false,
     impersonationSessionId: null,
@@ -167,7 +173,15 @@ export async function requireTenant(
     }
 
     // Inject tenant context from impersonation session
+    const impTenant = await db
+      .select({ timezone: tenants.timezone })
+      .from(tenants)
+      .where(eq(tenants.id, impSession.tenantId))
+      .then((r) => r[0]);
+
     request.authUser.tenantId = impSession.tenantId;
+    request.authUser.tenantTimezone =
+      impTenant?.timezone ?? DEFAULT_TENANT_TIMEZONE;
     request.authUser.isImpersonating = true;
     request.authUser.impersonationSessionId = impersonationId;
     return;
@@ -183,7 +197,7 @@ export async function requireTenant(
 
   const db = getDb();
   const tenant = await db
-    .select({ id: tenants.id })
+    .select({ id: tenants.id, timezone: tenants.timezone })
     .from(tenants)
     .where(eq(tenants.organizationId, orgId))
     .then((r) => r[0]);
@@ -195,6 +209,7 @@ export async function requireTenant(
   }
 
   request.authUser.tenantId = tenant.id;
+  request.authUser.tenantTimezone = tenant.timezone ?? DEFAULT_TENANT_TIMEZONE;
 }
 
 /**

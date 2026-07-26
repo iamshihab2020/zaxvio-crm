@@ -1,7 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   getDb,
-  getSupabaseAdmin,
   tenants,
   adminImpersonationSessions,
   eq,
@@ -9,18 +8,16 @@ import {
   sql,
 } from "@hvac-saas/database";
 import { requireTenant } from "../../lib/auth-middleware.js";
+import { publish } from "../../lib/event-bus.js";
 
-/** Broadcast a Supabase Realtime event on an impersonation channel */
+/** Broadcast an SSE event on a tenant's impersonation channel */
 async function broadcast(
   tenantId: string,
   event: string,
   payload: Record<string, unknown>,
 ) {
   try {
-    const supabase = getSupabaseAdmin();
-    const channel = supabase.channel(`impersonation:${tenantId}`);
-    await channel.send({ type: "broadcast", event, payload });
-    await supabase.removeChannel(channel);
+    publish(tenantId, "impersonation", event, payload);
   } catch (err) {
     console.error("[impersonation] broadcast failed:", err);
   }

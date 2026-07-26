@@ -62,7 +62,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["dashboard", "home", "overview", "stats", "metrics", "kpi"],
     question: "What does the dashboard show?",
     answer:
-      "The **Dashboard** is your home page showing key business metrics:\n\n• **KPI Pills** — Jobs today, conversion rate, avg customer value — each with a trend vs previous period\n• **Revenue Chart** — Area chart with **1D / 1W / 1M / 6M / 1Y / ALL** tabs. Switching tabs changes the date range and granularity\n• **Jobs Management** — Segmented panel with Status / Priority / Service tabs (plus a pipeline selector if you have more than one)\n• **Retention Rate** — Monthly bar chart of repeat-customer rate\n• **Invoice Aging** — Current / 1-30 / 31-60 / 60+ days outstanding, with $ per bucket\n• **Quote Funnel** — Donut of accepted / declined / pending quotes with conversion %\n• **Revenue by Service** — Horizontal bars showing which service types drive the most revenue\n• **Top Customers** — Your top 5 by revenue in the selected range, with job counts\n• **Agenda** — Events, jobs, and bookings for the next 7 days, delivered with the rest of the dashboard in a single request. Hover any row for a rich detail preview\n• **Activity Feed** — Last 10 activities across jobs and quotes\n• **Ask AI** opens this chatbot · **Customize Widget** lets you show/hide any panel",
+      "The **Dashboard** is your home page. Six panels are shown by default:\n\n• **Overdue Alert** — A banner when any invoice is past its due date\n• **KPI Pills** — Jobs today (with an emergency count), total outstanding across unpaid invoices, and quote conversion rate\n• **Agenda** — Events, jobs, and bookings for the next 7 days with real start/end times. Hover any row for a detail preview\n• **Revenue Chart** — Area chart with **1D / 1W / 1M / 6M / 1Y / ALL** tabs\n• **Invoice Aging** — Current / 1-30 / 31-60 / 61-90 / 90+ days outstanding, with $ per bucket. Click a bucket to open the matching invoices\n• **Jobs Management** — Status / Priority / Service tabs, plus a pipeline selector. Click a bucket to open those jobs\n\nFour more are available under **Customize Widget**: Quote Funnel, Retention Rate, Revenue by Service, Top Customers, and the Activity Feed.\n\n**Ask AI** opens this chatbot. Archived jobs are excluded from every count.",
   },
   {
     id: "dashboard-customize",
@@ -70,7 +70,15 @@ const entries: KnowledgeEntry[] = [
     keywords: ["customize", "hide", "show", "widget", "layout", "personalize", "preferences"],
     question: "Can I customize the dashboard?",
     answer:
-      "Yes. Click **Customize Widget** in the dashboard toolbar. You'll get a toggle list for every widget (KPI pills, revenue chart, jobs management, retention, agenda, overdue alert, activity feed). Flip switches off to hide panels — your choices are saved in this browser and survive reloads. Click **Reset** to restore defaults.",
+      "Yes. Click **Customize Widget** in the dashboard toolbar for a toggle list of all eleven widgets. Six are on by default (overdue alert, KPI pills, agenda, revenue chart, invoice aging, jobs management); the more analytical ones — quote funnel, retention rate, revenue by service, top customers, activity feed — are off until you turn them on. Your choices are saved in this browser and survive reloads. Click **Reset** to restore defaults.",
+  },
+  {
+    id: "dashboard-date-range",
+    category: "dashboard",
+    keywords: ["date range", "period", "filter", "picker", "window", "badge", "timezone"],
+    question: "Which dashboard widgets follow the date range picker?",
+    answer:
+      "Only some of them, and the ones that don't say so on the card.\n\n**Follow the picker:** Revenue chart, Jobs Management, Quote Funnel, Revenue by Service, Top Customers.\n\n**Fixed window** (marked with a small grey badge): Agenda (*Next 7 days*), Invoice Aging and Outstanding (*All open*), Retention Rate (*Last 6 months*), Activity Feed (*Latest 10*), and Jobs Today (always today).\n\n\"Today\" is calculated in your business timezone from **Settings → Business**, not the server's — so the dashboard rolls over at midnight where you are.",
   },
   {
     id: "dashboard-revenue-range",
@@ -78,7 +86,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["revenue", "1d", "1w", "1m", "6m", "1y", "all", "range", "granularity", "chart"],
     question: "How do the 1D/1W/1M/6M/1Y/ALL tabs on the revenue chart work?",
     answer:
-      "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, hourly/day bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe whole dashboard (KPIs, jobs management, agenda) reflects the same range.",
+      "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, daily bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe big revenue figure and the chart always cover exactly the same window, so the number matches the area you see. Widgets marked with a grey badge (Agenda, Invoice Aging, Retention) keep their own fixed window.",
   },
   {
     id: "dashboard-quick-actions",
@@ -87,6 +95,50 @@ const entries: KnowledgeEntry[] = [
     question: "What are the quick action buttons on the dashboard?",
     answer:
       "The dashboard has **4 quick action buttons** at the top:\n\n• **New Job** — Opens the create job dialog\n• **New Customer** — Opens the create customer dialog\n• **View Invoices** — Navigates to the invoices page\n• **View Schedule** — Navigates to the calendar/schedule page",
+  },
+
+  // ═══════════════════════════════════════
+  // ── Reports ──
+  // ═══════════════════════════════════════
+  {
+    id: "reports-overview",
+    category: "reports",
+    keywords: ["report", "reports", "analytics", "analyse", "analyze", "insight", "trend", "chart"],
+    question: "What's on the Reports page?",
+    answer:
+      "**Reports** (sidebar) has five tabs, each covering one part of the business over whatever date range you pick:\n\n• **Revenue** — Trend vs the previous period, revenue by service type and payment method, average job value, collection rate, top customers\n• **Jobs** — Volume over time, breakdowns by status / priority / service type, pipeline distribution, average completion time\n• **Customers** — New customers over time, active vs inactive, repeat vs one-time, top customers by job count\n• **Quotes & Invoices** — Quote conversion funnel, invoice status, aging, overdue trend, average days to payment\n• **Bookings** — Volume, service type, most popular days, booking-to-job conversion\n\nOnly the tab you're looking at is loaded, so switching tabs is quick. Customer names in the tables link straight through to that customer.",
+  },
+  {
+    id: "reports-date-range",
+    category: "reports",
+    keywords: ["date range", "period", "quarter", "last month", "granularity", "day", "week", "month", "compare"],
+    question: "How do I change the reporting period?",
+    answer:
+      "Use the **date range picker** at the top right. Presets include Today, Last 7 days, This month, Last month, Last 3 months, **This quarter**, **Last quarter**, Last 6 months, This year, **Last year**, Last 12 months and All time — or pick any custom range on the calendar.\n\nThe chart grouping adjusts itself to the range: **daily** bars for a month or less, **weekly** up to about four months, **monthly** beyond that. The subtitle under the page title always tells you the exact window and grouping being shown.\n\n\"Today\" is resolved in your business timezone from **Settings → Business**, not your browser's.",
+  },
+  {
+    id: "reports-previous-period",
+    category: "reports",
+    keywords: ["previous period", "comparison", "vs", "compare", "dashed line", "trend line", "growth"],
+    question: "What is the \"previous period\" line comparing against?",
+    answer:
+      "The dashed line on the Revenue trend is the **same length of time immediately before** the range you selected — so \"Last month\" compares against the month before it, point for point. The exact comparison window is printed in the page subtitle and in the CSV export header.\n\nIf a point has no counterpart in the earlier period the line simply stops there rather than dropping to zero.\n\nThe **New** badge on a KPI means there was nothing at all in the previous period — that isn't a \"+100%\" increase, it's the first of something.",
+  },
+  {
+    id: "reports-export",
+    category: "reports",
+    keywords: ["export", "csv", "download", "excel", "spreadsheet", "accountant", "share"],
+    question: "How do I export a report?",
+    answer:
+      "Click **Export** at the top right of the Reports page. You get a CSV of **every** chart and table on the tab you're viewing — not just what's on screen — with a header block recording the period, the comparison period and the grouping.\n\nThe filename includes the date range (for example `revenue-report-2026-01-01_to_2026-03-31.csv`), so exporting two different periods on the same day gives you two clearly-named files.\n\nThe file opens correctly in Excel, Google Sheets and Numbers, including accented names.",
+  },
+  {
+    id: "reports-vs-dashboard",
+    category: "reports",
+    keywords: ["difference", "dashboard vs reports", "archived", "which page", "numbers don't match"],
+    question: "What's the difference between the Dashboard and Reports?",
+    answer:
+      "**Dashboard** answers *what needs doing today* — fixed, operational windows. **Reports** answers *how did we do over a period* — any date range, with period-over-period comparison and CSV export.\n\nBoth read the same underlying data and follow the same counting rules:\n\n• **Archived** jobs, bookings, customers, invoices and quotes are excluded from every count, so the totals match the list pages\n• **Payments you've already received are always counted**, even if the invoice was later archived — archiving hides a document, it doesn't un-collect the money\n• An invoice is **overdue** when its due date has passed and it isn't fully paid\n\nIf a report fails to load you'll see an error with a **Try again** button — an empty chart always means there genuinely was no activity.",
   },
 
   // ═══════════════════════════════════════

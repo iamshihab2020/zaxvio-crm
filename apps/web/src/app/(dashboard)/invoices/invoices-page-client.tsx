@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { readUrlStatus, INVOICE_STATUSES } from "@/lib/url-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
@@ -100,7 +101,10 @@ export function InvoicesPageClient({
 
   // UI state
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  // Seeded from ?status= so dashboard drill-through links land pre-filtered.
+  const [statusFilter, setStatusFilter] = useState(() =>
+    readUrlStatus(INVOICE_STATUSES),
+  );
   const [viewFilter, setViewFilter] = useState("");
   const [page, setPage] = useState(1);
   const showingArchived = viewFilter === "archived";

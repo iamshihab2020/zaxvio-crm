@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { format, subMonths, subYears } from "date-fns";
+import { useCallback, useMemo, useState } from "react";
+import { format, parseISO, subYears } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
   IconCash,
@@ -10,16 +10,15 @@ import {
   IconFileDescription,
   IconCalendarPlus,
 } from "@tabler/icons-react";
-import type {
-  ReportSection,
-  RevenueReportData,
-  JobReportData,
-  CustomerReportData,
-  QuoteInvoiceReportData,
-  BookingReportData,
-} from "@hvac-saas/types";
+import type { ReportSection, ReportSectionResponse } from "@hvac-saas/types";
 import { useReportStats } from "@/hooks/queries";
-import { DateRangePicker, type DatePreset } from "@/components/ui/date-range-picker";
+import type { ReportStatsParams, ReportStatsResult } from "@/actions/reports";
+import {
+  DateRangePicker,
+  type DatePreset,
+} from "@/components/ui/date-range-picker";
+import { PageHeader } from "@/components/reusable/page-header";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ReportsSkeleton,
@@ -52,47 +51,66 @@ const EXTRA_PRESETS: DatePreset[] = [
   },
 ];
 
-type TabDataMap = {
-  revenue: RevenueReportData | null;
-  jobs: JobReportData | null;
-  customers: CustomerReportData | null;
-  "quotes-invoices": QuoteInvoiceReportData | null;
-  bookings: BookingReportData | null;
-};
+interface ReportsPageClientProps {
+  initialReport?: ReportStatsResult;
+  initialParams?: ReportStatsParams;
+  initialFetchedAt?: number;
+}
 
-export function ReportsPageClient() {
-  const [activeTab, setActiveTab] = useState<ReportSection>("revenue");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: subMonths(new Date(), 3),
-    to: new Date(),
-  });
+export function ReportsPageClient({
+  initialReport,
+  initialParams,
+  initialFetchedAt,
+}: ReportsPageClientProps) {
+  const [activeTab, setActiveTab] = useState<ReportSection>(
+    initialParams?.section ?? "revenue",
+  );
+  // No explicit range until the user picks one. The browser cannot reproduce
+  // "month to date in the tenant's timezone", so the API resolves it and echoes
+  // the window back — the picker renders what was queried, not a guess.
+  const [picked, setPicked] = useState<DateRange | undefined>(undefined);
 
-  const from = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
-  const to = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
-  const dateKey = useMemo(() => (from && to ? `${from}_${to}` : ""), [from, to]);
-
-  const { data: tabData, isLoading } = useReportStats({
-    section: activeTab,
-    from,
-    to,
-  });
-
-  // Build the TabDataMap shape expected by renderTabContent
-  const tabDataMap: TabDataMap = useMemo(
+  const params: ReportStatsParams = useMemo(
     () => ({
-      revenue: activeTab === "revenue" ? (tabData as RevenueReportData) ?? null : null,
-      jobs: activeTab === "jobs" ? (tabData as JobReportData) ?? null : null,
-      customers: activeTab === "customers" ? (tabData as CustomerReportData) ?? null : null,
-      "quotes-invoices":
-        activeTab === "quotes-invoices"
-          ? (tabData as QuoteInvoiceReportData) ?? null
-          : null,
-      bookings: activeTab === "bookings" ? (tabData as BookingReportData) ?? null : null,
+      section: activeTab,
+      from: picked?.from ? format(picked.from, "yyyy-MM-dd") : undefined,
+      to: picked?.to ? format(picked.to, "yyyy-MM-dd") : undefined,
     }),
-    [activeTab, tabData],
+    [activeTab, picked],
   );
 
-  if (isLoading && !tabData) {
+  const { data: result, isLoading, isFetching, isError, refetch } = useReportStats(
+    params,
+    { initialData: initialReport, initialParams, initialFetchedAt },
+  );
+
+  const report = result?.data ?? null;
+  // `getReportStats` catches its own failures and resolves with an envelope, so
+  // `result.error` is the normal path. `isError` only fires if the server action
+  // itself rejects — covered so that case cannot leave the page on a skeleton.
+  const errorMessage =
+    result?.error ?? (isError ? "Failed to load report data" : null);
+
+  // Only render a payload that belongs to the tab on screen. `placeholderData`
+  // keeps the previous response during a refetch, which is what makes changing
+  // the date range feel instant — but across a tab switch that payload has the
+  // wrong shape, and the discriminant is how we know.
+  const current: ReportSectionResponse | null =
+    report && report.section === activeTab ? report : null;
+
+  // Show the range the server actually used until the user overrides it.
+  const displayRange = useMemo<DateRange | undefined>(() => {
+    if (picked) return picked;
+    if (!report?.range) return undefined;
+    return { from: parseISO(report.range.from), to: parseISO(report.range.to) };
+  }, [picked, report?.range]);
+
+  const handleRangeChange = useCallback((range: DateRange | undefined) => {
+    // A half-finished selection would send `from` without `to`; wait for both.
+    setPicked(range?.from && range?.to ? range : undefined);
+  }, []);
+
+  if (isLoading && !report) {
     return (
       <section className="p-6">
         <ReportsSkeleton />
@@ -100,22 +118,44 @@ export function ReportsPageClient() {
     );
   }
 
+  // A failed request is not an empty period. Before this, a 500 or an expired
+  // session rendered as "No data available for this period" — a confident wrong
+  // answer on a page about money.
+  if (!current && errorMessage) {
+    return (
+      <section className="p-6">
+        <LoadErrorState
+          title="Couldn't load your reports"
+          message={errorMessage}
+          onRetry={() => void refetch()}
+          isRetrying={isFetching}
+        />
+      </section>
+    );
+  }
+
   return (
     <section className="p-6">
       <Fade inView inViewOnce delay={0}>
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="font-heading text-2xl font-bold text-foreground">
-            Reports & Analytics
-          </h1>
-          <div className="flex items-center gap-2">
-            <DateRangePicker
-              dateRange={dateRange}
-              onDateRangeChange={setDateRange}
-              extraPresets={EXTRA_PRESETS}
-            />
-            <ExportCsvButton section={activeTab} data={tabDataMap[activeTab]} />
-          </div>
-        </div>
+        <PageHeader
+          title="Reports & Analytics"
+          subtitle={
+            current
+              ? `${current.range.from} to ${current.range.to} · grouped by ${current.granularity}`
+              : undefined
+          }
+          className="mb-4"
+          action={
+            <>
+              <DateRangePicker
+                dateRange={displayRange}
+                onDateRangeChange={handleRangeChange}
+                extraPresets={EXTRA_PRESETS}
+              />
+              <ExportCsvButton report={current} />
+            </>
+          }
+        />
       </Fade>
 
       <Tabs
@@ -125,11 +165,8 @@ export function ReportsPageClient() {
         <Fade inView inViewOnce delay={80}>
           <TabsList className="mb-4">
             {TABS.map((tab) => (
-              <TabsTrigger
-                key={tab.value}
-                value={tab.value}
-              >
-                <tab.icon className="h-3.5 w-3.5" />
+              <TabsTrigger key={tab.value} value={tab.value}>
+                <tab.icon className="h-3.5 w-3.5" aria-hidden />
                 {tab.label}
               </TabsTrigger>
             ))}
@@ -138,11 +175,16 @@ export function ReportsPageClient() {
 
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value} className="mt-0">
-            {isLoading && activeTab === tab.value ? (
+            {!current ? (
               <ReportsTabSkeleton />
             ) : (
-              <Fade inView inViewOnce key={`${tab.value}-${dateKey}`} delay={0}>
-                {renderTabContent(tab.value, tabDataMap)}
+              <Fade
+                inView
+                inViewOnce
+                key={`${current.section}-${current.range.from}-${current.range.to}`}
+                delay={0}
+              >
+                <ReportSectionView report={current} />
               </Fade>
             )}
           </TabsContent>
@@ -152,47 +194,28 @@ export function ReportsPageClient() {
   );
 }
 
-function renderTabContent(section: ReportSection, tabData: TabDataMap) {
-  switch (section) {
+/**
+ * One switch over the response's own discriminant. The previous version built a
+ * five-key map in which four keys were `null` by construction, then switched
+ * over *that* — pure indirection that also hid five `as` casts over an `any`.
+ */
+function ReportSectionView({ report }: { report: ReportSectionResponse }) {
+  switch (report.section) {
     case "revenue":
-      return tabData.revenue ? (
-        <RevenueTab data={tabData.revenue} />
-      ) : (
-        <EmptyTabState />
-      );
+      return <RevenueTab data={report.data} granularity={report.granularity} />;
     case "jobs":
-      return tabData.jobs ? (
-        <JobsTab data={tabData.jobs} />
-      ) : (
-        <EmptyTabState />
-      );
+      return <JobsTab data={report.data} granularity={report.granularity} />;
     case "customers":
-      return tabData.customers ? (
-        <CustomersTab data={tabData.customers} />
-      ) : (
-        <EmptyTabState />
-      );
+      return <CustomersTab data={report.data} granularity={report.granularity} />;
     case "quotes-invoices":
-      return tabData["quotes-invoices"] ? (
-        <QuotesInvoicesTab data={tabData["quotes-invoices"]} />
-      ) : (
-        <EmptyTabState />
+      return (
+        <QuotesInvoicesTab data={report.data} granularity={report.granularity} />
       );
     case "bookings":
-      return tabData.bookings ? (
-        <BookingsTab data={tabData.bookings} />
-      ) : (
-        <EmptyTabState />
-      );
+      return <BookingsTab data={report.data} granularity={report.granularity} />;
+    default: {
+      const exhaustive: never = report;
+      throw new Error(`Unhandled report section: ${String(exhaustive)}`);
+    }
   }
-}
-
-function EmptyTabState() {
-  return (
-    <div className="flex h-64 items-center justify-center">
-      <p className="font-body text-sm text-muted-foreground">
-        No data available for this period.
-      </p>
-    </div>
-  );
 }

@@ -1,6 +1,7 @@
 import { sql } from "@hvac-saas/database";
 import { z } from "zod";
-import type { DbClient, DateRangeParams } from "../types.js";
+import type { DbClient, DateRangeParams, TrendGranularity } from "../types.js";
+import { bucketSeries } from "./buckets.js";
 import {
   revenueTrendRow,
   revenueByServiceTypeRow,
@@ -12,82 +13,44 @@ import {
 } from "../schemas.js";
 
 /**
+ * Money already received is never retroactively removed: payment-sourced queries
+ * in this file deliberately carry no `archived_at` filter. Archiving an invoice
+ * hides it from the list page; it does not un-collect the cash. Entity-sourced
+ * metrics (job values, invoice counts) *do* exclude archived rows.
+ */
+
+/**
  * Revenue trend with configurable granularity (day/week/month) and generate_series zero-fill.
  * Returns rows keyed by the bucket's starting date.
+ *
+ * The payment join is clamped to `[from, to]` as well as to the bucket.
+ * `date_trunc` snaps the first bucket backwards (a week bucket can start up to 6 days
+ * before `from`) and the last bucket forwards, so without the clamp the chart would
+ * include revenue outside the requested window and stop summing to the headline
+ * figure produced by `getRevenueTotal`.
  */
 export async function getRevenueTrend(
   db: DbClient,
   tenantId: string,
   from: string,
   to: string,
-  granularity: "day" | "week" | "month" = "month",
+  granularity: TrendGranularity = "month",
 ) {
-  if (granularity === "day") {
-    const rows = await db.execute(sql`
-      SELECT
-        to_char(m.bucket, 'YYYY-MM-DD') AS month,
-        to_char(m.bucket, 'Mon DD') AS month_label,
-        COALESCE(SUM(ip.amount::numeric), 0)::text AS amount
-      FROM generate_series(
-        date_trunc('day', ${from}::date),
-        date_trunc('day', ${to}::date),
-        INTERVAL '1 day'
-      ) AS m(bucket)
-      LEFT JOIN invoice_payments ip
-        ON ip.tenant_id = ${tenantId}
-        AND ip.payment_date >= m.bucket
-        AND ip.payment_date < m.bucket + INTERVAL '1 day'
-      GROUP BY m.bucket
-      ORDER BY m.bucket
-    `);
-    return z.array(revenueTrendRow).parse(rows);
-  }
-  if (granularity === "week") {
-    const rows = await db.execute(sql`
-      SELECT
-        to_char(m.bucket, 'YYYY-MM-DD') AS month,
-        to_char(m.bucket, '"W"IW YYYY') AS month_label,
-        COALESCE(SUM(ip.amount::numeric), 0)::text AS amount
-      FROM generate_series(
-        date_trunc('week', ${from}::date),
-        date_trunc('week', ${to}::date),
-        INTERVAL '1 week'
-      ) AS m(bucket)
-      LEFT JOIN invoice_payments ip
-        ON ip.tenant_id = ${tenantId}
-        AND ip.payment_date >= m.bucket
-        AND ip.payment_date < m.bucket + INTERVAL '1 week'
-      GROUP BY m.bucket
-      ORDER BY m.bucket
-    `);
-    return z.array(revenueTrendRow).parse(rows);
-  }
-  return getRevenueTrendByMonth(db, tenantId, from, to);
-}
-
-/** Monthly revenue trend with generate_series zero-fill. */
-export async function getRevenueTrendByMonth(
-  db: DbClient,
-  tenantId: string,
-  from: string,
-  to: string,
-) {
+  const b = bucketSeries(granularity, from, to);
   const rows = await db.execute(sql`
     SELECT
-      to_char(m.month, 'YYYY-MM') AS month,
-      to_char(m.month, 'Mon YYYY') AS month_label,
+      ${b.key} AS month,
+      ${b.label} AS month_label,
       COALESCE(SUM(ip.amount::numeric), 0)::text AS amount
-    FROM generate_series(
-      date_trunc('month', ${from}::date),
-      date_trunc('month', ${to}::date),
-      INTERVAL '1 month'
-    ) AS m(month)
+    FROM ${b.series}
     LEFT JOIN invoice_payments ip
       ON ip.tenant_id = ${tenantId}
-      AND ip.payment_date >= m.month
-      AND ip.payment_date < m.month + INTERVAL '1 month'
-    GROUP BY m.month
-    ORDER BY m.month
+      AND ip.payment_date >= m.bucket
+      AND ip.payment_date < m.bucket + ${b.step}
+      AND ip.payment_date >= ${from}::date
+      AND ip.payment_date <= ${to}::date
+    GROUP BY m.bucket
+    ORDER BY m.bucket
   `);
   return z.array(revenueTrendRow).parse(rows);
 }
@@ -151,48 +114,59 @@ export async function getRevenueByPaymentMethod(
   return z.array(revenueByPaymentMethodRow).parse(rows);
 }
 
-/** Average job value by month with generate_series zero-fill. */
+/**
+ * Average *booked* job value per bucket (`jobs.total_amount`), zero-filled.
+ *
+ * Not the same measure as `getRevenueTrend`, which sums cash received. Archived
+ * and cancelled jobs are excluded so this matches the Jobs page, and the join is
+ * clamped to `[from, to]` for the same bucket-overhang reason as the revenue trend.
+ */
 export async function getAvgJobValueTrend(
   db: DbClient,
   params: DateRangeParams,
+  from = params.rangeFrom,
+  to = params.rangeTo,
 ) {
-  const { tenantId, rangeFrom, rangeTo } = params;
+  const { tenantId, granularity } = params;
+  const b = bucketSeries(granularity, from, to);
   const rows = await db.execute(sql`
     SELECT
-      to_char(m.month, 'YYYY-MM') AS month,
-      to_char(m.month, 'Mon YYYY') AS month_label,
+      ${b.key} AS month,
+      ${b.label} AS month_label,
       COALESCE(AVG(j.total_amount::numeric), 0)::text AS avg_value
-    FROM generate_series(
-      date_trunc('month', ${rangeFrom}::date),
-      date_trunc('month', ${rangeTo}::date),
-      INTERVAL '1 month'
-    ) AS m(month)
+    FROM ${b.series}
     LEFT JOIN jobs j
       ON j.tenant_id = ${tenantId}
+      AND j.archived_at IS NULL
       AND j.status != 'cancelled'
-      AND j.scheduled_date >= m.month
-      AND j.scheduled_date < m.month + INTERVAL '1 month'
-    GROUP BY m.month
-    ORDER BY m.month
+      AND j.scheduled_date >= m.bucket
+      AND j.scheduled_date < m.bucket + ${b.step}
+      AND j.scheduled_date >= ${from}::date
+      AND j.scheduled_date <= ${to}::date
+    GROUP BY m.bucket
+    ORDER BY m.bucket
   `);
   return z.array(avgJobValueRow).parse(rows);
 }
 
-/** Collection rate: total invoiced vs total collected. */
+/** Collection rate: total invoiced vs total collected, for any date window. */
 export async function getCollectionRate(
   db: DbClient,
   params: DateRangeParams,
+  from = params.rangeFrom,
+  to = params.rangeTo,
 ) {
-  const { tenantId, rangeFrom, rangeTo } = params;
+  const { tenantId } = params;
   const rows = await db.execute(sql`
     SELECT
       COALESCE(SUM(total_amount::numeric), 0)::text AS invoiced,
       COALESCE(SUM(amount_paid::numeric), 0)::text AS collected
     FROM invoices
     WHERE tenant_id = ${tenantId}
+      AND archived_at IS NULL
       AND status != 'void'
-      AND issued_date >= ${rangeFrom}::date
-      AND issued_date <= ${rangeTo}::date
+      AND issued_date >= ${from}::date
+      AND issued_date <= ${to}::date
   `);
   return z.array(collectionRateRow).parse(rows);
 }

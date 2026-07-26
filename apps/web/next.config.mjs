@@ -4,6 +4,9 @@ const config = {
     staleTimes: {
       dynamic: 0,
     },
+    // Required on Next.js 14 for src/instrumentation.ts to run at boot.
+    // Without it register() is never called and env validation is dead code.
+    instrumentationHook: true,
   },
   async headers() {
     return [

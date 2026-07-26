@@ -56,6 +56,19 @@ export const JOB_PRIORITY_COLORS: Record<
   emergency: { bg: "bg-red-50 dark:bg-red-950/50", text: "text-red-700 dark:text-red-300" },
 };
 
+/**
+ * Raw hex per priority, for charts and inline `style` where a Tailwind class cannot
+ * be used. Keyed by `JobPriority` so adding a priority to the enum is a type error
+ * here rather than a silently grey bar — the dashboard previously carried its own
+ * `urgent | high | normal | low` map, none of which matched the database enum, so
+ * `emergency` rendered identically to `standard`.
+ */
+export const JOB_PRIORITY_CHART_COLORS: Record<JobPriority, string> = {
+  standard: "#60a5fa",
+  urgent: "#f59e0b",
+  emergency: "#ef4444",
+};
+
 export const SERVICE_TYPES = [
   "installation",
   "repair",

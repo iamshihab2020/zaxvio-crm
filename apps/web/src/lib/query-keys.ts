@@ -137,15 +137,34 @@ export const queryKeys = {
   // ── Dashboard ──────────────────────────────────────────────
   dashboard: {
     all: ["dashboard"] as const,
-    stats: (params?: { from?: string; to?: string }) =>
-      ["dashboard", "stats", params ?? {}] as const,
+    /**
+     * Every field here participates in the hashed key. The type previously listed
+     * only `from`/`to` while callers also passed `granularity` — accurate, but only
+     * by accident.
+     */
+    stats: (params?: {
+      from?: string;
+      to?: string;
+      granularity?: "day" | "week" | "month";
+    }) => ["dashboard", "stats", params ?? {}] as const,
+    pipeline: (pipelineId?: string | null) =>
+      ["dashboard", "pipeline", pipelineId ?? "default"] as const,
   },
 
   // ── Reports ────────────────────────────────────────────────
   reports: {
     all: ["reports"] as const,
-    stats: (params: Record<string, unknown>) =>
-      ["reports", "stats", params] as const,
+    /**
+     * Named fields rather than `Record<string, unknown>`: every one of them
+     * changes the payload, and spelling them out is what stops a caller adding
+     * a param that silently shares a cache entry with a different request.
+     */
+    stats: (params: {
+      section: string;
+      from?: string;
+      to?: string;
+      granularity?: "day" | "week" | "month";
+    }) => ["reports", "stats", params] as const,
   },
 
   // ── Notifications ──────────────────────────────────────────

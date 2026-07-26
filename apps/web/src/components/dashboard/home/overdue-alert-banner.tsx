@@ -13,9 +13,15 @@ export function OverdueAlertBanner({ overdueInvoices }: OverdueAlertBannerProps)
   if (overdueInvoices.count === 0) return null;
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+    <div
+      role="status"
+      className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40"
+    >
       <div className="flex items-center gap-3">
-        <IconAlertTriangle className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <IconAlertTriangle
+          aria-hidden
+          className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400"
+        />
         <p className="text-sm font-body text-amber-800 dark:text-amber-200">
           You have{" "}
           <span className="font-semibold">

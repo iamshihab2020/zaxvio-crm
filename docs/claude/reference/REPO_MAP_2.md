@@ -15,7 +15,6 @@ packages/database/
 +-- src/
     +-- index.ts              # Barrel: getDb, closeDb, getSupabaseClient, getSupabaseAdmin, all schema
     +-- client.ts             # Drizzle client (lazy singleton via postgres driver)
-    +-- supabase.ts           # Supabase client factories (tenant-scoped + admin)
     +-- schema/
         +-- index.ts              # Barrel re-export of all tables, enums, relations
         +-- enums.ts              # 13 pgEnum definitions (incl. serviceFrequencyEnum)

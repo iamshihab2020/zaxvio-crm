@@ -375,71 +375,60 @@ Update the current tenant's business settings.
 
 **Auth:** `requireTenant`
 
-Returns all KPI metrics, charts, and activity data in a single response. Powers the main dashboard page.
+Returns all KPI metrics, charts, agenda, and activity in a single response (21 parallel
+queries behind a 30s stale-while-revalidate cache). Powers the main dashboard page.
+
+All "today" boundaries resolve in the tenant's timezone (`tenants.timezone`), not UTC.
 
 **Query Parameters:**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `from` | string (ISO date) | First day of current month | Period start |
-| `to` | string (ISO date) | Last day of current month | Period end |
-| `granularity` | `"day" \| "week" \| "month"` | `"month"` | Bucket size for `revenueTrend` series |
-| `pipelineId` | string (uuid) | default pipeline | Scope `jobPipeline` to a specific pipeline; falls back to default when omitted |
+| `from` | string `YYYY-MM-DD` | First day of the current month (tenant-local) | Period start. Non-matching strings are rejected with `400`. |
+| `to` | string `YYYY-MM-DD` | Today (tenant-local) | Period end |
+| `granularity` | `"day" \| "week" \| "month"` | `"month"` | Bucket size for `revenueTrend` |
 
-**Added fields in response `data`:**
+> `pipelineId` was removed from this endpoint — use `GET /dashboard/pipeline` instead, so
+> changing the pipeline selector does not re-run the full dashboard.
 
-- `revenueGranularity`: echoes the granularity used to compute `revenueTrend`.
-- `retentionTrend`: last-6-months array of `{ month, monthLabel, repeatRate (0-100), repeatCount, totalCount }` — percentage of customers who had a job in that month and had ≥2 lifetime jobs.
-- `priorityBreakdown` / `serviceBreakdown`: `{ key, label, count }[]` — jobs in the selected range grouped by priority and service type; feeds the Jobs Management panel tabs.
-- `serviceRevenue`: `{ serviceType, label, amount }[]` — paid-invoice revenue grouped by job service type for the selected range; feeds the Revenue by Service card.
-- `topCustomers`: `{ id, name, revenue, jobCount }[]` — top customers by paid-invoice revenue in the selected range (max 10 from the DB query; UI shows top 5).
-- `selectedPipelineId`: `string | null` — the pipeline the response is scoped to (when `pipelineId` query param is provided; otherwise `null` = default pipeline).
+**Which fields follow the date range**
+
+| Follows `from`/`to` | Fixed window |
+|---|---|
+| `kpis.rangeRevenue`, `revenueTrend`, `quoteSummary`, `priorityBreakdown`, `serviceBreakdown`, `serviceRevenue`, `topCustomers` | `kpis.jobsToday` (today), `kpis.outstandingBalance` (all open), `kpis.activeCustomers` (trailing 90d), `overdueInvoices` (all open), `invoiceAging` (all open), `agenda` (next 7d), `retentionTrend` (last 6 months), `recentActivity` (latest 10), `weeklyJobVolume` / `weeklyRevenue` (last 7d) |
+
+**Notes:**
+
+- `overdueInvoices` is derived from `due_date < today`, **not** from `status = 'overdue'`,
+  so it can never disagree with `invoiceAging`. The stored status is only used for email triggers.
+- `invoiceAging` is an **array** of buckets: `current`, `30` (1-30 days), `60` (31-60),
+  `90` (61-90), `90plus` (over 90). Buckets with no invoices are omitted.
+- Archived jobs (`archived_at IS NOT NULL`) are excluded from every job count.
+- `range` echoes the range the backend actually used, so the client can display it without
+  recomputing "this month" from the browser clock.
 
 **Response** `200 OK`
 
 ```json
 {
   "data": {
-    "jobsToday": {
-      "count": 5,
-      "emergencyCount": 1,
-      "yesterdayCount": 3
+    "range": { "from": "2026-07-01", "to": "2026-07-27" },
+    "kpis": {
+      "jobsToday": { "count": 5, "emergencyCount": 1, "yesterdayCount": 3 },
+      "outstandingBalance": { "amount": 15420, "invoiceCount": 12 },
+      "rangeRevenue": { "amount": 28500, "previousAmount": 24100 },
+      "activeCustomers": { "count": 47 }
     },
-    "openInvoices": {
-      "count": 12,
-      "previousCount": 8
-    },
-    "outstandingBalance": {
-      "amount": "15420.00",
-      "previousAmount": "12300.00"
-    },
-    "thisMonthRevenue": {
-      "amount": "28500.00",
-      "previousAmount": "24100.00"
-    },
-    "activeCustomers": {
-      "count": 47
-    },
-    "upcomingBookings": {
-      "count": 6
-    },
-    "overdueInvoices": {
-      "count": 3,
-      "totalAmount": "4200.00"
-    },
+    "overdueInvoices": { "count": 3, "totalAmount": 4200 },
     "jobPipeline": [
       { "stageName": "scheduled", "stageLabel": "Scheduled", "stageColor": "blue", "count": 8 },
-      { "stageName": "in_progress", "stageLabel": "In Progress", "stageColor": "amber", "count": 3 },
-      { "stageName": "completed", "stageLabel": "Completed", "stageColor": "green", "count": 42 }
+      { "stageName": "in_progress", "stageLabel": "In Progress", "stageColor": "amber", "count": 3 }
     ],
     "revenueTrend": [
-      { "month": "2025-10", "monthLabel": "Oct", "amount": "22000.00" },
-      { "month": "2025-11", "monthLabel": "Nov", "amount": "19500.00" },
-      { "month": "2025-12", "monthLabel": "Dec", "amount": "15000.00" },
-      { "month": "2026-01", "monthLabel": "Jan", "amount": "21000.00" },
-      { "month": "2026-02", "monthLabel": "Feb", "amount": "24100.00" },
-      { "month": "2026-03", "monthLabel": "Mar", "amount": "28500.00" }
+      { "month": "2026-07-01", "monthLabel": "Jul 01", "amount": 1200 },
+      { "month": "2026-07-02", "monthLabel": "Jul 02", "amount": 0 }
     ],
+    "revenueGranularity": "day",
     "recentActivity": [
       {
         "id": "act_001",
@@ -448,55 +437,93 @@ Returns all KPI metrics, charts, and activity data in a single response. Powers 
         "description": "Job JOB-2026-0045 created for AC Repair",
         "entityId": "job_abc123",
         "entityLabel": "JOB-2026-0045",
-        "createdAt": "2026-03-28T13:00:00.000Z"
+        "createdAt": "2026-07-26 13:00:00+00"
       }
     ],
-    "todaySchedule": [
-      {
-        "id": "job_abc123",
-        "jobNumber": "JOB-2026-0045",
-        "customerName": "Jane Doe",
-        "scheduledStart": "09:00",
-        "scheduledEnd": "11:00",
-        "status": "scheduled",
-        "priority": "standard",
-        "serviceType": "repair"
-      }
+    "invoiceAging": [
+      { "bucket": "current", "count": 5, "amount": 6200 },
+      { "bucket": "30", "count": 4, "amount": 5020 },
+      { "bucket": "90plus", "count": 1, "amount": 1400 }
     ],
-    "invoiceAging": {
-      "current": { "count": 5, "amount": "6200.00" },
-      "thirtyDays": { "count": 4, "amount": "5020.00" },
-      "sixtyDays": { "count": 2, "amount": "2800.00" },
-      "ninetyPlus": { "count": 1, "amount": "1400.00" }
-    },
     "quoteSummary": {
-      "totalQuotes": 24,
-      "accepted": 16,
-      "declined": 3,
-      "pending": 5,
-      "conversionRate": 66.7
+      "totalQuotes": 24, "accepted": 16, "declined": 3, "pending": 5, "conversionRate": 67
     },
-    "weeklyJobVolume": [
-      { "day": "Mon", "value": 4 },
-      { "day": "Tue", "value": 6 },
-      { "day": "Wed", "value": 5 },
-      { "day": "Thu", "value": 3 },
-      { "day": "Fri", "value": 7 },
-      { "day": "Sat", "value": 2 },
-      { "day": "Sun", "value": 0 }
+    "weeklyJobVolume": [{ "day": "2026-07-21", "value": 4 }],
+    "weeklyRevenue": [{ "day": "2026-07-21", "value": 3200 }],
+    "retentionTrend": [
+      { "month": "2026-02", "monthLabel": "Feb 2026", "repeatCount": 8, "totalCount": 20, "repeatRate": 40 }
     ],
-    "weeklyRevenue": [
-      { "day": "Mon", "value": "3200.00" },
-      { "day": "Tue", "value": "4800.00" },
-      { "day": "Wed", "value": "3900.00" },
-      { "day": "Thu", "value": "2100.00" },
-      { "day": "Fri", "value": "5600.00" },
-      { "day": "Sat", "value": "1200.00" },
-      { "day": "Sun", "value": "0.00" }
-    ]
+    "priorityBreakdown": [{ "key": "standard", "label": "Standard", "count": 12 }],
+    "serviceBreakdown": [{ "key": "repair", "label": "Repair", "count": 9 }],
+    "serviceRevenue": [{ "serviceType": "repair", "label": "Repair", "amount": 18200 }],
+    "topCustomers": [
+      { "id": "cus_1", "name": "Jane Doe", "revenue": 5400, "jobCount": 3 }
+    ],
+    "agenda": {
+      "from": "2026-07-27",
+      "to": "2026-08-03",
+      "events": [
+        {
+          "id": "evt_1", "title": "Supplier visit", "description": null,
+          "eventDate": "2026-07-28", "startTime": "10:00:00", "endTime": "11:00:00",
+          "contactName": "Acme Parts", "address": null, "color": "#6366f1"
+        }
+      ],
+      "jobs": [
+        {
+          "id": "job_1", "jobNumber": "JOB-2026-0045", "title": "AC Repair",
+          "customerName": "Jane Doe", "address": "12 Elm St", "serviceType": "repair",
+          "priority": "urgent", "scheduledDate": "2026-07-28",
+          "scheduledStart": "09:00:00", "scheduledEnd": "11:30:00"
+        }
+      ],
+      "bookings": [
+        {
+          "id": "bkg_1", "customerName": "John Smith", "serviceType": "maintenance",
+          "bookingDate": "2026-07-29", "preferredTime": "14:00:00",
+          "address": "9 Oak Ave", "description": null
+        }
+      ]
+    }
   }
 }
 ```
+
+> `scheduledStart` / `scheduledEnd` / `startTime` / `preferredTime` are Postgres `time`
+> columns serialised as `HH:MM:SS` — they carry **no date**. Combine them with the
+> sibling date field; passing them to a date parser on their own yields Invalid Date.
+
+**Errors:** `400` invalid `from`/`to` format · `401` unauthenticated · `403` no tenant
+
+---
+
+### `GET /dashboard/pipeline`
+
+**Auth:** `requireTenant`
+
+Stage distribution for one pipeline. Split out from `/dashboard/stats` so switching the
+pipeline selector repaints a single panel instead of re-running 21 queries.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `pipelineId` | string (uuid) | tenant's default pipeline | Pipeline to scope to |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    { "stageName": "scheduled", "stageLabel": "Scheduled", "stageColor": "blue", "count": 8 },
+    { "stageName": "in_progress", "stageLabel": "In Progress", "stageColor": "amber", "count": 3 }
+  ]
+}
+```
+
+Excludes archived jobs. Counts every job in the pipeline regardless of date.
+
+**Errors:** `400` invalid uuid · `401` unauthenticated · `403` no tenant
 
 ---
 

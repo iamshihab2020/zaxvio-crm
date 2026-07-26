@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useEventStream } from "./use-event-stream";
 
 export interface RealtimeMessage {
   id: string;
@@ -24,43 +22,18 @@ interface NewMessagePayload {
 }
 
 /**
- * Subscribes to Supabase Realtime for new messages on a tenant's conversations.
- * Mirrors the pattern used in use-notifications.ts.
+ * Subscribes to new messages on a tenant's conversations via the API's SSE
+ * stream. The stream is already scoped to the caller's tenant server-side, so
+ * `tenantId` only gates whether we subscribe at all.
  */
 export function useConversationRealtime(
   tenantId: string | null | undefined,
   onNewMessage: (payload: NewMessagePayload) => void,
 ) {
-  const channelRef = useRef<RealtimeChannel | null>(null);
-  const callbackRef = useRef(onNewMessage);
-  callbackRef.current = onNewMessage;
-
-  useEffect(() => {
-    if (!tenantId) return;
-
-    let mounted = true;
-
-    const supabase = getSupabaseBrowserClient();
-    const channel = supabase
-      .channel(`conversations:${tenantId}`)
-      .on("broadcast", { event: "new_message" }, ({ payload }) => {
-        if (!mounted) return;
-        callbackRef.current(payload as NewMessagePayload);
-      })
-      .subscribe((status) => {
-        if (status === "SUBSCRIBED") {
-          console.log("[conversations] Realtime channel subscribed");
-        } else if (status === "CHANNEL_ERROR") {
-          console.error("[conversations] Realtime channel error");
-        }
-      });
-
-    channelRef.current = channel;
-
-    return () => {
-      mounted = false;
-      void supabase.removeChannel(channel);
-      channelRef.current = null;
-    };
-  }, [tenantId]);
+  useEventStream<NewMessagePayload>(
+    "conversations",
+    "new_message",
+    onNewMessage,
+    Boolean(tenantId),
+  );
 }

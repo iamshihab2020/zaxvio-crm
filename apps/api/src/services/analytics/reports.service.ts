@@ -1,6 +1,7 @@
 import type { DbClient, DateRangeParams } from "./types.js";
 import type {
   ReportSection,
+  ReportSectionResponse,
   RevenueReportData,
   JobReportData,
   CustomerReportData,
@@ -15,36 +16,93 @@ import * as customersQ from "./queries/customers.js";
 import * as quotesInvoicesQ from "./queries/quotes-invoices.js";
 import * as bookingsQ from "./queries/bookings.js";
 
-/** Dispatch to the correct report section (cached). */
+/** Minimal logger shape — accepts a Fastify logger without importing Fastify here. */
+interface ServiceLogger {
+  error: (obj: Record<string, unknown>, msg?: string) => void;
+}
+
+/**
+ * Dispatch to the correct report section (cached), wrapped in the envelope that
+ * tells the client which section it is looking at and which windows produced it.
+ */
 export async function getReportBySection(
   db: DbClient,
   section: ReportSection,
   params: DateRangeParams,
-) {
-  const cacheParams = { section, from: params.rangeFrom, to: params.rangeTo };
+  logger?: ServiceLogger,
+): Promise<ReportSectionResponse> {
+  // `tz` and `granularity` are part of the key because results genuinely vary by
+  // both: every "today" boundary resolves in the tenant's timezone, and the
+  // granularity decides the bucket size. Without them a tenant who changed their
+  // timezone in Settings kept being served the old split for a full 10 minutes.
+  const cacheParams = {
+    section,
+    from: params.rangeFrom,
+    to: params.rangeTo,
+    tz: params.timezone,
+    granularity: params.granularity,
+  };
 
-  return analyticsCache.getOrFetch(
+  return analyticsCache.getOrFetch<ReportSectionResponse>(
     params.tenantId,
     `report:${section}`,
     cacheParams,
-    async () => {
-      switch (section) {
-        case "revenue":
-          return getRevenueReport(db, params);
-        case "jobs":
-          return getJobReport(db, params);
-        case "customers":
-          return getCustomerReport(db, params);
-        case "quotes-invoices":
-          return getQuoteInvoiceReport(db, params);
-        case "bookings":
-          return getBookingReport(db, params);
-        default:
-          return null;
-      }
+    () => buildSectionResponse(db, section, params),
+    {
+      ttlMs: CACHE_TTL.REPORTS,
+      staleWhileRevalidate: true,
+      onError: (error) =>
+        logger?.error(
+          { err: error, tenantId: params.tenantId, section },
+          "report background revalidation failed; serving stale data",
+        ),
     },
-    { ttlMs: CACHE_TTL.REPORTS, staleWhileRevalidate: true },
   );
+}
+
+/**
+ * Exhaustive over `ReportSection`. Each branch builds its own union member, so
+ * the section discriminant and the payload type are matched by the compiler
+ * rather than by a cast. Adding a section to the enum without handling it here
+ * is a compile error — previously it fell through to `return null`, which the
+ * route turned into an HTTP 200 carrying an error string that the client then
+ * rendered as an empty report.
+ */
+async function buildSectionResponse(
+  db: DbClient,
+  section: ReportSection,
+  params: DateRangeParams,
+): Promise<ReportSectionResponse> {
+  const meta = {
+    range: { from: params.rangeFrom, to: params.rangeTo },
+    compareRange: { from: params.compareFrom, to: params.compareTo },
+    granularity: params.granularity,
+  };
+
+  switch (section) {
+    case "revenue":
+      return { ...meta, section, data: await getRevenueReport(db, params) };
+    case "jobs":
+      return { ...meta, section, data: await getJobReport(db, params) };
+    case "customers":
+      return { ...meta, section, data: await getCustomerReport(db, params) };
+    case "quotes-invoices":
+      return { ...meta, section, data: await getQuoteInvoiceReport(db, params) };
+    case "bookings":
+      return { ...meta, section, data: await getBookingReport(db, params) };
+    default: {
+      const exhaustive: never = section;
+      throw new Error(`Unhandled report section: ${String(exhaustive)}`);
+    }
+  }
+}
+
+/** Mean of the non-empty buckets in an average-value trend. */
+function meanOfNonZero(rows: { avg_value: string }[]): number {
+  const values = rows.map((r) => pFloat(r.avg_value)).filter((v) => v > 0);
+  if (values.length === 0) return 0;
+  const sum = values.reduce((s, v) => s + v, 0);
+  return Math.round((sum / values.length) * 100) / 100;
 }
 
 // ── Revenue ──
@@ -53,31 +111,51 @@ async function getRevenueReport(
   db: DbClient,
   params: DateRangeParams,
 ): Promise<RevenueReportData> {
-  const { tenantId, rangeFrom, rangeTo, prevFrom, prevTo } = params;
+  const { tenantId, rangeFrom, rangeTo, compareFrom, compareTo, granularity } = params;
 
-  const [trendCurrent, trendPrevious, byServiceType, byPaymentMethod, avgJobValue, collectionResult, topCustomers, prevRevenueResult] =
-    await Promise.all([
-      revenueQ.getRevenueTrendByMonth(db, tenantId, rangeFrom, rangeTo),
-      revenueQ.getRevenueTrendByMonth(db, tenantId, prevFrom, prevTo),
-      revenueQ.getRevenueByServiceType(db, params),
-      revenueQ.getRevenueByPaymentMethod(db, params),
-      revenueQ.getAvgJobValueTrend(db, params),
-      revenueQ.getCollectionRate(db, params),
-      revenueQ.getTopCustomersByRevenue(db, params),
-      revenueQ.getRevenueTotal(db, tenantId, prevFrom, prevTo),
-    ]);
+  const [
+    trendCurrent,
+    trendPrevious,
+    byServiceType,
+    byPaymentMethod,
+    avgJobValue,
+    avgJobValuePrev,
+    collectionResult,
+    topCustomers,
+    prevRevenueResult,
+  ] = await Promise.all([
+    revenueQ.getRevenueTrend(db, tenantId, rangeFrom, rangeTo, granularity),
+    revenueQ.getRevenueTrend(db, tenantId, compareFrom, compareTo, granularity),
+    revenueQ.getRevenueByServiceType(db, params),
+    revenueQ.getRevenueByPaymentMethod(db, params),
+    revenueQ.getAvgJobValueTrend(db, params),
+    revenueQ.getAvgJobValueTrend(db, params, compareFrom, compareTo),
+    revenueQ.getCollectionRate(db, params),
+    revenueQ.getTopCustomersByRevenue(db, params),
+    revenueQ.getRevenueTotal(db, tenantId, compareFrom, compareTo),
+  ]);
 
-  const revenueTrend = trendCurrent.map((row, i) => ({
-    month: row.month,
-    monthLabel: row.month_label,
-    current: pFloat(row.amount),
-    previous: pFloat(trendPrevious[i]?.amount),
-  }));
+  // Both series are generated over windows that differ by a whole number of
+  // buckets, so bucket `i` of one is exactly one period before bucket `i` of the
+  // other and index pairing is meaningful. Previously the comparison window was
+  // sized in *days*, which could yield a different bucket count — selecting
+  // "Last month" plotted March against January and dropped February entirely.
+  // `?? null` still guards the pairing rather than letting a missing row read as
+  // a real £0.
+  const revenueTrend = trendCurrent.map((row, i) => {
+    const prev = trendPrevious[i];
+    return {
+      month: row.month,
+      monthLabel: row.month_label,
+      current: pFloat(row.amount),
+      previous: prev ? pFloat(prev.amount) : null,
+      previousLabel: prev ? prev.month_label : null,
+    };
+  });
 
   const totalInvoiced = pFloat(collectionResult[0]?.invoiced);
   const totalCollected = pFloat(collectionResult[0]?.collected);
   const currentRevenue = trendCurrent.reduce((sum, r) => sum + pFloat(r.amount), 0);
-  const avgValues = avgJobValue.filter((r) => pFloat(r.avg_value) > 0);
 
   return {
     revenueTrend,
@@ -110,13 +188,10 @@ async function getRevenueReport(
     kpis: {
       totalRevenue: currentRevenue,
       previousRevenue: pFloat(prevRevenueResult[0]?.amount),
-      avgJobValue:
-        avgValues.length > 0
-          ? Math.round(
-              (avgValues.reduce((s, r) => s + pFloat(r.avg_value), 0) / avgValues.length) * 100,
-            ) / 100
-          : 0,
-      previousAvgJobValue: 0,
+      avgJobValue: meanOfNonZero(avgJobValue),
+      // Was hardcoded to 0, which `computeTrend` would have rendered as a
+      // permanent "+100%" for anyone who wired it up.
+      previousAvgJobValue: meanOfNonZero(avgJobValuePrev),
     },
   };
 }
@@ -127,7 +202,7 @@ async function getJobReport(
   db: DbClient,
   params: DateRangeParams,
 ): Promise<JobReportData> {
-  const { tenantId, rangeFrom, rangeTo, prevFrom, prevTo } = params;
+  const { tenantId, rangeFrom, rangeTo, compareFrom, compareTo } = params;
 
   const [volumeTrend, byStatus, byPriority, byServiceType, avgCompletion, pipeline, kpisResult, prevKpis] =
     await Promise.all([
@@ -138,7 +213,7 @@ async function getJobReport(
       jobsQ.getAvgCompletionDays(db, params),
       jobsQ.getJobPipelineDistribution(db, tenantId, rangeFrom, rangeTo),
       jobsQ.getJobKpis(db, params),
-      jobsQ.getJobCount(db, tenantId, prevFrom, prevTo),
+      jobsQ.getJobCount(db, tenantId, compareFrom, compareTo),
     ]);
 
   const totalJobs = pInt(kpisResult[0]?.total);
@@ -188,16 +263,16 @@ async function getCustomerReport(
   db: DbClient,
   params: DateRangeParams,
 ): Promise<CustomerReportData> {
-  const { tenantId, rangeFrom, rangeTo, prevFrom, prevTo } = params;
+  const { tenantId, timezone, rangeFrom, rangeTo, compareFrom, compareTo } = params;
 
   const [newTrend, activeResult, topByJobs, repeatResult, newCurrent, newPrevious, totalResult] =
     await Promise.all([
       customersQ.getNewCustomersTrend(db, params),
-      customersQ.getActiveVsInactiveCustomers(db, tenantId),
+      customersQ.getActiveVsInactiveCustomers(db, tenantId, timezone),
       customersQ.getTopCustomersByJobCount(db, tenantId),
       customersQ.getRepeatVsOneTime(db, tenantId),
-      customersQ.getCustomerCount(db, tenantId, rangeFrom, rangeTo),
-      customersQ.getCustomerCount(db, tenantId, prevFrom, prevTo),
+      customersQ.getCustomerCount(db, tenantId, rangeFrom, rangeTo, timezone),
+      customersQ.getCustomerCount(db, tenantId, compareFrom, compareTo, timezone),
       customersQ.getTotalCustomerCount(db, tenantId),
     ]);
 
@@ -243,19 +318,29 @@ async function getQuoteInvoiceReport(
   db: DbClient,
   params: DateRangeParams,
 ): Promise<QuoteInvoiceReportData> {
-  const { tenantId, rangeFrom, rangeTo, prevFrom, prevTo } = params;
+  const { tenantId, timezone, rangeFrom, rangeTo, compareFrom, compareTo } = params;
 
-  const [quoteFunnel, invoiceStatus, invoiceAging, avgDays, overdueTrend, quoteKpisCurrent, quoteKpisPrev, invoiceKpis] =
-    await Promise.all([
-      quotesInvoicesQ.getQuoteConversionFunnel(db, params),
-      quotesInvoicesQ.getInvoiceStatusDistribution(db, params),
-      quotesInvoicesQ.getInvoiceAgingBuckets(db, tenantId),
-      quotesInvoicesQ.getAvgDaysToPayment(db, params),
-      quotesInvoicesQ.getOverdueInvoiceTrend(db, params),
-      quotesInvoicesQ.getQuoteKpis(db, tenantId, rangeFrom, rangeTo),
-      quotesInvoicesQ.getQuoteKpisPrev(db, tenantId, prevFrom, prevTo),
-      quotesInvoicesQ.getInvoiceKpis(db, params),
-    ]);
+  const [
+    quoteFunnel,
+    invoiceStatus,
+    invoiceAging,
+    avgDays,
+    overdueTrend,
+    quoteKpisCurrent,
+    quoteKpisPrev,
+    invoiceKpis,
+    invoiceKpisPrev,
+  ] = await Promise.all([
+    quotesInvoicesQ.getQuoteConversionFunnel(db, params),
+    quotesInvoicesQ.getInvoiceStatusDistribution(db, params),
+    quotesInvoicesQ.getInvoiceAgingBuckets(db, tenantId, timezone),
+    quotesInvoicesQ.getAvgDaysToPayment(db, params),
+    quotesInvoicesQ.getOverdueInvoiceTrend(db, params),
+    quotesInvoicesQ.getQuoteKpis(db, tenantId, rangeFrom, rangeTo, timezone),
+    quotesInvoicesQ.getQuoteKpisPrev(db, tenantId, compareFrom, compareTo, timezone),
+    quotesInvoicesQ.getInvoiceKpis(db, params),
+    quotesInvoicesQ.getInvoiceKpis(db, params, compareFrom, compareTo),
+  ]);
 
   const totalQuotes = pInt(quoteKpisCurrent[0]?.total);
   const acceptedQuotes = pInt(quoteKpisCurrent[0]?.accepted);
@@ -263,6 +348,8 @@ async function getQuoteInvoiceReport(
   const prevAccepted = pInt(quoteKpisPrev[0]?.accepted);
   const totalInvoiced = pFloat(invoiceKpis[0]?.invoiced);
   const totalCollected = pFloat(invoiceKpis[0]?.collected);
+  const prevInvoiced = pFloat(invoiceKpisPrev[0]?.invoiced);
+  const prevCollected = pFloat(invoiceKpisPrev[0]?.collected);
 
   return {
     quoteConversionFunnel: quoteFunnel.map((r) => ({
@@ -299,7 +386,9 @@ async function getQuoteInvoiceReport(
       totalInvoiced,
       totalCollected,
       collectionRate: totalInvoiced > 0 ? Math.round((totalCollected / totalInvoiced) * 100) : 0,
-      previousCollectionRate: 0,
+      // Was hardcoded to 0 while shipping in the typed contract as though computed.
+      previousCollectionRate:
+        prevInvoiced > 0 ? Math.round((prevCollected / prevInvoiced) * 100) : 0,
     },
   };
 }
@@ -310,7 +399,7 @@ async function getBookingReport(
   db: DbClient,
   params: DateRangeParams,
 ): Promise<BookingReportData> {
-  const { tenantId, prevFrom, prevTo } = params;
+  const { tenantId, compareFrom, compareTo } = params;
 
   const [volumeTrend, byServiceType, conversionResult, byDay, kpisResult, prevKpis] =
     await Promise.all([
@@ -319,7 +408,7 @@ async function getBookingReport(
       bookingsQ.getBookingConversionRate(db, params),
       bookingsQ.getBookingsByDayOfWeek(db, params),
       bookingsQ.getBookingKpis(db, params),
-      bookingsQ.getBookingCount(db, tenantId, prevFrom, prevTo),
+      bookingsQ.getBookingCount(db, tenantId, compareFrom, compareTo),
     ]);
 
   const totalBookings = pInt(conversionResult[0]?.total);

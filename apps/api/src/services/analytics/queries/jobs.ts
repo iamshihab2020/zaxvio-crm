@@ -1,6 +1,7 @@
 import { sql } from "@hvac-saas/database";
 import { z } from "zod";
 import type { DbClient, DateRangeParams } from "../types.js";
+import { bucketSeries } from "./buckets.js";
 import {
   monthlyCountRow,
   statusCountRow,
@@ -13,25 +14,37 @@ import {
   jobsTodayRow,
 } from "../schemas.js";
 
-/** Job volume by month with generate_series zero-fill. */
-export async function getJobVolumeTrend(db: DbClient, params: DateRangeParams) {
-  const { tenantId, rangeFrom, rangeTo } = params;
+/**
+ * Archived jobs are not operational work — they are excluded from every count on
+ * the dashboard and in reports, matching what the Jobs page shows by default.
+ * Applied uniformly here so dashboard totals can never drift from list-page totals.
+ */
+const NOT_ARCHIVED = sql`AND archived_at IS NULL`;
+
+/** Job volume per bucket with generate_series zero-fill, clamped to [from, to]. */
+export async function getJobVolumeTrend(
+  db: DbClient,
+  params: DateRangeParams,
+  from = params.rangeFrom,
+  to = params.rangeTo,
+) {
+  const { tenantId, granularity } = params;
+  const b = bucketSeries(granularity, from, to);
   const rows = await db.execute(sql`
     SELECT
-      to_char(m.month, 'YYYY-MM') AS month,
-      to_char(m.month, 'Mon YYYY') AS month_label,
+      ${b.key} AS month,
+      ${b.label} AS month_label,
       COUNT(j.id)::text AS count
-    FROM generate_series(
-      date_trunc('month', ${rangeFrom}::date),
-      date_trunc('month', ${rangeTo}::date),
-      INTERVAL '1 month'
-    ) AS m(month)
+    FROM ${b.series}
     LEFT JOIN jobs j
       ON j.tenant_id = ${tenantId}
-      AND j.scheduled_date >= m.month
-      AND j.scheduled_date < m.month + INTERVAL '1 month'
-    GROUP BY m.month
-    ORDER BY m.month
+      AND j.archived_at IS NULL
+      AND j.scheduled_date >= m.bucket
+      AND j.scheduled_date < m.bucket + ${b.step}
+      AND j.scheduled_date >= ${from}::date
+      AND j.scheduled_date <= ${to}::date
+    GROUP BY m.bucket
+    ORDER BY m.bucket
   `);
   return z.array(monthlyCountRow).parse(rows);
 }
@@ -43,6 +56,7 @@ export async function getJobsByStatus(db: DbClient, params: DateRangeParams) {
     SELECT status, COUNT(*)::text AS count
     FROM jobs
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND scheduled_date >= ${rangeFrom}::date
       AND scheduled_date <= ${rangeTo}::date
     GROUP BY status
@@ -58,6 +72,7 @@ export async function getJobsByPriority(db: DbClient, params: DateRangeParams) {
     SELECT priority, COUNT(*)::text AS count
     FROM jobs
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND scheduled_date >= ${rangeFrom}::date
       AND scheduled_date <= ${rangeTo}::date
     GROUP BY priority
@@ -73,6 +88,7 @@ export async function getJobsByServiceType(db: DbClient, params: DateRangeParams
     SELECT service_type, COUNT(*)::text AS count
     FROM jobs
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND scheduled_date >= ${rangeFrom}::date
       AND scheduled_date <= ${rangeTo}::date
     GROUP BY service_type
@@ -91,6 +107,7 @@ export async function getAvgCompletionDays(db: DbClient, params: DateRangeParams
     )::text AS avg_days
     FROM jobs
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND completed_at IS NOT NULL
       AND scheduled_date >= ${rangeFrom}::date
       AND scheduled_date <= ${rangeTo}::date
@@ -115,10 +132,14 @@ export async function getJobPipelineDistribution(
       jps.color AS stage_color,
       COUNT(j.id)::text AS count
     FROM job_pipeline_stages jps
-    INNER JOIN pipelines p ON p.id = jps.pipeline_id AND p.is_default = true
+    INNER JOIN pipelines p
+      ON p.id = jps.pipeline_id
+     AND p.is_default = true
+     AND p.tenant_id = ${tenantId}
     LEFT JOIN jobs j
       ON j.status = jps.name AND j.pipeline_id = jps.pipeline_id
       AND j.tenant_id = ${tenantId}
+      AND j.archived_at IS NULL
       ${dateFilter}
     WHERE jps.tenant_id = ${tenantId}
     GROUP BY jps.label, jps.color, jps.sort_order
@@ -137,6 +158,7 @@ export async function getJobKpis(db: DbClient, params: DateRangeParams) {
       COUNT(*) FILTER (WHERE status = 'cancelled')::text AS cancelled
     FROM jobs
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND scheduled_date >= ${rangeFrom}::date
       AND scheduled_date <= ${rangeTo}::date
   `);
@@ -154,21 +176,27 @@ export async function getJobCount(
     SELECT COUNT(*)::text AS total
     FROM jobs
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND scheduled_date >= ${from}::date
       AND scheduled_date <= ${to}::date
   `);
   return z.array(totalCountRow).parse(rows);
 }
 
-/** Jobs today with emergency count. Dashboard-specific. */
-export async function getJobsToday(db: DbClient, tenantId: string) {
+/** Jobs scheduled today (tenant-local) with emergency count. Dashboard-specific. */
+export async function getJobsToday(
+  db: DbClient,
+  tenantId: string,
+  timezone: string,
+) {
   const rows = await db.execute(sql`
     SELECT
       COUNT(*)::text AS total,
       COUNT(*) FILTER (WHERE priority = 'emergency')::text AS emergency
     FROM jobs
     WHERE tenant_id = ${tenantId}
-      AND scheduled_date = CURRENT_DATE
+      ${NOT_ARCHIVED}
+      AND scheduled_date = (now() AT TIME ZONE ${timezone})::date
   `);
   return z.array(jobsTodayRow).parse(rows);
 }

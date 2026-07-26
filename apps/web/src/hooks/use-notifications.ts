@@ -1,16 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/lib/auth-client";
-import { getTenant } from "@/actions/tenants";
 import {
   getNotifications,
   getUnreadNotificationCount,
   markNotificationRead,
   markAllNotificationsRead,
 } from "@/actions/notifications";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useEventStream } from "./use-event-stream";
 
 interface NotificationItem {
   id: string;
@@ -26,12 +24,14 @@ interface NotificationItem {
   isRead: boolean;
 }
 
+/** Broadcast payload — the notification row without the per-user read flag. */
+type NotificationPayload = Omit<NotificationItem, "isRead">;
+
 export function useNotifications() {
   const { data: session } = useSession();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
-  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const currentUserId = session?.user?.id;
 
@@ -61,62 +61,15 @@ export function useNotifications() {
     };
   }, []);
 
-  // Subscribe to real-time notifications
-  useEffect(() => {
-    let mounted = true;
+  // Subscribe to real-time notifications. The SSE stream is scoped to the
+  // caller's tenant server-side, so no tenant lookup is needed here.
+  useEventStream<NotificationPayload>("notifications", "new_notification", (payload) => {
+    // Skip if this user is the actor
+    if (payload.actorId && payload.actorId === currentUserId) return;
 
-    async function subscribe() {
-      const { data: tenant } = await getTenant();
-      if (!tenant?.id || !mounted) return;
-
-      const supabase = getSupabaseBrowserClient();
-      const channel = supabase
-        .channel(`notifications:${tenant.id}`)
-        .on("broadcast", { event: "new_notification" }, ({ payload }) => {
-          if (!mounted) return;
-
-          // Skip if this user is the actor
-          if (payload.actorId && payload.actorId === currentUserId) return;
-
-          const newNotif: NotificationItem = {
-            id: payload.id,
-            tenantId: payload.tenantId,
-            type: payload.type,
-            title: payload.title,
-            description: payload.description,
-            entityType: payload.entityType,
-            entityId: payload.entityId,
-            actorId: payload.actorId,
-            metadata: payload.metadata,
-            createdAt: payload.createdAt,
-            isRead: false,
-          };
-
-          setNotifications((prev) => [newNotif, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-        })
-        .subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            console.log("[notifications] Realtime channel subscribed");
-          } else if (status === "CHANNEL_ERROR") {
-            console.error("[notifications] Realtime channel error");
-          }
-        });
-
-      channelRef.current = channel;
-    }
-
-    void subscribe();
-
-    return () => {
-      mounted = false;
-      if (channelRef.current) {
-        const supabase = getSupabaseBrowserClient();
-        void supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-  }, [currentUserId]);
+    setNotifications((prev) => [{ ...payload, isRead: false }, ...prev]);
+    setUnreadCount((prev) => prev + 1);
+  });
 
   const markAsRead = useCallback(async (id: string) => {
     setNotifications((prev) =>

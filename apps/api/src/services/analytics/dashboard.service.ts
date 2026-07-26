@@ -1,60 +1,121 @@
 import type { DbClient, DateRangeParams } from "./types.js";
-import type { DashboardStats, DashboardRevenueGranularity } from "@hvac-saas/types";
+import type { DashboardStats, DashboardRevenueGranularity, DashboardPipelineItem } from "@hvac-saas/types";
 import { pInt, pFloat } from "./helpers.js";
+import { addDays, startOfMonthsAgo, titleCase, todayInTimezone } from "./types.js";
 import { analyticsCache, CACHE_TTL } from "./cache.js";
 import * as revenueQ from "./queries/revenue.js";
 import * as jobsQ from "./queries/jobs.js";
 import * as customersQ from "./queries/customers.js";
 import * as quotesInvoicesQ from "./queries/quotes-invoices.js";
-import * as bookingsQ from "./queries/bookings.js";
 import * as dashboardQ from "./queries/dashboard-only.js";
+
+/** Minimal logger shape — accepts a Fastify logger without importing Fastify here. */
+interface ServiceLogger {
+  error: (obj: Record<string, unknown>, msg?: string) => void;
+}
+
+/** How far ahead the agenda looks, in days. */
+const AGENDA_WINDOW_DAYS = 7;
+/** How many months of history the retention trend covers. */
+const RETENTION_MONTHS = 5;
 
 export async function getDashboardStats(
   db: DbClient,
   params: DateRangeParams,
   granularity: DashboardRevenueGranularity = "month",
-  pipelineId: string | null = null,
+  logger?: ServiceLogger,
 ): Promise<DashboardStats> {
   const cacheParams = {
     from: params.rangeFrom,
     to: params.rangeTo,
+    tz: params.timezone,
     granularity,
-    pipelineId: pipelineId ?? "default",
   };
 
   return analyticsCache.getOrFetch(
     params.tenantId,
     "dashboard",
     cacheParams,
-    () => fetchDashboardStats(db, params, granularity, pipelineId),
-    { ttlMs: CACHE_TTL.REALTIME, staleWhileRevalidate: true },
+    () => fetchDashboardStats(db, params, granularity),
+    {
+      ttlMs: CACHE_TTL.REALTIME,
+      staleWhileRevalidate: true,
+      onError: (error) =>
+        logger?.error(
+          { err: error, tenantId: params.tenantId },
+          "dashboard stats background revalidation failed; serving stale data",
+        ),
+    },
   );
+}
+
+/**
+ * Pipeline stage distribution on its own cache key, so the pipeline selector does
+ * not force a refetch of the entire dashboard.
+ */
+export async function getDashboardPipelineBreakdown(
+  db: DbClient,
+  tenantId: string,
+  pipelineId: string | null,
+  logger?: ServiceLogger,
+): Promise<DashboardPipelineItem[]> {
+  return analyticsCache.getOrFetch(
+    tenantId,
+    "dashboard-pipeline",
+    { pipelineId: pipelineId ?? "default" },
+    async () => {
+      const rows = await dashboardQ.getDashboardPipeline(db, tenantId, pipelineId);
+      return rows.map(toPipelineItem);
+    },
+    {
+      ttlMs: CACHE_TTL.REALTIME,
+      staleWhileRevalidate: true,
+      onError: (error) =>
+        logger?.error(
+          { err: error, tenantId },
+          "dashboard pipeline background revalidation failed; serving stale data",
+        ),
+    },
+  );
+}
+
+function toPipelineItem(row: {
+  stage_name: string;
+  stage_label: string;
+  stage_color: string;
+  job_count: string;
+}): DashboardPipelineItem {
+  return {
+    stageName: row.stage_name,
+    stageLabel: row.stage_label,
+    stageColor: row.stage_color,
+    count: pInt(row.job_count),
+  };
 }
 
 async function fetchDashboardStats(
   db: DbClient,
   params: DateRangeParams,
   granularity: DashboardRevenueGranularity,
-  pipelineId: string | null,
 ): Promise<DashboardStats> {
-  const { tenantId, rangeFrom, rangeTo, prevFrom, prevTo } = params;
+  const { tenantId, timezone, rangeFrom, rangeTo, prevFrom, prevTo } = params;
+
+  // All "today" boundaries resolve in the tenant's timezone, not the server's.
+  const today = todayInTimezone(timezone);
+  const yesterday = addDays(today, -1);
+  const agendaTo = addDays(today, AGENDA_WINDOW_DAYS);
+  const retentionFrom = startOfMonthsAgo(today, RETENTION_MONTHS);
 
   const [
     jobsTodayResult,
-    openInvoicesResult,
-    outstandingResult,
     revenueResult,
     activeCustomersResult,
-    upcomingBookingsResult,
     overdueResult,
     pipelineResult,
     revenueTrendResult,
     activityResult,
     prevRevenueResult,
-    prevOpenInvoicesResult,
-    prevOutstandingResult,
     yesterdayJobsResult,
-    todayScheduleResult,
     invoiceAgingResult,
     quoteSummaryResult,
     weeklyJobVolumeResult,
@@ -68,100 +129,88 @@ async function fetchDashboardStats(
     agendaJobsResult,
     agendaBookingsResult,
   ] = await Promise.all([
-    // 1. Jobs today
-    jobsQ.getJobsToday(db, tenantId),
-    // 2. Open invoices
-    quotesInvoicesQ.getOpenInvoiceCount(db, tenantId, rangeFrom, rangeTo),
-    // 3. Outstanding balance
-    quotesInvoicesQ.getOutstandingBalance(db, tenantId, rangeFrom, rangeTo),
-    // 4. Revenue in range
+    // 1. Jobs today (tenant-local)
+    jobsQ.getJobsToday(db, tenantId, timezone),
+    // 2. Revenue in range
     revenueQ.getRevenueTotal(db, tenantId, rangeFrom, rangeTo),
-    // 5. Active customers (always current)
-    customersQ.getActiveCustomerCount(db, tenantId),
-    // 6. Upcoming bookings
-    bookingsQ.getPendingBookingCount(db, tenantId),
-    // 7. Overdue invoices
-    quotesInvoicesQ.getOverdueInvoiceSummary(db, tenantId),
-    // 8. Job pipeline (respects selected pipeline or falls back to default)
-    dashboardQ.getDashboardPipeline(db, tenantId, pipelineId),
-    // 9. Revenue trend — respects selected range + granularity
+    // 3. Active customers (trailing 90 days, always current)
+    customersQ.getActiveCustomerCount(db, tenantId, timezone),
+    // 4. Overdue invoices (derived from due_date, not stored status)
+    quotesInvoicesQ.getOverdueInvoiceSummary(db, tenantId, timezone),
+    // 5. Job pipeline for the tenant's default pipeline
+    dashboardQ.getDashboardPipeline(db, tenantId, null),
+    // 6. Revenue trend — respects selected range + granularity
     revenueQ.getRevenueTrend(db, tenantId, rangeFrom, rangeTo, granularity),
-    // 10. Recent activity
+    // 7. Recent activity
     dashboardQ.getRecentActivity(db, tenantId),
-    // 11. Previous revenue
+    // 8. Previous-period revenue
     revenueQ.getRevenueTotal(db, tenantId, prevFrom, prevTo),
-    // 12. Previous open invoices
-    quotesInvoicesQ.getOpenInvoiceCount(db, tenantId, prevFrom, prevTo),
-    // 13. Previous outstanding
-    quotesInvoicesQ.getOutstandingBalance(db, tenantId, prevFrom, prevTo),
-    // 14. Yesterday's jobs
-    jobsQ.getJobCount(db, tenantId, formatYesterday(), formatYesterday()),
-    // 15. Today's schedule
-    dashboardQ.getTodaySchedule(db, tenantId),
-    // 16. Invoice aging
-    quotesInvoicesQ.getInvoiceAgingBuckets(db, tenantId),
-    // 17. Quote summary
-    quotesInvoicesQ.getQuoteSummary(db, tenantId, rangeFrom, rangeTo),
-    // 18. Weekly job volume sparkline
-    dashboardQ.getWeeklyJobVolume(db, tenantId),
-    // 19. Weekly revenue sparkline
-    dashboardQ.getWeeklyRevenue(db, tenantId),
-    // 20. Repeat-customer retention trend (last 6 months, independent of range)
-    customersQ.getRepeatCustomerRateByMonth(db, tenantId, formatPastMonths(5), formatToday()),
-    // 21. Priority breakdown for range
+    // 9. Yesterday's jobs
+    jobsQ.getJobCount(db, tenantId, yesterday, yesterday),
+    // 10. Invoice aging — also the source for the outstanding-balance KPI
+    quotesInvoicesQ.getInvoiceAgingBuckets(db, tenantId, timezone),
+    // 11. Quote summary
+    quotesInvoicesQ.getQuoteSummary(db, tenantId, rangeFrom, rangeTo, timezone),
+    // 12. Weekly job volume sparkline
+    dashboardQ.getWeeklyJobVolume(db, tenantId, timezone),
+    // 13. Weekly revenue sparkline
+    dashboardQ.getWeeklyRevenue(db, tenantId, timezone),
+    // 14. Repeat-customer retention trend (last 6 months, independent of range)
+    customersQ.getRepeatCustomerRateByMonth(db, tenantId, retentionFrom, today),
+    // 15. Priority breakdown for range
     jobsQ.getJobsByPriority(db, params),
-    // 22. Service type breakdown for range
+    // 16. Service type breakdown for range
     jobsQ.getJobsByServiceType(db, params),
-    // 23. Revenue composition by service type
+    // 17. Revenue composition by service type
     revenueQ.getRevenueByServiceType(db, params),
-    // 24. Top customers by revenue in range
+    // 18. Top customers by revenue in range
     revenueQ.getTopCustomersByRevenue(db, params),
-    // 25-27. Agenda (next 7 days, independent of range)
-    dashboardQ.getUpcomingEvents(db, tenantId, formatToday(), formatDaysFromNow(7)),
-    dashboardQ.getUpcomingJobs(db, tenantId, formatToday(), formatDaysFromNow(7)),
-    dashboardQ.getUpcomingBookings(db, tenantId, formatToday(), formatDaysFromNow(7)),
+    // 19-21. Agenda (next 7 days, independent of range)
+    dashboardQ.getUpcomingEvents(db, tenantId, today, agendaTo),
+    dashboardQ.getUpcomingJobs(db, tenantId, today, agendaTo),
+    dashboardQ.getUpcomingBookings(db, tenantId, today, agendaTo),
   ]);
 
   const quoteSummaryRow = quoteSummaryResult[0];
   const totalQuotes = pInt(quoteSummaryRow?.total_quotes);
   const accepted = pInt(quoteSummaryRow?.accepted);
 
+  const invoiceAging = invoiceAgingResult.map((row) => ({
+    bucket: row.bucket as DashboardStats["invoiceAging"][number]["bucket"],
+    count: pInt(row.count),
+    amount: pFloat(row.amount),
+  }));
+
+  // Outstanding balance is every unpaid invoice, which is exactly what the aging
+  // buckets already sum to — no extra query needed.
+  const outstandingBalance = invoiceAging.reduce((sum, b) => sum + b.amount, 0);
+  const openInvoiceCount = invoiceAging.reduce((sum, b) => sum + b.count, 0);
+
   return {
+    range: { from: rangeFrom, to: rangeTo },
     kpis: {
       jobsToday: {
         count: pInt(jobsTodayResult[0]?.total),
         emergencyCount: pInt(jobsTodayResult[0]?.emergency),
         yesterdayCount: pInt(yesterdayJobsResult[0]?.total),
       },
-      openInvoices: {
-        count: pInt(openInvoicesResult[0]?.total),
-        previousCount: pInt(prevOpenInvoicesResult[0]?.total),
-      },
       outstandingBalance: {
-        amount: pFloat(outstandingResult[0]?.amount),
-        previousAmount: pFloat(prevOutstandingResult[0]?.amount),
+        amount: outstandingBalance,
+        invoiceCount: openInvoiceCount,
       },
-      thisMonthRevenue: {
+      rangeRevenue: {
         amount: pFloat(revenueResult[0]?.amount),
         previousAmount: pFloat(prevRevenueResult[0]?.amount),
       },
       activeCustomers: {
         count: pInt(activeCustomersResult[0]?.total),
       },
-      upcomingBookings: {
-        count: pInt(upcomingBookingsResult[0]?.total),
-      },
     },
     overdueInvoices: {
       count: pInt(overdueResult[0]?.total),
       totalAmount: pFloat(overdueResult[0]?.amount),
     },
-    jobPipeline: pipelineResult.map((row) => ({
-      stageName: row.stage_name,
-      stageLabel: row.stage_label,
-      stageColor: row.stage_color,
-      count: pInt(row.job_count),
-    })),
+    jobPipeline: pipelineResult.map(toPipelineItem),
     revenueTrend: revenueTrendResult.map((row) => ({
       month: row.month,
       monthLabel: row.month_label,
@@ -176,21 +225,7 @@ async function fetchDashboardStats(
       entityLabel: row.entity_label,
       createdAt: row.created_at,
     })),
-    todaySchedule: todayScheduleResult.map((row) => ({
-      id: row.id,
-      jobNumber: row.job_number,
-      customerName: row.customer_name,
-      scheduledStart: row.scheduled_start,
-      scheduledEnd: row.scheduled_end,
-      status: row.status,
-      priority: row.priority,
-      serviceType: row.service_type,
-    })),
-    invoiceAging: invoiceAgingResult.map((row) => ({
-      bucket: row.bucket as "current" | "30" | "60" | "90plus",
-      count: pInt(row.count),
-      amount: pFloat(row.amount),
-    })),
+    invoiceAging,
     quoteSummary: {
       totalQuotes,
       accepted,
@@ -228,7 +263,6 @@ async function fetchDashboardStats(
       label: titleCase(r.service_type),
       count: pInt(r.count),
     })),
-    selectedPipelineId: pipelineId,
     serviceRevenue: serviceRevenueResult.map((row) => ({
       serviceType: row.service_type ?? "other",
       label: titleCase(row.service_type),
@@ -241,8 +275,8 @@ async function fetchDashboardStats(
       jobCount: pInt(row.job_count),
     })),
     agenda: {
-      from: formatToday(),
-      to: formatDaysFromNow(7),
+      from: today,
+      to: agendaTo,
       events: agendaEventsResult.map((r) => ({
         id: r.id,
         title: r.title,
@@ -277,34 +311,4 @@ async function fetchDashboardStats(
       })),
     },
   };
-}
-
-function formatDaysFromNow(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
-}
-
-function titleCase(input: string | null | undefined): string {
-  if (!input) return "Other";
-  return input.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-// ── Date helpers ──
-
-function formatToday(): string {
-  return new Date().toISOString().split("T")[0];
-}
-
-function formatYesterday(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toISOString().split("T")[0];
-}
-
-function formatPastMonths(months: number): string {
-  const d = new Date();
-  d.setMonth(d.getMonth() - months);
-  d.setDate(1); // start of month
-  return d.toISOString().split("T")[0];
 }

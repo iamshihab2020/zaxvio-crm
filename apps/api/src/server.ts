@@ -10,6 +10,7 @@ import {
 } from "fastify-type-provider-zod";
 import { closeDb } from "@hvac-saas/database";
 import { auth } from "./lib/auth.js";
+import { healthResponse } from "./lib/schemas/common.js";
 import {
   printStartupBanner,
   printShutdownMessage,
@@ -37,6 +38,8 @@ import adminRoutes from "./routes/admin/index.js";
 import notificationRoutes from "./routes/notifications/index.js";
 import reportRoutes from "./routes/reports/index.js";
 import conversationRoutes from "./routes/conversations/index.js";
+import eventRoutes from "./routes/events/index.js";
+import { analyticsCache } from "./services/analytics/cache.js";
 
 export async function buildServer() {
   const isDev = process.env.NODE_ENV !== "production";
@@ -168,6 +171,19 @@ export async function buildServer() {
     },
   });
 
+  // Any successful write invalidates that tenant's cached analytics, so a new job or
+  // a recorded payment shows up on the dashboard immediately instead of after the
+  // 30s TTL. Registered once here rather than in ~30 individual handlers, so it
+  // cannot drift as routes are added.
+  const MUTATING_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"]);
+  fastify.addHook("onResponse", async (request, reply) => {
+    const tenantId = request.authUser?.tenantId;
+    if (!tenantId) return;
+    if (!MUTATING_METHODS.has(request.method)) return;
+    if (reply.statusCode >= 400) return;
+    analyticsCache.invalidateTenant(tenantId);
+  });
+
   // --- Routes ---
   await fastify.register(tenantRoutes, { prefix: "/tenants" });
   await fastify.register(customerRoutes, { prefix: "/customers" });
@@ -191,6 +207,7 @@ export async function buildServer() {
   await fastify.register(notificationRoutes, { prefix: "/notifications" });
   await fastify.register(reportRoutes, { prefix: "/reports" });
   await fastify.register(conversationRoutes, { prefix: "/conversations" });
+  await fastify.register(eventRoutes, { prefix: "/events" });
 
   fastify.get(
     "/health",
@@ -198,14 +215,10 @@ export async function buildServer() {
       schema: {
         description: "Health check",
         tags: ["System"],
+        // Must be a Zod schema — the server registers fastify-type-provider-zod's
+        // serializerCompiler, which rejects raw JSON Schema with FST_ERR_INVALID_SCHEMA.
         response: {
-          200: {
-            type: "object",
-            properties: {
-              status: { type: "string" },
-              timestamp: { type: "string" },
-            },
-          },
+          200: healthResponse,
         },
       },
     },

@@ -10,6 +10,11 @@ import type {
   DashboardAgendaJob,
 } from "@hvac-saas/types";
 import { AgendaHoverCard, type AgendaDetails } from "@/components/dashboard/shared/agenda-hover-card";
+import {
+  JOB_PRIORITY_CHART_COLORS,
+  type JobPriority,
+} from "@/lib/constants/job-options";
+import { WidgetWindowBadge } from "./widget-window-badge";
 import { cn } from "@/lib/utils";
 
 interface AgendaTimelineProps {
@@ -18,12 +23,17 @@ interface AgendaTimelineProps {
 
 type AgendaKind = "event" | "job" | "booking";
 
-type AgendaItem = AgendaDetails & { id: string };
+/**
+ * `hasTime` distinguishes "scheduled for 9am" from "scheduled that day, no time".
+ * `start` still carries the date in both cases so grouping and sorting work, but
+ * without this flag an untimed item would print a meaningless "12:00 AM".
+ */
+type AgendaItem = AgendaDetails & { id: string; hasTime: boolean };
 
-const HOUR_START = 8;
-const HOUR_END = 20;
-const HOUR_PX = 56;
-
+/**
+ * Combine a YYYY-MM-DD date with an optional HH:MM:SS time into a local Date.
+ * With no time, returns midnight on that date.
+ */
 function parseDateAt(date: string, time: string | null): Date | null {
   if (!date) return null;
   const base = parseISO(date);
@@ -35,9 +45,13 @@ function parseDateAt(date: string, time: string | null): Date | null {
   return d;
 }
 
+/** End time only exists when both a date and an explicit end time are present. */
+function parseEndAt(date: string | null, time: string | null): Date | null {
+  if (!date || !time) return null;
+  return parseDateAt(date, time);
+}
+
 function eventToItem(e: DashboardAgendaEvent): AgendaItem {
-  const start = parseDateAt(e.eventDate, e.startTime);
-  const end = parseDateAt(e.eventDate, e.endTime);
   return {
     id: `event-${e.id}`,
     kind: "event",
@@ -46,15 +60,15 @@ function eventToItem(e: DashboardAgendaEvent): AgendaItem {
     customerName: e.contactName ?? undefined,
     address: e.address ?? undefined,
     description: e.description ?? undefined,
-    start,
-    end,
+    start: parseDateAt(e.eventDate, e.startTime),
+    end: parseEndAt(e.eventDate, e.endTime),
+    hasTime: Boolean(e.startTime),
     color: e.color || "#6366f1",
     href: `/schedule`,
   };
 }
 
 function bookingToItem(b: DashboardAgendaBooking): AgendaItem {
-  const start = parseDateAt(b.bookingDate ?? "", b.preferredTime ?? null);
   return {
     id: `booking-${b.id}`,
     kind: "booking",
@@ -64,10 +78,12 @@ function bookingToItem(b: DashboardAgendaBooking): AgendaItem {
     address: b.address ?? undefined,
     description: b.description ?? undefined,
     serviceType: b.serviceType ?? undefined,
-    start,
+    start: parseDateAt(b.bookingDate ?? "", b.preferredTime),
     end: null,
+    hasTime: Boolean(b.preferredTime),
     color: "#14b8a6",
-    href: `/bookings?booking=${b.id}`,
+    // Param name must match what bookings-page-client.tsx reads.
+    href: `/bookings?bookingId=${b.id}`,
   };
 }
 
@@ -76,19 +92,9 @@ function titleCase(s: string): string {
 }
 
 function jobToItem(j: DashboardAgendaJob): AgendaItem {
-  // Prefer full scheduled_start timestamp; fall back to scheduledDate + start time.
-  const start = (() => {
-    if (j.scheduledStart) {
-      const d = parseISO(j.scheduledStart);
-      if (isValid(d)) return d;
-    }
-    if (j.scheduledDate) {
-      const d = parseISO(j.scheduledDate);
-      if (isValid(d)) return d;
-    }
-    return null;
-  })();
-  const end = j.scheduledEnd ? parseISO(j.scheduledEnd) : null;
+  // `scheduled_start` is a Postgres `time` column, so it arrives as "09:00:00" —
+  // parseISO cannot read that and returns Invalid Date. Combine it with the date
+  // through the same helper events and bookings use, or every job renders 12:00 AM.
   return {
     id: `job-${j.id}`,
     kind: "job",
@@ -98,16 +104,21 @@ function jobToItem(j: DashboardAgendaJob): AgendaItem {
     address: j.address ?? undefined,
     serviceType: j.serviceType ?? undefined,
     priority: j.priority ?? undefined,
-    start,
-    end: end && isValid(end) ? end : null,
-    color:
-      j.priority === "urgent"
-        ? "#ef4444"
-        : j.priority === "high"
-          ? "#f59e0b"
-          : "hsl(var(--brand))",
-    href: `/jobs?job=${j.id}`,
+    start: parseDateAt(j.scheduledDate ?? "", j.scheduledStart),
+    end: parseEndAt(j.scheduledDate, j.scheduledEnd),
+    hasTime: Boolean(j.scheduledStart),
+    color: priorityColor(j.priority),
+    // Param name must match what jobs-page-client.tsx reads (`jobId`, not `job`).
+    href: `/jobs?jobId=${j.id}`,
   };
+}
+
+/** Colour by priority, from the shared map keyed off the database enum. */
+function priorityColor(priority: string | null): string {
+  if (priority && priority in JOB_PRIORITY_CHART_COLORS) {
+    return JOB_PRIORITY_CHART_COLORS[priority as JobPriority];
+  }
+  return "hsl(var(--brand))";
 }
 
 export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
@@ -123,28 +134,26 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
     });
   }, [events, jobs, bookings]);
 
-  const mode = useMemo<"day" | "week" | "range">(() => {
+  const spanDays = useMemo(() => {
     try {
-      const span = differenceInCalendarDays(parseISO(to), parseISO(from));
-      if (span <= 0) return "day";
-      if (span <= 14) return "week";
-      return "range";
+      return differenceInCalendarDays(parseISO(to), parseISO(from));
     } catch {
-      return "day";
+      return 0;
     }
   }, [from, to]);
 
-  const title = mode === "day" ? "Today's Agenda" : mode === "week" ? "Upcoming Agenda" : "Agenda";
-
   return (
     <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between">
-        <h3 className="font-heading text-sm font-semibold text-foreground">
-          {title}
-        </h3>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <h3 className="font-heading text-sm font-semibold text-foreground">
+            Agenda
+          </h3>
+          <WidgetWindowBadge label={`Next ${spanDays} days`} />
+        </div>
         <Link
           href="/schedule"
-          className="text-[11px] font-body text-muted-foreground hover:text-foreground"
+          className="whitespace-nowrap text-[11px] font-body text-muted-foreground hover:text-foreground"
         >
           View schedule →
         </Link>
@@ -159,10 +168,8 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
             Events, jobs, and bookings in the next 7 days will show here.
           </div>
         </div>
-      ) : mode === "day" ? (
-        <DayTimeline items={items} />
       ) : (
-        <GroupedList items={items} condensed={mode === "range"} />
+        <GroupedList items={items} condensed={spanDays > 14} />
       )}
     </div>
   );
@@ -192,70 +199,6 @@ function KindBadge({ kind }: { kind: AgendaKind }) {
   );
 }
 
-
-function DayTimeline({ items }: { items: AgendaItem[] }) {
-  const hours = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, i) => HOUR_START + i);
-
-  return (
-    <div className="relative mt-4 flex-1 overflow-y-auto" style={{ maxHeight: (HOUR_END - HOUR_START) * HOUR_PX + 40 }}>
-      <div className="relative" style={{ height: (HOUR_END - HOUR_START) * HOUR_PX }}>
-        {hours.map((h, i) => (
-          <div
-            key={h}
-            className="absolute left-0 right-0 flex items-start gap-3 border-t border-dashed border-border/60"
-            style={{ top: i * HOUR_PX }}
-          >
-            <span className="mt-[-6px] w-10 shrink-0 pl-1 text-[10px] font-body text-muted-foreground">
-              {h === 12 ? "12 pm" : h > 12 ? `${h - 12} pm` : `${h} am`}
-            </span>
-          </div>
-        ))}
-        {items.map((item) => {
-          if (!item.start) return null;
-          const startH = item.start.getHours() + item.start.getMinutes() / 60;
-          if (startH < HOUR_START || startH > HOUR_END) return null;
-          const endH = item.end
-            ? item.end.getHours() + item.end.getMinutes() / 60
-            : startH + 1;
-          const top = (startH - HOUR_START) * HOUR_PX;
-          const height = Math.max(28, (endH - startH) * HOUR_PX - 4);
-          return (
-            <AgendaHoverCard key={item.id} details={item}>
-              <Link
-                href={item.href}
-                className="absolute left-12 right-2 flex flex-col justify-center rounded-xl border px-3 py-2 shadow-sm transition-shadow hover:shadow-md cursor-pointer"
-                style={{
-                  top,
-                  height,
-                  backgroundColor: `${item.color}14`,
-                  borderColor: `${item.color}55`,
-                }}
-              >
-                <div className="flex items-center gap-1.5">
-                  <KindBadge kind={item.kind} />
-                  <span className="truncate font-heading text-xs font-semibold text-foreground">
-                    {item.title}
-                  </span>
-                </div>
-                {item.subtitle && (
-                  <span className="truncate text-[11px] font-body text-muted-foreground">
-                    {item.subtitle}
-                  </span>
-                )}
-                {item.start && (
-                  <span className="mt-0.5 text-[10px] font-body text-muted-foreground">
-                    {format(item.start, "h:mm a")}
-                    {item.end ? ` – ${format(item.end, "h:mm a")}` : ""}
-                  </span>
-                )}
-              </Link>
-            </AgendaHoverCard>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function GroupedList({ items, condensed }: { items: AgendaItem[]; condensed: boolean }) {
   const groups = useMemo(() => {
@@ -316,12 +259,16 @@ function GroupedList({ items, condensed }: { items: AgendaItem[]; condensed: boo
                             {item.subtitle}
                           </div>
                         )}
-                        {item.start && (
-                          <div className="mt-1 text-[10px] font-body font-medium text-muted-foreground">
-                            {format(item.start, "h:mm a")}
-                            {item.end ? ` – ${format(item.end, "h:mm a")}` : ""}
-                          </div>
-                        )}
+                        <div className="mt-1 text-[10px] font-body font-medium text-muted-foreground">
+                          {item.start && item.hasTime ? (
+                            <>
+                              {format(item.start, "h:mm a")}
+                              {item.end ? ` – ${format(item.end, "h:mm a")}` : ""}
+                            </>
+                          ) : (
+                            "All day"
+                          )}
+                        </div>
                       </div>
                     </Link>
                   </AgendaHoverCard>

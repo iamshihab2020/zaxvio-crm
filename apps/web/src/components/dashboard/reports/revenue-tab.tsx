@@ -21,7 +21,7 @@ import {
   IconPercentage,
   IconChartBar,
 } from "@tabler/icons-react";
-import type { RevenueReportData } from "@hvac-saas/types";
+import type { ReportGranularity, RevenueReportData } from "@hvac-saas/types";
 import {
   ChartContainer,
   ChartTooltip,
@@ -33,6 +33,8 @@ import { Progress } from "@/components/ui/progress";
 import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
 import { ReportDataTable } from "./report-data-table";
+import { EmptyChart } from "./empty-chart";
+import { granularityLabel } from "./report-format";
 import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 import { Slide } from "@/components/animate-ui/primitives/effects/slide";
 
@@ -61,9 +63,10 @@ const avgJobConfig = {
 
 interface RevenueTabProps {
   data: RevenueReportData;
+  granularity: ReportGranularity;
 }
 
-export function RevenueTab({ data }: RevenueTabProps) {
+export function RevenueTab({ data, granularity }: RevenueTabProps) {
   const paymentMethodConfig = useMemo(() => {
     const config: ChartConfig = {};
     data.revenueByPaymentMethod.forEach((item, i) => {
@@ -80,26 +83,35 @@ export function RevenueTab({ data }: RevenueTabProps) {
       <ReportKpiRow
         kpis={[
           {
-            label: "Total Revenue",
+            label: "Revenue Collected",
             value: formatCurrency(data.kpis.totalRevenue),
             icon: IconCash,
             currentValue: data.kpis.totalRevenue,
             previousValue: data.kpis.previousRevenue,
+            hint: "Payments received in this period",
           },
           {
+            // Two different meanings of money used to sit side by side here
+            // unlabelled: "Total Revenue" is cash collected, this is the value
+            // of work booked, whether or not it has been paid for.
             label: "Avg Job Value",
             value: formatCurrency(data.kpis.avgJobValue),
             icon: IconChartBar,
+            currentValue: data.kpis.avgJobValue,
+            previousValue: data.kpis.previousAvgJobValue,
+            hint: "Booked value per job, not yet collected",
           },
           {
             label: "Collection Rate",
             value: `${data.collectionRate.rate}%`,
             icon: IconPercentage,
+            hint: "Of everything invoiced in this period",
           },
           {
             label: "Total Invoiced",
             value: formatCurrency(data.collectionRate.totalInvoiced),
             icon: IconReceipt,
+            hint: "Invoices issued in this period",
           },
         ]}
       />
@@ -109,7 +121,17 @@ export function RevenueTab({ data }: RevenueTabProps) {
         <Fade className="h-full" inView inViewOnce delay={0}>
           <ReportChartCard
             title="Revenue Trend"
-            description="Current vs previous period"
+            description={`Current vs previous period, ${granularityLabel(granularity)}`}
+            dataTable={{
+              caption: "Revenue by period, current versus previous",
+              columns: ["Period", "Current", "Compared with", "Previous"],
+              rows: data.revenueTrend.map((p) => [
+                p.monthLabel,
+                formatCurrency(p.current),
+                p.previousLabel ?? "—",
+                p.previous === null ? "—" : formatCurrency(p.previous),
+              ]),
+            }}
           >
             {data.revenueTrend.length === 0 ? (
               <EmptyChart />
@@ -163,11 +185,13 @@ export function RevenueTab({ data }: RevenueTabProps) {
                     content={
                       <ChartTooltipContent
                         formatter={(value) =>
-                          formatCurrency(value as number)
+                          value === null ? "—" : formatCurrency(value as number)
                         }
                       />
                     }
                   />
+                  {/* `previous` is null when a bucket has no counterpart, so the
+                      line breaks rather than dropping to a false zero. */}
                   <Area
                     type="monotone"
                     dataKey="previous"
@@ -176,6 +200,7 @@ export function RevenueTab({ data }: RevenueTabProps) {
                     strokeWidth={1.5}
                     strokeDasharray="4 4"
                     dot={false}
+                    connectNulls={false}
                   />
                   <Area
                     type="monotone"
@@ -194,7 +219,17 @@ export function RevenueTab({ data }: RevenueTabProps) {
 
         {/* Revenue by Service Type */}
         <Fade className="h-full" inView inViewOnce delay={100}>
-          <ReportChartCard title="Revenue by Service Type">
+          <ReportChartCard
+            title="Revenue by Service Type"
+            dataTable={{
+              caption: "Revenue by service type",
+              columns: ["Service Type", "Revenue"],
+              rows: data.revenueByServiceType.map((r) => [
+                r.label,
+                formatCurrency(r.amount),
+              ]),
+            }}
+          >
             {data.revenueByServiceType.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -228,9 +263,7 @@ export function RevenueTab({ data }: RevenueTabProps) {
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        formatter={(value) =>
-                          formatCurrency(value as number)
-                        }
+                        formatter={(value) => formatCurrency(value as number)}
                       />
                     }
                   />
@@ -247,7 +280,17 @@ export function RevenueTab({ data }: RevenueTabProps) {
 
         {/* Revenue by Payment Method */}
         <Fade className="h-full" inView inViewOnce delay={200}>
-          <ReportChartCard title="Revenue by Payment Method">
+          <ReportChartCard
+            title="Revenue by Payment Method"
+            dataTable={{
+              caption: "Revenue by payment method",
+              columns: ["Payment Method", "Revenue"],
+              rows: data.revenueByPaymentMethod.map((r) => [
+                r.label,
+                formatCurrency(r.amount),
+              ]),
+            }}
+          >
             {data.revenueByPaymentMethod.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -259,9 +302,7 @@ export function RevenueTab({ data }: RevenueTabProps) {
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        formatter={(value) =>
-                          formatCurrency(value as number)
-                        }
+                        formatter={(value) => formatCurrency(value as number)}
                       />
                     }
                   />
@@ -275,9 +316,9 @@ export function RevenueTab({ data }: RevenueTabProps) {
                     outerRadius={100}
                     paddingAngle={2}
                   >
-                    {data.revenueByPaymentMethod.map((_, i) => (
+                    {data.revenueByPaymentMethod.map((slice, i) => (
                       <Cell
-                        key={i}
+                        key={slice.method}
                         fill={CHART_COLORS[i % CHART_COLORS.length]}
                       />
                     ))}
@@ -290,14 +331,22 @@ export function RevenueTab({ data }: RevenueTabProps) {
 
         {/* Avg Job Value Trend */}
         <Fade className="h-full" inView inViewOnce delay={300}>
-          <ReportChartCard title="Average Job Value">
+          <ReportChartCard
+            title="Average Job Value"
+            description={`Booked value per job, ${granularityLabel(granularity)}`}
+            dataTable={{
+              caption: "Average booked job value by period",
+              columns: ["Period", "Avg Job Value"],
+              rows: data.avgJobValueTrend.map((r) => [
+                r.monthLabel,
+                formatCurrency(r.avgValue),
+              ]),
+            }}
+          >
             {data.avgJobValueTrend.length === 0 ? (
               <EmptyChart />
             ) : (
-              <ChartContainer
-                config={avgJobConfig}
-                className="h-[280px] w-full"
-              >
+              <ChartContainer config={avgJobConfig} className="h-[280px] w-full">
                 <LineChart
                   data={data.avgJobValueTrend}
                   margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
@@ -322,9 +371,7 @@ export function RevenueTab({ data }: RevenueTabProps) {
                   <ChartTooltip
                     content={
                       <ChartTooltipContent
-                        formatter={(value) =>
-                          formatCurrency(value as number)
-                        }
+                        formatter={(value) => formatCurrency(value as number)}
                       />
                     }
                   />
@@ -357,7 +404,11 @@ export function RevenueTab({ data }: RevenueTabProps) {
                   {formatCurrency(data.collectionRate.totalInvoiced)}
                 </span>
               </div>
-              <Progress value={data.collectionRate.rate} className="h-2" />
+              <Progress
+                value={data.collectionRate.rate}
+                className="h-2"
+                aria-label={`Collection rate ${data.collectionRate.rate} percent`}
+              />
             </div>
           </ReportChartCard>
         </Fade>
@@ -376,20 +427,12 @@ export function RevenueTab({ data }: RevenueTabProps) {
               { key: "jobCount", label: "Jobs", align: "right" },
             ]}
             data={data.topCustomersByRevenue}
+            rowKey={(row) => row.id}
+            rowHref={(row) => `/customers/${row.id}`}
             emptyMessage="No customer revenue data"
           />
         </Slide>
       </div>
-    </div>
-  );
-}
-
-function EmptyChart() {
-  return (
-    <div className="flex h-[280px] items-center justify-center">
-      <p className="text-sm text-muted-foreground font-body">
-        No data for this period
-      </p>
     </div>
   );
 }

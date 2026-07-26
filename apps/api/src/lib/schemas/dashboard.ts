@@ -3,11 +3,20 @@ import { z } from "zod";
 /** Revenue trend granularity for GET /dashboard/stats */
 export const revenueGranularitySchema = z.enum(["day", "week", "month"]);
 
+/** YYYY-MM-DD. Rejects garbage before it reaches `${x}::date` in SQL. */
+const isoDate = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a YYYY-MM-DD date");
+
 /** Query params for GET /dashboard/stats */
 export const dashboardStatsQuery = z.object({
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: isoDate.optional(),
+  to: isoDate.optional(),
   granularity: revenueGranularitySchema.optional().default("month"),
+});
+
+/** Query params for GET /dashboard/pipeline */
+export const dashboardPipelineQuery = z.object({
   pipelineId: z.string().uuid().optional(),
 });
 
@@ -20,9 +29,16 @@ export const reportSectionEnum = z.enum([
   "bookings",
 ]);
 
-/** Query params for GET /reports/stats */
+/**
+ * Query params for GET /reports/stats.
+ *
+ * `granularity` is optional: omitted, the service picks a bucket size from the
+ * span (day ≤31d, week ≤120d, month beyond) so "Last 7 days" no longer renders a
+ * single bar. The resolved value is echoed back in the response.
+ */
 export const reportStatsQuery = z.object({
   section: reportSectionEnum.optional().default("revenue"),
-  from: z.string().optional(),
-  to: z.string().optional(),
+  from: isoDate.optional(),
+  to: isoDate.optional(),
+  granularity: revenueGranularitySchema.optional(),
 });

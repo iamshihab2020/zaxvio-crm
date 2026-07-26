@@ -1,5 +1,6 @@
 import { createConsola } from "consola";
-import { env } from "./env.js";
+import { env, isPlaceholderEmail } from "./env.js";
+import { isStorageConfigured } from "./storage.js";
 
 const logger = createConsola({
   formatOptions: { date: false },
@@ -38,6 +39,12 @@ export function printStartupBanner(startTime: bigint) {
     routeLines.push("  " + chunk.map((r) => r.padEnd(22)).join(""));
   }
 
+  const emailStatus = !env.RESEND_API_KEY
+    ? "⚠ Not configured"
+    : isPlaceholderEmail(env.RESEND_FROM_EMAIL)
+      ? `⚠ Resend key OK, but sender "${env.RESEND_FROM_EMAIL}" is a placeholder — sends will fail`
+      : `Resend ✓ (${env.RESEND_FROM_EMAIL})`;
+
   const bannerLines = [
     "",
     "🚀  Zaxvio CRM — API Server",
@@ -47,7 +54,9 @@ export function printStartupBanner(startTime: bigint) {
     `📚  API Docs          http://localhost:${env.PORT}/docs`,
     `🔗  CORS              ${env.FRONTEND_URL}`,
     `🔐  Auth              Better Auth ✓`,
-    `📧  Email             ${env.RESEND_API_KEY ? "Resend ✓" : "⚠ Not configured"}`,
+    `📧  Email             ${emailStatus}`,
+    `📦  Storage           ${isStorageConfigured() ? "Cloudflare R2 ✓" : "⚠ R2 not configured — uploads will fail"}`,
+    `📡  Realtime          SSE at /events ✓`,
     "",
     `📦  Routes (${ROUTES.length})`,
     ...routeLines,

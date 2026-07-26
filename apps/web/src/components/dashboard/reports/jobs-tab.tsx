@@ -16,7 +16,7 @@ import {
   IconCircleX,
   IconPercentage,
 } from "@tabler/icons-react";
-import type { JobReportData } from "@hvac-saas/types";
+import type { JobReportData, ReportGranularity } from "@hvac-saas/types";
 import {
   ChartContainer,
   ChartTooltip,
@@ -25,6 +25,8 @@ import {
 } from "@/components/ui/chart";
 import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
+import { EmptyChart } from "./empty-chart";
+import { granularityLabel } from "./report-format";
 import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 
 const volumeConfig = {
@@ -41,9 +43,10 @@ const serviceConfig = {
 
 interface JobsTabProps {
   data: JobReportData;
+  granularity: ReportGranularity;
 }
 
-export function JobsTab({ data }: JobsTabProps) {
+export function JobsTab({ data, granularity }: JobsTabProps) {
   const statusConfig: ChartConfig = {};
   data.jobsByStatus.forEach((s) => {
     statusConfig[s.status] = { label: s.label, color: s.color };
@@ -81,7 +84,15 @@ export function JobsTab({ data }: JobsTabProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Job Volume Trend */}
         <Fade className="h-full" inView inViewOnce delay={0}>
-          <ReportChartCard title="Job Volume by Month">
+          <ReportChartCard
+            title="Job Volume"
+            description={`Scheduled jobs, ${granularityLabel(granularity)}`}
+            dataTable={{
+              caption: "Job volume by period",
+              columns: ["Period", "Jobs"],
+              rows: data.jobVolumeTrend.map((p) => [p.monthLabel, String(p.count)]),
+            }}
+          >
             {data.jobVolumeTrend.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -121,7 +132,14 @@ export function JobsTab({ data }: JobsTabProps) {
 
         {/* Jobs by Status */}
         <Fade className="h-full" inView inViewOnce delay={100}>
-          <ReportChartCard title="Jobs by Status">
+          <ReportChartCard
+            title="Jobs by Status"
+            dataTable={{
+              caption: "Jobs by status",
+              columns: ["Status", "Jobs"],
+              rows: data.jobsByStatus.map((s) => [s.label, String(s.count)]),
+            }}
+          >
             {data.jobsByStatus.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -153,7 +171,14 @@ export function JobsTab({ data }: JobsTabProps) {
 
         {/* Jobs by Priority */}
         <Fade className="h-full" inView inViewOnce delay={200}>
-          <ReportChartCard title="Jobs by Priority">
+          <ReportChartCard
+            title="Jobs by Priority"
+            dataTable={{
+              caption: "Jobs by priority",
+              columns: ["Priority", "Jobs"],
+              rows: data.jobsByPriority.map((s) => [s.label, String(s.count)]),
+            }}
+          >
             {data.jobsByPriority.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -195,7 +220,14 @@ export function JobsTab({ data }: JobsTabProps) {
 
         {/* Jobs by Service Type */}
         <Fade className="h-full" inView inViewOnce delay={300}>
-          <ReportChartCard title="Jobs by Service Type">
+          <ReportChartCard
+            title="Jobs by Service Type"
+            dataTable={{
+              caption: "Jobs by service type",
+              columns: ["Service Type", "Jobs"],
+              rows: data.jobsByServiceType.map((s) => [s.label, String(s.count)]),
+            }}
+          >
             {data.jobsByServiceType.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -252,7 +284,17 @@ export function JobsTab({ data }: JobsTabProps) {
         </Fade>
 
         <Fade className="h-full md:col-span-2" inView inViewOnce delay={100}>
-          <ReportChartCard title="Pipeline Distribution">
+          <ReportChartCard
+            title="Pipeline Distribution"
+            dataTable={{
+              caption: "Jobs by pipeline stage",
+              columns: ["Stage", "Jobs"],
+              rows: data.pipelineDistribution.map((s) => [
+                s.stageLabel,
+                String(s.count),
+              ]),
+            }}
+          >
             {data.pipelineDistribution.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -288,16 +330,6 @@ export function JobsTab({ data }: JobsTabProps) {
           </ReportChartCard>
         </Fade>
       </div>
-    </div>
-  );
-}
-
-function EmptyChart() {
-  return (
-    <div className="flex h-[280px] items-center justify-center">
-      <p className="text-sm text-muted-foreground font-body">
-        No data for this period
-      </p>
     </div>
   );
 }

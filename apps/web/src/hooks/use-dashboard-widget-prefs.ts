@@ -31,18 +31,28 @@ export const ALL_WIDGETS: { key: WidgetKey; label: string }[] = [
 
 const STORAGE_KEY = "dashboard-widget-visibility";
 
+/**
+ * Opinionated default: the six widgets a service business opens the dashboard for.
+ *
+ * All eleven used to be on, producing ~4,000px of scroll where the two things a
+ * contractor actually checks each morning — what's on today, and who owes money —
+ * sat below three analyst charts. The rest stay one click away in Customize, and
+ * anyone who has already customised keeps their saved layout (stored prefs are
+ * merged over these defaults).
+ */
 const DEFAULT_VISIBLE: Record<WidgetKey, boolean> = {
-  kpis: true,
-  revenue: true,
-  jobsManagement: true,
-  retention: true,
-  invoiceAging: true,
-  quoteFunnel: true,
-  revenueByService: true,
-  topCustomers: true,
-  agenda: true,
   overdueAlert: true,
-  activity: true,
+  kpis: true,
+  agenda: true,
+  revenue: true,
+  invoiceAging: true,
+  jobsManagement: true,
+  // Analyst-grade metrics — valuable, but not daily. Opt in via Customize.
+  quoteFunnel: false,
+  retention: false,
+  revenueByService: false,
+  topCustomers: false,
+  activity: false,
 };
 
 export function useDashboardWidgetPrefs() {

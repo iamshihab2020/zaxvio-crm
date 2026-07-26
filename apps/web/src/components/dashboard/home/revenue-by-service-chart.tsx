@@ -5,6 +5,7 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 
 import { IconChartBar } from "@tabler/icons-react";
 import type { DashboardServiceRevenue } from "@hvac-saas/types";
 import { formatCurrency } from "@/lib/format";
+import { ChartDataTable } from "@/components/reusable/chart-data-table";
 
 interface RevenueByServiceChartProps {
   data: DashboardServiceRevenue[];
@@ -101,7 +102,11 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
           </p>
         </div>
       ) : (
-        <div className="mt-4 flex-1" style={{ minHeight: Math.max(160, rows.length * 36) }}>
+        <div
+          aria-hidden
+          className="mt-4 flex-1"
+          style={{ minHeight: Math.max(160, rows.length * 36) }}
+        >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={rows}
@@ -130,6 +135,16 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
           </ResponsiveContainer>
         </div>
       )}
+
+      <ChartDataTable
+        caption="Revenue by service type"
+        columns={["Service", "Revenue", "Share"]}
+        rows={rows.map((r) => [
+          r.label,
+          formatCurrency(r.amount),
+          `${total > 0 ? Math.round((r.amount / total) * 100) : 0}%`,
+        ])}
+      />
     </div>
   );
 }

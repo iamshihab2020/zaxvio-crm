@@ -5,7 +5,7 @@
 > - [[REPO_MAP_2|Part 2]]: Packages, database schema, auth architecture, build progress
 
 > **Product**: HVAC Field Service Management SaaS for solo contractors (1-3 person teams)
-> **Stack**: Next.js 14 + Fastify + Supabase + Drizzle ORM + Better Auth + Lemon Squeezy
+> **Stack**: Next.js 14 + Fastify + Neon Postgres + Drizzle ORM + Better Auth + Cloudflare R2 + Lemon Squeezy
 > **Monorepo**: Turborepo + pnpm workspaces
 > **Subscription**: $49/month per tenant
 
@@ -25,8 +25,8 @@ zaxvio-crm/
 +-- tsconfig.json             # Base TS config (ES2022, strict)
 +-- .prettierrc               # Semi, double quotes, trailing comma, width 100
 +-- .npmrc                    # auto-install-peers, no strict peer deps
-+-- .env                      # Supabase + DATABASE_URL + Better Auth (not committed)
-+-- .env.example              # Template for all env vars
++-- .env                      # BACKEND ONLY — DATABASE_URL (Neon) + Better Auth + Resend + Cloudflare R2 (not committed)
++-- .env.example              # Template for the backend env. Frontend has its own: apps/web/.env.example
 +-- .gitignore
 +-- CLAUDE.md                 # AI assistant instructions + strict rules
 +-- README.md
@@ -112,6 +112,8 @@ apps/api/
 |   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
 |   |   +-- platform-events.ts    # emitPlatformEvent() — fire-and-forget activity tracking
 |   |   +-- notifications.ts      # dispatchNotification() — multi-channel dispatch (in-app, email, SMS stub, voice stub)
+|   |   +-- storage.ts            # Cloudflare R2 (S3-compatible): uploadFile/downloadFile/deleteFiles/getPublicUrl
+|   |   +-- event-bus.ts          # In-process pub/sub backing the SSE stream (replaced Supabase Realtime)
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
 |   |   +-- pdf/
@@ -134,7 +136,7 @@ apps/api/
 |   |   +-- customers/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /customers (+ notes, activities, tags)
 |   |   +-- dashboard/
-|   |   |   +-- index.ts          # GET /dashboard/stats (10 parallel SQL queries)
+|   |   |   +-- index.ts          # GET /dashboard/stats (21 parallel SQL queries) + GET /dashboard/pipeline
 |   |   +-- invoices/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, payments, PDF, send, void
 |   |   +-- jobs/
@@ -161,8 +163,10 @@ apps/api/
 |   |   |   +-- index.ts          # 6 endpoints: GET list, GET unread-count, PATCH read, PATCH read-all, GET/PATCH preferences
 |   |   +-- conversations/
 |   |   |   +-- index.ts          # Messaging endpoints (list, detail, send, mark-read, etc.)
+|   |   +-- events/
+|   |   |   +-- index.ts          # GET /events — SSE stream (text/event-stream), tenant-scoped; ?tenantId= admin-only
 |   |   +-- reports/
-|   |   |   +-- index.ts          # Reports endpoints (revenue, jobs, customers, quotes/invoices, bookings)
+|   |   |   +-- index.ts          # GET /reports/stats?section=&from=&to=&granularity= — one endpoint, 5 sections
 |   |   +-- admin/                 # Super admin API routes (prefix: /admin)
 |   |   |   +-- index.ts          # Master plugin, registers sub-routes
 |   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
@@ -178,8 +182,24 @@ apps/api/
 |   |
 |   +-- plugins/
 |   |   ~ .gitkeep                # Planned: custom Fastify plugins
-|   +-- services/
-|   |   ~ .gitkeep                # Planned: business logic services
+|   +-- services/                 # Business logic — route handlers stay thin
+|   |   +-- conversations.service.ts
+|   |   +-- notifications.service.ts
+|   |   +-- analytics/
+|   |       +-- types.ts          # DateRangeParams, tz helpers, bucketCount, compare-window maths
+|   |       +-- helpers.ts        # pInt/pFloat + label maps
+|   |       +-- schemas.ts        # Zod schemas for every raw-SQL row shape
+|   |       +-- cache.ts          # TTL cache: SWR, in-flight dedup, 500-entry bound
+|   |       +-- dashboard.service.ts   # /dashboard/stats aggregator (21 queries)
+|   |       +-- reports.service.ts     # /reports/stats — one section per call, exhaustive union
+|   |       +-- queries/
+|   |           +-- buckets.ts         # Shared generate_series bucketing (day/week/month)
+|   |           +-- revenue.ts         # Payment-sourced; deliberately NO archived filter
+|   |           +-- jobs.ts
+|   |           +-- customers.ts
+|   |           +-- quotes-invoices.ts
+|   |           +-- bookings.ts
+|   |           +-- dashboard-only.ts
 |   +-- jobs/
 |   |   ~ .gitkeep                # Planned: background cron runners
 |   +-- scripts/
@@ -207,7 +227,8 @@ apps/api/
 | `/invoices` | requireTenant | CRUD + line items, payments, PDF, send, void | + |
 | `/quotes` | requireTenant | CRUD + line items, PDF, send, accept, convert-to-job | + |
 | `/tags` | requireTenant | CRUD (tenant-level) | + |
-| `/dashboard/stats` | requireTenant | GET stats (10 parallel queries) | + |
+| `/dashboard/stats` | requireTenant | GET stats (21 parallel queries) | + |
+| `/dashboard/pipeline` | requireTenant | GET stage distribution for one pipeline | + |
 | `/availability` | requireTenant | GET/PUT weekly schedule, POST/DELETE overrides | + |
 | `/bookings` | requireTenant | CRUD + convert-to-job | + |
 | `/public/booking/:slug` | None | Branding, availability, slots, submit booking | + |
@@ -215,7 +236,7 @@ apps/api/
 | `/maintenance-contracts` | requireTenant | CRUD + expiring contracts | + |
 | `/calendar-events` | requireTenant | CRUD | + |
 | `/conversations` | requireTenant | Messaging: list, detail, send, mark-read | + |
-| `/reports` | requireTenant | Revenue, jobs, customers, quotes/invoices, bookings analytics | + |
+| `/reports/stats` | requireTenant | GET one section (revenue/jobs/customers/quotes-invoices/bookings), 10min cache | + |
 | `/admin/*` | requireAdmin | Tenant mgmt, analytics, audit, impersonation | + |
 | `/webhooks/lemon-squeezy` | Signature | Subscription lifecycle | ~ |
 
@@ -229,7 +250,9 @@ Unified app: landing page + auth + tenant dashboard + super admin panel + public
 apps/web/
 +-- package.json              # deps: next, better-auth, @tabler/icons-react, recharts, etc.
 +-- tsconfig.json
-+-- next.config.mjs           # staleTimes: { dynamic: 0, static: 0 } (Router Cache fix)
++-- .env.local                # FRONTEND ONLY — Next.js reads .env* from this folder, never the root .env (not committed)
++-- .env.example              # Template for the frontend env
++-- next.config.mjs           # staleTimes + instrumentationHook: true (required on Next 14 for instrumentation.ts)
 +-- tailwind.config.ts
 +-- public/
 |   +-- assets/
@@ -255,14 +278,15 @@ apps/web/
     |   +-- pipeline-stages.ts
     |   +-- pipelines.ts          # Pipeline CRUD (4 actions)
     |   +-- quotes.ts
-    |   +-- reports.ts            # Analytics report actions: revenue, jobs, customers, quotes/invoices, bookings
+    |   +-- reports.ts            # getReportStats -> ReportSectionResponse (union discriminated on `section`)
     |   +-- tags.ts
     |   +-- tenants.ts
     |
     +-- hooks/
     |   +-- use-view-preference.ts   # Persist Kanban/Table view toggle
     |   +-- use-row-selection.ts     # Multi-row selection state for bulk actions
-    |   +-- use-notifications.ts     # Real-time notification hook (Supabase broadcast + server actions)
+    |   +-- use-notifications.ts     # Real-time notification hook (SSE + server actions)
+    |   +-- use-event-stream.ts      # Subscribe to one SSE channel/event; replaces .channel().on("broadcast")
     |   +-- use-debounced-value.ts   # Generic debounce hook (value + delay → debounced value)
     |   +-- queries/                 # TanStack Query hooks (one file per domain)
     |       +-- index.ts                       # Barrel export for all query hooks
@@ -286,12 +310,15 @@ apps/web/
     |       +-- use-admin.ts                   # Admin panel queries & mutations
     |
     +-- lib/
+    |   +-- env.ts                   # Zod-validated web env (getClientEnv/getServerEnv/validateEnv), run at boot
+    |   +-- storage-url.ts           # Build public R2 URLs for job attachments
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
     |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR)
-    |   +-- supabase-client.ts       # Browser Supabase client for Realtime subscriptions (anon key)
+    |   +-- event-stream.ts          # Shared SSE connection to /events (replaced Supabase Realtime); openTenantStream() for admins
     |   +-- format.ts                # formatCurrency(), formatRelativeTime() helpers
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
     |   +-- query-keys.ts            # Centralized TanStack Query key factory for 18 domains
+    |   +-- url-filters.ts           # Allow-listed ?status= reader for list-page deep links
     |   +-- constants/
     |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
@@ -374,26 +401,24 @@ apps/web/
     |   |   +-- sidebar-nav-item.tsx # Nav item component
     |   |   |
     |   |   +-- home/               # KPI Dashboard components
-    |   |   |   +-- agenda-timeline.tsx          # Right-column agenda (day/week/range modes) — NEW
-    |   |   |   +-- customize-widgets-popover.tsx # Show/hide widget toggles — NEW
-    |   |   |   +-- dashboard-skeleton.tsx
-    |   |   |   +-- dashboard-toolbar.tsx        # Ask AI + Customize + Last updated — NEW
-    |   |   |   +-- invoice-aging.tsx
-    |   |   |   +-- job-pipeline-chart.tsx       # (legacy, still importable)
-    |   |   |   +-- jobs-management-panel.tsx    # Status/Priority/Service tabs — NEW
-    |   |   |   +-- kpi-card.tsx                 # (legacy sparkline variant)
-    |   |   |   +-- kpi-grid.tsx                 # (legacy, replaced by KpiPill trio)
-    |   |   |   +-- kpi-pill.tsx                 # Reference-style KPI pill — NEW
+    |   |   |   +-- agenda-timeline.tsx          # Grouped 7-day agenda (events + jobs + bookings)
+    |   |   |   +-- customize-widgets-popover.tsx # Show/hide widget toggles
+    |   |   |   +-- dashboard-skeleton.tsx       # Single skeleton; also used by loading.tsx
+    |   |   |   +-- dashboard-toolbar.tsx        # Ask AI + Customize + Last updated
+    |   |   |   +-- invoice-aging.tsx            # 5 AR buckets, each links to filtered invoices
+    |   |   |   +-- jobs-management-panel.tsx    # Status/Priority/Service tabs, own pipeline query
+    |   |   |   +-- kpi-pill.tsx                 # KPI pill w/ sparkline, footnote, window badge
     |   |   |   +-- overdue-alert-banner.tsx
     |   |   |   +-- quick-actions.tsx
     |   |   |   +-- quote-conversion.tsx
     |   |   |   +-- recent-activity-feed.tsx
-    |   |   |   +-- retention-chart.tsx          # Monthly repeat-customer rate bars — NEW
-    |   |   |   +-- revenue-by-service-chart.tsx # Horizontal bars, top 6 services + "Other" — NEW
-    |   |   |   +-- revenue-chart.tsx            # (legacy, replaced by RevenueRangeChart)
-    |   |   |   +-- revenue-range-chart.tsx      # 1D/1W/1M/6M/1Y/ALL area chart — NEW
-    |   |   |   +-- today-schedule.tsx
-    |   |   |   +-- top-customers-card.tsx       # Ranked list of top 5 customers by revenue — NEW
+    |   |   |   +-- retention-chart.tsx          # Monthly repeat-customer rate bars
+    |   |   |   +-- revenue-by-service-chart.tsx # Horizontal bars, top 6 services + "Other"
+    |   |   |   +-- revenue-range-chart.tsx      # 1D/1W/1M/6M/1Y/ALL area chart
+    |   |   |   +-- top-customers-card.tsx       # Ranked list of top 5 customers by revenue
+    |   |   |   +-- widget-window-badge.tsx      # Marks widgets that ignore the date picker
+    |   |   |   # chart-data-table / widget-error-boundary / dashboard-load-error moved
+    |   |   |   # to components/reusable/ on 2026-07-27 — /reports uses them too
     |   |   |
     |   |   +-- customers/          # Customer components
     |   |   |   +-- customer-activity-tab.tsx
@@ -500,14 +525,20 @@ apps/web/
     |   |   |   +-- conversation-input.tsx       # Message input with send button
     |   |   |   +-- conversation-channel-tab.tsx # Email/SMS/voice tabs
     |   |   |
-    |   |   +-- reports/             # Analytics/reports components
-    |   |   |   +-- revenue-report.tsx           # Revenue trends, MRR, YoY comparison
-    |   |   |   +-- jobs-report.tsx              # Job analytics, pipeline breakdown
-    |   |   |   +-- customers-report.tsx         # Customer acquisition, retention
-    |   |   |   +-- quotes-invoices-report.tsx   # Quote/invoice metrics
-    |   |   |   +-- bookings-report.tsx          # Booking conversion, slots
-    |   |   |   +-- date-range-selector.tsx      # Shared date range picker
-    |   |   |   +-- export-csv-button.tsx        # CSV export functionality
+    |   |   +-- reports/             # /reports components (corrected 2026-07-27)
+    |   |   |   +-- revenue-tab.tsx              # Trend w/ comparison, service/method splits, top customers
+    |   |   |   +-- jobs-tab.tsx                 # Volume, status/priority/service, pipeline distribution
+    |   |   |   +-- customers-tab.tsx            # New-customer trend, active/inactive, repeat/one-time
+    |   |   |   +-- quotes-invoices-tab.tsx      # Quote funnel, invoice status, aging, overdue trend
+    |   |   |   +-- bookings-tab.tsx             # Volume, service type, day of week, conversion
+    |   |   |   +-- report-chart-card.tsx        # Card + error boundary + optional sr-only data table
+    |   |   |   +-- report-data-table.tsx        # Generic table; rowKey + optional rowHref drill-through
+    |   |   |   +-- report-kpi-row.tsx           # KPI cards; "New" badge for a zero baseline
+    |   |   |   +-- reports-skeleton.tsx         # Page + tab skeletons
+    |   |   |   +-- empty-chart.tsx              # Shared no-data placeholder (was 5 copies)
+    |   |   |   +-- report-format.ts             # granularityLabel / bucketNoun helpers
+    |   |   |   +-- export-csv-button.tsx        # Full-section CSV; BOM, range in filename, formula escaping
+    |   |   |   # The date picker is shared: components/ui/date-range-picker.tsx
     |   |   |
     |   |   +-- reusable/            # Shared dashboard-level reusable components
     |   |   |   +-- stats-cards.tsx  # Stats cards grid (clickable filter + filterValue support)
@@ -552,6 +583,9 @@ apps/web/
     |   |   +-- view-mode-toggle.tsx
     |   |   +-- bulk-action-bar.tsx        # Floating bar for bulk operations (archive, delete, status)
     |   |   +-- bulk-confirm-dialog.tsx    # Confirmation dialog for bulk operations
+    |   |   +-- chart-data-table.tsx       # sr-only table paired with a chart (a11y) — dashboard + reports
+    |   |   +-- widget-error-boundary.tsx  # Per-card boundary; one crash can't blank the page
+    |   |   +-- load-error-state.tsx       # Whole-page failure state with retry (NOT the empty state)
     |   |
     |   +-- superadmin/             # Super admin components (red-themed admin panel)
     |       +-- superadmin-sidebar.tsx          # Red-accented collapsible sidebar (6 nav items)
@@ -641,8 +675,9 @@ apps/web/
         |   |   +-- notifications-page-client.tsx    # Notification list with detailed view
         |   |
         |   +-- reports/
-        |   |   +-- page.tsx                         # Reports/analytics dashboard
-        |   |   +-- reports-page-client.tsx          # 5-tab analytics (revenue, jobs, customers, quotes/invoices, bookings)
+        |   |   +-- page.tsx                         # SSR-prefetches the revenue section, seeds the client cache
+        |   |   +-- reports-page-client.tsx          # 5-tab analytics; switches on the response's `section` discriminant
+        |   |   +-- loading.tsx                      # ReportsSkeleton
         |   |
         |   +-- schedule/
         |   |   +-- page.tsx                         # Calendar/schedule view
