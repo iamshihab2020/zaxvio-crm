@@ -15,14 +15,16 @@ Reports live in [[reports/README|docs/claude/reports/]]. One file per page.
 - [x] Bookings & Calendar — [[bookings-calendar|report]]: 34 findings audited and **all 34 fixed** (2026-07-27)
 - [ ] Next page to audit — user picks
 
-**Verify after the first tenant has real data** (blocked on [[#Post-Neon Cleanup]] — DB has no users):
-- [ ] Apply `20260727000001_booking_calendar_audit.sql` — the FK on `jobs.booking_id` is the one statement that could fail on a populated DB (it clears dangling ids first, but that path has never run)
+**Verify against real data.** The DB now has one tenant — **Shihab Housing** (`/book/shihab-housing`, `America/Chicago`, 1 user, 1 customer, 1 job, Mon–Fri 08:00–17:00 seeded). Most of this is now runnable; email delivery still isn't (no verified Resend domain).
+- [x] Applied `20260727000001_booking_calendar_audit.sql` (2026-07-27) — FK + index + `booking_slot_capacity`. Verified 10/10: FK enforces (`23503` on a bogus id, rollback-tested), re-running the file is a no-op, exactly one FK. The `UPDATE` and backfill both matched 0 rows — there were no dangling links to clear.
 - [ ] DASH-07 — confirm the revenue headline equals the sum of the chart across a week/month boundary
 - [ ] Confirm dashboard job counts match the Jobs page after a bulk archive
 - [ ] Confirm the overdue banner count equals the row count on `/invoices?status=overdue`
 - [ ] REP-02 — confirm the "previous period" line on `/reports` plots the period immediately before the selected one (alignment is proven; the *numbers* have never been seen)
 - [ ] Confirm `/reports` booking and customer totals now match their list pages after a bulk archive
-- [ ] Walk the booking portal end-to-end against a real tenant: submit → E-02 + E-03 land → confirm → E-04 → cancel → E-14
+- [ ] Walk `/book/shihab-housing` end-to-end: submit → confirm → convert → cancel. Emails will 403 until a Resend domain is verified, so check the DB rows and `booking_activities` timeline rather than the inbox
+- [ ] Create a booking + a calendar event on the same day, then confirm the portal stops offering those hours (BOOK-21 — occupancy across all three sources, the finding with no data to exercise it yet)
+- [ ] Raise Booking Capacity above 1 in Settings → Scheduling and confirm a slot stays sellable until that many things overlap it
 - [ ] Set `INTERNAL_PROXY_SECRET` in both env files, then confirm two browsers on different IPs get separate rate-limit buckets
 
 ### Storage Buckets — Remaining (blocked on R2, see [[decisions|ADR-001]])
