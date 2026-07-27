@@ -90,9 +90,28 @@ export async function buildServer() {
   // Global rate limit per IP.
   // Prod: 100/min (authenticated API default).
   // Dev: effectively unlimited to avoid blocking HMR / multi-tab refetches.
+  //
+  // Key generation: the public booking portal reaches this API through Next.js
+  // server actions, so `req.ip` is the *Next server's* address for every
+  // visitor — the portal, the dashboard and every authenticated user shared one
+  // bucket (BOOK-02). When INTERNAL_PROXY_SECRET is configured, the Next server
+  // proves itself and forwards the real client IP, which we key on instead.
+  //
+  // The secret is what makes this safe: an unauthenticated `x-forwarded-for`
+  // would let anyone mint a fresh bucket per request and bypass the limit
+  // entirely.
   await fastify.register(rateLimit, {
     max: isDev ? 100_000 : 100,
     timeWindow: "1 minute",
+    keyGenerator: (req) => {
+      const secret = env.INTERNAL_PROXY_SECRET;
+      if (secret && req.headers["x-internal-proxy-secret"] === secret) {
+        const forwarded = req.headers["x-client-ip"];
+        const clientIp = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+        if (clientIp) return `fwd:${clientIp}`;
+      }
+      return req.ip;
+    },
   });
 
   // API docs (disabled in production)

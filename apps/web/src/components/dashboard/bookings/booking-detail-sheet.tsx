@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { Booking } from "@hvac-saas/types";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { BookingStatusBadge } from "./booking-status-badge";
+import { BookingActivityTimeline } from "./booking-activity-timeline";
 import { SERVICE_TYPE_LABELS } from "@/lib/constants/booking-options";
-import { getBooking, updateBooking } from "@/actions/bookings";
+import { useBooking, useUpdateBooking } from "@/hooks/queries";
 import {
   EntityDetailShell,
   DetailRow,
@@ -24,6 +25,8 @@ import {
   IconCheck,
   IconBriefcase,
   IconX,
+  IconAlertTriangle,
+  IconExternalLink,
 } from "@tabler/icons-react";
 
 interface BookingDetailSheetProps {
@@ -33,6 +36,24 @@ interface BookingDetailSheetProps {
   onConfirm: (id: string) => void;
   onConvert: (id: string) => void;
   onCancel: (id: string) => void;
+}
+
+/** Booking as returned by `GET /bookings/:id`, including the linked job. */
+interface BookingDetail {
+  id: string;
+  customerName: string;
+  customerEmail: string | null;
+  customerPhone: string | null;
+  serviceType: string;
+  bookingDate: string;
+  preferredTime: string | null;
+  address: string | null;
+  description: string | null;
+  status: "pending" | "confirmed" | "completed" | "cancelled";
+  notes: string | null;
+  convertedToJobId: string | null;
+  convertedJobNumber: string | null;
+  convertedJobStatus: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -63,36 +84,39 @@ export function BookingDetailSheet({
   onConvert,
   onCancel,
 }: BookingDetailSheetProps) {
-  const [booking, setBooking] = useState<Booking | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Was raw useState + useEffect — the last detail view in the app that never got
+  // migrated. `res.error` was never read, so a failed fetch looked identical to
+  // "not found"; `handleSaveNotes` ignored its result entirely, so a failed save
+  // just stopped the spinner and the user believed it saved (BOOK-07).
+  const query = useBooking(open ? bookingId : null);
+  const updateMutation = useUpdateBooking();
+
+  const booking = (query.data?.data ?? null) as BookingDetail | null;
+  const loadError = query.data?.error ?? (query.isError ? "Failed to load booking" : null);
+
   const [notes, setNotes] = useState("");
-  const [savingNotes, setSavingNotes] = useState(false);
 
+  // Reset the draft whenever a different booking loads, or the server value
+  // changes underneath (e.g. after a successful save).
   useEffect(() => {
-    if (!bookingId || !open) {
-      setBooking(null);
-      return;
-    }
-    setLoading(true);
-    getBooking(bookingId).then((res) => {
-      if (res.data) {
-        setBooking(res.data);
-        setNotes(res.data.notes ?? "");
-      }
-      setLoading(false);
-    });
-  }, [bookingId, open]);
+    setNotes(booking?.notes ?? "");
+  }, [booking?.id, booking?.notes]);
 
-  const handleSaveNotes = async () => {
+  const handleSaveNotes = () => {
     if (!bookingId) return;
-    setSavingNotes(true);
-    await updateBooking(bookingId, { notes });
-    setSavingNotes(false);
+    updateMutation.mutate({ id: bookingId, data: { notes } });
   };
+
+  const savingNotes = updateMutation.isPending;
+  const notesDirty = notes !== (booking?.notes ?? "");
 
   const isPending = booking?.status === "pending";
   const isActive =
     booking?.status === "pending" || booking?.status === "confirmed";
+  // Gate on the linked job, not on status. `convertedToJobId` was permanently
+  // NULL and this endpoint didn't join jobs, so the sheet offered "Convert to
+  // Job" on a booking that already had one (BOOK-06).
+  const alreadyConverted = !!booking?.convertedToJobId;
 
   return (
     <EntityDetailShell
@@ -102,7 +126,7 @@ export function BookingDetailSheet({
       entityId={bookingId}
       open={open}
       onOpenChange={onOpenChange}
-      loading={loading}
+      loading={query.isLoading}
       hasData={!!booking}
       renderTitle={() => (
         <>
@@ -110,9 +134,7 @@ export function BookingDetailSheet({
             Booking Details
           </span>
           <div className="flex items-center gap-1.5 mt-1.5">
-            <BookingStatusBadge
-              status={booking?.status as "pending" | "confirmed" | "cancelled" | "completed"}
-            />
+            <BookingStatusBadge status={booking?.status ?? "pending"} />
           </div>
         </>
       )}
@@ -138,17 +160,19 @@ export function BookingDetailSheet({
                     Confirm
                   </Button>
                 )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="cursor-pointer"
-                  onClick={() => {
-                    if (booking) { onConvert(booking.id); onOpenChange(false); }
-                  }}
-                >
-                  <IconBriefcase className="mr-1.5 h-3.5 w-3.5" />
-                  Convert to Job
-                </Button>
+                {!alreadyConverted && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="cursor-pointer"
+                    onClick={() => {
+                      if (booking) { onConvert(booking.id); onOpenChange(false); }
+                    }}
+                  >
+                    <IconBriefcase className="mr-1.5 h-3.5 w-3.5" />
+                    Convert to Job
+                  </Button>
+                )}
                 <Button
                   size="sm"
                   variant="ghost"
@@ -165,9 +189,57 @@ export function BookingDetailSheet({
           : undefined
       }
     >
-      {/* ── Content (no tabs) — guard against null booking ── */}
+      {/* Failed is not empty — say which one it was. */}
+      {!query.isLoading && !booking && loadError && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-destructive/30 bg-destructive/5 p-4"
+        >
+          <IconAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" aria-hidden />
+          <div className="min-w-0">
+            <p className="text-sm font-medium font-body text-destructive">
+              Couldn&apos;t load this booking
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground font-body">{loadError}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-3 h-7 text-xs"
+              onClick={() => query.refetch()}
+              disabled={query.isFetching}
+            >
+              {query.isFetching ? "Retrying…" : "Try again"}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {booking && (
         <div className="space-y-6">
+          {/* Converted → job link */}
+          {alreadyConverted && (
+            <Link
+              href={`/jobs/${booking.convertedToJobId}`}
+              className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-4 py-3 transition-colors hover:border-brand/40 hover:bg-brand/5"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <IconBriefcase className="h-4 w-4 shrink-0 text-brand" aria-hidden />
+                <div className="min-w-0">
+                  <p className="text-sm font-medium font-body text-foreground">
+                    Converted to job{" "}
+                    {booking.convertedJobNumber ?? ""}
+                  </p>
+                  {booking.convertedJobStatus && (
+                    <p className="text-xs text-muted-foreground font-body">
+                      Currently {booking.convertedJobStatus}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <IconExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            </Link>
+          )}
+
           {/* Customer Section */}
           <div>
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
@@ -250,16 +322,12 @@ export function BookingDetailSheet({
                 <Button
                   size="sm"
                   onClick={handleSaveNotes}
-                  disabled={savingNotes || notes === (booking.notes ?? "")}
+                  disabled={savingNotes || !notesDirty}
                   className={cn(
                     "h-7 px-3 text-xs cursor-pointer",
-                    notes !== (booking.notes ?? "")
-                      ? "bg-brand text-brand-foreground hover:bg-brand/90"
-                      : "",
+                    notesDirty ? "bg-brand text-brand-foreground hover:bg-brand/90" : "",
                   )}
-                  variant={
-                    notes === (booking.notes ?? "") ? "ghost" : "default"
-                  }
+                  variant={notesDirty ? "default" : "ghost"}
                 >
                   <IconDeviceFloppy className="mr-1.5 h-3 w-3" />
                   {savingNotes ? "Saving..." : "Save"}
@@ -267,6 +335,9 @@ export function BookingDetailSheet({
               </div>
             </div>
           </div>
+
+          {/* Activity timeline */}
+          <BookingActivityTimeline bookingId={booking.id} />
         </div>
       )}
     </EntityDetailShell>

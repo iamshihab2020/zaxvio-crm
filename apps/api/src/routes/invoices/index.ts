@@ -953,7 +953,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 await db
                   .update(invoices)
                   .set({ reviewRequestedAt: new Date() })
-                  .where(eq(invoices.id, id));
+                  .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)));
               } catch (err) {
                 console.error("[email] E-12 review request failed:", err);
               }

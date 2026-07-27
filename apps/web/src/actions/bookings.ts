@@ -1,6 +1,6 @@
 "use server";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
@@ -10,6 +10,32 @@ async function getCookieHeader() {
     .getAll()
     .map((c) => `${c.name}=${c.value}`)
     .join("; ");
+}
+
+/**
+ * Headers that let the API rate-limit the *visitor* rather than this server.
+ *
+ * The public booking endpoints are called from here, not from the browser, so
+ * Fastify sees one IP for every customer and the whole application shares a
+ * single 100/min bucket (BOOK-02). The shared secret is what makes the API
+ * willing to believe the forwarded address; without it configured, these
+ * headers are absent and the API falls back to its own view of the peer.
+ */
+async function getClientForwardHeaders(): Promise<Record<string, string>> {
+  const secret = process.env.INTERNAL_PROXY_SECRET;
+  if (!secret) return {};
+
+  const headerList = await headers();
+  const clientIp =
+    headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    headerList.get("x-real-ip") ||
+    "";
+  if (!clientIp) return {};
+
+  return {
+    "x-internal-proxy-secret": secret,
+    "x-client-ip": clientIp,
+  };
 }
 
 // ===== BOOKING STATS =====
@@ -39,6 +65,7 @@ export async function getBookings(params?: {
   limit?: number;
   sortBy?: string;
   sortOrder?: string;
+  showArchived?: boolean;
 }) {
   try {
     const searchParams = new URLSearchParams();
@@ -50,6 +77,7 @@ export async function getBookings(params?: {
     if (params?.limit) searchParams.set("limit", String(params.limit));
     if (params?.sortBy) searchParams.set("sortBy", params.sortBy);
     if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
+    if (params?.showArchived) searchParams.set("showArchived", "true");
 
     const qs = searchParams.toString();
     const res = await fetch(`${API_URL}/bookings${qs ? `?${qs}` : ""}`, {
@@ -79,6 +107,33 @@ export async function getBooking(id: string) {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return { data: null, error: err.message ?? "Failed to fetch booking" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+export async function getBookingActivities(
+  id: string,
+  params?: { page?: number; limit?: number },
+) {
+  try {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+
+    const res = await fetch(
+      `${API_URL}/bookings/${id}/activities${qs ? `?${qs}` : ""}`,
+      { headers: { cookie: await getCookieHeader() }, cache: "no-store" },
+    );
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to fetch activity" };
     }
 
     const json = await res.json();
@@ -184,6 +239,7 @@ export async function updateAvailability(
     endTime: string;
     isActive: boolean;
   }>,
+  slotCapacity?: number,
 ) {
   try {
     const res = await fetch(`${API_URL}/availability`, {
@@ -192,7 +248,9 @@ export async function updateAvailability(
         "Content-Type": "application/json",
         cookie: await getCookieHeader(),
       },
-      body: JSON.stringify({ schedule }),
+      body: JSON.stringify(
+        slotCapacity === undefined ? { schedule } : { schedule, slotCapacity },
+      ),
       cache: "no-store",
     });
 
@@ -262,6 +320,7 @@ export async function deleteScheduleOverride(id: string) {
 export async function getPublicBookingPage(slug: string) {
   try {
     const res = await fetch(`${API_URL}/public/booking/${slug}`, {
+      headers: await getClientForwardHeaders(),
       cache: "no-store",
     });
 
@@ -281,7 +340,7 @@ export async function getPublicBookingStatus(slug: string, bookingId: string) {
   try {
     const res = await fetch(
       `${API_URL}/public/booking/${slug}/status/${bookingId}`,
-      { cache: "no-store" },
+      { headers: await getClientForwardHeaders(), cache: "no-store" },
     );
 
     if (!res.ok) {
@@ -299,8 +358,8 @@ export async function getPublicBookingStatus(slug: string, bookingId: string) {
 export async function getPublicAvailability(slug: string, month: string) {
   try {
     const res = await fetch(
-      `${API_URL}/public/booking/${slug}/availability?month=${month}`,
-      { cache: "no-store" },
+      `${API_URL}/public/booking/${slug}/availability?month=${encodeURIComponent(month)}`,
+      { headers: await getClientForwardHeaders(), cache: "no-store" },
     );
 
     if (!res.ok) {
@@ -318,8 +377,8 @@ export async function getPublicAvailability(slug: string, month: string) {
 export async function getPublicSlots(slug: string, date: string) {
   try {
     const res = await fetch(
-      `${API_URL}/public/booking/${slug}/slots?date=${date}`,
-      { cache: "no-store" },
+      `${API_URL}/public/booking/${slug}/slots?date=${encodeURIComponent(date)}`,
+      { headers: await getClientForwardHeaders(), cache: "no-store" },
     );
 
     if (!res.ok) {
@@ -352,7 +411,10 @@ export async function submitPublicBooking(
   try {
     const res = await fetch(`${API_URL}/public/booking/${slug}/submit`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(await getClientForwardHeaders()),
+      },
       body: JSON.stringify(data),
       cache: "no-store",
     });

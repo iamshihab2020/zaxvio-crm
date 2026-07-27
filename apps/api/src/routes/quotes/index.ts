@@ -741,7 +741,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const [updated] = await db
         .update(quoteLineItems)
         .set(updates)
-        .where(eq(quoteLineItems.id, lineItemId))
+        .where(and(eq(quoteLineItems.id, lineItemId), eq(quoteLineItems.tenantId, tenantId)))
         .returning();
 
       await recalculateQuoteTotals(db, id, tenantId);

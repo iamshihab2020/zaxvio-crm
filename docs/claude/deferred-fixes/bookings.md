@@ -87,16 +87,25 @@
 
 ---
 
-### DF-BK-08: `convertedToJobId` never written on booking row `FIXED (pre-existing)`
+### DF-BK-08: `convertedToJobId` never written on booking row `FIXED 2026-07-27`
+
+> ⚠️ **This was marked `FIXED (pre-existing)` in April and it was not true.** The column
+> stayed permanently NULL until 2026-07-27. Re-found as
+> [[bookings-calendar#BOOK-06|BOOK-06]]. The lesson is in the status word, not the
+> finding: *"pre-existing"* meant nobody had run it. Verify a `FIXED` claim before
+> inheriting it.
 
 - **Severity:** HIGH (data inconsistency — column exists but is always null)
-- **File:** `apps/api/src/routes/bookings/index.ts` lines ~300-530
-- **Problem:** The `bookings` schema has `convertedToJobId` column but the convert-to-job handler never sets it. The list endpoint works around this by joining `jobs` on `bookingId`, but the booking record itself is incomplete. Code reads `lockedBooking.convertedToJobId` (line ~302) for the duplicate guard, which always passes because the field is always null.
-- **Fix:** After job creation, update the booking:
-  ```typescript
-  await tx.update(bookings).set({ convertedToJobId: job.id }).where(eq(bookings.id, bookingId));
-  ```
-- **Also update duplicate guard** to check `convertedToJobId IS NOT NULL` on the locked booking.
+- **File:** `apps/api/src/routes/bookings/index.ts`
+- **Problem:** The `bookings` schema has `convertedToJobId` column but the convert-to-job handler never sets it. The list endpoint works around this by joining `jobs` on `bookingId`, but the booking record itself is incomplete. Code reads `lockedBooking.convertedToJobId` for the duplicate guard, which always passes because the field is always null.
+- **Downstream:** `GET /bookings/:id` did not join `jobs`, so the detail sheet always saw
+  `null` and kept offering **Convert to Job** on a booking that already had one — which
+  400s and, before `BOOK-01`, emailed the customer a second confirmation.
+- **Fixed by:** writing `convertedToJobId` inside the transaction, joining the job in the
+  detail endpoint, gating the button on the link, and a backfill in
+  `20260727000001_booking_calendar_audit.sql`. The dead `convertedToJobId` read was
+  removed from `lockedBooking` — the real guard is the `existingJob` lookup on
+  `jobs.bookingId`, which always worked.
 
 ---
 
@@ -188,6 +197,10 @@
 - **File:** `apps/api/src/routes/public/booking.ts` lines ~104-113
 - **Problem:** `const [startH] = startTime.split(":").map(Number)` discards the minutes. If availability is `08:30`-`17:00`, the first slot generated would be `08:00` (before the window opens).
 - **Fix:** Round up to next whole hour if minutes > 0, or support half-hour slots.
+- **Half-fixed.** April fixed the *start* and left `const [endH] = endTime.split(":")`, so
+  `09:00–17:30` still stopped at 16:00 and the 17:00 slot was unsellable. Re-found as
+  [[bookings-calendar#BOOK-23|BOOK-23]] and fully fixed 2026-07-27 in
+  `services/availability.service.ts` — both ends now read their minutes.
 
 ---
 
@@ -235,6 +248,11 @@
 - **File:** `apps/api/src/routes/bookings/index.ts` lines ~556-590
 - **Problem:** The cancel endpoint updates status but sends no customer-facing email and no team in-app notification.
 - **Fix:** Add `dispatchNotification` call and optionally send cancellation email (E-type template needed).
+- **Half-fixed.** April added the *team* notification only — the customer, who was emailed
+  when the booking was made, was still never told it was cancelled. Re-found as
+  [[bookings-calendar#BOOK-24|BOOK-24]]. Fixed 2026-07-27: new **E-14** template
+  (`packages/email/src/templates/e14-booking-cancelled.tsx`) with a rebook link, plus the
+  response now reports any linked job so the UI can ask what to do about the work.
 
 ---
 
@@ -283,7 +301,7 @@
 - **DF-BK-05** (2026-04-14) — Case-insensitive email matching via `lower()`
 - **DF-BK-06** (2026-04-14) — Sequential email-first, phone-fallback lookup
 - **DF-BK-07** (2026-04-14) — Customer lookup+creation moved inside booking transaction
-- **DF-BK-08** (pre-existing) — `convertedToJobId` is set + duplicate guard via `jobs.bookingId` join
+- **DF-BK-08** (2026-07-27) — `convertedToJobId` written in the transaction + backfilled. ⚠️ *This line previously read "(pre-existing) — is set"; it was never set. See the entry above.*
 - **DF-BK-09** (2026-04-14) — Bulk status update now validates transitions via VALID_TRANSITIONS map
 - **DF-BK-10** (2026-04-14) — Convert-to-job now checks phone fallback after email
 - **DF-BK-11** (2026-04-14) — Added unique index on (tenant_id, day_of_week) + onConflictDoNothing
@@ -292,12 +310,12 @@
 - **DF-BK-14** (2026-04-14) — Phone format regex + max(20) length
 - **DF-BK-15** (2026-04-14) — customerName max(100) added
 - **DF-BK-16** (2026-04-14) — Slot alignment validation (must end in :00)
-- **DF-BK-17** (2026-04-14) — generateTimeSlots rounds up start minutes
+- **DF-BK-17** (2026-04-14, completed 2026-07-27) — generateTimeSlots rounds up start minutes. ⚠️ *The **end** minutes were still discarded until BOOK-23.*
 - **DF-BK-18** (2026-04-14) — Month-end calculated via string arithmetic, not toISOString()
 - **DF-BK-19** (2026-04-14) — getTenantTomorrow/getMaxBookingDate use Date.UTC construction
 - **DF-BK-20** (2026-04-14) — dispatchNotification on booking→job conversion
 - **DF-BK-21** (2026-04-14) — Booking activities table + activity logging on PATCH status change and cancel
-- **DF-BK-22** (2026-04-14) — dispatchNotification (booking_cancelled) on cancel endpoint
+- **DF-BK-22** (2026-04-14, completed 2026-07-27) — dispatchNotification (booking_cancelled) on cancel endpoint. ⚠️ *Team only; the **customer** was not emailed until E-14 (BOOK-24).*
 - **DF-BK-23** (2026-04-14) — E-04 confirmation email sent when PATCH sets status to "confirmed"
 - **DF-BK-24** (2026-04-14) — Stale slot refresh (5-min threshold) on date select in booking form
 - **DF-BK-25** (pre-existing) — API validates "phone or email" correctly

@@ -61,6 +61,21 @@ const envSchema = z
     // Seed (optional — only needed by seed script)
     ADMIN_SEED_EMAIL: optionalString(z.string().email()),
     ADMIN_SEED_PASSWORD: optionalString(z.string().min(1)),
+
+    /**
+     * Shared secret proving a request came from our own Next.js server.
+     *
+     * The public booking portal reaches this API through server actions, so
+     * Fastify sees the Next server's IP for every visitor and the whole
+     * application shares one rate-limit bucket — two customers opening the
+     * booking page in the same minute could 429 everyone (BOOK-02).
+     *
+     * When this is set, the Next server forwards the real client IP and the
+     * limiter keys on it. Without the secret the header is ignored, because a
+     * trusted-blindly `x-forwarded-for` is a rate-limit bypass, not a fix.
+     * Optional: unset simply means the old per-Next-server behaviour.
+     */
+    INTERNAL_PROXY_SECRET: optionalString(z.string().min(16)),
   })
   .superRefine((value, ctx) => {
     // A sender is only meaningful once Resend is actually enabled — but once it

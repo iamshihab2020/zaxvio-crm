@@ -1,12 +1,8 @@
 import { z } from "zod";
+import { isoDate } from "./common.js";
 
 /** Revenue trend granularity for GET /dashboard/stats */
 export const revenueGranularitySchema = z.enum(["day", "week", "month"]);
-
-/** YYYY-MM-DD. Rejects garbage before it reaches `${x}::date` in SQL. */
-const isoDate = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Expected a YYYY-MM-DD date");
 
 /** Query params for GET /dashboard/stats */
 export const dashboardStatsQuery = z.object({

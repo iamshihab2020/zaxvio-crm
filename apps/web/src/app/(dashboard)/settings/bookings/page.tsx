@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { getAvailability } from "@/actions/bookings";
 import { BookingsSettingsClient } from "./bookings-settings-client";
 
 export const metadata: Metadata = {
@@ -7,8 +6,8 @@ export const metadata: Metadata = {
   description: "Manage your availability and scheduling preferences",
 };
 
-export default async function BookingsSettingsPage() {
-  const result = await getAvailability();
-
-  return <BookingsSettingsClient initialData={result.data ?? undefined} />;
+export default function BookingsSettingsPage() {
+  // Availability is fetched client-side through `useAvailability()` so this page
+  // and the calendar share one cache key and one invalidation (BOOK-20).
+  return <BookingsSettingsClient />;
 }

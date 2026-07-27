@@ -14,33 +14,22 @@ import {
   and,
   gte,
   asc,
-  sql,
 } from "@hvac-saas/database";
 import { getTenantToday } from "../../lib/timezone.js";
-
-/** Seed default Mon-Fri 8am-5pm availability for a tenant (lazy init). */
-async function seedDefaultAvailability(db: ReturnType<typeof getDb>, tenantId: string) {
-  await db.insert(availabilitySchedules).values(
-    [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-      tenantId,
-      dayOfWeek: day,
-      startTime: "08:00",
-      endTime: "17:00",
-      isActive: day >= 1 && day <= 5,
-    })),
-  ).onConflictDoNothing();
-  return db
-    .select()
-    .from(availabilitySchedules)
-    .where(eq(availabilitySchedules.tenantId, tenantId))
-    .orderBy(asc(availabilitySchedules.dayOfWeek));
-}
+import { seedDefaultAvailability } from "../../services/availability.service.js";
 
 const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /availability
    *
-   * Returns the tenant's weekly schedule (7 rows) + upcoming overrides.
+   * Returns the tenant's weekly schedule (7 rows), upcoming overrides, the tenant
+   * timezone and the concurrent-booking capacity.
+   *
+   * Overrides were always in this payload; the internal calendar just never read
+   * them, so a contractor who closed 25 December saw the portal refuse bookings
+   * while their own calendar showed a normal working day (BOOK-10). Timezone is
+   * returned so the calendar can stop rendering in the browser's zone (BOOK-25).
+   *
    * Lazy-seeds defaults if no schedule exists (for tenants created before seeding was added).
    */
   fastify.get(
@@ -51,8 +40,14 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const db = getDb();
 
       // Load tenant timezone (DF-BK-02)
-      const tenantRow = await db.select({ timezone: tenants.timezone })
-        .from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]);
+      const tenantRow = await db
+        .select({
+          timezone: tenants.timezone,
+          slotCapacity: tenants.bookingSlotCapacity,
+        })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .then((r) => r[0]);
       const tz = tenantRow?.timezone ?? "America/Chicago";
 
       let [weeklySchedule, overrides] = await Promise.all([
@@ -79,7 +74,12 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       return reply.send({
-        data: { weeklySchedule, overrides },
+        data: {
+          weeklySchedule,
+          overrides,
+          timezone: tz,
+          slotCapacity: tenantRow?.slotCapacity ?? 1,
+        },
       });
     },
   );
@@ -95,7 +95,7 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
     { preHandler: [requireTenant], schema: { body: updateAvailabilityBody } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
-      const { schedule } = request.body;
+      const { schedule, slotCapacity } = request.body;
 
       // Business logic: no duplicate days, and active entries must have startTime < endTime
       const seenDays = new Set<number>();
@@ -127,6 +127,13 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
             isActive: entry.isActive,
           })),
         );
+
+        if (slotCapacity !== undefined) {
+          await tx
+            .update(tenants)
+            .set({ bookingSlotCapacity: slotCapacity, updatedAt: new Date() })
+            .where(eq(tenants.id, tenantId));
+        }
       });
 
       // Return the updated schedule
@@ -234,9 +241,18 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Override not found." });
       }
 
+      // tenantId in the WHERE, not just the id ([[security-rules]] §1). The
+      // ownership SELECT above is a guard, not a substitute: it is separated from
+      // the write by an `await`, and the next person to edit this handler will not
+      // know the guard is load-bearing.
       await db
         .delete(scheduleOverrides)
-        .where(eq(scheduleOverrides.id, id));
+        .where(
+          and(
+            eq(scheduleOverrides.id, id),
+            eq(scheduleOverrides.tenantId, tenantId),
+          ),
+        );
 
       return reply.status(204).send();
     },

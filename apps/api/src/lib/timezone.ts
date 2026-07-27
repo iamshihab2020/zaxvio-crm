@@ -1,12 +1,36 @@
 /**
  * Timezone helpers for date calculations in tenant context.
+ *
+ * This is the single implementation. There used to be a second one in
+ * `services/analytics/types.ts` built on `Intl.DateTimeFormat` while this file
+ * used `toLocaleDateString`. They agreed on every input anyone tried, but
+ * nothing kept them that way — and "today" being wrong by a day is exactly the
+ * class of bug the dashboard pass spent a day removing (BOOK-30). Analytics now
+ * re-exports `todayInTimezone` from here.
  */
 
 /**
+ * Today's calendar date in the given IANA timezone, as YYYY-MM-DD.
+ *
+ * `new Date().toISOString()` returns the UTC date, which rolls over at 6-7 PM for
+ * a US Central tenant — "Jobs Today" would empty out during the evening. `en-CA`
+ * formats as YYYY-MM-DD, so no manual assembly is needed.
+ */
+export function todayInTimezone(timezone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+/**
  * Get "today" as YYYY-MM-DD in the tenant's timezone.
+ * Alias of {@link todayInTimezone}, kept for the booking/availability call sites.
  */
 export function getTenantToday(timezone: string): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: timezone });
+  return todayInTimezone(timezone);
 }
 
 /**

@@ -84,6 +84,8 @@ zaxvio-crm/
         +-- 20260406000001_add_conversations.sql      # Conversations + messages tables
         +-- 20260407000001_add_assignee_to_jobs.sql   # Assignee FK on jobs
         +-- 20260410000001_add_archived_at.sql        # archived_at column on 6 tables + partial indexes
+        +-- 20260727000001_booking_calendar_audit.sql # FK on jobs.booking_id, tenants.booking_slot_capacity,
+        |                                             # backfill of bookings.converted_to_job_id
         +-- meta/                                    # Drizzle snapshots + journal
 ```
 
@@ -106,7 +108,8 @@ apps/api/
 |   |   +-- auth.ts               # Better Auth server config (drizzle adapter, org + admin plugins)
 |   |   +-- auth-middleware.ts     # requireAuth, requireAdmin, requireAdminTier(), requireTenant preHandlers
 |   |   +-- env.ts                 # Zod-validated env loading (dotenv from monorepo root)
-|   |   +-- timezone.ts           # getTenantToday(), getTenantTomorrow(), getMaxBookingDate(), getDayOfWeek()
+|   |   +-- timezone.ts           # THE tz module: todayInTimezone() + getTenantToday/Tomorrow,
+|   |   |                         # getMaxBookingDate(), getDayOfWeek(). analytics re-exports from here
 |   |   +-- job-helpers.ts        # attachChecklistToJob() shared helper (used by jobs + bookings)
 |   |   +-- admin-audit.ts        # logAdminAction() — append-only audit log helper
 |   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
@@ -114,6 +117,15 @@ apps/api/
 |   |   +-- notifications.ts      # dispatchNotification() — multi-channel dispatch (in-app, email, SMS stub, voice stub)
 |   |   +-- storage.ts            # Cloudflare R2 (S3-compatible): uploadFile/downloadFile/deleteFiles/getPublicUrl
 |   |   +-- event-bus.ts          # In-process pub/sub backing the SSE stream (replaced Supabase Realtime)
+|   |   +-- schemas/              # One Zod schema file per domain (see api-rules §2)
+|   |   |   +-- common.ts          # idParam, paginationQuery + isoDate/isoTime/isoMonth/boundedText.
+|   |   |   |                      # The iso* guards keep Postgres magic strings ('infinity',
+|   |   |   |                      # 'today', 'epoch') out of every ::date / ::time cast
+|   |   |   +-- bookings.ts        # + bookingStatusSchema, shared by route and service
+|   |   |   +-- calendar-events.ts # + colour enum, endTime-after-startTime refinement
+|   |   |   +-- availability.ts    # weekly schedule + overrides + slotCapacity
+|   |   |   +-- public-booking.ts  # The hardened public submit body
+|   |   |   ~ ...one file per remaining domain
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
 |   |   +-- pdf/
@@ -126,9 +138,9 @@ apps/api/
 |   |
 |   +-- routes/
 |   |   +-- availability/
-|   |   |   +-- index.ts          # GET/PUT /availability, POST/DELETE /availability/overrides
+|   |   |   +-- index.ts          # GET/PUT /availability (+ slotCapacity), POST/DELETE /availability/overrides
 |   |   +-- bookings/
-|   |   |   +-- index.ts          # GET/PATCH/DELETE /bookings, POST /bookings/:id/convert-to-job
+|   |   |   +-- index.ts          # GET/PATCH/DELETE /bookings, /stats, /:id/activities, convert-to-job, 4 bulk ops
 |   |   +-- catalog/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /catalog (+ /categories)
 |   |   +-- checklists/
@@ -183,6 +195,10 @@ apps/api/
 |   +-- plugins/
 |   |   ~ .gitkeep                # Planned: custom Fastify plugins
 |   +-- services/                 # Business logic — route handlers stay thin
+|   |   +-- availability.service.ts   # THE availability resolver: windows (weekly + overrides),
+|   |   |                             # slot generation, occupancy across bookings+jobs+events,
+|   |   |                             # checkSlotBookable(). Used by portal, calendar and reschedule
+|   |   +-- bookings.service.ts       # Booking status transition table (single + bulk share it)
 |   |   +-- conversations.service.ts
 |   |   +-- notifications.service.ts
 |   |   +-- analytics/
@@ -229,9 +245,10 @@ apps/api/
 | `/tags` | requireTenant | CRUD (tenant-level) | + |
 | `/dashboard/stats` | requireTenant | GET stats (21 parallel queries) | + |
 | `/dashboard/pipeline` | requireTenant | GET stage distribution for one pipeline | + |
-| `/availability` | requireTenant | GET/PUT weekly schedule, POST/DELETE overrides | + |
-| `/bookings` | requireTenant | CRUD + convert-to-job | + |
-| `/public/booking/:slug` | None | Branding, availability, slots, submit booking | + |
+| `/availability` | requireTenant | GET/PUT weekly schedule + slotCapacity, POST/DELETE overrides | + |
+| `/bookings` | requireTenant | CRUD, /stats, /:id/activities, convert-to-job, 4 bulk ops | + |
+| `/calendar-events` | requireTenant | CRUD for standalone calendar entries (occupy portal slots) | + |
+| `/public/booking/:slug` | None | Branding, availability, slots, submit, status. Rate-limited 60/5/10 per min | + |
 | `/equipment` | requireTenant | CRUD + refrigerant logs sub-resource + history | + |
 | `/maintenance-contracts` | requireTenant | CRUD + expiring contracts | + |
 | `/calendar-events` | requireTenant | CRUD | + |
@@ -319,6 +336,11 @@ apps/web/
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
     |   +-- query-keys.ts            # Centralized TanStack Query key factory for 18 domains
     |   +-- url-filters.ts           # Allow-listed ?status= reader for list-page deep links
+    |   +-- entity-links.ts          # jobLink()/bookingLink()/invoiceLink()/quoteLink() — the ONE
+    |   |                            # place a detail deep-link param name is spelled. Emitting
+    |   |                            # ?job= at a page reading ?jobId= has now been a bug 3 times
+    |   +-- tenant-time.ts           # tenantNow()/tenantToday()/isTenantToday() — the calendar renders
+    |   |                            # in tenant wall-clock, so "today" must be resolved there too
     |   +-- constants/
     |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
@@ -494,7 +516,9 @@ apps/web/
     |   |   |   +-- booking-table.tsx
     |   |   |   +-- booking-filters.tsx
     |   |   |   +-- booking-status-badge.tsx
-    |   |   |   +-- booking-detail-sheet.tsx
+    |   |   |   +-- booking-detail-sheet.tsx        # TanStack Query; links to the converted job
+    |   |   |   +-- booking-activity-timeline.tsx   # Reads booking_activities (written since April,
+    |   |   |   |                                   # unread until 2026-07-27)
     |   |   |   +-- booking-convert-dialog.tsx
     |   |   |
     |   |   +-- catalog/            # Service catalog components
@@ -555,6 +579,7 @@ apps/web/
     |   |       +-- availability-weekly-editor.tsx    # Weekly schedule editor (7 day rows)
     |   |       +-- availability-override-list.tsx    # Schedule overrides table
     |   |       +-- availability-override-dialog.tsx  # Add override form dialog
+    |   |       +-- booking-capacity-card.tsx         # Concurrent appointments per slot (was hardcoded 1)
     |   |       +-- business-form.tsx
     |   |       +-- business-sidebar.tsx
     |   |       +-- change-password-form.tsx

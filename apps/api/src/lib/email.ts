@@ -15,6 +15,7 @@ import type {
   ReviewRequestEmailProps,
   QuoteEmailProps,
   TeamInvitationEmailProps,
+  BookingCancelledEmailProps,
 } from "@hvac-saas/email";
 
 /** Strip CRLF/tab from email subject to prevent header injection */
@@ -152,6 +153,22 @@ export async function sendBookingConfirmedEmail(data: {
     subject: sanitizeSubject(`Appointment Confirmed — ${data.props.businessName}`),
     html,
     tag: "E-04:booking-confirmed",
+  });
+}
+
+// ── E-14: Booking Cancelled (to customer) ──
+
+export async function sendBookingCancelledEmail(data: {
+  to: string;
+  props: BookingCancelledEmailProps;
+}): Promise<void> {
+  const { renderBookingCancelledEmail } = await import("@hvac-saas/email");
+  const html = await renderBookingCancelledEmail(data.props);
+  await sendEmail({
+    to: data.to,
+    subject: sanitizeSubject(`Appointment Cancelled — ${data.props.businessName}`),
+    html,
+    tag: "E-14:booking-cancelled",
   });
 }
 

@@ -15,6 +15,7 @@ import {
   type JobPriority,
 } from "@/lib/constants/job-options";
 import { WidgetWindowBadge } from "./widget-window-badge";
+import { bookingLink, jobLink } from "@/lib/entity-links";
 import { cn } from "@/lib/utils";
 
 interface AgendaTimelineProps {
@@ -83,7 +84,7 @@ function bookingToItem(b: DashboardAgendaBooking): AgendaItem {
     hasTime: Boolean(b.preferredTime),
     color: "#14b8a6",
     // Param name must match what bookings-page-client.tsx reads.
-    href: `/bookings?bookingId=${b.id}`,
+    href: bookingLink(b.id),
   };
 }
 
@@ -109,7 +110,7 @@ function jobToItem(j: DashboardAgendaJob): AgendaItem {
     hasTime: Boolean(j.scheduledStart),
     color: priorityColor(j.priority),
     // Param name must match what jobs-page-client.tsx reads (`jobId`, not `job`).
-    href: `/jobs?jobId=${j.id}`,
+    href: jobLink(j.id),
   };
 }
 

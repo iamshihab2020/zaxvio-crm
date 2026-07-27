@@ -1,4 +1,5 @@
 import type { getDb } from "@hvac-saas/database";
+import { todayInTimezone } from "../../lib/timezone.js";
 
 export type DbClient = ReturnType<typeof getDb>;
 
@@ -30,18 +31,11 @@ export interface DateRangeParams {
 /**
  * Today's calendar date in the given IANA timezone, as YYYY-MM-DD.
  *
- * `new Date().toISOString()` returns the UTC date, which rolls over at 6-7 PM for a
- * US Central tenant — "Jobs Today" would empty out during the evening. `en-CA`
- * formats as YYYY-MM-DD, so no manual assembly is needed.
+ * Re-exported from `lib/timezone.ts` rather than reimplemented: this file and
+ * that one used to carry two independent versions of the same calculation
+ * (BOOK-30).
  */
-export function todayInTimezone(timezone: string): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
-}
+export { todayInTimezone };
 
 /** Shift a YYYY-MM-DD date string by whole days, staying on the calendar grid. */
 export function addDays(isoDate: string, days: number): string {

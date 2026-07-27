@@ -1,4 +1,5 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import type { SQL } from "drizzle-orm";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
@@ -7,10 +8,20 @@ import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import {
   idParam,
   bookingListQuery,
+  bookingStatsQuery,
+  bookingActivitiesQuery,
   updateBookingBody,
   convertBookingBody,
   bulkBookingStatusBody,
+  type BookingStatus,
 } from "../../lib/schemas/bookings.js";
+import {
+  canTransitionBooking,
+  transitionError,
+} from "../../services/bookings.service.js";
+import { checkSlotBookable } from "../../services/availability.service.js";
+import { getTenantTomorrow, getMaxBookingDate } from "../../lib/timezone.js";
+import { env } from "../../lib/env.js";
 import {
   getDb,
   bookings,
@@ -19,6 +30,7 @@ import {
   jobLineItems,
   customers,
   tenants,
+  user,
   jobActivities,
   pipelines,
   jobPipelineStages,
@@ -39,6 +51,21 @@ import {
   isNotNull,
 } from "@hvac-saas/database";
 
+/** Format a YYYY-MM-DD booking date for an email, anchored so it cannot drift. */
+function formatBookingDate(dateStr: string): string {
+  return new Date(`${dateStr}T12:00:00Z`).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+function serviceLabelOf(serviceType: string): string {
+  return serviceType.charAt(0).toUpperCase() + serviceType.slice(1);
+}
+
 const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /bookings
@@ -57,11 +84,11 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const offset = (page - 1) * limit;
 
       const db = getDb();
-      const filters: any[] = [eq(bookings.tenantId, tenantId)];
+      const filters: SQL[] = [eq(bookings.tenantId, tenantId)];
       filters.push(query.showArchived ? isNotNull(bookings.archivedAt) : isNull(bookings.archivedAt));
 
       if (query.status) {
-        filters.push(eq(bookings.status, query.status as any));
+        filters.push(eq(bookings.status, query.status));
       }
 
       if (query.dateFrom) {
@@ -74,13 +101,12 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       if (query.search) {
         const term = `%${query.search}%`;
-        filters.push(
-          or(
-            ilike(bookings.customerName, term),
-            ilike(bookings.customerEmail, term),
-            ilike(bookings.customerPhone, term),
-          ),
+        const searchClause = or(
+          ilike(bookings.customerName, term),
+          ilike(bookings.customerEmail, term),
+          ilike(bookings.customerPhone, term),
         );
+        if (searchClause) filters.push(searchClause);
       }
 
       const whereClause = and(...filters);
@@ -106,7 +132,7 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       // Check which bookings have been converted to jobs (include job status/stage)
       const bookingIds = rawData.map((b) => b.id);
-      let jobMap = new Map<string, { jobId: string; jobNumber: string; jobStatus: string }>();
+      const jobMap = new Map<string, { jobId: string; jobNumber: string; jobStatus: string }>();
       if (bookingIds.length > 0) {
         const linkedJobs = await db
           .select({
@@ -131,7 +157,7 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         const job = jobMap.get(b.id);
         return {
           ...b,
-          convertedToJobId: job?.jobId ?? null,
+          convertedToJobId: job?.jobId ?? b.convertedToJobId ?? null,
           convertedJobNumber: job?.jobNumber ?? null,
           convertedJobStatus: job?.jobStatus ?? null,
         };
@@ -154,10 +180,14 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /bookings/stats
    * Aggregate booking status counts in a single query.
+   *
+   * Filters `archived_at` to match the list endpoint. Without it the four stat
+   * cards permanently exceeded the table beneath them after any bulk archive
+   * (BOOK-08).
    */
   fastify.get(
     "/stats",
-    { preHandler: [requireTenant] },
+    { preHandler: [requireTenant], schema: { querystring: bookingStatsQuery } },
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
@@ -170,7 +200,7 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
           cancelled: sql<number>`COUNT(*) FILTER (WHERE status = 'cancelled')`,
         })
         .from(bookings)
-        .where(eq(bookings.tenantId, tenantId));
+        .where(and(eq(bookings.tenantId, tenantId), isNull(bookings.archivedAt)));
 
       return reply.send({
         data: {
@@ -186,7 +216,12 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /bookings/:id
    *
-   * Get a single booking.
+   * Get a single booking, plus the job it was converted into.
+   *
+   * The list endpoint synthesised `convertedToJobId` from a join and this one did
+   * not, so the detail sheet always saw `null` and kept offering "Convert to Job"
+   * on a booking that already had one — which returned 400 and, before BOOK-01
+   * was fixed, emailed the customer a second confirmation (BOOK-06).
    */
   fastify.get(
     "/:id",
@@ -206,7 +241,84 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Booking not found" });
       }
 
-      return reply.send({ data: booking });
+      const linkedJob = await db
+        .select({ id: jobs.id, jobNumber: jobs.jobNumber, status: jobs.status })
+        .from(jobs)
+        .where(and(eq(jobs.bookingId, id), eq(jobs.tenantId, tenantId)))
+        .then((r) => r[0]);
+
+      return reply.send({
+        data: {
+          ...booking,
+          convertedToJobId: linkedJob?.id ?? booking.convertedToJobId ?? null,
+          convertedJobNumber: linkedJob?.jobNumber ?? null,
+          convertedJobStatus: linkedJob?.status ?? null,
+        },
+      });
+    },
+  );
+
+  /**
+   * GET /bookings/:id/activities
+   *
+   * The `booking_activities` table has been recording every status change and
+   * cancellation since April with no endpoint, no hook and no UI — rows nobody
+   * could see (BOOK-18).
+   */
+  fastify.get(
+    "/:id/activities",
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, querystring: bookingActivitiesQuery },
+    },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { id } = request.params;
+      const { page, limit } = request.query;
+      const offset = (page - 1) * limit;
+      const db = getDb();
+
+      const booking = await db
+        .select({ id: bookings.id })
+        .from(bookings)
+        .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
+        .then((r) => r[0]);
+
+      if (!booking) {
+        return reply.status(404).send({ message: "Booking not found" });
+      }
+
+      const whereClause = and(
+        eq(bookingActivities.tenantId, tenantId),
+        eq(bookingActivities.bookingId, id),
+      );
+
+      const [rows, totalResult] = await Promise.all([
+        db
+          .select({
+            id: bookingActivities.id,
+            type: bookingActivities.type,
+            description: bookingActivities.description,
+            metadata: bookingActivities.metadata,
+            createdAt: bookingActivities.createdAt,
+            performedBy: bookingActivities.performedBy,
+            performedByName: user.name,
+          })
+          .from(bookingActivities)
+          .leftJoin(user, eq(user.id, bookingActivities.performedBy))
+          .where(whereClause)
+          .orderBy(desc(bookingActivities.createdAt))
+          .limit(limit)
+          .offset(offset),
+        db.select({ total: count() }).from(bookingActivities).where(whereClause),
+      ]);
+
+      const total = Number(totalResult[0]?.total ?? 0);
+
+      return reply.send({
+        data: rows,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
     },
   );
 
@@ -214,6 +326,12 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
    * PATCH /bookings/:id
    *
    * Update a booking (status, notes, reschedule).
+   *
+   * Rescheduling goes through the same availability gate the public portal uses.
+   * It previously validated nothing, so staff could move a booking onto a closed
+   * day, into the past, or on top of another appointment — and the portal would
+   * keep offering that slot to the next customer (BOOK-09). `force: true` is the
+   * deliberate override.
    */
   fastify.patch(
     "/:id",
@@ -234,7 +352,14 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Booking not found" });
       }
 
-      if (existing.status === "cancelled" || existing.status === "completed") {
+      // One status machine, shared with bulk-status-update (BOOK-22).
+      if (body.status && body.status !== existing.status) {
+        const from = existing.status as BookingStatus;
+        if (!canTransitionBooking(from, body.status)) {
+          return reply.status(400).send({ message: transitionError(from, body.status) });
+        }
+      } else if (existing.status === "cancelled" || existing.status === "completed") {
+        // No status change requested — a terminal booking is still frozen for edits.
         return reply.status(400).send({ message: `Cannot modify a ${existing.status} booking` });
       }
 
@@ -249,6 +374,49 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       if (Object.keys(updates).length === 0) {
         return reply.status(400).send({ message: "No valid fields to update" });
+      }
+
+      const tenant = await db
+        .select({
+          businessName: tenants.businessName,
+          logoUrl: tenants.logoUrl,
+          phone: tenants.phone,
+          address: tenants.address,
+          slug: tenants.slug,
+          timezone: tenants.timezone,
+          bookingSlotCapacity: tenants.bookingSlotCapacity,
+        })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .then((r) => r[0]);
+
+      const tz = tenant?.timezone ?? "America/Chicago";
+
+      // Reschedule validation — same rules the portal enforces.
+      const nextDate = (updates.bookingDate as string | undefined) ?? existing.bookingDate;
+      const nextTime =
+        (updates.preferredTime as string | undefined) ??
+        (existing.preferredTime ? existing.preferredTime.slice(0, 5) : null);
+      const isReschedule =
+        updates.bookingDate !== undefined || updates.preferredTime !== undefined;
+
+      if (isReschedule && nextTime && !body.force) {
+        const bookable = await checkSlotBookable(db, {
+          tenantId,
+          timezone: tz,
+          dateStr: nextDate,
+          time: nextTime,
+          capacity: tenant?.bookingSlotCapacity ?? 1,
+          // Staff may legitimately book sooner than the public 24h rule allows.
+          minDate: existing.bookingDate < getTenantTomorrow(tz) ? existing.bookingDate : nextDate,
+          maxDate: getMaxBookingDate(tz, 24),
+          excludeBookingId: id,
+        });
+        if (!bookable.ok) {
+          return reply
+            .status(409)
+            .send({ message: `${bookable.message} Re-send with force to override.` });
+        }
       }
 
       updates.updatedAt = new Date();
@@ -273,11 +441,26 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         });
       }
 
+      if (isReschedule) {
+        await db.insert(bookingActivities).values({
+          tenantId,
+          bookingId: id,
+          type: "booking.rescheduled",
+          description: `Rescheduled to ${nextDate}${nextTime ? ` at ${nextTime}` : ""}`,
+          metadata: {
+            previousDate: existing.bookingDate,
+            previousTime: existing.preferredTime,
+            newDate: nextDate,
+            newTime: nextTime,
+            forced: body.force === true,
+          },
+          performedBy: userId,
+        });
+      }
+
       // DF-BK-23: Send confirmation email when status changes to "confirmed"
       if (updates.status === "confirmed" && existing.status !== "confirmed" && existing.customerEmail) {
-        const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]);
         const { sendBookingConfirmedEmail } = await import("../../lib/email.js");
-        const serviceLabel = existing.serviceType.charAt(0).toUpperCase() + existing.serviceType.slice(1);
 
         sendBookingConfirmedEmail({
           to: existing.customerEmail,
@@ -287,9 +470,9 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
             businessLogoUrl: tenant?.logoUrl ?? null,
             businessPhone: tenant?.phone ?? null,
             businessAddress: tenant?.address ?? null,
-            serviceType: serviceLabel,
-            scheduledDate: new Date(existing.bookingDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
-            scheduledTime: existing.preferredTime ?? "TBD",
+            serviceType: serviceLabelOf(existing.serviceType),
+            scheduledDate: formatBookingDate(nextDate),
+            scheduledTime: nextTime ?? "TBD",
             address: existing.address ?? null,
           },
         }).catch((err) => console.error("[email] E-04 booking confirmed failed:", err));
@@ -333,248 +516,274 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // Fetch tenant for email (outside transaction — read-only)
       const tenant = await db.select().from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]);
 
-      // Wrap all mutations in a transaction to prevent partial state and race conditions
-      const job = await db.transaction(async (tx) => {
-        // Lock the booking row to prevent concurrent conversions (race condition fix)
-        const lockedBooking = await tx
-          .select({ id: bookings.id, status: bookings.status, convertedToJobId: bookings.convertedToJobId })
-          .from(bookings)
-          .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
-          .for("update")
-          .then((r) => r[0]);
-
-        if (!lockedBooking) throw new Error("BOOKING_NOT_FOUND");
-
-        // Re-check inside lock to prevent duplicate conversion
-        const existingJob = await tx
-          .select({ id: jobs.id })
-          .from(jobs)
-          .where(and(eq(jobs.bookingId, id), eq(jobs.tenantId, tenantId)))
-          .then((r) => r[0]);
-
-        if (existingJob) throw new Error("ALREADY_CONVERTED");
-
-        // 3. Resolve or create customer
-        let customerId = booking.customerId;
-
-        // Phase 4: Validate pre-linked customerId belongs to this tenant
-        if (customerId) {
-          const customerExists = await tx
-            .select({ id: customers.id })
-            .from(customers)
-            .where(and(eq(customers.tenantId, tenantId), eq(customers.id, customerId)))
+      // Wrap all mutations in a transaction to prevent partial state and race
+      // conditions.
+      //
+      // The failure path is a `try`/`catch` around the await, NOT a `.catch()`
+      // that returns `reply.status(...).send(...)`. Returning the reply was the
+      // bug: reply objects are truthy, so the guard `if (!job) return` never
+      // fired and a *failed* conversion went on to emit a `job_created` platform
+      // event, dispatch a notification with an undefined entityId, and send the
+      // customer a second "your booking is confirmed" email (BOOK-01). An
+      // impatient double-click was enough to trigger it.
+      let job: typeof jobs.$inferSelect;
+      try {
+        job = await db.transaction(async (tx) => {
+          // Lock the booking row to prevent concurrent conversions (race condition fix)
+          const lockedBooking = await tx
+            .select({ id: bookings.id, status: bookings.status })
+            .from(bookings)
+            .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
+            .for("update")
             .then((r) => r[0]);
-          if (!customerExists) {
-            customerId = null; // Fall through to find/create logic
-          }
-        }
 
-        if (!customerId) {
-          // Phase 3: Case-insensitive email match
-          if (booking.customerEmail) {
-            const existingCustomer = await tx
+          if (!lockedBooking) throw new Error("BOOKING_NOT_FOUND");
+
+          // Re-check inside lock to prevent duplicate conversion
+          const existingJob = await tx
+            .select({ id: jobs.id })
+            .from(jobs)
+            .where(and(eq(jobs.bookingId, id), eq(jobs.tenantId, tenantId)))
+            .then((r) => r[0]);
+
+          if (existingJob) throw new Error("ALREADY_CONVERTED");
+
+          // 3. Resolve or create customer
+          let customerId = booking.customerId;
+
+          // Phase 4: Validate pre-linked customerId belongs to this tenant
+          if (customerId) {
+            const customerExists = await tx
               .select({ id: customers.id })
               .from(customers)
-              .where(
-                and(
-                  eq(customers.tenantId, tenantId),
-                  eq(sql`lower(${customers.email})`, booking.customerEmail.toLowerCase()),
-                ),
-              )
+              .where(and(eq(customers.tenantId, tenantId), eq(customers.id, customerId)))
               .then((r) => r[0]);
-
-            if (existingCustomer) {
-              customerId = existingCustomer.id;
+            if (!customerExists) {
+              customerId = null; // Fall through to find/create logic
             }
           }
 
-          // Phone fallback if email didn't match (DF-BK-10)
-          if (!customerId && booking.customerPhone) {
-            const byPhone = await tx
-              .select({ id: customers.id })
-              .from(customers)
-              .where(
-                and(
-                  eq(customers.tenantId, tenantId),
-                  eq(customers.phone, booking.customerPhone),
-                ),
-              )
+          if (!customerId) {
+            // Phase 3: Case-insensitive email match
+            if (booking.customerEmail) {
+              const existingCustomer = await tx
+                .select({ id: customers.id })
+                .from(customers)
+                .where(
+                  and(
+                    eq(customers.tenantId, tenantId),
+                    eq(sql`lower(${customers.email})`, booking.customerEmail.toLowerCase()),
+                  ),
+                )
+                .then((r) => r[0]);
+
+              if (existingCustomer) {
+                customerId = existingCustomer.id;
+              }
+            }
+
+            // Phone fallback if email didn't match (DF-BK-10)
+            if (!customerId && booking.customerPhone) {
+              const byPhone = await tx
+                .select({ id: customers.id })
+                .from(customers)
+                .where(
+                  and(
+                    eq(customers.tenantId, tenantId),
+                    eq(customers.phone, booking.customerPhone),
+                  ),
+                )
+                .limit(1)
+                .then((r) => r[0]);
+              if (byPhone) customerId = byPhone.id;
+            }
+
+            // Create new customer if not found
+            if (!customerId) {
+              const nameParts = booking.customerName.trim().split(/\s+/);
+              const firstName = nameParts[0] || booking.customerName;
+              const lastName = nameParts.slice(1).join(" ") || "";
+
+              const [newCustomer] = await tx
+                .insert(customers)
+                .values({
+                  tenantId,
+                  firstName,
+                  lastName,
+                  email: booking.customerEmail,
+                  phone: booking.customerPhone,
+                  address: booking.address,
+                })
+                .returning();
+
+              customerId = newCustomer.id;
+            }
+
+            // Update booking with customer reference
+            await tx
+              .update(bookings)
+              .set({ customerId, updatedAt: new Date() })
+              .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)));
+          }
+
+          // 4. Resolve default pipeline
+          const defaultPipeline = await tx
+            .select({ id: pipelines.id })
+            .from(pipelines)
+            .where(and(eq(pipelines.tenantId, tenantId), eq(pipelines.isDefault, true)))
+            .then((r) => r[0]);
+          const pipelineId = defaultPipeline?.id ?? null;
+
+          // 5. Resolve pipeline stage (user-selected or first default)
+          // Status = pipeline stage name (used for kanban board matching)
+          let status = "scheduled";
+          if (body.pipelineStageId) {
+            const selectedStage = await tx
+              .select({ name: jobPipelineStages.name })
+              .from(jobPipelineStages)
+              .where(and(eq(jobPipelineStages.id, body.pipelineStageId), eq(jobPipelineStages.tenantId, tenantId)))
+              .then((r) => r[0]);
+            if (selectedStage) status = selectedStage.name;
+          } else if (pipelineId) {
+            const firstStage = await tx
+              .select({ name: jobPipelineStages.name })
+              .from(jobPipelineStages)
+              .where(eq(jobPipelineStages.pipelineId, pipelineId))
+              .orderBy(asc(jobPipelineStages.sortOrder))
               .limit(1)
               .then((r) => r[0]);
-            if (byPhone) customerId = byPhone.id;
+            if (firstStage) status = firstStage.name;
           }
 
-          // Create new customer if not found
-          if (!customerId) {
-            const nameParts = booking.customerName.trim().split(/\s+/);
-            const firstName = nameParts[0] || booking.customerName;
-            const lastName = nameParts.slice(1).join(" ") || "";
-
-            const [newCustomer] = await tx
-              .insert(customers)
-              .values({
-                tenantId,
-                firstName,
-                lastName,
-                email: booking.customerEmail,
-                phone: booking.customerPhone,
-                address: booking.address,
-              })
-              .returning();
-
-            customerId = newCustomer.id;
-          }
-
-          // Update booking with customer reference
-          await tx
-            .update(bookings)
-            .set({ customerId, updatedAt: new Date() })
-            .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)));
-        }
-
-        // 4. Resolve default pipeline
-        const defaultPipeline = await tx
-          .select({ id: pipelines.id })
-          .from(pipelines)
-          .where(and(eq(pipelines.tenantId, tenantId), eq(pipelines.isDefault, true)))
-          .then((r) => r[0]);
-        const pipelineId = defaultPipeline?.id ?? null;
-
-        // 5. Resolve pipeline stage (user-selected or first default)
-        // Status = pipeline stage name (used for kanban board matching)
-        let status = "scheduled";
-        if (body.pipelineStageId) {
-          const selectedStage = await tx
-            .select({ name: jobPipelineStages.name })
-            .from(jobPipelineStages)
-            .where(and(eq(jobPipelineStages.id, body.pipelineStageId), eq(jobPipelineStages.tenantId, tenantId)))
-            .then((r) => r[0]);
-          if (selectedStage) status = selectedStage.name;
-        } else if (pipelineId) {
-          const firstStage = await tx
-            .select({ name: jobPipelineStages.name })
-            .from(jobPipelineStages)
-            .where(eq(jobPipelineStages.pipelineId, pipelineId))
-            .orderBy(asc(jobPipelineStages.sortOrder))
-            .limit(1)
-            .then((r) => r[0]);
-          if (firstStage) status = firstStage.name;
-        }
-
-        // 6. Create job
-        const serviceLabel = booking.serviceType.charAt(0).toUpperCase() + booking.serviceType.slice(1);
-        const [newJob] = await tx
-          .insert(jobs)
-          .values({
-            tenantId,
-            customerId: customerId!,
-            bookingId: booking.id,
-            pipelineId,
-            jobNumber: "", // DB trigger auto-generates
-            title: `${serviceLabel} - ${booking.customerName}`,
-            status,
-            serviceType: booking.serviceType,
-            scheduledDate: booking.bookingDate,
-            scheduledStart: booking.preferredTime,
-            address: booking.address,
-            description: booking.description,
-          })
-          .returning();
-
-        // 6a. If booking is linked to a quote, copy quote line items + totals
-        if (booking.quoteId) {
-          const quote = await tx
-            .select({
-              id: quotes.id,
-              quoteNumber: quotes.quoteNumber,
-              subtotal: quotes.subtotal,
-              taxRate: quotes.taxRate,
-              taxAmount: quotes.taxAmount,
-              discountAmount: quotes.discountAmount,
-              totalAmount: quotes.totalAmount,
+          // 6. Create job
+          const [newJob] = await tx
+            .insert(jobs)
+            .values({
+              tenantId,
+              customerId: customerId!,
+              bookingId: booking.id,
+              pipelineId,
+              jobNumber: "", // DB trigger auto-generates
+              title: `${serviceLabelOf(booking.serviceType)} - ${booking.customerName}`,
+              status,
+              serviceType: booking.serviceType,
+              scheduledDate: booking.bookingDate,
+              scheduledStart: booking.preferredTime,
+              address: booking.address,
+              description: booking.description,
             })
-            .from(quotes)
-            .where(and(eq(quotes.id, booking.quoteId), eq(quotes.tenantId, tenantId)))
-            .then((r) => r[0]);
+            .returning();
 
-          if (quote) {
-            // Copy quote line items to job
-            const quoteItems = await tx
-              .select()
-              .from(quoteLineItems)
-              .where(and(eq(quoteLineItems.tenantId, tenantId), eq(quoteLineItems.quoteId, quote.id)))
-              .orderBy(asc(quoteLineItems.sortOrder));
-
-            if (quoteItems.length > 0) {
-              await tx.insert(jobLineItems).values(
-                quoteItems.map((item) => ({
-                  tenantId,
-                  jobId: newJob.id,
-                  catalogItemId: item.catalogItemId,
-                  itemType: item.itemType,
-                  description: item.description,
-                  quantity: item.quantity,
-                  unitPrice: item.unitPrice,
-                  sortOrder: item.sortOrder ?? 0,
-                })),
-              );
-            }
-
-            // Copy quote totals to job
-            await tx
-              .update(jobs)
-              .set({
-                title: `Job from ${quote.quoteNumber}`,
-                subtotal: quote.subtotal,
-                taxRate: quote.taxRate,
-                taxAmount: quote.taxAmount,
-                totalAmount: quote.totalAmount,
-                updatedAt: new Date(),
+          // 6a. If booking is linked to a quote, copy quote line items + totals
+          if (booking.quoteId) {
+            const quote = await tx
+              .select({
+                id: quotes.id,
+                quoteNumber: quotes.quoteNumber,
+                subtotal: quotes.subtotal,
+                taxRate: quotes.taxRate,
+                taxAmount: quotes.taxAmount,
+                discountAmount: quotes.discountAmount,
+                totalAmount: quotes.totalAmount,
               })
-              .where(and(eq(jobs.id, newJob.id), eq(jobs.tenantId, tenantId)));
+              .from(quotes)
+              .where(and(eq(quotes.id, booking.quoteId), eq(quotes.tenantId, tenantId)))
+              .then((r) => r[0]);
 
-            // Mark quote as converted
-            await tx
-              .update(quotes)
-              .set({ convertedToJobId: newJob.id, updatedAt: new Date() })
-              .where(and(eq(quotes.id, quote.id), eq(quotes.tenantId, tenantId)));
+            if (quote) {
+              // Copy quote line items to job
+              const quoteItems = await tx
+                .select()
+                .from(quoteLineItems)
+                .where(and(eq(quoteLineItems.tenantId, tenantId), eq(quoteLineItems.quoteId, quote.id)))
+                .orderBy(asc(quoteLineItems.sortOrder));
+
+              if (quoteItems.length > 0) {
+                await tx.insert(jobLineItems).values(
+                  quoteItems.map((item) => ({
+                    tenantId,
+                    jobId: newJob.id,
+                    catalogItemId: item.catalogItemId,
+                    itemType: item.itemType,
+                    description: item.description,
+                    quantity: item.quantity,
+                    unitPrice: item.unitPrice,
+                    sortOrder: item.sortOrder ?? 0,
+                  })),
+                );
+              }
+
+              // Copy quote totals to job
+              await tx
+                .update(jobs)
+                .set({
+                  title: `Job from ${quote.quoteNumber}`,
+                  subtotal: quote.subtotal,
+                  taxRate: quote.taxRate,
+                  taxAmount: quote.taxAmount,
+                  totalAmount: quote.totalAmount,
+                  updatedAt: new Date(),
+                })
+                .where(and(eq(jobs.id, newJob.id), eq(jobs.tenantId, tenantId)));
+
+              // Mark quote as converted
+              await tx
+                .update(quotes)
+                .set({ convertedToJobId: newJob.id, updatedAt: new Date() })
+                .where(and(eq(quotes.id, quote.id), eq(quotes.tenantId, tenantId)));
+            }
           }
-        }
 
-        // 6b. Auto-attach checklist (tx is compatible with db parameter type)
-        await attachChecklistToJob(tx, newJob.id, tenantId, booking.serviceType, userId);
+          // 6b. Auto-attach checklist (tx is compatible with db parameter type)
+          await attachChecklistToJob(tx, newJob.id, tenantId, booking.serviceType, userId);
 
-        // 7. Update booking status to confirmed (if pending)
-        if (booking.status === "pending") {
+          // 7. Record the link and confirm the booking.
+          //
+          // `convertedToJobId` was never written — the column had been permanently
+          // NULL since the feature shipped, and the April audit recorded it as fixed
+          // (BOOK-06). The list endpoint papered over it with a join; the detail
+          // endpoint did not, which is why the sheet kept offering "Convert to Job".
           await tx
             .update(bookings)
-            .set({ status: "confirmed", updatedAt: new Date() })
+            .set({
+              convertedToJobId: newJob.id,
+              ...(booking.status === "pending" ? { status: "confirmed" as const } : {}),
+              updatedAt: new Date(),
+            })
             .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)));
-        }
 
-        // 8. Log activity
-        await tx.insert(jobActivities).values({
-          tenantId,
-          jobId: newJob.id,
-          type: "job.created",
-          description: "Job created from online booking",
-          metadata: { bookingId: booking.id },
-          performedBy: userId,
+          // 8. Log activity
+          await tx.insert(jobActivities).values({
+            tenantId,
+            jobId: newJob.id,
+            type: "job.created",
+            description: "Job created from online booking",
+            metadata: { bookingId: booking.id },
+            performedBy: userId,
+          });
+
+          await tx.insert(bookingActivities).values({
+            tenantId,
+            bookingId: booking.id,
+            type: "booking.converted",
+            description: `Converted to job ${newJob.jobNumber || newJob.id}`,
+            metadata: { jobId: newJob.id },
+            performedBy: userId,
+          });
+
+          return newJob;
         });
-
-        return newJob;
-      }).catch((err: Error) => {
-        if (err.message === "ALREADY_CONVERTED") {
-          return reply.status(400).send({ message: "This booking has already been converted to a job" });
+      } catch (err) {
+        if (err instanceof Error && err.message === "ALREADY_CONVERTED") {
+          return reply
+            .status(400)
+            .send({ message: "This booking has already been converted to a job" });
         }
-        if (err.message === "BOOKING_NOT_FOUND") {
+        if (err instanceof Error && err.message === "BOOKING_NOT_FOUND") {
           return reply.status(404).send({ message: "Booking not found" });
         }
         throw err;
-      });
-
-      // If reply was already sent (error case), stop here
-      if (!job) return;
+      }
 
       emitPlatformEvent(tenantId, "job_created", userId);
 
@@ -593,18 +802,17 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // E-04: Booking confirmed email to customer (fire-and-forget, outside transaction)
       if (booking.customerEmail) {
         const { sendBookingConfirmedEmail } = await import("../../lib/email.js");
-        const serviceLabel = booking.serviceType.charAt(0).toUpperCase() + booking.serviceType.slice(1);
 
         sendBookingConfirmedEmail({
           to: booking.customerEmail,
           props: {
             customerName: booking.customerName,
-            businessName: tenant?.businessName ?? "HVAC Service",
+            businessName: tenant?.businessName ?? "Service Business",
             businessLogoUrl: tenant?.logoUrl ?? null,
             businessPhone: tenant?.phone ?? null,
             businessAddress: tenant?.address ?? null,
-            serviceType: serviceLabel,
-            scheduledDate: new Date(booking.bookingDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" }),
+            serviceType: serviceLabelOf(booking.serviceType),
+            scheduledDate: formatBookingDate(booking.bookingDate),
             scheduledTime: booking.preferredTime,
             address: booking.address,
           },
@@ -676,7 +884,55 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         metadata: { bookingDate: existing.bookingDate, serviceType: existing.serviceType },
       });
 
-      return reply.send({ data: updated });
+      const tenant = await db
+        .select({
+          businessName: tenants.businessName,
+          logoUrl: tenants.logoUrl,
+          phone: tenants.phone,
+          address: tenants.address,
+          slug: tenants.slug,
+        })
+        .from(tenants)
+        .where(eq(tenants.id, tenantId))
+        .then((r) => r[0]);
+
+      // A converted booking's job stays on the calendar and in the pipeline unless
+      // it is dealt with. Flag it on the response rather than silently deleting the
+      // job — cancelling the appointment and cancelling the work are different
+      // decisions, and only the contractor can make the second one (BOOK-24).
+      const linkedJob = await db
+        .select({ id: jobs.id, jobNumber: jobs.jobNumber })
+        .from(jobs)
+        .where(and(eq(jobs.bookingId, id), eq(jobs.tenantId, tenantId)))
+        .then((r) => r[0]);
+
+      // E-14: tell the customer. They were emailed when it was booked and, until
+      // now, never when it was called off.
+      if (existing.customerEmail) {
+        const { sendBookingCancelledEmail } = await import("../../lib/email.js");
+
+        sendBookingCancelledEmail({
+          to: existing.customerEmail,
+          props: {
+            customerName: existing.customerName,
+            businessName: tenant?.businessName ?? "Service Business",
+            businessLogoUrl: tenant?.logoUrl ?? null,
+            businessPhone: tenant?.phone ?? null,
+            businessAddress: tenant?.address ?? null,
+            serviceType: serviceLabelOf(existing.serviceType),
+            bookingDate: formatBookingDate(existing.bookingDate),
+            preferredTime: existing.preferredTime?.slice(0, 5) ?? null,
+            rebookUrl: tenant?.slug ? `${env.FRONTEND_URL}/book/${tenant.slug}` : null,
+          },
+        }).catch((err) => console.error("[email] E-14 booking cancelled failed:", err));
+      }
+
+      return reply.send({
+        data: updated,
+        linkedJob: linkedJob
+          ? { id: linkedJob.id, jobNumber: linkedJob.jobNumber }
+          : null,
+      });
     },
   );
   /**
@@ -769,7 +1025,12 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   /**
    * POST /bookings/bulk-delete
-   * Hard delete multiple bookings regardless of status.
+   * Hard delete multiple bookings.
+   *
+   * Refuses any booking that has been converted to a job. Deleting one used to
+   * take its job's origin with it — `jobs.booking_id` was left pointing at a row
+   * that no longer existed, and `booking_activities` cascaded away (BOOK-11).
+   * Archive is the reversible option and is now exposed in the UI.
    */
   fastify.post(
     "/bulk-delete",
@@ -786,13 +1047,33 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
           and(eq(bookings.tenantId, tenantId), inArray(bookings.id, ids)),
         );
 
-      const validIds = existing.map((r) => r.id);
-      const invalidIds = ids.filter((id) => !validIds.includes(id));
+      const foundIds = existing.map((r) => r.id);
+      const errors: { id: string; reason: string }[] = ids
+        .filter((id) => !foundIds.includes(id))
+        .map((id) => ({ id, reason: "Not found" }));
 
-      const errors: { id: string; reason: string }[] = invalidIds.map((id) => ({
-        id,
-        reason: "Not found",
-      }));
+      const linkedJobs = foundIds.length
+        ? await db
+            .select({ bookingId: jobs.bookingId, jobNumber: jobs.jobNumber })
+            .from(jobs)
+            .where(
+              and(eq(jobs.tenantId, tenantId), inArray(jobs.bookingId, foundIds)),
+            )
+        : [];
+
+      const blocked = new Map<string, string>();
+      for (const j of linkedJobs) {
+        if (j.bookingId) blocked.set(j.bookingId, j.jobNumber);
+      }
+
+      for (const [bookingId, jobNumber] of blocked) {
+        errors.push({
+          id: bookingId,
+          reason: `Converted to job ${jobNumber} — archive it instead of deleting`,
+        });
+      }
+
+      const validIds = foundIds.filter((id) => !blocked.has(id));
 
       if (validIds.length > 0) {
         await db
@@ -818,13 +1099,6 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { ids, status } = request.body;
       const db = getDb();
 
-      // Status transition validation (DF-BK-09)
-      const VALID_TRANSITIONS: Record<string, string[]> = {
-        pending: ["confirmed", "cancelled"],
-        confirmed: ["completed", "cancelled"],
-        // completed and cancelled are terminal — no transitions allowed
-      };
-
       const existing = await db
         .select({ id: bookings.id, status: bookings.status })
         .from(bookings)
@@ -842,12 +1116,12 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
-      // Filter to only bookings with valid transitions
+      // Same status machine as PATCH /bookings/:id (BOOK-22).
       const eligibleIds: string[] = [];
       for (const row of existing) {
-        const allowed = VALID_TRANSITIONS[row.status];
-        if (!allowed || !allowed.includes(status)) {
-          errors.push({ id: row.id, reason: `Cannot transition from "${row.status}" to "${status}"` });
+        const from = row.status as BookingStatus;
+        if (!canTransitionBooking(from, status)) {
+          errors.push({ id: row.id, reason: transitionError(from, status) });
         } else {
           eligibleIds.push(row.id);
         }
@@ -856,7 +1130,7 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (eligibleIds.length > 0) {
         await db
           .update(bookings)
-          .set({ status: status as never, updatedAt: new Date() })
+          .set({ status, updatedAt: new Date() })
           .where(
             and(eq(bookings.tenantId, tenantId), inArray(bookings.id, eligibleIds)),
           );

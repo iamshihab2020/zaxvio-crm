@@ -494,7 +494,15 @@ const entries: KnowledgeEntry[] = [
     keywords: ["manage", "view", "pending", "booking", "confirm"],
     question: "How do I manage incoming bookings?",
     answer:
-      'Go to **Bookings** in the sidebar. You\'ll see all bookings with customer info, service type, and requested date. Use **status filter tabs** (Pending, Confirmed, Completed, Cancelled). Click a booking to view details.\n\n• **Confirm** — Accept the booking\n• **Convert to Job** — Create a scheduled job from it\n• **Cancel** — Decline the booking',
+      'Go to **Bookings** in the sidebar. You\'ll see all bookings with customer info, service type, and requested date. Use the **Active / Archived** tabs and the **status filter tabs** (Pending, Confirmed, Completed, Cancelled). Click a booking to view details.\n\n• **Confirm** — Accept the booking (emails the customer)\n• **Convert to Job** — Create a scheduled job from it\n• **Cancel** — Decline the booking (also emails the customer)\n\nSelect several with the checkboxes for bulk **Archive**, **Restore**, status changes or **Delete**.',
+  },
+  {
+    id: "bookings-archive-vs-delete",
+    category: "bookings",
+    keywords: ["archive", "delete", "remove", "restore", "hide booking", "undo"],
+    question: "Should I archive or delete a booking?",
+    answer:
+      "**Archive** in almost every case. It hides the booking from your active list and keeps everything — you can restore it any time from the **Archived** tab, and archived bookings stop counting toward your stat cards.\n\n**Delete** is permanent and cannot be undone. A booking that has already been **converted to a job** can't be deleted at all — that would leave the job with no record of where it came from. Archive it instead.",
   },
   {
     id: "bookings-convert",
@@ -502,7 +510,31 @@ const entries: KnowledgeEntry[] = [
     keywords: ["convert", "booking to job", "create job from booking"],
     question: "How do I convert a booking to a job?",
     answer:
-      'Open a booking and click **"Convert to Job"**. This creates a new job with the customer info, service type, and scheduled date from the booking. You can select which pipeline stage to place the job in.',
+      'Open a booking and click **"Convert to Job"**. This creates a new job with the customer info, service type, and scheduled date from the booking, and you can pick which pipeline stage it lands in. If the booking came from an accepted quote, the quote\'s line items and totals are copied across too.\n\nOnce converted, the button is replaced by a link to the job, so a booking can only ever produce one job.',
+  },
+  {
+    id: "bookings-reschedule",
+    category: "bookings",
+    keywords: ["reschedule", "change date", "move booking", "change time", "force"],
+    question: "Can I change a booking's date or time?",
+    answer:
+      "Yes — open the booking and edit the date or time. The same rules the booking portal uses are checked first: the day has to be open, the time has to be on the hour and inside your working hours, and the slot must not already be full.\n\nIf you need to override that — squeezing someone in on a day you're closed, for example — the app will tell you what's blocking it and let you confirm anyway. Every reschedule is recorded in the booking's Activity timeline.",
+  },
+  {
+    id: "bookings-activity",
+    category: "bookings",
+    keywords: ["activity", "history", "timeline", "who changed", "audit", "log"],
+    question: "Can I see who confirmed or changed a booking?",
+    answer:
+      "Yes. Open any booking and scroll to **Activity** at the bottom of the panel. It lists every status change, reschedule, conversion and cancellation, newest first, with who did it and when.",
+  },
+  {
+    id: "bookings-emails",
+    category: "bookings",
+    keywords: ["email", "confirmation", "notify customer", "cancellation email", "status page"],
+    question: "What emails does a customer get about their booking?",
+    answer:
+      "Three, automatically:\n\n• **When they book** — a confirmation with the details, plus a link to a status page they can check any time\n• **When you confirm it** — an \"appointment confirmed\" email\n• **When you cancel it** — a cancellation notice with a link to book a new time\n\nYou also get an email whenever a new booking comes in.",
   },
 
   // ═══════════════════════════════════════
@@ -530,7 +562,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["drag", "reschedule", "move", "drop", "calendar drag"],
     question: "How do I reschedule a job on the calendar?",
     answer:
-      "On the **Schedule** page, simply **drag a job card** to a new time slot or date. The scheduled date and time update automatically. You can also **resize** a job card to change its duration. Bookings are locked and cannot be dragged.",
+      "On the **Schedule** page, simply **drag a job card** to a new time slot or date. The scheduled date and time update automatically. Bookings are locked and cannot be dragged — open the booking to change its date or time.",
   },
   {
     id: "schedule-availability",
@@ -538,7 +570,23 @@ const entries: KnowledgeEntry[] = [
     keywords: ["availability", "hours", "working hours", "business hours", "available"],
     question: "How do I set my availability?",
     answer:
-      "Go to **Settings > Scheduling** (or click the availability button on the Bookings page). Set your **working hours** for each day of the week (Monday–Sunday). Time slots outside your availability appear **greyed out** on the calendar and are hidden from the booking portal.",
+      "Go to **Settings > Scheduling** (or click the availability button on the Bookings page). Set your **working hours** for each day of the week (Monday–Sunday). Time slots outside your availability appear **greyed out** on the calendar and are hidden from the booking portal.\n\nSaving takes effect on both straight away — your calendar and what customers can book always agree.",
+  },
+  {
+    id: "schedule-capacity",
+    category: "schedule",
+    keywords: ["capacity", "two jobs", "same time", "overlap", "team", "double book", "concurrent"],
+    question: "Can two appointments be booked at the same time?",
+    answer:
+      "By default no — one appointment per time slot. If you have more than one person on the road, go to **Settings > Scheduling** and raise **Booking Capacity** to the number of jobs you can run at once.\n\nA slot is offered to customers only when fewer than that many things overlap it, counting **bookings, jobs and calendar events** together — so a day you filled from phone calls won't be sold again through the portal.",
+  },
+  {
+    id: "schedule-timezone",
+    category: "schedule",
+    keywords: ["timezone", "wrong time", "time zone", "travelling", "different times"],
+    question: "Why does the calendar show a different day than my computer?",
+    answer:
+      "It shouldn't — the calendar uses your **business timezone** from **Settings → Business**, not your computer's. That's deliberate: if you're travelling, or your laptop's clock is set to somewhere else, your schedule still matches your customers' appointments and the dashboard agenda.\n\nIf the timezone itself looks wrong, change it in **Settings → Business**.",
   },
   {
     id: "schedule-overrides",

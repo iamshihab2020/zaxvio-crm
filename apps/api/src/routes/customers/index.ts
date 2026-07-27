@@ -643,7 +643,7 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const [updated] = await db
         .update(customerNotes)
         .set({ content, updatedAt: new Date() })
-        .where(eq(customerNotes.id, noteId))
+        .where(and(eq(customerNotes.id, noteId), eq(customerNotes.tenantId, tenantId)))
         .returning();
 
       return reply.send({ data: updated });
@@ -681,7 +681,9 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Note not found" });
       }
 
-      await db.delete(customerNotes).where(eq(customerNotes.id, noteId));
+      await db
+        .delete(customerNotes)
+        .where(and(eq(customerNotes.id, noteId), eq(customerNotes.tenantId, tenantId)));
 
       return reply.send({ message: "Note deleted" });
     },
@@ -862,6 +864,10 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Customer not found" });
       }
 
+      // `customer_tags` is a pure join table with no tenant_id of its own — it is
+      // tenant-scoped transitively through `customerId`, which the SELECT above
+      // has already confirmed belongs to this tenant. Not a [[security-rules]] §1
+      // violation; noted so the next scan doesn't re-flag it.
       await db
         .delete(customerTags)
         .where(

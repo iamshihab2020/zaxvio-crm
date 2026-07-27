@@ -122,3 +122,42 @@
 - **AI SDK v6 uses `inputSchema` not `parameters` for tool definitions** — Old Vercel AI SDK used `parameters` (Zod schema). v6 renamed it to `inputSchema`. Both compile but `parameters` is silently ignored in v6, making tools accept no input.
 - **`maxOutputTokens` not `maxTokens`** — v6 renamed the token limit parameter. Using `maxTokens` may be silently ignored depending on the provider adapter.
 - **LLM tool call inputs are not validated against schema by default** — The LLM may return wrong field names or types. The SDK validates structure but not semantic correctness. Always validate tool inputs before execution, especially for DB mutations.
+
+## Bookings & Calendar Audit (2026-07-27)
+
+From [[bookings-calendar|the report]] — the front-end half.
+
+- **A detail deep-link param name got spelled wrong three separate times.** The dashboard
+  agenda emitted `?job=` at a page reading `jobId`; the agenda emitted `?booking=` at a
+  page reading `bookingId`; the schedule's hover card emitted *both* wrong ones. Each
+  time the symptom is identical and silent — the link navigates, the sheet stays shut, no
+  error anywhere. `lib/entity-links.ts` (`jobLink()`, `bookingLink()`, …) is now the only
+  place the name is written. **When the same trivial mistake recurs, the fix is deleting
+  the opportunity to make it, not making it correctly again.**
+- **A deep-link `useState` initializer only fires on a cold load.**
+  `useState(!!searchParams.get("bookingId"))` opens the sheet when the URL is the entry
+  point and does nothing when the same page is already mounted — so in-app navigation from
+  the calendar or a notification silently no-ops. Pair the initializer with a
+  `useEffect` on the param.
+- **A calendar that renders in browser time disagrees with everything else.**
+  Events are built as `new Date(\`${date}T${time}\`)` — no offset — so their *local*
+  fields carry the appointment's wall-clock time, which is right: a 09:00 job should read
+  09:00 anywhere. What was wrong was everything compared against it — `isToday()`, the
+  scroll-to-now offset, the initial date, the Today button — all using the browser's
+  clock. `lib/tenant-time.ts` returns "now" in the same wall-clock space the events live
+  in, so `getHours()`/`isToday()` compare like with like.
+- **`?? []` on a query result turns a failure into an empty state.** On a *scheduling*
+  page an empty week reads as "you have nothing on" — the same class as REP-01, on the
+  surface where being wrong costs a missed appointment. Surface partial failures too: if
+  jobs load and bookings 500, the calendar is not empty, it is *incomplete*, and it must
+  say so.
+- **A silent `limit: 200` is worse than a visible one.** The calendar fetched each of
+  three sources with a cap and no indication when it was hit, so a busy month simply
+  omitted appointments. If a view bounds its data, it has to say "showing the first 200".
+- **SSR prefetch that isn't seeded into the exact query key is wasted work.** The bookings
+  page ran three server fetches, passed all three down as props, and the client never read
+  them — a skeleton on every visit anyway. Seed with `queryClient.setQueryData` under a
+  key built from *identical* params, once, guarded by a ref.
+- **`resizable={false}` with a live `onEventResize` is a path that can never run.** It was
+  wired through three files and read like a feature. Dead code that looks live is worse
+  than no code — delete it and leave a comment saying what re-enabling it requires.

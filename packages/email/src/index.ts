@@ -78,6 +78,12 @@ export {
 } from "./templates/e13-quote.js";
 
 export {
+  renderBookingCancelledEmail,
+  BookingCancelledEmail,
+  type BookingCancelledEmailProps,
+} from "./templates/e14-booking-cancelled.js";
+
+export {
   renderTeamInvitationEmail,
   TeamInvitationEmail,
   type TeamInvitationEmailProps,

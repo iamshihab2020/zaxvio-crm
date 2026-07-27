@@ -81,6 +81,8 @@ export const queryKeys = {
       ["bookings", "list", params] as const,
     stats: () => ["bookings", "stats"] as const,
     detail: (id: string) => ["bookings", "detail", id] as const,
+    activities: (bookingId: string, params?: Record<string, unknown>) =>
+      ["bookings", "detail", bookingId, "activities", params ?? {}] as const,
     availability: () => ["bookings", "availability"] as const,
   },
 

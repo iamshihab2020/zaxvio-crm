@@ -44,6 +44,13 @@ const serverSchema = z.object({
   FRONTEND_URL: z.string().url("FRONTEND_URL must be a valid URL"),
   // Optional: the chatbot route degrades to a friendly error when unset.
   GROQ_API_KEY: optionalString(z.string().min(1)),
+  /**
+   * Shared secret with the API. When set (and matching `INTERNAL_PROXY_SECRET`
+   * in the root `.env`), the public booking server actions forward the visitor's
+   * IP so the API rate-limits per customer instead of lumping every visitor into
+   * this server's single bucket (BOOK-02).
+   */
+  INTERNAL_PROXY_SECRET: optionalString(z.string().min(16)),
 });
 
 export type ClientEnv = z.infer<typeof clientSchema>;
@@ -89,6 +96,7 @@ export function getServerEnv(): ServerEnv {
     const parsed = serverSchema.safeParse({
       FRONTEND_URL: process.env.FRONTEND_URL,
       GROQ_API_KEY: process.env.GROQ_API_KEY,
+      INTERNAL_PROXY_SECRET: process.env.INTERNAL_PROXY_SECRET,
     });
 
     if (!parsed.success) {
@@ -114,6 +122,12 @@ export function validateEnv(): { warnings: string[] } {
 
   if (!server.GROQ_API_KEY) {
     warnings.push("GROQ_API_KEY is not set — the AI chatbot is disabled.");
+  }
+
+  if (!server.INTERNAL_PROXY_SECRET) {
+    warnings.push(
+      "INTERNAL_PROXY_SECRET is not set — the API rate-limits public booking traffic by this server's IP, so all visitors share one budget.",
+    );
   }
 
   // A frontend pointed at its own origin instead of the API is a silent 404 factory.

@@ -97,10 +97,30 @@ packages/email/
 +-- package.json              # @hvac-saas/email
 +-- tsconfig.json
 +-- src/
-    ~ index.ts                # Placeholder (export {})
+    +-- index.ts              # Barrel: render*Email() + props types + shared components
+    +-- components/           # EmailLayout, BrandButton, DataTable, InfoRow, Heading
+    +-- templates/
+        +-- e01-welcome.tsx                  # Deferred — needs org-creation refactor
+        +-- e02-booking-confirmation.tsx     # To customer on submit (+ status-page link)
+        +-- e03-new-booking-notification.tsx # To owner on submit
+        +-- e04-booking-confirmed.tsx        # To customer when staff confirm/convert
+        +-- e05-job-completion.tsx
+        +-- e06-invoice.tsx
+        +-- e07-invoice-overdue.tsx          # Cron
+        +-- e08-payment-receipt.tsx
+        +-- e09-contract-renewal.tsx         # Cron
+        +-- e10-trial-expiring.tsx           # Cron
+        +-- e11-welcome-paid.tsx             # Deferred — needs Lemon Squeezy webhook
+        +-- e12-review-request.tsx
+        +-- e13-quote.tsx
+        +-- e14-booking-cancelled.tsx        # To customer on cancel (added 2026-07-27 — the
+        |                                    # customer was told when booked, never when cancelled)
+        +-- team-invitation.tsx
 ```
 
-**Planned templates (E-01 through E-13):** See PRD for full list. Not yet implemented.
+Senders live in `apps/api/src/lib/email.ts`; every subject goes through
+`sanitizeSubject()` ([[security-rules]] §6). Sends no-op with a warning when
+`RESEND_API_KEY` is unset.
 
 ### `packages/config/` — Shared Configuration
 
@@ -129,7 +149,7 @@ packages/config/
 
 | Table | Purpose | Key Fields |
 |---|---|---|
-| `tenants` | Business accounts | business_name, slug, organizationId FK, defaultTaxRate, invoice/quote settings |
+| `tenants` | Business accounts | business_name, slug, organizationId FK, timezone, booking_slot_capacity, defaultTaxRate, invoice/quote settings |
 | `tenant_subscriptions` | Billing state | lemonSqueezySubscriptionId, status, planName |
 | `customers` | Tenant's customers | first_name, last_name, email, phone, address, lat/lng |
 | `customer_notes` | Per-customer notes | customer_id, content, author tracking |
@@ -140,7 +160,7 @@ packages/config/
 | `equipment` | Customer equipment | customer_id, equipment_type, brand, model, serial |
 | `refrigerant_logs` | EPA tracking | equipment_id, job_id, refrigerant_type, amount_lbs |
 | `maintenance_contracts` | Service contracts | customer_id, status, frequency, price |
-| `jobs` | Service jobs | customer_id, job_number (JOB-YYYY-XXXX), status (text) |
+| `jobs` | Service jobs | customer_id, job_number (JOB-YYYY-XXXX), status (text), booking_id FK → bookings (set null) |
 | `job_line_items` | Job charges | job_id, catalog_item_id, qty, unit_price, total (generated) |
 | `job_photos` | Job site photos | job_id, storage_path, caption |
 | `job_activities` | Job activity log | job_id, activity_type, metadata |
@@ -151,10 +171,11 @@ packages/config/
 | `quotes` | Estimates | quote_number (QT-YYYY-XXXX), status, expiresAt |
 | `quote_line_items` | Quote charges | quote_id, qty, unit_price, total (generated) |
 | `quote_activities` | Quote activity log | quote_id, activity_type, metadata |
-| `calendar_events` | Calendar entries | tenant_id, customer_id, title, start/end datetime |
-| `bookings` | Online bookings | customer_id, status, booking_date, service_type |
-| `availability_schedules` | Weekly availability | day_of_week, start_time, end_time |
-| `schedule_overrides` | Day-off / special hours | override_date, is_available, reason |
+| `calendar_events` | Calendar entries | tenant_id, customer_id, title, event_date, start/end time. **Occupy booking-portal slots** |
+| `bookings` | Online bookings | customer_id, status, booking_date, preferred_time, service_type, converted_to_job_id FK, archived_at |
+| `booking_activities` | Booking audit trail | booking_id, type, description, metadata, performed_by |
+| `availability_schedules` | Weekly availability | day_of_week, start_time, end_time, unique (tenant_id, day_of_week) |
+| `schedule_overrides` | Day-off / special hours | override_date, is_available, reason. Take precedence over the weekly schedule |
 | `checklist_templates` | Per-service-type templates | service_type, name, is_active |
 | `checklist_items` | Template items | template_id, label, is_required, catalog_item_id |
 | `job_checklist_completions` | Per-job tracking | job_id, checklist_item_id, is_completed |

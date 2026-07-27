@@ -3,6 +3,7 @@ import { Text, Section, Hr } from "@react-email/components";
 import * as React from "react";
 import { EmailLayout } from "../components/email-layout.js";
 import { Heading } from "../components/heading.js";
+import { BrandButton } from "../components/brand-button.js";
 import { InfoRow, InfoRowGroup } from "../components/info-row.js";
 
 export interface BookingConfirmationEmailProps {
@@ -16,6 +17,12 @@ export interface BookingConfirmationEmailProps {
   preferredTime: string;
   address?: string | null;
   notes?: string | null;
+  /**
+   * Public status page for this booking. It has always existed; nothing ever
+   * linked the customer back to it after the initial redirect, so the only way
+   * to reach it was to keep the tab open.
+   */
+  statusUrl?: string | null;
 }
 
 export function BookingConfirmationEmail({
@@ -29,6 +36,7 @@ export function BookingConfirmationEmail({
   preferredTime,
   address,
   notes,
+  statusUrl,
 }: BookingConfirmationEmailProps) {
   const firstName = customerName.split(" ")[0];
 
@@ -63,6 +71,12 @@ export function BookingConfirmationEmail({
         </>
       )}
 
+      {statusUrl && (
+        <Section style={ctaStyle}>
+          <BrandButton href={statusUrl}>Check your booking status</BrandButton>
+        </Section>
+      )}
+
       <Hr style={dividerStyle} />
 
       <Text style={textStyle}>
@@ -89,6 +103,7 @@ export default function BookingConfirmationPreview() {
       preferredTime="09:00"
       address="4521 Oak Valley Dr, Austin, TX 78745"
       notes="Unit is making a loud buzzing noise when running"
+      statusUrl="https://app.zaxvio.com/book/cool-breeze/status/8f14e45f-ceea-467a-9575-4f2b1c8a9d31"
     />
   );
 }
@@ -129,6 +144,10 @@ const notesStyle: React.CSSProperties = {
   lineHeight: "1.5",
   margin: "0 0 16px",
   fontStyle: "italic",
+};
+
+const ctaStyle: React.CSSProperties = {
+  margin: "0 0 8px",
 };
 
 const dividerStyle: React.CSSProperties = {

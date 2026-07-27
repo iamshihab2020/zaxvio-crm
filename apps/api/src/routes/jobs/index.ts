@@ -1388,7 +1388,12 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           completedBy: isCompleted ? userId : null,
           completedAt: isCompleted ? new Date() : null,
         })
-        .where(eq(jobChecklistCompletions.id, completionId));
+        .where(
+          and(
+            eq(jobChecklistCompletions.id, completionId),
+            eq(jobChecklistCompletions.tenantId, tenantId),
+          ),
+        );
 
       // Auto-add line item from catalog if marking complete
       if (isCompleted && completion.catalogItemId) {

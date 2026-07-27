@@ -161,7 +161,7 @@ export function BookingTable({
             <TableCell className="text-sm">{formatDate(booking.bookingDate)}</TableCell>
             <TableCell className="text-sm">{formatTime(booking.preferredTime)}</TableCell>
             <TableCell>
-              <BookingStatusBadge status={booking.status as any} />
+              <BookingStatusBadge status={booking.status} />
             </TableCell>
             <TableCell>
               {(() => {
