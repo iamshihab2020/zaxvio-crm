@@ -1,7 +1,18 @@
 "use client";
 
 import * as React from "react";
-import { format, subDays, startOfMonth, endOfMonth, subMonths, startOfYear } from "date-fns";
+import {
+  format,
+  subDays,
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  startOfYear,
+  startOfQuarter,
+  endOfQuarter,
+  subQuarters,
+  subYears,
+} from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { IconCalendar, IconChevronDown } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
@@ -37,6 +48,18 @@ const PRESETS = [
     label: "Last 3 months",
     getValue: () => ({ from: subMonths(new Date(), 3), to: new Date() }),
   },
+  // The periods a contractor actually files taxes on.
+  {
+    label: "This quarter",
+    getValue: () => ({ from: startOfQuarter(new Date()), to: new Date() }),
+  },
+  {
+    label: "Last quarter",
+    getValue: () => ({
+      from: startOfQuarter(subQuarters(new Date(), 1)),
+      to: endOfQuarter(subQuarters(new Date(), 1)),
+    }),
+  },
   {
     label: "Last 6 months",
     getValue: () => ({ from: subMonths(new Date(), 6), to: new Date() }),
@@ -44,6 +67,13 @@ const PRESETS = [
   {
     label: "This year",
     getValue: () => ({ from: startOfYear(new Date()), to: new Date() }),
+  },
+  {
+    label: "Last year",
+    getValue: () => ({
+      from: startOfYear(subYears(new Date(), 1)),
+      to: new Date(new Date().getFullYear() - 1, 11, 31),
+    }),
   },
 ] as const;
 

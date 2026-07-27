@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { IconFileDescription } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
@@ -60,13 +61,13 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
             No quotes in this period
           </p>
           <p className="mt-1 text-xs font-body text-muted-foreground">
-            Send a quote from a customer's profile to track it here.
+            Send a quote from a customer&apos;s profile to track it here.
           </p>
         </div>
       ) : (
         <div className="mt-4 flex flex-1 items-center gap-5">
-          {/* Donut chart with centered conversion % */}
-          <div className="relative h-[140px] w-[140px] shrink-0">
+          {/* Donut chart with centered conversion % — values repeated in the legend */}
+          <div className="relative h-[140px] w-[140px] shrink-0" aria-hidden>
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -102,33 +103,37 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
               const value = data[s.key];
               const pct = data.totalQuotes > 0 ? Math.round((value / data.totalQuotes) * 100) : 0;
               return (
-                <li
-                  key={s.key}
-                  className="rounded-xl border border-border bg-background/40 p-2.5"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: s.color }}
-                    />
-                    <span className="flex-1 text-[11px] font-body text-muted-foreground">
-                      {s.label}
-                    </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-1.5 py-0.5 text-[10px] font-medium font-body",
-                      )}
-                      style={{
-                        backgroundColor: `${s.color}1a`,
-                        color: s.color,
-                      }}
-                    >
-                      {pct}%
-                    </span>
-                  </div>
-                  <div className="mt-0.5 font-heading text-lg font-semibold text-foreground">
-                    {value}
-                  </div>
+                <li key={s.key}>
+                  <Link
+                    href={`/quotes?status=${s.key === "pending" ? "sent" : s.key}`}
+                    aria-label={`${s.label}: ${value} of ${data.totalQuotes} quotes, ${pct} percent`}
+                    className="block rounded-xl border border-border bg-background/40 p-2.5 transition-all hover:border-brand/40 hover:bg-brand/5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: s.color }}
+                      />
+                      <span className="flex-1 text-[11px] font-body text-muted-foreground">
+                        {s.label}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 py-0.5 text-[10px] font-medium font-body",
+                        )}
+                        style={{
+                          backgroundColor: `${s.color}1a`,
+                          color: s.color,
+                        }}
+                      >
+                        {pct}%
+                      </span>
+                    </div>
+                    <div className="mt-0.5 font-heading text-lg font-semibold text-foreground">
+                      {value}
+                    </div>
+                  </Link>
                 </li>
               );
             })}

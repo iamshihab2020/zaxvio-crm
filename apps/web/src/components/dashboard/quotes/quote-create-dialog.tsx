@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { normalizePhone } from "@/lib/phone";
 import {
   Dialog,
   DialogContent,
@@ -200,7 +201,7 @@ export function QuoteCreateDialog({
 
     if (customerSelection!.type === "new") {
       setCreatingCustomer(true);
-      const phone = customerSelection!.type === "new" ? customerSelection!.phone.replace(/\D/g, "") : "";
+      const phone = customerSelection!.type === "new" ? normalizePhone(customerSelection!.phone) : "";
       const result = await createCustomer({
         firstName: customerSelection!.type === "new" ? customerSelection!.firstName.trim() : "",
         lastName: customerSelection!.type === "new" ? customerSelection!.lastName.trim() : "",

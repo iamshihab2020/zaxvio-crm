@@ -1,6 +1,7 @@
 import { sql } from "@hvac-saas/database";
 import { z } from "zod";
 import type { DbClient, DateRangeParams } from "../types.js";
+import { bucketSeries } from "./buckets.js";
 import {
   quoteFunnelRow,
   statusCountRow,
@@ -16,9 +17,25 @@ import {
   quoteSummaryRow,
 } from "../schemas.js";
 
+/**
+ * Archived invoices and quotes are excluded everywhere in this file so the
+ * numbers match the Invoices / Quotes list pages, which hide archived rows by
+ * default. (`invoice_payments` is deliberately *not* filtered — see the note in
+ * `revenue.ts`: archiving hides a document, it does not un-collect cash.)
+ */
+const NOT_ARCHIVED = sql`AND archived_at IS NULL`;
+
+/**
+ * `quotes.created_at` is `timestamptz`; a bare `::date` comparison resolves the
+ * boundary in the session timezone (UTC), not the tenant's.
+ */
+const quoteCreatedLocal = (timezone: string) =>
+  sql`((created_at AT TIME ZONE ${timezone})::date)`;
+
 /** Quote conversion funnel by status. */
 export async function getQuoteConversionFunnel(db: DbClient, params: DateRangeParams) {
-  const { tenantId, rangeFrom, rangeTo } = params;
+  const { tenantId, timezone, rangeFrom, rangeTo } = params;
+  const created = quoteCreatedLocal(timezone);
   const rows = await db.execute(sql`
     SELECT
       status,
@@ -26,8 +43,9 @@ export async function getQuoteConversionFunnel(db: DbClient, params: DateRangePa
       COALESCE(SUM(total_amount::numeric), 0)::text AS value
     FROM quotes
     WHERE tenant_id = ${tenantId}
-      AND created_at >= ${rangeFrom}::date
-      AND created_at <= ${rangeTo}::date + INTERVAL '1 day'
+      ${NOT_ARCHIVED}
+      AND ${created} >= ${rangeFrom}::date
+      AND ${created} <= ${rangeTo}::date
     GROUP BY status
     ORDER BY
       CASE status
@@ -48,6 +66,7 @@ export async function getInvoiceStatusDistribution(db: DbClient, params: DateRan
     SELECT status, COUNT(*)::text AS count
     FROM invoices
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND issued_date >= ${rangeFrom}::date
       AND issued_date <= ${rangeTo}::date
     GROUP BY status
@@ -56,21 +75,35 @@ export async function getInvoiceStatusDistribution(db: DbClient, params: DateRan
   return z.array(statusCountRow).parse(rows);
 }
 
-/** Invoice aging buckets. Shared with dashboard. */
-export async function getInvoiceAgingBuckets(db: DbClient, tenantId: string) {
+/**
+ * Standard AR aging buckets: current / 1-30 / 31-60 / 61-90 / 90+.
+ *
+ * The previous version had no 61-90 bucket, so everything past 60 days landed in a
+ * bucket *named* `90plus` — a contractor reading "90+" was seeing invoices as young
+ * as 61 days. Buckets are computed live from `due_date`, which is also what
+ * `getOverdueInvoiceSummary` uses, so the aging widget and the overdue banner can
+ * never disagree.
+ */
+export async function getInvoiceAgingBuckets(
+  db: DbClient,
+  tenantId: string,
+  timezone: string,
+) {
   const rows = await db.execute(sql`
     SELECT bucket, COUNT(*)::text AS count, COALESCE(SUM(amount), 0)::text AS amount
     FROM (
       SELECT
         CASE
-          WHEN due_date >= CURRENT_DATE THEN 'current'
-          WHEN due_date >= CURRENT_DATE - 30 THEN '30'
-          WHEN due_date >= CURRENT_DATE - 60 THEN '60'
+          WHEN due_date >= (now() AT TIME ZONE ${timezone})::date THEN 'current'
+          WHEN due_date >= (now() AT TIME ZONE ${timezone})::date - 30 THEN '30'
+          WHEN due_date >= (now() AT TIME ZONE ${timezone})::date - 60 THEN '60'
+          WHEN due_date >= (now() AT TIME ZONE ${timezone})::date - 90 THEN '90'
           ELSE '90plus'
         END AS bucket,
         balance_due::numeric AS amount
       FROM invoices
       WHERE tenant_id = ${tenantId}
+        ${NOT_ARCHIVED}
         AND status NOT IN ('paid', 'void')
     ) sub
     GROUP BY bucket
@@ -78,7 +111,8 @@ export async function getInvoiceAgingBuckets(db: DbClient, tenantId: string) {
       WHEN 'current' THEN 1
       WHEN '30' THEN 2
       WHEN '60' THEN 3
-      ELSE 4
+      WHEN '90' THEN 4
+      ELSE 5
     END
   `);
   return z.array(agingBucketRow).parse(rows);
@@ -93,7 +127,10 @@ export async function getAvgDaysToPayment(db: DbClient, params: DateRangeParams)
       0
     )::text AS avg_days
     FROM invoice_payments ip
-    INNER JOIN invoices i ON i.id = ip.invoice_id AND i.tenant_id = ${tenantId}
+    INNER JOIN invoices i
+      ON i.id = ip.invoice_id
+     AND i.tenant_id = ${tenantId}
+     AND i.archived_at IS NULL
     WHERE ip.tenant_id = ${tenantId}
       AND ip.payment_date >= ${rangeFrom}::date
       AND ip.payment_date <= ${rangeTo}::date
@@ -101,26 +138,39 @@ export async function getAvgDaysToPayment(db: DbClient, params: DateRangeParams)
   return z.array(avgDaysRow).parse(rows);
 }
 
-/** Overdue invoice trend by month. */
-export async function getOverdueInvoiceTrend(db: DbClient, params: DateRangeParams) {
-  const { tenantId, rangeFrom, rangeTo } = params;
+/**
+ * Overdue invoices bucketed by due date.
+ *
+ * "Overdue" is the same predicate as `getOverdueInvoiceSummary` — unpaid, not
+ * void, past due in the tenant's timezone — not `status = 'overdue'`, which only
+ * flips when the nightly cron runs. Using the stored status here meant the trend
+ * and the overdue banner could disagree by however long the cron had been down.
+ */
+export async function getOverdueInvoiceTrend(
+  db: DbClient,
+  params: DateRangeParams,
+  from = params.rangeFrom,
+  to = params.rangeTo,
+) {
+  const { tenantId, timezone, granularity } = params;
+  const b = bucketSeries(granularity, from, to);
   const rows = await db.execute(sql`
     SELECT
-      to_char(m.month, 'YYYY-MM') AS month,
-      to_char(m.month, 'Mon YYYY') AS month_label,
+      ${b.key} AS month,
+      ${b.label} AS month_label,
       COUNT(i.id)::text AS count
-    FROM generate_series(
-      date_trunc('month', ${rangeFrom}::date),
-      date_trunc('month', ${rangeTo}::date),
-      INTERVAL '1 month'
-    ) AS m(month)
+    FROM ${b.series}
     LEFT JOIN invoices i
       ON i.tenant_id = ${tenantId}
-      AND i.status = 'overdue'
-      AND i.due_date >= m.month
-      AND i.due_date < m.month + INTERVAL '1 month'
-    GROUP BY m.month
-    ORDER BY m.month
+      AND i.archived_at IS NULL
+      AND i.status NOT IN ('paid', 'void')
+      AND i.due_date < (now() AT TIME ZONE ${timezone})::date
+      AND i.due_date >= m.bucket
+      AND i.due_date < m.bucket + ${b.step}
+      AND i.due_date >= ${from}::date
+      AND i.due_date <= ${to}::date
+    GROUP BY m.bucket
+    ORDER BY m.bucket
   `);
   return z.array(monthlyCountRow).parse(rows);
 }
@@ -131,7 +181,9 @@ export async function getQuoteKpis(
   tenantId: string,
   from: string,
   to: string,
+  timezone: string,
 ) {
+  const created = quoteCreatedLocal(timezone);
   const rows = await db.execute(sql`
     SELECT
       COUNT(*)::text AS total,
@@ -139,8 +191,9 @@ export async function getQuoteKpis(
       COUNT(*) FILTER (WHERE status = 'accepted')::text AS accepted
     FROM quotes
     WHERE tenant_id = ${tenantId}
-      AND created_at >= ${from}::date
-      AND created_at <= ${to}::date + INTERVAL '1 day'
+      ${NOT_ARCHIVED}
+      AND ${created} >= ${from}::date
+      AND ${created} <= ${to}::date
   `);
   return z.array(quoteKpisRow).parse(rows);
 }
@@ -151,80 +204,67 @@ export async function getQuoteKpisPrev(
   tenantId: string,
   from: string,
   to: string,
+  timezone: string,
 ) {
+  const created = quoteCreatedLocal(timezone);
   const rows = await db.execute(sql`
     SELECT
       COUNT(*)::text AS total,
       COUNT(*) FILTER (WHERE status = 'accepted')::text AS accepted
     FROM quotes
     WHERE tenant_id = ${tenantId}
-      AND created_at >= ${from}::date
-      AND created_at <= ${to}::date + INTERVAL '1 day'
+      ${NOT_ARCHIVED}
+      AND ${created} >= ${from}::date
+      AND ${created} <= ${to}::date
   `);
   return z.array(quoteKpisPrevRow).parse(rows);
 }
 
-/** Invoice KPIs: total invoiced vs collected. */
-export async function getInvoiceKpis(db: DbClient, params: DateRangeParams) {
-  const { tenantId, rangeFrom, rangeTo } = params;
+/** Invoice KPIs: total invoiced vs collected, for any date window. */
+export async function getInvoiceKpis(
+  db: DbClient,
+  params: DateRangeParams,
+  from = params.rangeFrom,
+  to = params.rangeTo,
+) {
+  const { tenantId } = params;
   const rows = await db.execute(sql`
     SELECT
       COALESCE(SUM(total_amount::numeric), 0)::text AS invoiced,
       COALESCE(SUM(amount_paid::numeric), 0)::text AS collected
     FROM invoices
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND status != 'void'
-      AND issued_date >= ${rangeFrom}::date
-      AND issued_date <= ${rangeTo}::date
+      AND issued_date >= ${from}::date
+      AND issued_date <= ${to}::date
   `);
   return z.array(collectionRateRow).parse(rows);
 }
 
-/** Open (non-paid, non-void) invoice count. Shared with dashboard. */
-export async function getOpenInvoiceCount(
+/**
+ * Overdue invoices summary (count + amount). Shared with dashboard.
+ *
+ * Overdue is derived from `due_date`, NOT from `status = 'overdue'`. The stored
+ * status only flips when the overdue cron runs, so an invoice ten days past due
+ * could still read `sent` — it would appear in the aging widget's "1-30 days"
+ * bucket while being absent from this banner. Keep the stored status for email
+ * triggers; every read-side "is this overdue" question resolves here.
+ */
+export async function getOverdueInvoiceSummary(
   db: DbClient,
   tenantId: string,
-  from: string,
-  to: string,
+  timezone: string,
 ) {
-  const rows = await db.execute(sql`
-    SELECT COUNT(*)::text AS total
-    FROM invoices
-    WHERE tenant_id = ${tenantId}
-      AND status NOT IN ('paid', 'void')
-      AND issued_date >= ${from}::date
-      AND issued_date <= ${to}::date
-  `);
-  return z.array(totalCountRow).parse(rows);
-}
-
-/** Outstanding balance (SUM balance_due). Shared with dashboard. */
-export async function getOutstandingBalance(
-  db: DbClient,
-  tenantId: string,
-  from: string,
-  to: string,
-) {
-  const rows = await db.execute(sql`
-    SELECT COALESCE(SUM(balance_due::numeric), 0)::text AS amount
-    FROM invoices
-    WHERE tenant_id = ${tenantId}
-      AND status NOT IN ('paid', 'void')
-      AND issued_date >= ${from}::date
-      AND issued_date <= ${to}::date
-  `);
-  return z.array(totalAmountRow).parse(rows);
-}
-
-/** Overdue invoices summary (count + amount). Shared with dashboard. */
-export async function getOverdueInvoiceSummary(db: DbClient, tenantId: string) {
   const rows = await db.execute(sql`
     SELECT
       COUNT(*)::text AS total,
       COALESCE(SUM(balance_due::numeric), 0)::text AS amount
     FROM invoices
     WHERE tenant_id = ${tenantId}
-      AND status = 'overdue'
+      ${NOT_ARCHIVED}
+      AND status NOT IN ('paid', 'void')
+      AND due_date < (now() AT TIME ZONE ${timezone})::date
   `);
   return z.array(overdueInvoiceRow).parse(rows);
 }
@@ -235,7 +275,9 @@ export async function getQuoteSummary(
   tenantId: string,
   from: string,
   to: string,
+  timezone: string,
 ) {
+  const created = quoteCreatedLocal(timezone);
   const rows = await db.execute(sql`
     SELECT
       COUNT(*)::text AS total_quotes,
@@ -244,8 +286,9 @@ export async function getQuoteSummary(
       COUNT(*) FILTER (WHERE status IN ('draft', 'sent'))::text AS pending
     FROM quotes
     WHERE tenant_id = ${tenantId}
-      AND created_at >= ${from}::date
-      AND created_at <= ${to}::date + INTERVAL '1 day'
+      ${NOT_ARCHIVED}
+      AND ${created} >= ${from}::date
+      AND ${created} <= ${to}::date
   `);
   return z.array(quoteSummaryRow).parse(rows);
 }

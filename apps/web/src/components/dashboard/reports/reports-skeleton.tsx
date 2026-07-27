@@ -30,7 +30,8 @@ export function ReportsSkeleton() {
 export function ReportsTabSkeleton() {
   return (
     <div className="space-y-4">
-      {/* KPI row */}
+      {/* KPI row — four cards, matching the widest tab. It used to render five,
+          so every tab reflowed the moment real data arrived. */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <Skeleton key={i} className="h-24 rounded-lg" />

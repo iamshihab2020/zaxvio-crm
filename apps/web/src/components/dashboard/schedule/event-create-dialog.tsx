@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { normalizePhone } from "@/lib/phone";
 import {
   Dialog,
   DialogContent,
@@ -214,7 +215,7 @@ export function EventCreateDialog({
 
     if (customerSelection?.type === "new") {
       setCreatingCustomer(true);
-      const phone = customerSelection.phone.replace(/\D/g, "");
+      const phone = normalizePhone(customerSelection.phone);
       const result = await createCustomer({
         firstName: customerSelection.firstName.trim(),
         lastName: customerSelection.lastName.trim(),

@@ -380,7 +380,7 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const [updated] = await db
         .update(checklistItems)
         .set(updates)
-        .where(eq(checklistItems.id, itemId))
+        .where(and(eq(checklistItems.id, itemId), eq(checklistItems.tenantId, tenantId)))
         .returning();
 
       return reply.send({ data: updated });
@@ -418,7 +418,9 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Checklist item not found" });
       }
 
-      await db.delete(checklistItems).where(eq(checklistItems.id, itemId));
+      await db
+        .delete(checklistItems)
+        .where(and(eq(checklistItems.id, itemId), eq(checklistItems.tenantId, tenantId)));
 
       return reply.send({ message: "Checklist item deleted" });
     },

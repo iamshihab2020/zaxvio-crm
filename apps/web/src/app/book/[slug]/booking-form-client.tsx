@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { ServiceType } from "@hvac-saas/types";
 import { BookingProgressIndicator } from "@/components/booking-portal/booking-progress-indicator";
@@ -36,6 +37,9 @@ interface TimeSlot {
   available: boolean;
 }
 
+/** Slots older than this are refetched before the customer can pick from them. */
+const STALE_THRESHOLD_MS = 60_000;
+
 export function BookingFormClient({
   slug,
   businessName,
@@ -49,7 +53,6 @@ export function BookingFormClient({
 }: BookingFormClientProps) {
   const router = useRouter();
   const [step, setStep] = useState(initialService ? 2 : 1);
-  const [prevStep, setPrevStep] = useState(initialService ? 2 : 1);
   const [serviceType, setServiceType] = useState<ServiceType | null>(
     (initialService as ServiceType) ?? null,
   );
@@ -65,31 +68,40 @@ export function BookingFormClient({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Pre-fetched data caches
+  // Availability (which *dates* are open) is prefetched — it drives the calendar
+  // and is 3 cheap requests. Slots (which *times* are free on one date) are
+  // fetched on demand.
+  //
+  // This page used to prefetch slots for every open date in three months: with
+  // the default Mon-Fri schedule that is 47 extra requests, 51 in total, against
+  // a 100/min production rate limit — 51% of the budget for a single page load,
+  // and a 429 for the whole application after two. Worse, these requests reach
+  // Fastify from the Next server, so every visitor shares one limiter key
+  // (BOOK-02). The customer only ever needs slots for one date.
   const [availabilityCache, setAvailabilityCache] = useState<Map<string, Set<string>>>(new Map());
   const [slotsCache, setSlotsCache] = useState<Map<string, TimeSlot[]>>(new Map());
-  const [slotsFetchedAt, setSlotsFetchedAt] = useState<Map<string, number>>(new Map());
+  const slotsFetchedAt = useRef<Map<string, number>>(new Map());
   const [initialLoading, setInitialLoading] = useState(true);
+  const [slotsLoading, setSlotsLoading] = useState(false);
 
   // Animation state
   const [animating, setAnimating] = useState(false);
-  const animationDirection = step > prevStep ? "forward" : "backward";
 
   // Step transition with animation
   const goToStep = useCallback((newStep: number) => {
-    setPrevStep(step);
     setAnimating(true);
     // Brief fade out, then switch step, then fade in
     setTimeout(() => {
       setStep(newStep);
       setTimeout(() => setAnimating(false), 30);
     }, 150);
-  }, [step]);
+  }, []);
 
-  // Pre-fetch ALL data on page load (while user picks service)
+  /* ── Prefetch three months of open dates (3 requests) ── */
   useEffect(() => {
-    async function prefetchEverything() {
-      // 1. Fetch 3 months of availability in parallel
+    let cancelled = false;
+
+    async function prefetchAvailability() {
       const now = new Date();
       const months: string[] = [];
       for (let i = 0; i < 3; i++) {
@@ -100,99 +112,73 @@ export function BookingFormClient({
       const monthResults = await Promise.all(
         months.map((m) => getPublicAvailability(slug, m).then((r) => ({ month: m, data: r.data }))),
       );
+      if (cancelled) return;
 
       const dateCache = new Map<string, Set<string>>();
-      const allDates: string[] = [];
       for (const { month, data } of monthResults) {
-        if (data?.availableDates) {
-          dateCache.set(month, new Set(data.availableDates));
-          allDates.push(...data.availableDates);
-        }
+        if (data?.availableDates) dateCache.set(month, new Set(data.availableDates));
       }
       setAvailabilityCache(dateCache);
       setInitialLoading(false);
-
-      // 2. Fetch slots for ALL available dates in parallel (batched)
-      const BATCH_SIZE = 5;
-      const slotResults = new Map<string, TimeSlot[]>();
-      const fetchTimes = new Map<string, number>();
-      const fetchedNow = Date.now();
-      for (let i = 0; i < allDates.length; i += BATCH_SIZE) {
-        const batch = allDates.slice(i, i + BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map((d) => getPublicSlots(slug, d).then((r) => ({ date: d, slots: r.data?.slots }))),
-        );
-        for (const { date: d, slots } of results) {
-          if (slots) {
-            slotResults.set(d, slots);
-            fetchTimes.set(d, fetchedNow);
-          }
-        }
-        // Update cache progressively so it's available as soon as possible
-        setSlotsCache(new Map(slotResults));
-        setSlotsFetchedAt(new Map(fetchTimes));
-      }
     }
-    prefetchEverything();
+
+    prefetchAvailability();
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
-  // Fetch a new month if user navigates beyond the pre-fetched 3 months
-  const fetchMonthAvailability = useCallback(async (monthStr: string) => {
-    if (availabilityCache.has(monthStr)) return;
-    const result = await getPublicAvailability(slug, monthStr);
-    if (result.data?.availableDates) {
+  /** Fetch a month the customer navigated to beyond the prefetched three. */
+  const fetchMonthAvailability = useCallback(
+    async (monthStr: string) => {
+      if (availabilityCache.has(monthStr)) return;
+      const result = await getPublicAvailability(slug, monthStr);
+      if (!result.data?.availableDates) return;
       setAvailabilityCache((prev) => {
         const next = new Map(prev);
         next.set(monthStr, new Set(result.data.availableDates));
         return next;
       });
-      // Also fetch slots for these new dates
-      for (const d of result.data.availableDates) {
-        if (!slotsCache.has(d)) {
-          getPublicSlots(slug, d).then((r) => {
-            if (r.data?.slots) {
-              setSlotsCache((prev) => {
-                const next = new Map(prev);
-                next.set(d, r.data.slots);
-                return next;
-              });
-            }
-          });
-        }
+    },
+    [slug, availabilityCache],
+  );
+
+  /**
+   * Load slots for one date. Serves the cache when it is fresh, otherwise
+   * refetches — which is also what makes a retry after a 409 see the truth
+   * rather than the slot that was just refused.
+   */
+  const loadSlots = useCallback(
+    async (dateStr: string, force = false) => {
+      const fetchedAt = slotsFetchedAt.current.get(dateStr);
+      const isFresh = fetchedAt !== undefined && Date.now() - fetchedAt < STALE_THRESHOLD_MS;
+      if (!force && isFresh) return;
+
+      setSlotsLoading(true);
+      const result = await getPublicSlots(slug, dateStr);
+      setSlotsLoading(false);
+
+      if (result.data?.slots) {
+        slotsFetchedAt.current.set(dateStr, Date.now());
+        setSlotsCache((prev) => {
+          const next = new Map(prev);
+          next.set(dateStr, result.data.slots);
+          return next;
+        });
       }
-    }
-  }, [slug, availabilityCache, slotsCache]);
+    },
+    [slug],
+  );
 
   const handleServiceSelect = (type: ServiceType) => {
     setServiceType(type);
     goToStep(2);
   };
 
-  // DF-BK-24: Refresh stale slots (older than 5 minutes) when user selects a date
-  const STALE_THRESHOLD_MS = 5 * 60 * 1000;
-  const refreshSlotsIfStale = useCallback(async (dateStr: string) => {
-    const fetchedAt = slotsFetchedAt.get(dateStr);
-    if (fetchedAt && Date.now() - fetchedAt < STALE_THRESHOLD_MS) return;
-
-    const result = await getPublicSlots(slug, dateStr);
-    if (result.data?.slots) {
-      setSlotsCache((prev) => {
-        const next = new Map(prev);
-        next.set(dateStr, result.data.slots);
-        return next;
-      });
-      setSlotsFetchedAt((prev) => {
-        const next = new Map(prev);
-        next.set(dateStr, Date.now());
-        return next;
-      });
-    }
-  }, [slug, slotsFetchedAt]);
-
   const handleDateSelect = (d: string) => {
     setDate(d);
     setTime(null);
-    refreshSlotsIfStale(d);
+    loadSlots(d);
     goToStep(3);
   };
 
@@ -222,6 +208,25 @@ export function BookingFormClient({
     setSubmitting(false);
 
     if (result.error) {
+      // The slot was taken while they were filling in their details. Sending
+      // them back to step 3 with the *cached* list would show the slot that was
+      // just refused and let them pick it again for the same 409 (BOOK-26).
+      const slotGone = /no longer available|outside available hours|no availability/i.test(
+        result.error,
+      );
+      if (slotGone) {
+        slotsFetchedAt.current.delete(date);
+        setSlotsCache((prev) => {
+          const next = new Map(prev);
+          next.delete(date);
+          return next;
+        });
+        setTime(null);
+        setError(result.error);
+        loadSlots(date, true);
+        goToStep(3);
+        return;
+      }
       setError(result.error);
     } else {
       // Redirect to the unique booking status page
@@ -238,6 +243,8 @@ export function BookingFormClient({
     return merged;
   }, [availabilityCache]);
 
+  const currentSlots = date ? slotsCache.get(date) ?? null : null;
+
   return (
     <div className={cn("bg-background", embed ? "min-h-0" : "min-h-screen")}>
       {/* Branded Header Band — hidden in embed mode */}
@@ -245,11 +252,19 @@ export function BookingFormClient({
         <header className="bg-midnight dark:bg-card border-b border-border">
           <div className="mx-auto max-w-xl px-4 py-8 text-center">
             {logoUrl && (
-              <img
-                src={logoUrl}
-                alt={businessName}
-                className="mx-auto mb-4 h-14 w-auto object-contain"
-              />
+              // Explicit dimensions so the highest-intent page in the product
+              // does not shift its own header as the logo loads (BOOK-34).
+              <div className="relative mx-auto mb-4 h-14 w-40">
+                <Image
+                  src={logoUrl}
+                  alt={businessName}
+                  fill
+                  sizes="160px"
+                  priority
+                  unoptimized
+                  className="object-contain"
+                />
+              </div>
             )}
             <h1 className="text-2xl font-bold font-heading text-white dark:text-foreground">
               {businessName}
@@ -302,13 +317,23 @@ export function BookingFormClient({
           )}
 
           {step === 3 && date && (
-            <BookingStepTime
-              date={date}
-              slots={slotsCache.get(date) ?? null}
-              selectedTime={time}
-              onSelect={handleTimeSelect}
-              onBack={() => goToStep(2)}
-            />
+            <>
+              {error && (
+                <div
+                  role="alert"
+                  className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-body text-destructive"
+                >
+                  {error}
+                </div>
+              )}
+              <BookingStepTime
+                date={date}
+                slots={slotsLoading ? null : currentSlots}
+                selectedTime={time}
+                onSelect={handleTimeSelect}
+                onBack={() => goToStep(2)}
+              />
+            </>
           )}
 
           {step === 4 && (

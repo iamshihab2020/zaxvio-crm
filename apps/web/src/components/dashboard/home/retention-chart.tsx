@@ -2,6 +2,8 @@
 
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { DashboardRetentionPoint } from "@hvac-saas/types";
+import { WidgetWindowBadge } from "./widget-window-badge";
+import { ChartDataTable } from "@/components/reusable/chart-data-table";
 import { cn } from "@/lib/utils";
 
 interface RetentionChartProps {
@@ -38,9 +40,12 @@ export function RetentionChart({ data }: RetentionChartProps) {
     <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <h3 className="font-heading text-sm font-semibold text-foreground">
-            Retention Rate
-          </h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-heading text-sm font-semibold text-foreground">
+              Retention Rate
+            </h3>
+            <WidgetWindowBadge label="Last 6 months" />
+          </div>
           <div className="mt-1 flex items-baseline gap-2">
             <span className="font-heading text-2xl font-semibold text-foreground">
               {latest ? `${latest.repeatRate}%` : "—"}
@@ -63,7 +68,8 @@ export function RetentionChart({ data }: RetentionChartProps) {
         </span>
       </div>
 
-      <div className="mt-4 min-h-[180px] w-full flex-1">
+      {/* Chart is decorative for assistive tech; the same numbers are listed below it. */}
+      <div className="mt-4 min-h-[180px] w-full flex-1" aria-hidden>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
             <defs>
@@ -102,6 +108,17 @@ export function RetentionChart({ data }: RetentionChartProps) {
           </BarChart>
         </ResponsiveContainer>
       </div>
+
+      <ChartDataTable
+        caption="Repeat-customer rate by month"
+        columns={["Month", "Repeat rate", "Repeat customers", "Total customers"]}
+        rows={data.map((d) => [
+          d.monthLabel,
+          `${d.repeatRate}%`,
+          String(d.repeatCount),
+          String(d.totalCount),
+        ])}
+      />
     </div>
   );
 }

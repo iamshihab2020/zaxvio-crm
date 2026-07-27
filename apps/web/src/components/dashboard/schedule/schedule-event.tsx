@@ -7,6 +7,7 @@ import {
   AgendaHoverCard,
   type AgendaDetails,
 } from "@/components/dashboard/shared/agenda-hover-card";
+import { bookingLink, scheduleJobLink } from "@/lib/entity-links";
 import type { CalendarEvent } from "./schedule-calendar";
 
 /** Check if an event is currently in progress */
@@ -103,11 +104,15 @@ const PRIORITY_DOT: Record<string, string> = {
   emergency: "bg-red-500",
 };
 
+/**
+ * react-big-calendar spreads its own internal props onto custom event
+ * components. `unknown` accepts them without letting anything read them
+ * untyped — `any` here would have let a typo through silently.
+ */
 export interface ScheduleEventProps {
   event: CalendarEvent;
   title?: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 function toAgendaDetails(event: CalendarEvent): AgendaDetails {
@@ -138,11 +143,13 @@ function toAgendaDetails(event: CalendarEvent): AgendaDetails {
     priority: r.priority,
     start: event.start,
     end: event.end,
+    // Both of these were wrong: `?job=` carried a job *number* to a page that
+    // reads `jobId`, and `?booking=` to a page that reads `bookingId` (BOOK-14).
     href:
-      r.type === "job" && r.jobNumber
-        ? `/jobs?job=${encodeURIComponent(r.jobNumber)}`
+      r.type === "job"
+        ? scheduleJobLink(event.id)
         : r.type === "booking"
-          ? `/bookings?booking=${event.id}`
+          ? bookingLink(event.id)
           : `/schedule`,
     color: dotColorHex,
   };

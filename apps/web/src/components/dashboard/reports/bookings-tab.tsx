@@ -12,7 +12,7 @@ import {
   IconCalendarStats,
   IconPercentage,
 } from "@tabler/icons-react";
-import type { BookingReportData } from "@hvac-saas/types";
+import type { BookingReportData, ReportGranularity } from "@hvac-saas/types";
 import {
   ChartContainer,
   ChartTooltip,
@@ -22,6 +22,8 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
+import { EmptyChart } from "./empty-chart";
+import { granularityLabel } from "./report-format";
 import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 
 const volumeConfig = {
@@ -38,9 +40,10 @@ const dayConfig = {
 
 interface BookingsTabProps {
   data: BookingReportData;
+  granularity: ReportGranularity;
 }
 
-export function BookingsTab({ data }: BookingsTabProps) {
+export function BookingsTab({ data, granularity }: BookingsTabProps) {
   return (
     <div className="space-y-4">
       <ReportKpiRow
@@ -68,7 +71,18 @@ export function BookingsTab({ data }: BookingsTabProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* Booking Volume Trend */}
         <Fade className="h-full" inView inViewOnce delay={0}>
-          <ReportChartCard title="Booking Volume by Month">
+          <ReportChartCard
+            title="Booking Volume"
+            description={`Requested bookings, ${granularityLabel(granularity)}`}
+            dataTable={{
+              caption: "Booking volume by period",
+              columns: ["Period", "Bookings"],
+              rows: data.bookingVolumeTrend.map((p) => [
+                p.monthLabel,
+                String(p.count),
+              ]),
+            }}
+          >
             {data.bookingVolumeTrend.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -108,7 +122,17 @@ export function BookingsTab({ data }: BookingsTabProps) {
 
         {/* Bookings by Service Type */}
         <Fade className="h-full" inView inViewOnce delay={100}>
-          <ReportChartCard title="Bookings by Service Type">
+          <ReportChartCard
+            title="Bookings by Service Type"
+            dataTable={{
+              caption: "Bookings by service type",
+              columns: ["Service Type", "Bookings"],
+              rows: data.bookingsByServiceType.map((s) => [
+                s.label,
+                String(s.count),
+              ]),
+            }}
+          >
             {data.bookingsByServiceType.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -150,7 +174,14 @@ export function BookingsTab({ data }: BookingsTabProps) {
 
         {/* Bookings by Day of Week */}
         <Fade className="h-full" inView inViewOnce delay={200}>
-          <ReportChartCard title="Popular Booking Days">
+          <ReportChartCard
+            title="Popular Booking Days"
+            dataTable={{
+              caption: "Bookings by day of week",
+              columns: ["Day", "Bookings"],
+              rows: data.bookingsByDayOfWeek.map((s) => [s.day, String(s.count)]),
+            }}
+          >
             {data.bookingsByDayOfWeek.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -204,6 +235,7 @@ export function BookingsTab({ data }: BookingsTabProps) {
               <Progress
                 value={data.bookingConversionRate.rate}
                 className="h-2"
+                aria-label={`Booking to job conversion ${data.bookingConversionRate.rate} percent`}
               />
               <div className="flex justify-between text-xs text-muted-foreground font-body">
                 <span>Converted to jobs</span>
@@ -217,16 +249,6 @@ export function BookingsTab({ data }: BookingsTabProps) {
           </ReportChartCard>
         </Fade>
       </div>
-    </div>
-  );
-}
-
-function EmptyChart() {
-  return (
-    <div className="flex h-[280px] items-center justify-center">
-      <p className="text-sm text-muted-foreground font-body">
-        No data for this period
-      </p>
     </div>
   );
 }

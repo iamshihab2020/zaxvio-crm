@@ -14,10 +14,8 @@ import { Button } from "@/components/ui/button";
 import {
   respondToImpersonation,
   getPendingImpersonationRequest,
-  getTenant,
 } from "@/actions/tenants";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useEventStream } from "@/hooks/use-event-stream";
 
 interface ImpersonationRequest {
   sessionId: string;
@@ -28,57 +26,46 @@ interface ImpersonationRequest {
 export function ImpersonationRequestListener() {
   const [request, setRequest] = useState<ImpersonationRequest | null>(null);
   const [responding, setResponding] = useState(false);
-  const channelRef = useRef<RealtimeChannel | null>(null);
 
+  // Recover any request that arrived before this page loaded
   useEffect(() => {
     let mounted = true;
 
     async function init() {
-      // 1. Get tenant ID for channel subscription
-      const { data: tenant } = await getTenant();
-      if (!tenant?.id || !mounted) return;
-
-      // 2. Check for any pending requests on page load (recovery)
       const { data: pendingData } = await getPendingImpersonationRequest();
       if (pendingData?.pending && pendingData.request && mounted) {
         setRequest(pendingData.request);
       }
-
-      // 3. Subscribe to realtime channel
-      const supabase = getSupabaseBrowserClient();
-      const channel = supabase
-        .channel(`impersonation:${tenant.id}`)
-        .on("broadcast", { event: "request" }, ({ payload }) => {
-          if (!mounted) return;
-          setRequest({
-            sessionId: payload.sessionId,
-            adminName: payload.adminName ?? "Admin",
-            reason: payload.reason ?? "",
-          });
-        })
-        .on("broadcast", { event: "exit" }, () => {
-          if (!mounted) return;
-          toast.info("Admin support session has ended", {
-            description: "Your account access has been restored to normal.",
-          });
-        })
-        .on("broadcast", { event: "cancel" }, () => {
-          if (!mounted) return;
-          setRequest(null);
-        })
-        .subscribe();
-
-      channelRef.current = channel;
     }
 
     void init();
 
     return () => {
       mounted = false;
-      channelRef.current?.unsubscribe();
-      channelRef.current = null;
     };
   }, []);
+
+  useEventStream<{ sessionId: string; adminName?: string; reason?: string }>(
+    "impersonation",
+    "request",
+    (payload) => {
+      setRequest({
+        sessionId: payload.sessionId,
+        adminName: payload.adminName ?? "Admin",
+        reason: payload.reason ?? "",
+      });
+    },
+  );
+
+  useEventStream("impersonation", "exit", () => {
+    toast.info("Admin support session has ended", {
+      description: "Your account access has been restored to normal.",
+    });
+  });
+
+  useEventStream("impersonation", "cancel", () => {
+    setRequest(null);
+  });
 
   const handleRespond = async (approved: boolean) => {
     if (!request) return;

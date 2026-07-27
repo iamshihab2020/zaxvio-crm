@@ -1,6 +1,7 @@
 import { sql } from "@hvac-saas/database";
 import { z } from "zod";
 import type { DbClient, DateRangeParams } from "../types.js";
+import { bucketSeries } from "./buckets.js";
 import {
   monthlyCountRow,
   serviceTypeCountRow,
@@ -10,25 +11,38 @@ import {
   totalCountRow,
 } from "../schemas.js";
 
-/** Booking volume by month with generate_series zero-fill. */
-export async function getBookingVolumeTrend(db: DbClient, params: DateRangeParams) {
-  const { tenantId, rangeFrom, rangeTo } = params;
+/**
+ * Archived bookings are excluded from every count here, matching what the
+ * Bookings page shows by default. Before this the Jobs tab on /reports excluded
+ * archived rows and the Bookings tab did not, so one page applied two rules and
+ * booking totals exceeded the list page after any bulk archive.
+ */
+const NOT_ARCHIVED = sql`AND archived_at IS NULL`;
+
+/** Booking volume per bucket with generate_series zero-fill, clamped to [from, to]. */
+export async function getBookingVolumeTrend(
+  db: DbClient,
+  params: DateRangeParams,
+  from = params.rangeFrom,
+  to = params.rangeTo,
+) {
+  const { tenantId, granularity } = params;
+  const b = bucketSeries(granularity, from, to);
   const rows = await db.execute(sql`
     SELECT
-      to_char(m.month, 'YYYY-MM') AS month,
-      to_char(m.month, 'Mon YYYY') AS month_label,
-      COUNT(b.id)::text AS count
-    FROM generate_series(
-      date_trunc('month', ${rangeFrom}::date),
-      date_trunc('month', ${rangeTo}::date),
-      INTERVAL '1 month'
-    ) AS m(month)
-    LEFT JOIN bookings b
-      ON b.tenant_id = ${tenantId}
-      AND b.booking_date >= m.month
-      AND b.booking_date < m.month + INTERVAL '1 month'
-    GROUP BY m.month
-    ORDER BY m.month
+      ${b.key} AS month,
+      ${b.label} AS month_label,
+      COUNT(bk.id)::text AS count
+    FROM ${b.series}
+    LEFT JOIN bookings bk
+      ON bk.tenant_id = ${tenantId}
+      AND bk.archived_at IS NULL
+      AND bk.booking_date >= m.bucket
+      AND bk.booking_date < m.bucket + ${b.step}
+      AND bk.booking_date >= ${from}::date
+      AND bk.booking_date <= ${to}::date
+    GROUP BY m.bucket
+    ORDER BY m.bucket
   `);
   return z.array(monthlyCountRow).parse(rows);
 }
@@ -40,6 +54,7 @@ export async function getBookingsByServiceType(db: DbClient, params: DateRangePa
     SELECT service_type, COUNT(*)::text AS count
     FROM bookings
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND booking_date >= ${rangeFrom}::date
       AND booking_date <= ${rangeTo}::date
     GROUP BY service_type
@@ -56,8 +71,12 @@ export async function getBookingConversionRate(db: DbClient, params: DateRangePa
       COUNT(*)::text AS total,
       COUNT(j.id)::text AS converted
     FROM bookings b
-    LEFT JOIN jobs j ON j.booking_id = b.id AND j.tenant_id = ${tenantId}
+    LEFT JOIN jobs j
+      ON j.booking_id = b.id
+     AND j.tenant_id = ${tenantId}
+     AND j.archived_at IS NULL
     WHERE b.tenant_id = ${tenantId}
+      AND b.archived_at IS NULL
       AND b.booking_date >= ${rangeFrom}::date
       AND b.booking_date <= ${rangeTo}::date
   `);
@@ -73,6 +92,7 @@ export async function getBookingsByDayOfWeek(db: DbClient, params: DateRangePara
       COUNT(*)::text AS count
     FROM bookings
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND booking_date >= ${rangeFrom}::date
       AND booking_date <= ${rangeTo}::date
     GROUP BY 1
@@ -90,21 +110,11 @@ export async function getBookingKpis(db: DbClient, params: DateRangeParams) {
       COUNT(*) FILTER (WHERE status = 'pending')::text AS pending
     FROM bookings
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND booking_date >= ${rangeFrom}::date
       AND booking_date <= ${rangeTo}::date
   `);
   return z.array(bookingKpisRow).parse(rows);
-}
-
-/** Pending booking count (always current). Shared with dashboard. */
-export async function getPendingBookingCount(db: DbClient, tenantId: string) {
-  const rows = await db.execute(sql`
-    SELECT COUNT(*)::text AS total
-    FROM bookings
-    WHERE tenant_id = ${tenantId}
-      AND status = 'pending'
-  `);
-  return z.array(totalCountRow).parse(rows);
 }
 
 /** Booking count for a date range. */
@@ -118,6 +128,7 @@ export async function getBookingCount(
     SELECT COUNT(*)::text AS total
     FROM bookings
     WHERE tenant_id = ${tenantId}
+      ${NOT_ARCHIVED}
       AND booking_date >= ${from}::date
       AND booking_date <= ${to}::date
   `);

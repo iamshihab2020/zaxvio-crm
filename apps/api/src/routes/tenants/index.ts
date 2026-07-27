@@ -3,7 +3,6 @@ import type { ZodTypeProvider } from "fastify-type-provider-zod";
 import { requireAuth, requireTenant, requireOrgRole } from "../../lib/auth-middleware.js";
 import {
   getDb,
-  getSupabaseAdmin,
   tenants,
   tenantSubscriptions,
   availabilitySchedules,
@@ -11,6 +10,7 @@ import {
   organization,
   eq,
 } from "@hvac-saas/database";
+import { uploadFile, deleteFiles, getPublicUrl } from "../../lib/storage.js";
 import tenantImpersonationRoutes from "./impersonation.js";
 import {
   updateTenantBody,
@@ -137,7 +137,7 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
    * POST /tenants/current/logo
    *
    * Upload a business logo. Accepts JSON body with base64-encoded image.
-   * Stores in Supabase Storage "logos" bucket. Updates tenant.logoUrl.
+   * Stores in the R2 public bucket under "logos/". Updates tenant.logoUrl.
    * Max 2MB, image/* only.
    */
   f.post(
@@ -169,26 +169,15 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Invalid file extension" });
       }
       const storagePath = `${tenantId}/logo.${ext}`;
-      const supabase = getSupabaseAdmin();
 
-      const { error: uploadError } = await supabase.storage
-        .from("logos")
-        .upload(storagePath, buffer, {
-          contentType: mimeType,
-          upsert: true,
-        });
-
-      if (uploadError) {
+      try {
+        await uploadFile("logos", storagePath, buffer, mimeType);
+      } catch (uploadError) {
         console.error("[logo-upload] Storage error:", uploadError);
         return reply.status(500).send({ message: "Failed to upload logo" });
       }
 
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("logos")
-        .getPublicUrl(storagePath);
-
-      const logoUrl = urlData.publicUrl;
+      const logoUrl = getPublicUrl("logos", storagePath);
 
       // Update tenant
       const db = getDb();
@@ -222,11 +211,11 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .then((r) => r[0]);
 
       if (tenant?.logoUrl) {
-        // Try to remove from storage (best-effort)
-        const supabase = getSupabaseAdmin();
+        // Public URL is "{R2_PUBLIC_URL}/logos/{tenantId}/logo.ext", so this
+        // recovers the storage path. Removal is best-effort.
         const pathMatch = tenant.logoUrl.match(/logos\/(.+)$/);
         if (pathMatch) {
-          await supabase.storage.from("logos").remove([pathMatch[1]]).catch(() => {});
+          await deleteFiles("logos", [pathMatch[1]]);
         }
       }
 

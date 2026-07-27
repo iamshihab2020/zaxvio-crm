@@ -23,8 +23,14 @@ export const queryKeys = {
       ["customers", "detail", customerId, "activities", params ?? {}] as const,
     tags: (customerId: string) =>
       ["customers", "detail", customerId, "tags"] as const,
-    photos: (customerId: string) =>
-      ["customers", "detail", customerId, "photos"] as const,
+    photos: (customerId: string, params?: Record<string, unknown>) =>
+      ["customers", "detail", customerId, "photos", params ?? {}] as const,
+    summary: (customerId: string) =>
+      ["customers", "detail", customerId, "summary"] as const,
+    // Related lists rendered by the detail tabs. Nested under the customer's
+    // detail key so one invalidation refreshes the whole page (CUST-22).
+    related: (customerId: string, entity: string, params?: Record<string, unknown>) =>
+      ["customers", "detail", customerId, "related", entity, params ?? {}] as const,
   },
 
   // ── Jobs ───────────────────────────────────────────────────
@@ -81,6 +87,8 @@ export const queryKeys = {
       ["bookings", "list", params] as const,
     stats: () => ["bookings", "stats"] as const,
     detail: (id: string) => ["bookings", "detail", id] as const,
+    activities: (bookingId: string, params?: Record<string, unknown>) =>
+      ["bookings", "detail", bookingId, "activities", params ?? {}] as const,
     availability: () => ["bookings", "availability"] as const,
   },
 
@@ -137,15 +145,34 @@ export const queryKeys = {
   // ── Dashboard ──────────────────────────────────────────────
   dashboard: {
     all: ["dashboard"] as const,
-    stats: (params?: { from?: string; to?: string }) =>
-      ["dashboard", "stats", params ?? {}] as const,
+    /**
+     * Every field here participates in the hashed key. The type previously listed
+     * only `from`/`to` while callers also passed `granularity` — accurate, but only
+     * by accident.
+     */
+    stats: (params?: {
+      from?: string;
+      to?: string;
+      granularity?: "day" | "week" | "month";
+    }) => ["dashboard", "stats", params ?? {}] as const,
+    pipeline: (pipelineId?: string | null) =>
+      ["dashboard", "pipeline", pipelineId ?? "default"] as const,
   },
 
   // ── Reports ────────────────────────────────────────────────
   reports: {
     all: ["reports"] as const,
-    stats: (params: Record<string, unknown>) =>
-      ["reports", "stats", params] as const,
+    /**
+     * Named fields rather than `Record<string, unknown>`: every one of them
+     * changes the payload, and spelling them out is what stops a caller adding
+     * a param that silently shares a cache entry with a different request.
+     */
+    stats: (params: {
+      section: string;
+      from?: string;
+      to?: string;
+      granularity?: "day" | "week" | "month";
+    }) => ["reports", "stats", params] as const,
   },
 
   // ── Notifications ──────────────────────────────────────────

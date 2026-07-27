@@ -191,10 +191,12 @@ const calendarEventRoutes: FastifyPluginAsyncZod = async (fastify) => {
         if (body.color !== undefined) updates.color = body.color;
         if (body.customerId !== undefined) updates.customerId = emptyToNull(body.customerId);
 
+        // tenantId in the WHERE, not just the id ([[security-rules]] §1) — the
+        // ownership check above is separated from this write by an `await`.
         const [updated] = await db
           .update(calendarEvents)
           .set(updates)
-          .where(eq(calendarEvents.id, id))
+          .where(and(eq(calendarEvents.id, id), eq(calendarEvents.tenantId, tenantId)))
           .returning();
 
         return reply.send({ data: updated });
@@ -228,7 +230,10 @@ const calendarEventRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Event not found" });
       }
 
-      await db.delete(calendarEvents).where(eq(calendarEvents.id, id));
+      // tenantId in the WHERE, not just the id ([[security-rules]] §1).
+      await db
+        .delete(calendarEvents)
+        .where(and(eq(calendarEvents.id, id), eq(calendarEvents.tenantId, tenantId)));
 
       return reply.send({ message: "Event deleted" });
     },

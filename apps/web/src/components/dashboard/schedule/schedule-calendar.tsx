@@ -15,11 +15,11 @@ import {
   parse,
   startOfWeek,
   getDay,
-  isToday,
 } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
 import { AnimatePresence, motion } from "motion/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { isTenantToday, tenantNow } from "@/lib/tenant-time";
 import { ScheduleEvent, ScheduleMonthEvent } from "./schedule-event";
 import type { CalendarView } from "./schedule-toolbar";
 import "./calendar-styles.css";
@@ -59,9 +59,16 @@ export interface CalendarEvent {
 
 interface AvailabilitySlot {
   dayOfWeek: number;
-  startTime: string;
-  endTime: string;
+  startTime: string | null;
+  endTime: string | null;
   isActive: boolean;
+}
+
+interface ScheduleOverrideSlot {
+  overrideDate: string; // YYYY-MM-DD
+  isAvailable: boolean;
+  startTime: string | null;
+  endTime: string | null;
 }
 
 interface ScheduleCalendarProps {
@@ -69,19 +76,27 @@ interface ScheduleCalendarProps {
   currentDate: Date;
   currentView: CalendarView;
   availability: AvailabilitySlot[];
+  /** Date-specific closures and custom hours. Take precedence over the weekly schedule. */
+  overrides: ScheduleOverrideSlot[];
+  /** Tenant IANA timezone — decides which column is "today". */
+  timezone: string;
   navigationDirection: MutableRefObject<-1 | 0 | 1>;
   onNavigate: (date: Date) => void;
   onViewChange: (view: CalendarView) => void;
   onSelectEvent: (event: CalendarEvent) => void;
   onEventDrop: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
-  onEventResize: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
   onSelectSlot?: (slotInfo: { start: Date; end: Date; action: string }) => void;
 }
 
-/** Parse "HH:MM" string to hours as decimal (e.g., "09:30" → 9.5) */
+/** Parse "HH:MM" or "HH:MM:SS" to hours as decimal (e.g., "09:30" → 9.5) */
 function parseTimeToHours(time: string): number {
   const [h, m] = time.split(":").map(Number);
   return h + (m ?? 0) / 60;
+}
+
+/** Local calendar date as YYYY-MM-DD — matches how overrides are keyed. */
+function toDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 export function ScheduleCalendar({
@@ -89,32 +104,56 @@ export function ScheduleCalendar({
   currentDate,
   currentView,
   availability,
+  overrides,
+  timezone,
   navigationDirection,
   onNavigate,
   onViewChange,
   onSelectEvent,
   onEventDrop,
-  onEventResize,
   onSelectSlot,
 }: ScheduleCalendarProps) {
+  const overrideByDate = useMemo(
+    () => new Map(overrides.map((o) => [o.overrideDate, o])),
+    [overrides],
+  );
+
   /* ── Availability-based slot styling ── */
+  //
+  // Overrides win over the weekly schedule, exactly as they do in the API's
+  // availability resolver. The calendar used to read the weekly schedule alone,
+  // so a day the contractor had closed in Settings still shaded as open here
+  // while the public portal correctly refused to sell it (BOOK-10).
   const slotPropGetter: SlotPropGetter = useCallback(
     (date: Date) => {
-      if (availability.length === 0) return {};
-      const dow = date.getDay();
-      const slot = availability.find((a) => a.dayOfWeek === dow);
-      if (!slot || !slot.isActive) {
-        return { className: "schedule-slot-unavailable" };
+      if (availability.length === 0 && overrideByDate.size === 0) return {};
+
+      const override = overrideByDate.get(toDateKey(date));
+      let startTime: string | null;
+      let endTime: string | null;
+
+      if (override) {
+        if (!override.isAvailable) return { className: "schedule-slot-unavailable" };
+        startTime = override.startTime;
+        endTime = override.endTime;
+      } else {
+        const slot = availability.find((a) => a.dayOfWeek === date.getDay());
+        if (!slot || !slot.isActive) {
+          return { className: "schedule-slot-unavailable" };
+        }
+        startTime = slot.startTime;
+        endTime = slot.endTime;
       }
+
+      if (!startTime || !endTime) return { className: "schedule-slot-unavailable" };
+
       const hours = date.getHours() + date.getMinutes() / 60;
-      const slotStart = parseTimeToHours(slot.startTime);
-      const slotEnd = parseTimeToHours(slot.endTime);
-      if (hours < slotStart || hours >= slotEnd) {
+      if (hours < parseTimeToHours(startTime) || hours >= parseTimeToHours(endTime)) {
         return { className: "schedule-slot-unavailable" };
       }
       return {};
     },
-    [availability],
+    [availability, overrideByDate],
   );
 
   /* ── Event styling ── */
@@ -127,40 +166,33 @@ export function ScheduleCalendar({
   );
 
   /* ── Today column highlight (week/day views) ── */
-  const dayPropGetter: DayPropGetter = useCallback((date: Date) => {
-    if (isToday(date)) {
-      return { className: "schedule-today-column" };
-    }
-    return {};
-  }, []);
+  // Tenant's today, not the browser's (BOOK-25).
+  const dayPropGetter: DayPropGetter = useCallback(
+    (date: Date) => {
+      if (isTenantToday(date, timezone)) {
+        return { className: "schedule-today-column" };
+      }
+      return {};
+    },
+    [timezone],
+  );
 
-  /* ── Drag handlers (prevent booking drag) ── */
+  /* ── Drag handler (prevent booking drag) ── */
+  //
+  // Bookings are also excluded by `draggableAccessor`, so this is the second of
+  // two guards. Deliberate: the accessor governs the drag affordance, this one
+  // governs what actually gets written.
   const handleEventDrop = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (args: any) => {
-      const event = args.event as CalendarEvent;
+    (args: { event: CalendarEvent; start: Date | string; end: Date | string }) => {
+      const { event } = args;
       if (event.resource.type === "booking") return;
       onEventDrop({
         event,
-        start: args.start as Date,
-        end: args.end as Date,
+        start: new Date(args.start),
+        end: new Date(args.end),
       });
     },
     [onEventDrop],
-  );
-
-  const handleEventResize = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (args: any) => {
-      const event = args.event as CalendarEvent;
-      if (event.resource.type === "booking") return;
-      onEventResize({
-        event,
-        start: args.start as Date,
-        end: args.end as Date,
-      });
-    },
-    [onEventResize],
   );
 
   /* ── Custom component map ── */
@@ -188,7 +220,9 @@ export function ScheduleCalendar({
     const timer = setTimeout(() => {
       const viewport = scrollAreaRef.current?.querySelector("[data-radix-scroll-area-viewport]");
       if (!viewport) return;
-      const now = new Date();
+      // Tenant's current hour — events are laid out in tenant wall-clock time, so
+      // scrolling to the browser's hour lands somewhere else entirely (BOOK-25).
+      const now = tenantNow(timezone);
       const offset = Math.max(0, (now.getHours() + now.getMinutes() / 60) * 72 - viewport.clientHeight / 3);
       viewport.scrollTo({ top: offset, behavior: "smooth" });
     }, 100);
@@ -207,7 +241,6 @@ export function ScheduleCalendar({
       onView={(v: string) => onViewChange(v as CalendarView)}
       onSelectEvent={(event: CalendarEvent) => onSelectEvent(event)}
       onEventDrop={handleEventDrop}
-      onEventResize={handleEventResize}
       components={components}
       eventPropGetter={eventPropGetter}
       slotPropGetter={isTimeView ? slotPropGetter : undefined}

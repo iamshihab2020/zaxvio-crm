@@ -60,10 +60,12 @@ export const BOOKING_STATUS_LABELS: Record<string, string> = {
 
 export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
+/** Keys must stay in sync with the CASE in `getInvoiceAgingBuckets`. */
 export const AGING_LABELS: Record<string, string> = {
   current: "Current",
   "30": "1–30 days",
   "60": "31–60 days",
+  "90": "61–90 days",
   "90plus": "90+ days",
 };
 

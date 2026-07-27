@@ -20,10 +20,9 @@ export default async function CustomerDetailPage({
     notFound();
   }
 
+  const tenant = tenantResult.data as { defaultTaxRate?: string } | null;
+
   return (
-    <CustomerDetailClient
-      customer={customer}
-      defaultTaxRate={(tenantResult.data?.defaultTaxRate as string) ?? "0"}
-    />
+    <CustomerDetailClient customer={customer} defaultTaxRate={tenant?.defaultTaxRate ?? "0"} />
   );
 }

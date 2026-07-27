@@ -1,22 +1,21 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import type { ScheduleOverride } from "@hvac-saas/types";
+import { useState, useEffect } from "react";
 import {
   AvailabilityWeeklyEditor,
   type ScheduleEntry,
 } from "@/components/dashboard/settings/availability-weekly-editor";
 import { AvailabilityOverrideList } from "@/components/dashboard/settings/availability-override-list";
 import { AvailabilityOverrideDialog } from "@/components/dashboard/settings/availability-override-dialog";
-import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
+import { BookingCapacityCard } from "@/components/dashboard/settings/booking-capacity-card";
 import {
-  getAvailability,
-  updateAvailability,
-  createScheduleOverride,
-  deleteScheduleOverride,
-} from "@/actions/bookings";
+  useAvailability,
+  useUpdateAvailability,
+  useCreateScheduleOverride,
+  useDeleteScheduleOverride,
+} from "@/hooks/queries";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Skeleton } from "@/components/ui/skeleton";
-import { toast } from "sonner";
 
 const DEFAULT_SCHEDULE: ScheduleEntry[] = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
   dayOfWeek: day,
@@ -25,124 +24,117 @@ const DEFAULT_SCHEDULE: ScheduleEntry[] = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
   isActive: day >= 1 && day <= 5,
 }));
 
-interface BookingsSettingsClientProps {
-  initialData?: { weeklySchedule: Array<{ dayOfWeek: number; startTime: string | null; endTime: string | null; isActive: boolean }>; overrides: ScheduleOverride[] };
-}
+/**
+ * This page sat on raw `useState`/`useEffect` + server actions, outside TanStack
+ * Query entirely. Saving a new weekly schedule invalidated nothing, so the
+ * calendar — which caches the same data under `queryKeys.bookings.availability()`
+ * with a 5-minute staleTime — kept shading yesterday's hours with no way to force
+ * a refresh (BOOK-20). Both surfaces now read and invalidate one key.
+ */
+export function BookingsSettingsClient() {
+  const query = useAvailability();
+  const updateMutation = useUpdateAvailability();
+  const createOverrideMutation = useCreateScheduleOverride();
+  const deleteOverrideMutation = useDeleteScheduleOverride();
 
-export function BookingsSettingsClient({ initialData }: BookingsSettingsClientProps) {
-  const [schedule, setSchedule] = useState<ScheduleEntry[]>(() => {
-    if (initialData?.weeklySchedule?.length) {
-      return initialData.weeklySchedule.map((s) => ({
-        dayOfWeek: s.dayOfWeek,
-        startTime: s.startTime?.substring(0, 5) ?? "08:00",
-        endTime: s.endTime?.substring(0, 5) ?? "17:00",
-        isActive: s.isActive ?? false,
-      }));
-    }
-    return DEFAULT_SCHEDULE;
-  });
-  const [originalSchedule, setOriginalSchedule] = useState<ScheduleEntry[]>(schedule);
-  const [overrides, setOverrides] = useState<ScheduleOverride[]>(initialData?.overrides ?? []);
-  const [loading, setLoading] = useState(!initialData);
-  const [saving, setSaving] = useState(false);
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>(DEFAULT_SCHEDULE);
+  const [savedSchedule, setSavedSchedule] = useState<ScheduleEntry[]>(DEFAULT_SCHEDULE);
+  const [capacity, setCapacity] = useState(1);
+  const [savedCapacity, setSavedCapacity] = useState(1);
   const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
-  const [savingOverride, setSavingOverride] = useState(false);
-  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    const result = await getAvailability();
-    if (result.data) {
-      const { weeklySchedule, overrides: fetchedOverrides } = result.data;
-      if (weeklySchedule.length > 0) {
-        const mapped: ScheduleEntry[] = weeklySchedule.map((s: any) => ({
-          dayOfWeek: s.dayOfWeek,
-          startTime: s.startTime?.substring(0, 5) ?? "08:00",
-          endTime: s.endTime?.substring(0, 5) ?? "17:00",
-          isActive: s.isActive ?? false,
-        }));
-        setSchedule(mapped);
-        setOriginalSchedule(mapped);
-      }
-      setOverrides(fetchedOverrides ?? []);
-    }
-    setLoading(false);
-  }, []);
+  // Sync the editable draft whenever the server payload changes. Typed off the
+  // hook's return rather than `(s: any)` ([[strict-rules]] §4).
+  const serverSchedule = query.data?.weeklySchedule;
+  const serverCapacity = query.data?.slotCapacity;
 
   useEffect(() => {
-    if (initialData) return;
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!serverSchedule?.length) return;
+    const mapped: ScheduleEntry[] = serverSchedule.map((s) => ({
+      dayOfWeek: s.dayOfWeek,
+      startTime: s.startTime?.substring(0, 5) ?? "08:00",
+      endTime: s.endTime?.substring(0, 5) ?? "17:00",
+      isActive: s.isActive ?? false,
+    }));
+    setSchedule(mapped);
+    setSavedSchedule(mapped);
+  }, [serverSchedule]);
 
-  const isDirty = JSON.stringify(schedule) !== JSON.stringify(originalSchedule);
+  useEffect(() => {
+    if (serverCapacity === undefined) return;
+    setCapacity(serverCapacity);
+    setSavedCapacity(serverCapacity);
+  }, [serverCapacity]);
 
-  const handleSaveSchedule = async () => {
-    setSaving(true);
-    setMessage(null);
-    const result = await updateAvailability(schedule);
-    setSaving(false);
-    if (result.error) {
-      setMessage({ type: "error", text: result.error });
-    } else {
-      setMessage({ type: "success", text: "Schedule saved" });
-      setOriginalSchedule(schedule);
-      setTimeout(() => setMessage(null), 3000);
-    }
+  const isDirty =
+    JSON.stringify(schedule) !== JSON.stringify(savedSchedule) || capacity !== savedCapacity;
+
+  const handleSaveSchedule = () => {
+    updateMutation.mutate(
+      { schedule, slotCapacity: capacity },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setSavedSchedule(schedule);
+          setSavedCapacity(capacity);
+        },
+      },
+    );
   };
 
-  const handleAddOverride = async (data: {
+  const handleAddOverride = (data: {
     overrideDate: string;
     isAvailable: boolean;
     startTime?: string;
     endTime?: string;
     reason?: string;
   }) => {
-    setSavingOverride(true);
-    const result = await createScheduleOverride(data);
-    setSavingOverride(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      setOverrideDialogOpen(false);
-      fetchData();
-      toast.success("Override added");
-    }
+    createOverrideMutation.mutate(data, {
+      onSuccess: (res) => {
+        if (!res.error) setOverrideDialogOpen(false);
+      },
+    });
   };
 
-  const handleDeleteOverride = async (id: string) => {
-    const result = await deleteScheduleOverride(id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      setOverrides((prev) => prev.filter((o) => o.id !== id));
-      toast.success("Override removed");
-    }
+  const handleDeleteOverride = (id: string) => {
+    deleteOverrideMutation.mutate(id);
   };
 
-  if (loading) {
+  if (query.isLoading) {
     return (
       <div className="space-y-6">
         <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-24 w-full" />
         <Skeleton className="h-48 w-full" />
       </div>
     );
   }
 
+  if (query.isError || !query.data) {
+    return (
+      <LoadErrorState
+        title="Couldn't load your availability"
+        message={query.error instanceof Error ? query.error.message : null}
+        onRetry={() => query.refetch()}
+        isRetrying={query.isFetching}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
-      {message && <SettingsFormMessage message={message} />}
-
       <AvailabilityWeeklyEditor
         schedule={schedule}
         onChange={setSchedule}
         onSave={handleSaveSchedule}
-        saving={saving}
+        saving={updateMutation.isPending}
         dirty={isDirty}
       />
 
+      <BookingCapacityCard value={capacity} onChange={setCapacity} />
+
       <AvailabilityOverrideList
-        overrides={overrides}
+        overrides={query.data.overrides}
         onAdd={() => setOverrideDialogOpen(true)}
         onDelete={handleDeleteOverride}
       />
@@ -151,7 +143,7 @@ export function BookingsSettingsClient({ initialData }: BookingsSettingsClientPr
         open={overrideDialogOpen}
         onOpenChange={setOverrideDialogOpen}
         onSave={handleAddOverride}
-        saving={savingOverride}
+        saving={createOverrideMutation.isPending}
       />
     </div>
   );

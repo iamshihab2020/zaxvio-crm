@@ -1,14 +1,24 @@
-# API Documentation — Part 4: Bookings, Equipment, Service Agreements, Conversations
+# API Documentation — Part 4: Bookings, Calendar, Equipment, Service Agreements, Conversations
 
-> **Part 4 of 5** — Bookings, Equipment, Service Agreements, Conversations
+> **Part 4 of 5** — Bookings, Availability, Calendar Events, Public Booking Portal, Equipment, Service Agreements, Conversations
 > - [[API_DOCUMENTATION_1|Part 1]]: Auth, Tenants, Dashboard, Customers, Tags
 > - [[API_DOCUMENTATION_2|Part 2]]: Jobs, Quotes, Line Items
 > - [[API_DOCUMENTATION_3|Part 3]]: Invoices, Catalog, Checklists, Pipelines
-> - [[API_DOCUMENTATION_4|Part 4]]: Bookings, Equipment, Service Agreements, Conversations *(this file)*
+> - [[API_DOCUMENTATION_4|Part 4]]: Bookings, Calendar, Equipment, Service Agreements, Conversations *(this file)*
 > - [[API_DOCUMENTATION_5|Part 5]]: Reports, Admin Panel, Enums, Errors
+>
+> Related: [[bookings-calendar|Bookings & Calendar audit]] | [[security-rules]] | [[api-rules]]
 ## Bookings (Internal)
 
 Internal booking management for the authenticated tenant.
+
+> **Date and time validation.** `bookingDate` must be a real `YYYY-MM-DD`
+> calendar date and `preferredTime` a real `HH:MM`, on every endpoint below.
+> Postgres would otherwise accept `infinity`, `today`, `epoch` and `now` — the
+> relative ones resolving in the *session* timezone, not the tenant's — and a
+> booking stored as `infinity` matches no date query and renders as
+> `Invalid Date` everywhere. Shared validators: `isoDate` / `isoTime` /
+> `boundedText` in `lib/schemas/common.ts`.
 
 ### `GET /bookings`
 
@@ -18,14 +28,17 @@ Internal booking management for the authenticated tenant.
 
 | Parameter | Type | Default | Options |
 |-----------|------|---------|---------|
-| `search` | string | - | Searches customerName, customerEmail, customerPhone, description |
+| `search` | string | - | Searches customerName, customerEmail, customerPhone |
 | `status` | string | - | `pending`, `confirmed`, `cancelled`, `completed` |
-| `dateFrom` | string | - | ISO date (bookingDate >=) |
-| `dateTo` | string | - | ISO date (bookingDate <=) |
+| `dateFrom` | string | - | `YYYY-MM-DD` (bookingDate >=). Rejects non-calendar dates |
+| `dateTo` | string | - | `YYYY-MM-DD` (bookingDate <=). Rejects non-calendar dates |
+| `showArchived` | boolean | `false` | `true` returns only archived bookings |
 | `page` | integer | `1` | - |
-| `limit` | integer | `20` | Max: 100 |
-| `sortBy` | string | `"bookingDate"` | `bookingDate`, `createdAt`, `status` |
+| `limit` | integer | `20` | Max: 200 |
+| `sortBy` | string | `"bookingDate"` | `bookingDate`, `createdAt` |
 | `sortOrder` | string | `"desc"` | `asc`, `desc` |
+
+Excludes archived bookings unless `showArchived=true`.
 
 **Response** `200 OK`
 
@@ -62,9 +75,28 @@ Internal booking management for the authenticated tenant.
 }
 ```
 
+### `GET /bookings/stats`
+
+**Auth:** `requireTenant`
+
+Status counts for the four stat cards. Excludes archived bookings, matching
+`GET /bookings`.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": { "pending": 3, "confirmed": 8, "completed": 41, "cancelled": 2 }
+}
+```
+
 ### `GET /bookings/:id`
 
 **Auth:** `requireTenant`
+
+Returns the booking plus the job it was converted into (joined on
+`jobs.bookingId`), so the detail view can link to it rather than re-offering
+**Convert to Job**.
 
 **Response** `200 OK`
 
@@ -82,41 +114,96 @@ Internal booking management for the authenticated tenant.
     "description": "Annual AC tune-up",
     "status": "confirmed",
     "notes": null,
-    "convertedToJobId": null
+    "convertedToJobId": "job_047",
+    "convertedJobNumber": "JOB-0047",
+    "convertedJobStatus": "scheduled"
   }
 }
 ```
+
+### `GET /bookings/:id/activities`
+
+**Auth:** `requireTenant`
+
+Audit trail for one booking — status changes, reschedules, conversions and
+cancellations, newest first.
+
+**Query Parameters:** `page` (default `1`), `limit` (default `50`, max `100`).
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "act_001",
+      "type": "booking.converted",
+      "description": "Converted to job JOB-0047",
+      "metadata": { "jobId": "job_047" },
+      "createdAt": "2026-04-01T14:02:11.000Z",
+      "performedBy": "user_001",
+      "performedByName": "Sarah Chen"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 50, "total": 4, "totalPages": 1 }
+}
+```
+
+Activity types: `booking.status_changed`, `booking.rescheduled`,
+`booking.converted`, `booking.cancelled`.
 
 ### `PATCH /bookings/:id`
 
 **Auth:** `requireTenant`
 
-Update a booking. Cannot modify cancelled or completed bookings.
+Update a booking. Status changes follow one transition table shared with
+`POST /bookings/bulk-status-update`:
+
+| From | Allowed to |
+|------|-----------|
+| `pending` | `confirmed`, `completed`, `cancelled` |
+| `confirmed` | `completed`, `cancelled` |
+| `completed` | *(terminal)* |
+| `cancelled` | *(terminal)* |
 
 **Request Body:**
 
-```json
-{
-  "status": "confirmed",
-  "notes": "Customer confirmed via phone"
-}
-```
+| Field | Type | Notes |
+|-------|------|-------|
+| `status` | enum | See the table above |
+| `notes` | string | Max 5,000 |
+| `bookingDate` | string | `YYYY-MM-DD`, real calendar date |
+| `preferredTime` | string | `HH:MM`, on the hour when rescheduling |
+| `address` | string | Max 500 |
+| `description` | string | Max 2,000 |
+| `force` | boolean | Bypass the availability check below |
+
+Changing `bookingDate` or `preferredTime` runs the same availability rules the
+public portal enforces: the day must be open (weekly schedule *and* date
+overrides), the time must fall on an offered slot, and the slot must not already
+be at capacity — counting bookings, jobs **and** calendar events. Staff may book
+sooner than the public 24-hour rule and up to 24 months out. Send `force: true`
+to override deliberately.
+
+Sending `status: "confirmed"` emails the customer (E-04).
 
 **Response** `200 OK`
 
-**Error** `400 Bad Request`
+**Error** `400 Bad Request` — illegal transition, e.g.
+`{ "message": "This booking is completed and can no longer be changed." }`
 
-```json
-{
-  "error": "Cannot modify cancelled or completed bookings"
-}
-```
+**Error** `409 Conflict` — slot rejected, e.g.
+`{ "message": "This time slot is no longer available. Please choose another. Re-send with force to override." }`
 
 ### `POST /bookings/:id/convert-to-job`
 
 **Auth:** `requireTenant`
 
-Convert a booking into a job. Creates or links the customer, attaches a matching checklist template, logs activities.
+Convert a booking into a job. Creates or links the customer, copies quote line
+items when the booking came from a quote, attaches a matching checklist
+template, writes `bookings.convertedToJobId`, confirms the booking, and logs
+both a job activity and a booking activity — all inside one transaction holding
+a `SELECT … FOR UPDATE` on the booking.
 
 **Request Body** (optional):
 
@@ -126,14 +213,47 @@ Convert a booking into a job. Creates or links the customer, attaches a matching
 }
 ```
 
-**Response** `201 Created`
+**Response** `201 Created` — the created job row under `data`.
+
+**Error** `400 Bad Request`
+
+```json
+{ "message": "This booking has already been converted to a job" }
+```
+
+No notification, platform event or customer email is emitted on any error path.
+
+### `DELETE /bookings/:id`
+
+**Auth:** `requireTenant`
+
+Cancels the booking (soft — sets `status: "cancelled"`). Idempotent. Emails the
+customer that the appointment is cancelled (E-14) and notifies the team.
+
+If the booking had been converted, the linked job is **not** touched — cancelling
+an appointment and cancelling the work are separate decisions — and the job is
+reported back so the UI can prompt:
 
 ```json
 {
-  "message": "Booking converted to job",
-  "jobId": "job_047"
+  "data": { "id": "bk_001", "status": "cancelled" },
+  "linkedJob": { "id": "job_047", "jobNumber": "JOB-0047" }
 }
 ```
+
+**Error** `400 Bad Request` — `{ "message": "Cannot cancel a completed booking" }`
+
+### Bulk operations
+
+| Endpoint | Notes |
+|---|---|
+| `POST /bookings/bulk-archive` | Sets `archivedAt`. Reversible |
+| `POST /bookings/bulk-restore` | Clears `archivedAt` |
+| `POST /bookings/bulk-delete` | Hard delete. **Refuses** any booking with a linked job — the job would lose its origin. Reports each as `"Converted to job JOB-0047 — archive it instead of deleting"` |
+| `POST /bookings/bulk-status-update` | Uses the transition table above |
+
+All four take `{ "ids": [...] }` (max 100) and return
+`{ "succeeded": n, "failed": n, "errors": [{ "id", "reason" }] }`.
 
 ---
 
@@ -178,10 +298,16 @@ Get the tenant's weekly schedule and upcoming overrides. Lazy-seeds Mon-Fri 8am-
         "endTime": "13:00",
         "reason": "Saturday half-day for emergency backlog"
       }
-    ]
+    ],
+    "timezone": "America/Chicago",
+    "slotCapacity": 1
   }
 }
 ```
+
+`timezone` and `slotCapacity` come from the tenant. The calendar uses `timezone`
+to decide which column is "today"; `slotCapacity` is how many appointments can
+share one time slot.
 
 ### `PUT /availability`
 
@@ -201,9 +327,15 @@ Bulk update the weekly schedule. Must provide all 7 days. Replaces existing sche
     { "dayOfWeek": 4, "startTime": "07:00", "endTime": "18:00", "isActive": true },
     { "dayOfWeek": 5, "startTime": "07:00", "endTime": "18:00", "isActive": true },
     { "dayOfWeek": 6, "startTime": "08:00", "endTime": "12:00", "isActive": true }
-  ]
+  ],
+  "slotCapacity": 3
 }
 ```
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `schedule` | array | Yes | Exactly 7 entries, no duplicate `dayOfWeek`; active days need `startTime < endTime`, both `HH:MM` |
+| `slotCapacity` | integer | No | 1–50. Concurrent appointments per slot; omitted leaves it unchanged |
 
 **Response** `200 OK`
 
@@ -263,9 +395,94 @@ Create a schedule override for a specific date (holiday, closure, or custom hour
 
 ---
 
+## Calendar Events
+
+Standalone calendar entries — meetings, reminders, personal blocks — that are
+neither jobs nor bookings. They appear on `/schedule` alongside both, and they
+**occupy portal slots**: an event from 14:00–16:00 blocks those two hours from
+being sold.
+
+### `GET /calendar-events`
+
+**Auth:** `requireTenant`
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Notes |
+|-----------|------|---------|-------|
+| `dateFrom` | string | - | `YYYY-MM-DD`, real calendar date |
+| `dateTo` | string | - | `YYYY-MM-DD`, real calendar date |
+| `page` | integer | `1` | - |
+| `limit` | integer | `50` | Max: 200 |
+
+**Response** `200 OK` — `{ "data": [...], "pagination": {...} }`, ordered by
+`eventDate`, then `startTime`.
+
+### `GET /calendar-events/:id`
+
+**Auth:** `requireTenant`
+
+**Response** `200 OK` · **Error** `404 Not Found`
+
+### `POST /calendar-events`
+
+**Auth:** `requireTenant`
+
+**Request Body:**
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `title` | string | Yes | 1–200 |
+| `eventDate` | string | Yes | `YYYY-MM-DD`, real calendar date |
+| `startTime` | string | No | `HH:MM`. Omit both times for an all-day event |
+| `endTime` | string | No | `HH:MM`, must be **after** `startTime` |
+| `description` | string | No | Max 2,000 |
+| `contactName` | string | No | Max 100 |
+| `contactPhone` | string | No | Max 20 |
+| `address` | string | No | Max 500 |
+| `notes` | string | No | Max 2,000 |
+| `color` | enum | No | `purple` (default), `blue`, `green`, `amber`, `red`, `teal` |
+| `customerId` | uuid | No | Links the event to a customer |
+
+**Response** `201 Created`
+
+### `PATCH /calendar-events/:id`
+
+**Auth:** `requireTenant`
+
+Same fields, all optional; nullable ones accept `null` to clear. `endTime` must
+still be after `startTime`.
+
+**Response** `200 OK` · **Error** `404 Not Found`
+
+### `DELETE /calendar-events/:id`
+
+**Auth:** `requireTenant`
+
+**Response** `200 OK` — `{ "message": "Event deleted" }`
+
+---
+
 ## Public Booking Portal
 
 Public-facing endpoints for customer self-service booking. No authentication required. Accessed via tenant slug.
+
+**Rate limits** ([[security-rules]] §4). Every endpoint here is capped per
+minute, per key:
+
+| Endpoint | Limit |
+|---|---|
+| `GET /:slug`, `/availability`, `/slots` | 60/min |
+| `POST /:slug/submit` | 5/min |
+| `GET /:slug/status/:bookingId` | 10/min |
+
+The key is normally the caller's IP. These endpoints are reached through Next.js
+server actions, so Fastify would otherwise see the *Next server's* address for
+every visitor and lump them into one bucket. Setting `INTERNAL_PROXY_SECRET` to
+the same value in the root `.env` and `apps/web/.env.local` makes the web app
+forward the visitor's IP (`x-client-ip`, authenticated by
+`x-internal-proxy-secret`) and the limiter keys on that instead. An unsigned
+forwarded header is ignored — trusting it blindly would be a bypass, not a fix.
 
 ### `GET /public/booking/:slug`
 
@@ -328,11 +545,16 @@ Get available dates for a given month.
 
 Get available 1-hour time slots for a specific date.
 
+A slot is offered when it starts inside the day's window (a `17:30` close does
+sell the `17:00` slot) and fewer than `slotCapacity` things overlap it. Occupancy
+counts **bookings, jobs and calendar events** — a day filled from phone calls
+blocks the portal, which it previously did not.
+
 **Query Parameters:**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `date` | string | Yes | `YYYY-MM-DD` format |
+| `date` | string | Yes | `YYYY-MM-DD`, real calendar date |
 
 **Response** `200 OK`
 
@@ -377,14 +599,19 @@ Submit a new booking request.
 
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
-| `customerName` | string | Yes | Min 2 characters |
-| `customerEmail` | string | Conditional | One of email/phone required |
-| `customerPhone` | string | Conditional | One of email/phone required |
+| `customerName` | string | Yes | 2–100 characters |
+| `customerEmail` | string | Conditional | Valid email, max 254. One of email/phone required |
+| `customerPhone` | string | Conditional | Max 20, digits and `+-().` only. One of email/phone required |
 | `serviceType` | string | Yes | Must be valid service type |
-| `bookingDate` | string | Yes | `YYYY-MM-DD`, 24h+ in future, within 3 months |
-| `preferredTime` | string | Yes | `HH:MM` format |
-| `address` | string | No | Service address |
-| `description` | string | No | Problem description |
+| `bookingDate` | string | Yes | `YYYY-MM-DD` real calendar date, 24h+ in future, within 3 months |
+| `preferredTime` | string | Yes | `HH:MM`, on the hour, inside an offered slot |
+| `address` | string | No | Max 500 |
+| `description` | string | No | Max 2,000 |
+| `source` | enum | No | `portal` (default), `embed`, `widget` |
+| `quoteId` | uuid | No | Links the booking to an accepted quote |
+
+Availability is re-checked server-side against the same resolver the slots
+endpoint uses, so a stale slot list cannot create a double booking.
 
 **Response** `201 Created`
 
@@ -400,12 +627,19 @@ Submit a new booking request.
 }
 ```
 
-**Error** `400 Bad Request`
+Sends the customer a confirmation (E-02, including a link to their status page)
+and the owner a notification (E-03).
+
+**Error** `400 Bad Request` — validation or an unavailable date/time:
 
 ```json
-{
-  "error": "This time slot is no longer available"
-}
+{ "message": "Selected time is outside available hours." }
+```
+
+**Error** `409 Conflict` — the slot filled between listing and submitting:
+
+```json
+{ "message": "This time slot is no longer available. Please choose another." }
 ```
 
 ### `GET /public/booking/:slug/status/:bookingId`

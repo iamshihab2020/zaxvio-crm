@@ -23,8 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { getSupabaseBrowserClient } from "@/lib/supabase-client";
-import type { RealtimeChannel } from "@supabase/supabase-js";
+import { openTenantStream } from "@/lib/event-stream";
 
 type Mode = "ghost" | "visible";
 type Phase = "form" | "waiting" | "rejected";
@@ -50,13 +49,14 @@ export function ImpersonateDialog({
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(
     null,
   );
-  const channelRef = useRef<RealtimeChannel | null>(null);
+  /** Closes the standalone SSE stream opened while waiting for a response. */
+  const closeStreamRef = useRef<(() => void) | null>(null);
 
-  // Cleanup channel on unmount or dialog close
+  // Cleanup stream on unmount or dialog close
   useEffect(() => {
     if (!open) {
-      channelRef.current?.unsubscribe();
-      channelRef.current = null;
+      closeStreamRef.current?.();
+      closeStreamRef.current = null;
       setPhase("form");
       setError(null);
       setPendingSessionId(null);
@@ -103,11 +103,12 @@ export function ImpersonateDialog({
     setPhase("waiting");
     setLoading(false);
 
-    // Subscribe to realtime channel for response
-    const supabase = getSupabaseBrowserClient();
-    const channel = supabase
-      .channel(`impersonation:${tenantId}`)
-      .on("broadcast", { event: "response" }, ({ payload }) => {
+    // Listen on the target tenant's stream for their response
+    const closeStream = openTenantStream(
+      tenantId,
+      "impersonation",
+      "response",
+      (payload) => {
         if (payload?.sessionId !== data.sessionId) return;
 
         if (payload.approved) {
@@ -115,17 +116,17 @@ export function ImpersonateDialog({
           const maxAge = 2 * 60 * 60;
           document.cookie = `x-impersonation-id=${data.sessionId}; path=/; max-age=${maxAge}; samesite=lax`;
           document.cookie = `x-user-role=impersonating; path=/; max-age=${maxAge}; samesite=lax`;
-          channel.unsubscribe();
+          closeStream();
           window.location.replace("/dashboard");
         } else {
           // Tenant rejected
           setPhase("rejected");
-          channel.unsubscribe();
+          closeStream();
         }
-      })
-      .subscribe();
+      },
+    );
 
-    channelRef.current = channel;
+    closeStreamRef.current = closeStream;
   };
 
   const handleSubmit = async () => {
@@ -145,8 +146,8 @@ export function ImpersonateDialog({
     if (pendingSessionId) {
       await cancelImpersonationRequest(pendingSessionId);
     }
-    channelRef.current?.unsubscribe();
-    channelRef.current = null;
+    closeStreamRef.current?.();
+    closeStreamRef.current = null;
     onOpenChange(false);
   };
 

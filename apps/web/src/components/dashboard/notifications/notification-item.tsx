@@ -13,6 +13,7 @@ import {
   IconBell,
 } from "@tabler/icons-react";
 import { formatRelativeTime } from "@/lib/format";
+import { bookingLink } from "@/lib/entity-links";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   booking_received: IconCalendarEvent,
@@ -53,7 +54,7 @@ function getEntityLink(
   if (entityType === "member") return "/settings/team";
   // Bookings use a sheet opened via query param
   if (entityType === "booking" && entityId) {
-    return `/bookings?bookingId=${entityId}`;
+    return bookingLink(entityId);
   }
   if (entityId && DETAIL_PAGE_ENTITIES.has(entityType)) {
     return `/${entityType}s/${entityId}`;

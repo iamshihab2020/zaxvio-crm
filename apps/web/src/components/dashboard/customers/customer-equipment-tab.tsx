@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { AssetTable, type AssetRow } from "@/components/dashboard/equipment/asset-table";
 import {
   AssetDialog,
@@ -24,6 +25,8 @@ interface CustomerEquipmentTabProps {
   customerId: string;
 }
 
+const ASSET_LIMIT = 100;
+
 export function CustomerEquipmentTab({
   customerId,
 }: CustomerEquipmentTabProps) {
@@ -40,11 +43,20 @@ export function CustomerEquipmentTab({
   // Expanded row for refrigerant logs
   const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [totalAssets, setTotalAssets] = useState(0);
+
   const fetchAssets = useCallback(async () => {
     setLoading(true);
-    const result = await getEquipment({ customerId, limit: 100 });
+    const result = await getEquipment({ customerId, limit: ASSET_LIMIT });
     if (result.data) {
       setAssets(result.data as AssetRow[]);
+      setTotalAssets(result.pagination?.total ?? (result.data as AssetRow[]).length);
+      setLoadError(null);
+    } else {
+      // A failure used to leave the list empty and indistinguishable from a
+      // customer who genuinely owns no equipment (CUST-02).
+      setLoadError(result.error ?? "Could not load assets");
     }
     setLoading(false);
   }, [customerId]);
@@ -108,6 +120,12 @@ export function CustomerEquipmentTab({
     return <TableSkeleton columns={5} rows={3} />;
   }
 
+  if (loadError) {
+    return (
+      <LoadErrorState title="Could not load assets" message={loadError} onRetry={fetchAssets} />
+    );
+  }
+
   if (assets.length === 0) {
     return (
       <>
@@ -133,7 +151,11 @@ export function CustomerEquipmentTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground font-body">
-          {assets.length} asset{assets.length !== 1 ? "s" : ""}
+          {/* Says so when the list is capped, instead of presenting the first
+              100 as though they were all of them (CUST-15). */}
+          {totalAssets > assets.length
+            ? `Showing ${assets.length} of ${totalAssets} assets`
+            : `${assets.length} asset${assets.length !== 1 ? "s" : ""}`}
         </p>
         <Button
           size="sm"

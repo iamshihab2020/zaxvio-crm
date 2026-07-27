@@ -1,6 +1,6 @@
+import { publish } from "../lib/event-bus.js";
 import {
   getDb,
-  getSupabaseAdmin,
   conversations,
   messages,
   customers,
@@ -326,7 +326,7 @@ export async function archiveConversation(
     );
 }
 
-// ── Broadcast new message via Supabase Realtime ────────────────────────────
+// ── Broadcast new message over SSE ────────────────────────────
 
 export async function broadcastNewMessage(
   tenantId: string,
@@ -334,14 +334,7 @@ export async function broadcastNewMessage(
   message: MessageRow,
 ): Promise<void> {
   try {
-    const supabase = getSupabaseAdmin();
-    const channel = supabase.channel(`conversations:${tenantId}`);
-    await channel.send({
-      type: "broadcast",
-      event: "new_message",
-      payload: { conversationId, message },
-    });
-    await supabase.removeChannel(channel);
+    publish(tenantId, "conversations", "new_message", { conversationId, message });
   } catch (err) {
     console.error("[conversations] Realtime broadcast failed:", err);
   }

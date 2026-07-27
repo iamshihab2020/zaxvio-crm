@@ -4,26 +4,26 @@ import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   tenants,
-  availabilitySchedules,
-  scheduleOverrides,
   bookings,
   customers,
+  availabilitySchedules,
   member,
   user,
   eq,
   and,
-  or,
-  inArray,
-  asc,
   sql,
 } from "@hvac-saas/database";
 import { SERVICE_TYPES } from "@hvac-saas/types";
 import {
-  getTenantToday,
   getTenantTomorrow,
   getMaxBookingDate,
-  getDayOfWeek,
 } from "../../lib/timezone.js";
+import {
+  checkSlotBookable,
+  getAvailabilityWindows,
+  getSlotsForDate,
+  seedDefaultAvailability,
+} from "../../services/availability.service.js";
 import { env } from "../../lib/env.js";
 import {
   bookingSlugParam,
@@ -32,6 +32,19 @@ import {
   slotsQuery,
   submitBookingBody,
 } from "../../lib/schemas/public-booking.js";
+
+/**
+ * Rate limits for the unauthenticated surface ([[security-rules]] §4).
+ *
+ * The global limit is 100/min/IP. These endpoints are reached through Next.js
+ * server actions, so Fastify sees the *Next server's* IP for every visitor —
+ * the budget is shared between the booking portal, the dashboard and every
+ * authenticated user. `submit` is the one that writes rows, creates customers
+ * and sends two emails, and until now it had no route limit at all.
+ */
+const READ_LIMIT = { max: 60, timeWindow: "1 minute" } as const;
+const SUBMIT_LIMIT = { max: 5, timeWindow: "1 minute" } as const;
+const STATUS_LIMIT = { max: 10, timeWindow: "1 minute" } as const;
 
 /** Resolve a tenant by slug. Returns null if not found or inactive. */
 async function resolveTenantBySlug(slug: string) {
@@ -43,75 +56,11 @@ async function resolveTenantBySlug(slug: string) {
       logoUrl: tenants.logoUrl,
       slug: tenants.slug,
       timezone: tenants.timezone,
+      bookingSlotCapacity: tenants.bookingSlotCapacity,
     })
     .from(tenants)
     .where(and(eq(tenants.slug, slug), eq(tenants.isActive, true)))
     .then((r) => r[0] ?? null);
-}
-
-/**
- * Get the availability window for a specific date.
- * Returns { startTime, endTime } or null if unavailable.
- */
-async function getAvailabilityWindow(
-  tenantId: string,
-  dateStr: string,
-): Promise<{ startTime: string; endTime: string } | null> {
-  const db = getDb();
-  const dayOfWeek = getDayOfWeek(dateStr);
-
-  // Check override first (takes precedence)
-  const override = await db
-    .select()
-    .from(scheduleOverrides)
-    .where(
-      and(
-        eq(scheduleOverrides.tenantId, tenantId),
-        eq(scheduleOverrides.overrideDate, dateStr),
-      ),
-    )
-    .then((r) => r[0]);
-
-  if (override) {
-    if (!override.isAvailable) return null;
-    if (override.startTime && override.endTime) {
-      return { startTime: override.startTime, endTime: override.endTime };
-    }
-    return null;
-  }
-
-  // Fall back to recurring schedule
-  const schedule = await db
-    .select()
-    .from(availabilitySchedules)
-    .where(
-      and(
-        eq(availabilitySchedules.tenantId, tenantId),
-        eq(availabilitySchedules.dayOfWeek, dayOfWeek),
-        eq(availabilitySchedules.isActive, true),
-      ),
-    )
-    .then((r) => r[0]);
-
-  if (!schedule) return null;
-  return { startTime: schedule.startTime, endTime: schedule.endTime };
-}
-
-/**
- * Generate 1-hour time slot start times within a window.
- * E.g., "08:00"-"17:00" → ["08:00", "09:00", ..., "16:00"]
- * If start has minutes (e.g. "08:30"), rounds up to next whole hour (DF-BK-17).
- */
-function generateTimeSlots(startTime: string, endTime: string): string[] {
-  const slots: string[] = [];
-  const [startH, startM] = startTime.split(":").map(Number);
-  const [endH] = endTime.split(":").map(Number);
-  const firstHour = startM > 0 ? startH + 1 : startH;
-
-  for (let h = firstHour; h < endH; h++) {
-    slots.push(`${String(h).padStart(2, "0")}:00`);
-  }
-  return slots;
 }
 
 const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -123,7 +72,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.get(
     "/:slug",
-    { schema: { params: bookingSlugParam } },
+    { schema: { params: bookingSlugParam }, config: { rateLimit: READ_LIMIT } },
     async (request, reply) => {
       const { slug } = request.params;
       const tenant = await resolveTenantBySlug(slug);
@@ -152,7 +101,10 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.get(
     "/:slug/availability",
-    { schema: { params: bookingSlugParam, querystring: availabilityQuery } },
+    {
+      schema: { params: bookingSlugParam, querystring: availabilityQuery },
+      config: { rateLimit: READ_LIMIT },
+    },
     async (request, reply) => {
       const { slug } = request.params;
       const { month } = request.query;
@@ -172,7 +124,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const monthNum = parseInt(monthStr, 10);
       const firstOfMonth = `${month}-01`;
       const lastDay = new Date(year, monthNum, 0).getDate();
-      const lastOfMonth = `${yearStr}-${monthStr.padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      const lastOfMonth = `${yearStr}-${monthStr}-${String(lastDay).padStart(2, "0")}`;
 
       // Clamp to valid booking window
       const rangeStart = firstOfMonth < tomorrow ? tomorrow : firstOfMonth;
@@ -184,91 +136,20 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const db = getDb();
 
-      // Fetch recurring schedule for this tenant
-      let weeklySchedule = await db
-        .select()
+      // Lazy-seed defaults for tenants created before availability seeding existed.
+      const existingSchedule = await db
+        .select({ id: availabilitySchedules.id })
         .from(availabilitySchedules)
-        .where(
-          and(
-            eq(availabilitySchedules.tenantId, tenant.id),
-            eq(availabilitySchedules.isActive, true),
-          ),
-        );
-
-      // Lazy-seed defaults for tenants created before availability seeding was added
-      if (weeklySchedule.length === 0) {
-        const allSchedule = await db
-          .select()
-          .from(availabilitySchedules)
-          .where(eq(availabilitySchedules.tenantId, tenant.id));
-
-        if (allSchedule.length === 0) {
-          // No schedule at all — seed defaults
-          await db.insert(availabilitySchedules).values(
-            [0, 1, 2, 3, 4, 5, 6].map((day) => ({
-              tenantId: tenant.id,
-              dayOfWeek: day,
-              startTime: "08:00",
-              endTime: "17:00",
-              isActive: day >= 1 && day <= 5,
-            })),
-          ).onConflictDoNothing();
-          weeklySchedule = await db
-            .select()
-            .from(availabilitySchedules)
-            .where(
-              and(
-                eq(availabilitySchedules.tenantId, tenant.id),
-                eq(availabilitySchedules.isActive, true),
-              ),
-            );
-        }
+        .where(eq(availabilitySchedules.tenantId, tenant.id))
+        .limit(1);
+      if (existingSchedule.length === 0) {
+        await seedDefaultAvailability(db, tenant.id);
       }
 
-      const activeDays = new Set(weeklySchedule.map((s) => s.dayOfWeek));
-
-      // Fetch overrides for this date range
-      const overrides = await db
-        .select()
-        .from(scheduleOverrides)
-        .where(
-          and(
-            eq(scheduleOverrides.tenantId, tenant.id),
-            sql`${scheduleOverrides.overrideDate} >= ${rangeStart}`,
-            sql`${scheduleOverrides.overrideDate} <= ${rangeEnd}`,
-          ),
-        );
-
-      const overrideMap = new Map(overrides.map((o) => [o.overrideDate, o]));
-
-      // Iterate through each date in range
-      const availableDates: string[] = [];
-      const cursor = new Date(rangeStart + "T12:00:00Z");
-      const endDate = new Date(rangeEnd + "T12:00:00Z");
-
-      while (cursor <= endDate) {
-        const dateStr = cursor.toISOString().split("T")[0];
-        const override = overrideMap.get(dateStr);
-
-        if (override) {
-          // Override takes precedence
-          if (override.isAvailable) {
-            availableDates.push(dateStr);
-          }
-          // else: explicitly unavailable, skip
-        } else {
-          // Check recurring schedule
-          const dayOfWeek = cursor.getUTCDay();
-          if (activeDays.has(dayOfWeek)) {
-            availableDates.push(dateStr);
-          }
-        }
-
-        cursor.setUTCDate(cursor.getUTCDate() + 1);
-      }
+      const windows = await getAvailabilityWindows(db, tenant.id, rangeStart, rangeEnd);
 
       return reply.send({
-        data: { month, timezone: tz, availableDates },
+        data: { month, timezone: tz, availableDates: [...windows.keys()].sort() },
       });
     },
   );
@@ -277,11 +158,17 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
    * GET /public/booking/:slug/slots?date=YYYY-MM-DD
    *
    * Returns available time slots for a specific date.
-   * No auth required.
+   *
+   * Slots are blocked by bookings, jobs *and* calendar events. Blocking only on
+   * bookings meant a day filled from phone calls still showed nine slots for
+   * sale — the portal's entire purpose is to stop that (BOOK-21).
    */
   fastify.get(
     "/:slug/slots",
-    { schema: { params: bookingSlugParam, querystring: slotsQuery } },
+    {
+      schema: { params: bookingSlugParam, querystring: slotsQuery },
+      config: { rateLimit: READ_LIMIT },
+    },
     async (request, reply) => {
       const { slug } = request.params;
       const { date: dateStr } = request.query;
@@ -303,40 +190,13 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Booking date must be within 3 months." });
       }
 
-      // Get availability window for this date
-      const window = await getAvailabilityWindow(tenant.id, dateStr);
-      if (!window) {
-        return reply.send({ data: { date: dateStr, timezone: tz, slots: [] } });
-      }
-
-      // Generate slots
-      const allSlots = generateTimeSlots(window.startTime, window.endTime);
-
-      // Fetch existing bookings for this date
       const db = getDb();
-      const existingBookings = await db
-        .select({ preferredTime: bookings.preferredTime })
-        .from(bookings)
-        .where(
-          and(
-            eq(bookings.tenantId, tenant.id),
-            eq(bookings.bookingDate, dateStr),
-            inArray(bookings.status, ["pending", "confirmed"]),
-          ),
-        );
-
-      const bookedTimes = new Set(
-        existingBookings
-          .map((b) => b.preferredTime)
-          .filter(Boolean)
-          // Normalize "08:00:00" to "08:00"
-          .map((t) => t!.substring(0, 5)),
+      const slots = await getSlotsForDate(
+        db,
+        tenant.id,
+        dateStr,
+        tenant.bookingSlotCapacity ?? 1,
       );
-
-      const slots = allSlots.map((time) => ({
-        time,
-        available: !bookedTimes.has(time),
-      }));
 
       return reply.send({ data: { date: dateStr, timezone: tz, slots } });
     },
@@ -350,7 +210,10 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.post(
     "/:slug/submit",
-    { schema: { params: bookingSlugParam, body: submitBookingBody } },
+    {
+      schema: { params: bookingSlugParam, body: submitBookingBody },
+      config: { rateLimit: SUBMIT_LIMIT },
+    },
     async (request, reply) => {
       const { slug } = request.params;
       const body = request.body;
@@ -367,157 +230,157 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Phone or email is required." });
       }
 
-      const tomorrow = getTenantTomorrow(tz);
-      const maxDate = getMaxBookingDate(tz);
-
-      if (body.bookingDate < tomorrow) {
-        return reply.status(400).send({ message: "Booking date must be at least 24 hours in the future." });
-      }
-
-      if (body.bookingDate > maxDate) {
-        return reply.status(400).send({ message: "Booking date must be within 3 months." });
-      }
-
-      // Re-verify slot availability (race condition guard)
-      const window = await getAvailabilityWindow(tenant.id, body.bookingDate);
-      if (!window) {
-        return reply.status(400).send({ message: "No availability on the selected date." });
-      }
-
-      // Validate slot alignment — only whole-hour slots are valid (DF-BK-16)
-      if (!body.preferredTime.endsWith(":00")) {
-        return reply.status(400).send({ message: "Booking time must be on the hour (e.g., 09:00, 10:00)." });
-      }
-
-      // Check the time falls within the availability window
-      if (body.preferredTime < window.startTime || body.preferredTime >= window.endTime) {
-        return reply.status(400).send({ message: "Selected time is outside available hours." });
-      }
-
       const db = getDb();
+
+      // Every availability rule, resolved in one place shared with the dashboard.
+      const bookable = await checkSlotBookable(db, {
+        tenantId: tenant.id,
+        timezone: tz,
+        dateStr: body.bookingDate,
+        time: body.preferredTime,
+        capacity: tenant.bookingSlotCapacity ?? 1,
+        minDate: getTenantTomorrow(tz),
+        maxDate: getMaxBookingDate(tz),
+      });
+      if (!bookable.ok) {
+        return reply.status(400).send({ message: bookable.message });
+      }
+
       const trimmedName = body.customerName.trim();
       const trimmedEmail = body.customerEmail?.trim() || null;
       const trimmedPhone = body.customerPhone?.trim() || null;
       const trimmedAddress = body.address?.trim() || null;
 
       // Customer lookup + booking creation in a single transaction to prevent
-      // duplicate customers from concurrent submissions (DF-BK-07)
-      const [created] = await db.transaction(async (tx) => {
-        // 1. Resolve or create customer
-        // Sequential lookup: email first, then phone fallback (DF-BK-06)
-        let customerId: string | null = null;
+      // duplicate customers from concurrent submissions (DF-BK-07).
+      //
+      // The transaction result is NOT destructured or truthiness-checked here.
+      // It used to be `const [created] = await db.transaction(...).catch(...)`,
+      // and the catch returned `reply.status(409).send(...)` — a reply object,
+      // which is not iterable, so every double-booking race threw a TypeError
+      // into the error handler *after* the 409 had already gone out (BOOK-05).
+      let created: typeof bookings.$inferSelect | null = null;
+      try {
+        const rows = await db.transaction(async (tx) => {
+          // 1. Resolve or create customer
+          // Sequential lookup: email first, then phone fallback (DF-BK-06)
+          let customerId: string | null = null;
 
-        if (trimmedEmail) {
-          const byEmail = await tx
-            .select({ id: customers.id })
-            .from(customers)
+          if (trimmedEmail) {
+            const byEmail = await tx
+              .select({ id: customers.id })
+              .from(customers)
+              .where(
+                and(
+                  eq(customers.tenantId, tenant.id),
+                  eq(sql`lower(${customers.email})`, trimmedEmail.toLowerCase()),
+                ),
+              )
+              .limit(1)
+              .then((r) => r[0]);
+            if (byEmail) customerId = byEmail.id;
+          }
+
+          if (!customerId && trimmedPhone) {
+            const byPhone = await tx
+              .select({ id: customers.id })
+              .from(customers)
+              .where(
+                and(
+                  eq(customers.tenantId, tenant.id),
+                  eq(customers.phone, trimmedPhone),
+                ),
+              )
+              .limit(1)
+              .then((r) => r[0]);
+            if (byPhone) customerId = byPhone.id;
+          }
+
+          // Create new customer if no match found
+          if (!customerId) {
+            const nameParts = trimmedName.split(/\s+/);
+            const firstName = nameParts[0] || trimmedName;
+            const lastName = nameParts.slice(1).join(" ") || "";
+
+            const [newCustomer] = await tx
+              .insert(customers)
+              .values({
+                tenantId: tenant.id,
+                firstName,
+                lastName,
+                email: trimmedEmail,
+                phone: trimmedPhone,
+                address: trimmedAddress,
+              })
+              .returning();
+
+            customerId = newCustomer.id;
+          }
+
+          // 2. Double-booking guard, re-checked inside the transaction.
+          const taken = await tx
+            .select({ id: bookings.id })
+            .from(bookings)
             .where(
               and(
-                eq(customers.tenantId, tenant.id),
-                eq(sql`lower(${customers.email})`, trimmedEmail.toLowerCase()),
+                eq(bookings.tenantId, tenant.id),
+                eq(bookings.bookingDate, body.bookingDate),
+                eq(bookings.preferredTime, body.preferredTime),
+                sql`${bookings.status} IN ('pending','confirmed')`,
+                sql`${bookings.archivedAt} IS NULL`,
               ),
-            )
-            .limit(1)
-            .then((r) => r[0]);
-          if (byEmail) customerId = byEmail.id;
-        }
+            );
 
-        if (!customerId && trimmedPhone) {
-          const byPhone = await tx
-            .select({ id: customers.id })
-            .from(customers)
-            .where(
-              and(
-                eq(customers.tenantId, tenant.id),
-                eq(customers.phone, trimmedPhone),
-              ),
-            )
-            .limit(1)
-            .then((r) => r[0]);
-          if (byPhone) customerId = byPhone.id;
-        }
+          if (taken.length >= (tenant.bookingSlotCapacity ?? 1)) {
+            throw new Error("SLOT_TAKEN");
+          }
 
-        // Create new customer if no match found
-        if (!customerId) {
-          const nameParts = trimmedName.split(/\s+/);
-          const firstName = nameParts[0] || trimmedName;
-          const lastName = nameParts.slice(1).join(" ") || "";
-
-          const [newCustomer] = await tx
-            .insert(customers)
+          return tx
+            .insert(bookings)
             .values({
               tenantId: tenant.id,
-              firstName,
-              lastName,
-              email: trimmedEmail,
-              phone: trimmedPhone,
+              customerId,
+              customerName: trimmedName,
+              customerEmail: trimmedEmail,
+              customerPhone: trimmedPhone,
+              serviceType: body.serviceType,
+              bookingDate: body.bookingDate,
+              preferredTime: body.preferredTime,
               address: trimmedAddress,
+              description: body.description?.trim() || null,
+              status: "pending",
+              source: body.source ?? "portal",
+              quoteId: body.quoteId ?? null,
             })
             .returning();
-
-          customerId = newCustomer.id;
-        }
-
-        // 2. Double-booking guard
-        const existing = await tx
-          .select({ id: bookings.id })
-          .from(bookings)
-          .where(
-            and(
-              eq(bookings.tenantId, tenant.id),
-              eq(bookings.bookingDate, body.bookingDate),
-              eq(bookings.preferredTime, body.preferredTime),
-              inArray(bookings.status, ["pending", "confirmed"]),
-            ),
-          )
-          .then((r) => r[0]);
-
-        if (existing) {
-          throw new Error("SLOT_TAKEN");
-        }
-
-        return tx
-          .insert(bookings)
-          .values({
-            tenantId: tenant.id,
-            customerId,
-            customerName: trimmedName,
-            customerEmail: trimmedEmail,
-            customerPhone: trimmedPhone,
-            serviceType: body.serviceType,
-            bookingDate: body.bookingDate,
-            preferredTime: body.preferredTime,
-            address: trimmedAddress,
-            description: body.description?.trim() || null,
-            status: "pending",
-            source: body.source ?? "portal",
-            quoteId: body.quoteId ?? null,
-          })
-          .returning();
-      }).catch((err) => {
-        if (err.message === "SLOT_TAKEN") {
+        });
+        created = rows[0] ?? null;
+      } catch (err) {
+        if (err instanceof Error && err.message === "SLOT_TAKEN") {
           return reply.status(409).send({
             message: "This time slot is no longer available. Please choose another.",
           });
         }
         throw err;
-      });
+      }
 
-      // If reply was already sent (409 case), created will be undefined
-      if (!created) return;
+      if (!created) {
+        request.log.error("Booking insert returned no row");
+        return reply.status(500).send({ message: "Failed to create booking" });
+      }
 
       emitPlatformEvent(tenant.id, "booking_received", null);
 
       dispatchNotification({
         tenantId: tenant.id,
         type: "booking_received",
-        title: `New booking from ${body.customerName ?? "a customer"}`,
-        description: `${body.serviceType ?? "Service"} booking for ${body.bookingDate ?? ""}${body.preferredTime ? ` at ${body.preferredTime}` : ""}`,
+        title: `New booking from ${trimmedName}`,
+        description: `${body.serviceType} booking for ${body.bookingDate} at ${body.preferredTime}`,
         entityType: "booking",
         entityId: created.id,
         actorId: null,
         metadata: {
-          customerName: body.customerName,
+          customerName: trimmedName,
           serviceType: body.serviceType,
           bookingDate: body.bookingDate,
           preferredTime: body.preferredTime,
@@ -535,19 +398,37 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .where(eq(tenants.id, tenant.id))
           .then((r) => r[0]);
 
-        // Fetch owner email (creator of the organization)
-        const ownerMember = await db
-          .select({ userId: member.userId })
-          .from(member)
-          .where(and(eq(member.organizationId, fullTenant?.organizationId ?? ""), eq(member.role, "owner")))
-          .then((r) => r[0]);
+        // Fetch owner email (creator of the organization).
+        // A tenant with no organizationId used to match nothing here and the
+        // owner was silently never emailed — now it says so in the log (BOOK-32).
+        const organizationId = fullTenant?.organizationId ?? null;
+        const ownerMember = organizationId
+          ? await db
+              .select({ userId: member.userId })
+              .from(member)
+              .where(and(eq(member.organizationId, organizationId), eq(member.role, "owner")))
+              .then((r) => r[0])
+          : null;
+
+        if (!organizationId) {
+          request.log.warn(
+            { tenantId: tenant.id },
+            "E-03 skipped: tenant has no organizationId, cannot resolve owner",
+          );
+        } else if (!ownerMember) {
+          request.log.warn(
+            { tenantId: tenant.id, organizationId },
+            "E-03 skipped: organization has no owner member",
+          );
+        }
 
         const ownerUser = ownerMember
           ? await db.select({ name: user.name, email: user.email }).from(user).where(eq(user.id, ownerMember.userId)).then((r) => r[0])
           : null;
 
-        const bookingDateStr = new Date(body.bookingDate + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+        const bookingDateStr = new Date(body.bookingDate + "T12:00:00Z").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
         const serviceLabel = body.serviceType.charAt(0).toUpperCase() + body.serviceType.slice(1);
+        const statusUrl = `${env.FRONTEND_URL}/book/${tenant.slug}/status/${created.id}`;
 
         // E-02: Customer booking confirmation
         if (trimmedEmail) {
@@ -564,6 +445,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
               preferredTime: body.preferredTime,
               address: trimmedAddress,
               notes: body.description?.trim() || null,
+              statusUrl,
             },
           }).catch((err) => console.error("[email] E-02 booking confirmation failed:", err));
         }
@@ -582,7 +464,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
               preferredTime: body.preferredTime,
               address: trimmedAddress,
               description: body.description?.trim() || null,
-              dashboardUrl: `${env.FRONTEND_URL}/bookings`,
+              dashboardUrl: `${env.FRONTEND_URL}/bookings?bookingId=${created.id}`,
             },
           }).catch((err) => console.error("[email] E-03 new booking notification failed:", err));
         }
@@ -605,12 +487,20 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
    *
    * Public booking status page — customer can check if their booking is confirmed.
    * No auth required.
+   *
+   * Threat model (BOOK-33): this returns the customer's own name and service
+   * address to anyone holding the booking UUID. That is the same trade every
+   * "track your order" link makes. It is acceptable because the id is a v4 UUID
+   * (122 bits of entropy, not enumerable), the route is rate-limited to 10/min,
+   * the id must be a well-formed UUID before the handler runs, and the response
+   * carries no contact details beyond what the requester already submitted.
+   * If that link is ever emailed to a third party, treat it as a capability.
    */
   fastify.get(
     "/:slug/status/:bookingId",
     {
       schema: { params: bookingSlugAndIdParam },
-      config: { rateLimit: { max: 10, timeWindow: "1 minute" } },
+      config: { rateLimit: STATUS_LIMIT },
     },
     async (request, reply) => {
       const { slug, bookingId } = request.params;

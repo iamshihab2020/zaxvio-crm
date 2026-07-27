@@ -9,6 +9,7 @@ import {
   integer,
   index,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import {
@@ -23,6 +24,10 @@ import { catalogItems } from "./catalog";
 import { equipment } from "./equipment";
 import { pipelines } from "./pipelines";
 import { user } from "./auth";
+// Circular by design: bookings -> jobs (converted_to_job_id) and
+// jobs -> bookings (booking_id). Both sides declare the reference through a
+// lazy callback, so neither needs the other to be initialised at module load.
+import { bookings } from "./bookings";
 
 export const jobs = pgTable(
   "jobs",
@@ -34,7 +39,11 @@ export const jobs = pgTable(
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "cascade" }),
-    bookingId: uuid("booking_id"),
+    // The real booking -> job link. `bookings.converted_to_job_id` points the
+    // other way; both are now written and both have integrity constraints.
+    bookingId: uuid("booking_id").references((): AnyPgColumn => bookings.id, {
+      onDelete: "set null",
+    }),
     equipmentId: uuid("equipment_id").references(() => equipment.id, {
       onDelete: "set null",
     }),
@@ -84,6 +93,7 @@ export const jobs = pgTable(
       table.tenantId,
       table.scheduledDate,
     ),
+    index("idx_jobs_booking_id").on(table.bookingId),
   ],
 );
 

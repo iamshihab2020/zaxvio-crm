@@ -1,25 +1,32 @@
 "use client";
 
+import Link from "next/link";
 import { IconFileInvoice } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import type { DashboardAgingBucket } from "@hvac-saas/types";
 import { formatCurrency } from "@/lib/format";
+import { WidgetWindowBadge } from "./widget-window-badge";
 
 interface InvoiceAgingProps {
   data: DashboardAgingBucket[];
 }
 
-const BUCKET_CONFIG: Record<
-  string,
-  { label: string; color: string }
-> = {
+type BucketKey = DashboardAgingBucket["bucket"];
+
+/**
+ * Standard AR aging. `"90"` is 61-90 days and `"90plus"` is over 90 — the backend
+ * previously had no 61-90 bucket, so a 61-day-old invoice was reported under a key
+ * called `90plus`.
+ */
+const BUCKET_CONFIG: Record<BucketKey, { label: string; color: string }> = {
   current: { label: "Current", color: "#22c55e" },
-  "30": { label: "1-30 days", color: "#fbbf24" },
-  "60": { label: "31-60 days", color: "hsl(var(--brand))" },
-  "90plus": { label: "60+ days", color: "#ef4444" },
+  "30": { label: "1–30 days", color: "#fbbf24" },
+  "60": { label: "31–60 days", color: "hsl(var(--brand))" },
+  "90": { label: "61–90 days", color: "#f97316" },
+  "90plus": { label: "90+ days", color: "#ef4444" },
 };
 
-const BUCKET_ORDER = ["current", "30", "60", "90plus"] as const;
+const BUCKET_ORDER: BucketKey[] = ["current", "30", "60", "90", "90plus"];
 
 export function InvoiceAging({ data }: InvoiceAgingProps) {
   const totalAmount = data.reduce((sum, b) => sum + b.amount, 0);
@@ -28,7 +35,7 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
   const bucketMap = new Map(data.map((b) => [b.bucket, b]));
   const rows = BUCKET_ORDER.map((key) => ({
     key,
-    config: BUCKET_CONFIG[key]!,
+    config: BUCKET_CONFIG[key],
     count: bucketMap.get(key)?.count ?? 0,
     amount: bucketMap.get(key)?.amount ?? 0,
   }));
@@ -36,9 +43,12 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
   return (
     <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-heading text-sm font-semibold text-foreground">
-          Invoice Aging
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="whitespace-nowrap font-heading text-sm font-semibold text-foreground">
+            Invoice Aging
+          </h3>
+          <WidgetWindowBadge label="All open" />
+        </div>
         {totalCount > 0 && (
           <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
             {totalCount} invoices · {formatCurrency(totalAmount)}
@@ -49,7 +59,7 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
       {totalCount === 0 ? (
         <div className="mt-4 flex-1 rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
-            <IconFileInvoice className="h-5 w-5 text-brand" />
+            <IconFileInvoice className="h-5 w-5 text-brand" aria-hidden />
           </div>
           <p className="mt-3 font-heading text-sm font-semibold text-foreground">
             No outstanding invoices
@@ -60,8 +70,9 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
         </div>
       ) : (
         <div className="mt-5 space-y-4">
-          {/* Stacked bar */}
+          {/* Stacked bar — decorative; the grid below is the accessible version */}
           <div
+            aria-hidden
             className={cn(
               "flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted/50 ring-1 ring-border/50",
             )}
@@ -82,30 +93,38 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
             )}
           </div>
 
-          {/* Bucket grid */}
+          {/* Bucket grid — each bucket links into a filtered invoice list */}
           <ul className="grid grid-cols-2 gap-3">
             {rows.map((row) => (
-              <li
-                key={row.key}
-                className="rounded-xl border border-border bg-background/40 p-3"
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: row.config.color }}
-                  />
-                  <span className="truncate text-[11px] font-body text-muted-foreground">
-                    {row.config.label}
-                  </span>
-                </div>
-                <div className="mt-1 flex items-baseline justify-between gap-2">
-                  <span className="font-heading text-lg font-semibold text-foreground">
-                    {formatCurrency(row.amount)}
-                  </span>
-                  <span className="text-[11px] font-body text-muted-foreground">
-                    {row.count} {row.count === 1 ? "invoice" : "invoices"}
-                  </span>
-                </div>
+              <li key={row.key}>
+                <Link
+                  href={
+                    row.key === "current"
+                      ? "/invoices?status=sent"
+                      : "/invoices?status=overdue"
+                  }
+                  aria-label={`${row.config.label}: ${formatCurrency(row.amount)} across ${row.count} ${row.count === 1 ? "invoice" : "invoices"}`}
+                  className="block rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: row.config.color }}
+                    />
+                    <span className="truncate text-[11px] font-body text-muted-foreground">
+                      {row.config.label}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-baseline justify-between gap-2">
+                    <span className="font-heading text-lg font-semibold text-foreground">
+                      {formatCurrency(row.amount)}
+                    </span>
+                    <span className="text-[11px] font-body text-muted-foreground">
+                      {row.count} {row.count === 1 ? "invoice" : "invoices"}
+                    </span>
+                  </div>
+                </Link>
               </li>
             ))}
           </ul>

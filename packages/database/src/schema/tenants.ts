@@ -3,6 +3,7 @@ import {
   uuid,
   text,
   boolean,
+  integer,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -27,6 +28,12 @@ export const tenants = pgTable(
     googleReviewUrl: text("google_review_url"),
     reviewRequestEnabled: boolean("review_request_enabled").default(true),
     timezone: text("timezone").default("America/Chicago"),
+    /**
+     * How many appointments the business can run at the same time. Was hardcoded
+     * to 1 inside the public slot query, so a three-person team could accept one
+     * job an hour through the booking portal (BOOK-28).
+     */
+    bookingSlotCapacity: integer("booking_slot_capacity").notNull().default(1),
     isActive: boolean("is_active").default(true),
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
     referredByAffiliateId: text("referred_by_affiliate_id"),

@@ -62,7 +62,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["dashboard", "home", "overview", "stats", "metrics", "kpi"],
     question: "What does the dashboard show?",
     answer:
-      "The **Dashboard** is your home page showing key business metrics:\n\n• **KPI Pills** — Jobs today, conversion rate, avg customer value — each with a trend vs previous period\n• **Revenue Chart** — Area chart with **1D / 1W / 1M / 6M / 1Y / ALL** tabs. Switching tabs changes the date range and granularity\n• **Jobs Management** — Segmented panel with Status / Priority / Service tabs (plus a pipeline selector if you have more than one)\n• **Retention Rate** — Monthly bar chart of repeat-customer rate\n• **Invoice Aging** — Current / 1-30 / 31-60 / 60+ days outstanding, with $ per bucket\n• **Quote Funnel** — Donut of accepted / declined / pending quotes with conversion %\n• **Revenue by Service** — Horizontal bars showing which service types drive the most revenue\n• **Top Customers** — Your top 5 by revenue in the selected range, with job counts\n• **Agenda** — Events, jobs, and bookings for the next 7 days, delivered with the rest of the dashboard in a single request. Hover any row for a rich detail preview\n• **Activity Feed** — Last 10 activities across jobs and quotes\n• **Ask AI** opens this chatbot · **Customize Widget** lets you show/hide any panel",
+      "The **Dashboard** is your home page. Six panels are shown by default:\n\n• **Overdue Alert** — A banner when any invoice is past its due date\n• **KPI Pills** — Jobs today (with an emergency count), total outstanding across unpaid invoices, and quote conversion rate\n• **Agenda** — Events, jobs, and bookings for the next 7 days with real start/end times. Hover any row for a detail preview\n• **Revenue Chart** — Area chart with **1D / 1W / 1M / 6M / 1Y / ALL** tabs\n• **Invoice Aging** — Current / 1-30 / 31-60 / 61-90 / 90+ days outstanding, with $ per bucket. Click a bucket to open the matching invoices\n• **Jobs Management** — Status / Priority / Service tabs, plus a pipeline selector. Click a bucket to open those jobs\n\nFour more are available under **Customize Widget**: Quote Funnel, Retention Rate, Revenue by Service, Top Customers, and the Activity Feed.\n\n**Ask AI** opens this chatbot. Archived jobs are excluded from every count.",
   },
   {
     id: "dashboard-customize",
@@ -70,7 +70,15 @@ const entries: KnowledgeEntry[] = [
     keywords: ["customize", "hide", "show", "widget", "layout", "personalize", "preferences"],
     question: "Can I customize the dashboard?",
     answer:
-      "Yes. Click **Customize Widget** in the dashboard toolbar. You'll get a toggle list for every widget (KPI pills, revenue chart, jobs management, retention, agenda, overdue alert, activity feed). Flip switches off to hide panels — your choices are saved in this browser and survive reloads. Click **Reset** to restore defaults.",
+      "Yes. Click **Customize Widget** in the dashboard toolbar for a toggle list of all eleven widgets. Six are on by default (overdue alert, KPI pills, agenda, revenue chart, invoice aging, jobs management); the more analytical ones — quote funnel, retention rate, revenue by service, top customers, activity feed — are off until you turn them on. Your choices are saved in this browser and survive reloads. Click **Reset** to restore defaults.",
+  },
+  {
+    id: "dashboard-date-range",
+    category: "dashboard",
+    keywords: ["date range", "period", "filter", "picker", "window", "badge", "timezone"],
+    question: "Which dashboard widgets follow the date range picker?",
+    answer:
+      "Only some of them, and the ones that don't say so on the card.\n\n**Follow the picker:** Revenue chart, Jobs Management, Quote Funnel, Revenue by Service, Top Customers.\n\n**Fixed window** (marked with a small grey badge): Agenda (*Next 7 days*), Invoice Aging and Outstanding (*All open*), Retention Rate (*Last 6 months*), Activity Feed (*Latest 10*), and Jobs Today (always today).\n\n\"Today\" is calculated in your business timezone from **Settings → Business**, not the server's — so the dashboard rolls over at midnight where you are.",
   },
   {
     id: "dashboard-revenue-range",
@@ -78,7 +86,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["revenue", "1d", "1w", "1m", "6m", "1y", "all", "range", "granularity", "chart"],
     question: "How do the 1D/1W/1M/6M/1Y/ALL tabs on the revenue chart work?",
     answer:
-      "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, hourly/day bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe whole dashboard (KPIs, jobs management, agenda) reflects the same range.",
+      "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, daily bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe big revenue figure and the chart always cover exactly the same window, so the number matches the area you see. Widgets marked with a grey badge (Agenda, Invoice Aging, Retention) keep their own fixed window.",
   },
   {
     id: "dashboard-quick-actions",
@@ -87,6 +95,50 @@ const entries: KnowledgeEntry[] = [
     question: "What are the quick action buttons on the dashboard?",
     answer:
       "The dashboard has **4 quick action buttons** at the top:\n\n• **New Job** — Opens the create job dialog\n• **New Customer** — Opens the create customer dialog\n• **View Invoices** — Navigates to the invoices page\n• **View Schedule** — Navigates to the calendar/schedule page",
+  },
+
+  // ═══════════════════════════════════════
+  // ── Reports ──
+  // ═══════════════════════════════════════
+  {
+    id: "reports-overview",
+    category: "reports",
+    keywords: ["report", "reports", "analytics", "analyse", "analyze", "insight", "trend", "chart"],
+    question: "What's on the Reports page?",
+    answer:
+      "**Reports** (sidebar) has five tabs, each covering one part of the business over whatever date range you pick:\n\n• **Revenue** — Trend vs the previous period, revenue by service type and payment method, average job value, collection rate, top customers\n• **Jobs** — Volume over time, breakdowns by status / priority / service type, pipeline distribution, average completion time\n• **Customers** — New customers over time, active vs inactive, repeat vs one-time, top customers by job count\n• **Quotes & Invoices** — Quote conversion funnel, invoice status, aging, overdue trend, average days to payment\n• **Bookings** — Volume, service type, most popular days, booking-to-job conversion\n\nOnly the tab you're looking at is loaded, so switching tabs is quick. Customer names in the tables link straight through to that customer.",
+  },
+  {
+    id: "reports-date-range",
+    category: "reports",
+    keywords: ["date range", "period", "quarter", "last month", "granularity", "day", "week", "month", "compare"],
+    question: "How do I change the reporting period?",
+    answer:
+      "Use the **date range picker** at the top right. Presets include Today, Last 7 days, This month, Last month, Last 3 months, **This quarter**, **Last quarter**, Last 6 months, This year, **Last year**, Last 12 months and All time — or pick any custom range on the calendar.\n\nThe chart grouping adjusts itself to the range: **daily** bars for a month or less, **weekly** up to about four months, **monthly** beyond that. The subtitle under the page title always tells you the exact window and grouping being shown.\n\n\"Today\" is resolved in your business timezone from **Settings → Business**, not your browser's.",
+  },
+  {
+    id: "reports-previous-period",
+    category: "reports",
+    keywords: ["previous period", "comparison", "vs", "compare", "dashed line", "trend line", "growth"],
+    question: "What is the \"previous period\" line comparing against?",
+    answer:
+      "The dashed line on the Revenue trend is the **same length of time immediately before** the range you selected — so \"Last month\" compares against the month before it, point for point. The exact comparison window is printed in the page subtitle and in the CSV export header.\n\nIf a point has no counterpart in the earlier period the line simply stops there rather than dropping to zero.\n\nThe **New** badge on a KPI means there was nothing at all in the previous period — that isn't a \"+100%\" increase, it's the first of something.",
+  },
+  {
+    id: "reports-export",
+    category: "reports",
+    keywords: ["export", "csv", "download", "excel", "spreadsheet", "accountant", "share"],
+    question: "How do I export a report?",
+    answer:
+      "Click **Export** at the top right of the Reports page. You get a CSV of **every** chart and table on the tab you're viewing — not just what's on screen — with a header block recording the period, the comparison period and the grouping.\n\nThe filename includes the date range (for example `revenue-report-2026-01-01_to_2026-03-31.csv`), so exporting two different periods on the same day gives you two clearly-named files.\n\nThe file opens correctly in Excel, Google Sheets and Numbers, including accented names.",
+  },
+  {
+    id: "reports-vs-dashboard",
+    category: "reports",
+    keywords: ["difference", "dashboard vs reports", "archived", "which page", "numbers don't match"],
+    question: "What's the difference between the Dashboard and Reports?",
+    answer:
+      "**Dashboard** answers *what needs doing today* — fixed, operational windows. **Reports** answers *how did we do over a period* — any date range, with period-over-period comparison and CSV export.\n\nBoth read the same underlying data and follow the same counting rules:\n\n• **Archived** jobs, bookings, customers, invoices and quotes are excluded from every count, so the totals match the list pages\n• **Payments you've already received are always counted**, even if the invoice was later archived — archiving hides a document, it doesn't un-collect the money\n• An invoice is **overdue** when its due date has passed and it isn't fully paid\n\nIf a report fails to load you'll see an error with a **Try again** button — an empty chart always means there genuinely was no activity.",
   },
 
   // ═══════════════════════════════════════
@@ -106,7 +158,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["detail", "view", "profile", "info", "customer page", "edit", "inline"],
     question: "How do I view and edit customer details?",
     answer:
-      "Click a **customer name** in the list to open their detail page. You'll see:\n\n• **Left panel** — Contact info. Click any field to **edit it inline** (name, email, phone, address)\n• **Tabs** — Activity, Notes, Jobs, Invoices, Quotes, Equipment, Agreements\n• **Right sidebar** — Quick action buttons (New Job, New Quote, New Invoice)\n• **Breadcrumb** — Navigate back to the customer list",
+      "Click a **customer name** in the list to open their detail page. You'll see:\n\n• **Header** — Name, phone, email and address. Click any of them to **edit inline**; invalid emails and phone numbers are rejected before saving\n• **Summary line** — Total jobs, outstanding balance, lifetime value and last job date\n• **Quick actions** — New Job, New Quote, New Invoice, all pre-filled with this customer\n• **Tabs** — Overview, Jobs, Invoices, Quotes, Assets, Agreements, Photos, Messages, Activity, Notes\n\nThe tab you're on is kept in the address bar, so you can bookmark or share a link straight to a customer's invoices.",
   },
   {
     id: "customers-notes",
@@ -114,7 +166,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["note", "notes", "comment", "write", "add note"],
     question: "How do I add notes to a customer?",
     answer:
-      'Open the customer detail page, go to the **Notes** tab. Click **"Add Note"**, write your note, and save. Notes are timestamped with the author name. You can **edit** or **delete** any note later.',
+      'There are two kinds:\n\n• **Notes tab** — dated entries, each stamped with the author. Use these for "called about the noise on 3 June". Write one in the box at the top and press **Add Note** (or Ctrl+Enter). You can edit or delete any of them; deleting asks for confirmation first.\n• **The Notes field in the customer dialog** — one always-visible note on the customer, for standing facts like a gate code or a preferred contact time.',
   },
   {
     id: "customers-tags",
@@ -122,7 +174,23 @@ const entries: KnowledgeEntry[] = [
     keywords: ["tag", "tags", "label", "categorize", "group"],
     question: "How do I tag customers?",
     answer:
-      'Open a customer detail page. In the info panel, click **"Add Tag"**. You can select an existing tag or create a new one. Tags are reusable across all customers — great for grouping by type (e.g., "VIP", "Commercial", "Residential").',
+      'Open a customer detail page and click **"Add Tag"** in the header. Pick an existing tag or type a new name to create one.\n\nTags show as chips on the **Customers** list, and **clicking a chip filters the list to everyone carrying that tag** — so they work for grouping by type ("VIP", "Commercial", "Residential") and pulling up that group later.',
+  },
+  {
+    id: "customers-archive-delete",
+    category: "customers",
+    keywords: ["delete customer", "remove customer", "archive customer", "restore customer", "cannot delete"],
+    question: "How do I archive or delete a customer?",
+    answer:
+      "**Archive** is what you usually want. It hides the customer from the Active tab without touching their history. Use the row menu or select several and click **Archive**. The **Archived** tab lists them, and each row has a **Restore** action.\n\n**Delete is permanent and is refused while the customer still has any job, invoice or quote — archived ones included.** The message tells you exactly what's blocking it. This is deliberate: jobs are linked to the customer, so deleting one would take its line items, photos and checklists with it.\n\nIf you delete several at once, anyone who is blocked is skipped and reported back to you — the toast says how many actually went through.",
+  },
+  {
+    id: "customers-duplicates",
+    category: "customers",
+    keywords: ["duplicate customer", "same email", "two customers", "merge customer"],
+    question: "What happens if two customers have the same email?",
+    answer:
+      "It's allowed — a couple sharing one address is normal — but when you type an email that's already in use, the dialog warns you and offers a link to open the existing customer instead.\n\nWorth heeding: when someone books through your public booking page, we match them to an existing customer **by email**. Two customers with the same address means the booking attaches to whichever one is found first, and that customer's history ends up split across two records.",
   },
   {
     id: "customers-search",
@@ -130,7 +198,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["search", "find", "filter", "look up", "customer search"],
     question: "How do I search for a customer?",
     answer:
-      "On the **Customers** page, use the search bar at the top of the table. It searches by name, email, and phone number. Results update as you type (debounced for performance).",
+      "On the **Customers** page, use the search bar at the top of the table. It searches first name, last name, **full name** (\"Jane Doe\" works), email and phone. Results update as you type.\n\nYou can also **sort** by clicking the Name, Email or Added column headers, and switch between the **Active** and **Archived** tabs.",
   },
   {
     id: "customers-stats",
@@ -138,7 +206,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["customer stats", "total customers", "customer count", "overview"],
     question: "How do I see customer statistics?",
     answer:
-      "At the top of the **Customers** page, you'll see **stats cards** showing: Total Customers, Customers with Email, Customers with Phone, and Customers with Address. Click a stat card to filter the table by that criteria.",
+      "At the top of the **Customers** page, you'll see **stats cards** showing: Total Customers, Customers with Email, Customers with Phone, and Customers with Address.\n\nThese count **active** customers only — the same ones the table below shows — so archiving somebody changes both together.",
   },
   {
     id: "customers-jobs-tab",
@@ -442,7 +510,15 @@ const entries: KnowledgeEntry[] = [
     keywords: ["manage", "view", "pending", "booking", "confirm"],
     question: "How do I manage incoming bookings?",
     answer:
-      'Go to **Bookings** in the sidebar. You\'ll see all bookings with customer info, service type, and requested date. Use **status filter tabs** (Pending, Confirmed, Completed, Cancelled). Click a booking to view details.\n\n• **Confirm** — Accept the booking\n• **Convert to Job** — Create a scheduled job from it\n• **Cancel** — Decline the booking',
+      'Go to **Bookings** in the sidebar. You\'ll see all bookings with customer info, service type, and requested date. Use the **Active / Archived** tabs and the **status filter tabs** (Pending, Confirmed, Completed, Cancelled). Click a booking to view details.\n\n• **Confirm** — Accept the booking (emails the customer)\n• **Convert to Job** — Create a scheduled job from it\n• **Cancel** — Decline the booking (also emails the customer)\n\nSelect several with the checkboxes for bulk **Archive**, **Restore**, status changes or **Delete**.',
+  },
+  {
+    id: "bookings-archive-vs-delete",
+    category: "bookings",
+    keywords: ["archive", "delete", "remove", "restore", "hide booking", "undo"],
+    question: "Should I archive or delete a booking?",
+    answer:
+      "**Archive** in almost every case. It hides the booking from your active list and keeps everything — you can restore it any time from the **Archived** tab, and archived bookings stop counting toward your stat cards.\n\n**Delete** is permanent and cannot be undone. A booking that has already been **converted to a job** can't be deleted at all — that would leave the job with no record of where it came from. Archive it instead.",
   },
   {
     id: "bookings-convert",
@@ -450,7 +526,31 @@ const entries: KnowledgeEntry[] = [
     keywords: ["convert", "booking to job", "create job from booking"],
     question: "How do I convert a booking to a job?",
     answer:
-      'Open a booking and click **"Convert to Job"**. This creates a new job with the customer info, service type, and scheduled date from the booking. You can select which pipeline stage to place the job in.',
+      'Open a booking and click **"Convert to Job"**. This creates a new job with the customer info, service type, and scheduled date from the booking, and you can pick which pipeline stage it lands in. If the booking came from an accepted quote, the quote\'s line items and totals are copied across too.\n\nOnce converted, the button is replaced by a link to the job, so a booking can only ever produce one job.',
+  },
+  {
+    id: "bookings-reschedule",
+    category: "bookings",
+    keywords: ["reschedule", "change date", "move booking", "change time", "force"],
+    question: "Can I change a booking's date or time?",
+    answer:
+      "Yes — open the booking and edit the date or time. The same rules the booking portal uses are checked first: the day has to be open, the time has to be on the hour and inside your working hours, and the slot must not already be full.\n\nIf you need to override that — squeezing someone in on a day you're closed, for example — the app will tell you what's blocking it and let you confirm anyway. Every reschedule is recorded in the booking's Activity timeline.",
+  },
+  {
+    id: "bookings-activity",
+    category: "bookings",
+    keywords: ["activity", "history", "timeline", "who changed", "audit", "log"],
+    question: "Can I see who confirmed or changed a booking?",
+    answer:
+      "Yes. Open any booking and scroll to **Activity** at the bottom of the panel. It lists every status change, reschedule, conversion and cancellation, newest first, with who did it and when.",
+  },
+  {
+    id: "bookings-emails",
+    category: "bookings",
+    keywords: ["email", "confirmation", "notify customer", "cancellation email", "status page"],
+    question: "What emails does a customer get about their booking?",
+    answer:
+      "Three, automatically:\n\n• **When they book** — a confirmation with the details, plus a link to a status page they can check any time\n• **When you confirm it** — an \"appointment confirmed\" email\n• **When you cancel it** — a cancellation notice with a link to book a new time\n\nYou also get an email whenever a new booking comes in.",
   },
 
   // ═══════════════════════════════════════
@@ -478,7 +578,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["drag", "reschedule", "move", "drop", "calendar drag"],
     question: "How do I reschedule a job on the calendar?",
     answer:
-      "On the **Schedule** page, simply **drag a job card** to a new time slot or date. The scheduled date and time update automatically. You can also **resize** a job card to change its duration. Bookings are locked and cannot be dragged.",
+      "On the **Schedule** page, simply **drag a job card** to a new time slot or date. The scheduled date and time update automatically. Bookings are locked and cannot be dragged — open the booking to change its date or time.",
   },
   {
     id: "schedule-availability",
@@ -486,7 +586,23 @@ const entries: KnowledgeEntry[] = [
     keywords: ["availability", "hours", "working hours", "business hours", "available"],
     question: "How do I set my availability?",
     answer:
-      "Go to **Settings > Scheduling** (or click the availability button on the Bookings page). Set your **working hours** for each day of the week (Monday–Sunday). Time slots outside your availability appear **greyed out** on the calendar and are hidden from the booking portal.",
+      "Go to **Settings > Scheduling** (or click the availability button on the Bookings page). Set your **working hours** for each day of the week (Monday–Sunday). Time slots outside your availability appear **greyed out** on the calendar and are hidden from the booking portal.\n\nSaving takes effect on both straight away — your calendar and what customers can book always agree.",
+  },
+  {
+    id: "schedule-capacity",
+    category: "schedule",
+    keywords: ["capacity", "two jobs", "same time", "overlap", "team", "double book", "concurrent"],
+    question: "Can two appointments be booked at the same time?",
+    answer:
+      "By default no — one appointment per time slot. If you have more than one person on the road, go to **Settings > Scheduling** and raise **Booking Capacity** to the number of jobs you can run at once.\n\nA slot is offered to customers only when fewer than that many things overlap it, counting **bookings, jobs and calendar events** together — so a day you filled from phone calls won't be sold again through the portal.",
+  },
+  {
+    id: "schedule-timezone",
+    category: "schedule",
+    keywords: ["timezone", "wrong time", "time zone", "travelling", "different times"],
+    question: "Why does the calendar show a different day than my computer?",
+    answer:
+      "It shouldn't — the calendar uses your **business timezone** from **Settings → Business**, not your computer's. That's deliberate: if you're travelling, or your laptop's clock is set to somewhere else, your schedule still matches your customers' appointments and the dashboard agenda.\n\nIf the timezone itself looks wrong, change it in **Settings → Business**.",
   },
   {
     id: "schedule-overrides",

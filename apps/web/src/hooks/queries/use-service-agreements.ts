@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
 import {
   getMaintenanceContracts,
@@ -96,7 +97,7 @@ export function useBulkDeleteServiceAgreements() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Service agreements deleted");
+      bulkToast(res, "Service agreements deleted");
       qc.invalidateQueries({ queryKey: queryKeys.serviceAgreements.all });
     },
     onError: () => toast.error("Failed to delete service agreements"),
@@ -113,7 +114,7 @@ export function useBulkToggleServiceAgreementActive() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Service agreements updated");
+      bulkToast(res, "Service agreements updated");
       qc.invalidateQueries({ queryKey: queryKeys.serviceAgreements.all });
     },
     onError: () => toast.error("Failed to update service agreements"),

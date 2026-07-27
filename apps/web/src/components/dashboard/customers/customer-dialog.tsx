@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +13,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { IconUser, IconMapPin, IconAlertCircle } from "@tabler/icons-react";
+import { Textarea } from "@/components/ui/textarea";
+import { IconUser, IconMapPin, IconAlertCircle, IconNote, IconInfoCircle } from "@tabler/icons-react";
+import { formatPhoneInput, normalizePhone } from "@/lib/phone";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { checkDuplicateCustomer } from "@/actions/customers";
 import type { Customer } from "@hvac-saas/types";
 
 interface CustomerDialogProps {
@@ -32,6 +37,9 @@ export interface CustomerFormData {
   city: string;
   state: string;
   zipCode: string;
+  /** The `customers.notes` column — accepted by the API since day one and never
+   *  editable anywhere, so nothing could ever be written to it (CUST-20). */
+  notes: string;
 }
 
 const emptyForm: CustomerFormData = {
@@ -43,18 +51,23 @@ const emptyForm: CustomerFormData = {
   city: "",
   state: "",
   zipCode: "",
+  notes: "",
 };
 
-function formatPhoneInput(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length === 0) return "";
-  if (digits.length <= 3) return `(${digits}`;
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-}
+const MAX = {
+  name: 120,
+  email: 320,
+  phone: 32,
+  address: 300,
+  city: 120,
+  state: 120,
+  zipCode: 32,
+  notes: 5000,
+} as const;
 
-function stripPhone(value: string): string {
-  return value.replace(/\D/g, "");
+/** Mirrors the server's rule so the message arrives before the round trip. */
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 export function CustomerDialog({
@@ -66,8 +79,10 @@ export function CustomerDialog({
 }: CustomerDialogProps) {
   const [form, setForm] = useState<CustomerFormData>(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<keyof CustomerFormData, string>>>({});
+  const [duplicate, setDuplicate] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
 
   const isEditing = !!customer;
+  const debouncedEmail = useDebouncedValue(form.email, 500);
 
   useEffect(() => {
     if (customer) {
@@ -80,12 +95,34 @@ export function CustomerDialog({
         city: customer.city ?? "",
         state: customer.state ?? "",
         zipCode: customer.zipCode ?? "",
+        notes: customer.notes ?? "",
       });
     } else {
       setForm(emptyForm);
     }
     setErrors({});
+    setDuplicate(null);
   }, [customer, open]);
+
+  // Advisory duplicate check — a shared household email is legitimate, so this
+  // warns rather than blocks. It matters because the public booking portal links
+  // submissions to customers by email, and two rows with the same address make
+  // that match ambiguous (CUST-28).
+  useEffect(() => {
+    if (!open) return;
+    const email = debouncedEmail.trim();
+    if (!email || !isValidEmail(email)) {
+      setDuplicate(null);
+      return;
+    }
+    let cancelled = false;
+    checkDuplicateCustomer(email, customer?.id).then((res) => {
+      if (!cancelled) setDuplicate(res.data?.duplicate ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [debouncedEmail, open, customer?.id]);
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -93,13 +130,23 @@ export function CustomerDialog({
     const newErrors: Partial<Record<keyof CustomerFormData, string>> = {};
     if (!form.firstName.trim()) newErrors.firstName = "First name is required";
     if (!form.lastName.trim()) newErrors.lastName = "Last name is required";
+    // The API accepted "nope" as an email until CUST-09; the browser only
+    // enforces `type="email"`, which the inline header editor bypasses entirely.
+    if (form.email.trim() && !isValidEmail(form.email.trim())) {
+      newErrors.email = "Enter a valid email address";
+    }
+    if (form.phone.trim() && normalizePhone(form.phone).replace(/\D/g, "").length < 4) {
+      newErrors.phone = "That doesn't look like a phone number";
+    }
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
     }
 
-    onSave({ ...form, phone: stripPhone(form.phone) });
+    // Normalised, never truncated — the old helper dropped every digit past the
+    // tenth, so an international number was silently corrupted on save (CUST-08).
+    onSave({ ...form, phone: normalizePhone(form.phone) });
   }
 
   function updateField(field: keyof CustomerFormData, value: string) {
@@ -143,10 +190,13 @@ export function CustomerDialog({
                   value={form.firstName}
                   onChange={(e) => updateField("firstName", e.target.value)}
                   placeholder="e.g. Mike"
+                  maxLength={MAX.name}
+                  aria-invalid={!!errors.firstName}
+                  aria-describedby={errors.firstName ? "firstName-error" : undefined}
                   className={errors.firstName ? "border-destructive" : ""}
                 />
                 {errors.firstName && (
-                  <p className="flex items-center gap-1 text-xs text-destructive">
+                  <p id="firstName-error" className="flex items-center gap-1 text-xs text-destructive">
                     <IconAlertCircle className="h-3 w-3 shrink-0" />
                     {errors.firstName}
                   </p>
@@ -161,10 +211,13 @@ export function CustomerDialog({
                   value={form.lastName}
                   onChange={(e) => updateField("lastName", e.target.value)}
                   placeholder="e.g. Johnson"
+                  maxLength={MAX.name}
+                  aria-invalid={!!errors.lastName}
+                  aria-describedby={errors.lastName ? "lastName-error" : undefined}
                   className={errors.lastName ? "border-destructive" : ""}
                 />
                 {errors.lastName && (
-                  <p className="flex items-center gap-1 text-xs text-destructive">
+                  <p id="lastName-error" className="flex items-center gap-1 text-xs text-destructive">
                     <IconAlertCircle className="h-3 w-3 shrink-0" />
                     {errors.lastName}
                   </p>
@@ -180,7 +233,32 @@ export function CustomerDialog({
                   value={form.email}
                   onChange={(e) => updateField("email", e.target.value)}
                   placeholder="e.g. mike@email.com"
+                  maxLength={MAX.email}
+                  aria-invalid={!!errors.email}
+                  aria-describedby={errors.email ? "email-error" : undefined}
+                  className={errors.email ? "border-destructive" : ""}
                 />
+                {errors.email && (
+                  <p id="email-error" className="flex items-center gap-1 text-xs text-destructive">
+                    <IconAlertCircle className="h-3 w-3 shrink-0" />
+                    {errors.email}
+                  </p>
+                )}
+                {!errors.email && duplicate && (
+                  <p className="flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400">
+                    <IconInfoCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                    <span>
+                      {duplicate.firstName} {duplicate.lastName} already uses this email.{" "}
+                      <Link
+                        href={`/customers/${duplicate.id}`}
+                        className="underline underline-offset-2 hover:text-foreground"
+                      >
+                        Open them instead
+                      </Link>
+                      ?
+                    </span>
+                  </p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="phone" className="font-body text-muted-foreground">
@@ -191,9 +269,18 @@ export function CustomerDialog({
                   type="tel"
                   value={form.phone}
                   onChange={(e) => handlePhoneChange(e.target.value)}
-                  placeholder="(555) 123-4567"
-                  maxLength={14}
+                  placeholder="(555) 123-4567 or +44 20 7946 0958"
+                  maxLength={MAX.phone}
+                  aria-invalid={!!errors.phone}
+                  aria-describedby={errors.phone ? "phone-error" : undefined}
+                  className={errors.phone ? "border-destructive" : ""}
                 />
+                {errors.phone && (
+                  <p id="phone-error" className="flex items-center gap-1 text-xs text-destructive">
+                    <IconAlertCircle className="h-3 w-3 shrink-0" />
+                    {errors.phone}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -252,11 +339,35 @@ export function CustomerDialog({
                     value={form.zipCode}
                     onChange={(e) => updateField("zipCode", e.target.value)}
                     placeholder="e.g. 77001"
-                    maxLength={10}
+                    maxLength={MAX.zipCode}
                   />
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* Divider */}
+          <div className="border-t border-border" />
+
+          {/* Section: Notes — the `customers.notes` column, finally reachable */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground font-heading">
+              <IconNote className="h-4 w-4 text-muted-foreground" />
+              Notes
+            </div>
+            <Textarea
+              id="notes"
+              value={form.notes}
+              onChange={(e) => updateField("notes", e.target.value)}
+              placeholder="Gate code, preferred contact time, anything worth knowing before you arrive..."
+              rows={3}
+              maxLength={MAX.notes}
+              className="resize-none"
+            />
+            <p className="text-xs text-muted-foreground font-body">
+              Always visible on the customer&rsquo;s page. For dated, per-visit notes use the
+              Notes tab instead.
+            </p>
           </div>
 
           <DialogFooter>

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconPhoto } from "@tabler/icons-react";
-import { getCustomerPhotos } from "@/actions/customers";
+import { Pagination } from "@/components/reusable/pagination";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
+import { useCustomerPhotos } from "@/hooks/queries";
 import { getStorageUrl } from "@/lib/storage-url";
 import { PhotoTagPill } from "@/components/dashboard/jobs/photo-tag-pill";
 import { JobPhotoLightbox } from "@/components/dashboard/jobs/job-photo-lightbox";
@@ -31,22 +33,35 @@ function toPublicUrl(storagePath: string): string {
   return getStorageUrl(storagePath);
 }
 
+const PAGE_SIZE = 60;
+
 export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
-  const [photos, setPhotos] = useState<CustomerPhoto[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [lightboxPhotos, setLightboxPhotos] = useState<LightboxPhoto[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  useEffect(() => {
-    getCustomerPhotos(customerId).then((res) => {
-      if (res.data) setPhotos(res.data);
-      setLoading(false);
-    });
-  }, [customerId]);
+  // The endpoint used to return every photo across every job for this customer
+  // in one unbounded response (CUST-15).
+  const photosQuery = useCustomerPhotos(customerId, { page, limit: PAGE_SIZE });
+  const photos: CustomerPhoto[] = (photosQuery.data?.data as CustomerPhoto[]) ?? [];
+  const pagination = photosQuery.data?.pagination;
+  const loading = photosQuery.isLoading;
+  const loadFailed = photosQuery.isError || !!photosQuery.data?.error;
 
   function openLightbox(allPhotos: LightboxPhoto[], index: number) {
     setLightboxPhotos(allPhotos);
     setLightboxIndex(index);
+  }
+
+  if (loadFailed && !loading) {
+    return (
+      <LoadErrorState
+        title="Could not load photos"
+        message={photosQuery.data?.error}
+        onRetry={() => photosQuery.refetch()}
+        isRetrying={photosQuery.isFetching}
+      />
+    );
   }
 
   if (loading) {
@@ -139,6 +154,16 @@ export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
           </div>
         );
       })}
+
+      {pagination && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={setPage}
+          entityName="photo"
+        />
+      )}
 
       {lightboxIndex !== null && (
         <JobPhotoLightbox

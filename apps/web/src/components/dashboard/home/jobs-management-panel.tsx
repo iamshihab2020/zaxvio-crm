@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import type {
   DashboardCategoryCount,
@@ -15,11 +16,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { usePipelines } from "@/hooks/queries/use-pipelines";
+import { useDashboardPipeline } from "@/hooks/queries";
 import { STAGE_COLOR_PRESETS } from "@/lib/constants/stage-color-presets";
+import {
+  JOB_PRIORITY_CHART_COLORS,
+  type JobPriority,
+} from "@/lib/constants/job-options";
 import { cn } from "@/lib/utils";
 
 interface JobsManagementPanelProps {
-  pipeline: DashboardPipelineItem[];
+  /** Default-pipeline distribution that came with the main dashboard payload. */
+  defaultPipeline: DashboardPipelineItem[];
   priorityBreakdown: DashboardCategoryCount[];
   serviceBreakdown: DashboardCategoryCount[];
   pipelineId: string | null;
@@ -29,7 +36,8 @@ interface JobsManagementPanelProps {
 type Segment = "status" | "priority" | "service";
 
 // Brand-orange + warm neutrals palette for buckets that don't have a DB color
-// (priority, service type). Status uses the pipeline's stored stage colors.
+// (service type). Status uses the pipeline's stored stage colors; priority uses
+// the shared map keyed off the database enum.
 const PALETTE = [
   "hsl(var(--brand))",
   "#fb923c",
@@ -41,14 +49,6 @@ const PALETTE = [
   "#94a3b8",
 ];
 
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "#f87171",
-  high: "#fbbf24",
-  normal: "hsl(var(--brand))",
-  low: "#94a3b8",
-};
-
-
 interface Bucket {
   key: string;
   label: string;
@@ -57,7 +57,7 @@ interface Bucket {
 }
 
 export function JobsManagementPanel({
-  pipeline,
+  defaultPipeline,
   priorityBreakdown,
   serviceBreakdown,
   pipelineId,
@@ -66,6 +66,12 @@ export function JobsManagementPanel({
   const [segment, setSegment] = useState<Segment>("status");
   const { data: pipelinesRes } = usePipelines();
   const pipelines = (pipelinesRes ?? []) as Pipeline[];
+
+  // Only fetch when a non-default pipeline is selected — the default already
+  // arrived with the dashboard payload, so the common case costs nothing.
+  const { data: pipelineRes, isFetching: isPipelineFetching } =
+    useDashboardPipeline(pipelineId);
+  const pipeline = pipelineId ? (pipelineRes?.data ?? []) : defaultPipeline;
 
   const buckets: Bucket[] = useMemo(() => {
     if (segment === "status") {
@@ -85,7 +91,10 @@ export function JobsManagementPanel({
         key: p.key,
         label: p.label,
         count: p.count,
-        color: PRIORITY_COLORS[p.key] ?? "hsl(var(--brand))",
+        color:
+          p.key in JOB_PRIORITY_CHART_COLORS
+            ? JOB_PRIORITY_CHART_COLORS[p.key as JobPriority]
+            : "hsl(var(--brand))",
       }));
     }
     return serviceBreakdown.map((s, i) => ({
@@ -128,7 +137,12 @@ export function JobsManagementPanel({
               </SelectContent>
             </Select>
           )}
-          <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
+          <span
+            className={cn(
+              "whitespace-nowrap text-xs font-body text-muted-foreground transition-opacity",
+              isPipelineFetching && "opacity-50",
+            )}
+          >
             {total} total
           </span>
         </div>
@@ -153,25 +167,29 @@ export function JobsManagementPanel({
               </li>
             ) : (
               buckets.map((b) => (
-                <li
-                  key={b.key}
-                  className="rounded-xl border border-border bg-background/40 p-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: b.color }}
-                    />
-                    <span className="truncate text-[11px] font-body text-muted-foreground">
-                      {b.label}
-                    </span>
-                  </div>
-                  <div className="mt-1 font-heading text-xl font-semibold text-foreground">
-                    {b.count}
-                    <span className="ml-1 text-[11px] font-body font-normal text-muted-foreground">
-                      jobs
-                    </span>
-                  </div>
+                <li key={b.key}>
+                  <Link
+                    href={bucketHref(segment, b.key, pipelineId)}
+                    aria-label={`${b.label}: ${b.count} jobs`}
+                    className="block rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: b.color }}
+                      />
+                      <span className="truncate text-[11px] font-body text-muted-foreground">
+                        {b.label}
+                      </span>
+                    </div>
+                    <div className="mt-1 font-heading text-xl font-semibold text-foreground">
+                      {b.count}
+                      <span className="ml-1 text-[11px] font-body font-normal text-muted-foreground">
+                        jobs
+                      </span>
+                    </div>
+                  </Link>
                 </li>
               ))
             )}
@@ -180,6 +198,27 @@ export function JobsManagementPanel({
       </Tabs>
     </div>
   );
+}
+
+/**
+ * Deep-link a segment bucket into the Jobs page.
+ *
+ * Param names must match what `jobs-page-client.tsx` reads: `priority`,
+ * `serviceType`, and `pipeline` (not `pipelineId`). The Jobs page has no status
+ * filter — status *is* the board's columns — so a status bucket just opens the
+ * right pipeline rather than promising a filter that would silently do nothing.
+ */
+function bucketHref(
+  segment: Segment,
+  key: string,
+  pipelineId: string | null,
+): string {
+  const params = new URLSearchParams();
+  if (segment === "priority") params.set("priority", key);
+  if (segment === "service") params.set("serviceType", key);
+  if (pipelineId) params.set("pipeline", pipelineId);
+  const qs = params.toString();
+  return qs ? `/jobs?${qs}` : "/jobs";
 }
 
 /**

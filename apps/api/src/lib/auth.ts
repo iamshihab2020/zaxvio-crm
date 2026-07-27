@@ -9,7 +9,7 @@ import { env } from "./env.js";
 import { sendInvitationEmail } from "./email.js";
 
 // Better Auth gets its own dedicated connection with prepare: false
-// This avoids issues with Supabase's transaction pooler
+// This avoids issues with pooled Postgres connections (Neon / pgbouncer)
 const authConnection = postgres(env.DATABASE_URL, { prepare: false });
 const authDb = drizzle(authConnection, { schema });
 

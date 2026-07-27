@@ -22,8 +22,13 @@ export const jobIdParam = z.object({
 // ── Querystrings ──────────────────────────────────────────────────────────────
 
 export const invoiceListQuery = paginationQuery.extend({
+  // `overdue` and `unpaid` are derived filters, not stored statuses — see the
+  // handler. `unpaid` means "money is still owed on this": sent, overdue or
+  // partially paid. Added so the customer overview can ask the database for the
+  // outstanding invoices instead of filtering a page of 20 in the browser and
+  // calling the result a total (CUST-05).
   status: z
-    .enum(["draft", "sent", "paid", "overdue", "void", "partially_paid"])
+    .enum(["draft", "sent", "paid", "overdue", "void", "partially_paid", "unpaid"])
     .optional(),
   customerId: z.string().uuid().optional(),
   jobId: z.string().uuid().optional(),

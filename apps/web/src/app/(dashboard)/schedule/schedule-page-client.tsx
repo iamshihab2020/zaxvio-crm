@@ -9,14 +9,17 @@ import {
   useCalendarEvents,
   useCreateCalendarEvent,
   useUpdateCalendarEvent,
+  useAvailability,
 } from "@/hooks/queries";
+import { bookingLink, scheduleJobLink } from "@/lib/entity-links";
+import { tenantNow } from "@/lib/tenant-time";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Card } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from "date-fns";
 
 import { getJobs, updateJob, deleteJob } from "@/actions/jobs";
-import { getAvailability } from "@/actions/bookings";
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { type CalendarEventData } from "@/actions/calendar-events";
 import type { JobCardData } from "@/components/dashboard/jobs/kanban-card";
@@ -46,12 +49,8 @@ interface BookingData {
   description: string | null;
 }
 
-interface AvailabilitySlot {
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
-  isActive: boolean;
-}
+/** Max rows fetched per source. Surfaced in the UI when hit — see `truncated`. */
+const CALENDAR_FETCH_LIMIT = 200;
 
 interface PipelineStage {
   id: string;
@@ -194,13 +193,18 @@ function calEventToCalendarEvent(evt: CalendarEventData): CalendarEvent {
 }
 
 /* ── Main component ── */
-export function SchedulePageClient() {
+interface SchedulePageClientProps {
+  /** Tenant IANA timezone, resolved on the server so first paint is correct. */
+  timezone: string;
+}
+
+export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
 
-  // Calendar state
-  const [currentDate, setCurrentDate] = useState<Date>(new Date());
+  // Calendar state — opens on the tenant's today, not the browser's (BOOK-25).
+  const [currentDate, setCurrentDate] = useState<Date>(() => tenantNow(timezone));
   const [currentView, setCurrentView] = useState<CalendarView>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("schedule-calendar-view");
@@ -261,26 +265,39 @@ export function SchedulePageClient() {
   /* ── Queries ── */
   const { dateFrom, dateTo } = getDateRange(currentDate, currentView);
 
+  // `placeholderData` keeps the previous range on screen while the next one
+  // loads. The date range is part of every query key, so clicking "next week"
+  // created three cold keys and `isLoading` replaced the toolbar, filters,
+  // sidebar and calendar with a skeleton — on a surface where arrow keys are the
+  // primary interaction (BOOK-16).
   const jobsQuery = useQuery({
     queryKey: queryKeys.jobs.list({ dateFrom, dateTo, schedule: true }),
-    queryFn: async (): Promise<JobCardData[]> => {
-      const result = await getJobs({ dateFrom, dateTo, limit: 200, sortBy: "scheduledDate", sortOrder: "asc" });
-      return (result.data ?? []) as JobCardData[];
-    },
-  });
-
-  const bookingsQuery = useBookings({ dateFrom, dateTo, limit: 200, schedule: true });
-
-  const calEventsQuery = useCalendarEvents({ dateFrom, dateTo, limit: 200 });
-
-  const availabilityQuery = useQuery({
-    queryKey: queryKeys.bookings.availability(),
     queryFn: async () => {
-      const result = await getAvailability();
-      return (result.data?.weeklySchedule as AvailabilitySlot[]) ?? [];
+      const result = await getJobs({
+        dateFrom,
+        dateTo,
+        limit: CALENDAR_FETCH_LIMIT,
+        sortBy: "scheduledDate",
+        sortOrder: "asc",
+      });
+      if (result.error) throw new Error(result.error);
+      return {
+        rows: (result.data ?? []) as JobCardData[],
+        total: result.pagination?.total ?? (result.data ?? []).length,
+      };
     },
-    staleTime: 5 * 60 * 1000, // 5 min — rarely changes
+    placeholderData: (prev) => prev,
   });
+
+  const bookingsQuery = useBookings({ dateFrom, dateTo, limit: CALENDAR_FETCH_LIMIT, schedule: true });
+
+  const calEventsQuery = useCalendarEvents({ dateFrom, dateTo, limit: CALENDAR_FETCH_LIMIT });
+
+  // Full availability payload: weekly schedule *and* date overrides. The calendar
+  // read only `weeklySchedule`, so a contractor who blocked 25 December saw the
+  // portal correctly refuse bookings while their own calendar showed a normal
+  // working day (BOOK-10).
+  const availabilityQuery = useAvailability();
 
   const stagesQuery = useQuery({
     queryKey: queryKeys.pipelines.all,
@@ -292,12 +309,35 @@ export function SchedulePageClient() {
   });
 
   // Derived data
-  const jobs = jobsQuery.data ?? [];
+  const jobs = jobsQuery.data?.rows ?? [];
   const bookings = (bookingsQuery.data?.data ?? []) as BookingData[];
   const calEvents = (calEventsQuery.data?.data ?? []) as CalendarEventData[];
-  const availability = availabilityQuery.data ?? [];
+  const weeklySchedule = availabilityQuery.data?.weeklySchedule ?? [];
+  const overrides = availabilityQuery.data?.overrides ?? [];
   const stages = stagesQuery.data ?? [];
   const loading = jobsQuery.isLoading || bookingsQuery.isLoading || calEventsQuery.isLoading;
+
+  // A failed query used to be unwrapped with `?? []` and paint an empty week —
+  // on a scheduling tool that reads as "you have nothing on" (BOOK-13).
+  const loadError =
+    (jobsQuery.isError ? jobsQuery.error?.message : null) ??
+    bookingsQuery.data?.error ??
+    (bookingsQuery.isError ? "Failed to load bookings" : null) ??
+    calEventsQuery.data?.error ??
+    (calEventsQuery.isError ? "Failed to load calendar events" : null) ??
+    null;
+
+  function retryScheduleData() {
+    jobsQuery.refetch();
+    bookingsQuery.refetch();
+    calEventsQuery.refetch();
+  }
+
+  // Silent truncation on a calendar is worse than an explicit cap (BOOK-17).
+  const truncatedSources: string[] = [];
+  if (jobs.length >= CALENDAR_FETCH_LIMIT) truncatedSources.push("jobs");
+  if (bookings.length >= CALENDAR_FETCH_LIMIT) truncatedSources.push("bookings");
+  if (calEvents.length >= CALENDAR_FETCH_LIMIT) truncatedSources.push("events");
 
   /** Invalidate all schedule-related queries */
   function invalidateScheduleData() {
@@ -369,7 +409,7 @@ export function SchedulePageClient() {
   }
 
   function handleToday() {
-    const now = new Date();
+    const now = tenantNow(timezone);
     navigationDirection.current = now > currentDate ? 1 : now < currentDate ? -1 : 0;
     setCurrentDate(now);
   }
@@ -409,12 +449,14 @@ export function SchedulePageClient() {
     if (event.resource.type === "job") {
       setSelectedJobId(event.id);
       setSheetOpen(true);
-      router.replace(`/schedule?jobId=${event.id}`, { scroll: false });
+      router.replace(scheduleJobLink(event.id), { scroll: false });
     } else if (event.resource.type === "event") {
       const found = calEvents.find((e) => e.id === event.id);
       if (found) handleCalendarEventClick(found);
     } else {
-      router.push(`/bookings`);
+      // Carried no id at all, so clicking a booking landed on an unfiltered list
+      // with the sheet shut and no indication which one was meant (BOOK-15).
+      router.push(bookingLink(event.id));
     }
   }
 
@@ -471,10 +513,15 @@ export function SchedulePageClient() {
     // Optimistic update
     queryClient.setQueryData(
       queryKeys.jobs.list({ dateFrom, dateTo, schedule: true }),
-      (old: JobCardData[] | undefined) =>
-        (old ?? []).map((j) =>
-          j.id === event.id ? { ...j, scheduledDate, scheduledStart, scheduledEnd } : j,
-        ),
+      (old: { rows: JobCardData[]; total: number } | undefined) =>
+        old
+          ? {
+              ...old,
+              rows: old.rows.map((j) =>
+                j.id === event.id ? { ...j, scheduledDate, scheduledStart, scheduledEnd } : j,
+              ),
+            }
+          : old,
     );
 
     try {
@@ -487,60 +534,9 @@ export function SchedulePageClient() {
     }
   }
 
-  async function handleEventResize({
-    event,
-    start,
-    end,
-  }: {
-    event: CalendarEvent;
-    start: Date;
-    end: Date;
-  }) {
-    if (event.resource.type === "event") {
-      const eventDate = format(start, "yyyy-MM-dd");
-      const startTime = format(start, "HH:mm");
-      const endTime = format(end, "HH:mm");
-
-      // Optimistic update
-      queryClient.setQueryData(
-        queryKeys.calendar.events({ dateFrom, dateTo, limit: 200 }),
-        (old: { data?: CalendarEventData[] } | undefined) => ({
-          ...old,
-          data: (old?.data ?? []).map((e) =>
-            e.id === event.id ? { ...e, eventDate, startTime, endTime } : e,
-          ),
-        }),
-      );
-
-      try {
-        await updateCalEventMutation.mutateAsync({ id: event.id, data: { eventDate, startTime, endTime } });
-      } catch (error) {
-        queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
-        toast.error(error instanceof Error ? error.message : "Failed to resize event");
-      }
-      return;
-    }
-
-    const scheduledDate = format(start, "yyyy-MM-dd");
-    const scheduledStart = format(start, "HH:mm");
-    const scheduledEnd = format(end, "HH:mm");
-
-    // Optimistic update
-    queryClient.setQueryData(
-      queryKeys.jobs.list({ dateFrom, dateTo, schedule: true }),
-      (old: JobCardData[] | undefined) =>
-        (old ?? []).map((j) =>
-          j.id === event.id ? { ...j, scheduledDate, scheduledStart, scheduledEnd } : j,
-        ),
-    );
-
-    try {
-      await updateJobMutation.mutateAsync({ id: event.id, data: { scheduledDate, scheduledStart, scheduledEnd } });
-    } catch (error) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-      toast.error(error instanceof Error ? error.message : "Failed to resize job");
-    }
-  }
+  // NOTE: there is no resize handler. The calendar sets `resizable={false}`, so
+  // `onEventResize` could never fire — it was wired through three files and read
+  // like a live feature (BOOK-31). Re-enabling resize means restoring both.
 
   /* ── Job detail sheet callbacks ── */
   function handleEdit(job: JobDetail) {
@@ -579,7 +575,7 @@ export function SchedulePageClient() {
   }
 
   function handleNewEventButton() {
-    setSlotInfo({ date: format(new Date(), "yyyy-MM-dd"), start: "", end: "" });
+    setSlotInfo({ date: format(tenantNow(timezone), "yyyy-MM-dd"), start: "", end: "" });
     setEditingEvent(null);
     setEventDialogOpen(true);
   }
@@ -588,12 +584,12 @@ export function SchedulePageClient() {
     if (type === "job") {
       setSelectedJobId(id);
       setSheetOpen(true);
-      router.replace(`/schedule?jobId=${id}`, { scroll: false });
+      router.replace(scheduleJobLink(id), { scroll: false });
     } else if (type === "event") {
       const found = calEvents.find((e) => e.id === id);
       if (found) handleCalendarEventClick(found);
     } else {
-      router.push("/bookings");
+      router.push(bookingLink(id));
     }
   }
 
@@ -670,11 +666,53 @@ export function SchedulePageClient() {
     return <ScheduleSkeleton />;
   }
 
+  /* ── Failure state — an empty calendar must not mean "you have nothing on" ── */
+  if (loadError && jobs.length === 0 && bookings.length === 0 && calEvents.length === 0) {
+    return (
+      <section className="p-4">
+        <PageHeader title="Schedule" subtitle="Plan and organize your appointments and events." className="pb-3" />
+        <LoadErrorState
+          title="Couldn't load your schedule"
+          message={loadError}
+          onRetry={retryScheduleData}
+          isRetrying={jobsQuery.isFetching || bookingsQuery.isFetching || calEventsQuery.isFetching}
+        />
+      </section>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
       {/* Full-height flex column: navbar is h-14 (3.5rem) */}
       <section className="flex flex-col h-[calc(100vh-3.5rem)] p-4 gap-0">
         <PageHeader title="Schedule" subtitle="Plan and organize your appointments and events." className="pb-3" />
+
+        {/* Partial failure: some sources loaded, at least one didn't. */}
+        {loadError && (
+          <div
+            role="alert"
+            className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2"
+          >
+            <p className="text-xs font-body text-destructive">
+              Some items may be missing — {loadError}
+            </p>
+            <button
+              type="button"
+              onClick={retryScheduleData}
+              className="shrink-0 text-xs font-medium text-destructive underline underline-offset-2"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {/* Explicit cap beats silently omitting appointments (BOOK-17). */}
+        {truncatedSources.length > 0 && (
+          <p className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs font-body text-amber-700 dark:text-amber-400">
+            Showing the first {CALENDAR_FETCH_LIMIT} {truncatedSources.join(" / ")} for this
+            range. Narrow to a week or a day to see everything.
+          </p>
+        )}
 
         <div className="flex flex-1 min-h-0 gap-3">
           {/* Collapsible task sidebar */}
@@ -718,13 +756,14 @@ export function SchedulePageClient() {
               events={calendarEvents}
               currentDate={currentDate}
               currentView={currentView}
-              availability={availability}
+              availability={weeklySchedule}
+              overrides={overrides}
+              timezone={timezone}
               navigationDirection={navigationDirection}
               onNavigate={handleNavigate}
               onViewChange={handleViewChange}
               onSelectEvent={handleSelectEvent}
               onEventDrop={handleEventDrop}
-              onEventResize={handleEventResize}
               onSelectSlot={handleSelectSlot}
             />
           </Card>

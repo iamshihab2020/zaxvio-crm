@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
 import {
   getInvoiceStats,
@@ -137,7 +138,7 @@ export function useBulkArchiveInvoices() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Invoices archived");
+      bulkToast(res, "Invoices archived");
       qc.invalidateQueries({ queryKey: queryKeys.invoices.all });
     },
     onError: () => toast.error("Failed to archive invoices"),
@@ -153,7 +154,7 @@ export function useBulkRestoreInvoices() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Invoices restored");
+      bulkToast(res, "Invoices restored");
       qc.invalidateQueries({ queryKey: queryKeys.invoices.all });
     },
     onError: () => toast.error("Failed to restore invoices"),
@@ -169,7 +170,7 @@ export function useBulkDeleteInvoices() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Invoices deleted");
+      bulkToast(res, "Invoices deleted");
       qc.invalidateQueries({ queryKey: queryKeys.invoices.all });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },

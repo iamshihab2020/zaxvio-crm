@@ -1,6 +1,6 @@
 # Todo
 
-> Related: [[workflow]] | [[planner]] | [[lessons]] | [[deferred-fixes/README|Deferred Fixes]]
+> Related: [[workflow]] | [[planner]] | [[lessons]] | [[decisions]] | [[deferred-fixes/README|Deferred Fixes]]
 
 Task tracking for the Zaxvio CRM project.
 
@@ -8,22 +8,29 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
-### Dashboard Redesign (2026-04-17)
-- [x] Backend: `getRevenueTrend` with `day|week|month` granularity
-- [x] Backend: `getRepeatCustomerRateByMonth` for retention trend
-- [x] Backend: `/dashboard/stats` accepts `granularity` + `pipelineId` query params, returns `retentionTrend`, `revenueGranularity`, `priorityBreakdown`, `serviceBreakdown`, `serviceRevenue`, `topCustomers`, `selectedPipelineId`
-- [x] Frontend: new widgets — `KpiPill`, `DashboardToolbar`, `RevenueRangeChart`, `JobsManagementPanel`, `RetentionChart`, `AgendaTimeline`, `InvoiceAging` (restyled), `QuoteConversion`/Quote Funnel (restyled), `RevenueByServiceChart`, `TopCustomersCard`
-- [x] Frontend: `CustomizeWidgetsPopover` + `useDashboardWidgetPrefs` (localStorage-backed show/hide for all 11 widget keys)
-- [x] Frontend: `AgendaHoverCard` shared between dashboard agenda and schedule calendar
-- [x] Frontend: Ask AI button wires to existing chatbot via `lib/chatbot/bus.ts`
-- [x] Frontend: Last-updated indicator using TanStack `dataUpdatedAt`
-- [x] Agenda now fetches events + jobs + bookings for next 7 days with kind badges
-- [x] Jobs Management uses DB stage colors via `STAGE_COLOR_PRESETS.hex` + pipeline selector + Zod enum on backend
-- [x] Fix: `usePipelines()` queryFn unwraps server-action envelope (prevents cache-shape collision with `/jobs` page)
-- [x] Update chatbot knowledge base + REPO_MAP_1 + API_DOCUMENTATION_1 + lessons
+### Page-by-Page Audits (2026-07-27)
+Reports live in [[reports/README|docs/claude/reports/]]. One file per page.
+- [x] `/dashboard` — [[dashboard|report]]: 29 findings audited and **all 29 fixed** (2026-07-27)
+- [x] `/reports` — [[reports-page|report]]: 28 findings audited and **all 28 fixed** (2026-07-27)
+- [x] Bookings & Calendar — [[bookings-calendar|report]]: 34 findings audited and **all 34 fixed** (2026-07-27)
+- [x] `/customers` — [[customers|report]]: 35 findings audited and **all 35 fixed** (2026-07-27)
+- [ ] Next page to audit — user picks
 
-### Public Quote Acceptance Portal — Remaining
-- [ ] Create `quotes` Supabase Storage bucket (manual step in Supabase dashboard, if not exists)
+**Verify against real data.** The DB now has one tenant — **Shihab Housing** (`/book/shihab-housing`, `America/Chicago`, 1 user, 1 customer, 1 job, Mon–Fri 08:00–17:00 seeded). Most of this is now runnable; email delivery still isn't (no verified Resend domain).
+- [x] Applied `20260727000001_booking_calendar_audit.sql` (2026-07-27) — FK + index + `booking_slot_capacity`. Verified 10/10: FK enforces (`23503` on a bogus id, rollback-tested), re-running the file is a no-op, exactly one FK. The `UPDATE` and backfill both matched 0 rows — there were no dangling links to clear.
+- [ ] DASH-07 — confirm the revenue headline equals the sum of the chart across a week/month boundary
+- [ ] Confirm dashboard job counts match the Jobs page after a bulk archive
+- [ ] Confirm the overdue banner count equals the row count on `/invoices?status=overdue`
+- [ ] REP-02 — confirm the "previous period" line on `/reports` plots the period immediately before the selected one (alignment is proven; the *numbers* have never been seen)
+- [ ] Confirm `/reports` booking and customer totals now match their list pages after a bulk archive
+- [ ] Walk `/book/shihab-housing` end-to-end: submit → confirm → convert → cancel. Emails will 403 until a Resend domain is verified, so check the DB rows and `booking_activities` timeline rather than the inbox
+- [ ] Create a booking + a calendar event on the same day, then confirm the portal stops offering those hours (BOOK-21 — occupancy across all three sources, the finding with no data to exercise it yet)
+- [ ] Raise Booking Capacity above 1 in Settings → Scheduling and confirm a slot stays sellable until that many things overlap it
+- [ ] Set `INTERNAL_PROXY_SECRET` in both env files, then confirm two browsers on different IPs get separate rate-limit buckets
+
+### Storage Buckets — Remaining (blocked on R2, see [[decisions|ADR-001]])
+- [ ] Create the `quotes` prefix/bucket in Cloudflare R2 (quote PDFs)
+- [ ] Create the `job-attachments` prefix/bucket in Cloudflare R2 (job photos + documents)
 
 ### Unified List Page Migration (2026-04-04)
 Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/design.md`).
@@ -43,15 +50,20 @@ Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/d
 - [ ] 10 AI tools: greet, answer_help, create customer/event/job/invoice/quote/catalog_item/equipment/booking
 
 ### Design System Docs (2026-04-04)
-- [x] Created `docs/design.md` — extracted frontend patterns from CLAUDE.md
 - [ ] Update `docs/project_docs/REPO_MAP.md` with new files
-
-### Job Photo & File Attachment System — Remaining
-- [ ] Create `job-attachments` Supabase Storage bucket (manual step in Supabase dashboard)
 
 ---
 
 ## Backlog
+
+### Post-Neon Cleanup (2026-07-26)
+
+- [ ] **Provision Cloudflare R2 and fill in the credentials** — code is done and the API boots without it, but uploads fail until set. Create two buckets (public + private; see [[decisions|ADR-001]] for why two), then set `R2_*` in the root `.env` and `NEXT_PUBLIC_R2_PUBLIC_URL` in `apps/web/.env.local`. The startup banner reports whether it is configured.
+- [ ] **Verify a real sender domain in Resend** — API key is valid but the account has zero verified domains and `RESEND_FROM_EMAIL` is still `noreply@yourdomain.com`. Every send 403s until this is done; the API startup banner warns about it.
+- [ ] **Set `ADMIN_SEED_EMAIL` to a real address, then run `pnpm seed:admin`** — the Neon database has no users yet.
+- [ ] **Reconcile `supabase/migrations/`** — 32 of 42 files are missing from `meta/_journal.json`, so `db:migrate` skips them. Either re-baseline the journal or move the hand-written SQL somewhere it can't be mistaken for a tracked migration. (Folder name is now a misnomer — Supabase is gone.)
+- [ ] **Declare `env` keys in `turbo.json`** — no task declares any, so hosted builds (env from the platform, not a file) can cache-hit stale and inline a wrong `NEXT_PUBLIC_API_URL`.
+- [ ] **End-to-end test the SSE stream with a real session** — the event bus is unit-verified (routing, tenant isolation, unsubscribe) and `/events` correctly 401s unauthenticated, but no authenticated browser round-trip has been run because the database has no users yet.
 
 ### Deferred / Blocked
 
@@ -68,6 +80,13 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **Customers Audit + Full Remediation** (2026-07-27) — Audited `/customers` and `/customers/[id]` ([[customers|report]]), found 35 issues, fixed all 35. Critical: the delete guard counted only *non-archived* jobs while `jobs.customer_id` is `ON DELETE CASCADE`, so archiving a job — the move the product recommends as safe — hid it from the guard but not the cascade, and deleting the customer **destroyed it silently while reporting success**; the whole detail page had no error state, so a 500 rendered as "No outstanding invoices"; and every bulk action toasted success for records the server had refused. That last one was never a customers bug — **22 endpoints across 7 domains return `{succeeded, failed, errors}` and none returns the `message` all 23 hooks read**, so it was fixed once in `lib/bulk-toast.ts`. Structural: `lib/phone.ts` retires four divergent copies whose input helper truncated at ten digits and destroyed every non-NANP number (`+44 20 7946 0958` → `4420794609`); `GET /customers/:id/summary` replaces five list fetches reduced in the browser, where "Outstanding" was the sum of whichever invoices fell on page one; `lib/search.ts` carries `escapeLike` out of `routes/jobs`. Also: tags became reachable (`?tagId=`, chips in the table, click to filter) after being fully built and unusable, bounded+validated schemas on the domain that feeds every PDF and email, `''`→`NULL` on both verbs, tenant timezone on the "upcoming" cutoff, sort UI, keyboard-reachable rows, tab state in the URL, note-delete confirmation, 5 activity types that had been silent, two dead panels and a dead hook deleted. Verified 28/28 by execution against Neon, `tsc` clean on both packages. 5 endpoints were undocumented; those plus 2 new ones are now written up. §4 of the report is the finding that matters most: **seven of eight remediation patterns from the previous three audits had never reached this page.**
+- [x] **Bookings & Calendar Audit + Full Remediation** (2026-07-27) — Audited `/bookings`, `/schedule`, `/settings/bookings` and the public `/book/[slug]` portal together ([[bookings-calendar|report]]), found 34 issues, fixed all 34. Critical: a failed convert-to-job returned `reply.send(...)` from a `.catch()`, and reply objects are truthy, so `if (!job) return` never fired — an impatient double-click emailed the customer a **second confirmation**, logged a `job_created` event for a job that didn't exist, and double-sent the reply (the same bug in the public submit route threw a `TypeError` after the 409 was already out); the portal prefetched slots for every open date in three months = **51 requests, 51% of the production rate limit, per page load**, all keyed to one IP because they go through server actions; three tenant-scoped writes had no `tenantId`; and the *authenticated* booking schema accepted `bookingDate: "infinity"` while the public one had been hardened in April. The structural fix is `services/availability.service.ts` — one resolver for "is the business open, is that slot free" now used by the portal, the calendar and dashboard rescheduling, collapsing four findings (portal ignored jobs and events, calendar ignored date overrides, reschedule validated nothing, end-time minutes were discarded) into one implementation. Also: `convertedToJobId` finally written + backfilled (the April log claimed it was), FK on `jobs.booking_id`, bulk-delete refuses converted bookings, one status-transition table shared by single and bulk, per-tenant slot capacity, `lib/entity-links.ts` ending the third recurrence of the `?booking=` vs `?bookingId=` mismatch, `lib/tenant-time.ts` so the calendar stops rendering in browser time, the `booking_activities` timeline that had been writing rows since April with no reader, Active/Archived tabs, E-14 cancellation email, and route-level rate limits with authenticated client-IP forwarding. Verified 105/105 by execution (slots, control flow, status machine, Zod probes, tenant-filter scan), `tsc` clean. Swept the 5 tenant-filter violations found outside scope; 0 remain repo-wide. Calendar-events endpoints were undocumented — now written up.
+- [x] **Reports Audit + Full Remediation** (2026-07-27) — Audited `/reports` end-to-end ([[reports-page|report]]), found 28 issues, fixed all 28. Critical: a failed request rendered as "No data available for this period" (a 500 read as "you earned nothing this quarter"); the previous-period comparison zipped two `generate_series` results *by index* so "Last month" plotted March against January and dropped February; the CSV export was an OWASP formula-injection vector reachable from the unauthenticated booking portal (now [[security-rules]] §7). Also: new `queries/buckets.ts` gives every trend day/week/month granularity ("Last 7 days" was a one-bar chart), a bucket-aligned `compareFrom`/`compareTo` window that makes the comparison line and the KPI deltas agree, `archived_at` filters on booking/customer/invoice/quote analytics (the Jobs tab already had them, so one page applied two rules), tenant timezone in `getActiveVsInactiveCustomers` and every `created_at` boundary, the two hardcoded-zero KPI fields computed, the whole data path typed as a union discriminated on `section` (was `any` + five casts), per-card error boundaries, sr-only tables on 13 charts, SSR prefetch, a complete CSV with BOM and the range in the filename, and drill-through to `/customers/:id`. `WidgetErrorBoundary`, `ChartDataTable` and `LoadErrorState` moved to `components/reusable/`. Verified 134/134 SQL + date-maths against Neon, 31/31 CSV, 5/5 endpoint contract. The API docs for this page described six endpoints that never existed — rewritten.
+- [x] **Dashboard Audit + Full Remediation** (2026-07-27) — Audited `/dashboard` end-to-end ([[dashboard|report]]), found 29 issues, fixed all 29. Critical: unhandled rejection in the analytics cache's background revalidate could kill the API process; agenda rendered every job at "12:00 AM" (`parseISO` on a Postgres `time` column); `initialData` seeded every query key so changing the date range showed stale data and never refetched. Also: tenant timezone plumbed end-to-end (was UTC everywhere despite `tenants.timezone` existing), one definition of "overdue" derived from `due_date` across dashboard + invoice list + stats, revenue chart clamped to the requested window, uniform `archived_at` filtering, priority colours keyed off the real DB enum (`emergency` had rendered identically to `standard`), query fan-out 27→21 by deleting unused payload, new `GET /dashboard/pipeline`, cache gained in-flight dedup + a size bound + write invalidation via one `onResponse` hook, per-widget error boundaries, chart a11y tables, drill-through links (which required teaching Jobs/Invoices/Quotes to read filter params, and fixed a pre-existing bug where agenda rows never opened their detail sheet). Default widget set trimmed 11→6.
+- [x] **Dashboard Redesign** (2026-04-17) — New widget set (KpiPill trio, RevenueRangeChart with 1D–ALL tabs, JobsManagementPanel, RetentionChart, AgendaTimeline, RevenueByServiceChart, TopCustomersCard), CustomizeWidgetsPopover + localStorage prefs, agenda folded into `/dashboard/stats` to kill a 3-call waterfall.
+- [x] **Drop Supabase: R2 Storage + SSE Realtime** (2026-07-26) — Removed Supabase entirely ([[decisions|ADR-001]]). Storage → Cloudflare R2 via `@aws-sdk/client-s3` (new `apps/api/src/lib/storage.ts`, 9 call sites across jobs/invoices/quotes/tenants, two buckets for public/private separation). Realtime → SSE: new `lib/event-bus.ts` + `GET /events`, replacing 5 broadcast senders and 6 browser listeners with a shared `EventSource` (`lib/event-stream.ts` + `hooks/use-event-stream.ts`). Deleted `packages/database/src/supabase.ts` and `apps/web/src/lib/supabase-client.ts`, dropped `@supabase/supabase-js` from both packages. Fixed two latent bugs found on the way: the impersonation indicator listened on a channel nothing published to, and Supabase channels had no authorization (any user could listen to any tenant) — `/events` now scopes by session and gates cross-tenant access to admins.
+- [x] **Neon Migration + Env Audit** (2026-07-26) — Moved `DATABASE_URL` from the deleted Supabase project to Neon (PostgreSQL 18.4); `db:push` created 50 tables, then applied the 2 unjournaled trigger migrations by hand (4 functions, 12 triggers). Split env by boundary: root `.env` = backend only, `apps/web/.env.local` = frontend only; rewrote both `.env.example` files and added `apps/web/.env.example`. Added Zod env validation for web (`apps/web/src/lib/env.ts`) + `experimental.instrumentationHook` so it runs at boot. Fixed `@types/react` v19→v18 in `apps/api` (unblocked `pnpm build`/`typecheck`, 167→0 errors), `/health` returning 500 on a raw JSON Schema, `seed-admin` bypassing the shared `passwordSchema`, and the placeholder `RESEND_FROM_EMAIL` default.
 - [x] **TanStack Query Migration (Phases 1-4)** (2026-04-15) — Full client-side data layer: QueryClientProvider, centralized query keys, 18 reusable hook files (queries + mutations), all 14 page-clients migrated to reusable hooks, global background refetch indicator, hover-prefetch on 4 tables, pagination prefetch on 9 pages, staleTime tuning per domain. Conversations page deferred (Supabase Realtime architecture).
 - [x] **Public Quote Acceptance Portal** (2026-04-11) — DB migration, public API (3 endpoints), email template, public quote page with review/respond/scheduling/confirmation steps, server actions, settings UI, quote detail UI. Manual step remaining: create `quotes` Supabase Storage bucket.
 - [x] **EntityDetailShell Refactor** (2026-04-04) — Extracted reusable entity detail shell from 4 duplicated files. Removed ~1,350 lines of duplication.

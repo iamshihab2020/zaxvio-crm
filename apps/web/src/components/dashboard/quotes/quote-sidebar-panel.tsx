@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { formatPhoneDisplay } from "@/lib/phone";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   IconUser,
@@ -14,14 +15,6 @@ import type { QuoteDetail } from "./quote-detail-sheet";
 
 interface QuoteSidebarPanelProps {
   quote: QuoteDetail;
-}
-
-function formatPhone(phone: string): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  const match = digits.match(/^1?(\d{3})(\d{3})(\d{4})$/);
-  if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
-  return phone;
 }
 
 export function QuoteSidebarPanel({ quote }: QuoteSidebarPanelProps) {
@@ -57,7 +50,7 @@ export function QuoteSidebarPanel({ quote }: QuoteSidebarPanelProps) {
           {quote.customerPhone && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-body">
               <IconPhone className="h-3 w-3 shrink-0" />
-              {formatPhone(quote.customerPhone)}
+              {formatPhoneDisplay(quote.customerPhone)}
             </div>
           )}
           {quote.customerEmail && (

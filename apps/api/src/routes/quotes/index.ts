@@ -25,7 +25,7 @@ import {
   isNotNull,
   inArray,
 } from "@hvac-saas/database";
-import { getSupabaseAdmin } from "@hvac-saas/database";
+import { uploadFile, downloadFile } from "../../lib/storage.js";
 import { lt } from "drizzle-orm";
 import crypto from "node:crypto";
 import { env } from "../../lib/env.js";
@@ -741,7 +741,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const [updated] = await db
         .update(quoteLineItems)
         .set(updates)
-        .where(eq(quoteLineItems.id, lineItemId))
+        .where(and(eq(quoteLineItems.id, lineItemId), eq(quoteLineItems.tenantId, tenantId)))
         .returning();
 
       await recalculateQuoteTotals(db, id, tenantId);
@@ -819,7 +819,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   /**
    * POST /quotes/:id/send
-   * Generate PDF -> upload to Supabase Storage -> set status to sent.
+   * Generate PDF -> upload to R2 -> set status to sent.
    */
   fastify.post(
     "/:id/send",
@@ -898,14 +898,9 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         equipmentData,
       );
 
-      // Upload to Supabase Storage
+      // Upload to R2 (private bucket — streamed back through this API)
       const storagePath = `${tenantId}/${q.id}.pdf`;
-      const supabase = getSupabaseAdmin();
-
-      await supabase.storage.from("quotes").upload(storagePath, pdfBuffer, {
-        contentType: "application/pdf",
-        upsert: true,
-      });
+      await uploadFile("quotes", storagePath, pdfBuffer, "application/pdf");
 
       // Generate access token for public quote acceptance
       const accessToken = crypto.randomUUID();
@@ -996,15 +991,11 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Quote not found" });
       }
 
-      // If PDF exists in storage, stream it
+      // If PDF exists in storage, stream it (falls through to regeneration if missing)
       if (q.pdfStoragePath) {
-        const supabase = getSupabaseAdmin();
-        const { data, error } = await supabase.storage
-          .from("quotes")
-          .download(q.pdfStoragePath);
+        const buffer = await downloadFile("quotes", q.pdfStoragePath);
 
-        if (!error && data) {
-          const buffer = Buffer.from(await data.arrayBuffer());
+        if (buffer) {
           return reply
             .type("application/pdf")
             .header(

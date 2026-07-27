@@ -36,7 +36,7 @@ import {
   isNotNull,
   inArray,
 } from "@hvac-saas/database";
-import { getSupabaseAdmin } from "@hvac-saas/database";
+import { uploadFile, deleteFiles, getPublicUrl } from "../../lib/storage.js";
 import { attachChecklistToJob } from "../../lib/job-helpers.js";
 import {
   idParam,
@@ -956,12 +956,8 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       ]);
       const allPaths = [...photos, ...docs].map((f) => f.storagePath);
       if (allPaths.length > 0) {
-        try {
-          const supabase = getSupabaseAdmin();
-          await supabase.storage.from("job-attachments").remove(allPaths);
-        } catch {
-          // best-effort — still proceed with delete
-        }
+        // best-effort — deleteFiles never throws, so the delete still proceeds
+        await deleteFiles("job-attachments", allPaths);
       }
 
       await db
@@ -1392,7 +1388,12 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           completedBy: isCompleted ? userId : null,
           completedAt: isCompleted ? new Date() : null,
         })
-        .where(eq(jobChecklistCompletions.id, completionId));
+        .where(
+          and(
+            eq(jobChecklistCompletions.id, completionId),
+            eq(jobChecklistCompletions.tenantId, tenantId),
+          ),
+        );
 
       // Auto-add line item from catalog if marking complete
       if (isCompleted && completion.catalogItemId) {
@@ -1463,7 +1464,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   /**
    * POST /jobs/:id/upload
-   * Upload a file (photo or document) directly to Supabase Storage.
+   * Upload a file (photo or document) directly to R2.
    * Returns { storagePath, publicUrl, fileSize, mimeType }.
    * Body: { data: base64, filename, mimeType, tag? }
    */
@@ -1501,25 +1502,18 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
       const storagePath = `${tenantId}/jobs/${id}/${Date.now()}_${safeName}`;
-      const supabase = getSupabaseAdmin();
 
-      const { error: uploadError } = await supabase.storage
-        .from("job-attachments")
-        .upload(storagePath, buffer, { contentType: mimeType, upsert: false });
-
-      if (uploadError) {
+      try {
+        await uploadFile("job-attachments", storagePath, buffer, mimeType);
+      } catch (uploadError) {
         console.error("[job-upload] Storage error:", uploadError);
         return reply.status(500).send({ message: "Failed to upload file" });
       }
 
-      const { data: urlData } = supabase.storage
-        .from("job-attachments")
-        .getPublicUrl(storagePath);
-
       return reply.status(201).send({
         data: {
           storagePath,
-          publicUrl: urlData.publicUrl,
+          publicUrl: getPublicUrl("job-attachments", storagePath),
           fileSize: buffer.length,
           mimeType,
         },
@@ -1687,7 +1681,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   /**
    * DELETE /jobs/:id/photos/:photoId
-   * Delete a photo from Supabase Storage + DB.
+   * Delete a photo from R2 + DB.
    */
   fastify.delete(
     "/:id/photos/:photoId",
@@ -1721,13 +1715,8 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Photo not found" });
       }
 
-      // Delete from Supabase Storage (storagePath is the full path within the bucket)
-      try {
-        const supabase = getSupabaseAdmin();
-        await supabase.storage.from("job-attachments").remove([existing.storagePath]);
-      } catch {
-        // Storage deletion is best-effort — still delete the DB record
-      }
+      // Storage deletion is best-effort — still delete the DB record
+      await deleteFiles("job-attachments", [existing.storagePath]);
 
       await db
         .delete(jobPhotos)
@@ -1847,7 +1836,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   /**
    * DELETE /jobs/:id/documents/:docId
-   * Delete a document from Supabase Storage + DB.
+   * Delete a document from R2 + DB.
    */
   fastify.delete(
     "/:id/documents/:docId",
@@ -1881,13 +1870,8 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Document not found" });
       }
 
-      // Delete from Supabase Storage (storagePath is the full path within the bucket)
-      try {
-        const supabase = getSupabaseAdmin();
-        await supabase.storage.from("job-attachments").remove([existing.storagePath]);
-      } catch {
-        // best-effort
-      }
+      // best-effort
+      await deleteFiles("job-attachments", [existing.storagePath]);
 
       await db
         .delete(jobDocuments)

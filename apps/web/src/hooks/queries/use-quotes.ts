@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
 import {
   getQuoteStats,
@@ -159,7 +160,7 @@ export function useBulkArchiveQuotes() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Quotes archived");
+      bulkToast(res, "Quotes archived");
       qc.invalidateQueries({ queryKey: queryKeys.quotes.all });
     },
     onError: () => toast.error("Failed to archive quotes"),
@@ -175,7 +176,7 @@ export function useBulkRestoreQuotes() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Quotes restored");
+      bulkToast(res, "Quotes restored");
       qc.invalidateQueries({ queryKey: queryKeys.quotes.all });
     },
     onError: () => toast.error("Failed to restore quotes"),
@@ -191,7 +192,7 @@ export function useBulkDeleteQuotes() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Quotes deleted");
+      bulkToast(res, "Quotes deleted");
       qc.invalidateQueries({ queryKey: queryKeys.quotes.all });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },

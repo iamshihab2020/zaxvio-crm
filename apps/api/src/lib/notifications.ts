@@ -1,6 +1,6 @@
+import { publish } from "./event-bus.js";
 import {
   getDb,
-  getSupabaseAdmin,
   notifications,
   notificationDeliveries,
   notificationChannelConfig,
@@ -244,21 +244,14 @@ async function _dispatchAsync(params: DispatchParams): Promise<void> {
   }
 }
 
-/** Broadcast notification via Supabase Realtime */
+/** Broadcast notification over SSE */
 async function deliverInApp(
   _notificationId: string,
   tenantId: string,
   payload: Record<string, unknown>,
 ): Promise<void> {
   try {
-    const supabase = getSupabaseAdmin();
-    const channel = supabase.channel(`notifications:${tenantId}`);
-    await channel.send({
-      type: "broadcast",
-      event: "new_notification",
-      payload,
-    });
-    await supabase.removeChannel(channel);
+    publish(tenantId, "notifications", "new_notification", payload);
   } catch (err) {
     console.error("[notifications] in-app broadcast failed:", err);
   }

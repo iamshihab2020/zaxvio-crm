@@ -15,7 +15,7 @@ import {
   IconUserPlus,
   IconTrendingUp,
 } from "@tabler/icons-react";
-import type { CustomerReportData } from "@hvac-saas/types";
+import type { CustomerReportData, ReportGranularity } from "@hvac-saas/types";
 import {
   ChartContainer,
   ChartTooltip,
@@ -26,6 +26,8 @@ import { formatCurrency } from "@/lib/format";
 import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
 import { ReportDataTable } from "./report-data-table";
+import { EmptyChart } from "./empty-chart";
+import { granularityLabel } from "./report-format";
 import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 import { Slide } from "@/components/animate-ui/primitives/effects/slide";
 
@@ -45,9 +47,10 @@ const repeatConfig = {
 
 interface CustomersTabProps {
   data: CustomerReportData;
+  granularity: ReportGranularity;
 }
 
-export function CustomersTab({ data }: CustomersTabProps) {
+export function CustomersTab({ data, granularity }: CustomersTabProps) {
   const activeInactiveData = [
     { name: "Active", value: data.activeVsInactive.active, key: "active" },
     { name: "Inactive", value: data.activeVsInactive.inactive, key: "inactive" },
@@ -85,7 +88,19 @@ export function CustomersTab({ data }: CustomersTabProps) {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         {/* New Customers Trend */}
         <Fade className="h-full" inView inViewOnce delay={0}>
-          <ReportChartCard title="New Customers Over Time">
+          <ReportChartCard
+            title="New Customers Over Time"
+            description={granularityLabel(granularity)
+              .replace("by", "Grouped by")}
+            dataTable={{
+              caption: "New customers by period",
+              columns: ["Period", "New Customers"],
+              rows: data.newCustomersTrend.map((p) => [
+                p.monthLabel,
+                String(p.count),
+              ]),
+            }}
+          >
             {data.newCustomersTrend.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -149,7 +164,15 @@ export function CustomersTab({ data }: CustomersTabProps) {
 
         {/* Active vs Inactive */}
         <Fade className="h-full" inView inViewOnce delay={100}>
-          <ReportChartCard title="Active vs Inactive">
+          <ReportChartCard
+            title="Active vs Inactive"
+            description="Active = a job scheduled in the last 90 days"
+            dataTable={{
+              caption: "Active versus inactive customers",
+              columns: ["Segment", "Customers"],
+              rows: activeInactiveData.map((d) => [d.name, String(d.value)]),
+            }}
+          >
             {activeInactiveData.every((d) => d.value === 0) ? (
               <EmptyChart />
             ) : (
@@ -180,7 +203,14 @@ export function CustomersTab({ data }: CustomersTabProps) {
 
         {/* Repeat vs One-Time */}
         <Fade className="h-full" inView inViewOnce delay={200}>
-          <ReportChartCard title="Repeat vs One-Time Customers">
+          <ReportChartCard
+            title="Repeat vs One-Time Customers"
+            dataTable={{
+              caption: "Repeat versus one-time customers",
+              columns: ["Segment", "Customers"],
+              rows: repeatData.map((d) => [d.name, String(d.value)]),
+            }}
+          >
             {repeatData.every((d) => d.value === 0) ? (
               <EmptyChart />
             ) : (
@@ -225,19 +255,11 @@ export function CustomersTab({ data }: CustomersTabProps) {
             },
           ]}
           data={data.topCustomersByJobCount}
+          rowKey={(row) => row.id}
+          rowHref={(row) => `/customers/${row.id}`}
           emptyMessage="No customer data"
         />
       </Slide>
-    </div>
-  );
-}
-
-function EmptyChart() {
-  return (
-    <div className="flex h-[280px] items-center justify-center">
-      <p className="text-sm text-muted-foreground font-body">
-        No data for this period
-      </p>
     </div>
   );
 }

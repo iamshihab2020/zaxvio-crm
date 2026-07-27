@@ -18,7 +18,7 @@ import {
   IconPercentage,
   IconClock,
 } from "@tabler/icons-react";
-import type { QuoteInvoiceReportData } from "@hvac-saas/types";
+import type { QuoteInvoiceReportData, ReportGranularity } from "@hvac-saas/types";
 import {
   ChartContainer,
   ChartTooltip,
@@ -28,6 +28,8 @@ import {
 import { formatCurrency } from "@/lib/format";
 import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
+import { EmptyChart } from "./empty-chart";
+import { granularityLabel } from "./report-format";
 import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 
 const QUOTE_COLORS: Record<string, string> = {
@@ -47,7 +49,18 @@ const INVOICE_COLORS: Record<string, string> = {
   void: "#6b7280",
 };
 
-const AGING_COLORS = ["hsl(var(--chart-1))", "#f59e0b", "#f97316", "#ef4444"];
+/**
+ * One colour per aging bucket. There are five buckets since the dashboard pass
+ * split 61–90 out of "90+"; a four-entry list left the last one falling back to
+ * grey, which read as "no data" rather than "worst".
+ */
+const AGING_COLORS = [
+  "hsl(var(--chart-1))",
+  "#f59e0b",
+  "#f97316",
+  "#ef4444",
+  "#b91c1c",
+];
 
 const funnelConfig = {
   count: { label: "Count", color: "hsl(var(--chart-1))" },
@@ -59,9 +72,13 @@ const overdueConfig = {
 
 interface QuotesInvoicesTabProps {
   data: QuoteInvoiceReportData;
+  granularity: ReportGranularity;
 }
 
-export function QuotesInvoicesTab({ data }: QuotesInvoicesTabProps) {
+export function QuotesInvoicesTab({
+  data,
+  granularity,
+}: QuotesInvoicesTabProps) {
   const invoiceStatusConfig: ChartConfig = {};
   data.invoiceStatusDistribution.forEach((s) => {
     invoiceStatusConfig[s.status] = {
@@ -106,6 +123,15 @@ export function QuotesInvoicesTab({ data }: QuotesInvoicesTabProps) {
           <ReportChartCard
             title="Quote Conversion Funnel"
             description={`${data.quoteKpis.totalQuotes} quotes, ${formatCurrency(data.quoteKpis.totalValue)} total value`}
+            dataTable={{
+              caption: "Quotes by status",
+              columns: ["Status", "Quotes", "Value"],
+              rows: data.quoteConversionFunnel.map((q) => [
+                q.label,
+                String(q.count),
+                formatCurrency(q.value),
+              ]),
+            }}
           >
             {data.quoteConversionFunnel.length === 0 ? (
               <EmptyChart />
@@ -160,7 +186,17 @@ export function QuotesInvoicesTab({ data }: QuotesInvoicesTabProps) {
 
         {/* Invoice Status Distribution */}
         <Fade className="h-full" inView inViewOnce delay={100}>
-          <ReportChartCard title="Invoice Status Distribution">
+          <ReportChartCard
+            title="Invoice Status Distribution"
+            dataTable={{
+              caption: "Invoices by status",
+              columns: ["Status", "Invoices"],
+              rows: data.invoiceStatusDistribution.map((s) => [
+                s.label,
+                String(s.count),
+              ]),
+            }}
+          >
             {data.invoiceStatusDistribution.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -195,7 +231,19 @@ export function QuotesInvoicesTab({ data }: QuotesInvoicesTabProps) {
 
         {/* Invoice Aging */}
         <Fade className="h-full" inView inViewOnce delay={200}>
-          <ReportChartCard title="Invoice Aging">
+          <ReportChartCard
+            title="Invoice Aging"
+            description="All unpaid invoices — ignores the date range above"
+            dataTable={{
+              caption: "Unpaid invoices by age",
+              columns: ["Bucket", "Invoices", "Amount"],
+              rows: data.invoiceAgingDetail.map((b) => [
+                b.label,
+                String(b.count),
+                formatCurrency(b.amount),
+              ]),
+            }}
+          >
             {data.invoiceAgingDetail.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -236,7 +284,18 @@ export function QuotesInvoicesTab({ data }: QuotesInvoicesTabProps) {
 
         {/* Overdue Invoice Trend */}
         <Fade className="h-full" inView inViewOnce delay={300}>
-          <ReportChartCard title="Overdue Invoice Trend">
+          <ReportChartCard
+            title="Overdue Invoice Trend"
+            description={`Unpaid and past due, by due date, ${granularityLabel(granularity)}`}
+            dataTable={{
+              caption: "Overdue invoices by due-date period",
+              columns: ["Period", "Overdue Invoices"],
+              rows: data.overdueInvoiceTrend.map((p) => [
+                p.monthLabel,
+                String(p.count),
+              ]),
+            }}
+          >
             {data.overdueInvoiceTrend.length === 0 ? (
               <EmptyChart />
             ) : (
@@ -294,16 +353,6 @@ export function QuotesInvoicesTab({ data }: QuotesInvoicesTabProps) {
           </ReportChartCard>
         </Fade>
       </div>
-    </div>
-  );
-}
-
-function EmptyChart() {
-  return (
-    <div className="flex h-[280px] items-center justify-center">
-      <p className="text-sm text-muted-foreground font-body">
-        No data for this period
-      </p>
     </div>
   );
 }

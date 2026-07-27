@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Booking } from "@hvac-saas/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { queryKeys } from "@/lib/query-keys";
 import {
   useBookings,
   useBookingStats,
   useUpdateBooking,
   useConvertBookingToJob,
   useCancelBooking,
+  useBulkArchiveBookings,
+  useBulkRestoreBookings,
   useBulkDeleteBookings,
   useBulkUpdateBookingStatus,
   useTenantSettings,
@@ -26,6 +29,7 @@ import { EmptyState } from "@/components/reusable/empty-state";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
 import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/reusable/search-input";
@@ -42,6 +46,8 @@ import {
   IconCircleCheck,
   IconX,
   IconTrash,
+  IconArchive,
+  IconArchiveOff,
 } from "@tabler/icons-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -56,14 +62,19 @@ const STATUS_OPTIONS = [
   { value: "cancelled", label: "Cancelled" },
 ];
 
-interface PaginationInfo {
+const VIEW_OPTIONS = [
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" },
+];
+
+export interface PaginationInfo {
   page: number;
   limit: number;
   total: number;
   totalPages: number;
 }
 
-interface BookingStats {
+export interface BookingStats {
   pending: number;
   confirmed: number;
   completed: number;
@@ -71,24 +82,28 @@ interface BookingStats {
 }
 
 interface BookingsPageClientProps {
-  initialBookings?: Booking[];
-  initialPagination?: PaginationInfo;
+  initialBookings?: Booking[] | null;
+  initialPagination?: PaginationInfo | null;
   tenantSlug?: string | null;
-  initialStats?: BookingStats;
+  initialStats?: BookingStats | null;
 }
 
+const EMPTY_STATS: BookingStats = { pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+
 export function BookingsPageClient({
-  initialBookings = [],
+  initialBookings,
   initialPagination,
   tenantSlug: prefetchedSlug,
   initialStats,
 }: BookingsPageClientProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
 
   // UI state
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [view, setView] = useState<"active" | "archived">("active");
   const [page, setPage] = useState(1);
   const [copied, setCopied] = useState(false);
 
@@ -97,7 +112,6 @@ export function BookingsPageClient({
   // Row selection
   const {
     selectedIds,
-    isSelected,
     toggle,
     toggleAll,
     clearSelection,
@@ -108,6 +122,7 @@ export function BookingsPageClient({
 
   // Bulk action state
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkArchiveOpen, setBulkArchiveOpen] = useState(false);
   const [bulkConfirmOpen, setBulkConfirmOpen] = useState(false);
   const [bulkConfirmStatus, setBulkConfirmStatus] = useState<string>("");
 
@@ -120,8 +135,14 @@ export function BookingsPageClient({
   const [convertOpen, setConvertOpen] = useState(false);
   const [convertId, setConvertId] = useState<string | null>(null);
 
-  // Reset page & selection when search/filter changes
-  // (debouncedSearch drives the query, so page reset is immediate on raw search change)
+  // Deep links arriving after mount (in-app navigation from the calendar or a
+  // notification) need to open the sheet too, not only a cold page load.
+  useEffect(() => {
+    if (!bookingIdParam) return;
+    setSelectedBookingId(bookingIdParam);
+    setSheetOpen(true);
+  }, [bookingIdParam]);
+
   const handleSearchChange = (value: string) => {
     setSearch(value);
     setPage(1);
@@ -130,6 +151,12 @@ export function BookingsPageClient({
 
   const handleStatusFilterChange = (value: string) => {
     setStatusFilter(value);
+    setPage(1);
+    clearSelection();
+  };
+
+  const handleViewChange = (value: string) => {
+    setView(value === "archived" ? "archived" : "active");
     setPage(1);
     clearSelection();
   };
@@ -143,7 +170,40 @@ export function BookingsPageClient({
     limit: 15,
     sortBy: "bookingDate",
     sortOrder: "asc",
+    ...(view === "archived" ? { showArchived: true } : {}),
   };
+
+  // Seed the cache from the server render instead of throwing it away.
+  // The page ran three server-side fetches and passed all three down; the client
+  // destructured them and never read them, so the user saw a skeleton on every
+  // visit anyway (BOOK-12). Seeded once, and only into the key the server
+  // actually fetched — otherwise changing the filter shows stale rows.
+  const seeded = useRef(false);
+  if (!seeded.current) {
+    seeded.current = true;
+    const seededAt = Date.now();
+    if (initialBookings && initialPagination) {
+      queryClient.setQueryData(
+        queryKeys.bookings.list({
+          search: undefined,
+          status: undefined,
+          page: 1,
+          limit: 15,
+          sortBy: "bookingDate",
+          sortOrder: "asc",
+        }),
+        { data: initialBookings, pagination: initialPagination, error: null },
+        { updatedAt: seededAt },
+      );
+    }
+    if (initialStats) {
+      queryClient.setQueryData(
+        queryKeys.bookings.stats(),
+        { data: initialStats, error: null },
+        { updatedAt: seededAt },
+      );
+    }
+  }
 
   const bookingsQuery = useBookings(listParams);
   const statsQuery = useBookingStats();
@@ -154,11 +214,12 @@ export function BookingsPageClient({
   const bookings = (bookingsQuery.data?.data ?? []) as Booking[];
   const pagination = bookingsQuery.data?.pagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 };
   const loading = bookingsQuery.isLoading;
-  const stats = statsQuery.data?.data ?? { pending: 0, confirmed: 0, completed: 0, cancelled: 0 };
+  const listError =
+    bookingsQuery.data?.error ?? (bookingsQuery.isError ? "Failed to load bookings" : null);
+  const stats = statsQuery.data?.data ?? EMPTY_STATS;
   const tenantSlug = tenantQuery.data?.data?.slug ?? prefetchedSlug ?? null;
 
   // Prefetch next page
-  const queryClient = useQueryClient();
   useEffect(() => {
     if (pagination && page < pagination.totalPages) {
       prefetchBookings(queryClient, { ...listParams, page: page + 1 });
@@ -171,13 +232,18 @@ export function BookingsPageClient({
   const confirmMutation = useUpdateBooking();
   const cancelMutation = useCancelBooking();
   const convertMutation = useConvertBookingToJob();
+  const bulkArchiveMutation = useBulkArchiveBookings();
+  const bulkRestoreMutation = useBulkRestoreBookings();
   const bulkDeleteMutation = useBulkDeleteBookings();
   const bulkStatusMutation = useBulkUpdateBookingStatus();
 
-  // Derive loading states from mutations
   const cancelLoading = cancelMutation.isPending;
   const convertLoading = convertMutation.isPending;
-  const bulkLoading = bulkDeleteMutation.isPending || bulkStatusMutation.isPending;
+  const bulkLoading =
+    bulkDeleteMutation.isPending ||
+    bulkStatusMutation.isPending ||
+    bulkArchiveMutation.isPending ||
+    bulkRestoreMutation.isPending;
 
   // ── Handlers ───────────────────────────────────────────────
 
@@ -199,9 +265,8 @@ export function BookingsPageClient({
     setBulkConfirmOpen(true);
   }
 
-  async function handleBulkDelete() {
-    const ids = Array.from(selectedIds);
-    bulkDeleteMutation.mutate(ids, {
+  function handleBulkDelete() {
+    bulkDeleteMutation.mutate(Array.from(selectedIds), {
       onSuccess: () => {
         setBulkDeleteOpen(false);
         clearSelection();
@@ -209,9 +274,19 @@ export function BookingsPageClient({
     });
   }
 
-  async function handleBulkStatusUpdate() {
+  function handleBulkArchive() {
     const ids = Array.from(selectedIds);
-    bulkStatusMutation.mutate({ ids, status: bulkConfirmStatus }, {
+    const mutation = view === "archived" ? bulkRestoreMutation : bulkArchiveMutation;
+    mutation.mutate(ids, {
+      onSuccess: () => {
+        setBulkArchiveOpen(false);
+        clearSelection();
+      },
+    });
+  }
+
+  function handleBulkStatusUpdate() {
+    bulkStatusMutation.mutate({ ids: Array.from(selectedIds), status: bulkConfirmStatus }, {
       onSuccess: () => {
         setBulkConfirmOpen(false);
         clearSelection();
@@ -224,7 +299,15 @@ export function BookingsPageClient({
     setSheetOpen(true);
   };
 
-  const handleConfirm = async (id: string) => {
+  const handleSheetOpenChange = (open: boolean) => {
+    setSheetOpen(open);
+    // Clear the deep-link param on close, so reopening the same booking works.
+    if (!open && bookingIdParam) {
+      router.replace("/bookings", { scroll: false });
+    }
+  };
+
+  const handleConfirm = (id: string) => {
     confirmMutation.mutate({ id, data: { status: "confirmed" } });
   };
 
@@ -233,7 +316,7 @@ export function BookingsPageClient({
     setCancelOpen(true);
   };
 
-  const handleCancelConfirm = async () => {
+  const handleCancelConfirm = () => {
     if (!cancelId) return;
     cancelMutation.mutate(cancelId, {
       onSuccess: () => setCancelOpen(false),
@@ -245,7 +328,7 @@ export function BookingsPageClient({
     setConvertOpen(true);
   };
 
-  const handleConvertConfirm = async (pipelineStageId: string) => {
+  const handleConvertConfirm = (pipelineStageId: string) => {
     if (!convertId) return;
     convertMutation.mutate({ id: convertId, pipelineStageId }, {
       onSuccess: (res) => {
@@ -258,8 +341,24 @@ export function BookingsPageClient({
   };
 
   const hasBookings = bookings.length > 0;
-  const showEmptyState = !loading && !hasBookings && !search && !statusFilter;
-  const showNoResults = !loading && !hasBookings && (!!search || !!statusFilter);
+  const isFiltered = !!search || !!statusFilter || view === "archived";
+  const showEmptyState = !loading && !listError && !hasBookings && !isFiltered;
+  const showNoResults = !loading && !listError && !hasBookings && isFiltered;
+
+  // Failed is not empty — an expired session must not read as "no bookings".
+  if (!loading && !hasBookings && listError) {
+    return (
+      <section className="p-6">
+        <PageHeader title="Bookings" subtitle="View and manage customer booking requests." className="mb-4" />
+        <LoadErrorState
+          title="Couldn't load your bookings"
+          message={listError}
+          onRetry={() => bookingsQuery.refetch()}
+          isRetrying={bookingsQuery.isFetching}
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="p-6">
@@ -353,7 +452,15 @@ export function BookingsPageClient({
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Search + status pills inside card header */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
+            {/* Active/Archived — the API has had archive and restore since the
+                bulk-actions work; the page exposed only hard Delete (BOOK-19). */}
+            <StatusFilterTabs
+              options={VIEW_OPTIONS}
+              value={view}
+              onChange={handleViewChange}
+            />
+            <span className="h-5 w-px bg-border" aria-hidden />
             <StatusFilterTabs
               options={STATUS_OPTIONS}
               value={statusFilter}
@@ -378,7 +485,9 @@ export function BookingsPageClient({
           {/* No results */}
           {showNoResults && (
             <p className="py-12 text-center text-sm text-muted-foreground font-body">
-              No bookings found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
+              {view === "archived"
+                ? "No archived bookings."
+                : <>No bookings found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.</>}
             </p>
           )}
 
@@ -415,7 +524,7 @@ export function BookingsPageClient({
       <BookingDetailSheet
         bookingId={selectedBookingId}
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={handleSheetOpenChange}
         onConfirm={handleConfirm}
         onConvert={handleConvertClick}
         onCancel={handleCancelClick}
@@ -444,24 +553,65 @@ export function BookingsPageClient({
         selectedCount={selectedCount}
         onClearSelection={clearSelection}
         loading={bulkLoading}
-        actions={[
-          {
-            label: "Mark Confirmed",
-            icon: IconCircleCheck,
-            onClick: () => openBulkStatusConfirm("confirmed"),
-          },
-          {
-            label: "Mark Completed",
-            icon: IconCheck,
-            onClick: () => openBulkStatusConfirm("completed"),
-          },
-          {
-            label: "Delete",
-            icon: IconTrash,
-            onClick: () => setBulkDeleteOpen(true),
-            variant: "destructive",
-          },
-        ]}
+        actions={
+          view === "archived"
+            ? [
+                {
+                  label: "Restore",
+                  icon: IconArchiveOff,
+                  onClick: () => setBulkArchiveOpen(true),
+                },
+                {
+                  label: "Delete",
+                  icon: IconTrash,
+                  onClick: () => setBulkDeleteOpen(true),
+                  variant: "destructive",
+                },
+              ]
+            : [
+                {
+                  label: "Mark Confirmed",
+                  icon: IconCircleCheck,
+                  onClick: () => openBulkStatusConfirm("confirmed"),
+                },
+                {
+                  label: "Mark Completed",
+                  icon: IconCheck,
+                  onClick: () => openBulkStatusConfirm("completed"),
+                },
+                {
+                  label: "Archive",
+                  icon: IconArchive,
+                  onClick: () => setBulkArchiveOpen(true),
+                },
+                {
+                  label: "Delete",
+                  icon: IconTrash,
+                  onClick: () => setBulkDeleteOpen(true),
+                  variant: "destructive",
+                },
+              ]
+        }
+      />
+
+      {/* Bulk archive / restore confirmation */}
+      <BulkConfirmDialog
+        open={bulkArchiveOpen}
+        onOpenChange={setBulkArchiveOpen}
+        onConfirm={handleBulkArchive}
+        loading={bulkLoading}
+        title={
+          view === "archived"
+            ? `Restore ${selectedCount} Booking${selectedCount !== 1 ? "s" : ""}`
+            : `Archive ${selectedCount} Booking${selectedCount !== 1 ? "s" : ""}`
+        }
+        description={
+          view === "archived"
+            ? `This will move ${selectedCount} booking${selectedCount !== 1 ? "s" : ""} back into your active list.`
+            : `This hides ${selectedCount} booking${selectedCount !== 1 ? "s" : ""} from the active list. You can restore ${selectedCount !== 1 ? "them" : "it"} from the Archived tab at any time.`
+        }
+        confirmLabel={view === "archived" ? "Restore" : "Archive"}
+        variant="default"
       />
 
       {/* Bulk delete confirmation */}
@@ -471,7 +621,7 @@ export function BookingsPageClient({
         onConfirm={handleBulkDelete}
         loading={bulkLoading}
         title={`Delete ${selectedCount} Booking${selectedCount !== 1 ? "s" : ""}`}
-        description={`This will permanently delete ${selectedCount} booking${selectedCount !== 1 ? "s" : ""}. This action cannot be undone.`}
+        description={`This permanently deletes ${selectedCount} booking${selectedCount !== 1 ? "s" : ""} and cannot be undone. Bookings already converted to a job will be skipped — archive those instead.`}
         confirmLabel="Delete"
         variant="destructive"
       />

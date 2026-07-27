@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signUp, authClient } from "@/lib/auth-client";
@@ -12,7 +12,7 @@ import { IconEye, IconEyeOff } from "@tabler/icons-react";
 import { Logo } from "@/components/logo";
 import { AuthShell } from "@/components/auth-shell";
 
-export default function SignupPage() {
+function SignupForm() {
   const searchParams = useSearchParams();
   const inviteId = searchParams.get("invite");
 
@@ -263,5 +263,15 @@ export default function SignupPage() {
         </p>
       </div>
     </AuthShell>
+  );
+}
+
+// useSearchParams() forces client-side bailout — without a Suspense boundary
+// `next build` fails to prerender this route (matches the /login pattern).
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }
