@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import {
   IconBriefcase,
   IconReceipt,
-  IconDevices2,
   IconFileCheck,
   IconCalendarEvent,
   IconCurrencyDollar,
@@ -14,15 +13,18 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
+import { WidgetErrorBoundary } from "@/components/reusable/widget-error-boundary";
+import { queryKeys } from "@/lib/query-keys";
+import { jobLink, invoiceLink } from "@/lib/entity-links";
+import { tenantToday } from "@/lib/tenant-time";
 import { getJobs } from "@/actions/jobs";
 import { getInvoices } from "@/actions/invoices";
-import { getEquipment } from "@/actions/equipment";
-import { getMaintenanceContracts } from "@/actions/maintenance-contracts";
-import { getCustomerActivities } from "@/actions/customers";
+import { useCustomerSummary, useCustomerActivities } from "@/hooks/queries";
+import { useTenantSettings } from "@/hooks/queries/use-tenant";
 
 interface CustomerOverviewTabProps {
   customerId: string;
-  refreshKey?: number;
 }
 
 interface UpcomingJob {
@@ -52,29 +54,29 @@ interface Activity {
   createdAt: string;
 }
 
-interface Stats {
-  totalJobs: number;
-  openInvoices: number;
-  outstandingAmount: number;
-  activeAgreements: number;
-  totalAssets: number;
-}
-
 function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
+  // Date-only columns are rendered at midday so a timezone shift cannot roll
+  // them onto the previous day.
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? `${dateStr}T12:00:00` : dateStr;
+  return new Date(iso).toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
   });
 }
 
+/**
+ * Money, with the cents kept.
+ *
+ * `maximumFractionDigits: 0` displayed a $1,234.56 balance as "$1,235" — fine for
+ * a KPI tile, wrong for the amount somebody owes you (CUST-30). The locale is the
+ * viewer's rather than a hardcoded `en-US`.
+ */
 function formatCurrency(val: string | number) {
   const num = typeof val === "string" ? parseFloat(val) : val;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(undefined, {
     style: "currency",
     currency: "USD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(num);
+  }).format(Number.isFinite(num) ? num : 0);
 }
 
 function timeAgo(dateStr: string) {
@@ -100,86 +102,63 @@ const invoiceStatusColors: Record<string, string> = {
   partially_paid: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300",
 };
 
-export function CustomerOverviewTab({ customerId, refreshKey }: CustomerOverviewTabProps) {
-  const [upcomingJobs, setUpcomingJobs] = useState<UpcomingJob[]>([]);
-  const [outstandingInvoices, setOutstandingInvoices] = useState<OutstandingInvoice[]>([]);
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [stats, setStats] = useState<Stats>({
-    totalJobs: 0,
-    openInvoices: 0,
-    outstandingAmount: 0,
-    activeAgreements: 0,
-    totalAssets: 0,
+export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
+  const tenantQuery = useTenantSettings();
+  // Falls back to the viewer's zone only while the tenant setting is in flight —
+  // never to UTC, which is what produced the off-by-a-day (CUST-06).
+  const tenantTimezone = (tenantQuery.data?.data as { timezone?: string } | undefined)?.timezone;
+  const timeZone = tenantTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  // Counts and balances come from SQL now. They used to be reduced in the browser
+  // from a page of 20 invoices and a page of 100 assets, so "Outstanding" was the
+  // sum of whichever invoices happened to fall on page one (CUST-05).
+  const summaryQuery = useCustomerSummary(customerId);
+  const activitiesQuery = useCustomerActivities(customerId, { limit: 8 });
+
+  const jobsQuery = useQuery({
+    queryKey: queryKeys.customers.related(customerId, "upcoming-jobs"),
+    queryFn: () =>
+      getJobs({ customerId, sortBy: "scheduledDate", sortOrder: "asc", limit: 10 }),
+    enabled: !!customerId,
+    staleTime: 30_000,
   });
-  const [loading, setLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
-    setLoading(true);
+  const invoicesQuery = useQuery({
+    queryKey: queryKeys.customers.related(customerId, "outstanding-invoices"),
+    queryFn: () => getInvoices({ customerId, status: "unpaid", limit: 5 }),
+    enabled: !!customerId,
+    staleTime: 30_000,
+  });
 
-    const today = new Date().toISOString().split("T")[0];
+  const summary = summaryQuery.data?.data;
+  const activities: Activity[] = (activitiesQuery.data?.data as Activity[]) ?? [];
 
-    const [jobsRes, invoicesRes, equipmentRes, agreementsRes, activityRes] =
-      await Promise.all([
-        getJobs({ customerId, sortBy: "scheduledDate", sortOrder: "asc", limit: 5 }),
-        getInvoices({ customerId, limit: 20 }),
-        getEquipment({ customerId, limit: 100 }),
-        getMaintenanceContracts({ customerId, limit: 100 }),
-        getCustomerActivities(customerId, { limit: 8 }),
-      ]);
+  // "Today" in the *tenant's* timezone. `new Date().toISOString()` is UTC, so
+  // after 19:00 in America/Chicago the date had already rolled over and today's
+  // jobs dropped out of "Upcoming" for the last five hours of the working day
+  // (CUST-06 — the same bug the dashboard audit plumbed tenant time to kill).
+  const today = tenantToday(timeZone);
 
-    // Upcoming jobs (scheduled or in_progress, future dates)
-    if (jobsRes.data) {
-      const upcoming = (jobsRes.data as UpcomingJob[]).filter(
-        (j) => (j.status === "scheduled" || j.status === "in_progress") && j.scheduledDate >= today,
-      );
-      setUpcomingJobs(upcoming.slice(0, 5));
-      setStats((s) => ({ ...s, totalJobs: jobsRes.pagination?.total ?? 0 }));
-    }
+  const upcomingJobs = ((jobsQuery.data?.data as UpcomingJob[] | undefined) ?? [])
+    .filter(
+      (j) =>
+        (j.status === "scheduled" || j.status === "in_progress") && j.scheduledDate >= today,
+    )
+    .slice(0, 5);
 
-    // Outstanding invoices
-    if (invoicesRes.data) {
-      const allInvoices = invoicesRes.data as OutstandingInvoice[];
-      const outstanding = allInvoices.filter((i) =>
-        ["sent", "overdue", "partially_paid"].includes(i.status),
-      );
-      setOutstandingInvoices(outstanding.slice(0, 5));
+  const outstandingInvoices =
+    (invoicesQuery.data?.data as OutstandingInvoice[] | undefined) ?? [];
 
-      const outstandingTotal = outstanding.reduce(
-        (sum, i) => sum + parseFloat(i.balanceDue || i.totalAmount || "0"),
-        0,
-      );
-      setStats((s) => ({
-        ...s,
-        openInvoices: outstanding.length,
-        outstandingAmount: outstandingTotal,
-      }));
-    }
+  // Every one of these could fail and render as an empty state — "No outstanding
+  // invoices" after a 500 reads as a fact about the customer's account (CUST-02).
+  const summaryFailed = summaryQuery.isError || !!summaryQuery.data?.error;
+  const jobsFailed = jobsQuery.isError || !!jobsQuery.data?.error;
+  const invoicesFailed = invoicesQuery.isError || !!invoicesQuery.data?.error;
+  const activitiesFailed = activitiesQuery.isError || !!activitiesQuery.data?.error;
 
-    if (equipmentRes.data) {
-      setStats((s) => ({ ...s, totalAssets: (equipmentRes.data as unknown[]).length }));
-    }
-
-    if (agreementsRes.data) {
-      const active = (agreementsRes.data as { isActive: boolean | null }[]).filter(
-        (a) => a.isActive,
-      );
-      setStats((s) => ({ ...s, activeAgreements: active.length }));
-    }
-
-    if (activityRes.data) {
-      setActivities(activityRes.data as Activity[]);
-    }
-
-    setLoading(false);
-  }, [customerId]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData, refreshKey]);
-
-  if (loading) {
+  if (summaryQuery.isLoading && jobsQuery.isLoading) {
     return (
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-3">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-20 w-full" />
@@ -197,44 +176,65 @@ export function CustomerOverviewTab({ customerId, refreshKey }: CustomerOverview
   return (
     <div className="space-y-5">
       {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard
-          icon={<IconBriefcase className="h-4 w-4" />}
-          label="Total Jobs"
-          value={String(stats.totalJobs)}
-        />
-        <StatCard
-          icon={<IconReceipt className="h-4 w-4" />}
-          label="Open Invoices"
-          value={String(stats.openInvoices)}
-          accent={stats.openInvoices > 0}
-        />
-        <StatCard
-          icon={<IconCurrencyDollar className="h-4 w-4" />}
-          label="Outstanding"
-          value={formatCurrency(stats.outstandingAmount)}
-          accent={stats.outstandingAmount > 0}
-        />
-        <StatCard
-          icon={<IconFileCheck className="h-4 w-4" />}
-          label="Agreements"
-          value={String(stats.activeAgreements)}
-        />
-      </div>
+      <WidgetErrorBoundary name="Customer totals">
+        {summaryFailed ? (
+          <LoadErrorState
+            title="Could not load totals"
+            message={summaryQuery.data?.error}
+            onRetry={() => summaryQuery.refetch()}
+            isRetrying={summaryQuery.isFetching}
+          />
+        ) : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <StatCard
+              icon={<IconBriefcase className="h-4 w-4" />}
+              label="Total Jobs"
+              value={String(summary?.totalJobs ?? 0)}
+            />
+            <StatCard
+              icon={<IconReceipt className="h-4 w-4" />}
+              label="Open Invoices"
+              value={String(summary?.openInvoices ?? 0)}
+              accent={(summary?.openInvoices ?? 0) > 0}
+            />
+            <StatCard
+              icon={<IconCurrencyDollar className="h-4 w-4" />}
+              label="Outstanding"
+              value={formatCurrency(summary?.outstandingAmount ?? 0)}
+              accent={Number(summary?.outstandingAmount ?? 0) > 0}
+            />
+            <StatCard
+              icon={<IconFileCheck className="h-4 w-4" />}
+              label="Agreements"
+              value={String(summary?.activeAgreements ?? 0)}
+            />
+          </div>
+        )}
+      </WidgetErrorBoundary>
 
       {/* Two-column: Upcoming + Outstanding */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Upcoming Jobs */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-heading">
+            <CardTitle className="flex items-center gap-2 font-heading text-sm">
               <IconCalendarEvent className="h-4 w-4 text-brand" />
               Upcoming Jobs
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {upcomingJobs.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
+            {jobsFailed ? (
+              <p className="py-4 text-center text-sm text-destructive" role="alert">
+                Couldn&rsquo;t load jobs.{" "}
+                <button
+                  type="button"
+                  onClick={() => jobsQuery.refetch()}
+                  className="underline underline-offset-2"
+                >
+                  Retry
+                </button>
+              </p>
+            ) : upcomingJobs.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
                 No upcoming jobs scheduled
               </p>
             ) : (
@@ -242,13 +242,11 @@ export function CustomerOverviewTab({ customerId, refreshKey }: CustomerOverview
                 {upcomingJobs.map((job) => (
                   <Link
                     key={job.id}
-                    href={`/jobs?jobId=${job.id}`}
-                    className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+                    href={jobLink(job.id)}
+                    className="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {job.title}
-                      </p>
+                      <p className="truncate text-sm font-medium text-foreground">{job.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(job.scheduledDate)}
                         {job.scheduledStart ? ` at ${job.scheduledStart.slice(0, 5)}` : ""}
@@ -264,17 +262,27 @@ export function CustomerOverviewTab({ customerId, refreshKey }: CustomerOverview
           </CardContent>
         </Card>
 
-        {/* Outstanding Invoices */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-sm font-heading">
+            <CardTitle className="flex items-center gap-2 font-heading text-sm">
               <IconCurrencyDollar className="h-4 w-4 text-brand" />
               Outstanding Invoices
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {outstandingInvoices.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
+            {invoicesFailed ? (
+              <p className="py-4 text-center text-sm text-destructive" role="alert">
+                Couldn&rsquo;t load invoices.{" "}
+                <button
+                  type="button"
+                  onClick={() => invoicesQuery.refetch()}
+                  className="underline underline-offset-2"
+                >
+                  Retry
+                </button>
+              </p>
+            ) : outstandingInvoices.length === 0 ? (
+              <p className="py-4 text-center text-sm text-muted-foreground">
                 No outstanding invoices
               </p>
             ) : (
@@ -282,16 +290,12 @@ export function CustomerOverviewTab({ customerId, refreshKey }: CustomerOverview
                 {outstandingInvoices.map((inv) => (
                   <Link
                     key={inv.id}
-                    href={`/invoices/${inv.id}`}
-                    className="flex items-center justify-between rounded-md px-3 py-2 hover:bg-muted/50 transition-colors cursor-pointer"
+                    href={invoiceLink(inv.id)}
+                    className="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
                   >
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground">
-                        {inv.invoiceNumber}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDate(inv.issueDate)}
-                      </p>
+                      <p className="text-sm font-medium text-foreground">{inv.invoiceNumber}</p>
+                      <p className="text-xs text-muted-foreground">{formatDate(inv.issueDate)}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-medium text-foreground">
@@ -312,18 +316,25 @@ export function CustomerOverviewTab({ customerId, refreshKey }: CustomerOverview
       {/* Recent Activity */}
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2 text-sm font-heading">
-              <IconActivity className="h-4 w-4 text-brand" />
-              Recent Activity
-            </CardTitle>
-          </div>
+          <CardTitle className="flex items-center gap-2 font-heading text-sm">
+            <IconActivity className="h-4 w-4 text-brand" />
+            Recent Activity
+          </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
-          {activities.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No activity yet
+          {activitiesFailed ? (
+            <p className="py-4 text-center text-sm text-destructive" role="alert">
+              Couldn&rsquo;t load activity.{" "}
+              <button
+                type="button"
+                onClick={() => activitiesQuery.refetch()}
+                className="underline underline-offset-2"
+              >
+                Retry
+              </button>
             </p>
+          ) : activities.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No activity yet</p>
           ) : (
             <div className="space-y-1">
               {activities.map((activity) => (
@@ -331,10 +342,10 @@ export function CustomerOverviewTab({ customerId, refreshKey }: CustomerOverview
                   key={activity.id}
                   className="flex items-start justify-between gap-3 rounded-md px-3 py-2"
                 >
-                  <p className="text-sm text-foreground font-body flex-1">
+                  <p className="flex-1 font-body text-sm text-foreground">
                     {activity.description}
                   </p>
-                  <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
+                  <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground">
                     {timeAgo(activity.createdAt)}
                   </span>
                 </div>
@@ -360,12 +371,12 @@ function StatCard({
 }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
-      <div className="flex items-center gap-2 text-muted-foreground mb-1">
+      <div className="mb-1 flex items-center gap-2 text-muted-foreground">
         {icon}
-        <span className="text-xs font-body">{label}</span>
+        <span className="font-body text-xs">{label}</span>
       </div>
       <p
-        className={`text-lg font-heading font-bold ${accent ? "text-brand" : "text-foreground"}`}
+        className={`font-heading text-lg font-bold ${accent ? "text-brand" : "text-foreground"}`}
       >
         {value}
       </p>

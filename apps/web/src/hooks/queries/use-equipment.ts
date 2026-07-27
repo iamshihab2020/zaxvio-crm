@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
 import {
   getEquipment,
@@ -91,7 +92,7 @@ export function useBulkArchiveEquipment() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Assets archived");
+      bulkToast(res, "Assets archived");
       qc.invalidateQueries({ queryKey: queryKeys.equipment.all });
     },
     onError: () => toast.error("Failed to archive assets"),
@@ -107,7 +108,7 @@ export function useBulkRestoreEquipment() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Assets restored");
+      bulkToast(res, "Assets restored");
       qc.invalidateQueries({ queryKey: queryKeys.equipment.all });
     },
     onError: () => toast.error("Failed to restore assets"),
@@ -123,7 +124,7 @@ export function useBulkDeleteEquipment() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Assets deleted");
+      bulkToast(res, "Assets deleted");
       qc.invalidateQueries({ queryKey: queryKeys.equipment.all });
     },
     onError: () => toast.error("Failed to delete assets"),

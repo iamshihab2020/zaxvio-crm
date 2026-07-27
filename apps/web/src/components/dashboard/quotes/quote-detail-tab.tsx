@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatPhoneDisplay } from "@/lib/phone";
 import { Button } from "@/components/ui/button";
 import { QuoteStatusBadge } from "./quote-status-badge";
 import { ConvertToJobDialog } from "@/components/reusable/convert-to-job-dialog";
@@ -32,14 +33,6 @@ function formatDate(val: string | null) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function formatPhone(phone: string): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  const match = digits.match(/^1?(\d{3})(\d{3})(\d{4})$/);
-  if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
-  return phone;
 }
 
 interface QuoteDetailTabProps {
@@ -269,7 +262,7 @@ export function QuoteDetailTab({
           )}
           {quote.customerPhone && (
             <p className="text-xs text-muted-foreground font-body">
-              {formatPhone(quote.customerPhone)}
+              {formatPhoneDisplay(quote.customerPhone)}
             </p>
           )}
           {quote.customerAddress && (

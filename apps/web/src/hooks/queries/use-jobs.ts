@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
 import {
   getJobs,
@@ -129,7 +130,7 @@ export function useBulkArchiveJobs() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Jobs archived");
+      bulkToast(res, "Jobs archived");
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
     },
     onError: () => toast.error("Failed to archive jobs"),
@@ -145,7 +146,7 @@ export function useBulkRestoreJobs() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Jobs restored");
+      bulkToast(res, "Jobs restored");
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
     },
     onError: () => toast.error("Failed to restore jobs"),
@@ -161,7 +162,7 @@ export function useBulkDeleteJobs() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Jobs deleted");
+      bulkToast(res, "Jobs deleted");
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
@@ -179,7 +180,7 @@ export function useBulkUpdateJobStatus() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Job statuses updated");
+      bulkToast(res, "Job statuses updated");
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },

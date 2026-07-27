@@ -1,13 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCustomerActivities } from "@/actions/customers";
+import { Pagination } from "@/components/reusable/pagination";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
+import { useCustomerActivities } from "@/hooks/queries";
 import {
   IconUserPlus,
   IconEdit,
   IconNote,
   IconActivity,
+  IconArchive,
+  IconArchiveOff,
+  IconTag,
+  IconTagOff,
+  IconTrash,
 } from "@tabler/icons-react";
 
 interface Activity {
@@ -21,13 +28,22 @@ interface Activity {
 
 interface CustomerActivityTabProps {
   customerId: string;
-  refreshKey?: number;
 }
+
+const PAGE_SIZE = 25;
 
 const typeIconMap: Record<string, React.ReactNode> = {
   "customer.created": <IconUserPlus className="h-4 w-4 text-green-600" />,
   "customer.updated": <IconEdit className="h-4 w-4 text-blue-600" />,
+  // Archive, restore and tag changes happened silently and left the timeline
+  // looking complete when it wasn't; they are recorded now (CUST-26).
+  "customer.archived": <IconArchive className="h-4 w-4 text-muted-foreground" />,
+  "customer.restored": <IconArchiveOff className="h-4 w-4 text-green-600" />,
   "note.created": <IconNote className="h-4 w-4 text-amber-600" />,
+  "note.updated": <IconEdit className="h-4 w-4 text-amber-600" />,
+  "note.deleted": <IconTrash className="h-4 w-4 text-destructive" />,
+  "tag.assigned": <IconTag className="h-4 w-4 text-purple-600" />,
+  "tag.removed": <IconTagOff className="h-4 w-4 text-muted-foreground" />,
 };
 
 function timeAgo(dateStr: string) {
@@ -42,16 +58,25 @@ function timeAgo(dateStr: string) {
   return new Date(dateStr).toLocaleDateString();
 }
 
-export function CustomerActivityTab({ customerId, refreshKey }: CustomerActivityTabProps) {
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [loading, setLoading] = useState(true);
+export function CustomerActivityTab({ customerId }: CustomerActivityTabProps) {
+  const [page, setPage] = useState(1);
+  const activitiesQuery = useCustomerActivities(customerId, { page, limit: PAGE_SIZE });
 
-  useEffect(() => {
-    getCustomerActivities(customerId, { limit: 50 }).then((res) => {
-      if (res.data) setActivities(res.data);
-      setLoading(false);
-    });
-  }, [customerId, refreshKey]);
+  const activities: Activity[] = (activitiesQuery.data?.data as Activity[]) ?? [];
+  const pagination = activitiesQuery.data?.pagination;
+  const loading = activitiesQuery.isLoading;
+  const loadFailed = activitiesQuery.isError || !!activitiesQuery.data?.error;
+
+  if (loadFailed && !loading) {
+    return (
+      <LoadErrorState
+        title="Could not load activity"
+        message={activitiesQuery.data?.error}
+        onRetry={() => activitiesQuery.refetch()}
+        isRetrying={activitiesQuery.isFetching}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -115,6 +140,16 @@ export function CustomerActivityTab({ customerId, refreshKey }: CustomerActivity
           </div>
         </div>
       ))}
+
+      {pagination && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={setPage}
+          entityName="activity entry"
+        />
+      )}
     </div>
   );
 }

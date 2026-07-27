@@ -3,12 +3,14 @@ import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import { idParam, paginationQuery } from "../../lib/schemas/common.js";
+import { containsPattern } from "../../lib/search.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import {
   assignTagBody,
   createCustomerBody,
   createNoteBody,
   customerListQuery,
+  duplicateCheckQuery,
   noteIdParam,
   tagIdParam,
   updateCustomerBody,
@@ -25,6 +27,8 @@ import {
   jobs,
   invoices,
   quotes,
+  maintenanceContracts,
+  equipment,
   user,
   eq,
   and,
@@ -39,6 +43,31 @@ import {
   sql,
 } from "@hvac-saas/database";
 
+/**
+ * A bulk response the UI can actually render.
+ *
+ * Every bulk endpoint on the platform returned `{succeeded, failed, errors}` and
+ * every bulk hook read `res.message`, so the fallback string always won and
+ * partial failures were invisible — "Customers deleted" for records the server
+ * had refused (CUST-03). `message` is now built from the counts here.
+ */
+function bulkResult(
+  verb: string,
+  succeeded: number,
+  failed: number,
+  errors: { id: string; message: string }[],
+) {
+  // `failed` is passed explicitly rather than derived from `errors.length` — a
+  // single entry can stand for several skipped rows ("3 customer(s) not found").
+  const message =
+    failed === 0
+      ? `${succeeded} customer${succeeded === 1 ? "" : "s"} ${verb}`
+      : succeeded === 0
+        ? `No customers were ${verb} — ${failed} could not be processed`
+        : `${succeeded} ${verb}, ${failed} skipped`;
+  return { succeeded, failed, errors, message };
+}
+
 const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
    * GET /customers
@@ -51,7 +80,7 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       schema: { querystring: customerListQuery },
     },
     async (request, reply) => {
-      const { search = "", page, limit, sortBy, sortOrder, showArchived } = request.query;
+      const { search = "", page, limit, sortBy, sortOrder, showArchived, tagId } = request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
@@ -60,16 +89,33 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const baseFilter = eq(customers.tenantId, tenantId);
       const archiveFilter = showArchived ? isNotNull(customers.archivedAt) : isNull(customers.archivedAt);
 
+      // Wildcards are escaped so `%` matches a percent sign rather than every row,
+      // and the concatenated name is matched too — searching "Ann Smith" hit none
+      // of the four independent columns before (CUST-16).
       const searchFilter = search
         ? or(
-            ilike(customers.firstName, `%${search}%`),
-            ilike(customers.lastName, `%${search}%`),
-            ilike(customers.email, `%${search}%`),
-            ilike(customers.phone, `%${search}%`),
+            ilike(customers.firstName, containsPattern(search)),
+            ilike(customers.lastName, containsPattern(search)),
+            ilike(customers.email, containsPattern(search)),
+            ilike(customers.phone, containsPattern(search)),
+            ilike(
+              sql`${customers.firstName} || ' ' || ${customers.lastName}`,
+              containsPattern(search),
+            ),
           )
         : undefined;
 
-      const whereClause = and(baseFilter, archiveFilter, searchFilter);
+      // CUST-12 — tags were assignable but not filterable, which is the only
+      // thing that makes a tag worth applying.
+      const tagFilter = tagId
+        ? sql`EXISTS (
+            SELECT 1 FROM ${customerTags}
+            WHERE ${customerTags.customerId} = ${customers.id}
+              AND ${customerTags.tagId} = ${tagId}
+          )`
+        : undefined;
+
+      const whereClause = and(baseFilter, archiveFilter, searchFilter, tagFilter);
 
       const sortColumnMap = {
         createdAt: customers.createdAt,
@@ -96,8 +142,39 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const total = totalResult[0]?.total ?? 0;
 
+      // Tags for the rows on this page — one extra query keyed by the ids we just
+      // fetched, not one per row. Without this the tag chips in the table would
+      // have nothing to render and filtering by tag would be unreachable from the
+      // list, which is how tags ended up write-only in the first place (CUST-12).
+      const pageIds = data.map((c) => c.id);
+      const tagRows = pageIds.length
+        ? await db
+            .select({
+              customerId: customerTags.customerId,
+              id: tags.id,
+              name: tags.name,
+              color: tags.color,
+            })
+            .from(customerTags)
+            .innerJoin(tags, eq(customerTags.tagId, tags.id))
+            .where(
+              and(
+                inArray(customerTags.customerId, pageIds),
+                eq(tags.tenantId, tenantId),
+              ),
+            )
+            .orderBy(tags.name)
+        : [];
+
+      const tagsByCustomer = new Map<string, { id: string; name: string; color: string | null }[]>();
+      for (const row of tagRows) {
+        const list = tagsByCustomer.get(row.customerId) ?? [];
+        list.push({ id: row.id, name: row.name, color: row.color });
+        tagsByCustomer.set(row.customerId, list);
+      }
+
       return reply.send({
-        data,
+        data: data.map((c) => ({ ...c, tags: tagsByCustomer.get(c.id) ?? [] })),
         pagination: {
           page,
           limit,
@@ -119,15 +196,26 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
+      // `archived_at IS NULL` matches what GET /customers shows by default.
+      // Without it "Total" counted archived customers the table was hiding, so
+      // the card and the rows beneath it stopped reconciling the moment anyone
+      // archived anybody (CUST-04). The `!= ''` guards are for the same reason
+      // the email/phone ones exist — see CUST-11.
       const [result] = await db
         .select({
           total: sql<number>`COUNT(*)`,
           withEmail: sql<number>`COUNT(*) FILTER (WHERE email IS NOT NULL AND email != '')`,
           withPhone: sql<number>`COUNT(*) FILTER (WHERE phone IS NOT NULL AND phone != '')`,
-          withAddress: sql<number>`COUNT(*) FILTER (WHERE address IS NOT NULL OR city IS NOT NULL)`,
+          withAddress: sql<number>`COUNT(*) FILTER (WHERE (address IS NOT NULL AND address != '') OR (city IS NOT NULL AND city != ''))`,
+          archived: sql<number>`0`,
         })
         .from(customers)
-        .where(eq(customers.tenantId, tenantId));
+        .where(and(eq(customers.tenantId, tenantId), isNull(customers.archivedAt)));
+
+      const [archivedRow] = await db
+        .select({ archived: sql<number>`COUNT(*)` })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), isNotNull(customers.archivedAt)));
 
       return reply.send({
         data: {
@@ -135,8 +223,54 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           withEmail: Number(result.withEmail),
           withPhone: Number(result.withPhone),
           withAddress: Number(result.withAddress),
+          archived: Number(archivedRow?.archived ?? 0),
         },
       });
+    },
+  );
+
+  /**
+   * GET /customers/check-duplicate?email=…
+   * Does another customer already use this email? Advisory — creation is not
+   * blocked, because a shared household address is legitimate. The public
+   * booking portal links submissions to customers by email, so duplicates make
+   * that match ambiguous and the history splits across two records (CUST-28).
+   */
+  fastify.get(
+    "/check-duplicate",
+    {
+      preHandler: [requireTenant],
+      schema: { querystring: duplicateCheckQuery },
+    },
+    async (request, reply) => {
+      const { email, excludeId } = request.query;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const normalised = email.trim().toLowerCase();
+      if (normalised.length === 0) {
+        return reply.send({ data: { duplicate: null } });
+      }
+
+      const match = await db
+        .select({
+          id: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          archivedAt: customers.archivedAt,
+        })
+        .from(customers)
+        .where(
+          and(
+            eq(customers.tenantId, tenantId),
+            sql`LOWER(${customers.email}) = ${normalised}`,
+            excludeId ? sql`${customers.id} <> ${excludeId}` : undefined,
+          ),
+        )
+        .limit(1)
+        .then((r) => r[0]);
+
+      return reply.send({ data: { duplicate: match ?? null } });
     },
   );
 
@@ -156,19 +290,22 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { firstName, lastName, email, phone, address, city, state, zipCode, notes } = request.body;
 
       const db = getDb();
+      // The schema already trims, lower-cases the email, normalises the phone and
+      // maps "" to null, so both verbs agree on what an empty field means and no
+      // caller can bypass it (CUST-07/08/09/11).
       const [customer] = await db
         .insert(customers)
         .values({
           tenantId,
           firstName,
           lastName,
-          email: email || null,
-          phone: phone || null,
-          address: address || null,
-          city: city || null,
-          state: state || null,
-          zipCode: zipCode || null,
-          notes: notes || null,
+          email: email ?? null,
+          phone: phone ?? null,
+          address: address ?? null,
+          city: city ?? null,
+          state: state ?? null,
+          zipCode: zipCode ?? null,
+          notes: notes ?? null,
         })
         .returning();
 
@@ -223,6 +360,121 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       return reply.send({ data: customer });
+    },
+  );
+
+  /**
+   * GET /customers/:id/summary
+   * Lifetime counts and the outstanding balance, aggregated in SQL.
+   *
+   * The overview tab used to fetch five list endpoints and reduce them in the
+   * browser, so "Outstanding" was the sum of whichever invoices fell on the first
+   * page of 20 and the asset/agreement counts were `page.length` capped at 100
+   * (CUST-05). Aggregates belong in the database — these are exact, and it is one
+   * round trip instead of five.
+   */
+  fastify.get(
+    "/:id/summary",
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam },
+    },
+    async (request, reply) => {
+      const { id } = request.params;
+      const tenantId = request.authUser.tenantId!;
+      const db = getDb();
+
+      const customer = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+        .then((r) => r[0]);
+
+      if (!customer) {
+        return reply.status(404).send({ message: "Customer not found" });
+      }
+
+      const [jobStats, invoiceStats, assetStats, agreementStats] = await Promise.all([
+        db
+          .select({
+            total: sql<number>`COUNT(*)`,
+            open: sql<number>`COUNT(*) FILTER (WHERE status IN ('scheduled', 'in_progress'))`,
+          })
+          .from(jobs)
+          .where(
+            and(
+              eq(jobs.tenantId, tenantId),
+              eq(jobs.customerId, id),
+              isNull(jobs.archivedAt),
+            ),
+          )
+          .then((r) => r[0]),
+        db
+          .select({
+            open: sql<number>`COUNT(*) FILTER (WHERE status IN ('sent', 'overdue', 'partially_paid'))`,
+            outstanding: sql<string>`COALESCE(SUM(balance_due) FILTER (WHERE status IN ('sent', 'overdue', 'partially_paid')), 0)`,
+            lifetimePaid: sql<string>`COALESCE(SUM(total_amount) FILTER (WHERE status = 'paid'), 0)`,
+          })
+          .from(invoices)
+          .where(
+            and(
+              eq(invoices.tenantId, tenantId),
+              eq(invoices.customerId, id),
+              isNull(invoices.archivedAt),
+            ),
+          )
+          .then((r) => r[0]),
+        db
+          .select({ total: sql<number>`COUNT(*)` })
+          .from(equipment)
+          .where(
+            and(
+              eq(equipment.tenantId, tenantId),
+              eq(equipment.customerId, id),
+              isNull(equipment.archivedAt),
+            ),
+          )
+          .then((r) => r[0]),
+        db
+          .select({ active: sql<number>`COUNT(*) FILTER (WHERE is_active)` })
+          .from(maintenanceContracts)
+          .where(
+            and(
+              eq(maintenanceContracts.tenantId, tenantId),
+              eq(maintenanceContracts.customerId, id),
+            ),
+          )
+          .then((r) => r[0]),
+      ]);
+
+      // "Last seen" — the most recent job actually on the books. Drives the
+      // lapsed-customer view; null means they have never been scheduled.
+      const lastJob = await db
+        .select({ scheduledDate: jobs.scheduledDate })
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.tenantId, tenantId),
+            eq(jobs.customerId, id),
+            isNull(jobs.archivedAt),
+          ),
+        )
+        .orderBy(desc(jobs.scheduledDate))
+        .limit(1)
+        .then((r) => r[0]);
+
+      return reply.send({
+        data: {
+          totalJobs: Number(jobStats?.total ?? 0),
+          openJobs: Number(jobStats?.open ?? 0),
+          openInvoices: Number(invoiceStats?.open ?? 0),
+          outstandingAmount: String(invoiceStats?.outstanding ?? "0"),
+          lifetimeValue: String(invoiceStats?.lifetimePaid ?? "0"),
+          totalAssets: Number(assetStats?.total ?? 0),
+          activeAgreements: Number(agreementStats?.active ?? 0),
+          lastJobDate: lastJob?.scheduledDate ?? null,
+        },
+      });
     },
   );
 
@@ -287,7 +539,10 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           if (oldVal !== newVal) {
             changedFields.push(field);
           }
-          updates[field] = body[field];
+          // The schema maps "" to null, so clearing a field stores NULL here just
+          // as it does on create. Previously PATCH wrote the raw "" and the two
+          // verbs disagreed about what "empty" looks like in the column (CUST-11).
+          updates[field] = body[field] ?? null;
         }
       }
 
@@ -340,18 +595,30 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Customer not found" });
       }
 
-      // Safety guard: refuse delete if customer has related entities
+      // Safety guard: refuse delete if the customer has related records.
+      //
+      // The jobs count deliberately does NOT filter `archivedAt`. It used to, and
+      // `jobs.customer_id` is `ON DELETE CASCADE` — so archiving a job removed it
+      // from the guard's view but not from the database, and deleting the customer
+      // destroyed it along with its line items, photos and checklist, while the UI
+      // reported success. Archiving is offered as the *safe* alternative to
+      // deleting, which is exactly how someone reaches this (CUST-01).
       const [[{ count: jc }], [{ count: ic }], [{ count: qc }]] = await Promise.all([
         db.select({ count: count() }).from(jobs)
-          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.customerId, id), isNull(jobs.archivedAt))),
+          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.customerId, id))),
         db.select({ count: count() }).from(invoices)
           .where(and(eq(invoices.tenantId, tenantId), eq(invoices.customerId, id))),
         db.select({ count: count() }).from(quotes)
           .where(and(eq(quotes.tenantId, tenantId), eq(quotes.customerId, id))),
       ]);
       if (Number(jc) > 0 || Number(ic) > 0 || Number(qc) > 0) {
+        const parts = [
+          Number(jc) > 0 ? `${jc} job${Number(jc) === 1 ? "" : "s"}` : null,
+          Number(ic) > 0 ? `${ic} invoice${Number(ic) === 1 ? "" : "s"}` : null,
+          Number(qc) > 0 ? `${qc} quote${Number(qc) === 1 ? "" : "s"}` : null,
+        ].filter(Boolean);
         return reply.status(400).send({
-          message: `Cannot delete customer with ${jc} job(s), ${ic} invoice(s), and ${qc} quote(s). Delete or archive them first.`,
+          message: `Cannot delete this customer — they still have ${parts.join(", ")} (archived records count too). Archive the customer instead, or delete those records first.`,
         });
       }
 
@@ -378,6 +645,7 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const { ids } = request.body;
       const tenantId = request.authUser.tenantId!;
+      const userId = request.authUser.userId;
       const db = getDb();
 
       const existing = await db
@@ -393,13 +661,25 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .update(customers)
           .set({ archivedAt: new Date() })
           .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, eligibleIds)));
+
+        // CUST-26 — archive/restore/tag changes left no trace, so the Activity
+        // tab was a partial record presented as a complete one.
+        await db.insert(customerActivities).values(
+          eligibleIds.map((customerId) => ({
+            tenantId,
+            customerId,
+            type: "customer.archived",
+            description: "Customer archived",
+            performedBy: userId,
+          })),
+        );
       }
 
       const errors = skippedCount > 0
         ? [{ id: "N/A", message: `${skippedCount} customer(s) already archived or not found` }]
         : [];
 
-      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+      return reply.send(bulkResult("archived", eligibleIds.length, skippedCount, errors));
     },
   );
 
@@ -416,6 +696,7 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const { ids } = request.body;
       const tenantId = request.authUser.tenantId!;
+      const userId = request.authUser.userId;
       const db = getDb();
 
       const existing = await db
@@ -431,13 +712,23 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .update(customers)
           .set({ archivedAt: null })
           .where(and(eq(customers.tenantId, tenantId), inArray(customers.id, eligibleIds)));
+
+        await db.insert(customerActivities).values(
+          eligibleIds.map((customerId) => ({
+            tenantId,
+            customerId,
+            type: "customer.restored",
+            description: "Customer restored from archive",
+            performedBy: userId,
+          })),
+        );
       }
 
       const errors = skippedCount > 0
         ? [{ id: "N/A", message: `${skippedCount} customer(s) not archived or not found` }]
         : [];
 
-      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+      return reply.send(bulkResult("restored", eligibleIds.length, skippedCount, errors));
     },
   );
 
@@ -464,11 +755,14 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const foundIds = existing.map((r) => r.id);
       const notFoundCount = ids.length - foundIds.length;
 
-      // Check which customers have related entities (jobs/invoices/quotes)
+      // Check which customers have related entities (jobs/invoices/quotes).
+      // Archived jobs count — see the CUST-01 note on DELETE /:id. The same
+      // `isNull(jobs.archivedAt)` hole existed here, so a multi-select destroyed
+      // archived jobs exactly as the single delete did.
       const [relatedJobs, relatedInvoices, relatedQuotes] = await Promise.all([
         foundIds.length > 0
           ? db.select({ customerId: jobs.customerId, count: count() }).from(jobs)
-              .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.customerId, foundIds), isNull(jobs.archivedAt)))
+              .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.customerId, foundIds)))
               .groupBy(jobs.customerId)
           : [],
         foundIds.length > 0
@@ -502,10 +796,12 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         errors.push({ id: "N/A", message: `${notFoundCount} customer(s) not found` });
       }
       for (const blockedId of blockedIds) {
-        errors.push({ id: blockedId, message: "Customer has related jobs, invoices, or quotes and cannot be deleted" });
+        errors.push({ id: blockedId, message: "Has related jobs, invoices, or quotes — archive instead" });
       }
 
-      return reply.send({ succeeded: deletableIds.length, failed: notFoundCount + blockedIds.size, errors });
+      return reply.send(
+        bulkResult("deleted", deletableIds.length, notFoundCount + blockedIds.size, errors),
+      );
     },
   );
 
@@ -557,13 +853,10 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .where(whereClause),
       ]);
 
+      const total = totalResult[0]?.total ?? 0;
       return reply.send({
         data,
-        pagination: {
-          page,
-          limit,
-          total: totalResult[0]?.total ?? 0,
-        },
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
     },
   );
@@ -585,6 +878,19 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { content } = request.body;
 
       const db = getDb();
+
+      // The tags and photos handlers below both verify the customer belongs to
+      // this tenant before touching anything; this one inserted straight from the
+      // path param, so a note and an activity row could be written against
+      // another tenant's customer (CUST-17).
+      const customer = await db
+        .select({ id: customers.id })
+        .from(customers)
+        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+        .then((r) => r[0]);
+      if (!customer) {
+        return reply.status(404).send({ message: "Customer not found" });
+      }
 
       const [note] = await db
         .insert(customerNotes)
@@ -646,6 +952,16 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(customerNotes.id, noteId), eq(customerNotes.tenantId, tenantId)))
         .returning();
 
+      // Creates were logged and edits were not, so the timeline showed a note
+      // appearing and never showed it being rewritten (CUST-26).
+      await db.insert(customerActivities).values({
+        tenantId,
+        customerId: id,
+        type: "note.updated",
+        description: "Edited a note",
+        performedBy: request.authUser.userId,
+      });
+
       return reply.send({ data: updated });
     },
   );
@@ -684,6 +1000,14 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       await db
         .delete(customerNotes)
         .where(and(eq(customerNotes.id, noteId), eq(customerNotes.tenantId, tenantId)));
+
+      await db.insert(customerActivities).values({
+        tenantId,
+        customerId: id,
+        type: "note.deleted",
+        description: "Deleted a note",
+        performedBy: request.authUser.userId,
+      });
 
       return reply.send({ message: "Note deleted" });
     },
@@ -738,13 +1062,10 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .where(whereClause),
       ]);
 
+      const total = totalResult[0]?.total ?? 0;
       return reply.send({
         data,
-        pagination: {
-          page,
-          limit,
-          total: totalResult[0]?.total ?? 0,
-        },
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
       });
     },
   );
@@ -822,7 +1143,7 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       const tag = await db
-        .select({ id: tags.id })
+        .select({ id: tags.id, name: tags.name })
         .from(tags)
         .where(and(eq(tags.tenantId, tenantId), eq(tags.id, tagId)))
         .then((r) => r[0]);
@@ -836,7 +1157,28 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .onConflictDoNothing()
         .returning();
 
-      return reply.status(201).send({ data: assignment ?? { message: "Already assigned" } });
+      // `data` used to be either an assignment row or `{message: "Already
+      // assigned"}` — two shapes behind one key (CUST-34). Re-assigning is now a
+      // 200 with the existing row; a fresh assignment is a 201.
+      if (!assignment) {
+        const existingAssignment = await db
+          .select()
+          .from(customerTags)
+          .where(and(eq(customerTags.customerId, id), eq(customerTags.tagId, tagId)))
+          .then((r) => r[0]);
+        return reply.status(200).send({ data: existingAssignment ?? null });
+      }
+
+      await db.insert(customerActivities).values({
+        tenantId,
+        customerId: id,
+        type: "tag.assigned",
+        description: `Tagged as "${tag.name}"`,
+        metadata: { tagId, tagName: tag.name },
+        performedBy: request.authUser.userId,
+      });
+
+      return reply.status(201).send({ data: assignment });
     },
   );
 
@@ -868,6 +1210,12 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // tenant-scoped transitively through `customerId`, which the SELECT above
       // has already confirmed belongs to this tenant. Not a [[security-rules]] §1
       // violation; noted so the next scan doesn't re-flag it.
+      const removedTag = await db
+        .select({ name: tags.name })
+        .from(tags)
+        .where(and(eq(tags.tenantId, tenantId), eq(tags.id, tagId)))
+        .then((r) => r[0]);
+
       await db
         .delete(customerTags)
         .where(
@@ -876,6 +1224,15 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
             eq(customerTags.tagId, tagId),
           ),
         );
+
+      await db.insert(customerActivities).values({
+        tenantId,
+        customerId: id,
+        type: "tag.removed",
+        description: removedTag ? `Removed tag "${removedTag.name}"` : "Removed a tag",
+        metadata: { tagId },
+        performedBy: request.authUser.userId,
+      });
 
       return reply.send({ message: "Tag removed" });
     },
@@ -891,12 +1248,14 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
     "/:id/photos",
     {
       preHandler: [requireTenant],
-      schema: { params: idParam },
+      schema: { params: idParam, querystring: paginationQuery },
     },
     async (request, reply) => {
       const { id } = request.params;
+      const { page, limit } = request.query;
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
+      const offset = (page - 1) * limit;
 
       const customer = await db
         .select({ id: customers.id })
@@ -908,34 +1267,49 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Customer not found" });
       }
 
-      const data = await db
-        .select({
-          id: jobPhotos.id,
-          jobId: jobPhotos.jobId,
-          storagePath: jobPhotos.storagePath,
-          caption: jobPhotos.caption,
-          tag: jobPhotos.tag,
-          uploadedBy: jobPhotos.uploadedBy,
-          fileSize: jobPhotos.fileSize,
-          takenAt: jobPhotos.takenAt,
-          createdAt: jobPhotos.createdAt,
-          uploaderName: user.name,
-          jobTitle: jobs.title,
-          jobScheduledDate: jobs.scheduledDate,
-          jobNumber: jobs.jobNumber,
-        })
-        .from(jobPhotos)
-        .innerJoin(jobs, eq(jobPhotos.jobId, jobs.id))
-        .leftJoin(user, eq(jobPhotos.uploadedBy, user.id))
-        .where(
-          and(
-            eq(jobPhotos.tenantId, tenantId),
-            eq(jobs.customerId, id),
-          ),
-        )
-        .orderBy(desc(jobPhotos.createdAt));
+      // Was unbounded — every photo across every job for this customer, in one
+      // response, growing without limit (CUST-15).
+      const photoFilter = and(
+        eq(jobPhotos.tenantId, tenantId),
+        eq(jobs.customerId, id),
+      );
 
-      return reply.send({ data });
+      const [data, totalResult] = await Promise.all([
+        db
+          .select({
+            id: jobPhotos.id,
+            jobId: jobPhotos.jobId,
+            storagePath: jobPhotos.storagePath,
+            caption: jobPhotos.caption,
+            tag: jobPhotos.tag,
+            uploadedBy: jobPhotos.uploadedBy,
+            fileSize: jobPhotos.fileSize,
+            takenAt: jobPhotos.takenAt,
+            createdAt: jobPhotos.createdAt,
+            uploaderName: user.name,
+            jobTitle: jobs.title,
+            jobScheduledDate: jobs.scheduledDate,
+            jobNumber: jobs.jobNumber,
+          })
+          .from(jobPhotos)
+          .innerJoin(jobs, eq(jobPhotos.jobId, jobs.id))
+          .leftJoin(user, eq(jobPhotos.uploadedBy, user.id))
+          .where(photoFilter)
+          .orderBy(desc(jobPhotos.createdAt))
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ total: count() })
+          .from(jobPhotos)
+          .innerJoin(jobs, eq(jobPhotos.jobId, jobs.id))
+          .where(photoFilter),
+      ]);
+
+      const total = totalResult[0]?.total ?? 0;
+      return reply.send({
+        data,
+        pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+      });
     },
   );
 };

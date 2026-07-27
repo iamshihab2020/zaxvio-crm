@@ -10,8 +10,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { IconPlus, IconX, IconCheck } from "@tabler/icons-react";
+import { toast } from "sonner";
 import { getTags, createTag } from "@/actions/tags";
-import { addCustomerTag, removeCustomerTag } from "@/actions/customers";
+import { useAddCustomerTag, useRemoveCustomerTag } from "@/hooks/queries";
 
 interface TagData {
   id: string;
@@ -22,7 +23,6 @@ interface TagData {
 interface CustomerTagsInputProps {
   customerId: string;
   assignedTags: TagData[];
-  onTagsChange: (tags: TagData[]) => void;
 }
 
 const TAG_COLORS = [
@@ -39,13 +39,17 @@ const TAG_COLORS = [
 export function CustomerTagsInput({
   customerId,
   assignedTags,
-  onTagsChange,
 }: CustomerTagsInputProps) {
   const [open, setOpen] = useState(false);
   const [allTags, setAllTags] = useState<TagData[]>([]);
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
   const [fetchError, setFetchError] = useState(false);
+
+  // The mutations own cache invalidation and error toasts, so a failed assign no
+  // longer looks identical to a successful one (CUST-10, CUST-22).
+  const addTag = useAddCustomerTag(customerId);
+  const removeTag = useRemoveCustomerTag(customerId);
 
   useEffect(() => {
     if (open) {
@@ -76,18 +80,12 @@ export function CustomerTagsInput({
       (t) => t.name.toLowerCase() === search.trim().toLowerCase(),
     );
 
-  async function handleAssignTag(tag: TagData) {
-    const res = await addCustomerTag(customerId, tag.id);
-    if (!res.error) {
-      onTagsChange([...assignedTags, tag]);
-    }
+  function handleAssignTag(tag: TagData) {
+    addTag.mutate(tag.id);
   }
 
-  async function handleRemoveTag(tagId: string) {
-    const res = await removeCustomerTag(customerId, tagId);
-    if (!res.error) {
-      onTagsChange(assignedTags.filter((t) => t.id !== tagId));
-    }
+  function handleRemoveTag(tagId: string) {
+    removeTag.mutate(tagId);
   }
 
   async function handleCreateAndAssign() {
@@ -102,8 +100,11 @@ export function CustomerTagsInput({
         color: res.data.color,
       };
       setAllTags((prev) => [...prev, newTag]);
-      await handleAssignTag(newTag);
+      handleAssignTag(newTag);
       setSearch("");
+    } else {
+      // Creating the tag could fail and the only sign was that nothing happened.
+      toast.error(res.error ?? "Could not create that tag");
     }
     setCreating(false);
   }

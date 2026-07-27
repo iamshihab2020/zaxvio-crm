@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import {
   ServiceAgreementTable,
   type AgreementRow,
@@ -26,6 +27,8 @@ interface CustomerAgreementsTabProps {
   customerId: string;
 }
 
+const AGREEMENT_LIMIT = 100;
+
 export function CustomerAgreementsTab({
   customerId,
 }: CustomerAgreementsTabProps) {
@@ -40,14 +43,22 @@ export function CustomerAgreementsTab({
   const [deletingAgreement, setDeletingAgreement] =
     useState<AgreementRow | null>(null);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [totalAgreements, setTotalAgreements] = useState(0);
+
   const fetchAgreements = useCallback(async () => {
     setLoading(true);
     const result = await getMaintenanceContracts({
       customerId,
-      limit: 100,
+      limit: AGREEMENT_LIMIT,
     });
     if (result.data) {
       setAgreements(result.data as AgreementRow[]);
+      setTotalAgreements(result.pagination?.total ?? (result.data as AgreementRow[]).length);
+      setLoadError(null);
+    } else {
+      // Otherwise a failed request renders as "no agreements" (CUST-02).
+      setLoadError(result.error ?? "Could not load agreements");
     }
     setLoading(false);
   }, [customerId]);
@@ -126,6 +137,16 @@ export function CustomerAgreementsTab({
     return <TableSkeleton columns={5} rows={3} />;
   }
 
+  if (loadError) {
+    return (
+      <LoadErrorState
+        title="Could not load agreements"
+        message={loadError}
+        onRetry={fetchAgreements}
+      />
+    );
+  }
+
   if (agreements.length === 0) {
     return (
       <>
@@ -152,7 +173,10 @@ export function CustomerAgreementsTab({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground font-body">
-          {agreements.length} agreement{agreements.length !== 1 ? "s" : ""}
+          {/* Reports the cap rather than hiding it (CUST-15). */}
+          {totalAgreements > agreements.length
+            ? `Showing ${agreements.length} of ${totalAgreements} agreements`
+            : `${agreements.length} agreement${agreements.length !== 1 ? "s" : ""}`}
         </p>
         <Button
           size="sm"

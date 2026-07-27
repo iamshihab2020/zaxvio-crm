@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { formatPhoneDisplay } from "@/lib/phone";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import {
   IconSend,
@@ -24,14 +25,6 @@ function formatDate(val: string | null) {
     day: "numeric",
     year: "numeric",
   });
-}
-
-function formatPhone(phone: string): string {
-  if (!phone) return "";
-  const digits = phone.replace(/\D/g, "");
-  const match = digits.match(/^1?(\d{3})(\d{3})(\d{4})$/);
-  if (match) return `(${match[1]}) ${match[2]}-${match[3]}`;
-  return phone;
 }
 
 interface InvoiceDetailTabProps {
@@ -158,7 +151,7 @@ export function InvoiceDetailTab({
           )}
           {invoice.customerPhone && (
             <p className="text-xs text-muted-foreground font-body">
-              {formatPhone(invoice.customerPhone)}
+              {formatPhoneDisplay(invoice.customerPhone)}
             </p>
           )}
           {invoice.customerAddress && (

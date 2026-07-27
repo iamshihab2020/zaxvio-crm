@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { bulkToast } from "@/lib/bulk-toast";
 import type { ScheduleOverride } from "@hvac-saas/types";
 import { queryKeys } from "@/lib/query-keys";
 import {
@@ -210,7 +211,7 @@ export function useBulkArchiveBookings() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? `${res.succeeded} booking(s) archived`);
+      bulkToast(res, `${res.succeeded} booking(s) archived`);
       qc.invalidateQueries({ queryKey: queryKeys.bookings.all });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
@@ -227,7 +228,7 @@ export function useBulkRestoreBookings() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? `${res.succeeded} booking(s) restored`);
+      bulkToast(res, `${res.succeeded} booking(s) restored`);
       qc.invalidateQueries({ queryKey: queryKeys.bookings.all });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
@@ -274,7 +275,7 @@ export function useBulkUpdateBookingStatus() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Booking statuses updated");
+      bulkToast(res, "Booking statuses updated");
       qc.invalidateQueries({ queryKey: queryKeys.bookings.all });
     },
     onError: () => toast.error("Failed to update booking statuses"),

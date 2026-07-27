@@ -37,6 +37,7 @@ export async function getCustomers(params?: {
   sortBy?: string;
   sortOrder?: string;
   showArchived?: boolean;
+  tagId?: string;
 }) {
   try {
     const searchParams = new URLSearchParams();
@@ -46,6 +47,7 @@ export async function getCustomers(params?: {
     if (params?.sortBy) searchParams.set("sortBy", params.sortBy);
     if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
     if (params?.showArchived) searchParams.set("showArchived", "true");
+    if (params?.tagId) searchParams.set("tagId", params.tagId);
 
     const qs = searchParams.toString();
     const res = await fetch(`${API_URL}/customers${qs ? `?${qs}` : ""}`, {
@@ -77,6 +79,45 @@ export async function getCustomer(id: string) {
       return { data: null, error: err.message ?? "Customer not found" };
     }
 
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+/**
+ * Aggregated counts + outstanding balance for one customer.
+ *
+ * Replaces five list fetches that were reduced in the browser — see CUST-05.
+ */
+export async function getCustomerSummary(customerId: string) {
+  try {
+    const res = await fetch(`${API_URL}/customers/${customerId}/summary`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to load summary" };
+    }
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+/** Advisory duplicate-email lookup used by the create/edit dialog (CUST-28). */
+export async function checkDuplicateCustomer(email: string, excludeId?: string) {
+  try {
+    const qs = new URLSearchParams({ email });
+    if (excludeId) qs.set("excludeId", excludeId);
+    const res = await fetch(`${API_URL}/customers/check-duplicate?${qs.toString()}`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+    if (!res.ok) return { data: null, error: "Failed to check for duplicates" };
     const json = await res.json();
     return { data: json.data, error: null };
   } catch {
@@ -384,12 +425,22 @@ export async function removeCustomerTag(customerId: string, tagId: string) {
 
 // ===== PHOTOS =====
 
-export async function getCustomerPhotos(customerId: string) {
+export async function getCustomerPhotos(
+  customerId: string,
+  params?: { page?: number; limit?: number },
+) {
   try {
-    const res = await fetch(`${API_URL}/customers/${customerId}/photos`, {
-      headers: { cookie: await getCookieHeader() },
-      cache: "no-store",
-    });
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    const qs = searchParams.toString();
+    const res = await fetch(
+      `${API_URL}/customers/${customerId}/photos${qs ? `?${qs}` : ""}`,
+      {
+        headers: { cookie: await getCookieHeader() },
+        cache: "no-store",
+      },
+    );
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
@@ -397,7 +448,7 @@ export async function getCustomerPhotos(customerId: string) {
     }
 
     const json = await res.json();
-    return { data: json.data, error: null };
+    return { data: json.data, pagination: json.pagination, error: null };
   } catch {
     return { data: null, error: "Network error" };
   }

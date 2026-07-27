@@ -1,10 +1,22 @@
 import { z } from "zod";
 
+/**
+ * `?flag=true` / `?flag=false` from a query string.
+ *
+ * NOT `z.coerce.boolean()` — that is `Boolean(value)`, and `Boolean("false")` is
+ * `true`, so `?showArchived=false` returned *archived only*. Harmless while the
+ * only caller omitted the param rather than sending `false`, but this schema is
+ * shared by every list endpoint. (CUST-29)
+ */
+export const booleanFlag = z
+  .enum(["true", "false", "1", "0"])
+  .transform((v) => v === "true" || v === "1");
+
 export const paginationQuery = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
   search: z.string().optional(),
-  showArchived: z.coerce.boolean().default(false).optional(),
+  showArchived: booleanFlag.default(false).optional(),
 });
 
 export const idParam = z.object({

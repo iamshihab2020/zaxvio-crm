@@ -539,13 +539,17 @@ List customers with search, filtering, and pagination.
 
 | Parameter | Type | Default | Options |
 |-----------|------|---------|---------|
-| `search` | string | - | Searches firstName, lastName, email, phone |
+| `search` | string | - | firstName, lastName, email, phone, **and `"first last"`**. `%`/`_` are matched literally |
 | `page` | integer | `1` | - |
 | `limit` | integer | `20` | Max: 100 |
 | `sortBy` | string | `"createdAt"` | `createdAt`, `firstName`, `lastName`, `email` |
 | `sortOrder` | string | `"desc"` | `asc`, `desc` |
+| `showArchived` | boolean | `false` | `true`/`false`/`1`/`0`. Omit for active only |
+| `tagId` | uuid | - | Only customers carrying this tag |
 
 **Response** `200 OK`
+
+Each row carries its `tags` (one extra query per page, not per row).
 
 ```json
 {
@@ -556,14 +560,16 @@ List customers with search, filtering, and pagination.
       "firstName": "Jane",
       "lastName": "Doe",
       "email": "jane.doe@email.com",
-      "phone": "(512) 555-0200",
+      "phone": "5125550200",
       "address": "789 Elm St",
       "city": "Austin",
       "state": "TX",
       "zipCode": "78703",
       "notes": "Prefers morning appointments",
+      "archivedAt": null,
       "createdAt": "2026-02-10T09:00:00.000Z",
-      "updatedAt": "2026-03-15T11:30:00.000Z"
+      "updatedAt": "2026-03-15T11:30:00.000Z",
+      "tags": [{ "id": "tag_01", "name": "VIP", "color": "#ef4444" }]
     }
   ],
   "pagination": {
@@ -574,6 +580,55 @@ List customers with search, filtering, and pagination.
   }
 }
 ```
+
+> **Phone storage.** `phone` is stored normalised — digits plus an optional leading
+> `+`, never reformatted. Display formatting is the client's job
+> (`apps/web/src/lib/phone.ts`). The old input helper truncated at ten digits and
+> destroyed every non-NANP number.
+
+### `GET /customers/stats`
+
+**Auth:** `requireTenant`
+
+Aggregate counts for the stats cards. **Counts active customers only** — the same
+set `GET /customers` returns by default — plus a separate `archived` total.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "total": 47,
+    "withEmail": 41,
+    "withPhone": 44,
+    "withAddress": 39,
+    "archived": 6
+  }
+}
+```
+
+### `GET /customers/check-duplicate`
+
+**Auth:** `requireTenant`
+
+Advisory lookup for an existing customer with this email. Creation is **not**
+blocked — a shared household address is legitimate — but the booking portal links
+submissions to customers by email, so duplicates make that match ambiguous.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `email` | string | Yes | Compared case-insensitively |
+| `excludeId` | uuid | No | Skip this customer (used when editing) |
+
+**Response** `200 OK`
+
+```json
+{ "data": { "duplicate": { "id": "cust_009", "firstName": "Jane", "lastName": "Doe", "archivedAt": null } } }
+```
+
+`duplicate` is `null` when the email is unused.
 
 ### `POST /customers`
 
@@ -597,17 +652,23 @@ Create a new customer. Automatically logs a `customer.created` activity.
 }
 ```
 
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `firstName` | string | Yes | Customer first name |
-| `lastName` | string | Yes | Customer last name |
-| `email` | string | No | Email address |
-| `phone` | string | No | Phone number |
-| `address` | string | No | Street address |
-| `city` | string | No | City |
-| `state` | string | No | State (e.g., "TX") |
-| `zipCode` | string | No | ZIP code |
-| `notes` | string | No | Internal notes |
+| Field | Type | Required | Max | Description |
+|-------|------|----------|-----|-------------|
+| `firstName` | string | Yes | 120 | Trimmed; must be non-empty after trimming |
+| `lastName` | string | Yes | 120 | Trimmed |
+| `email` | string | No | 320 | **Validated** and lower-cased. `""` → `null` |
+| `phone` | string | No | 32 | Normalised to digits + optional `+`. Min 4 digits |
+| `address` | string | No | 300 | `""` → `null` |
+| `city` | string | No | 120 | `""` → `null` |
+| `state` | string | No | 120 | `""` → `null` |
+| `zipCode` | string | No | 32 | `""` → `null` |
+| `notes` | string | No | 5000 | Internal notes, shown on the customer page |
+
+> Every field is bounded and `""` normalises to `NULL` on **both** `POST` and
+> `PATCH`. Previously `POST` mapped `""` to `NULL` while `PATCH` stored the raw
+> `""`, so the column held both and the stats query had to special-case it.
+> `email` accepted `"nope"`, and these fields render into invoice/quote PDFs and
+> customer-facing emails.
 
 **Response** `201 Created`
 
@@ -693,15 +754,134 @@ Update a customer. Only provided fields are updated. Logs a `customer.updated` a
 
 **Auth:** `requireTenant`
 
-Permanently delete a customer. Cascades to all related records (jobs, invoices, notes, tags, etc.).
+Permanently delete a customer.
+
+**Refused with `400` while the customer has any job, invoice or quote — archived
+ones included.** The jobs half of this guard used to skip archived rows while
+`jobs.customer_id` is `ON DELETE CASCADE`, so archiving a job hid it from the
+guard but not from the cascade: the delete succeeded, reported success, and
+destroyed the job with its line items, photos and checklist. Archive the customer
+instead; only notes, tags and activity history are removed by a real delete.
+
+**Response** `200 OK`
+
+```json
+{ "message": "Customer deleted" }
+```
+
+**Response** `400 Bad Request` — blocked
+
+```json
+{
+  "message": "Cannot delete this customer — they still have 2 jobs, 1 invoice (archived records count too). Archive the customer instead, or delete those records first."
+}
+```
+
+### `GET /customers/:id/summary`
+
+**Auth:** `requireTenant`
+
+Lifetime counts and the outstanding balance for one customer, aggregated in SQL.
+Replaces five list fetches that were reduced in the browser — "Outstanding" was
+the sum of whichever invoices landed on the first page of 20, and the asset and
+agreement counts were page lengths capped at 100.
 
 **Response** `200 OK`
 
 ```json
 {
-  "message": "Customer deleted"
+  "data": {
+    "totalJobs": 12,
+    "openJobs": 2,
+    "openInvoices": 3,
+    "outstandingAmount": "1450.00",
+    "lifetimeValue": "8320.00",
+    "totalAssets": 4,
+    "activeAgreements": 1,
+    "lastJobDate": "2026-06-14"
+  }
 }
 ```
+
+`lastJobDate` is `null` when the customer has never been scheduled. Archived jobs,
+invoices and assets are excluded.
+
+**Errors:** `404` customer not found
+
+---
+
+## Customer Bulk Operations
+
+All three take `{ "ids": ["uuid", ...] }` and return the standard bulk envelope.
+
+`message` is new: every bulk endpoint on the platform returned only
+`{succeeded, failed, errors}` while every frontend hook rendered `res.message`, so
+the fallback string always won and partial failures were invisible — "Customers
+deleted" for records the server had refused.
+
+```json
+{
+  "succeeded": 2,
+  "failed": 3,
+  "errors": [{ "id": "cust_004", "message": "Has related jobs, invoices, or quotes — archive instead" }],
+  "message": "2 deleted, 3 skipped"
+}
+```
+
+### `POST /customers/bulk-archive`
+
+Sets `archived_at` on customers that are not already archived. Logs a
+`customer.archived` activity for each.
+
+### `POST /customers/bulk-restore`
+
+Clears `archived_at`. Logs `customer.restored`.
+
+### `POST /customers/bulk-delete`
+
+Permanently deletes. Customers with related jobs (**including archived**),
+invoices or quotes are skipped and named in `errors` — same rule as
+`DELETE /customers/:id`.
+
+---
+
+## Customer Photos
+
+### `GET /customers/:id/photos`
+
+**Auth:** `requireTenant`
+
+Every photo across every job for this customer, newest first. Paginated — it used
+to return the whole set unbounded.
+
+**Query Parameters:** `page` (default `1`), `limit` (default `20`, max `100`)
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "photo_001",
+      "jobId": "job_001",
+      "storagePath": "tenant_id/jobs/job_001/before.jpg",
+      "caption": "Condenser before service",
+      "tag": "before",
+      "uploadedBy": "usr_abc123",
+      "uploaderName": "John Smith",
+      "fileSize": 284913,
+      "takenAt": "2026-03-20T14:02:00.000Z",
+      "createdAt": "2026-03-20T14:05:00.000Z",
+      "jobTitle": "AC Tune-up",
+      "jobNumber": "JOB-0012",
+      "jobScheduledDate": "2026-03-20"
+    }
+  ],
+  "pagination": { "page": 1, "limit": 20, "total": 34, "totalPages": 2 }
+}
+```
+
+**Errors:** `404` customer not found
 
 ---
 
@@ -752,7 +932,11 @@ List notes for a customer, newest first. Includes the author's name via join.
 
 Add a note to a customer. Logs a `note.created` activity.
 
-**Request Body:**
+Verifies the customer belongs to the caller's tenant first — the tags and photos
+handlers always did, this one inserted straight from the path param, so a note and
+an activity row could be written against another tenant's customer.
+
+**Request Body:** `content` — required, trimmed, max 5000 characters.
 
 ```json
 {
@@ -779,9 +963,11 @@ Add a note to a customer. Logs a `note.created` activity.
 
 **Auth:** `requireTenant`
 
-Update a customer note.
+Update a customer note. Logs a `note.updated` activity — creates were logged and
+edits were not, so the timeline showed a note appearing and never showed it being
+rewritten.
 
-**Request Body:**
+**Request Body:** `content` — required, trimmed, max 5000 characters.
 
 ```json
 {
@@ -805,6 +991,8 @@ Update a customer note.
 
 **Auth:** `requireTenant`
 
+Logs a `note.deleted` activity.
+
 **Response** `200 OK`
 
 ```json
@@ -824,6 +1012,24 @@ Automatic activity timeline for customer-related events.
 **Auth:** `requireTenant`
 
 List customer activities (newest first). Activities are auto-generated by the system.
+
+**Recorded `type` values:**
+
+| Type | Written by |
+|------|-----------|
+| `customer.created` | `POST /customers` |
+| `customer.updated` | `PATCH /customers/:id` (with `metadata.changedFields`) |
+| `customer.archived` | `POST /customers/bulk-archive` |
+| `customer.restored` | `POST /customers/bulk-restore` |
+| `note.created` · `note.updated` · `note.deleted` | the notes sub-resource |
+| `tag.assigned` · `tag.removed` | the tags sub-resource |
+
+> Archive, restore, note edits/deletes and tag changes were all silent before, so
+> the timeline was a partial record presented as a complete one.
+>
+> **Customer deletion is not recorded here and cannot be** —
+> `customer_activities.customer_id` is `ON DELETE CASCADE`, so the rows go with the
+> customer. A deletion audit trail would need a tenant-scoped log.
 
 **Query Parameters:**
 
@@ -916,7 +1122,10 @@ Get all tags assigned to a customer.
 
 **Auth:** `requireTenant`
 
-Assign a tag to a customer. Duplicates are silently ignored.
+Assign a tag to a customer. Logs a `tag.assigned` activity.
+
+Use `GET /customers?tagId=…` to list everyone carrying a tag — tags were
+assignable but not filterable, which made them decorative.
 
 **Request Body:**
 
@@ -926,7 +1135,7 @@ Assign a tag to a customer. Duplicates are silently ignored.
 }
 ```
 
-**Response** `201 Created`
+**Response** `201 Created` — newly assigned
 
 ```json
 {
@@ -939,11 +1148,16 @@ Assign a tag to a customer. Duplicates are silently ignored.
 }
 ```
 
+**Response** `200 OK` — already assigned; returns the existing row.
+
+> Previously this returned `201` with `data` being *either* an assignment row or
+> `{"message": "Already assigned"}` — two shapes behind one key.
+
 ### `DELETE /customers/:id/tags/:tagId`
 
 **Auth:** `requireTenant`
 
-Remove a tag from a customer.
+Remove a tag from a customer. Logs a `tag.removed` activity.
 
 **Response** `200 OK`
 

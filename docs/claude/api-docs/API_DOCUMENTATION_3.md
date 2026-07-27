@@ -21,7 +21,13 @@ List invoices with filtering and pagination.
 | Parameter | Type | Default | Options |
 |-----------|------|---------|---------|
 | `search` | string | - | Searches invoiceNumber, notes, customer name |
-| `status` | string | - | `draft`, `sent`, `paid`, `partially_paid`, `overdue`, `void` |
+| `status` | string | - | `draft`, `sent`, `paid`, `partially_paid`, `overdue`, `void`, `unpaid` |
+
+> `overdue` and `unpaid` are **derived** filters, not stored statuses. `overdue`
+> compares `due_date` against the tenant's today (the status column lags until the
+> cron runs). `unpaid` means "money is still owed" — `sent`, `overdue` or
+> `partially_paid` — and exists so the customer overview can ask the database for
+> outstanding invoices rather than filtering one page of results in the browser.
 | `customerId` | uuid | - | Filter by customer |
 | `jobId` | uuid | - | Filter by linked job |
 | `page` | integer | `1` | - |

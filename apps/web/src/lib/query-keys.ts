@@ -23,8 +23,14 @@ export const queryKeys = {
       ["customers", "detail", customerId, "activities", params ?? {}] as const,
     tags: (customerId: string) =>
       ["customers", "detail", customerId, "tags"] as const,
-    photos: (customerId: string) =>
-      ["customers", "detail", customerId, "photos"] as const,
+    photos: (customerId: string, params?: Record<string, unknown>) =>
+      ["customers", "detail", customerId, "photos", params ?? {}] as const,
+    summary: (customerId: string) =>
+      ["customers", "detail", customerId, "summary"] as const,
+    // Related lists rendered by the detail tabs. Nested under the customer's
+    // detail key so one invalidation refreshes the whole page (CUST-22).
+    related: (customerId: string, entity: string, params?: Record<string, unknown>) =>
+      ["customers", "detail", customerId, "related", entity, params ?? {}] as const,
   },
 
   // ── Jobs ───────────────────────────────────────────────────

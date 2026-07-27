@@ -117,6 +117,8 @@ apps/api/
 |   |   +-- notifications.ts      # dispatchNotification() — multi-channel dispatch (in-app, email, SMS stub, voice stub)
 |   |   +-- storage.ts            # Cloudflare R2 (S3-compatible): uploadFile/downloadFile/deleteFiles/getPublicUrl
 |   |   +-- event-bus.ts          # In-process pub/sub backing the SSE stream (replaced Supabase Realtime)
+|   |   +-- search.ts             # escapeLike()/containsPattern() — LIKE metacharacters are operators,
+|   |   |                         # so an unescaped `%` matched every row. Was private to routes/jobs
 |   |   +-- schemas/              # One Zod schema file per domain (see api-rules §2)
 |   |   |   +-- common.ts          # idParam, paginationQuery + isoDate/isoTime/isoMonth/boundedText.
 |   |   |   |                      # The iso* guards keep Postgres magic strings ('infinity',
@@ -146,7 +148,9 @@ apps/api/
 |   |   +-- checklists/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /checklists (templates + items)
 |   |   +-- customers/
-|   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /customers (+ notes, activities, tags)
+|   |   |   +-- index.ts          # 20 endpoints: CRUD, stats, check-duplicate, :id/summary, 3 bulk ops,
+|   |   |                         # notes, activities, tags, photos. DELETE counts ARCHIVED jobs too —
+|   |   |                         # jobs.customer_id is ON DELETE CASCADE, so skipping them destroyed data
 |   |   +-- dashboard/
 |   |   |   +-- index.ts          # GET /dashboard/stats (21 parallel SQL queries) + GET /dashboard/pipeline
 |   |   +-- invoices/
@@ -341,6 +345,12 @@ apps/web/
     |   |                            # ?job= at a page reading ?jobId= has now been a bug 3 times
     |   +-- tenant-time.ts           # tenantNow()/tenantToday()/isTenantToday() — the calendar renders
     |   |                            # in tenant wall-clock, so "today" must be resolved there too
+    |   +-- phone.ts                 # normalizePhone()/formatPhoneDisplay()/formatPhoneInput() — the ONE
+    |   |                            # phone module. Format for display, NEVER for storage: the four
+    |   |                            # old copies truncated at 10 digits and killed every non-NANP number
+    |   +-- bulk-toast.ts            # bulkToast() — renders {succeeded,failed,errors} honestly. No bulk
+    |   |                            # endpoint returns `message`, so every hook's `res.message ?? "…"`
+    |   |                            # silently reported success for records the server refused
     |   +-- constants/
     |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
@@ -443,21 +453,21 @@ apps/web/
     |   |   |   # to components/reusable/ on 2026-07-27 — /reports uses them too
     |   |   |
     |   |   +-- customers/          # Customer components
-    |   |   |   +-- customer-activity-tab.tsx
-    |   |   |   +-- customer-detail-header.tsx
-    |   |   |   +-- customer-dialog.tsx
+    |   |   |   +-- customer-activity-tab.tsx      # Paginated; 9 activity types incl. archive/tag
+    |   |   |   +-- customer-detail-header.tsx     # Inline edit (validated), tags, summary strip
+    |   |   |   +-- customer-dialog.tsx            # Create/edit + notes field + duplicate-email warning
     |   |   |   +-- customer-equipment-tab.tsx
-    |   |   |   +-- customer-info-panel.tsx
     |   |   |   +-- customer-invoices-tab.tsx
     |   |   |   +-- customer-jobs-tab.tsx
-    |   |   |   +-- customer-notes-tab.tsx
+    |   |   |   +-- customer-notes-tab.tsx         # customer_notes rows (NOT the customers.notes column)
     |   |   |   +-- customer-picker.tsx
     |   |   |   +-- customer-quotes-tab.tsx
-    |   |   |   +-- customer-sidebar-panel.tsx
-    |   |   |   +-- customer-table.tsx
-    |   |   |   +-- customer-tabs-panel.tsx
+    |   |   |   +-- customer-table.tsx             # Sortable, keyboard-reachable, tag chips, restore
+    |   |   |   +-- customer-tabs-panel.tsx        # Tab selection lives in ?tab= so it survives reload
     |   |   |   +-- customer-tags-input.tsx
     |   |   |   +-- customer-agreements-tab.tsx
+    |   |   |   # customer-info-panel.tsx and customer-sidebar-panel.tsx deleted 2026-07-27 —
+    |   |   |   # exported, imported nowhere, and holding a second divergent edit implementation
     |   |   |
     |   |   +-- pipelines/           # Pipeline management components
     |   |   |   +-- pipeline-create-dialog.tsx  # Create pipeline dialog (name, stage options)

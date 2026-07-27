@@ -158,7 +158,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["detail", "view", "profile", "info", "customer page", "edit", "inline"],
     question: "How do I view and edit customer details?",
     answer:
-      "Click a **customer name** in the list to open their detail page. You'll see:\n\n• **Left panel** — Contact info. Click any field to **edit it inline** (name, email, phone, address)\n• **Tabs** — Activity, Notes, Jobs, Invoices, Quotes, Equipment, Agreements\n• **Right sidebar** — Quick action buttons (New Job, New Quote, New Invoice)\n• **Breadcrumb** — Navigate back to the customer list",
+      "Click a **customer name** in the list to open their detail page. You'll see:\n\n• **Header** — Name, phone, email and address. Click any of them to **edit inline**; invalid emails and phone numbers are rejected before saving\n• **Summary line** — Total jobs, outstanding balance, lifetime value and last job date\n• **Quick actions** — New Job, New Quote, New Invoice, all pre-filled with this customer\n• **Tabs** — Overview, Jobs, Invoices, Quotes, Assets, Agreements, Photos, Messages, Activity, Notes\n\nThe tab you're on is kept in the address bar, so you can bookmark or share a link straight to a customer's invoices.",
   },
   {
     id: "customers-notes",
@@ -166,7 +166,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["note", "notes", "comment", "write", "add note"],
     question: "How do I add notes to a customer?",
     answer:
-      'Open the customer detail page, go to the **Notes** tab. Click **"Add Note"**, write your note, and save. Notes are timestamped with the author name. You can **edit** or **delete** any note later.',
+      'There are two kinds:\n\n• **Notes tab** — dated entries, each stamped with the author. Use these for "called about the noise on 3 June". Write one in the box at the top and press **Add Note** (or Ctrl+Enter). You can edit or delete any of them; deleting asks for confirmation first.\n• **The Notes field in the customer dialog** — one always-visible note on the customer, for standing facts like a gate code or a preferred contact time.',
   },
   {
     id: "customers-tags",
@@ -174,7 +174,23 @@ const entries: KnowledgeEntry[] = [
     keywords: ["tag", "tags", "label", "categorize", "group"],
     question: "How do I tag customers?",
     answer:
-      'Open a customer detail page. In the info panel, click **"Add Tag"**. You can select an existing tag or create a new one. Tags are reusable across all customers — great for grouping by type (e.g., "VIP", "Commercial", "Residential").',
+      'Open a customer detail page and click **"Add Tag"** in the header. Pick an existing tag or type a new name to create one.\n\nTags show as chips on the **Customers** list, and **clicking a chip filters the list to everyone carrying that tag** — so they work for grouping by type ("VIP", "Commercial", "Residential") and pulling up that group later.',
+  },
+  {
+    id: "customers-archive-delete",
+    category: "customers",
+    keywords: ["delete customer", "remove customer", "archive customer", "restore customer", "cannot delete"],
+    question: "How do I archive or delete a customer?",
+    answer:
+      "**Archive** is what you usually want. It hides the customer from the Active tab without touching their history. Use the row menu or select several and click **Archive**. The **Archived** tab lists them, and each row has a **Restore** action.\n\n**Delete is permanent and is refused while the customer still has any job, invoice or quote — archived ones included.** The message tells you exactly what's blocking it. This is deliberate: jobs are linked to the customer, so deleting one would take its line items, photos and checklists with it.\n\nIf you delete several at once, anyone who is blocked is skipped and reported back to you — the toast says how many actually went through.",
+  },
+  {
+    id: "customers-duplicates",
+    category: "customers",
+    keywords: ["duplicate customer", "same email", "two customers", "merge customer"],
+    question: "What happens if two customers have the same email?",
+    answer:
+      "It's allowed — a couple sharing one address is normal — but when you type an email that's already in use, the dialog warns you and offers a link to open the existing customer instead.\n\nWorth heeding: when someone books through your public booking page, we match them to an existing customer **by email**. Two customers with the same address means the booking attaches to whichever one is found first, and that customer's history ends up split across two records.",
   },
   {
     id: "customers-search",
@@ -182,7 +198,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["search", "find", "filter", "look up", "customer search"],
     question: "How do I search for a customer?",
     answer:
-      "On the **Customers** page, use the search bar at the top of the table. It searches by name, email, and phone number. Results update as you type (debounced for performance).",
+      "On the **Customers** page, use the search bar at the top of the table. It searches first name, last name, **full name** (\"Jane Doe\" works), email and phone. Results update as you type.\n\nYou can also **sort** by clicking the Name, Email or Added column headers, and switch between the **Active** and **Archived** tabs.",
   },
   {
     id: "customers-stats",
@@ -190,7 +206,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["customer stats", "total customers", "customer count", "overview"],
     question: "How do I see customer statistics?",
     answer:
-      "At the top of the **Customers** page, you'll see **stats cards** showing: Total Customers, Customers with Email, Customers with Phone, and Customers with Address. Click a stat card to filter the table by that criteria.",
+      "At the top of the **Customers** page, you'll see **stats cards** showing: Total Customers, Customers with Email, Customers with Phone, and Customers with Address.\n\nThese count **active** customers only — the same ones the table below shows — so archiving somebody changes both together.",
   },
   {
     id: "customers-jobs-tab",

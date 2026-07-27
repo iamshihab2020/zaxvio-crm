@@ -13,9 +13,13 @@ records what shipped, what is wrong, and what to do next.
 | `/dashboard` | [[dashboard]] | 2026-07-27 | 29 (3 critical, 5 high, 10 medium, 11 low) | ✅ all fixed |
 | `/reports` | [[reports-page]] | 2026-07-27 | 28 (3 critical, 6 high, 12 medium, 7 low) | ✅ all fixed |
 | Bookings & Calendar | [[bookings-calendar]] | 2026-07-27 | 34 (4 critical, 9 high, 14 medium, 7 low) | ✅ all fixed |
+| `/customers` | [[customers]] | 2026-07-27 | 35 (3 critical, 9 high, 16 medium, 7 low) | ✅ all fixed |
 
 Bookings & Calendar covers `/bookings`, `/schedule`, `/settings/bookings` and the public
 `/book/[slug]` portal — they share one availability model and are audited together.
+
+Customers covers `/customers`, `/customers/[id]` and its ten tabs. There is no `/contacts`
+route — Customers is the contact entity.
 
 ## Conventions
 

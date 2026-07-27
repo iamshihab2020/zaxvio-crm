@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconFileText } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { Pagination } from "@/components/reusable/pagination";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { QuoteStatusBadge } from "@/components/dashboard/quotes/quote-status-badge";
 import { getQuotes } from "@/actions/quotes";
 
@@ -33,20 +37,37 @@ function formatDate(val: string | null) {
   });
 }
 
+const PAGE_SIZE = 20;
+
 export function CustomerQuotesTab({ customerId }: CustomerQuotesTabProps) {
-  const [quotes, setQuotes] = useState<QuoteRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const router = useRouter();
 
-  useEffect(() => {
-    setLoading(true);
-    getQuotes({ customerId, limit: 50 }).then((res) => {
-      if (res.data) {
-        setQuotes(res.data as QuoteRow[]);
-      }
-      setLoading(false);
-    });
-  }, [customerId]);
+  // Was a hard `limit: 50` with no pagination and no sign that anything had
+  // been cut off (CUST-15), fetched through a raw useEffect (CUST-22).
+  const quotesQuery = useQuery({
+    queryKey: queryKeys.customers.related(customerId, "quotes", { page }),
+    queryFn: () => getQuotes({ customerId, page, limit: PAGE_SIZE }),
+    enabled: !!customerId,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+
+  const quotes: QuoteRow[] = (quotesQuery.data?.data as QuoteRow[]) ?? [];
+  const pagination = quotesQuery.data?.pagination;
+  const loading = quotesQuery.isLoading;
+  const loadFailed = quotesQuery.isError || !!quotesQuery.data?.error;
+
+  if (loadFailed && !loading) {
+    return (
+      <LoadErrorState
+        title="Could not load quotes"
+        message={quotesQuery.data?.error}
+        onRetry={() => quotesQuery.refetch()}
+        isRetrying={quotesQuery.isFetching}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -75,7 +96,8 @@ export function CustomerQuotesTab({ customerId }: CustomerQuotesTabProps) {
   }
 
   return (
-    <div className="rounded-md border border-border overflow-hidden">
+    <>
+      <div className="rounded-md border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/30">
@@ -123,5 +145,15 @@ export function CustomerQuotesTab({ customerId }: CustomerQuotesTabProps) {
         </tbody>
       </table>
     </div>
+      {pagination && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={setPage}
+          entityName="quote"
+        />
+      )}
+    </>
   );
 }

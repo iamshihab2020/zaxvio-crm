@@ -149,6 +149,10 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
             sql`${invoices.dueDate} < (now() AT TIME ZONE ${request.authUser.tenantTimezone})::date`,
           )!,
         );
+      } else if (status === "unpaid") {
+        // "Still owes money" — the set the customer overview shows. Derived for
+        // the same reason `overdue` is: it spans several stored statuses.
+        filters.push(inArray(invoices.status, ["sent", "overdue", "partially_paid"]));
       } else if (status) {
         filters.push(eq(invoices.status, status as never));
       }

@@ -1,9 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconFileInvoice } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { queryKeys } from "@/lib/query-keys";
+import { Pagination } from "@/components/reusable/pagination";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { InvoiceStatusBadge } from "@/components/dashboard/invoices/invoice-status-badge";
 import { getInvoices } from "@/actions/invoices";
 
@@ -32,20 +36,37 @@ function formatDate(val: string) {
   });
 }
 
+const PAGE_SIZE = 20;
+
 export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
-  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const router = useRouter();
 
-  useEffect(() => {
-    setLoading(true);
-    getInvoices({ customerId, limit: 50 }).then((res) => {
-      if (res.data) {
-        setInvoices(res.data as InvoiceRow[]);
-      }
-      setLoading(false);
-    });
-  }, [customerId]);
+  // Was a hard `limit: 50` with no pagination and no sign that anything had
+  // been cut off (CUST-15), fetched through a raw useEffect (CUST-22).
+  const invoicesQuery = useQuery({
+    queryKey: queryKeys.customers.related(customerId, "invoices", { page }),
+    queryFn: () => getInvoices({ customerId, page, limit: PAGE_SIZE }),
+    enabled: !!customerId,
+    staleTime: 30_000,
+    placeholderData: (prev) => prev,
+  });
+
+  const invoices: InvoiceRow[] = (invoicesQuery.data?.data as InvoiceRow[]) ?? [];
+  const pagination = invoicesQuery.data?.pagination;
+  const loading = invoicesQuery.isLoading;
+  const loadFailed = invoicesQuery.isError || !!invoicesQuery.data?.error;
+
+  if (loadFailed && !loading) {
+    return (
+      <LoadErrorState
+        title="Could not load invoices"
+        message={invoicesQuery.data?.error}
+        onRetry={() => invoicesQuery.refetch()}
+        isRetrying={invoicesQuery.isFetching}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -74,7 +95,8 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
   }
 
   return (
-    <div className="rounded-md border border-border overflow-hidden">
+    <>
+      <div className="rounded-md border border-border overflow-hidden">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/30">
@@ -130,5 +152,15 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
         </tbody>
       </table>
     </div>
+      {pagination && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={setPage}
+          entityName="invoice"
+        />
+      )}
+    </>
   );
 }

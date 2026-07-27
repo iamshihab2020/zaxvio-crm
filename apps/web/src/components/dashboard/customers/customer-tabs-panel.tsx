@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { CustomerOverviewTab } from "./customer-overview-tab";
 import { CustomerActivityTab } from "./customer-activity-tab";
@@ -14,12 +16,46 @@ import { CustomerConversationsTab } from "./customer-conversations-tab";
 
 interface CustomerTabsPanelProps {
   customerId: string;
-  activityKey?: number;
 }
 
-export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanelProps) {
+const TABS = [
+  "overview",
+  "jobs",
+  "invoices",
+  "quotes",
+  "equipment",
+  "agreements",
+  "photos",
+  "conversations",
+  "activity",
+  "notes",
+] as const;
+
+export function CustomerTabsPanel({ customerId }: CustomerTabsPanelProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Tab selection lives in the URL, so refreshing, going back, or sending
+  // someone a link to a customer's invoices all work. It was local state with a
+  // `defaultValue`, which meant every one of those landed on Overview (CUST-32).
+  const requested = searchParams.get("tab");
+  const active = TABS.includes(requested as (typeof TABS)[number]) ? requested! : "overview";
+
+  const handleChange = useCallback(
+    (value: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === "overview") params.delete("tab");
+      else params.set("tab", value);
+      const qs = params.toString();
+      // `scroll: false` — switching tabs should not jump the page to the top.
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [pathname, router, searchParams],
+  );
+
   return (
-    <Tabs defaultValue="overview" className="w-full">
+    <Tabs value={active} onValueChange={handleChange} className="w-full">
       <TabsList className="w-full justify-start overflow-x-auto lg:-mx-5 lg:px-5 lg:rounded-none">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="jobs">Jobs</TabsTrigger>
@@ -34,7 +70,7 @@ export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanel
       </TabsList>
 
       <TabsContent value="overview" className="mt-4 sm:mt-5">
-        <CustomerOverviewTab customerId={customerId} refreshKey={activityKey} />
+        <CustomerOverviewTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="jobs" className="mt-4 sm:mt-5">
         <CustomerJobsTab customerId={customerId} />
@@ -58,7 +94,7 @@ export function CustomerTabsPanel({ customerId, activityKey }: CustomerTabsPanel
         <CustomerConversationsTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="activity" className="mt-4 sm:mt-5">
-        <CustomerActivityTab customerId={customerId} refreshKey={activityKey} />
+        <CustomerActivityTab customerId={customerId} />
       </TabsContent>
       <TabsContent value="notes" className="mt-4 sm:mt-5">
         <CustomerNotesTab customerId={customerId} />

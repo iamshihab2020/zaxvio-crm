@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
 import {
   getCatalogItems,
@@ -99,7 +100,7 @@ export function useBulkDeleteCatalogItems() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Catalog items deleted");
+      bulkToast(res, "Catalog items deleted");
       qc.invalidateQueries({ queryKey: queryKeys.catalog.all });
     },
     onError: () => toast.error("Failed to delete catalog items"),
@@ -116,7 +117,7 @@ export function useBulkToggleCatalogActive() {
         toast.error(res.error);
         return;
       }
-      toast.success(res.message ?? "Catalog items updated");
+      bulkToast(res, "Catalog items updated");
       qc.invalidateQueries({ queryKey: queryKeys.catalog.all });
     },
     onError: () => toast.error("Failed to update catalog items"),

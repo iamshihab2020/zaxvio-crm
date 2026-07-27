@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff } from "@tabler/icons-react";
+import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff, IconX } from "@tabler/icons-react";
+import { queryKeys } from "@/lib/query-keys";
+import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
@@ -15,6 +17,7 @@ import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { EmptyState } from "@/components/reusable/empty-state";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -43,10 +46,13 @@ interface CustomerStats {
   withEmail: number;
   withPhone: number;
   withAddress: number;
+  archived?: number;
 }
 
 const DEFAULT_PAGINATION: PaginationData = { page: 1, limit: 15, total: 0, totalPages: 0 };
-const DEFAULT_STATS: CustomerStats = { total: 0, withEmail: 0, withPhone: 0, withAddress: 0 };
+const DEFAULT_STATS: CustomerStats = { total: 0, withEmail: 0, withPhone: 0, withAddress: 0, archived: 0 };
+
+export type CustomerSortKey = "createdAt" | "firstName" | "lastName" | "email";
 
 interface CustomersPageClientProps {
   initialCustomers?: Customer[];
@@ -63,6 +69,9 @@ export function CustomersPageClient({
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(initialPagination.page);
   const [viewFilter, setViewFilter] = useState("");
+  const [sortBy, setSortBy] = useState<CustomerSortKey>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  const [tagFilter, setTagFilter] = useState<{ id: string; name: string } | null>(null);
   const showingArchived = viewFilter === "archived";
   const debouncedSearch = useDebouncedValue(search, 300);
 
@@ -89,7 +98,49 @@ export function CustomersPageClient({
 
   // ── Queries ────────────────────────────────────────────────
   const queryClient = useQueryClient();
-  const listParams = { search: debouncedSearch, page, limit: 15, showArchived: showingArchived || undefined };
+  const listParams = {
+    search: debouncedSearch,
+    page,
+    limit: 15,
+    sortBy,
+    sortOrder,
+    showArchived: showingArchived || undefined,
+    tagId: tagFilter?.id,
+  };
+
+  // Seed the cache from the server render instead of throwing it away. The page
+  // fetched customers and stats, passed both down, and the client never read
+  // them — so every visit paid for two round trips and still showed a skeleton
+  // (CUST-13, the same defect as BOOK-12). Seeded once, and only into the exact
+  // key the server fetched, or changing a filter would show stale rows.
+  const seeded = useRef(false);
+  if (!seeded.current) {
+    seeded.current = true;
+    const seededAt = Date.now();
+    if (initialCustomers.length > 0) {
+      queryClient.setQueryData(
+        queryKeys.customers.list({
+          search: "",
+          page: 1,
+          limit: 15,
+          sortBy: "createdAt",
+          sortOrder: "desc",
+          showArchived: undefined,
+          tagId: undefined,
+        }),
+        { data: initialCustomers, pagination: initialPagination, error: null },
+        { updatedAt: seededAt },
+      );
+    }
+    if (initialStats) {
+      queryClient.setQueryData(
+        queryKeys.customers.stats(),
+        { data: initialStats, error: null },
+        { updatedAt: seededAt },
+      );
+    }
+  }
+
   const customersQuery = useCustomers(listParams);
   const statsQuery = useCustomerStats();
 
@@ -132,6 +183,28 @@ export function CustomersPageClient({
     setViewFilter(value);
     setPage(1);
     clearSelection();
+  }
+
+  /** Click a column header to sort; click it again to flip direction (CUST-24). */
+  function handleSortChange(key: CustomerSortKey) {
+    if (sortBy === key) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortOrder(key === "createdAt" ? "desc" : "asc");
+    }
+    setPage(1);
+    clearSelection();
+  }
+
+  function handleTagFilter(tag: { id: string; name: string } | null) {
+    setTagFilter(tag);
+    setPage(1);
+    clearSelection();
+  }
+
+  function handleRestoreOne(customer: Customer) {
+    bulkRestoreMutation.mutate([customer.id]);
   }
 
   function openCreateDialog() {
@@ -193,8 +266,11 @@ export function CustomersPageClient({
   }
 
   const hasCustomers = customers.length > 0;
-  const showEmptyState = !loading && !hasCustomers && !search && !showingArchived;
-  const showNoResults = !loading && !hasCustomers && (!!search || showingArchived);
+  const loadFailed = customersQuery.isError || !!customersQuery.data?.error;
+  const isFiltered = !!search || showingArchived || !!tagFilter;
+  // A failed request must not read as "you have no customers" (CUST-02).
+  const showEmptyState = !loading && !loadFailed && !hasCustomers && !isFiltered;
+  const showNoResults = !loading && !loadFailed && !hasCustomers && isFiltered;
 
   return (
     <section className="p-6">
@@ -251,6 +327,22 @@ export function CustomersPageClient({
               value={viewFilter}
               onChange={handleViewFilterChange}
             />
+            {/* Tag filter chip — set by clicking a tag in the table (CUST-12). */}
+            {tagFilter && (
+              <Badge variant="secondary" className="gap-1 pr-1">
+                Tagged &ldquo;{tagFilter.name}&rdquo;
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => handleTagFilter(null)}
+                  className="ml-0.5 h-4 w-4 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                  aria-label="Clear tag filter"
+                >
+                  <IconX className="h-2.5 w-2.5" />
+                </Button>
+              </Badge>
+            )}
             <div className="ml-auto">
               <SearchInput
                 value={search}
@@ -266,17 +358,35 @@ export function CustomersPageClient({
             </div>
           )}
 
+          {loadFailed && !loading && (
+            <LoadErrorState
+              title="Could not load customers"
+              message={customersQuery.data?.error ?? "Something went wrong fetching this list."}
+              onRetry={() => customersQuery.refetch()}
+            />
+          )}
+
           {showNoResults && (
             <p className="py-12 text-center text-sm text-muted-foreground font-body">
-              No customers found matching &ldquo;{search}&rdquo;
+              {search
+                ? `No customers found matching “${search}”`
+                : tagFilter
+                  ? `No customers tagged “${tagFilter.name}”`
+                  : "No archived customers"}
             </p>
           )}
 
-          {!loading && hasCustomers && (
+          {!loading && !loadFailed && hasCustomers && (
             <CustomerTable
               customers={customers}
               onEdit={openEditDialog}
               onDelete={openDeleteDialog}
+              onRestore={showingArchived ? handleRestoreOne : undefined}
+              onTagClick={handleTagFilter}
+              showingArchived={showingArchived}
+              sortBy={sortBy}
+              sortOrder={sortOrder}
+              onSortChange={handleSortChange}
               selectedIds={selectedIds}
               onToggleSelect={toggle}
               onToggleSelectAll={() => toggleAll(customers)}
@@ -312,7 +422,10 @@ export function CustomersPageClient({
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDelete}
         loading={saving}
-        description="All jobs, invoices, and notes linked to this customer will also be removed."
+        // The old copy promised a cascade the API refuses to perform, and the
+        // detail header promised a different one (CUST-18). This is what the
+        // server actually does.
+        description="Their notes, tags and activity history go with them. If they still have any jobs, invoices or quotes — archived ones included — the delete will be refused; archive the customer instead."
       />
 
       <BulkActionBar
@@ -349,7 +462,7 @@ export function CustomersPageClient({
         onConfirm={handleBulkDelete}
         loading={bulkLoading}
         title="Delete customers permanently"
-        description={`Are you sure you want to permanently delete ${selectedCount} customer(s)? This action cannot be undone.`}
+        description={`Permanently delete ${selectedCount} customer(s)? Anyone still linked to a job, invoice or quote will be skipped and reported back — the rest cannot be recovered.`}
         confirmLabel="Delete permanently"
         variant="destructive"
       />

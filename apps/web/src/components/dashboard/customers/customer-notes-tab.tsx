@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Pagination } from "@/components/reusable/pagination";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
+import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import {
-  getCustomerNotes,
-  createCustomerNote,
-  updateCustomerNote,
-  deleteCustomerNote,
-} from "@/actions/customers";
+  useCustomerNotes,
+  useCreateCustomerNote,
+  useUpdateCustomerNote,
+  useDeleteCustomerNote,
+} from "@/hooks/queries";
 import { IconNote, IconEdit, IconTrash, IconCheck, IconX } from "@tabler/icons-react";
 
 interface Note {
@@ -25,56 +28,58 @@ interface CustomerNotesTabProps {
   customerId: string;
 }
 
+const PAGE_SIZE = 20;
+const MAX_NOTE = 5000;
+
 export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
   const [newNote, setNewNote] = useState("");
-  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
+  const [deletingNote, setDeletingNote] = useState<Note | null>(null);
 
-  useEffect(() => {
-    loadNotes();
-  }, [customerId]);
+  // Was a hand-rolled `useState` + `useEffect` + full re-fetch after every write,
+  // with a hard `limit: 50` and no pagination, so note 51 was unreachable and
+  // nothing said so (CUST-15, CUST-22).
+  const notesQuery = useCustomerNotes(customerId, { page, limit: PAGE_SIZE });
+  const createMutation = useCreateCustomerNote(customerId);
+  const updateMutation = useUpdateCustomerNote(customerId);
+  const deleteMutation = useDeleteCustomerNote(customerId);
 
-  async function loadNotes() {
-    const res = await getCustomerNotes(customerId, { limit: 50 });
-    if (res.data) setNotes(res.data);
-    setLoading(false);
+  const notes: Note[] = (notesQuery.data?.data as Note[]) ?? [];
+  const pagination = notesQuery.data?.pagination;
+  const loadFailed = notesQuery.isError || !!notesQuery.data?.error;
+
+  function handleCreate() {
+    const content = newNote.trim();
+    if (!content || createMutation.isPending) return;
+    createMutation.mutate(content, {
+      onSuccess: (res) => {
+        if (!res.error) {
+          setNewNote("");
+          setPage(1);
+        }
+      },
+    });
   }
 
-  async function handleCreate() {
-    if (!newNote.trim() || saving) return;
-    setSaving(true);
-    const res = await createCustomerNote(customerId, newNote.trim());
-    if (res.data) {
-      setNewNote("");
-      await loadNotes();
-    }
-    setSaving(false);
+  function handleUpdate(noteId: string) {
+    const content = editContent.trim();
+    if (!content) return;
+    updateMutation.mutate(
+      { noteId, content },
+      { onSuccess: (res) => { if (!res.error) setEditingId(null); } },
+    );
   }
 
-  async function handleUpdate(noteId: string) {
-    if (!editContent.trim()) return;
-    const res = await updateCustomerNote(customerId, noteId, editContent.trim());
-    if (res.data) {
-      setNotes((prev) =>
-        prev.map((n) =>
-          n.id === noteId ? { ...n, content: res.data.content, updatedAt: res.data.updatedAt } : n,
-        ),
-      );
-      setEditingId(null);
-    }
+  function handleDelete() {
+    if (!deletingNote) return;
+    deleteMutation.mutate(deletingNote.id, {
+      onSuccess: (res) => { if (!res.error) setDeletingNote(null); },
+    });
   }
 
-  async function handleDelete(noteId: string) {
-    const res = await deleteCustomerNote(customerId, noteId);
-    if (!res.error) {
-      setNotes((prev) => prev.filter((n) => n.id !== noteId));
-    }
-  }
-
-  if (loading) {
+  if (notesQuery.isLoading) {
     return (
       <div className="space-y-4 py-2">
         <Skeleton className="h-20 w-full" />
@@ -84,10 +89,21 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
     );
   }
 
+  if (loadFailed) {
+    return (
+      <LoadErrorState
+        title="Could not load notes"
+        message={notesQuery.data?.error}
+        onRetry={() => notesQuery.refetch()}
+        isRetrying={notesQuery.isFetching}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       {/* Compose Area */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3 sm:p-4 space-y-2">
+      <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 sm:p-4">
         <Textarea
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
@@ -99,19 +115,18 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
           }}
           placeholder="Write a note about this customer..."
           rows={3}
+          maxLength={MAX_NOTE}
           className="resize-none bg-card"
         />
         <div className="flex items-center justify-between">
-          <p className="text-xs text-muted-foreground font-body">
-            Ctrl+Enter to add quickly
-          </p>
+          <p className="font-body text-xs text-muted-foreground">Ctrl+Enter to add quickly</p>
           <Button
             onClick={handleCreate}
-            disabled={!newNote.trim() || saving}
+            disabled={!newNote.trim() || createMutation.isPending}
             size="sm"
             className="bg-brand text-brand-foreground hover:bg-brand/90"
           >
-            {saving ? "Adding..." : "Add Note"}
+            {createMutation.isPending ? "Adding..." : "Add Note"}
           </Button>
         </div>
       </div>
@@ -119,90 +134,121 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
       {/* Notes List */}
       {notes.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand-light">
             <IconNote className="h-5 w-5 text-brand" />
           </div>
-          <p className="text-sm font-medium text-foreground font-body">
-            No notes yet
-          </p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Add your first note above
-          </p>
+          <p className="font-body text-sm font-medium text-foreground">No notes yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">Add your first note above</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {notes.map((note) => (
-            <div
-              key={note.id}
-              className="rounded-lg border border-border/70 bg-surface p-3 sm:p-4 space-y-2 hover:border-border transition-colors"
-            >
-              {editingId === note.id ? (
-                <>
-                  <Textarea
-                    value={editContent}
-                    onChange={(e) => setEditContent(e.target.value)}
-                    rows={3}
-                    className="resize-none"
-                  />
-                  <div className="flex justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setEditingId(null)}
-                    >
-                      <IconX className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => handleUpdate(note.id)}
-                      className="bg-brand text-brand-foreground hover:bg-brand/90"
-                    >
-                      <IconCheck className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-foreground font-body whitespace-pre-wrap">
-                    {note.content}
-                  </p>
-                  <div className="flex items-center justify-between pt-2.5 border-t border-border/40">
-                    <p className="text-xs text-muted-foreground">
-                      {note.authorName ?? "Unknown"} &middot;{" "}
-                      {new Date(note.createdAt).toLocaleDateString()}{" "}
-                      {new Date(note.createdAt).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => {
-                          setEditingId(note.id);
-                          setEditContent(note.content);
-                        }}
-                      >
-                        <IconEdit className="h-3.5 w-3.5" />
+          {notes.map((note) => {
+            const edited = note.updatedAt && note.updatedAt !== note.createdAt;
+            return (
+              <div
+                key={note.id}
+                className="space-y-2 rounded-lg border border-border/70 bg-surface p-3 transition-colors hover:border-border sm:p-4"
+              >
+                {editingId === note.id ? (
+                  <>
+                    <Textarea
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      rows={3}
+                      maxLength={MAX_NOTE}
+                      className="resize-none"
+                    />
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                        <IconX className="h-4 w-4" />
+                        <span className="sr-only">Cancel</span>
                       </Button>
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(note.id)}
+                        size="sm"
+                        onClick={() => handleUpdate(note.id)}
+                        disabled={updateMutation.isPending || !editContent.trim()}
+                        className="bg-brand text-brand-foreground hover:bg-brand/90"
                       >
-                        <IconTrash className="h-3.5 w-3.5" />
+                        <IconCheck className="h-4 w-4" />
+                        <span className="sr-only">Save</span>
                       </Button>
                     </div>
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+                  </>
+                ) : (
+                  <>
+                    <p className="whitespace-pre-wrap font-body text-sm text-foreground">
+                      {note.content}
+                    </p>
+                    <div className="flex items-center justify-between border-t border-border/40 pt-2.5">
+                      <p className="text-xs text-muted-foreground">
+                        {note.authorName ?? "Unknown"} &middot;{" "}
+                        {new Date(note.createdAt).toLocaleDateString()}{" "}
+                        {new Date(note.createdAt).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                        {/* An edited note used to show only its original time,
+                            with no sign it had been rewritten. */}
+                        {edited && <span className="ml-1 italic">(edited)</span>}
+                      </p>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setEditingId(note.id);
+                            setEditContent(note.content);
+                          }}
+                        >
+                          <IconEdit className="h-3.5 w-3.5" />
+                          <span className="sr-only">Edit note</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          // Used to delete on the first click, with no
+                          // confirmation and no undo — the only destructive
+                          // action on the platform that did (CUST-21).
+                          onClick={() => setDeletingNote(note)}
+                        >
+                          <IconTrash className="h-3.5 w-3.5" />
+                          <span className="sr-only">Delete note</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      {pagination && pagination.totalPages > 1 && (
+        <Pagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          onPageChange={setPage}
+          entityName="note"
+        />
+      )}
+
+      <DeleteConfirmDialog
+        entityName="Note"
+        itemLabel={
+          deletingNote
+            ? `“${deletingNote.content.slice(0, 60)}${deletingNote.content.length > 60 ? "…" : ""}”`
+            : ""
+        }
+        open={!!deletingNote}
+        onOpenChange={(open) => { if (!open) setDeletingNote(null); }}
+        onConfirm={handleDelete}
+        loading={deleteMutation.isPending}
+        description="This note will be removed from the customer's history."
+      />
     </div>
   );
 }
