@@ -14,12 +14,18 @@ records what shipped, what is wrong, and what to do next.
 | `/reports` | [[reports-page]] | 2026-07-27 | 28 (3 critical, 6 high, 12 medium, 7 low) | ✅ all fixed |
 | Bookings & Calendar | [[bookings-calendar]] | 2026-07-27 | 34 (4 critical, 9 high, 14 medium, 7 low) | ✅ all fixed |
 | `/customers` | [[customers]] | 2026-07-27 | 35 (3 critical, 9 high, 16 medium, 7 low) | ✅ all fixed |
+| Jobs | [[jobs]] | 2026-07-29 | 42 (5 critical, 9 high, 20 medium, 8 low) + 6 found while fixing | ✅ all 48 fixed |
 
 Bookings & Calendar covers `/bookings`, `/schedule`, `/settings/bookings` and the public
 `/book/[slug]` portal — they share one availability model and are audited together.
 
 Customers covers `/customers`, `/customers/[id]` and its ten tabs. There is no `/contacts`
 route — Customers is the contact entity.
+
+Jobs covers `/jobs` (board · list · table), `/jobs/[id]`, the detail sheet,
+`/settings/pipelines` and the stage editor. Its four criticals share one root cause —
+`jobs.status` is both a lifecycle enum and a free-text pipeline stage name — so
+[[jobs|§5.1]] should be decided before any of them is fixed individually.
 
 ## Conventions
 

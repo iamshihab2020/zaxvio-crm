@@ -9,6 +9,7 @@ import {
 } from "drizzle-orm/pg-core";
 import { tenants } from "./tenants";
 import { customers } from "./customers";
+import { jobs } from "./jobs";
 
 export const calendarEvents = pgTable(
   "calendar_events",
@@ -30,7 +31,9 @@ export const calendarEvents = pgTable(
     customerId: uuid("customer_id").references(() => customers.id, {
       onDelete: "set null",
     }),
-    jobId: uuid("job_id"),
+    // Was a bare uuid with no constraint, so deleting a job left the calendar
+    // pointing at nothing and the event rendered with an empty job link.
+    jobId: uuid("job_id").references(() => jobs.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -43,5 +46,6 @@ export const calendarEvents = pgTable(
       table.tenantId,
       table.eventDate,
     ),
+    index("idx_calendar_events_job_id").on(table.jobId),
   ],
 );

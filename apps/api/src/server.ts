@@ -40,11 +40,18 @@ import reportRoutes from "./routes/reports/index.js";
 import conversationRoutes from "./routes/conversations/index.js";
 import eventRoutes from "./routes/events/index.js";
 import { analyticsCache } from "./services/analytics/cache.js";
+import { MB } from "./lib/upload-limits.js";
 
 export async function buildServer() {
   const isDev = process.env.NODE_ENV !== "production";
 
   const fastify = Fastify({
+    // Stated rather than inherited. Fastify defaults to 1 MB, which is right
+    // for the ~200 JSON endpoints here; the handful that accept a base64 file
+    // raise it per-route via `bodyLimitFor()` (see lib/upload-limits.ts).
+    // Raising it globally would hand every endpoint a much larger DoS surface
+    // to buy nothing.
+    bodyLimit: MB,
     logger: {
       level: isDev ? "debug" : "info",
       transport: isDev

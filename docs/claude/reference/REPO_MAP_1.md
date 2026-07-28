@@ -86,6 +86,10 @@ zaxvio-crm/
         +-- 20260410000001_add_archived_at.sql        # archived_at column on 6 tables + partial indexes
         +-- 20260727000001_booking_calendar_audit.sql # FK on jobs.booking_id, tenants.booking_slot_capacity,
         |                                             # backfill of bookings.converted_to_job_id
+        +-- 20260729000001_jobs_audit_stage_split.sql # job_pipeline_stages.lifecycle + jobs.stage_id (FK,
+        |                                             # ON DELETE SET NULL) + backfill; FKs on
+        |                                             # calendar_events.job_id and job_documents.customer_id;
+        |                                             # job_line_items.updated_at. Applied to Neon by hand
         +-- meta/                                    # Drizzle snapshots + journal
 ```
 
@@ -109,8 +113,15 @@ apps/api/
 |   |   +-- auth-middleware.ts     # requireAuth, requireAdmin, requireAdminTier(), requireTenant preHandlers
 |   |   +-- env.ts                 # Zod-validated env loading (dotenv from monorepo root)
 |   |   +-- timezone.ts           # THE tz module: todayInTimezone() + getTenantToday/Tomorrow,
-|   |   |                         # getMaxBookingDate(), getDayOfWeek(). analytics re-exports from here
-|   |   +-- job-helpers.ts        # attachChecklistToJob() shared helper (used by jobs + bookings)
+|   |   |                         # getMaxBookingDate(), getDayOfWeek(), formatDateInTimezone()
+|   |   |                         # (customer emails stamped the *server's* date). analytics re-exports
+|   |   +-- job-helpers.ts        # attachChecklistToJob(), deleteJobAttachments(),
+|   |   |                         # countLinkedInvoices(), sendJobCompletionEmailFor() — the side
+|   |   |                         # effects single and bulk job endpoints must share
+|   |   +-- job-guards.ts         # loadEditableJob()/assertEditable() (archived-job guard, was on
+|   |   |                         # 4 of 14 mutating handlers) + findForeignRef()/ownsX() tenant checks
+|   |   +-- upload-limits.ts      # UPLOAD_LIMITS + bodyLimitFor() so the number a handler enforces
+|   |   |                         # and the number Fastify enforces cannot drift; MIME allowlist
 |   |   +-- admin-audit.ts        # logAdminAction() — append-only audit log helper
 |   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
 |   |   +-- platform-events.ts    # emitPlatformEvent() — fire-and-forget activity tracking
@@ -203,6 +214,10 @@ apps/api/
 |   |   |                             # slot generation, occupancy across bookings+jobs+events,
 |   |   |                             # checkSlotBookable(). Used by portal, calendar and reschedule
 |   |   +-- bookings.service.ts       # Booking status transition table (single + bulk share it)
+|   |   +-- job-stages.service.ts     # THE stage resolver: resolveStage/matchStage by id-or-name,
+|   |   |                             # canTransition() keyed on stage.lifecycle (not on status),
+|   |   |                             # stageUpdate() -> {stageId,status,completedAt}. One place a
+|   |   |                             # job changes column; makes custom stages reachable
 |   |   +-- conversations.service.ts
 |   |   +-- notifications.service.ts
 |   |   +-- analytics/
@@ -488,7 +503,6 @@ apps/web/
     |   |   |   +-- job-sidebar-panel.tsx
     |   |   |   +-- job-table.tsx
     |   |   |   +-- job-tabs-panel.tsx
-    |   |   |   +-- jobs-stats-bar.tsx
     |   |   |   +-- kanban-board.tsx
     |   |   |   +-- kanban-card-compact.tsx
     |   |   |   +-- kanban-card.tsx
@@ -669,8 +683,11 @@ apps/web/
         |   |   +-- page.tsx                         # Jobs Kanban + Table dual view
         |   |   +-- jobs-page-client.tsx
         |   |   +-- [id]/
-        |   |       +-- page.tsx                     # Job detail page (3-panel)
-        |   |       +-- job-detail-client.tsx
+        |   |       +-- page.tsx                     # Job detail page (3-panel). Fetches stages for
+        |   |       |                                # THIS job's pipeline; notFound() only on a real 404
+        |   |       +-- job-detail-client.tsx        # Reads via useJob() (TanStack), not local useState
+        |   |       +-- job-load-error.tsx           # Client shim so the server component can render
+        |   |                                        # LoadErrorState with a retry — a 500 is not a 404
         |   |
         |   +-- invoices/
         |   |   +-- page.tsx                         # Invoice list

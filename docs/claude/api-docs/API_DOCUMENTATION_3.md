@@ -896,7 +896,14 @@ Per-pipeline custom Kanban pipeline stages for job management. Stage name unique
 
 **Auth:** `requireTenant`
 
-List all pipeline stages for a given pipeline, sorted by `sortOrder`. Auto-seeds default stages on first access if none exist.
+List all pipeline stages for a given pipeline, sorted by `sortOrder`.
+
+Seeds the four default stages **only when the pipeline has none** — this used to run
+`getOrCreateDefaultPipeline` + `ensureDefaultStages` on every call, so a plain read could
+insert rows on any request.
+
+`jobCount` counts **live** jobs pointing at the stage via `jobs.stage_id`; archived jobs
+are excluded, matching what the board renders.
 
 **Query Parameters:**
 
@@ -918,6 +925,7 @@ List all pipeline stages for a given pipeline, sorted by `sortOrder`. Auto-seeds
       "name": "scheduled",
       "label": "Scheduled",
       "color": "blue",
+      "lifecycle": "scheduled",
       "sortOrder": 0,
       "isDefault": true,
       "jobCount": 8,
@@ -968,7 +976,7 @@ List all pipeline stages for a given pipeline, sorted by `sortOrder`. Auto-seeds
 
 **Auth:** `requireTenant`
 
-Create a custom pipeline stage.
+Create a custom pipeline stage. `name` is `slugify(label)`.
 
 **Request Body:**
 
@@ -976,15 +984,28 @@ Create a custom pipeline stage.
 {
   "pipelineId": "pipe_001",
   "label": "Awaiting Parts",
-  "color": "purple"
+  "color": "purple",
+  "lifecycle": "in_progress"
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `pipelineId` | string | Yes | Pipeline to add the stage to |
-| `label` | string | Yes | Display label |
+| `label` | string | Yes | Display label, ≤ 60 chars |
 | `color` | string | No | Color key (default: `"gray"`) -- see stage color presets |
+| `lifecycle` | string | No | `scheduled` (default), `in_progress`, `completed`, `cancelled` |
+
+**About `lifecycle`.** A tenant may call a column anything; the rest of the system needs to
+know what a job sitting in it actually *is*. `lifecycle` maps the stage onto one of the four
+real job statuses and drives every rule that depends on it — which transitions are legal,
+when `completedAt` is stamped, when the E-05 completion email fires, and how the job is
+counted in reports. A stage named `awaiting_parts` with `lifecycle: "in_progress"` behaves
+exactly like the built-in In Progress column.
+
+It defaults to `scheduled`, which is the safe entry point: a new column can always receive
+work. Set it to `completed` and dropping a job there will demand the required checklist
+items and email the customer.
 
 **Response** `201 Created`
 
@@ -996,6 +1017,7 @@ Create a custom pipeline stage.
     "name": "awaiting_parts",
     "label": "Awaiting Parts",
     "color": "purple",
+    "lifecycle": "in_progress",
     "sortOrder": 2,
     "isDefault": false
   }
@@ -1028,16 +1050,22 @@ Bulk reorder all stages. Runs in a transaction.
 
 **Auth:** `requireTenant`
 
-Update a stage's label or color. If the stage name changes, all jobs in that stage are updated.
+Update a stage's label, color or lifecycle. Renaming regenerates `name` from the label and
+rewrites `jobs.status` for every job pointing at this stage (matched on `stage_id`, so a
+job whose status had drifted is corrected rather than missed).
 
 **Request Body:**
 
 ```json
 {
   "label": "Waiting for Parts",
-  "color": "amber"
+  "color": "amber",
+  "lifecycle": "in_progress"
 }
 ```
+
+Changing `lifecycle` changes what dropping a job into this column does — see
+`POST /pipeline-stages` above.
 
 **Response** `200 OK`
 
@@ -1048,8 +1076,10 @@ Update a stage's label or color. If the stage name changes, all jobs in that sta
 Delete a pipeline stage.
 
 **Validation Rules:**
-- Cannot delete if jobs exist in this stage
-- At least 1 stage must remain
+- Cannot delete if **any** job points at this stage — archived jobs included. `jobs.stage_id`
+  is `ON DELETE SET NULL`, so an archived job excluded from the guard would silently lose
+  its column.
+- At least 1 stage must remain in the pipeline.
 
 **Response** `200 OK`
 
@@ -1059,11 +1089,12 @@ Delete a pipeline stage.
 }
 ```
 
-**Error** `400 Bad Request`
+**Error** `409 Conflict`
 
 ```json
 {
-  "error": "Cannot delete stage with existing jobs. Move or delete jobs first."
+  "message": "Cannot delete stage: 3 job(s) are in this stage. Move them first.",
+  "jobCount": 3
 }
 ```
 

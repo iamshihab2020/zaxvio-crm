@@ -123,6 +123,7 @@ export function JobDetailSheet({
 }: JobDetailSheetProps) {
   const [job, setJob] = useState<JobDetail | null>(null);
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!jobId || !open) {
@@ -130,8 +131,13 @@ export function JobDetailSheet({
       return;
     }
     setLoading(true);
+    setLoadError(null);
     getJob(jobId).then((res) => {
       if (res.data) setJob(res.data as JobDetail);
+      // Was `if (res.data) setJob(...)` with no else — a failed fetch left the
+      // sheet rendering its empty state, which reads as "this job has nothing
+      // on it" rather than "we could not load it".
+      else setLoadError(res.error ?? "Couldn't load this job");
       setLoading(false);
     });
   }, [jobId, open]);
@@ -139,12 +145,18 @@ export function JobDetailSheet({
   async function refreshDetail() {
     if (!jobId) return;
     const res = await getJob(jobId);
-    if (!res.data) {
+    if (res.data) {
+      setJob(res.data as JobDetail);
+      return;
+    }
+    // Only a 404 means the job is gone. Closing the sheet on a 500 loses the
+    // user's place and tells them something untrue.
+    if (res.status === 404) {
       toast.error("This job no longer exists");
       onOpenChange(false);
       return;
     }
-    setJob(res.data as JobDetail);
+    toast.error(res.error ?? "Couldn't refresh this job");
   }
 
   async function handleStatusAction(newStatus: string) {
@@ -268,6 +280,17 @@ export function JobDetailSheet({
       onOpenChange={onOpenChange}
       loading={loading}
       hasData={!!job}
+      loadError={loadError}
+      onRetry={() => {
+        if (!jobId) return;
+        setLoading(true);
+        setLoadError(null);
+        getJob(jobId).then((res) => {
+          if (res.data) setJob(res.data as JobDetail);
+          else setLoadError(res.error ?? "Couldn't load this job");
+          setLoading(false);
+        });
+      }}
       onDelete={job ? () => onDelete(job) : undefined}
       renderTitle={() => (
         <>

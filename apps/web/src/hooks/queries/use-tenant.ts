@@ -30,3 +30,23 @@ export function useUpdateTenant() {
     onError: () => toast.error("Failed to save settings"),
   });
 }
+
+/**
+ * The tenant's IANA timezone, with a safe fallback while the query is in flight.
+ *
+ * Falls back to the *viewer's* zone, never to UTC — a UTC fallback is what made
+ * "Today" jump to tomorrow's jobs at 6pm Central (JOB-20, CUST-06). Components
+ * that render dates should compare against this rather than `new Date()`.
+ */
+export function useTenantTimezone(): string {
+  const query = useTenantSettings();
+  const tenantZone = (
+    query.data?.data as { timezone?: string } | undefined
+  )?.timezone;
+  return (
+    tenantZone ??
+    (typeof Intl !== "undefined"
+      ? Intl.DateTimeFormat().resolvedOptions().timeZone
+      : "UTC")
+  );
+}

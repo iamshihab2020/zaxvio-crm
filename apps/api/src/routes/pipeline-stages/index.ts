@@ -21,10 +21,10 @@ import {
 } from "../../lib/schemas/pipelines.js";
 
 const DEFAULT_STAGES = [
-  { name: "scheduled", label: "Scheduled", color: "blue", sortOrder: 0, isDefault: true },
-  { name: "in_progress", label: "In Progress", color: "brand", sortOrder: 1, isDefault: true },
-  { name: "completed", label: "Completed", color: "green", sortOrder: 2, isDefault: true },
-  { name: "cancelled", label: "Cancelled", color: "gray", sortOrder: 3, isDefault: true },
+  { name: "scheduled", label: "Scheduled", color: "blue", lifecycle: "scheduled", sortOrder: 0, isDefault: true },
+  { name: "in_progress", label: "In Progress", color: "brand", lifecycle: "in_progress", sortOrder: 1, isDefault: true },
+  { name: "completed", label: "Completed", color: "green", lifecycle: "completed", sortOrder: 2, isDefault: true },
+  { name: "cancelled", label: "Cancelled", color: "gray", lifecycle: "cancelled", sortOrder: 3, isDefault: true },
 ] as const;
 
 function slugify(text: string): string {
@@ -94,6 +94,7 @@ async function ensureDefaultStages(
       name: s.name,
       label: s.label,
       color: s.color,
+      lifecycle: s.lifecycle,
       sortOrder: s.sortOrder,
       isDefault: s.isDefault,
     })),
@@ -122,15 +123,43 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { pipelineId: queryPipelineId } = request.query;
       const db = getDb();
 
-      // Resolve pipeline
+      // JOB-29: this GET used to *write* — it called `getOrCreateDefaultPipeline`
+      // and `ensureDefaultStages` unconditionally, so a plain read could insert
+      // a pipeline and four stages. A read endpoint that mutates surprises
+      // callers, caches and concurrent requests alike, and it ran on every board
+      // load forever to serve a case that only arises once per tenant.
+      //
+      // Seeding now happens only when there is genuinely nothing to return,
+      // which is the one situation where the write is the caller's intent.
       let pipelineId = queryPipelineId;
       if (!pipelineId) {
-        const defaultPipeline = await getOrCreateDefaultPipeline(db, tenantId);
-        pipelineId = defaultPipeline.id;
+        const existingDefault = await db
+          .select({ id: pipelines.id })
+          .from(pipelines)
+          .where(
+            and(eq(pipelines.tenantId, tenantId), eq(pipelines.isDefault, true)),
+          )
+          .then((r) => r[0]);
+        pipelineId =
+          existingDefault?.id ??
+          (await getOrCreateDefaultPipeline(db, tenantId)).id;
       }
 
-      // Lazy-init: seed defaults if pipeline has no stages
-      await ensureDefaultStages(db, tenantId, pipelineId);
+      const hasStages = await db
+        .select({ id: jobPipelineStages.id })
+        .from(jobPipelineStages)
+        .where(
+          and(
+            eq(jobPipelineStages.tenantId, tenantId),
+            eq(jobPipelineStages.pipelineId, pipelineId),
+          ),
+        )
+        .limit(1)
+        .then((r) => r.length > 0);
+
+      if (!hasStages) {
+        await ensureDefaultStages(db, tenantId, pipelineId);
+      }
 
       const data = await db
         .select({
@@ -142,16 +171,39 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
           color: jobPipelineStages.color,
           sortOrder: jobPipelineStages.sortOrder,
           isDefault: jobPipelineStages.isDefault,
+          lifecycle: jobPipelineStages.lifecycle,
           createdAt: jobPipelineStages.createdAt,
           updatedAt: jobPipelineStages.updatedAt,
+          // Counts the jobs the board actually renders. This matched on
+          // `status = name` with no `archived_at` filter, so a column header
+          // counted archived jobs that were not in the column beneath it —
+          // the uniform-archived_at rule the reports and customers audits
+          // already established. Now keyed on `stage_id`, which is indexed.
+          //
+          // The outer columns are written out in full rather than interpolated.
+          // Drizzle renders an embedded column as a BARE quoted name (`"id"`),
+          // and inside this subquery Postgres resolves a bare name against
+          // `jobs` first: `${jobPipelineStages.id}` becomes `jobs.id`, so
+          // `jobs.stage_id = jobs.id` is never true and every count is 0. The
+          // previous version had the same defect in the other direction —
+          // `jobs.pipeline_id = "pipeline_id"` bound to `jobs`' own column and
+          // was always true, so the count silently ignored the pipeline and
+          // counted every job with that status across the whole tenant.
+          // Aliasing the inner table to `j` keeps the outer reference readable.
           jobCount: sql<number>`(
-            SELECT COUNT(*)::int FROM jobs
-            WHERE jobs.pipeline_id = ${jobPipelineStages.pipelineId}
-              AND jobs.status = ${jobPipelineStages.name}
+            SELECT COUNT(*)::int FROM jobs j
+            WHERE j.stage_id = job_pipeline_stages.id
+              AND j.tenant_id = job_pipeline_stages.tenant_id
+              AND j.archived_at IS NULL
           )`,
         })
         .from(jobPipelineStages)
-        .where(eq(jobPipelineStages.pipelineId, pipelineId))
+        .where(
+          and(
+            eq(jobPipelineStages.tenantId, tenantId),
+            eq(jobPipelineStages.pipelineId, pipelineId),
+          ),
+        )
         .orderBy(asc(jobPipelineStages.sortOrder));
 
       return reply.send({ data });
@@ -227,6 +279,8 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
           name,
           label: body.label.trim(),
           color: body.color || "gray",
+          // Unset means "a new column jobs can start in" — the safe default.
+          lifecycle: body.lifecycle ?? "scheduled",
           sortOrder: nextSortOrder,
           isDefault: false,
         })
@@ -307,6 +361,10 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
         updates.color = body.color;
       }
 
+      if (body.lifecycle) {
+        updates.lifecycle = body.lifecycle;
+      }
+
       if (body.label?.trim()) {
         updates.label = body.label.trim();
         const newName = slugify(body.label);
@@ -330,17 +388,13 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
           updates.name = newName;
 
-          // Update all jobs with old status name within this pipeline
+          // Keep the denormalised `jobs.status` in step with the rename.
+          // Matched on the old status string before, which missed any job whose
+          // status had drifted; the stage pointer cannot drift.
           await db
             .update(jobs)
             .set({ status: newName, updatedAt: new Date() })
-            .where(
-              and(
-                eq(jobs.tenantId, tenantId),
-                eq(jobs.pipelineId, existing.pipelineId),
-                eq(jobs.status, existing.name),
-              ),
-            );
+            .where(and(eq(jobs.tenantId, tenantId), eq(jobs.stageId, id)));
         }
       }
 
@@ -389,17 +443,15 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Stage not found" });
       }
 
-      // Check if any jobs use this stage within this pipeline
+      // Any job pointing at this stage blocks the delete — archived ones
+      // included. `jobs.stage_id` is ON DELETE SET NULL, so an archived job
+      // excluded from this guard would quietly lose its column the moment the
+      // stage went. Same shape as the customers cascade guard: count what the
+      // constraint would touch, not what the UI currently shows.
       const jobCountResult = await db
         .select({ total: count() })
         .from(jobs)
-        .where(
-          and(
-            eq(jobs.tenantId, tenantId),
-            eq(jobs.pipelineId, existing.pipelineId),
-            eq(jobs.status, existing.name),
-          ),
-        );
+        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.stageId, id)));
 
       const jobCount = jobCountResult[0]?.total ?? 0;
       if (jobCount > 0) {

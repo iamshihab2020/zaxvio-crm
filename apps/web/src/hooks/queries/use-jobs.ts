@@ -75,8 +75,15 @@ export function useUpdateJob() {
 export function useUpdateJobStatus() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      updateJobStatus(id, status),
+    mutationFn: ({
+      id,
+      status,
+      stageId,
+    }: {
+      id: string;
+      status?: string;
+      stageId?: string;
+    }) => updateJobStatus(id, { status, stageId }),
     onSuccess: (res) => {
       if (res.error) {
         toast.error(res.error);
@@ -97,6 +104,15 @@ export function useReorderJobs() {
       if (res.error) {
         toast.error(res.error);
         return;
+      }
+      // Positions saved, but the server may have refused a stage move. Say so —
+      // otherwise the card snaps back on refetch and looks like a lost drag.
+      if (res.skipped.length > 0) {
+        toast.warning(
+          res.skipped.length === 1
+            ? res.skipped[0].reason
+            : `${res.skipped.length} jobs could not be moved — ${res.skipped[0].reason}`,
+        );
       }
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
     },

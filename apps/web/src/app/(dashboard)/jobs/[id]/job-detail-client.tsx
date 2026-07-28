@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { JobDetail } from "@/components/dashboard/jobs/job-detail-sheet";
-import { getJob } from "@/actions/jobs";
+import { useJob } from "@/hooks/queries";
+import { queryKeys } from "@/lib/query-keys";
 import { JobDetailPageHeader } from "@/components/dashboard/jobs/job-detail-page-header";
 import { JobInfoPanel } from "@/components/dashboard/jobs/job-info-panel";
 import { JobTabsPanel } from "@/components/dashboard/jobs/job-tabs-panel";
@@ -24,32 +27,63 @@ interface JobDetailClientProps {
   stages: PipelineStage[];
 }
 
+/**
+ * JOB-40: this page kept its job in `useState` and refetched by hand, so the
+ * TanStack Query migration ("all 14 page-clients migrated") never reached it —
+ * and a mutation made from here could not invalidate the jobs list. It reads
+ * through `useJob` now, seeded by the server render, so mutation hooks that
+ * invalidate `queryKeys.jobs.detail(id)` actually reach this page.
+ */
+
 export function JobDetailClient({
   job: initialJob,
   stages,
 }: JobDetailClientProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("jobs");
-  const [job, setJob] = useState<JobDetail>(initialJob);
 
-  // Set preference to "page" since user is on the full page view
+  const jobQuery = useJob(initialJob.id);
+  // The server already rendered this job; fall back to it until the query
+  // resolves so there is never a blank frame on first paint.
+  const job = (jobQuery.data?.data as JobDetail | undefined) ?? initialJob;
+
+  // JOB-38: these were two effects racing on the same value. On mount with a
+  // stored preference of "sidebar", the first set it to "page" while the second
+  // read the still-stale "sidebar" and pushed straight back to /jobs — so any
+  // deep link into a job bounced to the list. Landing on this route *is* the
+  // preference; only a later, deliberate change should navigate.
+  const adoptedPageMode = useRef(false);
   useEffect(() => {
-    if (viewMounted && viewMode !== "page") {
-      setViewMode("page");
-    }
+    if (!viewMounted || adoptedPageMode.current) return;
+    adoptedPageMode.current = true;
+    if (viewMode !== "page") setViewMode("page");
   }, [viewMounted]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When user switches away from "page" mode, navigate back to list with deep-link
+  // Navigate back to the list only when the user switches away *after* arriving.
   useEffect(() => {
-    if (viewMounted && viewMode !== "page") {
-      router.push(`/jobs?jobId=${job.id}`);
-    }
+    if (!viewMounted || !adoptedPageMode.current) return;
+    if (viewMode === "page") return;
+    router.push(`/jobs?jobId=${job.id}`);
   }, [viewMode, viewMounted, router, job.id]);
 
   const refreshJob = useCallback(async () => {
-    const res = await getJob(job.id);
-    if (res.data) setJob(res.data as JobDetail);
-  }, [job.id]);
+    const res = await jobQuery.refetch();
+    const result = res.data;
+    if (result?.data) {
+      // Keep the list and the board in step with an edit made from this page.
+      queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
+      return;
+    }
+    // Was `if (res.data) setJob(...)` with no else, so a failed refresh after a
+    // save left the old values on screen looking saved.
+    if (result?.status === 404) {
+      toast.error("This job no longer exists.");
+      router.push("/jobs");
+      return;
+    }
+    toast.error(result?.error ?? "Couldn't refresh this job");
+  }, [jobQuery, queryClient, router]);
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">

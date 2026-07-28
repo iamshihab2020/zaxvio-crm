@@ -30,6 +30,8 @@ import {
 } from "@tabler/icons-react";
 import type { CardFieldVisibility } from "./card-fields-popover";
 import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
+import { tenantToday } from "@/lib/tenant-time";
+import { useTenantTimezone } from "@/hooks/queries";
 
 export interface JobCardData {
   id: string;
@@ -114,6 +116,7 @@ export function KanbanCard({
   onAssigneeChange,
   onJobFieldChange,
 }: KanbanCardProps) {
+  const timeZone = useTenantTimezone();
   const {
     attributes,
     listeners,
@@ -137,8 +140,12 @@ export function KanbanCard({
       ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()
       : "No customer";
 
-  const isToday =
-    job.scheduledDate === new Date().toISOString().split("T")[0];
+  // `new Date().toISOString()` is the **UTC** date, so for America/Chicago this
+  // badge moved onto tomorrow's jobs at 18:00-19:00 local — the tech's board
+  // said "Today" on work that was not today. Tenant timezone was already
+  // plumbed end-to-end for the dashboard and `lib/tenant-time.ts` written for
+  // the calendar; nothing under components/dashboard/jobs/ had ever used it.
+  const isToday = job.scheduledDate === tenantToday(timeZone);
 
   // Default all fields to visible if not provided
   const vf = visibleFields ?? {

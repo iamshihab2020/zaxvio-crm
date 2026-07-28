@@ -20,7 +20,7 @@ import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
 import type { CardFieldVisibility } from "./card-fields-popover";
 import type { AssigneeMember } from "./assignee-picker";
-import { reorderJobs } from "@/actions/jobs";
+import { reorderJobs, updateJobStatus } from "@/actions/jobs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
@@ -259,8 +259,22 @@ export function KanbanBoard({
 
     const stageJobs = getStageJobs(overStage);
 
+    // JOB-30: these two branches were independent `if`s, and dropping onto a
+    // *card* in another column satisfied both — two concurrent writes for one
+    // drop, last-wins. A drop is either a reposition or a move, never both:
+    // decide once, here.
+    const job = localJobs.find((j) => j.id === activeId);
+    const originalJob = jobs.find((j) => j.id === activeId);
+    const isCrossColumn = Boolean(
+      job && originalJob && job.status !== originalJob.status,
+    );
+
     // Reorder within the same stage
-    if (activeId !== overId && over.data.current?.type !== "column") {
+    if (
+      !isCrossColumn &&
+      activeId !== overId &&
+      over.data.current?.type !== "column"
+    ) {
       const oldIndex = stageJobs.findIndex((j) => j.id === activeId);
       const newIndex = stageJobs.findIndex((j) => j.id === overId);
 
@@ -273,41 +287,52 @@ export function KanbanBoard({
           return [...otherJobs, ...reordered];
         });
 
-        // Persist with error revert
+        // Positions only — /reorder no longer moves jobs between stages.
         reorderJobs(
-          reordered.map((j, i) => ({ id: j.id, sortOrder: i, status: overStage! })),
+          reordered.map((j, i) => ({ id: j.id, sortOrder: i })),
         ).then((result) => {
           if (result.error) {
             setLocalJobs(snapshotRef.current);
             toast.error("Failed to reorder");
+          } else if (result.skipped.length > 0) {
+            setLocalJobs(snapshotRef.current);
+            toast.error(result.skipped[0].reason);
           }
         });
       }
     }
 
     // Cross-column move (status change)
-    const job = localJobs.find((j) => j.id === activeId);
-    const originalJob = jobs.find((j) => j.id === activeId);
-    if (job && originalJob && job.status !== originalJob.status) {
+    if (isCrossColumn && job) {
       const targetStage = stages.find((s) => s.name === job.status);
       const snapshot = snapshotRef.current;
 
       // Block parent sync while API is in flight
       pendingMoveRef.current = true;
 
-      // Persist status + sort order (fire-and-forget with error revert)
+      // The stage change goes through PATCH /:id/status — the one writer that
+      // enforces the required-checklist gate and sends the completion email,
+      // the notification and the activity row. /reorder only saves positions,
+      // and only once the move itself is accepted.
       const targetJobs = localJobs.filter((j) => j.status === job.status);
-      reorderJobs(
-        targetJobs.map((j, i) => ({ id: j.id, sortOrder: i, status: job.status })),
-      ).then((result) => {
-        pendingMoveRef.current = false;
+      updateJobStatus(activeId, {
+        stageId: targetStage?.id,
+        status: targetStage ? undefined : job.status,
+      }).then((result) => {
         if (result.error) {
+          pendingMoveRef.current = false;
           setLocalJobs(snapshot);
           toast.error(result.error);
-        } else {
+          return;
+        }
+
+        reorderJobs(
+          targetJobs.map((j, i) => ({ id: j.id, sortOrder: i })),
+        ).then(() => {
+          pendingMoveRef.current = false;
           toast.success(`Job moved to ${targetStage?.label ?? job.status}`);
           onStatusChange();
-        }
+        });
       });
     }
   }

@@ -242,7 +242,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["kanban", "board", "drag", "columns", "pipeline", "board view"],
     question: "How does the Kanban board work?",
     answer:
-      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of jobs in that stage.",
+      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of **active** jobs in that stage — archived jobs are excluded.\n\n**Filter** by priority, service type or **assignee** with the funnel icon. If a pipeline holds more jobs than the board loads at once, a banner tells you how many are hidden — use a filter or the table view to reach the rest.",
   },
   {
     id: "jobs-table",
@@ -258,7 +258,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["status", "move", "stage", "pipeline", "progress", "workflow"],
     question: "How do job statuses work?",
     answer:
-      'Jobs move through **custom pipeline stages** on the Kanban board. Drag a card between columns, or open the job detail and use the **status dropdown**. You can also click **"Move to [next stage]"** button in the detail page.\n\nCustomize your stages via **Manage Pipeline** (gear icon on Jobs page).',
+      'Jobs move through **custom pipeline stages** on the Kanban board. Drag a card between columns, or open the job detail and use the **status dropdown**. You can also click the **"Move to [next stage]"** button in the detail page.\n\nMoves follow the stage\'s **type**: a *Scheduled* job can go to *In Progress* or *Cancelled*; an *In Progress* job can be *Completed* or *Cancelled*; *Completed* is final; a *Cancelled* job can be re-scheduled. Moving between two columns of the same type is always allowed. If a move is refused the board says why and puts the card back.\n\nCompleting a job — from the board, the detail page, or a bulk action — requires every **required** checklist item to be ticked, and sends the customer a completion email.\n\nCustomize your stages via **Manage Pipeline** (gear icon on Jobs page).',
   },
   {
     id: "jobs-pipeline-custom",
@@ -266,7 +266,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["pipeline", "customize", "manage", "stages", "columns", "reorder", "color"],
     question: "How do I customize pipeline stages?",
     answer:
-      'On the **Jobs** page, click the **gear icon** or **"Manage Pipeline"** button. In the dialog:\n\n• **Add stages** with a name, label, and color\n• **Drag to reorder** stages (uses drag-and-drop)\n• **Edit** stage name and color inline\n• **Delete** stages (only if no jobs are in that stage)\n\n8 color presets available: blue, brand, green, red, purple, amber, gray, teal.',
+      'On the **Jobs** page, click the **gear icon** or **"Manage Pipeline"** button. In the dialog:\n\n• **Add stages** with a label, color, and **stage type**\n• **Drag to reorder** stages (uses drag-and-drop)\n• **Edit** stage label, color and type inline\n• **Delete** stages (only if no jobs are in that stage — archived jobs count too)\n\n**Stage type** tells the app what a job sitting in that column actually is: *Scheduled*, *In Progress*, *Completed* or *Cancelled*. Name a column anything you like — "Awaiting Parts", "Ready to Invoice" — and set its type so everything else behaves correctly. A column typed *Completed* will demand the required checklist items and email the customer; one typed *In Progress* will not. New stages default to *Scheduled*.\n\n8 color presets available: blue, brand, green, red, purple, amber, gray, teal.',
   },
   {
     id: "jobs-multi-pipeline",
