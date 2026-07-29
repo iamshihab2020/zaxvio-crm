@@ -85,7 +85,18 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Match all paths except Next.js internals and static files
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Match all paths except Next.js internals, static files, and the paths
+    // that next.config.mjs proxies through to the Fastify API.
+    //
+    // Those proxied paths MUST be excluded. Middleware runs before rewrites, so
+    // without this the redirect above fires first and an unauthenticated
+    // request to /api/auth/sign-up/email is answered with a 307 to /login
+    // instead of reaching the API — sign-in and sign-up become impossible, and
+    // the browser sees a login page where it expected JSON.
+    //
+    // This only became reachable when browser traffic moved to the same origin.
+    // Previously these calls went straight to the API's own domain, where
+    // Next.js middleware never saw them.
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|events|equipment/[^/]+/history|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
