@@ -1,0 +1,85 @@
+# Render Blueprint — Fastify API
+#
+# Keeping the service definition here rather than clicked into the dashboard
+# means the build command, start command and the *names* of every required
+# environment variable are reviewed in pull requests like any other code.
+#
+# Secret VALUES are never in this file. `sync: false` tells Render "this key is
+# required, prompt me for it" — the value is entered once in the dashboard and
+# stored there.
+#
+# Why the API needs a persistent container rather than serverless functions:
+# it runs in-process cron jobs (lib/cron/email-cron.ts), holds an in-memory
+# event bus behind the SSE endpoint at /events, and caches analytics in memory.
+# All three assume a process that stays alive between requests.
+
+services:
+  - type: web
+    name: zaxvio-api
+    runtime: node
+    plan: free
+    # Free tier regions: oregon, ohio, virginia, frankfurt, singapore.
+    region: oregon
+    branch: main
+    autoDeploy: true
+
+    # Render checks this path after each deploy and will not promote a release
+    # that never answers. Cheap protection against shipping a boot crash.
+    healthCheckPath: /health
+
+    # `packageManager` in the root package.json pins pnpm; corepack reads it,
+    # so the version here can never drift from the version used locally.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    # No compile step. Every workspace package exports raw TypeScript
+    # (`"." : "./src/index.ts"`), so a tsc build would emit JavaScript that
+    # imports .ts files Node cannot execute. tsx runs the source directly.
+    # Type checking happens in CI instead — see .github/workflows/ci.yml.
+    startCommand: pnpm --filter api start
+
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+
+      # Required. The API refuses to boot without these.
+      - key: DATABASE_URL
+        sync: false
+      - key: BETTER_AUTH_SECRET
+        sync: false
+
+      # Public URLs. API_BASE_URL is this service's own address; FRONTEND_URL is
+      # the Vercel deployment. FRONTEND_URL is also the CORS allowlist and
+      # Better Auth's trusted origin, so a wrong value here reads as a login bug.
+      - key: API_BASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+
+      # Shared with the Next.js app. Lets the public booking portal be rate
+      # limited per visitor instead of per Next server. Must match exactly.
+      - key: INTERNAL_PROXY_SECRET
+        sync: false
+
+      # Cloudflare R2. Optional at boot — the startup banner flags them as
+      # missing and every upload or PDF download fails until they are set.
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_PUBLIC_BUCKET
+        sync: false
+      - key: R2_PRIVATE_BUCKET
+        sync: false
+      - key: R2_PUBLIC_URL
+        sync: false
+
+      # Resend. Leave blank to disable sending — every send then no-ops with a
+      # warning instead of throwing. Setting the key without a domain verified
+      # in Resend makes every send 403 instead.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false

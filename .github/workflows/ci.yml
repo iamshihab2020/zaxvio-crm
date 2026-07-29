@@ -1,0 +1,48 @@
+name: CI
+
+# Runs on every pull request and every push to main.
+#
+# This is the type-checking gate. It matters more than usual here: the API is
+# started with `tsx`, which strips types and runs the source without checking
+# them, so nothing else in the pipeline would catch a type error before it
+# reached production.
+#
+# `pnpm test` is deliberately absent — the repo currently has zero test files,
+# and `vitest run` exits non-zero when it finds none. Add the step here the day
+# the first test lands.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  # A second push to the same branch cancels the first — no point burning
+  # minutes type-checking a commit that is already superseded.
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reads the `packageManager` field in the root package.json, so the pnpm
+      # version here can never drift from the one used locally or on Render.
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint

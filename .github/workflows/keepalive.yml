@@ -1,0 +1,45 @@
+name: Keep API awake
+
+# Render's free web services sleep after 15 minutes with no traffic, and a cold
+# start takes about a minute. That is survivable for page loads, but it is not
+# survivable for the API's in-process cron jobs (lib/cron/email-cron.ts): a
+# sleeping process runs no timers, so overdue-invoice, renewal and trial-expiry
+# emails would simply never be sent — silently, with no error anywhere.
+#
+# Pinging /health every 10 minutes keeps the process resident. That is roughly
+# 730 instance-hours a month against Render's 750-hour free allowance, so it
+# fits — but it fits with little room, which is why this pings one service and
+# not several.
+#
+# GitHub throttles scheduled workflows on busy runners, so a tick is sometimes
+# late. The 15-minute sleep timer tolerates that; a 14-minute interval would not.
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  # Handy for confirming the URL secret is right without waiting for a tick.
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ping /health
+        env:
+          # Repository secret. Just the origin, no trailing slash —
+          # e.g. https://zaxvio-api.onrender.com
+          API_URL: ${{ secrets.RENDER_API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::RENDER_API_URL secret is not set — the API is not being kept awake."
+            exit 1
+          fi
+
+          # --max-time 90 rather than the default: if the service *had* fallen
+          # asleep, this request is the one paying the cold-start cost.
+          # --retry covers a spin-up that overruns the first attempt.
+          curl --fail --silent --show-error \
+               --max-time 90 --retry 2 --retry-delay 15 \
+               "$API_URL/health"

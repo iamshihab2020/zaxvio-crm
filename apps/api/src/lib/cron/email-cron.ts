@@ -78,6 +78,14 @@ export async function processOverdueInvoiceReminders(): Promise<void> {
   const now = new Date();
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
+  // Bound parameters in a raw `sql` template go straight to postgres.js, which
+  // serialises strings and numbers but throws ERR_INVALID_ARG_TYPE on a Date
+  // ("must be of type string or an instance of Buffer"). Drizzle's query
+  // builder converts Dates for you; `db.execute(sql`…`)` does not. Every
+  // timestamp interpolated below must therefore be an ISO string.
+  const nowIso = now.toISOString();
+  const twentyFourHoursAgoIso = twentyFourHoursAgo.toISOString();
+
   try {
     // Claim first, send second. `due_date < (now() AT TIME ZONE t.timezone)`
     // is the same predicate `overdueCondition()` builds for the list and the
@@ -85,7 +93,7 @@ export async function processOverdueInvoiceReminders(): Promise<void> {
     // can span tenants in different zones.
     const claimed = await db.execute(sql`
       UPDATE invoices AS i
-      SET last_overdue_reminder_at = ${now}, status = 'overdue', updated_at = ${now}
+      SET last_overdue_reminder_at = ${nowIso}, status = 'overdue', updated_at = ${nowIso}
       FROM tenants AS t
       WHERE t.id = i.tenant_id
         AND i.archived_at IS NULL
@@ -95,7 +103,7 @@ export async function processOverdueInvoiceReminders(): Promise<void> {
         AND i.due_date < (now() AT TIME ZONE t.timezone)::date
         AND (
           i.last_overdue_reminder_at IS NULL
-          OR i.last_overdue_reminder_at < ${twentyFourHoursAgo}
+          OR i.last_overdue_reminder_at < ${twentyFourHoursAgoIso}
         )
       RETURNING
         i.id,
@@ -165,10 +173,13 @@ export async function sendOverdueReminder(
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   const now = new Date();
   const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+  // ISO strings, not Dates — see processOverdueInvoiceReminders above.
+  const nowIso = now.toISOString();
+  const fiveMinutesAgoIso = fiveMinutesAgo.toISOString();
 
   const claimed = await db.execute(sql`
     UPDATE invoices AS i
-    SET last_overdue_reminder_at = ${now}, updated_at = ${now}
+    SET last_overdue_reminder_at = ${nowIso}, updated_at = ${nowIso}
     FROM tenants AS t
     WHERE t.id = i.tenant_id
       AND i.id = ${invoiceId}
@@ -178,7 +189,7 @@ export async function sendOverdueReminder(
       AND i.due_date IS NOT NULL
       AND (
         i.last_overdue_reminder_at IS NULL
-        OR i.last_overdue_reminder_at < ${fiveMinutesAgo}
+        OR i.last_overdue_reminder_at < ${fiveMinutesAgoIso}
       )
     RETURNING
       i.id,
@@ -220,13 +231,15 @@ const reviewClaimRow = z.object({
 export async function processReviewRequests(): Promise<void> {
   const db = getDb();
   const now = new Date();
+  // ISO string, not a Date — see processOverdueInvoiceReminders above.
+  const nowIso = now.toISOString();
 
   try {
     const claimed = await db.execute(sql`
       UPDATE invoices
-      SET review_requested_at = ${now}, review_email_scheduled_at = NULL, updated_at = ${now}
+      SET review_requested_at = ${nowIso}, review_email_scheduled_at = NULL, updated_at = ${nowIso}
       WHERE review_email_scheduled_at IS NOT NULL
-        AND review_email_scheduled_at <= ${now}
+        AND review_email_scheduled_at <= ${nowIso}
         AND review_requested_at IS NULL
         AND status = 'paid'
         AND archived_at IS NULL

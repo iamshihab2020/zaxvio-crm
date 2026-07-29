@@ -42,6 +42,14 @@ const clientSchema = z.object({
 /** Server-only config. Never prefixed `NEXT_PUBLIC_` — must stay out of the browser bundle. */
 const serverSchema = z.object({
   FRONTEND_URL: z.string().url("FRONTEND_URL must be a valid URL"),
+  /**
+   * The Fastify API's real address, used by server actions and by the
+   * `/api/auth` + `/events` rewrites in next.config.mjs. Distinct from
+   * `NEXT_PUBLIC_API_URL`, which in production is this app's own origin so the
+   * browser's session cookie stays first-party — see lib/api-url.ts.
+   * Optional: unset means single-origin local development.
+   */
+  API_INTERNAL_URL: optionalString(z.string().url("API_INTERNAL_URL must be a valid URL")),
   // Optional: the chatbot route degrades to a friendly error when unset.
   GROQ_API_KEY: optionalString(z.string().min(1)),
   /**
@@ -95,6 +103,7 @@ export function getServerEnv(): ServerEnv {
   if (!cachedServerEnv) {
     const parsed = serverSchema.safeParse({
       FRONTEND_URL: process.env.FRONTEND_URL,
+      API_INTERNAL_URL: process.env.API_INTERNAL_URL,
       GROQ_API_KEY: process.env.GROQ_API_KEY,
       INTERNAL_PROXY_SECRET: process.env.INTERNAL_PROXY_SECRET,
     });
@@ -130,10 +139,26 @@ export function validateEnv(): { warnings: string[] } {
     );
   }
 
-  // A frontend pointed at its own origin instead of the API is a silent 404 factory.
-  if (client.NEXT_PUBLIC_API_URL === server.FRONTEND_URL) {
+  // In production the browser is *meant* to see the API at this app's own
+  // origin, with next.config.mjs rewriting /api/auth and /events upstream —
+  // that is what keeps Better Auth's session cookie first-party. The rewrites
+  // need API_INTERNAL_URL to know where upstream is, so same-origin without it
+  // is a silent 404 factory: every sign-in would hit this app's 404 page.
+  const sameOrigin = client.NEXT_PUBLIC_API_URL === server.FRONTEND_URL;
+
+  if (sameOrigin && !server.API_INTERNAL_URL) {
     warnings.push(
-      `NEXT_PUBLIC_API_URL and FRONTEND_URL are both "${server.FRONTEND_URL}" — the API should run on a different origin.`,
+      `NEXT_PUBLIC_API_URL and FRONTEND_URL are both "${server.FRONTEND_URL}" but API_INTERNAL_URL is not set — the /api/auth and /events rewrites have no upstream, so sign-in will 404.`,
+    );
+  }
+
+  // The inverse mistake: pointing the browser straight at a different host.
+  // Works locally, but on real domains the session cookie becomes third-party
+  // and Safari and Firefox drop it — sign-in "succeeds" and never persists.
+  const isLocal = client.NEXT_PUBLIC_API_URL.startsWith("http://localhost");
+  if (!sameOrigin && !isLocal) {
+    warnings.push(
+      `NEXT_PUBLIC_API_URL ("${client.NEXT_PUBLIC_API_URL}") differs from FRONTEND_URL ("${server.FRONTEND_URL}") — the browser will call the API cross-site and Safari/Firefox will drop the session cookie. Set NEXT_PUBLIC_API_URL to FRONTEND_URL and put the API address in API_INTERNAL_URL instead.`,
     );
   }
 
