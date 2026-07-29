@@ -4,7 +4,24 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**"]
+      "outputs": ["dist/**", ".next/**"],
+      // Turborepo runs each task in a FILTERED environment: anything not listed
+      // here is stripped before the task starts. `NEXT_PUBLIC_*` is passed
+      // through automatically by framework inference, so only the server-side
+      // variables need declaring — without them `next build` saw nothing but
+      // NEXT_PUBLIC_API_URL and failed on the API_INTERNAL_URL guard in
+      // next.config.mjs.
+      //
+      // Listing a key here also makes it part of the cache hash, so changing a
+      // value produces a fresh build instead of restoring output baked with the
+      // old one.
+      "env": [
+        "NODE_ENV",
+        "API_INTERNAL_URL",
+        "FRONTEND_URL",
+        "INTERNAL_PROXY_SECRET",
+        "GROQ_API_KEY"
+      ]
     },
     "lint": {
       "dependsOn": ["^build"],
