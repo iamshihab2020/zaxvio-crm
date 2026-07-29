@@ -20,6 +20,7 @@ import {
   sql,
   inArray,
 } from "@hvac-saas/database";
+import { containsPattern } from "../../lib/search.js";
 
 const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -67,9 +68,9 @@ const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (search) {
         filters.push(
           or(
-            ilike(catalogItems.name, `%${search}%`),
-            ilike(catalogItems.category, `%${search}%`),
-            ilike(catalogItems.description, `%${search}%`),
+            ilike(catalogItems.name, containsPattern(search)),
+            ilike(catalogItems.category, containsPattern(search)),
+            ilike(catalogItems.description, containsPattern(search)),
           )!,
         );
       }

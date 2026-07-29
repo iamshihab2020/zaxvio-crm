@@ -15,7 +15,58 @@ Reports live in [[reports/README|docs/claude/reports/]]. One file per page.
 - [x] Bookings & Calendar — [[bookings-calendar|report]]: 34 findings audited and **all 34 fixed** (2026-07-27)
 - [x] `/customers` — [[customers|report]]: 35 findings audited and **all 35 fixed** (2026-07-27)
 - [x] Jobs — [[jobs|report]]: 42 findings audited and **all 48 fixed** (2026-07-29) — the 42 plus 6 found while fixing. (The report header had undercounted its own medium section as 16; it is 20.)
-- [ ] Next page to audit — user picks
+- [x] Invoices — [[invoices|report]]: 42 findings audited and **all 42 fixed** (2026-07-29)
+- [ ] Next page to audit — user picks (suggested: Quotes — shares the money model and adds a public token surface)
+
+### Invoices Remediation (2026-07-29) — COMPLETE
+All 42 findings in [[invoices|the report]] are fixed; the record is [[invoices|§7]]. The headline
+from [[invoices|§2]] — of 17 remediation patterns established by the previous five audits exactly
+**one** had reached this page — was answered by running the sweeps repo-wide and recording the
+counts, which is the process change §2 asked for.
+- [x] **Phase 1 — money model** (INV-01, 02, 03, 04, 09) — done. INV-01/02/03 turned out to be *one*
+      defect: status was being **assigned** rather than **derived**. `services/invoices/status.service.ts`
+      computes it from the payment rows, so "delete the last payment → set sent" is no longer
+      expressible — a void invoice stays void and a never-sent draft stays a draft. The transition
+      table then only governs what a human legitimately chooses, which is why `paid` and
+      `partially_paid` appear on no row of it. `recordPayment`/`deletePayment` are one transaction
+      with `SELECT … FOR UPDATE` — the transaction alone would not have fixed the race.
+      `lib/invoice-guards.ts` took the archived check from **0 of 14** mutating handlers to all of them.
+- [x] **Phase 2 — criticals + overdue split** (INV-05, 06, 07, 08) — done. One `overdueCondition()`
+      backs the list, the stats endpoint and the cron. INV-06 was worse than "three definitions":
+      the cron restricted to `('sent','overdue')`, so a **partially_paid** invoice past its due date
+      was counted as overdue everywhere in the UI and **never chased** — a customer who paid half and
+      stopped was silently dropped. INV-08 made that moot for the primary flow anyway: `from-job`
+      set no `dueDate` at all, so those invoices were never overdue, never aged, never dunned, and
+      printed "Terms: Net 30" above a blank due date.
+- [x] **Phase 3 — propagation sweep, repo-wide** (INV-10, 11, 12, 13, 17, 18, 22, 31, 32) — done, with
+      counts in [[invoices|§7.3]]. `escapeLike` reached **7 more route files** (0 unescaped `ilike`
+      patterns remain repo-wide); the PDF logo guard covers **quotes as well as invoices**;
+      `formatMoney`/`formatDateOnly` replace **four** hand-rolled copies. `useInvoice` had **0 callers** —
+      so the hover prefetch was filling a cache nothing read, and sheet mutations invalidated nothing.
+- [x] **Phase 4 — medium** (INV-15, 16, 19, 20, 21, 23–30, 33, 34) — done. Server-rendered data was
+      fetched, passed, destructured and **never referenced**, so every load paid twice and still showed
+      a skeleton; E-12 review requests moved out of a 2-hour in-memory `setTimeout` into a column plus
+      a 15-minute sweep; both crons now **claim** rows with `UPDATE … RETURNING`, so N instances split
+      the work instead of duplicating it and a crash-loop stops being a mailing-loop.
+- [x] **Phase 5 — low + docs** (INV-35 … 42, INV-14) — done. Sortable and keyboard-reachable rows,
+      six new indexes, PDF fetched through a server action. All **22** endpoints documented (was 9,
+      and the one payment endpoint that was documented was wrong three ways).
+- [x] Closed the 5 entries in [[deferred-fixes/invoices]] (DF-INV-01 … 05, open since 2026-04-12),
+      each with a Resolution line.
+- [x] **Applied `20260729000002_invoices_audit_money_model.sql` to Neon** (2026-07-29).
+      **79/79 verified by execution.** Structure 23/23 — the before-state confirmed INV-33 exactly:
+      `invoice_line_items` and `invoice_payments` had **no index at all** beyond their primary keys,
+      so every detail fetch and every recalculation was a sequential scan. `EXPLAIN` now shows an
+      index scan. Idempotent across 4 runs (NOTICE-only; index and column sets byte-identical after
+      each). The two repair `UPDATE`s matched **0 rows** because the table is empty, so they were
+      exercised separately against 8 seeded corruption rows and rolled back: `paid` with zero payment
+      rows → `sent`, a paid-then-edited invoice → `partially_paid` with its balance restored from the
+      clamped `0.00` to `500.00`, a $50 overpayment recovered into `credit_amount` — and the negative
+      cases hold, a void invoice is never re-derived out of void and a genuine draft is never promoted.
+      Re-running the repair matches 0 rows, so it converges. Then 38/38 round-tripping the real
+      service layer against Neon, including the exact INV-02 scenario: adding a line item to a paid
+      invoice now re-derives `partially_paid` and clears the credit instead of reading **Paid** with
+      $511.88 owed.
 
 ### Jobs Remediation (2026-07-29) — COMPLETE
 All 48 findings in [[jobs|the report]] are fixed and verified. §5.1 answered **full split**: `job_pipeline_stages.lifecycle`

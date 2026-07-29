@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -15,14 +15,19 @@ import { InvoiceDetailTab } from "./invoice-detail-tab";
 import { InvoiceLineItemsTab } from "./invoice-line-items-tab";
 import { InvoicePaymentsTab } from "./invoice-payments-tab";
 import { InvoicePhotosTab } from "./invoice-photos-tab";
+import { downloadInvoicePdf } from "@/actions/invoices";
+import { openPdfPayload } from "@/lib/open-pdf";
 import {
-  getInvoice,
-  sendInvoice,
-  getInvoicePdfUrl,
-  voidInvoice,
-} from "@/actions/invoices";
+  useInvoice,
+  useSendInvoice,
+  useVoidInvoice,
+  useRemindInvoice,
+} from "@/hooks/queries";
 import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
 import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
+
+/** Statuses that may take a payment — mirrors `PAYABLE_STATUSES` on the server. */
+const PAYABLE = ["sent", "partially_paid", "overdue"];
 
 export interface InvoiceDetail {
   id: string;
@@ -37,6 +42,7 @@ export interface InvoiceDetail {
   totalAmount: string;
   amountPaid: string;
   balanceDue: string;
+  creditAmount: string | null;
   notes: string | null;
   pdfStoragePath: string | null;
   customerId: string;
@@ -84,63 +90,53 @@ export function InvoiceDetailSheet({
   onDelete,
   onDataChange,
 }: InvoiceDetailSheetProps) {
-  const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [sendLoading, setSendLoading] = useState(false);
   const [voidDialogOpen, setVoidDialogOpen] = useState(false);
-  const [voidLoading, setVoidLoading] = useState(false);
 
-  useEffect(() => {
-    if (!invoiceId || !open) {
-      setInvoice(null);
-      return;
-    }
-    setLoading(true);
-    getInvoice(invoiceId).then((res) => {
-      if (res.data) setInvoice(res.data as InvoiceDetail);
-      setLoading(false);
+  // INV-17: this kept the invoice in `useState` and refetched by hand, so
+  // `useInvoice` existed with **0 callers**, the hover prefetch filled a cache
+  // nothing read (INV-16), and a mutation made from the sheet could not
+  // invalidate anything. Same fix JOB-40 applied to the jobs detail page.
+  const query = useInvoice(open ? invoiceId : null);
+  const invoice = (query.data?.data as InvoiceDetail | undefined) ?? null;
+  const loadError = query.data?.error ?? (query.error ? "Network error" : null);
+
+  const sendMutation = useSendInvoice();
+  const voidMutation = useVoidInvoice();
+  const remindMutation = useRemindInvoice();
+
+  function handleSend() {
+    if (!invoice) return;
+    sendMutation.mutate(invoice.id, {
+      onSuccess: (res) => {
+        if (!res.error) onDataChange();
+      },
     });
-  }, [invoiceId, open]);
-
-  async function refreshDetail() {
-    if (!invoiceId) return;
-    const res = await getInvoice(invoiceId);
-    if (res.data) setInvoice(res.data as InvoiceDetail);
   }
 
-  async function handleSend() {
+  function handleRemind() {
     if (!invoice) return;
-    setSendLoading(true);
-    const result = await sendInvoice(invoice.id);
-    setSendLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Invoice sent successfully");
-      refreshDetail();
-      onDataChange();
-    }
+    remindMutation.mutate(invoice.id);
   }
 
   async function handleDownloadPdf() {
     if (!invoice) return;
-    const url = await getInvoicePdfUrl(invoice.id);
-    window.open(url, "_blank");
+    const res = await downloadInvoicePdf(invoice.id);
+    if (res.error || !res.data) {
+      toast.error(res.error ?? "Couldn't open the PDF");
+      return;
+    }
+    openPdfPayload(res.data);
   }
 
-  async function confirmVoid() {
+  function confirmVoid() {
     if (!invoice) return;
-    setVoidLoading(true);
-    const result = await voidInvoice(invoice.id);
-    setVoidLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Invoice voided");
-      setVoidDialogOpen(false);
-      refreshDetail();
-      onDataChange();
-    }
+    voidMutation.mutate(invoice.id, {
+      onSuccess: (res) => {
+        if (res.error) return;
+        setVoidDialogOpen(false);
+        onDataChange();
+      },
+    });
   }
 
   const tabs = useMemo(
@@ -154,9 +150,11 @@ export function InvoiceDetailSheet({
                 <InvoiceDetailTab
                   invoice={invoice}
                   onSend={handleSend}
+                  onRemind={handleRemind}
                   onDownloadPdf={handleDownloadPdf}
                   onVoid={() => setVoidDialogOpen(true)}
-                  sendLoading={sendLoading}
+                  sendLoading={sendMutation.isPending}
+                  remindLoading={remindMutation.isPending}
                 />
               ),
             },
@@ -169,10 +167,7 @@ export function InvoiceDetailSheet({
                   invoiceId={invoice.id}
                   lineItems={invoice.lineItems}
                   isDraft={invoice.status === "draft"}
-                  onUpdate={() => {
-                    refreshDetail();
-                    onDataChange();
-                  }}
+                  onUpdate={onDataChange}
                 />
               ),
             },
@@ -185,11 +180,10 @@ export function InvoiceDetailSheet({
                   invoiceId={invoice.id}
                   payments={invoice.payments}
                   balanceDue={invoice.balanceDue}
+                  creditAmount={invoice.creditAmount}
+                  canTakePayment={PAYABLE.includes(invoice.status)}
                   isVoid={invoice.status === "void"}
-                  onUpdate={() => {
-                    refreshDetail();
-                    onDataChange();
-                  }}
+                  onUpdate={onDataChange}
                 />
               ),
             },
@@ -205,70 +199,75 @@ export function InvoiceDetailSheet({
           ]
         : [],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [invoice, sendLoading],
+    [invoice, sendMutation.isPending, remindMutation.isPending],
   );
 
   return (
     <>
-    <EntityDetailShell
-      entityType="invoices"
-      entityRoute="/invoices"
-      entityLabel="Invoice"
-      entityId={invoiceId}
-      open={open}
-      onOpenChange={onOpenChange}
-      loading={loading}
-      hasData={!!invoice}
-      renderTitle={() => (
-        <>
-          <span className="font-heading text-xl tracking-tight">
-            {invoice!.invoiceNumber}
+      <EntityDetailShell
+        entityType="invoices"
+        entityRoute="/invoices"
+        entityLabel="Invoice"
+        entityId={invoiceId}
+        open={open}
+        onOpenChange={onOpenChange}
+        loading={query.isPending && !!invoiceId}
+        hasData={!!invoice}
+        // INV-12: the sheet discarded the error and passed only loading/hasData,
+        // so a 500 opened a completely blank sheet — the exact case
+        // `EntityDetailShell` gained `loadError`/`onRetry` for in July.
+        loadError={loadError}
+        onRetry={() => query.refetch()}
+        renderTitle={() => (
+          <>
+            <span className="font-heading text-xl tracking-tight">
+              {invoice!.invoiceNumber}
+            </span>
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <InvoiceStatusBadge status={invoice!.status} />
+            </div>
+          </>
+        )}
+        renderDescription={() => (
+          <span>
+            {invoice!.customerFirstName} {invoice!.customerLastName}
+            {invoice!.jobId && " · From Job"}
           </span>
-          <div className="flex items-center gap-1.5 mt-1.5">
-            <InvoiceStatusBadge status={invoice!.status} />
-          </div>
-        </>
-      )}
-      renderDescription={() => (
-        <span>
-          {invoice!.customerFirstName} {invoice!.customerLastName}
-          {invoice!.jobId && " \u00B7 From Job"}
-        </span>
-      )}
-      renderToolbarExtras={() => (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7 cursor-pointer hover:bg-muted"
-            >
-              <IconDots className="h-3.5 w-3.5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => invoice && onDelete(invoice)}
-              className="cursor-pointer text-destructive focus:text-destructive"
-            >
-              <IconTrash className="mr-2 h-4 w-4" />
-              Delete Invoice
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-      tabs={tabs}
-    />
+        )}
+        renderToolbarExtras={() => (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 cursor-pointer hover:bg-muted"
+              >
+                <IconDots className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => invoice && onDelete(invoice)}
+                className="cursor-pointer text-destructive focus:text-destructive"
+              >
+                <IconTrash className="mr-2 h-4 w-4" />
+                Delete Invoice
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        tabs={tabs}
+      />
 
-    <ConfirmActionDialog
-      title="Void Invoice"
-      description={`Are you sure you want to void invoice ${invoice?.invoiceNumber ?? ""}? This action cannot be undone.`}
-      open={voidDialogOpen}
-      onOpenChange={setVoidDialogOpen}
-      onConfirm={confirmVoid}
-      confirmLabel="Void Invoice"
-      loading={voidLoading}
-    />
+      <ConfirmActionDialog
+        title="Void Invoice"
+        description={`Are you sure you want to void invoice ${invoice?.invoiceNumber ?? ""}? This action cannot be undone.`}
+        open={voidDialogOpen}
+        onOpenChange={setVoidDialogOpen}
+        onConfirm={confirmVoid}
+        confirmLabel="Void Invoice"
+        loading={voidMutation.isPending}
+      />
     </>
   );
 }

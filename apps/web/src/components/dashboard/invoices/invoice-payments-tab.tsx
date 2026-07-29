@@ -14,12 +14,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  IconPlus,
-  IconTrash,
-  IconCash,
-} from "@tabler/icons-react";
-import { recordPayment, deletePayment } from "@/actions/invoices";
+import { IconPlus, IconTrash, IconCash, IconCheck } from "@tabler/icons-react";
+import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
+import { useRecordPayment, useDeletePayment, usePayInFull, useTenantSettings } from "@/hooks/queries";
+import { formatMoney, formatDateOnly } from "@/lib/format";
+import { tenantToday } from "@/lib/tenant-time";
 
 interface Payment {
   id: string;
@@ -43,72 +42,129 @@ interface InvoicePaymentsTabProps {
   invoiceId: string;
   payments: Payment[];
   balanceDue: string;
+  creditAmount?: string | null;
+  /** Whether this invoice may take a payment at all — server rule mirrored. */
+  canTakePayment: boolean;
   isVoid: boolean;
   onUpdate: () => void;
+}
+
+/**
+ * Parse what a contractor actually types into the amount box.
+ *
+ * The field was a plain text input whose only client check was `> 0`, so
+ * "1,000.00" and "$50" sailed past it and came back as a raw Zod error from the
+ * server regex (INV-28).
+ */
+function parseAmount(raw: string): number | null {
+  const cleaned = raw.replace(/[$,\s]/g, "");
+  if (!/^\d*\.?\d*$/.test(cleaned) || cleaned === "" || cleaned === ".") return null;
+  const num = parseFloat(cleaned);
+  return Number.isFinite(num) ? num : null;
 }
 
 export function InvoicePaymentsTab({
   invoiceId,
   payments,
   balanceDue,
+  creditAmount,
+  canTakePayment,
   isVoid,
   onUpdate,
 }: InvoicePaymentsTabProps) {
+  const tenantQuery = useTenantSettings();
+  // INV-20: the date picker defaulted to the *browser's* UTC day, so at 7pm
+  // Central it opened on tomorrow. `lib/tenant-time.ts` had zero references
+  // under `components/dashboard/invoices/`.
+  const timezone = tenantQuery.data?.data?.timezone ?? "UTC";
+  const today = tenantToday(timezone);
+
   const [showAdd, setShowAdd] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [amount, setAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("cash");
-  const [paymentDate, setPaymentDate] = useState(
-    new Date().toISOString().split("T")[0],
-  );
+  const [paymentDate, setPaymentDate] = useState(today);
   const [referenceNumber, setReferenceNumber] = useState("");
   const [notes, setNotes] = useState("");
+  const [deletingPayment, setDeletingPayment] = useState<Payment | null>(null);
+  const [payInFullOpen, setPayInFullOpen] = useState(false);
 
-  const totalPaid = payments.reduce(
-    (sum, p) => sum + parseFloat(p.amount),
-    0,
-  );
+  const recordMutation = useRecordPayment();
+  const deleteMutation = useDeletePayment();
+  const payInFullMutation = usePayInFull();
+
+  const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
+  const balance = parseFloat(balanceDue);
+  const credit = parseFloat(creditAmount ?? "0");
 
   function resetForm() {
     setAmount("");
     setPaymentMethod("cash");
-    setPaymentDate(new Date().toISOString().split("T")[0]);
+    setPaymentDate(today);
     setReferenceNumber("");
     setNotes("");
     setShowAdd(false);
   }
 
-  async function handleAdd() {
-    if (!amount || parseFloat(amount) <= 0) {
-      toast.error("Amount must be greater than 0");
+  function handleAdd() {
+    const parsed = parseAmount(amount);
+    if (parsed === null || parsed <= 0) {
+      toast.error("Enter an amount greater than zero");
       return;
     }
-    setSaving(true);
-    const result = await recordPayment(invoiceId, {
-      amount,
-      paymentMethod,
-      paymentDate,
-      referenceNumber: referenceNumber || undefined,
-      notes: notes || undefined,
-    });
-    setSaving(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Payment recorded");
-      resetForm();
-      onUpdate();
+    // Overpayment is allowed — it becomes a credit on the invoice — but it is
+    // almost always a typo, so say so rather than silently banking it.
+    if (parsed > balance) {
+      toast.warning(
+        `That is ${formatMoney(parsed - balance)} more than the balance. The excess will be held as a credit.`,
+      );
     }
+
+    recordMutation.mutate(
+      {
+        id: invoiceId,
+        data: {
+          amount: parsed.toFixed(2),
+          paymentMethod,
+          paymentDate,
+          referenceNumber: referenceNumber || undefined,
+          notes: notes || undefined,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          resetForm();
+          onUpdate();
+        },
+      },
+    );
   }
 
-  async function handleDelete(paymentId: string) {
-    const result = await deletePayment(invoiceId, paymentId);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Payment removed");
-      onUpdate();
-    }
+  function handlePayInFull() {
+    payInFullMutation.mutate(
+      { id: invoiceId, data: { paymentMethod, paymentDate } },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setPayInFullOpen(false);
+          onUpdate();
+        },
+      },
+    );
+  }
+
+  function confirmDelete() {
+    if (!deletingPayment) return;
+    deleteMutation.mutate(
+      { id: invoiceId, paymentId: deletingPayment.id },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setDeletingPayment(null);
+          onUpdate();
+        },
+      },
+    );
   }
 
   const methodLabel = (val: string | null) =>
@@ -117,19 +173,25 @@ export function InvoicePaymentsTab({
   return (
     <div>
       {/* Summary */}
-      <div className="flex items-center justify-between mb-4 px-3 py-2 rounded-md bg-muted/30 border border-border">
+      <div className="mb-4 flex items-center justify-between rounded-md border border-border bg-muted/30 px-3 py-2">
         <div>
           <p className="text-xs text-muted-foreground font-body">Total Paid</p>
           <p className="text-sm font-semibold text-green-600 dark:text-green-400 font-body">
-            ${totalPaid.toFixed(2)}
+            {formatMoney(totalPaid)}
           </p>
         </div>
+        {credit > 0 && (
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground font-body">Credit</p>
+            <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 font-body">
+              {formatMoney(credit)}
+            </p>
+          </div>
+        )}
         <div className="text-right">
-          <p className="text-xs text-muted-foreground font-body">
-            Balance Due
-          </p>
+          <p className="text-xs text-muted-foreground font-body">Balance Due</p>
           <p className="text-sm font-bold text-brand font-body">
-            ${parseFloat(balanceDue).toFixed(2)}
+            {formatMoney(balanceDue)}
           </p>
         </div>
       </div>
@@ -137,20 +199,20 @@ export function InvoicePaymentsTab({
       {/* Payments list */}
       {payments.length === 0 && !showAdd && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
+          <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand-light">
             <IconCash className="h-5 w-5 text-brand" />
           </div>
           <p className="text-sm font-medium text-foreground font-body">
             No payments recorded
           </p>
-          <p className="text-xs text-muted-foreground mt-1">
+          <p className="mt-1 text-xs text-muted-foreground">
             Record a payment when your customer pays
           </p>
         </div>
       )}
 
       {payments.length > 0 && (
-        <div className="space-y-2 mb-4">
+        <div className="mb-4 space-y-2">
           {payments.map((p) => (
             <div
               key={p.id}
@@ -159,22 +221,18 @@ export function InvoicePaymentsTab({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground font-body">
-                    ${parseFloat(p.amount).toFixed(2)}
+                    {formatMoney(p.amount)}
                   </span>
                   <span className="text-xs text-muted-foreground font-body">
                     {methodLabel(p.paymentMethod)}
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground font-body">
-                  {new Date(p.paymentDate).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    year: "numeric",
-                  })}
+                  {formatDateOnly(p.paymentDate)}
                   {p.referenceNumber && ` · Ref: ${p.referenceNumber}`}
                 </p>
                 {p.notes && (
-                  <p className="text-xs text-muted-foreground mt-0.5 font-body">
+                  <p className="mt-0.5 text-xs text-muted-foreground font-body">
                     {p.notes}
                   </p>
                 )}
@@ -183,7 +241,9 @@ export function InvoicePaymentsTab({
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={() => handleDelete(p.id)}
+                  // DF-INV-05: this fired on click. Line items get a dialog; the
+                  // action that reverses recorded money did not.
+                  onClick={() => setDeletingPayment(p)}
                   className="h-7 w-7 text-muted-foreground hover:text-destructive"
                   title="Remove payment"
                 >
@@ -196,15 +256,19 @@ export function InvoicePaymentsTab({
       )}
 
       {/* Add payment form */}
-      {!isVoid && showAdd && (
-        <div className="mt-3 rounded-md border border-border p-3 space-y-3">
+      {canTakePayment && showAdd && (
+        <div className="mt-3 space-y-3 rounded-md border border-border p-3">
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
-              <Label className="text-xs font-body">Amount ($)</Label>
+              <Label className="text-xs font-body" htmlFor="payment-amount">
+                Amount ($)
+              </Label>
               <Input
+                id="payment-amount"
+                inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
+                placeholder={balance > 0 ? balance.toFixed(2) : "0.00"}
                 className="text-sm"
               />
             </div>
@@ -234,8 +298,11 @@ export function InvoicePaymentsTab({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs font-body">Reference #</Label>
+              <Label className="text-xs font-body" htmlFor="payment-ref">
+                Reference #
+              </Label>
               <Input
+                id="payment-ref"
                 value={referenceNumber}
                 onChange={(e) => setReferenceNumber(e.target.value)}
                 placeholder="Optional"
@@ -244,8 +311,11 @@ export function InvoicePaymentsTab({
             </div>
           </div>
           <div className="space-y-1">
-            <Label className="text-xs font-body">Notes</Label>
+            <Label className="text-xs font-body" htmlFor="payment-notes">
+              Notes
+            </Label>
             <Textarea
+              id="payment-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Optional"
@@ -253,38 +323,78 @@ export function InvoicePaymentsTab({
               className="text-sm"
             />
           </div>
-          <div className="flex gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={resetForm}
-              className="cursor-pointer"
-            >
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={resetForm} className="cursor-pointer">
               Cancel
             </Button>
             <Button
               size="sm"
               onClick={handleAdd}
-              disabled={saving}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              disabled={recordMutation.isPending}
+              className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
             >
-              {saving ? "Recording..." : "Record Payment"}
+              {recordMutation.isPending ? "Recording..." : "Record Payment"}
             </Button>
           </div>
         </div>
       )}
 
-      {!isVoid && !showAdd && parseFloat(balanceDue) > 0 && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowAdd(true)}
-          className="mt-3 cursor-pointer"
-        >
-          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-          Record Payment
-        </Button>
+      {canTakePayment && !showAdd && balance > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {/*
+            §4.1: "the customer handed me a cheque" is the single most common
+            action on an invoice and it took five interactions. One tap now.
+          */}
+          <Button
+            size="sm"
+            onClick={() => setPayInFullOpen(true)}
+            className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
+          >
+            <IconCheck className="mr-1.5 h-3.5 w-3.5" />
+            Mark paid in full
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAdd(true)}
+            className="cursor-pointer"
+          >
+            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+            Record partial payment
+          </Button>
+        </div>
       )}
+
+      {/* The server refuses payments on drafts; say why rather than hiding it. */}
+      {!canTakePayment && !isVoid && balance > 0 && (
+        <p className="mt-3 rounded-md border border-dashed border-border bg-muted/20 px-3 py-2 text-xs text-muted-foreground font-body">
+          Send this invoice before recording a payment against it.
+        </p>
+      )}
+
+      <ConfirmActionDialog
+        title="Remove payment"
+        description={
+          deletingPayment
+            ? `Remove this ${formatMoney(deletingPayment.amount)} payment? The invoice balance and status will be recalculated.`
+            : ""
+        }
+        open={!!deletingPayment}
+        onOpenChange={(open) => !open && setDeletingPayment(null)}
+        onConfirm={confirmDelete}
+        confirmLabel="Remove payment"
+        loading={deleteMutation.isPending}
+      />
+
+      <ConfirmActionDialog
+        title="Mark paid in full"
+        description={`Record a ${formatMoney(balanceDue)} payment and close this invoice?`}
+        open={payInFullOpen}
+        onOpenChange={setPayInFullOpen}
+        onConfirm={handlePayInFull}
+        confirmLabel="Mark paid"
+        loading={payInFullMutation.isPending}
+      />
     </div>
   );
 }

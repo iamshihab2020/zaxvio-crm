@@ -7,6 +7,9 @@ import { InvoicePaymentsTab } from "./invoice-payments-tab";
 import { IconActivity } from "@tabler/icons-react";
 import type { InvoiceDetail } from "./invoice-detail-sheet";
 
+/** Mirrors `PAYABLE_STATUSES` on the server — a draft cannot take a payment. */
+const PAYABLE = ["sent", "partially_paid", "overdue"];
+
 interface InvoiceTabsPanelProps {
   invoice: InvoiceDetail;
   onUpdate: () => void;
@@ -52,6 +55,8 @@ export function InvoiceTabsPanel({ invoice, onUpdate }: InvoiceTabsPanelProps) {
             invoiceId={invoice.id}
             payments={invoice.payments}
             balanceDue={invoice.balanceDue}
+            creditAmount={invoice.creditAmount}
+            canTakePayment={PAYABLE.includes(invoice.status)}
             isVoid={invoice.status === "void"}
             onUpdate={onUpdate}
           />

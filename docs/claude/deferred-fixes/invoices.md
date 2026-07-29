@@ -5,11 +5,17 @@
 
 ---
 
-## Deferred Until: Payment Feature is Built
+## All five closed — 2026-07-29
 
-These issues exist in the codebase but only matter once payment recording is actively used by customers.
+Logged 2026-04-12, resolved as part of the [[reports/invoices|Invoices audit remediation]].
+Per [[strict-rules]] §12 these were due when the payment feature went live, and it is
+live; the audit found them still open nine weeks later, which is the reason §12 now
+says to check this folder *before* building rather than after.
 
-### DF-INV-01: Overpayment accepted without validation `DEFERRED`
+Kept here rather than moved to "Fixed Issues" because the original write-ups are the
+clearest statement of each defect. Each now carries a **Resolution** line.
+
+### DF-INV-01: Overpayment accepted without validation `FIXED`
 
 - **Severity:** CRITICAL
 - **File:** `apps/api/src/routes/invoices/index.ts` lines 790-836
@@ -24,10 +30,11 @@ These issues exist in the codebase but only matter once payment recording is act
   }
   ```
 - **Alternative:** Allow overpayment but store it as a credit/refund field instead of clamping.
+- **Resolution (2026-07-29):** Took the alternative. New `invoices.credit_amount` column; `splitPayment()` in `services/invoices/status.service.ts` puts the excess there instead of clamping, and it is shown on the Payments tab, in the summary and on the PDF. The UI warns before recording an amount above the balance, since it is usually a typo. Migration `20260729000002` backfills credits that were still recoverable from `amount_paid > total_amount`.
 
 ---
 
-### DF-INV-02: No DB transaction on payment recording `DEFERRED`
+### DF-INV-02: No DB transaction on payment recording `FIXED`
 
 - **Severity:** CRITICAL
 - **File:** `apps/api/src/routes/invoices/index.ts` lines 790-836
@@ -45,10 +52,11 @@ These issues exist in the codebase but only matter once payment recording is act
     await tx.update(invoices).set({ ... }).where(...);
   });
   ```
+- **Resolution (2026-07-29):** `recordPayment()` and `deletePayment()` in `services/invoices/invoices.service.ts` are each one transaction, and both take `SELECT … FOR UPDATE` on the invoice row first — the lock is what makes concurrent payments correct, not the transaction alone. `POST /invoices` and every line-item write are wrapped too, since they recalculate the same columns.
 
 ---
 
-### DF-INV-03: Payment deletion skips void/status check `DEFERRED`
+### DF-INV-03: Payment deletion skips void/status check `FIXED`
 
 - **Severity:** CRITICAL
 - **File:** `apps/api/src/routes/invoices/index.ts` lines 932-1008
@@ -61,10 +69,11 @@ These issues exist in the codebase but only matter once payment recording is act
     return reply.status(400).send({ message: "Cannot modify payments on a void invoice" });
   }
   ```
+- **Resolution (2026-07-29):** The guard was added, but the real fix is that the resulting status is no longer *chosen*. `deriveStatus()` computes it from the payment rows, so "delete the last payment → set sent" is not expressible: a void invoice stays void and a draft stays a draft.
 
 ---
 
-### DF-INV-04: Review request email uses setTimeout — lost on restart `DEFERRED`
+### DF-INV-04: Review request email uses setTimeout — lost on restart `FIXED`
 
 - **Severity:** HIGH
 - **File:** `apps/api/src/routes/invoices/index.ts` lines 887-920
@@ -72,10 +81,11 @@ These issues exist in the codebase but only matter once payment recording is act
 - **Fix options:**
   1. **Simple:** Add a `reviewEmailScheduledAt` column. Cron job picks up invoices where `status = 'paid' AND reviewEmailScheduledAt IS NOT NULL AND reviewEmailScheduledAt < NOW() AND reviewRequestedAt IS NULL`.
   2. **Better:** Use a job queue (BullMQ, Inngest, or Vercel Queues) for delayed tasks.
+- **Resolution (2026-07-29):** Took option 1. New `invoices.review_email_scheduled_at`; the payment handler writes it and `processReviewRequests()` in `lib/cron/email-cron.ts` sweeps every 15 minutes, claiming rows with one `UPDATE … RETURNING` so two API instances cannot both send.
 
 ---
 
-### DF-INV-05: No payment delete confirmation in frontend `DEFERRED`
+### DF-INV-05: No payment delete confirmation in frontend `FIXED`
 
 - **Severity:** MEDIUM
 - **File:** `apps/web/src/components/dashboard/invoices/invoice-payments-tab.tsx` lines 104-112
@@ -88,15 +98,16 @@ These issues exist in the codebase but only matter once payment recording is act
     onConfirm={() => handleDelete(payment.id)}
   />
   ```
+- **Resolution (2026-07-29):** `ConfirmActionDialog`, naming the amount: *"Remove this $200.00 payment? The invoice balance and status will be recalculated."* Line-item deletion got one too — it had the same click-to-destroy shape.
 
 ---
 
 ## Fixed Issues
 
-_(Move resolved issues here with date and commit hash)_
+All five above, 2026-07-29. See [[reports/invoices]] §5 for the phase they landed in
+and [[todo]] for the verification record.
 
-<!-- Example:
-### DF-INV-XX: Description `FIXED`
-- **Fixed:** 2026-04-15, commit abc1234
-- **What changed:** Brief description of the fix
--->
+**What made them findable again:** none of these were re-discovered by using the
+product — they were re-discovered by a code-reading audit nine weeks later. The
+process change is in [[strict-rules]] §12: check this folder *before* building a
+feature, not after.

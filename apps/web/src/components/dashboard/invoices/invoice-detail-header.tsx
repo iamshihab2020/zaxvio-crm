@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
 import {
   IconChevronRight,
   IconSend,
@@ -20,14 +21,23 @@ import {
   IconBan,
   IconDots,
   IconTrash,
+  IconCheck,
+  IconBellRinging,
 } from "@tabler/icons-react";
+import { downloadInvoicePdf } from "@/actions/invoices";
+import { openPdfPayload } from "@/lib/open-pdf";
 import {
-  sendInvoice,
-  getInvoicePdfUrl,
-  voidInvoice,
-  deleteInvoice,
-} from "@/actions/invoices";
+  useSendInvoice,
+  useVoidInvoice,
+  useDeleteInvoice,
+  usePayInFull,
+  useRemindInvoice,
+} from "@/hooks/queries";
+import { formatMoney } from "@/lib/format";
 import type { InvoiceDetail } from "./invoice-detail-sheet";
+
+/** Mirrors `PAYABLE_STATUSES` / `UNPAID_STATUSES` on the server. */
+const PAYABLE = ["sent", "partially_paid", "overdue"];
 
 interface InvoiceDetailHeaderProps {
   invoice: InvoiceDetail;
@@ -41,54 +51,75 @@ export function InvoiceDetailHeader({
   children,
 }: InvoiceDetailHeaderProps) {
   const router = useRouter();
-  const [sendLoading, setSendLoading] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [voidOpen, setVoidOpen] = useState(false);
+  const [payOpen, setPayOpen] = useState(false);
+
+  // These called the server actions directly, so an edit made from this header
+  // could not invalidate the list or the stat cards (INV-17).
+  const sendMutation = useSendInvoice();
+  const voidMutation = useVoidInvoice();
+  const deleteMutation = useDeleteInvoice();
+  const payInFullMutation = usePayInFull();
+  const remindMutation = useRemindInvoice();
 
   const canSend = invoice.status === "draft";
-  const canVoid = invoice.status === "draft" || invoice.status === "sent";
+  // Matches the server transition table rather than the old draft/sent guess.
+  const canVoid = invoice.status !== "void" && invoice.status !== "paid";
+  const canPay = PAYABLE.includes(invoice.status) && parseFloat(invoice.balanceDue) > 0;
+  const canRemind = PAYABLE.includes(invoice.status) && !!invoice.dueDate;
   const customerName =
     `${invoice.customerFirstName ?? ""} ${invoice.customerLastName ?? ""}`.trim() ||
     "Unknown Customer";
 
-  async function handleSend() {
-    setSendLoading(true);
-    const result = await sendInvoice(invoice.id);
-    setSendLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Invoice sent successfully");
-      onUpdate();
-    }
+  function handleSend() {
+    sendMutation.mutate(invoice.id, {
+      onSuccess: (res) => {
+        if (!res.error) onUpdate();
+      },
+    });
   }
 
   async function handleDownloadPdf() {
-    const url = await getInvoicePdfUrl(invoice.id);
-    window.open(url, "_blank");
+    const res = await downloadInvoicePdf(invoice.id);
+    if (res.error || !res.data) {
+      toast.error(res.error ?? "Couldn't open the PDF");
+      return;
+    }
+    openPdfPayload(res.data);
   }
 
-  async function handleVoid() {
-    const result = await voidInvoice(invoice.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Invoice voided");
-      onUpdate();
-    }
+  function handleVoid() {
+    voidMutation.mutate(invoice.id, {
+      onSuccess: (res) => {
+        if (res.error) return;
+        setVoidOpen(false);
+        onUpdate();
+      },
+    });
   }
 
-  async function handleDelete() {
-    setDeleteLoading(true);
-    const result = await deleteInvoice(invoice.id);
-    setDeleteLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Invoice deleted");
-      setDeleteOpen(false);
-      router.push("/invoices");
-    }
+  function handlePayInFull() {
+    payInFullMutation.mutate(
+      { id: invoice.id },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setPayOpen(false);
+          onUpdate();
+        },
+      },
+    );
+  }
+
+  function handleDelete() {
+    deleteMutation.mutate(invoice.id, {
+      onSuccess: (res) => {
+        if (res.error) return;
+        setDeleteOpen(false);
+        router.push("/invoices");
+      },
+    });
   }
 
   return (
@@ -125,11 +156,36 @@ export function InvoiceDetailHeader({
             <Button
               size="sm"
               onClick={handleSend}
-              disabled={sendLoading}
+              disabled={sendMutation.isPending}
               className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
             >
               <IconSend className="mr-1.5 h-3.5 w-3.5" />
-              {sendLoading ? "Sending..." : "Send"}
+              {sendMutation.isPending ? "Sending..." : "Send"}
+            </Button>
+          )}
+          {/* §4.1: "the customer handed me a cheque" was four interactions deep. */}
+          {canPay && (
+            <Button
+              size="sm"
+              onClick={() => setPayOpen(true)}
+              disabled={payInFullMutation.isPending}
+              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+            >
+              <IconCheck className="mr-1.5 h-3.5 w-3.5" />
+              Mark paid
+            </Button>
+          )}
+          {/* §4.2: dunning was cron-only — there was no way to nudge now. */}
+          {canRemind && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => remindMutation.mutate(invoice.id)}
+              disabled={remindMutation.isPending}
+              className="cursor-pointer"
+            >
+              <IconBellRinging className="mr-1.5 h-3.5 w-3.5" />
+              Remind
             </Button>
           )}
           <Button
@@ -145,7 +201,7 @@ export function InvoiceDetailHeader({
             <Button
               size="sm"
               variant="outline"
-              onClick={handleVoid}
+              onClick={() => setVoidOpen(true)}
               className="cursor-pointer text-destructive hover:text-destructive"
             >
               <IconBan className="mr-1.5 h-3.5 w-3.5" />
@@ -181,8 +237,29 @@ export function InvoiceDetailHeader({
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         onConfirm={handleDelete}
-        loading={deleteLoading}
+        loading={deleteMutation.isPending}
         description="All line items and payment records will also be deleted."
+      />
+
+      {/* Voiding is irreversible and used to fire straight off the button. */}
+      <ConfirmActionDialog
+        title="Void Invoice"
+        description={`Void invoice ${invoice.invoiceNumber}? This cannot be undone, and the stored PDF will be replaced with a watermarked copy.`}
+        open={voidOpen}
+        onOpenChange={setVoidOpen}
+        onConfirm={handleVoid}
+        confirmLabel="Void Invoice"
+        loading={voidMutation.isPending}
+      />
+
+      <ConfirmActionDialog
+        title="Mark paid in full"
+        description={`Record a ${formatMoney(invoice.balanceDue)} payment and close this invoice?`}
+        open={payOpen}
+        onOpenChange={setPayOpen}
+        onConfirm={handlePayInFull}
+        confirmLabel="Mark paid"
+        loading={payInFullMutation.isPending}
       />
     </>
   );

@@ -20,7 +20,14 @@ export const updateTenantBody = z.object({
   city: z.string().max(200).optional(),
   state: z.string().max(200).optional(),
   zipCode: z.string().max(20).optional(),
-  defaultTaxRate: z.coerce.number().min(0).max(100).optional(),
+  /**
+   * A **fraction**, not a percentage: 0.0825 is 8.25%. That is how every reader
+   * treats it — `recalculateInvoice` multiplies the subtotal by it directly,
+   * and the PDF multiplies by 100 to print it — and the UI divides by 100
+   * before sending. So `max(100)` was a bound in the wrong unit and permitted a
+   * 10,000% tax rate to be set through the API (INV-40).
+   */
+  defaultTaxRate: z.coerce.number().min(0).max(1).optional(),
   googleReviewUrl: z
     .string()
     .url()

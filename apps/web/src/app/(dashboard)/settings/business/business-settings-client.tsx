@@ -98,7 +98,7 @@ export function BusinessSettingsClient({ initialTenant }: BusinessSettingsClient
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="lg:col-span-2">
-        <BusinessForm tenant={tenant} onSaved={(updated) => setTenant(updated as unknown as TenantData)} />
+        <BusinessForm tenant={tenant} onSaved={(updated) => setTenant(updated)} />
       </div>
       <div>
         <BusinessSidebar tenant={tenant} />

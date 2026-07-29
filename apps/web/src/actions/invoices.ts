@@ -14,9 +14,25 @@ async function getCookieHeader() {
 
 // ===== INVOICE STATS =====
 
-export async function getInvoiceStats() {
+export async function getInvoiceStats(params?: {
+  customerId?: string;
+  jobId?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  showArchived?: boolean;
+}) {
   try {
-    const res = await fetch(`${API_URL}/invoices/stats`, {
+    // INV-23: the endpoint took no filters, so narrowing the list to one
+    // customer left the KPI cards counting the whole tenant.
+    const qs = new URLSearchParams();
+    if (params?.customerId) qs.set("customerId", params.customerId);
+    if (params?.jobId) qs.set("jobId", params.jobId);
+    if (params?.dateFrom) qs.set("dateFrom", params.dateFrom);
+    if (params?.dateTo) qs.set("dateTo", params.dateTo);
+    if (params?.showArchived) qs.set("showArchived", "true");
+    const query = qs.toString();
+
+    const res = await fetch(`${API_URL}/invoices/stats${query ? `?${query}` : ""}`, {
       headers: { cookie: await getCookieHeader() },
       cache: "no-store",
     });
@@ -71,6 +87,12 @@ export async function getInvoices(params?: {
   }
 }
 
+/**
+ * INV-11: this returned no status code, so `/invoices/[id]` could not tell a
+ * genuine 404 from a 500 or a network blip and called `notFound()` for all
+ * three — telling the user their invoice does not exist because the API was
+ * down. Same fix `getJob` received on 2026-07-29.
+ */
 export async function getInvoice(id: string) {
   try {
     const res = await fetch(`${API_URL}/invoices/${id}`, {
@@ -80,13 +102,17 @@ export async function getInvoice(id: string) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Invoice not found" };
+      return {
+        data: null,
+        error: err.message ?? "Failed to load invoice",
+        status: res.status,
+      };
     }
 
     const json = await res.json();
-    return { data: json.data, error: null };
+    return { data: json.data, error: null, status: res.status };
   } catch {
-    return { data: null, error: "Network error" };
+    return { data: null, error: "Network error", status: 0 };
   }
 }
 
@@ -226,9 +252,92 @@ export async function sendInvoice(id: string) {
   }
 }
 
-export async function getInvoicePdfUrl(id: string) {
-  // Return the direct URL — the frontend can use this to open in a new tab
-  return `${API_URL}/invoices/${id}/pdf`;
+/**
+ * INV-34: this handed the browser a URL on the *API* origin, against the
+ * "never call the API directly from client components" rule — and it was the
+ * one path relying on a session cookie reaching a different origin, so it 401s
+ * the moment the API is not same-site. Fetch it here, where the cookie header
+ * is set explicitly, and hand back a blob the browser can open.
+ */
+export async function downloadInvoicePdf(id: string) {
+  try {
+    const res = await fetch(`${API_URL}/invoices/${id}/pdf`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: (err as { message?: string }).message ?? "Failed to load PDF" };
+    }
+
+    const buffer = await res.arrayBuffer();
+    return {
+      data: {
+        // Base64 so it survives the server-action boundary, which does not
+        // serialise ArrayBuffer.
+        base64: Buffer.from(buffer).toString("base64"),
+        filename: res.headers
+          .get("content-disposition")
+          ?.match(/filename="([^"]+)"/)?.[1] ?? `invoice-${id}.pdf`,
+      },
+      error: null,
+    };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+/** One-tap "the customer handed me a cheque" — pays the exact balance. */
+export async function payInvoiceInFull(
+  id: string,
+  data?: { paymentMethod?: string; paymentDate?: string; referenceNumber?: string },
+) {
+  try {
+    const res = await fetch(`${API_URL}/invoices/${id}/pay-in-full`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify(data ?? {}),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { data: null, error: err.message ?? "Failed to record payment" };
+    }
+
+    const json = await res.json();
+    return { data: json.data, error: null };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
+}
+
+/** Send the overdue reminder now. Dunning used to be cron-only. */
+export async function remindInvoice(id: string) {
+  try {
+    const res = await fetch(`${API_URL}/invoices/${id}/remind`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        cookie: await getCookieHeader(),
+      },
+      body: JSON.stringify({}),
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return { error: err.message ?? "Failed to send reminder" };
+    }
+
+    return { error: null };
+  } catch {
+    return { error: "Network error" };
+  }
 }
 
 // ===== LINE ITEMS =====

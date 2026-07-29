@@ -10,6 +10,7 @@ import {
 } from "@hvac-saas/database";
 import { getPlanPrice } from "../../lib/plan-prices.js";
 import { adminSearchQuery } from "../../lib/schemas/admin.js";
+import { containsPattern } from "../../lib/search.js";
 
 const adminSearchRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -52,10 +53,10 @@ const adminSearchRoutes: FastifyPluginAsyncZod = async (fastify) => {
         )
         .where(
           or(
-            ilike(tenants.businessName, `%${q}%`),
-            ilike(tenants.ownerName, `%${q}%`),
-            ilike(tenants.email, `%${q}%`),
-            ilike(tenants.slug, `%${q}%`),
+            ilike(tenants.businessName, containsPattern(q)),
+            ilike(tenants.ownerName, containsPattern(q)),
+            ilike(tenants.email, containsPattern(q)),
+            ilike(tenants.slug, containsPattern(q)),
           ),
         )
         .limit(limitNum);

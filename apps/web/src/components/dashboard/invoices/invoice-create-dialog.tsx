@@ -174,8 +174,12 @@ export function InvoiceCreateDialog({
       return;
     }
 
-    const taxDecimal = taxRateNum / 100;
-    onSave({ ...form, taxRate: taxDecimal.toString() });
+    // `tax_rate` is numeric(5,4), so four decimal places is the column's real
+    // precision — 8.25% is 0.0825. Rounding here rather than sending
+    // `0.3333333333333333` keeps the value the server stores identical to the
+    // one this form validated.
+    const taxDecimal = Number((taxRateNum / 100).toFixed(4));
+    onSave({ ...form, taxRate: String(taxDecimal) });
   }
 
   function updateField(field: keyof InvoiceFormData, value: string) {

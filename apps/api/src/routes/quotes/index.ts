@@ -26,6 +26,7 @@ import {
   inArray,
 } from "@hvac-saas/database";
 import { uploadFile, downloadFile } from "../../lib/storage.js";
+import { withSafeLogo } from "../../lib/pdf/logo.js";
 import { lt } from "drizzle-orm";
 import crypto from "node:crypto";
 import { env } from "../../lib/env.js";
@@ -42,6 +43,7 @@ import {
   bulkQuoteStatusBody,
 } from "../../lib/schemas/quotes.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
+import { containsPattern } from "../../lib/search.js";
 
 // ========== HELPERS ==========
 
@@ -171,10 +173,10 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (search) {
         filters.push(
           or(
-            ilike(quotes.quoteNumber, `%${search}%`),
-            ilike(quotes.notes, `%${search}%`),
-            ilike(customers.firstName, `%${search}%`),
-            ilike(customers.lastName, `%${search}%`),
+            ilike(quotes.quoteNumber, containsPattern(search)),
+            ilike(quotes.notes, containsPattern(search)),
+            ilike(customers.firstName, containsPattern(search)),
+            ilike(customers.lastName, containsPattern(search)),
           )!,
         );
       }
@@ -894,7 +896,9 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         q,
         lineItems,
         customer,
-        tenant,
+        // Same SSRF guard the invoice PDF got (INV-05): `<Image src>` is fetched
+        // by the API process, and `logoUrl` accepted any syntactically valid URL.
+        withSafeLogo(tenant, tenantId),
         equipmentData,
       );
 
@@ -1049,7 +1053,9 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         q,
         lineItems,
         customer,
-        tenant,
+        // Same SSRF guard the invoice PDF got (INV-05): `<Image src>` is fetched
+        // by the API process, and `logoUrl` accepted any syntactically valid URL.
+        withSafeLogo(tenant, tenantId),
         equipmentData,
       );
 

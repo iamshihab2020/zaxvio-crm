@@ -65,7 +65,10 @@ export const queryKeys = {
     all: ["invoices"] as const,
     list: (params: Record<string, unknown>) =>
       ["invoices", "list", params] as const,
-    stats: () => ["invoices", "stats"] as const,
+    // Takes params now — the stats endpoint honours the same customer/job/date
+    // filters as the list, so the cache must key on them too (INV-23).
+    stats: (params: Record<string, unknown> = {}) =>
+      ["invoices", "stats", params] as const,
     detail: (id: string) => ["invoices", "detail", id] as const,
   },
 

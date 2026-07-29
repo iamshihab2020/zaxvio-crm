@@ -40,6 +40,7 @@ import {
   patchTenantBody,
   deleteTenantBody,
 } from "../../lib/schemas/admin.js";
+import { containsPattern } from "../../lib/search.js";
 
 const adminTenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -65,10 +66,10 @@ const adminTenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (search) {
         conditions.push(
           or(
-            ilike(tenants.businessName, `%${search}%`),
-            ilike(tenants.ownerName, `%${search}%`),
-            ilike(tenants.email, `%${search}%`),
-            ilike(tenants.slug, `%${search}%`),
+            ilike(tenants.businessName, containsPattern(search)),
+            ilike(tenants.ownerName, containsPattern(search)),
+            ilike(tenants.email, containsPattern(search)),
+            ilike(tenants.slug, containsPattern(search)),
           ),
         );
       }

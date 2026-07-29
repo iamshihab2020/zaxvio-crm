@@ -183,26 +183,79 @@ const styles = StyleSheet.create({
     borderBottomColor: "#eee",
     marginBottom: 8,
   },
+  // INV-25 — a void invoice must not read as payable.
+  voidWatermark: {
+    position: "absolute",
+    top: 300,
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  voidWatermarkText: {
+    fontSize: 110,
+    fontFamily: "Helvetica-Bold",
+    color: "#d4d4d4",
+    opacity: 0.45,
+    transform: "rotate(-30deg)",
+  },
+  voidLabel: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: "#b91c1c",
+    textAlign: "right",
+    marginTop: 4,
+  },
 });
 
+/**
+ * `$1234.50` on a customer-facing document (INV-39). `toLocaleString` gives the
+ * thousands separator and keeps the two decimals a money figure needs.
+ */
 function formatCurrency(val: string | number | null | undefined): string {
   const num = parseFloat(String(val ?? "0"));
-  return `$${num.toFixed(2)}`;
+  const safe = Number.isFinite(num) ? num : 0;
+  return safe.toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 }
 
+/**
+ * A `date` column arrives as `YYYY-MM-DD`. `new Date("2026-07-29")` is UTC
+ * midnight, and `toLocaleDateString` then renders it in the *server's* zone \u2014
+ * so anywhere west of UTC the customer's invoice printed the previous day
+ * (INV-19). Anchoring at noon UTC and formatting in UTC removes both shifts.
+ */
 function formatDate(val: string | null | undefined): string {
   if (!val) return "\u2014";
-  const d = new Date(val);
+  const d = new Date(`${val}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return "\u2014";
   return d.toLocaleDateString("en-US", {
+    timeZone: "UTC",
     year: "numeric",
     month: "short",
     day: "numeric",
   });
 }
 
+/**
+ * "Tax (8.3%)" beside a correctly-computed 8.25% amount \u2014 the document
+ * contradicted itself (INV-21). Show what was actually applied: up to four
+ * decimal places (the column's precision), with trailing zeros trimmed.
+ */
+function formatTaxPercent(rate: string | null | undefined): string {
+  const percent = parseFloat(rate ?? "0") * 100;
+  if (!Number.isFinite(percent)) return "0";
+  return String(Number(percent.toFixed(4)));
+}
+
 interface InvoicePdfProps {
   invoice: {
     invoiceNumber: string;
+    status?: string | null;
     issuedDate: string;
     dueDate: string | null;
     subtotal: string;
@@ -212,6 +265,7 @@ interface InvoicePdfProps {
     totalAmount: string;
     amountPaid: string;
     balanceDue: string;
+    creditAmount?: string | null;
     notes: string | null;
   };
   lineItems: Array<{
@@ -257,10 +311,23 @@ export function InvoicePdf({
   const hasTermsConditions = !!tenant?.invoiceTermsConditions;
   const footerMessage =
     tenant?.invoiceFooterMessage || "Thank you for your business!";
+  const isVoid = invoice.status === "void";
+  const credit = parseFloat(invoice.creditAmount ?? "0");
 
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
+        {/*
+          INV-25: a voided invoice's PDF was byte-identical to a live one —
+          `status` was never rendered — so a customer holding the link still had
+          a document that read as payable.
+        */}
+        {isVoid && (
+          <View style={styles.voidWatermark} fixed>
+            <Text style={styles.voidWatermarkText}>VOID</Text>
+          </View>
+        )}
+
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
@@ -300,6 +367,7 @@ export function InvoicePdf({
           <View>
             <Text style={styles.invoiceTitle}>INVOICE</Text>
             <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
+            {isVoid && <Text style={styles.voidLabel}>VOID — NOT PAYABLE</Text>}
           </View>
         </View>
 
@@ -379,7 +447,7 @@ export function InvoicePdf({
         {taxPercent > 0 && (
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>
-              Tax ({taxPercent.toFixed(1)}%)
+              Tax ({formatTaxPercent(invoice.taxRate)}%)
             </Text>
             <Text style={styles.summaryValue}>
               {formatCurrency(invoice.taxAmount)}
@@ -417,6 +485,15 @@ export function InvoicePdf({
             {formatCurrency(invoice.balanceDue)}
           </Text>
         </View>
+        {/* Overpayment used to be clamped away silently (INV-02). */}
+        {credit > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Credit on account</Text>
+            <Text style={styles.summaryValue}>
+              {formatCurrency(invoice.creditAmount)}
+            </Text>
+          </View>
+        )}
 
         {/* Notes */}
         {invoice.notes && (

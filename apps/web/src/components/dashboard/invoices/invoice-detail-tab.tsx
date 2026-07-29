@@ -10,22 +10,18 @@ import {
   IconUser,
   IconReceipt,
   IconNote,
+  IconBellRinging,
 } from "@tabler/icons-react";
+import { formatMoney, formatDateOnly } from "@/lib/format";
 
-function formatCurrency(val: string | null) {
-  const num = parseFloat(val ?? "0");
-  if (num < 0) return `\u2212$${Math.abs(num).toFixed(2)}`;
-  return `$${num.toFixed(2)}`;
-}
+// INV-19/39: this file had its own `$${num.toFixed(2)}` and its own
+// `new Date(val)` \u2014 no thousands separator, and a UTC-midnight day shift on
+// every date. Both now come from `lib/format.ts`.
+const formatCurrency = formatMoney;
+const formatDate = formatDateOnly;
 
-function formatDate(val: string | null) {
-  if (!val) return "\u2014";
-  return new Date(val).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+/** Statuses an unpaid, already-sent invoice can be reminded about. */
+const REMINDABLE = ["sent", "partially_paid", "overdue"];
 
 interface InvoiceDetailTabProps {
   invoice: {
@@ -41,6 +37,7 @@ interface InvoiceDetailTabProps {
     totalAmount: string;
     amountPaid: string;
     balanceDue: string;
+    creditAmount?: string | null;
     notes: string | null;
     customerFirstName: string | null;
     customerLastName: string | null;
@@ -50,22 +47,30 @@ interface InvoiceDetailTabProps {
     jobId: string | null;
   };
   onSend: () => void;
+  onRemind: () => void;
   onDownloadPdf: () => void;
   onVoid: () => void;
   sendLoading: boolean;
+  remindLoading: boolean;
 }
 
 export function InvoiceDetailTab({
   invoice,
   onSend,
+  onRemind,
   onDownloadPdf,
   onVoid,
   sendLoading,
+  remindLoading,
 }: InvoiceDetailTabProps) {
   const taxPercent = parseFloat(invoice.taxRate ?? "0") * 100;
   const canSend = invoice.status === "draft";
-  const canVoid = invoice.status === "draft" || invoice.status === "sent";
+  // Mirrors the server transition table: void is legal from anything that is
+  // not already paid or void, not just draft/sent.
+  const canVoid = invoice.status !== "void" && invoice.status !== "paid";
+  const canRemind = REMINDABLE.includes(invoice.status) && !!invoice.dueDate;
   const balanceIsZero = parseFloat(invoice.balanceDue) <= 0;
+  const credit = parseFloat(invoice.creditAmount ?? "0");
 
   return (
     <div className="space-y-6">
@@ -80,6 +85,20 @@ export function InvoiceDetailTab({
           >
             <IconSend className="mr-1.5 h-3.5 w-3.5" />
             {sendLoading ? "Sending..." : "Send Invoice"}
+          </Button>
+        )}
+        {/* §4.2: dunning was cron-only, so a contractor who wanted to nudge a
+            customer now had no button. */}
+        {canRemind && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onRemind}
+            disabled={remindLoading}
+            className="cursor-pointer"
+          >
+            <IconBellRinging className="mr-1.5 h-3.5 w-3.5" />
+            {remindLoading ? "Sending..." : "Send reminder"}
           </Button>
         )}
         <Button
@@ -182,7 +201,7 @@ export function InvoiceDetailTab({
           {taxPercent > 0 && (
             <div className="flex justify-between px-3 py-2">
               <span className="text-sm text-muted-foreground font-body">
-                Tax ({taxPercent.toFixed(1)}%)
+                Tax ({Number(taxPercent.toFixed(4))}%)
               </span>
               <span className="text-sm font-body">
                 {formatCurrency(invoice.taxAmount)}
@@ -229,6 +248,16 @@ export function InvoiceDetailTab({
               {formatCurrency(invoice.balanceDue)}
             </span>
           </div>
+          {credit > 0 && (
+            <div className="flex justify-between px-3 py-2">
+              <span className="text-sm text-muted-foreground font-body">
+                Credit on account
+              </span>
+              <span className="text-sm text-blue-600 dark:text-blue-400 font-body">
+                {formatCurrency(invoice.creditAmount ?? "0")}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
