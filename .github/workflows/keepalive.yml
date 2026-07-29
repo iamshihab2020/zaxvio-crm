@@ -11,13 +11,21 @@ name: Keep API awake
 # fits — but it fits with little room, which is why this pings one service and
 # not several.
 #
-# GitHub throttles scheduled workflows on busy runners, so a tick is sometimes
-# late. The 15-minute sleep timer tolerates that; a 14-minute interval would not.
+# The schedule that used to live here is deliberately gone. This repository is
+# private, and private repos get 2,000 GitHub Actions minutes a month with a
+# one-minute minimum billed per run. A ten-minute ping is ~4,320 runs a month,
+# so it would burn the entire allowance — CI included — in about two weeks.
+# Widening the interval does not rescue it either: the sleep timer is 15
+# minutes, and even */14 is ~3,085 minutes.
+#
+# The ping therefore runs on an external uptime service (UptimeRobot,
+# cron-job.org or similar), which is free at this frequency and costs no Actions
+# minutes. Point it at:  https://zaxvio-api.onrender.com/health
+#
+# This workflow is kept as a manual button — useful for confirming the URL
+# answers from outside your network without waiting on the external service.
 
 on:
-  schedule:
-    - cron: "*/10 * * * *"
-  # Handy for confirming the URL secret is right without waiting for a tick.
   workflow_dispatch:
 
 jobs:
