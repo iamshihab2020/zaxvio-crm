@@ -26,6 +26,7 @@ import {
   createMaintenanceContractBody,
   updateMaintenanceContractBody,
 } from "../../lib/schemas/equipment.js";
+import { containsPattern } from "../../lib/search.js";
 
 const maintenanceContractRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -75,8 +76,8 @@ const maintenanceContractRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (search) {
         filters.push(
           or(
-            ilike(maintenanceContracts.contractName, `%${search}%`),
-            ilike(maintenanceContracts.notes, `%${search}%`),
+            ilike(maintenanceContracts.contractName, containsPattern(search)),
+            ilike(maintenanceContracts.notes, containsPattern(search)),
           )!,
         );
       }

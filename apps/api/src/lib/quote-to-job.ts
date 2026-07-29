@@ -27,11 +27,16 @@ interface QuoteData {
   customerScheduledTime?: string | null;
 }
 
+type ServiceType = (typeof jobs.serviceType)["_"]["data"];
+
 interface ConvertOptions {
   pipelineStageId?: string;
   scheduledDate?: string;
   scheduledTime?: string;
-  serviceType?: string;
+  // The pgEnum union, not `string` — this used to be laundered through
+  // `as never` at the insert, which meant any caller-supplied value reached a
+  // Postgres enum unchecked and failed as a 500 rather than a 400.
+  serviceType?: ServiceType;
   performedBy?: string | null;
 }
 
@@ -117,7 +122,7 @@ export async function convertQuoteToJob(
       options.scheduledTime ?? quote.customerScheduledTime ?? null;
 
     // Determine service type — use provided option or fall back to "repair"
-    const serviceType = (options.serviceType ?? "repair") as never;
+    const serviceType = options.serviceType ?? "repair";
 
     // Create job
     const [job] = await tx
@@ -196,7 +201,7 @@ export async function convertQuoteToJob(
       .set({
         convertedToJobId: job.id,
         status:
-          quote.status !== "accepted" ? ("accepted" as never) : quote.status,
+          quote.status !== "accepted" ? "accepted" : quote.status,
         updatedAt: new Date(),
       })
       .where(and(eq(quotes.id, quote.id), eq(quotes.tenantId, tenantId)));

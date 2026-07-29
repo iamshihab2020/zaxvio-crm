@@ -62,3 +62,23 @@ export function getDayOfWeek(dateStr: string): number {
   const d = new Date(dateStr + "T12:00:00Z"); // Noon UTC to avoid timezone shift
   return d.getUTCDay();
 }
+
+/**
+ * A human-readable date ("Aug 1, 2026") in the tenant's timezone.
+ *
+ * The job-completion email stamped `new Date().toLocaleDateString("en-US", …)`
+ * with no `timeZone`, so a customer-facing email carried whatever date and
+ * locale the *server* happened to be in — UTC on Neon, which for a US Central
+ * tenant is tomorrow's date all evening.
+ */
+export function formatDateInTimezone(
+  timezone: string,
+  date: Date = new Date(),
+): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(date);
+}

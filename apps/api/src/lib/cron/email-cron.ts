@@ -4,8 +4,10 @@
  * E-07: Invoice overdue reminders (daily)
  * E-09: Maintenance contract renewal reminders (daily)
  * E-10: Trial expiring warnings (daily)
+ * E-12: Review requests, two hours after an invoice is paid in full
  */
 
+import { z } from "zod";
 import {
   getDb,
   invoices,
@@ -17,10 +19,8 @@ import {
   eq,
   and,
   lt,
-  gt,
   gte,
   lte,
-  or,
   sql,
 } from "@hvac-saas/database";
 import { isNull } from "drizzle-orm";
@@ -28,80 +28,252 @@ import {
   sendInvoiceOverdueEmail,
   sendContractRenewalEmail,
   sendTrialExpiringEmail,
+  sendReviewRequestEmail,
 } from "../email.js";
+
+type Db = ReturnType<typeof getDb>;
+
+/**
+ * The row shape the overdue claim returns. Validated per [[api-rules]] §4 —
+ * raw SQL results are where database schema drift shows up first.
+ */
+const overdueClaimRow = z.object({
+  id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  customer_id: z.string().uuid(),
+  invoice_number: z.string(),
+  due_date: z.string(),
+  balance_due: z.string(),
+  days_overdue: z.coerce.number().int(),
+});
+type OverdueClaim = z.infer<typeof overdueClaimRow>;
 
 /**
  * E-07: Send overdue invoice reminders.
- * Targets invoices with status "sent" that are past due with a balance > 0.
- * Only sends once per 24 hours per invoice (via lastOverdueReminderAt).
+ *
+ * Three things were wrong here, all of them about *which* invoices count.
+ *
+ * INV-06 — the definition of overdue. The list and the stats endpoint both
+ * derived it as `status NOT IN ('paid','void') AND due_date < today in the
+ * tenant's timezone`. This used `now().toISOString().split("T")[0]` — server
+ * UTC — and restricted itself to `status IN ('sent','overdue')`. So a
+ * `partially_paid` invoice past its due date was counted as overdue everywhere
+ * in the UI but never chased: a customer who paid half and then stopped was
+ * never followed up. And for a tenant west of UTC the reminder fired up to a
+ * day before the app agreed the invoice was late.
+ *
+ * INV-07 — archived invoices were emailed about. Archiving is the product's
+ * "make this go away" action; it did not stop the dunning email. Every other
+ * invoice read path filters `archived_at`.
+ *
+ * INV-30 — every API instance runs this interval, and `lastOverdueReminderAt`
+ * only narrows the window: two instances could both read "not yet reminded"
+ * and both send. The claim below is a single `UPDATE … RETURNING`, so a row is
+ * stamped and handed to exactly one instance atomically. It also means a
+ * crash-loop is no longer a mailing-loop — the boot run finds the rows already
+ * claimed.
  */
 export async function processOverdueInvoiceReminders(): Promise<void> {
   const db = getDb();
   const now = new Date();
-  const today = now.toISOString().split("T")[0]!;
   const twentyFourHoursAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
   try {
-    // Find overdue invoices
-    const overdueInvoices = await db
-      .select()
-      .from(invoices)
-      .where(
-        and(
-          or(eq(invoices.status, "sent" as never), eq(invoices.status, "overdue" as never)),
-          lt(invoices.dueDate, today),
-          gt(invoices.balanceDue, "0"),
-          or(
-            isNull(invoices.lastOverdueReminderAt),
-            lt(invoices.lastOverdueReminderAt, twentyFourHoursAgo),
-          ),
-        ),
-      );
+    // Claim first, send second. `due_date < (now() AT TIME ZONE t.timezone)`
+    // is the same predicate `overdueCondition()` builds for the list and the
+    // stats endpoint, expressed against the joined tenant row so one statement
+    // can span tenants in different zones.
+    const claimed = await db.execute(sql`
+      UPDATE invoices AS i
+      SET last_overdue_reminder_at = ${now}, status = 'overdue', updated_at = ${now}
+      FROM tenants AS t
+      WHERE t.id = i.tenant_id
+        AND i.archived_at IS NULL
+        AND i.status IN ('sent', 'partially_paid', 'overdue')
+        AND i.balance_due > 0
+        AND i.due_date IS NOT NULL
+        AND i.due_date < (now() AT TIME ZONE t.timezone)::date
+        AND (
+          i.last_overdue_reminder_at IS NULL
+          OR i.last_overdue_reminder_at < ${twentyFourHoursAgo}
+        )
+      RETURNING
+        i.id,
+        i.tenant_id,
+        i.customer_id,
+        i.invoice_number,
+        i.due_date,
+        i.balance_due,
+        ((now() AT TIME ZONE t.timezone)::date - i.due_date) AS days_overdue
+    `);
 
-    for (const inv of overdueInvoices) {
+    const rows = z.array(overdueClaimRow).parse(Array.from(claimed));
+
+    for (const row of rows) {
       try {
-        const [customer, tenant] = await Promise.all([
-          db.select().from(customers).where(eq(customers.id, inv.customerId)).then((r) => r[0]),
-          db.select().from(tenants).where(eq(tenants.id, inv.tenantId)).then((r) => r[0]),
-        ]);
-
-        if (!customer?.email) continue;
-
-        const dueDate = new Date(inv.dueDate + "T00:00:00");
-        const daysOverdue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-
-        if (daysOverdue <= 0) continue;
-
-        await sendInvoiceOverdueEmail({
-          to: customer.email,
-          props: {
-            customerName: `${customer.firstName} ${customer.lastName}`.trim(),
-            businessName: tenant?.businessName ?? "HVAC Service",
-            businessLogoUrl: tenant?.logoUrl ?? null,
-            businessPhone: tenant?.phone ?? null,
-            businessAddress: tenant?.address ?? null,
-            invoiceNumber: inv.invoiceNumber,
-            dueDate: dueDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            daysOverdue,
-            balanceDue: parseFloat(inv.balanceDue),
-            paymentInstructions: tenant?.invoicePaymentInstructions ?? null,
-          },
-        });
-
-        // Mark reminder sent and set status to overdue
-        await db
-          .update(invoices)
-          .set({ lastOverdueReminderAt: now, status: "overdue" as never })
-          .where(eq(invoices.id, inv.id));
-
-        console.info(`[email-cron] E-07 sent for invoice ${inv.invoiceNumber} (${daysOverdue}d overdue)`);
+        await deliverOverdueReminder(db, row);
       } catch (err) {
-        console.error(`[email-cron] E-07 failed for invoice ${inv.id}:`, err);
+        console.error(`[email-cron] E-07 failed for invoice ${row.id}:`, err);
       }
     }
   } catch (err) {
     console.error("[email-cron] processOverdueInvoiceReminders failed:", err);
   }
+}
+
+/** Send one E-07 for an already-claimed row. */
+async function deliverOverdueReminder(db: Db, row: OverdueClaim): Promise<void> {
+  const [customer, tenant] = await Promise.all([
+    db.select().from(customers).where(eq(customers.id, row.customer_id)).then((r) => r[0]),
+    db.select().from(tenants).where(eq(tenants.id, row.tenant_id)).then((r) => r[0]),
+  ]);
+
+  if (!customer?.email) return;
+
+  await sendInvoiceOverdueEmail({
+    to: customer.email,
+    props: {
+      customerName: `${customer.firstName} ${customer.lastName}`.trim(),
+      businessName: tenant?.businessName ?? "HVAC Service",
+      businessLogoUrl: tenant?.logoUrl ?? null,
+      businessPhone: tenant?.phone ?? null,
+      businessAddress: tenant?.address ?? null,
+      invoiceNumber: row.invoice_number,
+      dueDate: formatDateOnly(row.due_date),
+      daysOverdue: row.days_overdue,
+      balanceDue: parseFloat(row.balance_due),
+      paymentInstructions: tenant?.invoicePaymentInstructions ?? null,
+    },
+  });
+
+  console.info(
+    `[email-cron] E-07 sent for invoice ${row.invoice_number} (${row.days_overdue}d overdue)`,
+  );
+}
+
+/**
+ * Send an overdue reminder for one invoice, now.
+ *
+ * Backs `POST /invoices/:id/remind`. Dunning was cron-only and fired at most
+ * once per 24h, so a contractor who wanted to nudge a customer had no button
+ * (report §4.2). Claims the row the same way the cron does, so pressing the
+ * button twice in a row sends once.
+ */
+export async function sendOverdueReminder(
+  db: Db,
+  invoiceId: string,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const now = new Date();
+  const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
+  const claimed = await db.execute(sql`
+    UPDATE invoices AS i
+    SET last_overdue_reminder_at = ${now}, updated_at = ${now}
+    FROM tenants AS t
+    WHERE t.id = i.tenant_id
+      AND i.id = ${invoiceId}
+      AND i.archived_at IS NULL
+      AND i.status IN ('sent', 'partially_paid', 'overdue')
+      AND i.balance_due > 0
+      AND i.due_date IS NOT NULL
+      AND (
+        i.last_overdue_reminder_at IS NULL
+        OR i.last_overdue_reminder_at < ${fiveMinutesAgo}
+      )
+    RETURNING
+      i.id,
+      i.tenant_id,
+      i.customer_id,
+      i.invoice_number,
+      i.due_date,
+      i.balance_due,
+      GREATEST(0, (now() AT TIME ZONE t.timezone)::date - i.due_date) AS days_overdue
+  `);
+
+  const rows = z.array(overdueClaimRow).parse(Array.from(claimed));
+  if (rows.length === 0) {
+    return {
+      ok: false,
+      message: "A reminder was already sent for this invoice in the last few minutes",
+    };
+  }
+
+  await deliverOverdueReminder(db, rows[0]);
+  return { ok: true };
+}
+
+const reviewClaimRow = z.object({
+  id: z.string().uuid(),
+  tenant_id: z.string().uuid(),
+  customer_id: z.string().uuid(),
+});
+
+/**
+ * E-12: Review requests, two hours after an invoice is paid in full.
+ *
+ * This lived in an in-memory `setTimeout` inside the payment handler, so any
+ * deploy, crash or scale event dropped every pending request silently — and
+ * there was no record that one had been intended (INV-29 / DF-INV-04). The
+ * payment handler writes `review_email_scheduled_at` now and this picks it up,
+ * claiming with the same `UPDATE … RETURNING` so two instances cannot both send.
+ */
+export async function processReviewRequests(): Promise<void> {
+  const db = getDb();
+  const now = new Date();
+
+  try {
+    const claimed = await db.execute(sql`
+      UPDATE invoices
+      SET review_requested_at = ${now}, review_email_scheduled_at = NULL, updated_at = ${now}
+      WHERE review_email_scheduled_at IS NOT NULL
+        AND review_email_scheduled_at <= ${now}
+        AND review_requested_at IS NULL
+        AND status = 'paid'
+        AND archived_at IS NULL
+      RETURNING id, tenant_id, customer_id
+    `);
+
+    const rows = z.array(reviewClaimRow).parse(Array.from(claimed));
+
+    for (const row of rows) {
+      try {
+        const [customer, tenant] = await Promise.all([
+          db.select().from(customers).where(eq(customers.id, row.customer_id)).then((r) => r[0]),
+          db.select().from(tenants).where(eq(tenants.id, row.tenant_id)).then((r) => r[0]),
+        ]);
+
+        if (!customer?.email || !tenant?.googleReviewUrl) continue;
+
+        await sendReviewRequestEmail({
+          to: customer.email,
+          props: {
+            customerName: `${customer.firstName} ${customer.lastName}`.trim(),
+            businessName: tenant.businessName ?? "HVAC Service",
+            businessLogoUrl: tenant.logoUrl ?? null,
+            businessPhone: tenant.phone ?? null,
+            businessAddress: tenant.address ?? null,
+            googleReviewUrl: tenant.googleReviewUrl,
+          },
+        });
+
+        console.info(`[email-cron] E-12 sent for invoice ${row.id}`);
+      } catch (err) {
+        console.error(`[email-cron] E-12 failed for invoice ${row.id}:`, err);
+      }
+    }
+  } catch (err) {
+    console.error("[email-cron] processReviewRequests failed:", err);
+  }
+}
+
+/** `YYYY-MM-DD` → "Jul 29, 2026", without the UTC-midnight day shift. */
+function formatDateOnly(value: string): string {
+  return new Date(`${value}T12:00:00Z`).toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 }
 
 /**
@@ -252,34 +424,47 @@ export async function processTrialExpiryWarnings(): Promise<void> {
 export function startEmailCronJobs(): void {
   const ONE_HOUR = 60 * 60 * 1000;
   const SIX_HOURS = 6 * ONE_HOUR;
+  const FIFTEEN_MINUTES = 15 * 60 * 1000;
 
-  // Run overdue reminders every 6 hours
+  // Every instance runs these intervals — the fix for that is not to stop them
+  // running but to make the work idempotent, which each processor now is: they
+  // claim their rows with a single `UPDATE … RETURNING` before sending, so two
+  // instances firing at the same moment split the work rather than duplicating
+  // it, and a crash-loop finds the rows already claimed (INV-30).
   setInterval(() => {
     processOverdueInvoiceReminders().catch((err) =>
       console.error("[email-cron] Overdue invoice cron failed:", err),
     );
   }, SIX_HOURS);
 
-  // Run contract renewal check every 6 hours
   setInterval(() => {
     processContractRenewalReminders().catch((err) =>
       console.error("[email-cron] Contract renewal cron failed:", err),
     );
   }, SIX_HOURS);
 
-  // Run trial expiry check every 6 hours
   setInterval(() => {
     processTrialExpiryWarnings().catch((err) =>
       console.error("[email-cron] Trial expiry cron failed:", err),
     );
   }, SIX_HOURS);
 
-  console.info("[email-cron] Email cron jobs started (6h interval)");
+  // E-12 is scheduled two hours out, so a 6-hour sweep would make "two hours
+  // after payment" mean anything up to eight. Fifteen minutes is close enough
+  // to the intent and cheap — the query is an indexed partial scan.
+  setInterval(() => {
+    processReviewRequests().catch((err) =>
+      console.error("[email-cron] Review request cron failed:", err),
+    );
+  }, FIFTEEN_MINUTES);
+
+  console.info("[email-cron] Email cron jobs started (6h interval, 15m for E-12)");
 
   // Run once on startup after a brief delay
   setTimeout(() => {
     processOverdueInvoiceReminders().catch(console.error);
     processContractRenewalReminders().catch(console.error);
     processTrialExpiryWarnings().catch(console.error);
+    processReviewRequests().catch(console.error);
   }, 10_000); // 10s delay to let server finish starting
 }

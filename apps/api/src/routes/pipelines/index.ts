@@ -17,6 +17,7 @@ import {
   createPipelineBody,
   updatePipelineBody,
 } from "../../lib/schemas/pipelines.js";
+import { DEFAULT_STAGES } from "../pipeline-stages/index.js";
 
 function slugify(text: string): string {
   return text
@@ -49,13 +50,24 @@ const pipelineRoutes: FastifyPluginAsyncZod = async (fastify) => {
           isDefault: pipelines.isDefault,
           createdAt: pipelines.createdAt,
           updatedAt: pipelines.updatedAt,
+          // Both of these read 0 for every pipeline. Drizzle renders an
+          // embedded column inside a `sql` template as a BARE quoted name, so
+          // `${pipelines.id}` became `"id"` — and Postgres resolves a bare name
+          // against the subquery's own table first. The conditions were really
+          // `job_pipeline_stages.pipeline_id = job_pipeline_stages.id` and
+          // `jobs.pipeline_id = jobs.id`, never true. Verified against Neon:
+          // a tenant with 4 stages and 1 job reported 0 and 0.
+          // Outer columns must be written out in full.
           stageCount: sql<number>`(
-            SELECT COUNT(*)::int FROM job_pipeline_stages
-            WHERE job_pipeline_stages.pipeline_id = ${pipelines.id}
+            SELECT COUNT(*)::int FROM job_pipeline_stages s
+            WHERE s.pipeline_id = pipelines.id
+              AND s.tenant_id = pipelines.tenant_id
           )`,
           jobCount: sql<number>`(
-            SELECT COUNT(*)::int FROM jobs
-            WHERE jobs.pipeline_id = ${pipelines.id}
+            SELECT COUNT(*)::int FROM jobs j
+            WHERE j.pipeline_id = pipelines.id
+              AND j.tenant_id = pipelines.tenant_id
+              AND j.archived_at IS NULL
           )`,
         })
         .from(pipelines)
@@ -147,51 +159,28 @@ const pipelineRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 name: s.name,
                 label: s.label,
                 color: s.color,
+                lifecycle: s.lifecycle,
                 sortOrder: s.sortOrder,
                 isDefault: s.isDefault,
               })),
             );
           }
         } else if (body.seedDefaultStages !== false) {
-          // Seed default stages unless explicitly disabled
-          await tx.insert(jobPipelineStages).values([
-            {
+          // One definition of the default stage set, shared with
+          // `ensureDefaultStages` — this was a second inline copy, which is how
+          // a new column like `lifecycle` ends up seeded on one path only.
+          await tx.insert(jobPipelineStages).values(
+            DEFAULT_STAGES.map((s) => ({
               tenantId,
               pipelineId: pipeline.id,
-              name: "scheduled",
-              label: "Scheduled",
-              color: "blue",
-              sortOrder: 0,
-              isDefault: true,
-            },
-            {
-              tenantId,
-              pipelineId: pipeline.id,
-              name: "in_progress",
-              label: "In Progress",
-              color: "brand",
-              sortOrder: 1,
-              isDefault: true,
-            },
-            {
-              tenantId,
-              pipelineId: pipeline.id,
-              name: "completed",
-              label: "Completed",
-              color: "green",
-              sortOrder: 2,
-              isDefault: true,
-            },
-            {
-              tenantId,
-              pipelineId: pipeline.id,
-              name: "cancelled",
-              label: "Cancelled",
-              color: "gray",
-              sortOrder: 3,
-              isDefault: true,
-            },
-          ]);
+              name: s.name,
+              label: s.label,
+              color: s.color,
+              lifecycle: s.lifecycle,
+              sortOrder: s.sortOrder,
+              isDefault: s.isDefault,
+            })),
+          );
         }
 
         return pipeline;

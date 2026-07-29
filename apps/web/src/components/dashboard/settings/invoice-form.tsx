@@ -1,5 +1,6 @@
 "use client";
 
+import type { Tenant } from "@hvac-saas/types";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,7 +28,12 @@ interface InvoiceFormProps {
     invoiceFooterMessage: string | null;
   };
   onFormChange?: (values: InvoiceFormValues) => void;
-  onSaved?: (updated: Record<string, unknown>) => void;
+  /**
+   * INV-32: this was `Record<string, unknown>`, which forced both callers to
+   * write `as unknown as TenantData` — a double cast [[strict-rules]] §4 bans.
+   * `Tenant` is inferred from the Drizzle schema, so it cannot drift.
+   */
+  onSaved?: (updated: Tenant) => void;
 }
 
 export function InvoiceForm({ tenant, onFormChange, onSaved }: InvoiceFormProps) {
@@ -81,7 +87,7 @@ export function InvoiceForm({ tenant, onFormChange, onSaved }: InvoiceFormProps)
     } else {
       setMessage({ type: "success", text: "Invoice settings saved." });
       if (result.data) {
-        onSaved?.(result.data as Record<string, unknown>);
+        onSaved?.(result.data as Tenant);
       }
     }
 

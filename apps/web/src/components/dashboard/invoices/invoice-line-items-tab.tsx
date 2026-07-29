@@ -27,10 +27,12 @@ import {
 } from "@tabler/icons-react";
 import { ITEM_TYPE_LABELS } from "@/lib/constants/job-options";
 import {
-  addInvoiceLineItem,
-  updateInvoiceLineItem,
-  deleteInvoiceLineItem,
-} from "@/actions/invoices";
+  useAddInvoiceLineItem,
+  useUpdateInvoiceLineItem,
+  useDeleteInvoiceLineItem,
+} from "@/hooks/queries";
+import { formatMoney } from "@/lib/format";
+import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog";
 import {
   CatalogItemPicker,
   type CatalogPickerItem,
@@ -80,16 +82,24 @@ export function InvoiceLineItemsTab({
 }: InvoiceLineItemsTabProps) {
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState<AddForm>(emptyForm);
-  const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<AddForm>(emptyForm);
+  const [deletingItem, setDeletingItem] = useState<LineItem | null>(null);
+
+  // INV-17: these went straight to the server action, so a line-item edit could
+  // not invalidate the invoice detail or the list — the page hand-refreshed via
+  // `onUpdate` and every other consumer of that invoice stayed stale.
+  const addMutation = useAddInvoiceLineItem();
+  const updateMutation = useUpdateInvoiceLineItem();
+  const deleteMutation = useDeleteInvoiceLineItem();
+  const saving = addMutation.isPending || updateMutation.isPending;
 
   const subtotal = lineItems.reduce(
     (sum, li) => sum + parseFloat(li.total ?? "0"),
     0,
   );
 
-  async function handleAdd() {
+  function handleAdd() {
     if (!form.description.trim() || !form.unitPrice.trim()) {
       toast.error("Description and unit price are required");
       return;
@@ -104,22 +114,26 @@ export function InvoiceLineItemsTab({
       toast.error("Unit price must be zero or a positive number");
       return;
     }
-    setSaving(true);
-    const result = await addInvoiceLineItem(invoiceId, {
-      description: form.description,
-      itemType: form.itemType,
-      quantity: form.quantity,
-      unitPrice: form.unitPrice,
-      ...(form.catalogItemId ? { catalogItemId: form.catalogItemId } : {}),
-    });
-    setSaving(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      setForm(emptyForm);
-      setShowAdd(false);
-      onUpdate();
-    }
+    addMutation.mutate(
+      {
+        id: invoiceId,
+        data: {
+          description: form.description,
+          itemType: form.itemType,
+          quantity: form.quantity,
+          unitPrice: form.unitPrice,
+          ...(form.catalogItemId ? { catalogItemId: form.catalogItemId } : {}),
+        },
+      },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setForm(emptyForm);
+          setShowAdd(false);
+          onUpdate();
+        },
+      },
+    );
   }
 
   function startEdit(li: LineItem) {
@@ -134,7 +148,7 @@ export function InvoiceLineItemsTab({
     });
   }
 
-  async function handleSaveEdit() {
+  function handleSaveEdit() {
     if (!editingId) return;
     if (!editForm.description.trim() || !editForm.unitPrice.trim()) {
       toast.error("Description and unit price are required");
@@ -150,29 +164,39 @@ export function InvoiceLineItemsTab({
       toast.error("Unit price must be zero or a positive number");
       return;
     }
-    setSaving(true);
-    const result = await updateInvoiceLineItem(invoiceId, editingId, {
-      description: editForm.description,
-      itemType: editForm.itemType,
-      quantity: editForm.quantity,
-      unitPrice: editForm.unitPrice,
-    });
-    setSaving(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      setEditingId(null);
-      onUpdate();
-    }
+    updateMutation.mutate(
+      {
+        id: invoiceId,
+        lineItemId: editingId,
+        data: {
+          description: editForm.description,
+          itemType: editForm.itemType,
+          quantity: editForm.quantity,
+          unitPrice: editForm.unitPrice,
+        },
+      },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setEditingId(null);
+          onUpdate();
+        },
+      },
+    );
   }
 
-  async function handleDelete(lineItemId: string) {
-    const result = await deleteInvoiceLineItem(invoiceId, lineItemId);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      onUpdate();
-    }
+  function confirmDelete() {
+    if (!deletingItem) return;
+    deleteMutation.mutate(
+      { id: invoiceId, lineItemId: deletingItem.id },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setDeletingItem(null);
+          onUpdate();
+        },
+      },
+    );
   }
 
   return (
@@ -296,10 +320,10 @@ export function InvoiceLineItemsTab({
                       {li.quantity}
                     </td>
                     <td className="px-3 py-2 text-right text-muted-foreground font-body">
-                      ${parseFloat(li.unitPrice).toFixed(2)}
+                      {formatMoney(li.unitPrice)}
                     </td>
                     <td className="px-3 py-2 text-right font-medium text-foreground font-body">
-                      ${parseFloat(li.total ?? "0").toFixed(2)}
+                      {formatMoney(li.total)}
                     </td>
                     {isDraft && (
                       <td className="px-2 py-2">
@@ -318,7 +342,7 @@ export function InvoiceLineItemsTab({
                               Edit
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              onClick={() => handleDelete(li.id)}
+                              onClick={() => setDeletingItem(li)}
                               className="cursor-pointer text-destructive focus:text-destructive"
                             >
                               <IconTrash className="mr-2 h-4 w-4" />
@@ -339,7 +363,7 @@ export function InvoiceLineItemsTab({
               Subtotal
             </span>
             <span className="text-sm font-semibold text-foreground font-body">
-              ${subtotal.toFixed(2)}
+              {formatMoney(subtotal)}
             </span>
           </div>
         </div>
@@ -448,6 +472,20 @@ export function InvoiceLineItemsTab({
           Add Line Item
         </Button>
       )}
+
+      <ConfirmActionDialog
+        title="Remove line item"
+        description={
+          deletingItem
+            ? `Remove "${deletingItem.description}"? The invoice total will be recalculated.`
+            : ""
+        }
+        open={!!deletingItem}
+        onOpenChange={(open) => !open && setDeletingItem(null)}
+        onConfirm={confirmDelete}
+        confirmLabel="Remove"
+        loading={deleteMutation.isPending}
+      />
     </div>
   );
 }

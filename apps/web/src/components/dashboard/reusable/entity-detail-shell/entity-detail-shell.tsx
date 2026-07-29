@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { IconPlugConnectedX, IconRefresh } from "@tabler/icons-react";
 import { useDetailShell } from "./use-detail-shell";
 import { EntityDetailShellHeader } from "./entity-detail-shell-header";
 import { EntityDetailShellSkeleton } from "./entity-detail-shell-skeleton";
@@ -29,6 +31,8 @@ export function EntityDetailShell({
   onOpenChange,
   loading,
   hasData,
+  loadError,
+  onRetry,
   renderTitle,
   renderDescription,
   renderActions,
@@ -81,6 +85,53 @@ export function EntityDetailShell({
             </>
           )}
           <EntityDetailShellSkeleton />
+        </>
+      )}
+
+      {!loading && !hasData && loadError && (
+        <>
+          {mode === "dialog" ? (
+            <>
+              <DialogTitle className="sr-only">
+                {entityLabel} could not be loaded
+              </DialogTitle>
+              <DialogDescription className="sr-only">
+                {loadError}
+              </DialogDescription>
+            </>
+          ) : (
+            <>
+              <SheetTitle className="sr-only">
+                {entityLabel} could not be loaded
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                {loadError}
+              </SheetDescription>
+            </>
+          )}
+          <div
+            role="alert"
+            className="flex flex-col items-center justify-center gap-3 p-10 text-center"
+          >
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
+              <IconPlugConnectedX
+                className="h-5 w-5 text-muted-foreground"
+                aria-hidden
+              />
+            </div>
+            <div>
+              <p className="font-heading text-base font-semibold text-foreground">
+                Couldn&apos;t load this {entityLabel.toLowerCase()}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">{loadError}</p>
+            </div>
+            {onRetry && (
+              <Button variant="outline" size="sm" onClick={onRetry}>
+                <IconRefresh className="mr-1.5 h-4 w-4" aria-hidden />
+                Try again
+              </Button>
+            )}
+          </div>
         </>
       )}
 

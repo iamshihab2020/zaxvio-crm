@@ -41,9 +41,23 @@ export const pipelineStagesQuery = z.object({
   pipelineId: z.string().uuid().optional(),
 });
 
+/**
+ * Which of the four real job statuses a stage represents. A tenant can call a
+ * column "Awaiting Parts"; the rest of the system needs to know that a job in
+ * it is in progress — for transitions, `completedAt`, the completion email and
+ * every report. Defaults to `scheduled`, the safe entry point.
+ */
+export const stageLifecycle = z.enum([
+  "scheduled",
+  "in_progress",
+  "completed",
+  "cancelled",
+]);
+
 export const createPipelineStageBody = z.object({
-  label: z.string().min(1),
+  label: z.string().min(1).max(60),
   color: stageColorKey.optional(),
+  lifecycle: stageLifecycle.optional(),
   pipelineId: z.string().uuid(),
 });
 
@@ -52,6 +66,7 @@ export const reorderPipelineStagesBody = z.object({
 });
 
 export const updatePipelineStageBody = z.object({
-  label: z.string().min(1).optional(),
+  label: z.string().min(1).max(60).optional(),
   color: stageColorKey.optional(),
+  lifecycle: stageLifecycle.optional(),
 });

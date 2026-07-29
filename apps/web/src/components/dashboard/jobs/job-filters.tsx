@@ -22,6 +22,11 @@ import {
 } from "@/lib/constants/job-options";
 import { cn } from "@/lib/utils";
 
+export interface JobAssigneeOption {
+  id: string;
+  name: string;
+}
+
 interface JobFiltersProps {
   search: string;
   onSearchChange: (value: string) => void;
@@ -29,6 +34,14 @@ interface JobFiltersProps {
   onPriorityChange: (value: JobPriority | null) => void;
   serviceType: ServiceType | null;
   onServiceTypeChange: (value: ServiceType | null) => void;
+  /**
+   * JOB-41: `assigneeId` was accepted by `jobListQuery` and honoured by the
+   * route, but the `getJobs` server action never forwarded it and no control
+   * existed — a filter fully built on the wire and unreachable from the app.
+   */
+  assignees?: JobAssigneeOption[];
+  assigneeId?: string | null;
+  onAssigneeChange?: (value: string | null) => void;
 }
 
 export function JobFilters({
@@ -38,8 +51,13 @@ export function JobFilters({
   onPriorityChange,
   serviceType,
   onServiceTypeChange,
+  assignees = [],
+  assigneeId = null,
+  onAssigneeChange,
 }: JobFiltersProps) {
-  const activeFilterCount = (priority ? 1 : 0) + (serviceType ? 1 : 0);
+  const showAssignees = Boolean(onAssigneeChange) && assignees.length > 0;
+  const activeFilterCount =
+    (priority ? 1 : 0) + (serviceType ? 1 : 0) + (assigneeId ? 1 : 0);
 
   return (
     <div className="flex items-center gap-1.5">
@@ -126,6 +144,36 @@ export function JobFilters({
             </div>
           </div>
 
+          {/* Assignee section */}
+          {showAssignees && (
+            <>
+              <div className="h-px bg-border/60 my-2" />
+              <div className="mb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground font-heading mb-1 px-1">
+                  Assignee
+                </p>
+                <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                  {[null, ...assignees.map((a) => a.id)].map((id) => (
+                    <button
+                      key={id ?? "all"}
+                      onClick={() => onAssigneeChange?.(id)}
+                      className={cn(
+                        "flex w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors",
+                        assigneeId === id
+                          ? "bg-brand-light/20 text-brand"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      )}
+                    >
+                      {id
+                        ? (assignees.find((a) => a.id === id)?.name ?? "Unknown")
+                        : "Anyone"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
           {/* Clear all */}
           {activeFilterCount > 0 && (
             <>
@@ -134,6 +182,7 @@ export function JobFilters({
                 onClick={() => {
                   onPriorityChange(null);
                   onServiceTypeChange(null);
+                  onAssigneeChange?.(null);
                 }}
                 className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
               >

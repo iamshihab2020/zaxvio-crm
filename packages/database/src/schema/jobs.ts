@@ -23,6 +23,7 @@ import { customers } from "./customers";
 import { catalogItems } from "./catalog";
 import { equipment } from "./equipment";
 import { pipelines } from "./pipelines";
+import { jobPipelineStages } from "./pipeline-stages";
 import { user } from "./auth";
 // Circular by design: bookings -> jobs (converted_to_job_id) and
 // jobs -> bookings (booking_id). Both sides declare the reference through a
@@ -48,6 +49,13 @@ export const jobs = pgTable(
       onDelete: "set null",
     }),
     pipelineId: uuid("pipeline_id").references(() => pipelines.id, {
+      onDelete: "set null",
+    }),
+    // The real pointer to the board column. `status` below is the stage's
+    // `name` denormalised for the many queries that filter on it, but it is
+    // only ever written from a stage resolved through this FK.
+    // ON DELETE SET NULL, never CASCADE: deleting a column must not delete work.
+    stageId: uuid("stage_id").references(() => jobPipelineStages.id, {
       onDelete: "set null",
     }),
     assigneeId: text("assignee_id").references(() => user.id, {
@@ -94,6 +102,8 @@ export const jobs = pgTable(
       table.scheduledDate,
     ),
     index("idx_jobs_booking_id").on(table.bookingId),
+    index("idx_jobs_stage_id").on(table.stageId),
+    index("idx_jobs_tenant_archived").on(table.tenantId, table.archivedAt),
   ],
 );
 
@@ -119,6 +129,9 @@ export const jobLineItems = pgTable("job_line_items", {
   ),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
 });
@@ -152,7 +165,9 @@ export const jobDocuments = pgTable(
     jobId: uuid("job_id")
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
-    customerId: uuid("customer_id"),
+    customerId: uuid("customer_id").references(() => customers.id, {
+      onDelete: "set null",
+    }),
     fileName: text("file_name").notNull(),
     storagePath: text("storage_path").notNull(),
     fileSize: integer("file_size"),

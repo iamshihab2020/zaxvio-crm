@@ -86,6 +86,10 @@ zaxvio-crm/
         +-- 20260410000001_add_archived_at.sql        # archived_at column on 6 tables + partial indexes
         +-- 20260727000001_booking_calendar_audit.sql # FK on jobs.booking_id, tenants.booking_slot_capacity,
         |                                             # backfill of bookings.converted_to_job_id
+        +-- 20260729000001_jobs_audit_stage_split.sql # job_pipeline_stages.lifecycle + jobs.stage_id (FK,
+        |                                             # ON DELETE SET NULL) + backfill; FKs on
+        |                                             # calendar_events.job_id and job_documents.customer_id;
+        |                                             # job_line_items.updated_at. Applied to Neon by hand
         +-- meta/                                    # Drizzle snapshots + journal
 ```
 
@@ -109,8 +113,18 @@ apps/api/
 |   |   +-- auth-middleware.ts     # requireAuth, requireAdmin, requireAdminTier(), requireTenant preHandlers
 |   |   +-- env.ts                 # Zod-validated env loading (dotenv from monorepo root)
 |   |   +-- timezone.ts           # THE tz module: todayInTimezone() + getTenantToday/Tomorrow,
-|   |   |                         # getMaxBookingDate(), getDayOfWeek(). analytics re-exports from here
-|   |   +-- job-helpers.ts        # attachChecklistToJob() shared helper (used by jobs + bookings)
+|   |   |                         # getMaxBookingDate(), getDayOfWeek(), formatDateInTimezone()
+|   |   |                         # (customer emails stamped the *server's* date). analytics re-exports
+|   |   +-- job-helpers.ts        # attachChecklistToJob(), deleteJobAttachments(),
+|   |   |                         # countLinkedInvoices(), sendJobCompletionEmailFor() — the side
+|   |   |                         # effects single and bulk job endpoints must share
+|   |   +-- job-guards.ts         # loadEditableJob()/assertEditable() (archived-job guard, was on
+|   |   |                         # 4 of 14 mutating handlers) + findForeignRef()/ownsX() tenant checks
+|   |   +-- upload-limits.ts      # UPLOAD_LIMITS + bodyLimitFor() so the number a handler enforces
+|   |   |                         # and the number Fastify enforces cannot drift; MIME allowlist
+|   |   +-- invoice-guards.ts     # loadEditableInvoice()/assertPayable()/assertDraft() + the FK
+|   |   |                         # ownership checks. No mutating invoice handler checked archivedAt,
+|   |   |                         # and a draft could take a payment and email a receipt (INV-01)
 |   |   +-- admin-audit.ts        # logAdminAction() — append-only audit log helper
 |   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
 |   |   +-- platform-events.ts    # emitPlatformEvent() — fire-and-forget activity tracking
@@ -131,12 +145,21 @@ apps/api/
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
 |   |   +-- pdf/
+|   |   |   +-- logo.ts                  # safeLogoUrl()/withSafeLogo(): a tenant logo must be an R2 URL
+|   |   |   |                            # under that tenant's own prefix. @react-pdf/renderer fetches a
+|   |   |   |                            # remote <Image src> from the API process, so an arbitrary
+|   |   |   |                            # logoUrl was a blind SSRF probe on both documents (INV-05)
 |   |   |   +-- generate-invoice-pdf.ts  # Invoice PDF generation entry point
 |   |   |   +-- generate-quote-pdf.ts    # Quote PDF generation entry point
-|   |   |   +-- invoice-pdf.tsx          # Invoice PDF React template (@react-pdf/renderer)
+|   |   |   +-- invoice-pdf.tsx          # Invoice PDF template — VOID watermark, credit row, exact tax
+|   |   |   |                            # %, tz-safe dates, thousands separators
 |   |   |   +-- quote-pdf.tsx            # Quote PDF React template (@react-pdf/renderer)
 |   |   +-- cron/
-|   |       +-- email-cron.ts      # Scheduled: overdue invoices, contract renewal, trial expiry emails
+|   |       +-- email-cron.ts      # E-07 overdue, E-09 renewal, E-10 trial, E-12 review request.
+|   |                              # Each processor CLAIMS its rows with one UPDATE…RETURNING before
+|   |                              # sending, so N instances split the work instead of duplicating it,
+|   |                              # and a crash-loop is no longer a mailing-loop. sendOverdueReminder()
+|   |                              # backs the manual POST /invoices/:id/remind
 |   |
 |   +-- routes/
 |   |   +-- availability/
@@ -154,7 +177,9 @@ apps/api/
 |   |   +-- dashboard/
 |   |   |   +-- index.ts          # GET /dashboard/stats (21 parallel SQL queries) + GET /dashboard/pipeline
 |   |   +-- invoices/
-|   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, payments, PDF, send, void
+|   |   |   +-- index.ts          # 22 endpoints: CRUD, line items, payments (+ pay-in-full), PDF, send,
+|   |   |                         # remind, void, status, 4 bulk ops, from-job. Thin — the money maths,
+|   |   |                         # the transitions and the PDF all live in services/invoices/
 |   |   +-- jobs/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, checklist, photos, activities
 |   |   +-- pipelines/
@@ -203,6 +228,20 @@ apps/api/
 |   |   |                             # slot generation, occupancy across bookings+jobs+events,
 |   |   |                             # checkSlotBookable(). Used by portal, calendar and reschedule
 |   |   +-- bookings.service.ts       # Booking status transition table (single + bulk share it)
+|   |   +-- invoices/
+|   |   |   +-- status.service.ts     # THE invoice state machine: transition table, deriveStatus()
+|   |   |   |                         # (status follows the payment rows), splitPayment() -> credit
+|   |   |   |                         # instead of clamping, overdueCondition() shared by list/stats/
+|   |   |   |                         # cron, dueDateFromTerms() so "Net 30" finally sets a due date
+|   |   |   +-- invoices.service.ts   # recalculateInvoice() (totals AND status), recordPayment()/
+|   |   |   |                         # deletePayment() in one transaction with the row locked,
+|   |   |   |                         # copyJobLineItems(), findActiveInvoiceForJob()
+|   |   |   +-- pdf.service.ts        # loadPdfBundle/renderInvoicePdf/storeInvoicePdf +
+|   |   |                             # contentDisposition() (header injection, security-rules §6)
+|   |   +-- job-stages.service.ts     # THE stage resolver: resolveStage/matchStage by id-or-name,
+|   |   |                             # canTransition() keyed on stage.lifecycle (not on status),
+|   |   |                             # stageUpdate() -> {stageId,status,completedAt}. One place a
+|   |   |                             # job changes column; makes custom stages reachable
 |   |   +-- conversations.service.ts
 |   |   +-- notifications.service.ts
 |   |   +-- analytics/
@@ -244,7 +283,7 @@ apps/api/
 | `/jobs` | requireTenant | CRUD + line items, checklist, photos, activities | + |
 | `/pipelines` | requireTenant | CRUD (list, create, update, delete) | + |
 | `/pipeline-stages` | requireTenant | CRUD + reorder | + |
-| `/invoices` | requireTenant | CRUD + line items, payments, PDF, send, void | + |
+| `/invoices` | requireTenant | CRUD + line items, payments, pay-in-full, PDF, send, remind, void, status, bulk, from-job | + |
 | `/quotes` | requireTenant | CRUD + line items, PDF, send, accept, convert-to-job | + |
 | `/tags` | requireTenant | CRUD (tenant-level) | + |
 | `/dashboard/stats` | requireTenant | GET stats (21 parallel queries) | + |
@@ -336,7 +375,11 @@ apps/web/
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
     |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR)
     |   +-- event-stream.ts          # Shared SSE connection to /events (replaced Supabase Realtime); openTenantStream() for admins
-    |   +-- format.ts                # formatCurrency(), formatRelativeTime() helpers
+    |   +-- format.ts                # formatCurrency(), formatMoney() (thousands separators — the
+    |   |                            # invoice table and PDF each printed `$1234.50`), formatDateOnly()
+    |   |                            # (a `date` column read a day early west of UTC), formatRelativeTime()
+    |   +-- open-pdf.ts              # openPdfPayload() — the PDF used to be window.open()'d straight at
+    |   |                            # the API origin, the one request relying on a cross-origin cookie
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
     |   +-- query-keys.ts            # Centralized TanStack Query key factory for 18 domains
     |   +-- url-filters.ts           # Allow-listed ?status= reader for list-page deep links
@@ -488,7 +531,6 @@ apps/web/
     |   |   |   +-- job-sidebar-panel.tsx
     |   |   |   +-- job-table.tsx
     |   |   |   +-- job-tabs-panel.tsx
-    |   |   |   +-- jobs-stats-bar.tsx
     |   |   |   +-- kanban-board.tsx
     |   |   |   +-- kanban-card-compact.tsx
     |   |   |   +-- kanban-card.tsx
@@ -506,7 +548,8 @@ apps/web/
     |   |   |   +-- invoice-payments-tab.tsx
     |   |   |   +-- invoice-sidebar-panel.tsx
     |   |   |   +-- invoice-status-badge.tsx
-    |   |   |   +-- invoice-table.tsx
+    |   |   |   +-- invoice-table.tsx    # Sortable (7 keys the API always accepted), keyboard-reachable
+    |   |   |   |                         # rows, partial-payment progress bar
     |   |   |   +-- invoice-tabs-panel.tsx
     |   |   |
     |   |   +-- quotes/             # Quote components
@@ -669,15 +712,20 @@ apps/web/
         |   |   +-- page.tsx                         # Jobs Kanban + Table dual view
         |   |   +-- jobs-page-client.tsx
         |   |   +-- [id]/
-        |   |       +-- page.tsx                     # Job detail page (3-panel)
-        |   |       +-- job-detail-client.tsx
+        |   |       +-- page.tsx                     # Job detail page (3-panel). Fetches stages for
+        |   |       |                                # THIS job's pipeline; notFound() only on a real 404
+        |   |       +-- job-detail-client.tsx        # Reads via useJob() (TanStack), not local useState
+        |   |       +-- job-load-error.tsx           # Client shim so the server component can render
+        |   |                                        # LoadErrorState with a retry — a 500 is not a 404
         |   |
         |   +-- invoices/
-        |   |   +-- page.tsx                         # Invoice list
+        |   |   +-- page.tsx                         # Invoice list (seeds the query cache it fetches)
         |   |   +-- invoices-page-client.tsx
         |   |   +-- [id]/
-        |   |       +-- page.tsx                     # Invoice detail (3-panel)
-        |   |       +-- invoice-detail-client.tsx
+        |   |       +-- page.tsx                     # Invoice detail (3-panel). 404 only on a real 404
+        |   |       +-- invoice-detail-client.tsx    # Reads through useInvoice() so mutations invalidate
+        |   |       +-- invoice-load-error.tsx       # Client shim so the server component can render
+        |   |                                        # LoadErrorState with a retry — a 500 is not a 404
         |   |
         |   +-- quotes/
         |   |   +-- page.tsx                         # Quote list

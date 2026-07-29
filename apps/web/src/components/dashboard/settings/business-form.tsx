@@ -1,5 +1,6 @@
 "use client";
 
+import type { Tenant } from "@hvac-saas/types";
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,8 @@ interface BusinessFormProps {
     googleReviewUrl: string | null;
     logoUrl: string | null;
   };
-  onSaved?: (updated: Record<string, unknown>) => void;
+  /** See the note on `InvoiceFormProps.onSaved` — INV-32. */
+  onSaved?: (updated: Tenant) => void;
 }
 
 export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
@@ -62,10 +64,10 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
       if (result.error) {
         setMessage({ type: "error", text: result.error });
       } else {
-        const newUrl = (result.data as Record<string, unknown>)?.logoUrl as string;
+        const newUrl = (result.data as Tenant)?.logoUrl as string;
         setLogoPreview(newUrl);
         setMessage({ type: "success", text: "Logo uploaded." });
-        if (result.data) onSaved?.(result.data as Record<string, unknown>);
+        if (result.data) onSaved?.(result.data as Tenant);
       }
       setUploadingLogo(false);
     };
@@ -85,7 +87,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
     } else {
       setLogoPreview(null);
       setMessage({ type: "success", text: "Logo removed." });
-      if (result.data) onSaved?.(result.data as Record<string, unknown>);
+      if (result.data) onSaved?.(result.data as Tenant);
     }
     setRemovingLogo(false);
   }
@@ -167,7 +169,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
     } else {
       setMessage({ type: "success", text: "Business settings saved." });
       if (result.data) {
-        onSaved?.(result.data as Record<string, unknown>);
+        onSaved?.(result.data as Tenant);
       }
     }
 

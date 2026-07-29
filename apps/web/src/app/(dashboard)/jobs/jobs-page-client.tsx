@@ -14,6 +14,7 @@ import {
   useBulkArchiveJobs,
   useBulkRestoreJobs,
   useBulkUpdateJobStatus,
+  useTenantSettings,
 } from "@/hooks/queries";
 const KanbanBoard = dynamic(
   () =>
@@ -58,6 +59,7 @@ import { getTenant } from "@/actions/tenants";
 import { PipelineTabs } from "@/components/dashboard/jobs/pipeline-tabs";
 import { JobTable } from "@/components/dashboard/jobs/job-table";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Pagination } from "@/components/reusable/pagination";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,6 +85,9 @@ import {
   type JobPriority,
   type ServiceType,
 } from "@/lib/constants/job-options";
+
+/** The board loads every job for a pipeline at once; 500 is the API maximum. */
+const BOARD_JOB_LIMIT = 500;
 
 interface PipelineData {
   id: string;
@@ -122,6 +127,8 @@ interface JobsPageClientProps {
   initialJobs?: unknown[];
   initialStages?: unknown[];
   initialPipelineId?: string | null;
+  /** When the server read `initialJobs`/`initialStages`. See `canSeed*` below. */
+  initialFetchedAt?: number;
   defaultTaxRate?: string;
 }
 
@@ -130,6 +137,7 @@ export function JobsPageClient({
   initialJobs = [],
   initialStages = [],
   initialPipelineId = null,
+  initialFetchedAt,
   defaultTaxRate: prefetchedTaxRate,
 }: JobsPageClientProps) {
   const router = useRouter();
@@ -155,9 +163,13 @@ export function JobsPageClient({
   const [serviceTypeFilter, setServiceTypeFilter] = useState<ServiceType | null>(() =>
     readUrlEnumParam("serviceType", SERVICE_TYPES),
   );
+  // JOB-41: the API and `jobListQuery` supported this filter from the start;
+  // the action did not forward it and no control existed.
+  const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
   const debouncedSearch = useDebouncedValue(search, 300);
   const debouncedPriority = useDebouncedValue(priorityFilter, 300);
   const debouncedServiceType = useDebouncedValue(serviceTypeFilter, 300);
+  const debouncedAssignee = useDebouncedValue(assigneeFilter, 300);
 
   // View type: board vs list vs table (persisted — SSR-safe default)
   const [viewType, setViewType] = useState<"board" | "list" | "table">("board");
@@ -258,7 +270,14 @@ export function JobsPageClient({
       const result = await getPipelines();
       return (result.data ?? []) as PipelineData[];
     },
-    initialData: initialPipelines.length > 0 ? initialPipelines : undefined,
+    // Safe to seed unconditionally — this key takes no params, so the server
+    // rendered exactly it. Still needs the honest timestamp so the seed ages.
+    ...(initialPipelines.length > 0
+      ? {
+          initialData: initialPipelines,
+          initialDataUpdatedAt: initialFetchedAt,
+        }
+      : {}),
     staleTime: 30_000,
   });
   const pipelinesData = pipelinesQuery.data ?? [];
@@ -296,6 +315,25 @@ export function JobsPageClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipelinesData]);
 
+  // The server rendered ONE pipeline with NO filters applied. `initialData`
+  // seeds whichever key is currently mounted and TanStack stamps it fresh at
+  // *now*, so passing it unconditionally meant switching pipeline showed the
+  // previous pipeline's columns and cards for the whole `staleTime` and never
+  // refetched, and typing a search showed the unfiltered list for 10 s. Seed
+  // only the exact key the server actually produced. Same fix as the dashboard
+  // audit (`useDashboardStats`).
+  const onInitialPipeline =
+    initialPipelineId !== null && selectedPipelineId === initialPipelineId;
+  const noFiltersApplied =
+    !debouncedSearch &&
+    !debouncedPriority &&
+    !debouncedServiceType &&
+    !debouncedAssignee;
+
+  const canSeedStages = onInitialPipeline && initialStages.length > 0;
+  const canSeedJobs =
+    onInitialPipeline && noFiltersApplied && initialJobs.length > 0;
+
   // Pipeline stages
   const stagesQuery = useQuery({
     queryKey: queryKeys.pipelines.stages(selectedPipelineId ?? "__none__"),
@@ -304,8 +342,14 @@ export function JobsPageClient({
       return (result.data ?? []) as PipelineStageWithCount[];
     },
     enabled: !!selectedPipelineId,
-    initialData: initialStages.length > 0 ? (initialStages as PipelineStageWithCount[]) : undefined,
     staleTime: 15_000,
+    placeholderData: (previous) => previous,
+    ...(canSeedStages
+      ? {
+          initialData: initialStages as PipelineStageWithCount[],
+          initialDataUpdatedAt: initialFetchedAt,
+        }
+      : {}),
   });
   const stages = stagesQuery.data ?? [];
 
@@ -314,30 +358,50 @@ export function JobsPageClient({
     search: debouncedSearch || undefined,
     priority: debouncedPriority ?? undefined,
     serviceType: debouncedServiceType ?? undefined,
+    assigneeId: debouncedAssignee ?? undefined,
     pipelineId: selectedPipelineId ?? undefined,
   };
   const boardJobsQuery = useQuery({
     queryKey: queryKeys.jobs.list({ ...boardJobsParams, view: "board" }),
     queryFn: async () => {
+      // The board is unpaginated, so the cap has to be visible rather than
+      // silent: it asked for 150 and threw `pagination.total` away, so a
+      // pipeline with more than 150 jobs showed a subset with no banner, no
+      // count, and no way to tell. 500 is the schema maximum.
       const result = await getJobs({
         ...boardJobsParams,
-        limit: 150,
+        limit: BOARD_JOB_LIMIT,
         sortBy: "scheduledDate",
         sortOrder: "asc",
       });
-      return (result.data ?? []) as JobCardData[];
+      return {
+        rows: (result.data ?? []) as JobCardData[],
+        total: result.pagination?.total ?? (result.data ?? []).length,
+      };
     },
     enabled: !!selectedPipelineId,
-    initialData: initialJobs.length > 0 ? (initialJobs as JobCardData[]) : undefined,
     staleTime: 10_000,
+    placeholderData: (previous) => previous,
+    ...(canSeedJobs
+      ? {
+          initialData: {
+            rows: initialJobs as JobCardData[],
+            total: initialJobs.length,
+          },
+          initialDataUpdatedAt: initialFetchedAt,
+        }
+      : {}),
   });
-  const jobs = boardJobsQuery.data ?? [];
+  const jobs = boardJobsQuery.data?.rows ?? [];
+  const totalBoardJobs = boardJobsQuery.data?.total ?? jobs.length;
+  const boardTruncated = totalBoardJobs > jobs.length;
 
   // Table jobs (paginated, separate query)
   const tableJobsParams = {
     search: debouncedSearch || undefined,
     priority: debouncedPriority ?? undefined,
     serviceType: debouncedServiceType ?? undefined,
+    assigneeId: debouncedAssignee ?? undefined,
     pipelineId: selectedPipelineId ?? undefined,
     showArchived: showingArchived || undefined,
     page: tablePage,
@@ -393,32 +457,45 @@ export function JobsPageClient({
   });
   const assigneeMembers = assigneesQuery.data ?? [];
 
-  // Tenant tax rate
-  const tenantQuery = useQuery({
-    queryKey: queryKeys.tenant.settings(),
-    queryFn: async () => {
-      const result = await getTenant();
-      return result.data?.defaultTaxRate as string | undefined;
-    },
-    enabled: !prefetchedTaxRate,
-    initialData: prefetchedTaxRate,
-    staleTime: 120_000,
-  });
-  const defaultTaxRate = tenantQuery.data ?? prefetchedTaxRate;
+  // Tenant tax rate — via the shared hook, NOT a local query.
+  // This page used to define its own `useQuery` on `queryKeys.tenant.settings()`
+  // that stored a bare tax-rate string, while `useTenantSettings()` stores the
+  // whole `{data, error}` result under the same key and has five other readers
+  // (invoices, quotes, bookings, customer overview) that all do
+  // `tenantQuery.data?.data?.…`. Whichever mounted last won the cache entry, so
+  // visiting Jobs and then Invoices inside the 5-minute staleTime handed those
+  // readers a string — `("0.08").data` is undefined, which silently reinstated
+  // the CUST-06 timezone fallback. One key, one shape.
+  const tenantQuery = useTenantSettings();
+  const defaultTaxRate =
+    (tenantQuery.data?.data?.defaultTaxRate as string | undefined) ??
+    prefetchedTaxRate;
 
-  // Loading state — show loading only when board/list data is loading (not table)
-  const loading = (!hasServerData && boardJobsQuery.isLoading) || !selectedPipelineId;
+  // JOB-26: this was `|| !selectedPipelineId`, and with **zero pipelines**
+  // `selectedPipelineId` never resolves — so the page rendered a skeleton
+  // forever and the "No pipeline stages configured" empty state below was
+  // unreachable. "We are still finding out" and "there is nothing" are
+  // different states and only the first one is loading.
+  const pipelinesResolved = !pipelinesQuery.isLoading;
+  const hasNoPipelines = pipelinesResolved && pipelinesData.length === 0;
+  const loading =
+    !hasNoPipelines &&
+    ((!hasServerData && boardJobsQuery.isLoading) ||
+      !pipelinesResolved ||
+      !selectedPipelineId);
+  // A failed fetch used to yield `jobs = []` and render empty columns with no
+  // message — and `showNoResults` requires an active filter, so with no filters
+  // there was not even that. Empty columns after a 500 say "you have no work".
+  const loadFailed =
+    !loading && (boardJobsQuery.isError || stagesQuery.isError);
+  const loadErrorMessage =
+    (boardJobsQuery.error as Error | null)?.message ??
+    (stagesQuery.error as Error | null)?.message ??
+    "We couldn't reach the server.";
 
   // ── Invalidation helpers ──────────────────────────────────
 
   const invalidateAll = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
-    if (selectedPipelineId) {
-      queryClient.invalidateQueries({ queryKey: queryKeys.pipelines.stages(selectedPipelineId) });
-    }
-  }, [queryClient, selectedPipelineId]);
-
-  const invalidateJobsAndStages = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
     if (selectedPipelineId) {
       queryClient.invalidateQueries({ queryKey: queryKeys.pipelines.stages(selectedPipelineId) });
@@ -463,7 +540,7 @@ export function JobsPageClient({
   useEffect(() => {
     clearSelection();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch, debouncedPriority, debouncedServiceType, selectedPipelineId, viewFilter]);
+  }, [debouncedSearch, debouncedPriority, debouncedServiceType, debouncedAssignee, selectedPipelineId, viewFilter]);
 
   // ── Mutations (reusable hooks — toast + invalidation handled internally) ──
 
@@ -478,7 +555,7 @@ export function JobsPageClient({
         if (!res.error) {
           clearSelection();
           setBulkDeleteOpen(false);
-          invalidateJobsAndStages();
+          invalidateAll();
         }
       },
     });
@@ -491,7 +568,7 @@ export function JobsPageClient({
         if (!res.error) {
           clearSelection();
           setBulkArchiveOpen(false);
-          invalidateJobsAndStages();
+          invalidateAll();
         }
       },
     });
@@ -639,9 +716,14 @@ export function JobsPageClient({
         setError(result.error);
         toast.error(result.error);
       } else {
+        // JOB-31: every result was discarded, so if three of five line items
+        // failed the toast still said "Job created" and the job's total was
+        // quietly short. The job itself did save, so this reports the partial
+        // failure rather than pretending the whole thing failed.
+        let failedLineItems = 0;
         if (data.lineItems && data.lineItems.length > 0) {
           const jobId = result.data.id;
-          await Promise.all(
+          const results = await Promise.all(
             data.lineItems.map((li) =>
               addJobLineItem(jobId, {
                 description: li.description,
@@ -649,13 +731,20 @@ export function JobsPageClient({
                 itemType: li.itemType,
                 quantity: li.quantity,
                 catalogItemId: li.catalogItemId ?? undefined,
-              }),
+              }).catch(() => ({ error: "Network error" })),
             ),
           );
+          failedLineItems = results.filter((r) => r?.error).length;
         }
         setDialogOpen(false);
-        toast.success("Job created");
-        invalidateJobsAndStages();
+        if (failedLineItems > 0) {
+          toast.warning(
+            `Job created, but ${failedLineItems} line item${failedLineItems === 1 ? "" : "s"} could not be added. Check the job's Line Items tab.`,
+          );
+        } else {
+          toast.success("Job created");
+        }
+        invalidateAll();
       }
     }
     setSaving(false);
@@ -671,12 +760,12 @@ export function JobsPageClient({
       toast.success("Job deleted");
       setDeleteDialogOpen(false);
       setDeletingJob(null);
-      invalidateJobsAndStages();
+      invalidateAll();
     }
     setSaving(false);
   }
 
-  const showNoResults = !loading && jobs.length === 0 && (!!search || !!priorityFilter || !!serviceTypeFilter);
+  const showNoResults = !loading && jobs.length === 0 && (!!search || !!priorityFilter || !!serviceTypeFilter || !!assigneeFilter);
   const stagesReady = stages.length > 0;
 
   return (
@@ -702,6 +791,12 @@ export function JobsPageClient({
           onPriorityChange={setPriorityFilter}
           serviceType={serviceTypeFilter}
           onServiceTypeChange={setServiceTypeFilter}
+          assignees={assigneeMembers.map((m) => ({
+            id: m.id,
+            name: m.name ?? m.email,
+          }))}
+          assigneeId={assigneeFilter}
+          onAssigneeChange={setAssigneeFilter}
         />
 
         {/* Center: Board / List / Table switch */}
@@ -799,13 +894,47 @@ export function JobsPageClient({
         <>
           {loading && <KanbanSkeleton columnCount={stages.length || 4} />}
 
-          {showNoResults && (
+          {loadFailed && (
+            <LoadErrorState
+              title="Couldn't load your jobs"
+              message={loadErrorMessage}
+              isRetrying={boardJobsQuery.isFetching || stagesQuery.isFetching}
+              onRetry={() => {
+                boardJobsQuery.refetch();
+                stagesQuery.refetch();
+              }}
+            />
+          )}
+
+          {!loadFailed && showNoResults && (
             <p className="py-12 text-center text-sm text-muted-foreground font-body">
               No jobs found matching your filters
             </p>
           )}
 
-          {!loading && !stagesReady && !showNoResults && (
+          {hasNoPipelines && (
+            <div className="py-16 text-center">
+              <p className="text-sm text-muted-foreground mb-2">
+                No pipelines yet — create one to start tracking jobs.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPipelineDialogOpen(true)}
+              >
+                Create Pipeline
+              </Button>
+            </div>
+          )}
+
+          {boardTruncated && !loading && !loadFailed && (
+            <p className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-700 dark:text-amber-400">
+              Showing the first {jobs.length} of {totalBoardJobs} jobs. Filter or
+              switch to the table view to see the rest.
+            </p>
+          )}
+
+          {!loading && !loadFailed && !hasNoPipelines && !stagesReady && !showNoResults && (
             <div className="py-16 text-center">
               <p className="text-sm text-muted-foreground mb-2">No pipeline stages configured</p>
               <Button variant="outline" size="sm" onClick={() => setPipelineDialogOpen(true)}>
@@ -814,7 +943,7 @@ export function JobsPageClient({
             </div>
           )}
 
-          {!loading && stagesReady && !showNoResults && (
+          {!loading && !loadFailed && stagesReady && !showNoResults && (
             <KanbanBoard
               jobs={jobs}
               stages={stages}
@@ -845,6 +974,18 @@ export function JobsPageClient({
             {viewType === "list" && (
               <>
                 {loading && <KanbanSkeleton columnCount={1} />}
+
+                {loadFailed && (
+                  <LoadErrorState
+                    title="Couldn't load your jobs"
+                    message={loadErrorMessage}
+                    isRetrying={boardJobsQuery.isFetching}
+                    onRetry={() => {
+                      boardJobsQuery.refetch();
+                      stagesQuery.refetch();
+                    }}
+                  />
+                )}
 
                 {showNoResults && (
                   <p className="py-12 text-center text-sm text-muted-foreground font-body">

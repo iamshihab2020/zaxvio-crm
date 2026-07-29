@@ -14,7 +14,123 @@ Reports live in [[reports/README|docs/claude/reports/]]. One file per page.
 - [x] `/reports` — [[reports-page|report]]: 28 findings audited and **all 28 fixed** (2026-07-27)
 - [x] Bookings & Calendar — [[bookings-calendar|report]]: 34 findings audited and **all 34 fixed** (2026-07-27)
 - [x] `/customers` — [[customers|report]]: 35 findings audited and **all 35 fixed** (2026-07-27)
-- [ ] Next page to audit — user picks
+- [x] Jobs — [[jobs|report]]: 42 findings audited and **all 48 fixed** (2026-07-29) — the 42 plus 6 found while fixing. (The report header had undercounted its own medium section as 16; it is 20.)
+- [x] Invoices — [[invoices|report]]: 42 findings audited and **all 42 fixed** (2026-07-29)
+- [ ] Next page to audit — user picks (suggested: Quotes — shares the money model and adds a public token surface)
+
+### Invoices Remediation (2026-07-29) — COMPLETE
+All 42 findings in [[invoices|the report]] are fixed; the record is [[invoices|§7]]. The headline
+from [[invoices|§2]] — of 17 remediation patterns established by the previous five audits exactly
+**one** had reached this page — was answered by running the sweeps repo-wide and recording the
+counts, which is the process change §2 asked for.
+- [x] **Phase 1 — money model** (INV-01, 02, 03, 04, 09) — done. INV-01/02/03 turned out to be *one*
+      defect: status was being **assigned** rather than **derived**. `services/invoices/status.service.ts`
+      computes it from the payment rows, so "delete the last payment → set sent" is no longer
+      expressible — a void invoice stays void and a never-sent draft stays a draft. The transition
+      table then only governs what a human legitimately chooses, which is why `paid` and
+      `partially_paid` appear on no row of it. `recordPayment`/`deletePayment` are one transaction
+      with `SELECT … FOR UPDATE` — the transaction alone would not have fixed the race.
+      `lib/invoice-guards.ts` took the archived check from **0 of 14** mutating handlers to all of them.
+- [x] **Phase 2 — criticals + overdue split** (INV-05, 06, 07, 08) — done. One `overdueCondition()`
+      backs the list, the stats endpoint and the cron. INV-06 was worse than "three definitions":
+      the cron restricted to `('sent','overdue')`, so a **partially_paid** invoice past its due date
+      was counted as overdue everywhere in the UI and **never chased** — a customer who paid half and
+      stopped was silently dropped. INV-08 made that moot for the primary flow anyway: `from-job`
+      set no `dueDate` at all, so those invoices were never overdue, never aged, never dunned, and
+      printed "Terms: Net 30" above a blank due date.
+- [x] **Phase 3 — propagation sweep, repo-wide** (INV-10, 11, 12, 13, 17, 18, 22, 31, 32) — done, with
+      counts in [[invoices|§7.3]]. `escapeLike` reached **7 more route files** (0 unescaped `ilike`
+      patterns remain repo-wide); the PDF logo guard covers **quotes as well as invoices**;
+      `formatMoney`/`formatDateOnly` replace **four** hand-rolled copies. `useInvoice` had **0 callers** —
+      so the hover prefetch was filling a cache nothing read, and sheet mutations invalidated nothing.
+- [x] **Phase 4 — medium** (INV-15, 16, 19, 20, 21, 23–30, 33, 34) — done. Server-rendered data was
+      fetched, passed, destructured and **never referenced**, so every load paid twice and still showed
+      a skeleton; E-12 review requests moved out of a 2-hour in-memory `setTimeout` into a column plus
+      a 15-minute sweep; both crons now **claim** rows with `UPDATE … RETURNING`, so N instances split
+      the work instead of duplicating it and a crash-loop stops being a mailing-loop.
+- [x] **Phase 5 — low + docs** (INV-35 … 42, INV-14) — done. Sortable and keyboard-reachable rows,
+      six new indexes, PDF fetched through a server action. All **22** endpoints documented (was 9,
+      and the one payment endpoint that was documented was wrong three ways).
+- [x] Closed the 5 entries in [[deferred-fixes/invoices]] (DF-INV-01 … 05, open since 2026-04-12),
+      each with a Resolution line.
+- [x] **Applied `20260729000002_invoices_audit_money_model.sql` to Neon** (2026-07-29).
+      **79/79 verified by execution.** Structure 23/23 — the before-state confirmed INV-33 exactly:
+      `invoice_line_items` and `invoice_payments` had **no index at all** beyond their primary keys,
+      so every detail fetch and every recalculation was a sequential scan. `EXPLAIN` now shows an
+      index scan. Idempotent across 4 runs (NOTICE-only; index and column sets byte-identical after
+      each). The two repair `UPDATE`s matched **0 rows** because the table is empty, so they were
+      exercised separately against 8 seeded corruption rows and rolled back: `paid` with zero payment
+      rows → `sent`, a paid-then-edited invoice → `partially_paid` with its balance restored from the
+      clamped `0.00` to `500.00`, a $50 overpayment recovered into `credit_amount` — and the negative
+      cases hold, a void invoice is never re-derived out of void and a genuine draft is never promoted.
+      Re-running the repair matches 0 rows, so it converges. Then 38/38 round-tripping the real
+      service layer against Neon, including the exact INV-02 scenario: adding a line item to a paid
+      invoice now re-derives `partially_paid` and clears the credit instead of reading **Paid** with
+      $511.88 owed.
+
+### Jobs Remediation (2026-07-29) — COMPLETE
+All 48 findings in [[jobs|the report]] are fixed and verified. §5.1 answered **full split**: `job_pipeline_stages.lifecycle`
+maps each stage to one of the four real statuses; `jobs.stage_id` becomes the pointer; `jobs.status`
+stays as the denormalised stage name but is now always derived from a validated stage.
+
+- [x] **Phase 1 — data model** (JOB-01, 02, 03, 06, 08, 09, 27, 28, 35) — done 2026-07-29. Applied
+      `20260729000001_jobs_audit_stage_split.sql` to Neon (13/13 verified: FK enforces, re-run is a
+      no-op, stage delete SET NULLs instead of cascading). New `services/job-stages.service.ts` is the
+      one place a job changes column. `/reorder` no longer writes status at all — the board calls
+      `PATCH /:id/status`, so a drag to Completed now hits the checklist gate, the E-05 email, the
+      notification and the activity row. Verified 33/33 by execution against Neon (a custom
+      `awaiting_parts` stage resolves and accepts a job) and 19/19 on the Zod probes that failed in
+      the audit. **Found 3 new defects while verifying — see [[jobs|§8]].** The worst: Drizzle renders
+      an embedded column inside a `` sql`…` `` template as a bare `"id"`, which Postgres binds to the
+      *subquery's* table, so `/settings/pipelines` has been reporting "0 stages · 0 jobs" for every
+      pipeline (measured: 4 stages and 1 job read as 0 and 0). Same bug in `/checklists` itemCount.
+- [x] **Phase 2 — remaining criticals** (JOB-04, 05) — done 2026-07-29. **All 5 criticals now closed.**
+      New `lib/upload-limits.ts` derives each route's `bodyLimit` from its advertised ceiling, so the
+      number the handler checks and the number Fastify enforces can't drift again. Verified 9/9 by
+      HTTP round trip: a 2MB photo now reaches auth instead of dying at the parser, 60MB is still
+      refused, and an ordinary endpoint still enforces 1MB. `initialData` now seeds only the exact
+      key the server rendered, with an honest `initialDataUpdatedAt` — verified 9/9 against a real
+      QueryClient, including a BEFORE run that reproduces the stale-pipeline defect.
+      **2 more new defects found by grepping the class** ([[jobs|§8]]): the tenant logo upload had
+      the identical bodyLimit bug (2MB promised, ~786KB real), and the jobs page was storing a bare
+      string under `queryKeys.tenant.settings()` — a key 5 other components read as `{data, error}`,
+      which silently reinstated the CUST-06 timezone fallback on /invoices, /quotes and /bookings.
+- [x] **Phase 3 — high** (JOB-07, 10, 11, 12, 13, 14; 08/09 landed in Phase 1) — done 2026-07-29.
+      **All 9 high now closed, so every P1 and P2 on this page is fixed.** New
+      `lib/job-guards.ts`: `loadEditableJob` took the archived check from **4 of 14** mutating
+      handlers to all of them (you could not *add* a line item to an archived job but could edit or
+      delete one — both recalculate its money), and `findForeignRef` closed the 4 FKs written
+      straight from the request body. Upload got a MIME allowlist (`text/html` was servable from our
+      own storage domain) and a real base64 check. Bulk-delete now cleans R2 via the same helper as
+      the single delete, and both report how many invoices lose their job link. Verified 28/28
+      against Neon. **2 more found by grepping the class** ([[jobs|§8]]): `EntityDetailShell`
+      rendered *nothing* when a fetch failed — a shared component, so all four detail sheets opened
+      blank on a 500; and deleting the `as never` in `job-helpers.ts` made the compiler surface a
+      second untyped enum in `lib/quote-to-job.ts`.
+- [x] **Phase 4 — medium** (JOB-15 … JOB-34) — done 2026-07-29. **All 16 medium closed.** Highlights:
+      the "Today" badge compared against the **UTC** date, so a tech's board said Today on tomorrow's
+      jobs from 6pm Central — `components/dashboard/jobs/` had *zero* references to `timeZone`
+      despite tenant tz being plumbed for the dashboard and `lib/tenant-time.ts` written for the
+      calendar; the completion email stamped the *server's* date (proved: 02:30 UTC is Aug 1 in
+      Chicago and Aug 2 in UTC); `bulk-status-update` sent no completion email at all, so completing
+      ten jobs at once notified nobody; un-checking a catalog checklist item left its auto-added line
+      item — and its money — on the job; `POST /jobs` became one transaction (was five statements, so
+      a mid-way failure left a job with no checklist); `GET /pipeline-stages` stopped writing on every
+      read; a drop onto a card in another column fired **two** concurrent `/reorder` writes.
+      Verified 29/29 against Neon.
+- [x] **Phase 5 — low** (JOB-36 … JOB-41; 35/42 landed in Phase 1) — done 2026-07-29. Deleted a
+      component with 0 importers and a byte-identical duplicate of `invalidateAll`; fixed the deep-link
+      bounce (two effects raced on the view preference, so `/jobs/[id]` pushed straight back to
+      `/jobs`); migrated the detail page onto `useJob()` so mutations made there invalidate the list;
+      and made the **assignee filter reachable** — it was honoured by the API and `jobListQuery` all
+      along, but the server action never forwarded it and no control existed.
+- [x] **Phase 6 — docs + verification** — done 2026-07-29. Wrote up all **13 undocumented
+      endpoints** and corrected the ones this work changed (`PATCH /jobs/:id` no longer takes
+      `status`; `DELETE` reports `unlinkedInvoices`; stage `lifecycle` documented with what it
+      actually controls). REPO_MAP gained `job-guards.ts`, `upload-limits.ts`,
+      `job-stages.service.ts`, `job-load-error.tsx` and the migration, and lost the deleted
+      component. Chatbot knowledge base now explains stage types and the completion gate.
+      **Final harness: 45/45 across all six phases**, `tsc` clean on all three packages.
 
 **Verify against real data.** The DB now has one tenant — **Shihab Housing** (`/book/shihab-housing`, `America/Chicago`, 1 user, 1 customer, 1 job, Mon–Fri 08:00–17:00 seeded). Most of this is now runnable; email delivery still isn't (no verified Resend domain).
 - [x] Applied `20260727000001_booking_calendar_audit.sql` (2026-07-27) — FK + index + `booking_slot_capacity`. Verified 10/10: FK enforces (`23503` on a bogus id, rollback-tested), re-running the file is a no-op, exactly one FK. The `UPDATE` and backfill both matched 0 rows — there were no dangling links to clear.

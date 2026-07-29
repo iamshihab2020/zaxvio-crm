@@ -60,9 +60,14 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
           name: checklistTemplates.name,
           isActive: checklistTemplates.isActive,
           createdAt: checklistTemplates.createdAt,
+          // `${checklistTemplates.id}` renders as a bare `"id"`, which Postgres
+          // binds to `checklist_items.id` inside the subquery — so the
+          // condition was `checklist_items.template_id = checklist_items.id`
+          // and every template reported 0 items. Same defect as the pipeline
+          // and stage counts; the outer column has to be written out in full.
           itemCount: sql<number>`(
-            SELECT COUNT(*) FROM checklist_items
-            WHERE checklist_items.template_id = ${checklistTemplates.id}
+            SELECT COUNT(*)::int FROM checklist_items ci
+            WHERE ci.template_id = checklist_templates.id
           )`.as("item_count"),
         })
         .from(checklistTemplates)

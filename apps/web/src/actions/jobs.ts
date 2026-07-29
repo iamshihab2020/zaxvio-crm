@@ -23,6 +23,8 @@ export async function getJobs(params?: {
   dateFrom?: string;
   dateTo?: string;
   pipelineId?: string;
+  /** JOB-41: accepted by the API all along; this action never forwarded it. */
+  assigneeId?: string;
   page?: number;
   limit?: number;
   sortBy?: string;
@@ -32,6 +34,7 @@ export async function getJobs(params?: {
   try {
     const searchParams = new URLSearchParams();
     if (params?.pipelineId) searchParams.set("pipelineId", params.pipelineId);
+    if (params?.assigneeId) searchParams.set("assigneeId", params.assigneeId);
     if (params?.search) searchParams.set("search", params.search);
     if (params?.status) searchParams.set("status", params.status);
     if (params?.customerId) searchParams.set("customerId", params.customerId);
@@ -63,6 +66,13 @@ export async function getJobs(params?: {
   }
 }
 
+/**
+ * `status` is returned so callers can tell "this job does not exist" from
+ * "we could not reach the server". The detail page used to call `notFound()`
+ * on any falsy result, so a 500 rendered "This page could not be found" — a
+ * definitive claim about the user's data made on the strength of an outage.
+ * `status: 0` means the request never completed.
+ */
 export async function getJob(id: string) {
   try {
     const res = await fetch(`${API_URL}/jobs/${id}`, {
@@ -72,13 +82,17 @@ export async function getJob(id: string) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Job not found" };
+      return {
+        data: null,
+        error: err.message ?? "Failed to load job",
+        status: res.status,
+      };
     }
 
     const json = await res.json();
-    return { data: json.data, error: null };
+    return { data: json.data, error: null, status: res.status };
   } catch {
-    return { data: null, error: "Network error" };
+    return { data: null, error: "Network error", status: 0 };
   }
 }
 
@@ -95,7 +109,10 @@ export async function createJob(data: {
   taxRate?: string;
   notes?: string;
   bookingId?: string;
+  /** Stage name — which column the job starts in. */
   status?: string;
+  /** Precise stage to start in; wins over `status` when both are given. */
+  stageId?: string;
   equipmentId?: string;
   pipelineId?: string;
   assigneeId?: string | null;
@@ -185,7 +202,16 @@ export async function getJobAssignees() {
   }
 }
 
-export async function updateJobStatus(id: string, status: string) {
+/**
+ * Move a job to another pipeline stage. Accepts the stage `name` (what the
+ * board has always sent) or a precise `stageId`; the API resolves either
+ * against the job's own pipeline, so custom stages work.
+ */
+export async function updateJobStatus(
+  id: string,
+  target: string | { stageId?: string; status?: string },
+) {
+  const body = typeof target === "string" ? { status: target } : target;
   try {
     const res = await fetch(`${API_URL}/jobs/${id}/status`, {
       method: "PATCH",
@@ -193,7 +219,7 @@ export async function updateJobStatus(id: string, status: string) {
         "Content-Type": "application/json",
         cookie: await getCookieHeader(),
       },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(body),
       cache: "no-store",
     });
 
@@ -209,9 +235,16 @@ export async function updateJobStatus(id: string, status: string) {
   }
 }
 
+export type ReorderSkip = { id: string; reason: string };
+
 export async function reorderJobs(
-  items: { id: string; sortOrder: number; status?: string }[],
-) {
+  items: {
+    id: string;
+    sortOrder: number;
+    status?: string;
+    stageId?: string;
+  }[],
+): Promise<{ error: string | null; skipped: ReorderSkip[] }> {
   try {
     const res = await fetch(`${API_URL}/jobs/reorder`, {
       method: "PATCH",
@@ -225,12 +258,22 @@ export async function reorderJobs(
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { error: err.message ?? "Failed to reorder jobs" };
+      return {
+        error: err.message ?? "Failed to reorder jobs",
+        skipped: [],
+      };
     }
 
-    return { error: null };
+    // The server can accept the new positions but refuse a stage move. That
+    // used to be dropped here, so the card silently snapped back on the next
+    // refetch with nothing said about why.
+    const json = await res.json().catch(() => ({}));
+    return {
+      error: null,
+      skipped: Array.isArray(json.skipped) ? (json.skipped as ReorderSkip[]) : [],
+    };
   } catch {
-    return { error: "Network error" };
+    return { error: "Network error", skipped: [] };
   }
 }
 

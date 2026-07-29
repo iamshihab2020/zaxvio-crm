@@ -3,25 +3,16 @@
 import { IconCalendar, IconReceipt } from "@tabler/icons-react";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import type { InvoiceDetail } from "./invoice-detail-sheet";
+import { formatMoney, formatDateOnly } from "@/lib/format";
 
 interface InvoiceInfoPanelProps {
   invoice: InvoiceDetail;
 }
 
-function formatCurrency(val: string | null) {
-  const num = parseFloat(val ?? "0");
-  if (num < 0) return `\u2212$${Math.abs(num).toFixed(2)}`;
-  return `$${num.toFixed(2)}`;
-}
-
-function formatDate(val: string | null) {
-  if (!val) return "\u2014";
-  return new Date(val).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+// The third hand-rolled copy of these two (INV-19/39) \u2014 no thousands
+// separator, and `new Date("2026-07-29")` shifting the day west of UTC.
+const formatCurrency = formatMoney;
+const formatDate = formatDateOnly;
 
 export function InvoiceInfoPanel({ invoice }: InvoiceInfoPanelProps) {
   const taxPercent = parseFloat(invoice.taxRate ?? "0") * 100;
@@ -82,7 +73,7 @@ export function InvoiceInfoPanel({ invoice }: InvoiceInfoPanelProps) {
           {taxPercent > 0 && (
             <div className="flex justify-between px-3 py-2">
               <span className="text-sm text-muted-foreground font-body">
-                Tax ({taxPercent.toFixed(1)}%)
+                Tax ({Number(taxPercent.toFixed(4))}%)
               </span>
               <span className="text-sm font-body">
                 {formatCurrency(invoice.taxAmount)}

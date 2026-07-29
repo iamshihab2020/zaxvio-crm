@@ -5,6 +5,8 @@ import { InvoicePdf } from "./invoice-pdf.js";
 export async function generateInvoicePdf(
   invoice: {
     invoiceNumber: string;
+    /** Drives the VOID watermark — a void invoice must not read as payable. */
+    status?: string | null;
     issuedDate: string;
     dueDate: string | null;
     subtotal: string;
@@ -14,6 +16,7 @@ export async function generateInvoicePdf(
     totalAmount: string;
     amountPaid: string;
     balanceDue: string;
+    creditAmount?: string | null;
     notes: string | null;
   },
   lineItems: Array<{

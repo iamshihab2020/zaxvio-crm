@@ -22,6 +22,12 @@ import {
   ensureDefaultStages,
 } from "../pipeline-stages/index.js";
 import { stripHtmlTags } from "../../lib/sanitize.js";
+import {
+  UPLOAD_LIMITS,
+  base64ByteLength,
+  bodyLimitFor,
+  formatBytes,
+} from "../../lib/upload-limits.js";
 
 const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
   const f = fastify.withTypeProvider<ZodTypeProvider>();
@@ -144,6 +150,9 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
     "/current/logo",
     {
       preHandler: [requireOrgRole(["owner", "admin"])],
+      // Same defect as the job upload: the handler promised 2 MB while the
+      // inherited 1 MB default made the real ceiling ~786 KB of image.
+      bodyLimit: bodyLimitFor(UPLOAD_LIMITS.logo),
       schema: { body: uploadLogoBody },
     },
     async (request, reply) => {
@@ -157,12 +166,13 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const { data, filename, mimeType } = request.body;
 
-      const buffer = Buffer.from(data, "base64");
-
-      // 2MB limit
-      if (buffer.length > 2 * 1024 * 1024) {
-        return reply.status(400).send({ message: "Logo must be under 2MB" });
+      if (base64ByteLength(data) > UPLOAD_LIMITS.logo) {
+        return reply.status(400).send({
+          message: `Logo must be under ${formatBytes(UPLOAD_LIMITS.logo)}`,
+        });
       }
+
+      const buffer = Buffer.from(data, "base64");
 
       const ext = filename.split(".").pop()?.toLowerCase() ?? "png";
       if (!ALLOWED_EXTENSIONS.includes(ext)) {

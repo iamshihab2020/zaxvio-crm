@@ -123,7 +123,7 @@ export function InvoiceSettingsClient({ initialTenant }: InvoiceSettingsClientPr
         <InvoiceForm
           tenant={tenant}
           onFormChange={handleFormChange}
-          onSaved={(updated) => setTenant(updated as unknown as TenantData)}
+          onSaved={(updated) => setTenant(updated)}
         />
       </div>
       <div className="space-y-4">

@@ -37,7 +37,26 @@ import {
   inArray,
 } from "@hvac-saas/database";
 import { uploadFile, deleteFiles, getPublicUrl } from "../../lib/storage.js";
-import { attachChecklistToJob } from "../../lib/job-helpers.js";
+import {
+  UPLOAD_LIMITS,
+  base64ByteLength,
+  bodyLimitFor,
+  formatBytes,
+  isAllowedUploadMime,
+  isValidBase64,
+  ALLOWED_UPLOAD_MIME,
+} from "../../lib/upload-limits.js";
+import {
+  loadEditableJob,
+  assertEditable,
+  findForeignRef,
+} from "../../lib/job-guards.js";
+import {
+  attachChecklistToJob,
+  deleteJobAttachments,
+  countLinkedInvoices,
+  sendJobCompletionEmailFor,
+} from "../../lib/job-helpers.js";
 import {
   idParam,
   lineItemParam,
@@ -62,21 +81,32 @@ import {
 } from "../../lib/schemas/jobs.js";
 import { paginationQuery } from "../../lib/schemas/common.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
+import { escapeLike } from "../../lib/search.js";
+import { formatDateInTimezone } from "../../lib/timezone.js";
+import {
+  canTransition,
+  getDefaultPipelineId,
+  getFirstStage,
+  getJobLifecycle,
+  loadStagesByPipeline,
+  matchStage,
+  resolveStage,
+  stageUpdate,
+  transitionMessage,
+  type JobLifecycle,
+} from "../../services/job-stages.service.js";
 
 // ========== HELPERS ==========
 
-/** Escape LIKE/ILIKE wildcards so user input is treated literally. */
-function escapeLike(str: string): string {
-  return str.replace(/%/g, "\\%").replace(/_/g, "\\_");
-}
+// `escapeLike` used to be defined here, privately, and omitted the backslash
+// escape — so a search for a backslash still acted as an escape character.
+// `lib/search.ts` was written during the customers audit to end exactly this
+// duplication; it just never reached the file the original copy came from.
 
-/** Valid status transitions for the job state machine. */
-const VALID_TRANSITIONS: Record<string, string[]> = {
-  scheduled: ["in_progress", "cancelled"],
-  in_progress: ["completed", "cancelled"],
-  completed: [], // terminal state
-  cancelled: ["scheduled"], // allow re-scheduling
-};
+// The job state machine now lives in services/job-stages.service.ts, keyed on
+// a stage's `lifecycle` rather than on `jobs.status`. The old table was keyed
+// on the status string and no entry listed itself, so a same-column drag read
+// as an illegal transition and the write was skipped.
 
 async function recalculateJobTotals(
   db: ReturnType<typeof getDb>,
@@ -174,6 +204,8 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const {
         search,
         status,
+        stageId,
+        lifecycle,
         customerId,
         serviceType,
         priority,
@@ -210,16 +242,37 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       if (status) {
-        filters.push(eq(jobs.status, status as never));
+        filters.push(eq(jobs.status, status));
+      }
+      if (stageId) {
+        filters.push(eq(jobs.stageId, stageId));
+      }
+      if (lifecycle) {
+        // Scoped to this tenant's stages so the subquery cannot match a stage
+        // belonging to someone else that happens to share a lifecycle.
+        filters.push(
+          inArray(
+            jobs.stageId,
+            db
+              .select({ id: jobPipelineStages.id })
+              .from(jobPipelineStages)
+              .where(
+                and(
+                  eq(jobPipelineStages.tenantId, tenantId),
+                  eq(jobPipelineStages.lifecycle, lifecycle),
+                ),
+              ),
+          ),
+        );
       }
       if (customerId) {
         filters.push(eq(jobs.customerId, customerId));
       }
       if (serviceType) {
-        filters.push(eq(jobs.serviceType, serviceType as never));
+        filters.push(eq(jobs.serviceType, serviceType));
       }
       if (priority) {
-        filters.push(eq(jobs.priority, priority as never));
+        filters.push(eq(jobs.priority, priority));
       }
       if (dateFrom) {
         filters.push(gte(jobs.scheduledDate, dateFrom));
@@ -466,6 +519,18 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Customer not found" });
       }
 
+      // `bookingId` and `equipmentId` were written straight from the body with
+      // no ownership check, so a job could be linked to another tenant's
+      // booking or asset. `customerId`, `pipelineId` and `assigneeId` were all
+      // validated; these two sat beside them unchecked.
+      const badRef = await findForeignRef(db, tenantId, {
+        equipmentId: body.equipmentId,
+        bookingId: body.bookingId,
+      });
+      if (badRef) {
+        return reply.status(400).send({ message: `${badRef} not found` });
+      }
+
       // Resolve pipeline: validate provided or fallback to default
       let pipelineId: string | null = null;
       if (body.pipelineId) {
@@ -484,17 +549,35 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
         pipelineId = pipeline.id;
       } else {
-        const defaultPipeline = await db
-          .select({ id: pipelines.id })
-          .from(pipelines)
-          .where(
-            and(
-              eq(pipelines.tenantId, tenantId),
-              eq(pipelines.isDefault, true),
-            ),
-          )
-          .then((r) => r[0]);
-        pipelineId = defaultPipeline?.id ?? null;
+        pipelineId = await getDefaultPipelineId(db, tenantId);
+      }
+
+      // A job starts in the stage the caller asked for — "Add job to this
+      // column" sends one — and otherwise in the pipeline's first stage. Either
+      // way `status` is that stage's name, so a tenant who renamed "Scheduled"
+      // to "Booked" sees new jobs land in the column they actually built.
+      let startingStage = null;
+      if (pipelineId) {
+        if (body.stageId || body.status) {
+          startingStage = await resolveStage(db, {
+            tenantId,
+            pipelineId,
+            stageId: body.stageId,
+            status: body.status,
+          });
+          if (!startingStage) {
+            return reply.status(400).send({
+              message: `No stage "${body.stageId ?? body.status}" in the selected pipeline`,
+            });
+          }
+        } else {
+          startingStage = await getFirstStage(db, { tenantId, pipelineId });
+        }
+        if (!startingStage) {
+          return reply.status(400).send({
+            message: "The selected pipeline has no stages. Add a stage first.",
+          });
+        }
       }
 
       // Fetch tenant for defaultTaxRate and assignee validation
@@ -524,62 +607,64 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // Use tenant's defaultTaxRate if no taxRate provided
       const taxRate = body.taxRate || tenantRecord?.defaultTaxRate || "0";
 
-      const [job] = await db
-        .insert(jobs)
-        .values({
+      // One transaction. This was five separate statements — insert job,
+      // attach checklist, log job activity, log customer activity, re-fetch —
+      // so a failure part-way left a job with no checklist and no activity
+      // trail, which is invisible until someone wonders where the checklist
+      // went. The checklist is the thing techs work from; a job without one is
+      // not a usable job.
+      const created = await db.transaction(async (tx) => {
+        const [job] = await tx
+          .insert(jobs)
+          .values({
+            tenantId,
+            customerId: body.customerId,
+            bookingId: body.bookingId || null,
+            equipmentId: body.equipmentId || null,
+            pipelineId,
+            stageId: startingStage?.id ?? null,
+            jobNumber: "", // Auto-generated by DB trigger
+            serviceType: body.serviceType,
+            title: body.title,
+            description: body.description || null,
+            scheduledDate: body.scheduledDate,
+            scheduledStart: body.scheduledStart || null,
+            scheduledEnd: body.scheduledEnd || null,
+            address: body.address || null,
+            status: startingStage?.name ?? "scheduled",
+            priority: body.priority ?? "standard",
+            taxRate,
+            notes: body.notes || null,
+            assigneeId: body.assigneeId || null,
+          })
+          .returning();
+
+        await attachChecklistToJob(tx, job.id, tenantId, body.serviceType, userId);
+
+        await tx.insert(jobActivities).values({
+          tenantId,
+          jobId: job.id,
+          type: "job.created",
+          description: `Job created for ${customer.firstName} ${customer.lastName}`,
+          performedBy: userId,
+        });
+
+        await tx.insert(customerActivities).values({
           tenantId,
           customerId: body.customerId,
-          bookingId: body.bookingId || null,
-          equipmentId: body.equipmentId || null,
-          pipelineId,
-          jobNumber: "", // Auto-generated by DB trigger
-          serviceType: body.serviceType as never,
-          title: body.title,
-          description: body.description || null,
-          scheduledDate: body.scheduledDate,
-          scheduledStart: body.scheduledStart || null,
-          scheduledEnd: body.scheduledEnd || null,
-          address: body.address || null,
-          priority: (body.priority as never) || "standard",
-          taxRate,
-          notes: body.notes || null,
-          assigneeId: body.assigneeId || null,
-        })
-        .returning();
+          type: "job.created",
+          description: `Job ${job.jobNumber || "new"} created`,
+          metadata: { jobId: job.id },
+          performedBy: userId,
+        });
 
-      // Auto-attach checklist
-      await attachChecklistToJob(
-        db,
-        job.id,
-        tenantId,
-        body.serviceType,
-        userId,
-      );
-
-      // Log job activity
-      await db.insert(jobActivities).values({
-        tenantId,
-        jobId: job.id,
-        type: "job.created",
-        description: `Job created for ${customer.firstName} ${customer.lastName}`,
-        performedBy: userId,
+        // Re-fetch inside the transaction for the trigger-generated jobNumber.
+        const [row] = await tx
+          .select()
+          .from(jobs)
+          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, job.id)));
+        return row;
       });
-
-      // Log customer activity
-      await db.insert(customerActivities).values({
-        tenantId,
-        customerId: body.customerId,
-        type: "job.created",
-        description: `Job ${job.jobNumber || "new"} created`,
-        metadata: { jobId: job.id },
-        performedBy: userId,
-      });
-
-      // Re-fetch to get auto-generated jobNumber
-      const [created] = await db
-        .select()
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, job.id)));
 
       emitPlatformEvent(tenantId, "job_created", userId);
 
@@ -610,15 +695,13 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
         .then((r) => r[0]);
 
-      if (!existing) {
-        return reply.status(404).send({ message: "Job not found" });
+      const gate = assertEditable(existing);
+      if (gate) {
+        return reply.status(gate.status).send({ message: gate.message });
       }
 
-      if (existing.archivedAt) {
-        return reply.status(400).send({ message: "Cannot modify an archived job" });
-      }
-
-      // Validate pipelineId belongs to tenant and has a matching stage for current status
+      // Validate pipelineId belongs to tenant and has a stage the job can land in
+      let rehomedStageId: string | undefined;
       if (body.pipelineId) {
         const pipeline = await db
           .select({ id: pipelines.id })
@@ -634,22 +717,44 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           return reply.status(400).send({ message: "Pipeline not found" });
         }
 
-        // Ensure the job's current status has a matching stage in the target pipeline
-        const matchingStage = await db
-          .select({ id: jobPipelineStages.id })
-          .from(jobPipelineStages)
-          .where(
-            and(
-              eq(jobPipelineStages.pipelineId, body.pipelineId),
-              eq(jobPipelineStages.name, existing.status),
-            ),
-          )
-          .then((r) => r[0]);
-        if (!matchingStage) {
+        // Moving pipelines has to move the stage pointer too, or the job keeps
+        // a stage_id belonging to the pipeline it just left. The stage lookup
+        // was also missing its tenant filter (security-rules §1) — it matched
+        // on pipeline + name alone.
+        const currentLifecycle = await getJobLifecycle(db, {
+          tenantId,
+          stageId: existing.stageId,
+          status: existing.status,
+        });
+        const landing = await resolveStage(db, {
+          tenantId,
+          pipelineId: body.pipelineId,
+          status: existing.status,
+        });
+        if (!landing) {
           return reply.status(400).send({
             message: `Target pipeline has no stage matching current job status "${existing.status}"`,
           });
         }
+        if (landing.lifecycle !== currentLifecycle) {
+          return reply.status(400).send({
+            message: `Target pipeline's "${landing.label}" stage is ${landing.lifecycle.replace("_", " ")}, but this job is ${currentLifecycle.replace("_", " ")}`,
+          });
+        }
+        rehomedStageId = landing.id;
+      }
+
+      // The schema-level refinement only sees the fields in this request, so a
+      // PATCH sending just `scheduledEnd` would pass while inverting the times
+      // on a job that already has a start. Check the merged result.
+      const mergedStart =
+        "scheduledStart" in body ? body.scheduledStart : existing.scheduledStart;
+      const mergedEnd =
+        "scheduledEnd" in body ? body.scheduledEnd : existing.scheduledEnd;
+      if (mergedStart && mergedEnd && mergedEnd <= mergedStart) {
+        return reply
+          .status(400)
+          .send({ message: "End time must be after start time" });
       }
 
       // Validate assignee is an org member
@@ -711,22 +816,43 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const updates: Record<string, unknown> = { updatedAt: new Date() };
       const changedFields: string[] = [];
 
+      // Nullable text columns where "the user cleared this" must be one value.
+      // `POST` wrote `body.x || null` while this loop wrote `body[field]`
+      // verbatim, so clearing a description through the two verbs produced
+      // `NULL` from one and `''` from the other — one column, two spellings of
+      // empty, and every `IS NULL` check downstream disagreeing with itself.
+      const nullableText = new Set([
+        "description",
+        "address",
+        "notes",
+        "scheduledStart",
+        "scheduledEnd",
+      ]);
+
       for (const field of allowedFields) {
         if (field in body) {
+          const raw = body[field];
+          const value =
+            nullableText.has(field) && typeof raw === "string" && raw.trim() === ""
+              ? null
+              : raw;
           const oldVal = existing[field] ?? "";
-          const newVal = body[field] ?? "";
+          const newVal = value ?? "";
           if (String(oldVal) !== String(newVal)) {
             changedFields.push(field);
           }
-          updates[field] = body[field];
+          updates[field] = value;
         }
       }
 
-      const [updated] = await db
+      if (rehomedStageId) {
+        updates.stageId = rehomedStageId;
+      }
+
+      await db
         .update(jobs)
         .set(updates)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .returning();
+        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
 
       // Recalculate totals if tax rate changed
       if (changedFields.includes("taxRate")) {
@@ -748,11 +874,12 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         });
       }
 
-      // Re-fetch after potential recalculation
+      // Re-fetch after potential recalculation. Tenant-scoped like every other
+      // read — this one had only the job id (security-rules §1).
       const [final] = await db
         .select()
         .from(jobs)
-        .where(eq(jobs.id, id));
+        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
 
       return reply.send({ data: final });
     },
@@ -774,7 +901,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const { status } = request.body;
+      const { stageId, status: requestedStatus } = request.body;
       const db = getDb();
 
       const existing = await db
@@ -783,30 +910,49 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
         .then((r) => r[0]);
 
-      if (!existing) {
-        return reply.status(404).send({ message: "Job not found" });
+      const gate = assertEditable(existing);
+      if (gate) {
+        return reply.status(gate.status).send({ message: gate.message });
       }
 
-      if (existing.archivedAt) {
-        return reply.status(400).send({ message: "Cannot modify an archived job" });
-      }
+      const target = await resolveStage(db, {
+        tenantId,
+        pipelineId: existing.pipelineId,
+        stageId,
+        status: requestedStatus,
+      });
 
-      if (existing.status === status) {
+      if (!target) {
         return reply.status(400).send({
-          message: "Job is already in that status",
+          message: `No stage "${stageId ?? requestedStatus}" in this job's pipeline`,
         });
       }
 
-      // Enforce status transition state machine
-      const allowed = VALID_TRANSITIONS[existing.status];
-      if (!allowed || !allowed.includes(status)) {
+      if (existing.stageId === target.id) {
         return reply.status(400).send({
-          message: `Cannot transition from "${existing.status}" to "${status}"`,
+          message: `Job is already in "${target.label}"`,
         });
       }
+
+      const fromLifecycle = await getJobLifecycle(db, {
+        tenantId,
+        stageId: existing.stageId,
+        status: existing.status,
+      });
+
+      if (!canTransition(fromLifecycle, target.lifecycle)) {
+        return reply.status(400).send({
+          message: transitionMessage(
+            { label: existing.status, lifecycle: fromLifecycle },
+            target,
+          ),
+        });
+      }
+
+      const status = target.name;
 
       // Gate: completion requires all required checklist items
-      if (status === "completed") {
+      if (target.lifecycle === "completed") {
         const incompleteRequired = await db
           .select({ id: jobChecklistCompletions.id })
           .from(jobChecklistCompletions)
@@ -830,17 +976,9 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
-      const updateData: Record<string, unknown> = {
-        status,
-        updatedAt: new Date(),
-      };
-      if (status === "completed") {
-        updateData.completedAt = new Date();
-      }
-
       const [updated] = await db
         .update(jobs)
-        .set(updateData)
+        .set({ ...stageUpdate(target, fromLifecycle), updatedAt: new Date() })
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
         .returning();
 
@@ -849,62 +987,33 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         tenantId,
         jobId: id,
         type: "job.status_changed",
-        description: `Status changed from ${existing.status} to ${status}`,
-        metadata: { from: existing.status, to: status },
+        description: `Status changed from ${existing.status} to ${target.label}`,
+        metadata: {
+          from: existing.status,
+          to: status,
+          fromLifecycle,
+          toLifecycle: target.lifecycle,
+          stageId: target.id,
+        },
         performedBy: userId,
       });
 
       dispatchNotification({
         tenantId,
         type: "job_status_changed",
-        title: `Job ${existing.jobNumber ?? ""} moved to ${status}`,
-        description: `Job status changed from ${existing.status} to ${status}`,
+        title: `Job ${existing.jobNumber ?? ""} moved to ${target.label}`,
+        description: `Job status changed from ${existing.status} to ${target.label}`,
         entityType: "job",
         entityId: id,
         actorId: userId,
         metadata: { jobNumber: existing.jobNumber, from: existing.status, to: status },
       });
 
-      // E-05: Job completion email to customer (fire-and-forget)
-      if (status === "completed" && existing.customerId) {
-        const { sendJobCompletionEmail } = await import("../../lib/email.js");
-
-        const [emailCustomer, emailTenant, emailLineItems] = await Promise.all([
-          db.select().from(customers).where(eq(customers.id, existing.customerId)).then((r) => r[0]),
-          db.select().from(tenants).where(eq(tenants.id, tenantId)).then((r) => r[0]),
-          db.select().from(jobLineItems).where(and(eq(jobLineItems.jobId, id), eq(jobLineItems.tenantId, tenantId))),
-        ]);
-
-        if (emailCustomer?.email) {
-          const subtotal = emailLineItems.reduce((sum, li) => sum + Number(li.total ?? 0), 0);
-          const taxRate = Number(existing.taxRate ?? 0);
-          const taxAmount = subtotal * taxRate;
-          const total = subtotal + taxAmount;
-
-          sendJobCompletionEmail({
-            to: emailCustomer.email,
-            props: {
-              customerName: `${emailCustomer.firstName} ${emailCustomer.lastName}`.trim(),
-              businessName: emailTenant?.businessName ?? "HVAC Service",
-              businessLogoUrl: emailTenant?.logoUrl ?? null,
-              businessPhone: emailTenant?.phone ?? null,
-              businessAddress: emailTenant?.address ?? null,
-              jobTitle: existing.title ?? "Service",
-              serviceType: existing.serviceType ?? "General",
-              completedDate: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-              lineItems: emailLineItems.map((li) => ({
-                description: li.description ?? "",
-                quantity: Number(li.quantity ?? 1),
-                unitPrice: Number(li.unitPrice ?? 0),
-                total: Number(li.total ?? 0),
-              })),
-              subtotal,
-              taxAmount,
-              total,
-              notes: existing.description,
-            },
-          }).catch((err) => console.error("[email] E-05 job completion failed:", err));
-        }
+      // E-05: completion email. Keyed on lifecycle, not the stage name — a
+      // tenant whose final column is called "closed_out" must still get it.
+      // Shared with bulk-status-update, which previously sent nothing.
+      if (target.lifecycle === "completed") {
+        void sendJobCompletionEmailFor(db, tenantId, id);
       }
 
       return reply.send({ data: updated });
@@ -937,40 +1046,34 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       // Clean up storage files before FK cascade deletes DB records
-      const [photos, docs] = await Promise.all([
-        db
-          .select({ storagePath: jobPhotos.storagePath })
-          .from(jobPhotos)
-          .where(
-            and(eq(jobPhotos.tenantId, tenantId), eq(jobPhotos.jobId, id)),
-          ),
-        db
-          .select({ storagePath: jobDocuments.storagePath })
-          .from(jobDocuments)
-          .where(
-            and(
-              eq(jobDocuments.tenantId, tenantId),
-              eq(jobDocuments.jobId, id),
-            ),
-          ),
-      ]);
-      const allPaths = [...photos, ...docs].map((f) => f.storagePath);
-      if (allPaths.length > 0) {
-        // best-effort — deleteFiles never throws, so the delete still proceeds
-        await deleteFiles("job-attachments", allPaths);
-      }
+      const unlinkedInvoices = await countLinkedInvoices(db, tenantId, [id]);
+      await deleteJobAttachments(db, tenantId, [id]);
 
       await db
         .delete(jobs)
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
 
-      return reply.send({ message: "Job deleted" });
+      return reply.send({
+        message:
+          unlinkedInvoices > 0
+            ? `Job deleted. ${unlinkedInvoices} invoice(s) are no longer linked to a job.`
+            : "Job deleted",
+        unlinkedInvoices,
+      });
     },
   );
 
   /**
    * PATCH /jobs/reorder
-   * Bulk update sort order for jobs within a stage (after drag-and-drop reorder).
+   * Card positions only — this endpoint no longer changes a job's stage.
+   *
+   * It used to, and that made it a second status writer that skipped the
+   * required-checklist gate, the completion email, the notification and the
+   * activity row. It also skipped the *entire* row — sort order included —
+   * whenever a transition looked invalid, and a within-column drag always
+   * looked invalid because no entry in the old transition table listed itself,
+   * so dragging three cards inside one column persisted none of them.
+   * `PATCH /:id/status` is now the only way a job changes stage.
    */
   fastify.patch(
     "/reorder",
@@ -983,47 +1086,33 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { items } = request.body;
       const db = getDb();
 
-      // Pre-fetch current status for items that include a status change
-      const itemsWithStatus = items.filter((i) => i.status);
-      let currentStatusMap: Map<string, string> = new Map();
-      if (itemsWithStatus.length > 0) {
-        const currentJobs = await db
-          .select({ id: jobs.id, status: jobs.status })
-          .from(jobs)
-          .where(
-            and(
-              eq(jobs.tenantId, tenantId),
-              inArray(jobs.id, itemsWithStatus.map((i) => i.id)),
+      // Archived jobs are not on the board, so a position for one is stale
+      // client state rather than an edit worth applying.
+      const live = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.tenantId, tenantId),
+            inArray(
+              jobs.id,
+              items.map((i) => i.id),
             ),
-          );
-        currentStatusMap = new Map(currentJobs.map((j) => [j.id, j.status]));
-      }
+            isNull(jobs.archivedAt),
+          ),
+        );
+      const liveIds = new Set(live.map((j) => j.id));
 
-      const skipped: string[] = [];
+      const applicable = items.filter((i) => liveIds.has(i.id));
+      const skipped = items
+        .filter((i) => !liveIds.has(i.id))
+        .map((i) => ({ id: i.id, reason: "Job not found or archived" }));
 
       await db.transaction(async (tx) => {
-        for (const item of items) {
-          const updates: Record<string, unknown> = {
-            sortOrder: item.sortOrder,
-            updatedAt: new Date(),
-          };
-          if (item.status) {
-            const currentStatus = currentStatusMap.get(item.id);
-            if (currentStatus) {
-              const allowed = VALID_TRANSITIONS[currentStatus];
-              if (!allowed || !allowed.includes(item.status)) {
-                skipped.push(item.id);
-                continue;
-              }
-            }
-            updates.status = item.status;
-            if (item.status === "completed") {
-              updates.completedAt = new Date();
-            }
-          }
+        for (const item of applicable) {
           await tx
             .update(jobs)
-            .set(updates)
+            .set({ sortOrder: item.sortOrder, updatedAt: new Date() })
             .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, item.id)));
         }
       });
@@ -1081,19 +1170,9 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body;
       const db = getDb();
 
-      // Verify job exists and is not archived
-      const job = await db
-        .select({ id: jobs.id, archivedAt: jobs.archivedAt })
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .then((r) => r[0]);
-
-      if (!job) {
-        return reply.status(404).send({ message: "Job not found" });
-      }
-
-      if (job.archivedAt) {
-        return reply.status(400).send({ message: "Cannot modify an archived job" });
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
 
       let description = body.description;
@@ -1113,11 +1192,15 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           )
           .then((r) => r[0]);
 
-        if (catalogItem) {
-          description = description || catalogItem.name;
-          unitPrice = unitPrice ?? catalogItem.unitPrice;
-          itemType = itemType || (catalogItem.itemType as "labor" | "part" | "material" | "service_call" | "other");
+        // Was `if (catalogItem) { … }` with no else: a missing item, or one
+        // belonging to another tenant, fell straight through and the
+        // unvalidated id was still stored on the line item.
+        if (!catalogItem) {
+          return reply.status(400).send({ message: "Catalog item not found" });
         }
+        description = description || catalogItem.name;
+        unitPrice = unitPrice ?? catalogItem.unitPrice;
+        itemType = itemType || catalogItem.itemType;
       }
 
       if (!description || unitPrice == null || !itemType) {
@@ -1172,6 +1255,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const userId = request.authUser.userId;
       const body = request.body;
       const db = getDb();
+
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
 
       const existing = await db
         .select({ id: jobLineItems.id })
@@ -1245,6 +1333,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
+
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
 
       const existing = await db
         .select({ id: jobLineItems.id, description: jobLineItems.description })
@@ -1352,6 +1445,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body;
       const db = getDb();
 
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
+
       // Fetch completion with checklist item details
       const completion = await db
         .select({
@@ -1447,6 +1545,49 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
+      // JOB-33: un-completing removes the charge it added. Completing a
+      // catalog-linked item auto-added a line item; unchecking it left the line
+      // item — and its money — on the job, so a mis-tap was billable and the
+      // only way back was finding the row on the Line Items tab and deleting it.
+      // Scoped to a line item that still matches the catalog item exactly, so an
+      // edited or manually-added row is never removed from under the user.
+      if (!isCompleted && completion.catalogItemId) {
+        const [autoAdded] = await db
+          .select({ id: jobLineItems.id, description: jobLineItems.description })
+          .from(jobLineItems)
+          .where(
+            and(
+              eq(jobLineItems.tenantId, tenantId),
+              eq(jobLineItems.jobId, id),
+              eq(jobLineItems.catalogItemId, completion.catalogItemId),
+            ),
+          );
+
+        if (autoAdded) {
+          await db
+            .delete(jobLineItems)
+            .where(
+              and(
+                eq(jobLineItems.tenantId, tenantId),
+                eq(jobLineItems.id, autoAdded.id),
+              ),
+            );
+          await recalculateJobTotals(db, id, tenantId);
+
+          await db.insert(jobActivities).values({
+            tenantId,
+            jobId: id,
+            type: "line_item.removed",
+            description: `Removed line item: ${autoAdded.description} (checklist item unchecked)`,
+            metadata: {
+              catalogItemId: completion.catalogItemId,
+              checklistItemLabel: completion.label,
+            },
+            performedBy: userId,
+          });
+        }
+      }
+
       await db.insert(jobActivities).values({
         tenantId,
         jobId: id,
@@ -1472,6 +1613,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
     "/:id/upload",
     {
       preHandler: [requireTenant],
+      // Without this the route inherited the 1 MB default and Fastify rejected
+      // every real photo with FST_ERR_CTP_BODY_TOO_LARGE *before* the handler's
+      // own 20 MB check could run. Derived from the document ceiling — the
+      // larger of the two — with the per-type limit still enforced below.
+      bodyLimit: bodyLimitFor(UPLOAD_LIMITS.document),
       schema: { params: idParam, body: uploadFileBody },
     },
     async (request, reply) => {
@@ -1479,25 +1625,39 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
 
       const { data: base64, filename, mimeType } = request.body;
-      const isPhoto = mimeType.startsWith("image/");
-      const maxBytes = isPhoto ? 20 * 1024 * 1024 : 50 * 1024 * 1024;
 
-      const buffer = Buffer.from(base64, "base64");
-      if (buffer.length > maxBytes) {
-        const limit = isPhoto ? "20MB" : "50MB";
-        return reply.status(400).send({ message: `File exceeds ${limit} limit` });
+      // The mimeType becomes the stored object's Content-Type and the response
+      // hands back a public URL, so an unrestricted value here means serving
+      // attacker-controlled `text/html` from our own storage domain.
+      if (!isAllowedUploadMime(mimeType)) {
+        return reply.status(400).send({
+          message: `Unsupported file type "${mimeType}". Allowed: ${ALLOWED_UPLOAD_MIME.join(", ")}`,
+        });
       }
 
-      // Verify job exists and belongs to tenant
-      const db = getDb();
-      const job = await db
-        .select({ id: jobs.id })
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .then((r) => r[0]);
+      // `Buffer.from(x, "base64")` never throws — it drops invalid characters —
+      // so malformed input would upload silently as garbage.
+      if (!isValidBase64(base64)) {
+        return reply.status(400).send({ message: "File data is not valid base64" });
+      }
 
-      if (!job) {
-        return reply.status(404).send({ message: "Job not found" });
+      const isPhoto = mimeType.startsWith("image/");
+      const maxBytes = isPhoto ? UPLOAD_LIMITS.photo : UPLOAD_LIMITS.document;
+
+      // Sized from the string so an oversize payload is refused without
+      // allocating a second copy of it as a Buffer.
+      if (base64ByteLength(base64) > maxBytes) {
+        return reply
+          .status(400)
+          .send({ message: `File exceeds ${formatBytes(maxBytes)} limit` });
+      }
+
+      const buffer = Buffer.from(base64, "base64");
+
+      const db = getDb();
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
 
       const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -1590,14 +1750,9 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Invalid storage path" });
       }
 
-      const job = await db
-        .select({ id: jobs.id })
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .then((r) => r[0]);
-
-      if (!job) {
-        return reply.status(404).send({ message: "Job not found" });
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
 
       const [photo] = await db
@@ -1643,6 +1798,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const userId = request.authUser.userId;
       const { tag } = request.body;
       const db = getDb();
+
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
 
       const existing = await db
         .select({ id: jobPhotos.id, uploadedBy: jobPhotos.uploadedBy })
@@ -1694,6 +1854,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
+
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
 
       const existing = await db
         .select({
@@ -1797,14 +1962,20 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(400).send({ message: "Invalid storage path" });
       }
 
-      const job = await db
-        .select({ id: jobs.id, customerId: jobs.customerId })
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .then((r) => r[0]);
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
+      const job = guard.job;
 
-      if (!job) {
-        return reply.status(404).send({ message: "Job not found" });
+      // JOB-12: a document's `customerId` came straight from the body.
+      if (body.customerId) {
+        const badRef = await findForeignRef(db, tenantId, {
+          customerId: body.customerId,
+        });
+        if (badRef) {
+          return reply.status(400).send({ message: `${badRef} not found` });
+        }
       }
 
       const [doc] = await db
@@ -1849,6 +2020,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
+
+      const guard = await loadEditableJob(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
 
       const existing = await db
         .select({
@@ -2053,19 +2229,38 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const eligibleIds = existing.map((r) => r.id);
       const skippedCount = ids.length - eligibleIds.length;
-
-      if (eligibleIds.length > 0) {
-        await db
-          .delete(jobs)
-          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
-      }
-
       const errors =
         skippedCount > 0
           ? [{ id: "N/A", message: `${skippedCount} job(s) not found` }]
           : [];
 
-      return reply.send({ succeeded: eligibleIds.length, failed: skippedCount, errors });
+      let unlinkedInvoices = 0;
+      if (eligibleIds.length > 0) {
+        // The single-job delete cleaned up R2 and this did not, so deleting
+        // five jobs one at a time freed their files while selecting the same
+        // five and using the bulk bar left every object orphaned. Same helper
+        // for both paths now.
+        unlinkedInvoices = await countLinkedInvoices(db, tenantId, eligibleIds);
+        await deleteJobAttachments(db, tenantId, eligibleIds);
+
+        await db
+          .delete(jobs)
+          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+      }
+
+      if (unlinkedInvoices > 0) {
+        errors.push({
+          id: "N/A",
+          message: `${unlinkedInvoices} invoice(s) are no longer linked to a job`,
+        });
+      }
+
+      return reply.send({
+        succeeded: eligibleIds.length,
+        failed: skippedCount,
+        errors,
+        unlinkedInvoices,
+      });
     },
   );
 
@@ -2079,13 +2274,18 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       schema: { body: bulkJobStatusBody },
     },
     async (request, reply) => {
-      const { ids, status } = request.body;
+      const { ids, stageId, status: requestedStatus } = request.body;
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
       const db = getDb();
 
       const existing = await db
-        .select({ id: jobs.id, status: jobs.status })
+        .select({
+          id: jobs.id,
+          status: jobs.status,
+          stageId: jobs.stageId,
+          pipelineId: jobs.pipelineId,
+        })
         .from(jobs)
         .where(
           and(eq(jobs.tenantId, tenantId), inArray(jobs.id, ids), isNull(jobs.archivedAt)),
@@ -2099,19 +2299,69 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         errors.push({ id: "N/A", message: `${skippedNotFound} job(s) not found or archived` });
       }
 
-      // Filter by valid state machine transitions
-      const transitionFiltered = existing.filter((j) => {
-        const allowed = VALID_TRANSITIONS[j.status];
-        return allowed && allowed.includes(status);
-      });
-      const invalidTransitions = existing.length - transitionFiltered.length;
-      if (invalidTransitions > 0) {
-        errors.push({ id: "N/A", message: `${invalidTransitions} job(s) cannot transition to "${status}"` });
+      // Selected jobs can span pipelines, so the target stage is resolved per
+      // pipeline: the same requested status lands in each pipeline's own column.
+      const stagesByPipeline = await loadStagesByPipeline(
+        db,
+        tenantId,
+        existing.map((j) => j.pipelineId ?? ""),
+      );
+
+      const targetByJob = new Map<
+        string,
+        NonNullable<ReturnType<typeof matchStage>>
+      >();
+      let unresolved = 0;
+      let invalidTransitions = 0;
+
+      for (const job of existing) {
+        const stages = stagesByPipeline.get(job.pipelineId ?? "");
+        const target = matchStage(stages, {
+          stageId,
+          status: requestedStatus,
+        });
+        if (!target) {
+          unresolved++;
+          continue;
+        }
+        const fromLifecycle: JobLifecycle =
+          stages?.find((s) => s.id === job.stageId)?.lifecycle ??
+          (["scheduled", "in_progress", "completed", "cancelled"].includes(
+            job.status,
+          )
+            ? (job.status as JobLifecycle)
+            : "scheduled");
+
+        if (!canTransition(fromLifecycle, target.lifecycle)) {
+          invalidTransitions++;
+          continue;
+        }
+        targetByJob.set(job.id, target);
       }
-      eligibleIds = transitionFiltered.map((r) => r.id);
+
+      if (unresolved > 0) {
+        errors.push({
+          id: "N/A",
+          message: `${unresolved} job(s) have no matching stage in their pipeline`,
+        });
+      }
+      if (invalidTransitions > 0) {
+        errors.push({
+          id: "N/A",
+          message: `${invalidTransitions} job(s) cannot transition to "${requestedStatus ?? stageId}"`,
+        });
+      }
+      eligibleIds = [...targetByJob.keys()];
+
+      // Every resolved target shares one lifecycle even when the stage rows
+      // differ, so the completion gate can be decided once.
+      const targetLifecycle =
+        targetByJob.size > 0
+          ? [...targetByJob.values()][0].lifecycle
+          : undefined;
 
       // If completing, enforce checklist gate
-      if (status === "completed" && eligibleIds.length > 0) {
+      if (targetLifecycle === "completed" && eligibleIds.length > 0) {
         const incompleteJobs = await db
           .select({ jobId: jobChecklistCompletions.jobId })
           .from(jobChecklistCompletions)
@@ -2139,26 +2389,69 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       if (eligibleIds.length > 0) {
-        const updateData: Record<string, unknown> = { status, updatedAt: new Date() };
-        if (status === "completed") {
-          updateData.completedAt = new Date();
-        }
+        const lifecycleByJob = new Map(
+          existing.map((j) => [
+            j.id,
+            (stagesByPipeline
+              .get(j.pipelineId ?? "")
+              ?.find((s) => s.id === j.stageId)?.lifecycle ??
+              "scheduled") as JobLifecycle,
+          ]),
+        );
 
-        await db
-          .update(jobs)
-          .set(updateData)
-          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
+        // Jobs can sit in different pipelines, so each lands in its own stage
+        // row — one grouped UPDATE per distinct target rather than one blanket
+        // write of a status string that may not exist in every pipeline.
+        await db.transaction(async (tx) => {
+          const byStage = new Map<string, string[]>();
+          for (const [jobId, target] of targetByJob) {
+            const list = byStage.get(target.id);
+            if (list) list.push(jobId);
+            else byStage.set(target.id, [jobId]);
+          }
+          for (const [, jobIds] of byStage) {
+            const target = targetByJob.get(jobIds[0])!;
+            // Jobs grouped here share a target stage; `completedAt` still needs
+            // each job's own previous lifecycle, so split by that too.
+            const byPrev = new Map<JobLifecycle, string[]>();
+            for (const jobId of jobIds) {
+              const prev = lifecycleByJob.get(jobId) ?? "scheduled";
+              const list = byPrev.get(prev);
+              if (list) list.push(jobId);
+              else byPrev.set(prev, [jobId]);
+            }
+            for (const [prev, group] of byPrev) {
+              await tx
+                .update(jobs)
+                .set({ ...stageUpdate(target, prev), updatedAt: new Date() })
+                .where(
+                  and(
+                    eq(jobs.tenantId, tenantId),
+                    inArray(jobs.id, group),
+                  ),
+                );
+            }
+          }
+        });
 
         // Log activity for each updated job
         await db.insert(jobActivities).values(
-          eligibleIds.map((jobId) => ({
-            tenantId,
-            jobId,
-            type: "job.status_changed",
-            description: `Status bulk-changed to ${status}`,
-            metadata: { to: status, bulk: true },
-            performedBy: userId,
-          })),
+          eligibleIds.map((jobId) => {
+            const target = targetByJob.get(jobId)!;
+            return {
+              tenantId,
+              jobId,
+              type: "job.status_changed",
+              description: `Status bulk-changed to ${target.label}`,
+              metadata: {
+                to: target.name,
+                toLifecycle: target.lifecycle,
+                stageId: target.id,
+                bulk: true,
+              },
+              performedBy: userId,
+            };
+          }),
         );
 
         // Dispatch notifications for each updated job
@@ -2168,15 +2461,22 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
 
         for (const j of updatedJobs) {
+          const target = targetByJob.get(j.id);
+          // JOB-22: this sent no completion email at all, so completing ten
+          // jobs from the bulk bar notified nobody while completing the same
+          // ten one at a time sent ten emails.
+          if (target?.lifecycle === "completed") {
+            void sendJobCompletionEmailFor(db, tenantId, j.id);
+          }
           dispatchNotification({
             tenantId,
             type: "job_status_changed",
-            title: `Job ${j.jobNumber ?? ""} moved to ${status}`,
-            description: `Job status bulk-changed to ${status}`,
+            title: `Job ${j.jobNumber ?? ""} moved to ${target?.label ?? j.status}`,
+            description: `Job status bulk-changed to ${target?.label ?? j.status}`,
             entityType: "job",
             entityId: j.id,
             actorId: userId,
-            metadata: { jobNumber: j.jobNumber, to: status, bulk: true },
+            metadata: { jobNumber: j.jobNumber, to: j.status, bulk: true },
           });
         }
       }

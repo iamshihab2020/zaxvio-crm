@@ -27,6 +27,14 @@ export interface EntityDetailShellProps {
   loading: boolean;
   /** Whether entity data is available to render */
   hasData: boolean;
+  /**
+   * Why the fetch failed, when it did. Without this the shell rendered *nothing*
+   * for `!loading && !hasData`, so a 500 opened an empty sheet — indistinguishable
+   * from a job with no content. Shared by all four detail sheets.
+   */
+  loadError?: string | null;
+  /** Retry handler shown alongside `loadError`. */
+  onRetry?: () => void;
 
   /** Renders the entity title area (number, badges) — called only when hasData */
   renderTitle: () => ReactNode;

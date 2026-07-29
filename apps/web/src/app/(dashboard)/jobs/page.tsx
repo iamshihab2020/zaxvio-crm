@@ -55,6 +55,10 @@ export default async function JobsPage() {
       initialJobs={initialJobs}
       initialStages={initialStages}
       initialPipelineId={defaultPipelineId}
+      // When this data was actually read. Without it TanStack Query stamps the
+      // seed as fetched "now" on the client, so it sits inside `staleTime` and
+      // is never refetched however old the server render was.
+      initialFetchedAt={Date.now()}
       defaultTaxRate={defaultTaxRate}
     />
   );

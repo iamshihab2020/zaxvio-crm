@@ -14,12 +14,27 @@ records what shipped, what is wrong, and what to do next.
 | `/reports` | [[reports-page]] | 2026-07-27 | 28 (3 critical, 6 high, 12 medium, 7 low) | ✅ all fixed |
 | Bookings & Calendar | [[bookings-calendar]] | 2026-07-27 | 34 (4 critical, 9 high, 14 medium, 7 low) | ✅ all fixed |
 | `/customers` | [[customers]] | 2026-07-27 | 35 (3 critical, 9 high, 16 medium, 7 low) | ✅ all fixed |
+| Jobs | [[jobs]] | 2026-07-29 | 42 (5 critical, 9 high, 20 medium, 8 low) + 6 found while fixing | ✅ all 48 fixed |
+| Invoices | [[invoices]] | 2026-07-29 | 42 (5 critical, 9 high, 20 medium, 8 low) | ✅ all fixed |
 
 Bookings & Calendar covers `/bookings`, `/schedule`, `/settings/bookings` and the public
 `/book/[slug]` portal — they share one availability model and are audited together.
 
 Customers covers `/customers`, `/customers/[id]` and its ten tabs. There is no `/contacts`
 route — Customers is the contact entity.
+
+Jobs covers `/jobs` (board · list · table), `/jobs/[id]`, the detail sheet,
+`/settings/pipelines` and the stage editor. Its four criticals share one root cause —
+`jobs.status` is both a lifecycle enum and a free-text pipeline stage name — so
+[[jobs|§5.1]] should be decided before any of them is fixed individually.
+
+Invoices covers `/invoices`, `/invoices/[id]`, the detail sheet, `/settings/invoices`,
+the `routes/invoices` endpoints (20 at audit, 22 after), the PDF and the E-06/07/08/12
+email paths. Unlike the five reports above it, the audit itself **was not verified by
+execution** — see its method note. Its §2 is the finding that mattered most: of 17
+remediation patterns established by the previous five audits, **one** had reached this
+page. §7 records the answer to that — the sweeps were run repo-wide with counts, which
+is the process change §2 asked for.
 
 ## Conventions
 

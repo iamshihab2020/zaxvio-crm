@@ -98,6 +98,14 @@ List jobs with rich filtering and pagination.
 
 Create a new job. Auto-generates `jobNumber` (format: `JOB-YYYY-XXXX`). Automatically attaches a matching checklist template if one exists for the service type. Logs a `job.created` activity. If `pipelineId` is omitted, the job is assigned to the default pipeline.
 
+The insert, the checklist attach and both activity rows run in **one transaction**, so a
+job never exists without its checklist.
+
+The job starts in the stage named by `stageId` or `status` — which is how "add a job to
+this column" works — and otherwise in the pipeline's first stage by `sortOrder`. `status`
+on the response is that stage's `name`, so a tenant who renamed *Scheduled* to *Booked*
+sees `"booked"`.
+
 **Request Body:**
 
 ```json
@@ -138,8 +146,20 @@ Create a new job. Auto-generates `jobNumber` (format: `JOB-YYYY-XXXX`). Automati
 | `address` | string | No | Job site address |
 | `priority` | string | No | `standard` (default), `urgent`, `emergency` |
 | `taxRate` | string | No | Tax rate percentage |
-| `notes` | string | No | Internal notes |
+| `notes` | string | No | Internal notes, ≤ 5000 chars |
+| `stageId` | uuid | No | Stage to start in; must belong to the resolved pipeline |
+| `status` | string | No | Stage `name` (slug) to start in; `stageId` wins if both are sent |
+| `equipmentId` | uuid | No | Asset, validated against the tenant |
+| `bookingId` | uuid | No | Source booking, validated against the tenant |
+| `assigneeId` | string | No | Must be a member of the tenant's organization |
 | `lineItems` | array | No | Initial line items |
+
+**Validation.** `serviceType` and `priority` are enums (`400` on anything else, not a 500).
+`scheduledDate` must be a real calendar date — `infinity`, `today` and `2026-02-30` are all
+rejected. `scheduledStart`/`scheduledEnd` must be `HH:MM`, and the end must be strictly
+after the start. `title` ≤ 200, `description`/`notes` ≤ 5000, `address` ≤ 500.
+`unitPrice` and `quantity` on line items are bounded by `numeric(10,2)` (max
+`99,999,999.99`) and reject `Infinity`/`NaN`.
 
 **Response** `201 Created`
 
@@ -245,18 +265,40 @@ Get a single job with line items, checklist, and photo count.
 
 **Auth:** `requireTenant`
 
-Update job fields. Automatically recalculates totals if line-item-affecting fields change. Logs a `job.updated` activity.
+Update job fields. Automatically recalculates totals if `taxRate` changes. Logs a `job.updated` activity.
+
+> **`status` is not accepted here** — use `PATCH /jobs/:id/status`, which is the only
+> writer of a job's stage and the only path that enforces the completion gate.
+
+Rejects the request when the job is archived (`400`), when `scheduledEnd <= scheduledStart`
+after merging with the stored row (`400`), or when `pipelineId` names a pipeline with no
+stage matching the job's current lifecycle (`400`).
 
 **Request Body** (all fields optional):
 
 ```json
 {
-  "status": "in_progress",
   "priority": "urgent",
+  "serviceType": "maintenance",
   "scheduledDate": "2026-03-30",
+  "scheduledStart": "09:00",
+  "scheduledEnd": "11:30",
   "notes": "Customer confirmed morning availability"
 }
 ```
+
+| Field | Rules |
+|---|---|
+| `title` | 1–200 chars |
+| `description`, `notes` | ≤ 5000 chars |
+| `address` | ≤ 500 chars |
+| `serviceType` | enum: `installation·repair·maintenance·inspection·emergency·consultation·other` |
+| `priority` | enum: `standard·urgent·emergency` |
+| `scheduledDate` | `YYYY-MM-DD`, must be a real calendar date (`2026-02-30` is rejected) |
+| `scheduledStart`, `scheduledEnd` | `HH:MM` or `HH:MM:SS` |
+
+Blank strings for `description`, `address`, `notes`, `scheduledStart` and `scheduledEnd`
+are stored as `NULL`, matching `POST /jobs`.
 
 **Response** `200 OK`
 
@@ -274,14 +316,296 @@ Update job fields. Automatically recalculates totals if line-item-affecting fiel
 
 **Auth:** `requireTenant`
 
-Permanently delete a job and all related records (line items, checklist completions, photos, activities).
+Permanently delete a job and all related records (line items, checklist completions, photos, activities). Stored photos and documents are removed from R2 first.
+
+`invoices.job_id` is `ON DELETE SET NULL`, so any invoice raised against this job survives
+but stops pointing at it. The count is returned so the caller can say so.
 
 **Response** `200 OK`
 
 ```json
 {
-  "message": "Job deleted"
+  "message": "Job deleted. 2 invoice(s) are no longer linked to a job.",
+  "unlinkedInvoices": 2
 }
+```
+
+---
+
+### `PATCH /jobs/:id/status`
+
+**Auth:** `requireTenant`
+
+**The only endpoint that moves a job between pipeline stages.** Enforces the lifecycle
+transition rules, the required-checklist gate, `completedAt`, the `job.status_changed`
+activity, the in-app notification and the E-05 customer completion email.
+
+A stage is identified either by `stageId` (precise) or by `status` (the stage's slug
+`name`). Custom stages are fully supported — the value is resolved against *this job's*
+pipeline, so `awaiting_parts` works exactly as `in_progress` does. Exactly one of the two
+fields is required.
+
+**Request Body:**
+
+```json
+{ "stageId": "stage_abc" }
+```
+```json
+{ "status": "awaiting_parts" }
+```
+
+**Transition rules** — evaluated on the stage's `lifecycle`, never on its name:
+
+| From | Allowed to |
+|---|---|
+| `scheduled` | `scheduled`, `in_progress`, `cancelled` |
+| `in_progress` | `in_progress`, `completed`, `cancelled` |
+| `completed` | `completed` (terminal) |
+| `cancelled` | `cancelled`, `scheduled` |
+
+Moving between two stages that share a lifecycle is always allowed — that is ordinary
+workflow, not a state change.
+
+**Response** `200 OK` — the updated job row.
+
+**Errors:** `404` job not found · `400` archived, no such stage in this pipeline, already
+in that stage, illegal transition, or required checklist items still open.
+
+---
+
+### `PATCH /jobs/reorder`
+
+**Auth:** `requireTenant`
+
+Persist card positions after a drag. **Positions only** — this endpoint cannot change a
+job's stage; use `PATCH /jobs/:id/status` for that.
+
+**Request Body:**
+
+```json
+{
+  "items": [
+    { "id": "job_001", "sortOrder": 0 },
+    { "id": "job_002", "sortOrder": 1 }
+  ]
+}
+```
+
+`items` is 1–500 entries. Archived or unknown jobs are reported in `skipped` rather than
+failing the request.
+
+**Response** `200 OK`
+
+```json
+{
+  "success": true,
+  "skipped": [{ "id": "job_009", "reason": "Job not found or archived" }]
+}
+```
+
+---
+
+### `GET /jobs/:id/line-items`
+
+**Auth:** `requireTenant`
+
+All line items for a job, ordered by `sortOrder`.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "li_001",
+      "jobId": "job_001",
+      "catalogItemId": "cat_001",
+      "itemType": "labor",
+      "description": "Diagnostic visit",
+      "quantity": "1.00",
+      "unitPrice": "95.00",
+      "total": "95.00",
+      "sortOrder": 0
+    }
+  ]
+}
+```
+
+---
+
+### `GET /jobs/:id/checklist`
+
+**Auth:** `requireTenant`
+
+The job's checklist completions joined to their template items, in template order.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "comp_001",
+      "checklistItemId": "ci_001",
+      "label": "Check refrigerant charge",
+      "isRequired": true,
+      "isCompleted": false,
+      "completedAt": null,
+      "completedBy": null,
+      "catalogItemId": null
+    }
+  ]
+}
+```
+
+---
+
+### `POST /jobs/:id/upload`
+
+**Auth:** `requireTenant` · **bodyLimit:** ~67 MB
+
+Upload a photo or document to R2 and return its storage path. Register the result
+afterwards with `POST /jobs/:id/photos` or `POST /jobs/:id/documents`.
+
+**Request Body:**
+
+```json
+{
+  "data": "<base64>",
+  "filename": "compressor.jpg",
+  "mimeType": "image/jpeg",
+  "tag": "before"
+}
+```
+
+**Limits:** images 20 MB, documents 50 MB (measured on the decoded bytes).
+
+**Allowed `mimeType`:** `image/jpeg`, `image/png`, `image/webp`, `image/gif`, `image/heic`,
+`image/heif`, `application/pdf`, `text/plain`, `text/csv`, `application/msword`,
+`application/vnd.openxmlformats-officedocument.wordprocessingml.document`,
+`application/vnd.ms-excel`,
+`application/vnd.openxmlformats-officedocument.spreadsheetml.sheet`.
+Anything else is `400`. SVG is deliberately excluded — it is a script host in a browser.
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "storagePath": "tenant_abc/jobs/job_001/1754000000000_compressor.jpg",
+    "publicUrl": "https://cdn.example.com/job-attachments/...",
+    "fileSize": 2411233,
+    "mimeType": "image/jpeg"
+  }
+}
+```
+
+**Errors:** `400` unsupported type, invalid base64, over the per-type limit, or archived
+job · `404` job not found · `413` body larger than the route's `bodyLimit`.
+
+---
+
+### `PATCH /jobs/:id/photos/:photoId`
+
+**Auth:** `requireTenant`
+
+Change a photo's tag.
+
+**Request Body:** `{ "tag": "after" }` — one of `before`, `after`, `general`.
+
+**Response** `200 OK` — the updated photo row.
+
+---
+
+### `GET /jobs/:id/documents`
+
+**Auth:** `requireTenant`
+
+List the job's documents, newest first.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "doc_001",
+      "fileName": "warranty.pdf",
+      "storagePath": "tenant_abc/jobs/job_001/warranty.pdf",
+      "fileSize": 51221,
+      "mimeType": "application/pdf",
+      "customerId": null,
+      "uploadedBy": "user_abc",
+      "createdAt": "2026-07-29T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### `POST /jobs/:id/documents`
+
+**Auth:** `requireTenant`
+
+Register a document after `POST /jobs/:id/upload`.
+
+**Request Body:**
+
+```json
+{
+  "storagePath": "tenant_abc/jobs/job_001/warranty.pdf",
+  "fileName": "warranty.pdf",
+  "fileSize": 51221,
+  "mimeType": "application/pdf",
+  "customerId": "cus_001"
+}
+```
+
+`storagePath` must begin with `<tenantId>/`. `customerId`, when given, must belong to the
+same tenant.
+
+**Response** `201 Created` — the created document row.
+
+---
+
+### `DELETE /jobs/:id/documents/:docId`
+
+**Auth:** `requireTenant`
+
+Delete a document from R2 and the database.
+
+**Response** `200 OK` — `{ "message": "Document deleted" }`
+
+---
+
+### Bulk operations
+
+All four accept `{ "ids": [...] }` (1–100 uuids) and return the standard bulk shape:
+
+```json
+{ "succeeded": 3, "failed": 1, "errors": [{ "id": "N/A", "message": "1 job(s) not found" }] }
+```
+
+#### `POST /jobs/bulk-archive`
+Sets `archivedAt` on every live job in `ids`. Archived jobs are hidden from the board and
+refused by every mutating endpoint until restored.
+
+#### `POST /jobs/bulk-restore`
+Clears `archivedAt` on every archived job in `ids`.
+
+#### `POST /jobs/bulk-delete`
+Permanently deletes the jobs, removing their R2 photos and documents first. Also returns
+`unlinkedInvoices` — invoices whose `job_id` was nulled by the delete.
+
+#### `POST /jobs/bulk-status-update`
+Moves many jobs to one stage. Takes `stageId` **or** `status` alongside `ids`, exactly like
+`PATCH /jobs/:id/status`, and resolves the target **per pipeline** so a mixed selection
+lands in each pipeline's own column. Applies the same transition rules, the same
+required-checklist gate, and sends the same E-05 completion email per job.
+
+```json
+{ "ids": ["job_001", "job_002"], "status": "completed" }
 ```
 
 ---

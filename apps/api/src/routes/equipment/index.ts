@@ -29,6 +29,7 @@ import {
   updateEquipmentBody,
   addRefrigerantLogBody,
 } from "../../lib/schemas/equipment.js";
+import { containsPattern } from "../../lib/search.js";
 
 const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -68,10 +69,10 @@ const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
       if (search) {
         filters.push(
           or(
-            ilike(equipment.equipmentType, `%${search}%`),
-            ilike(equipment.brand, `%${search}%`),
-            ilike(equipment.model, `%${search}%`),
-            ilike(equipment.serialNumber, `%${search}%`),
+            ilike(equipment.equipmentType, containsPattern(search)),
+            ilike(equipment.brand, containsPattern(search)),
+            ilike(equipment.model, containsPattern(search)),
+            ilike(equipment.serialNumber, containsPattern(search)),
           )!,
         );
       }

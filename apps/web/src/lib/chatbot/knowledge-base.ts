@@ -242,7 +242,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["kanban", "board", "drag", "columns", "pipeline", "board view"],
     question: "How does the Kanban board work?",
     answer:
-      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of jobs in that stage.",
+      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of **active** jobs in that stage — archived jobs are excluded.\n\n**Filter** by priority, service type or **assignee** with the funnel icon. If a pipeline holds more jobs than the board loads at once, a banner tells you how many are hidden — use a filter or the table view to reach the rest.",
   },
   {
     id: "jobs-table",
@@ -258,7 +258,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["status", "move", "stage", "pipeline", "progress", "workflow"],
     question: "How do job statuses work?",
     answer:
-      'Jobs move through **custom pipeline stages** on the Kanban board. Drag a card between columns, or open the job detail and use the **status dropdown**. You can also click **"Move to [next stage]"** button in the detail page.\n\nCustomize your stages via **Manage Pipeline** (gear icon on Jobs page).',
+      'Jobs move through **custom pipeline stages** on the Kanban board. Drag a card between columns, or open the job detail and use the **status dropdown**. You can also click the **"Move to [next stage]"** button in the detail page.\n\nMoves follow the stage\'s **type**: a *Scheduled* job can go to *In Progress* or *Cancelled*; an *In Progress* job can be *Completed* or *Cancelled*; *Completed* is final; a *Cancelled* job can be re-scheduled. Moving between two columns of the same type is always allowed. If a move is refused the board says why and puts the card back.\n\nCompleting a job — from the board, the detail page, or a bulk action — requires every **required** checklist item to be ticked, and sends the customer a completion email.\n\nCustomize your stages via **Manage Pipeline** (gear icon on Jobs page).',
   },
   {
     id: "jobs-pipeline-custom",
@@ -266,7 +266,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["pipeline", "customize", "manage", "stages", "columns", "reorder", "color"],
     question: "How do I customize pipeline stages?",
     answer:
-      'On the **Jobs** page, click the **gear icon** or **"Manage Pipeline"** button. In the dialog:\n\n• **Add stages** with a name, label, and color\n• **Drag to reorder** stages (uses drag-and-drop)\n• **Edit** stage name and color inline\n• **Delete** stages (only if no jobs are in that stage)\n\n8 color presets available: blue, brand, green, red, purple, amber, gray, teal.',
+      'On the **Jobs** page, click the **gear icon** or **"Manage Pipeline"** button. In the dialog:\n\n• **Add stages** with a label, color, and **stage type**\n• **Drag to reorder** stages (uses drag-and-drop)\n• **Edit** stage label, color and type inline\n• **Delete** stages (only if no jobs are in that stage — archived jobs count too)\n\n**Stage type** tells the app what a job sitting in that column actually is: *Scheduled*, *In Progress*, *Completed* or *Cancelled*. Name a column anything you like — "Awaiting Parts", "Ready to Invoice" — and set its type so everything else behaves correctly. A column typed *Completed* will demand the required checklist items and email the customer; one typed *In Progress* will not. New stages default to *Scheduled*.\n\n8 color presets available: blue, brand, green, red, purple, amber, gray, teal.',
   },
   {
     id: "jobs-multi-pipeline",
@@ -366,7 +366,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["status", "draft", "sent", "paid", "overdue", "void", "invoice status"],
     question: "What are the invoice statuses?",
     answer:
-      "Invoices follow this workflow:\n\n• **Draft** — Just created, editable\n• **Sent** — Emailed to customer, waiting for payment\n• **Partially Paid** — Some payment received, balance remaining\n• **Paid** — Fully paid\n• **Overdue** — Past due date, not fully paid\n• **Void** — Cancelled, cannot be changed\n\nUse the **status filter** tabs at the top of the Invoices page to filter.",
+      "Invoices follow this workflow:\n\n• **Draft** — Just created, fully editable. Line items, tax and discount can only be changed here\n• **Sent** — Emailed to the customer, waiting for payment\n• **Partially Paid** — Some payment received, balance remaining\n• **Paid** — Fully paid. Final — to reverse it, delete the payment\n• **Overdue** — Past its due date and not fully paid\n• **Void** — Cancelled. Final, and the PDF is watermarked VOID\n\n**Partially Paid and Paid are set by recording a payment**, not by changing the status by hand — that way the status can never disagree with the payments on file. **Overdue** is worked out from the due date every time it is shown, so it is correct the moment a due date passes.\n\nUse the **status filter** tabs at the top of the Invoices page to filter.",
   },
   {
     id: "invoices-send",
@@ -382,7 +382,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["payment", "pay", "record", "receive", "paid", "track", "record payment"],
     question: "How do I record a payment?",
     answer:
-      'Open the invoice detail, go to the **Payments** tab. Click **"Record Payment"**:\n\n• Enter the **amount**\n• Select **payment method** (cash, check, card, etc.)\n• Set the **payment date**\n• Optionally add a **reference number** and **notes**\n\nThe invoice status updates automatically: **Partially Paid** if balance remains, or **Paid** if fully covered.',
+      '**Paid in full?** Click **Mark paid** in the invoice header, or **"Mark paid in full"** on the Payments tab. One tap records a payment for exactly the balance.\n\n**Part payment?** Payments tab → **"Record partial payment"**:\n\n• Enter the **amount** — "1,000.00" and "$50" both work\n• Select **payment method** (cash, check, card, etc.)\n• Set the **payment date** — defaults to today in your business timezone\n• Optionally add a **reference number** and **notes**\n\nThe status updates automatically: **Partially Paid** if a balance remains, **Paid** if fully covered. If you take more than the balance, the extra is kept as a **credit on the invoice** rather than being thrown away.\n\n**Send an invoice before recording a payment against it** — a draft has never reached the customer, so a receipt for one would only confuse them. Removing a payment asks you to confirm first, then recalculates the balance and the status.',
   },
   {
     id: "invoices-pdf",
@@ -406,15 +406,31 @@ const entries: KnowledgeEntry[] = [
     keywords: ["void", "cancel", "void invoice"],
     question: "How do I void an invoice?",
     answer:
-      'Open the invoice detail page and click **"Void Invoice"** in the actions menu. Voided invoices cannot be edited or sent. This is for invoices that were created by mistake or are no longer needed.',
+      'Open the invoice and click **Void** — you will be asked to confirm, because voiding cannot be undone. A void invoice cannot be edited, sent or paid, and its PDF is re-issued with a **VOID** watermark so a customer holding an old link cannot mistake it for a bill. Any invoice that has not been paid can be voided.\n\nTo void several at once, tick them on the list and choose **Void** in the toolbar. Any that cannot be voided are reported back with the reason.',
+  },
+  {
+    id: "invoices-sorting",
+    category: "invoices",
+    keywords: ["sort", "order", "column", "sort invoices", "filter invoices", "outstanding"],
+    question: "Can I sort or filter the invoice list?",
+    answer:
+      "Yes. Click any column header — Invoice #, Status, Issued, Due, Total or Balance — to sort by it, and click again to reverse. The arrow shows which column is sorting.\n\nAbove the table: the **Active / Archived** toggle, **status tabs**, and search across invoice number, notes and customer name. The four KPI cards double as filters. Below them, **Outstanding** and **Overdue** show how much money is actually owed, not just how many documents there are.\n\nIf something goes wrong loading the page you'll see an error with a **Try again** button — an empty table always means there genuinely are no matching invoices.",
+  },
+  {
+    id: "invoices-credit",
+    category: "invoices",
+    keywords: ["credit", "overpaid", "overpayment", "too much", "refund"],
+    question: "What happens if a customer overpays?",
+    answer:
+      "The extra is held as a **credit on the invoice** and shown on the Payments tab, in the summary and on the PDF. Nothing is lost or quietly rounded away.\n\nWhen you type an amount larger than the balance the app warns you first, since it is usually a typo. If it was, remove the payment and record it again — the balance and status are recalculated either way.",
   },
   {
     id: "invoices-overdue",
     category: "invoices",
-    keywords: ["overdue", "past due", "late", "overdue invoice"],
+    keywords: ["overdue", "past due", "late", "overdue invoice", "reminder", "chase"],
     question: "How do I manage overdue invoices?",
     answer:
-      "Overdue invoices are highlighted on the **Dashboard** with an amber alert banner. On the **Invoices** page, use the **Overdue** status filter to see all overdue invoices. The system automatically checks for overdue invoices and sends reminder emails (if configured).",
+      'Overdue invoices are highlighted on the **Dashboard** with an amber alert banner, and the **Invoices** page shows an **Overdue** total in dollars beside Outstanding. Use the **Overdue** status filter to list them.\n\nReminder emails go out automatically, at most once a day per invoice — including to customers who paid part of the balance and then stopped. To chase someone **now**, open the invoice and click **Remind**. Archived invoices are never chased.\n\nAn invoice needs a **due date** before it can be overdue or reminded about. Set your **payment terms** in Settings → Invoices (e.g. "Net 30") and every new invoice gets its due date worked out for you.',
   },
   {
     id: "invoices-from-job",

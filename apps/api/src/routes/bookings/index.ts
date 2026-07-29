@@ -50,6 +50,7 @@ import {
   isNull,
   isNotNull,
 } from "@hvac-saas/database";
+import { containsPattern } from "../../lib/search.js";
 
 /** Format a YYYY-MM-DD booking date for an email, anchored so it cannot drift. */
 function formatBookingDate(dateStr: string): string {
@@ -100,7 +101,9 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       if (query.search) {
-        const term = `%${query.search}%`;
+        // INV-22 sweep: unescaped, a `%` in the box matched every row and a
+        // `_` matched any single character.
+        const term = containsPattern(query.search);
         const searchClause = or(
           ilike(bookings.customerName, term),
           ilike(bookings.customerEmail, term),
