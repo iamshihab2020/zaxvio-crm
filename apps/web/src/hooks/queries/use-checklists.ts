@@ -17,6 +17,8 @@ export function useChecklistTemplates(params: Record<string, unknown>) {
     queryFn: () =>
       getChecklistTemplates(params as Parameters<typeof getChecklistTemplates>[0]),
     placeholderData: (prev) => prev,
+    // Templates change about as often as pipelines do.
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -25,6 +27,7 @@ export function useChecklistTemplate(id: string) {
     queryKey: queryKeys.checklists.detail(id),
     queryFn: () => getChecklistTemplate(id),
     enabled: !!id,
+    staleTime: 5 * 60_000,
   });
 }
 

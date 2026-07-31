@@ -30,11 +30,20 @@ export function BulkActionBar({
     <AnimatePresence>
       {selectedCount > 0 && (
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
+          /* `x: "-50%"` is constant, not animated — it replaces the
+             `-translate-x-1/2` class, which Framer would otherwise overwrite
+             when it composes the `y` animation into the same transform. */
+          initial={{ opacity: 0, y: 20, x: "-50%" }}
+          animate={{ opacity: 1, y: 0, x: "-50%" }}
+          exit={{ opacity: 0, y: 20, x: "-50%" }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2"
+          className="fixed bottom-4 left-1/2 z-50 transition-[margin-left] duration-300 ease-in-out"
+          /* Nudge right by half the sidebar so the bar is centred on the
+             content, not on the viewport. `--sidebar-w` is published by
+             DashboardShell; the 0px fallback degrades to viewport-centring
+             anywhere the bar is used outside the dashboard. The transition
+             matches the shell's, so it tracks collapse/expand. */
+          style={{ marginLeft: "calc(var(--sidebar-w, 0px) / 2)" }}
         >
           <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 shadow-lg">
             <span className="text-sm font-medium text-foreground whitespace-nowrap">

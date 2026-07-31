@@ -4,6 +4,11 @@
  *   pnpm seed:demo                       # seeds the default account below
  *   SEED_EMAIL=someone@example.com pnpm seed:demo
  *   pnpm seed:demo -- --reset            # wipe this tenant's data first, then reseed
+ *   pnpm seed:demo -- --wipe             # the "down": clear the data, seed nothing
+ *
+ * `--wipe` removes only what this script creates. The tenant row, the owner's
+ * login, the default pipeline and the weekly availability all survive, so the
+ * account is left exactly as it was before the first seed — not deleted.
  *
  * Scope and safety
  * ----------------
@@ -128,6 +133,8 @@ function sumLines(lines: readonly { quantity: number; unitPrice: Money }[]) {
 /* ── argument handling ─────────────────────────────────────────────────── */
 
 const RESET = process.argv.includes("--reset");
+/** The "down" half: clear this tenant's data and stop, without reseeding. */
+const WIPE_ONLY = process.argv.includes("--wipe");
 const OWNER_EMAIL =
   process.env.SEED_EMAIL?.trim() || "shihab.sharetasking@gmail.com";
 
@@ -185,7 +192,7 @@ async function main() {
     .from(customers)
     .where(eq(customers.tenantId, tenantId));
 
-  if (existing > 0 && !RESET) {
+  if (existing > 0 && !RESET && !WIPE_ONLY) {
     console.error(
       `\nTenant already has ${existing} customer(s). Refusing to seed on top of ` +
         `existing data — job and invoice numbers come from database triggers, so ` +
@@ -197,8 +204,10 @@ async function main() {
     process.exit(1);
   }
 
-  if (RESET) {
-    console.log("\n--reset: clearing this tenant's data…");
+  if (RESET || WIPE_ONLY) {
+    console.log(
+      `\n${WIPE_ONLY ? "--wipe" : "--reset"}: clearing this tenant's data…`,
+    );
     // Child-before-parent. Rows without a tenant_id of their own (line items on
     // another tenant's invoice, customer_tags) are reached through their parent.
     await db.transaction(async (tx) => {
@@ -235,6 +244,17 @@ async function main() {
       await tx.delete(notifications).where(eq(notifications.tenantId, tenantId));
     });
     console.log("cleared.");
+
+    if (WIPE_ONLY) {
+      // The tenant, its owner, the login, the pipeline and the weekly
+      // availability all survive — only the content this script creates is
+      // removed, so the account is exactly as it was before the first seed.
+      console.log(
+        `\nTenant is empty. Run \`pnpm seed:demo\` to fill it again.`,
+      );
+      await closeDb();
+      return;
+    }
   }
 
   /* 3. Seed. Single transaction: either the tenant gets a coherent dataset

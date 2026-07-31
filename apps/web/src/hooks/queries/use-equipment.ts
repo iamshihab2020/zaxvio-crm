@@ -20,6 +20,7 @@ export function useEquipment(params: Record<string, unknown>) {
     queryKey: queryKeys.equipment.list(params),
     queryFn: () => getEquipment(params as Parameters<typeof getEquipment>[0]),
     placeholderData: (prev) => prev,
+    staleTime: 30_000,
   });
 }
 
@@ -28,6 +29,7 @@ export function useEquipmentItem(id: string) {
     queryKey: queryKeys.equipment.detail(id),
     queryFn: () => getEquipmentItem(id),
     enabled: !!id,
+    staleTime: 30_000,
   });
 }
 

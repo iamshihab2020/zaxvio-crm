@@ -14,6 +14,7 @@ export function useCalendarEvents(params: Record<string, unknown>) {
   return useQuery({
     queryKey: queryKeys.calendar.events(params),
     queryFn: () => getCalendarEvents(params as Parameters<typeof getCalendarEvents>[0]),
+    staleTime: 30_000,
   });
 }
 

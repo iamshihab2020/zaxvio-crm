@@ -20,6 +20,10 @@ export function useServiceAgreements(params: Record<string, unknown>) {
     queryFn: () =>
       getMaintenanceContracts(params as Parameters<typeof getMaintenanceContracts>[0]),
     placeholderData: (prev) => prev,
+    // Without this the global default of 0 applies, so the list refetched on
+    // every window focus and flashed the global progress bar. 30s matches
+    // customers / jobs / quotes / invoices.
+    staleTime: 30_000,
   });
 }
 
@@ -28,6 +32,7 @@ export function useServiceAgreement(id: string) {
     queryKey: queryKeys.serviceAgreements.detail(id),
     queryFn: () => getMaintenanceContract(id),
     enabled: !!id,
+    staleTime: 30_000,
   });
 }
 

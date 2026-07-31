@@ -5,19 +5,42 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 
 /**
- * Thin indeterminate progress bar shown at the very top of the viewport
- * whenever TanStack Query has background refetches in flight.
+ * Thin indeterminate progress bar shown at the top of the viewport while a
+ * background refetch the reader is actually waiting on is in flight.
  *
- * - 300ms delay before showing (avoids flash on fast fetches)
- * - Only appears for background refetches (not initial loads)
+ * Two things previously kept it on screen almost permanently:
+ *
+ *  - `useUnreadNotificationCount()` polls every 30 seconds, and the bell is
+ *    mounted in the dashboard navbar, so it runs on every page. A silent
+ *    background poll nobody asked for should not drive a global progress
+ *    affordance, so polling keys are excluded outright.
+ *
+ *  - The 300ms grace period was meant to hide quick fetches, but every request
+ *    here crosses browser → Vercel server action → Render → Neon. Measured
+ *    against production, even `/health` — which touches no database — takes
+ *    300-960ms, so nothing ever finished inside the window and the bar showed
+ *    for literally every request.
  */
+
+/** Query key prefixes whose fetches are background noise, not user-visible work. */
+const SILENT_PREFIXES: readonly string[] = ["notifications"];
+
+const SHOW_AFTER_MS = 800;
+
 export function GlobalFetchIndicator() {
-  const isFetching = useIsFetching();
+  const isFetching = useIsFetching({
+    predicate: (query) => {
+      const [prefix] = query.queryKey;
+      return typeof prefix === "string"
+        ? !SILENT_PREFIXES.includes(prefix)
+        : true;
+    },
+  });
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     if (isFetching > 0) {
-      const timer = setTimeout(() => setVisible(true), 300);
+      const timer = setTimeout(() => setVisible(true), SHOW_AFTER_MS);
       return () => clearTimeout(timer);
     }
     setVisible(false);
