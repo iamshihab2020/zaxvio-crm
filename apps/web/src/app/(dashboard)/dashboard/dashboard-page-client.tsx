@@ -262,13 +262,13 @@ export function DashboardPageClient({
             )}
 
             {/* Row 3: Jobs Management + Agenda side-by-side.
-                `lg:min-h-[28rem]` gives the pair a deliberate height. Without
-                it the row was sized by whichever widget happened to be tallest
-                — the Agenda, whose list ran to 700px — and the other card was
-                stretched to match with nothing to put in the gap. Both children
-                are `h-full` and manage their own overflow, so the row grows
-                only if their content genuinely needs it. */}
-            <div className="grid grid-cols-1 gap-6 lg:min-h-[28rem] lg:grid-cols-2">
+                A FIXED height, not a minimum. `min-h` let the Agenda grow to
+                its full content height — thirteen entries ran it past 1000px —
+                and dragged its neighbour along with it. The Agenda scrolls
+                internally instead, and 24rem is set by the Jobs panel, whose
+                content is a fixed 2x2 grid and cannot grow — about 308px, so
+                22rem leaves it a normal bottom margin rather than a hole. */}
+            <div className="grid grid-cols-1 gap-6 lg:h-[22rem] lg:grid-cols-2">
               {prefs.visible.jobsManagement && (
                 <WidgetErrorBoundary name="Jobs management">
                   <JobsManagementPanel

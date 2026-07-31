@@ -170,7 +170,7 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
           </div>
         </div>
       ) : (
-        <GroupedList items={items} condensed={spanDays > 14} />
+        <GroupedList items={items} />
       )}
     </div>
   );
@@ -201,7 +201,8 @@ function KindBadge({ kind }: { kind: AgendaKind }) {
 }
 
 
-function GroupedList({ items, condensed }: { items: AgendaItem[]; condensed: boolean }) {
+/** `condensed` is gone — every row is compact now, so there was nothing to vary. */
+function GroupedList({ items }: { items: AgendaItem[] }) {
   const groups = useMemo(() => {
     const map = new Map<string, AgendaItem[]>();
     for (const it of items) {
@@ -228,55 +229,55 @@ function GroupedList({ items, condensed }: { items: AgendaItem[]; condensed: boo
         const dayName = dayDate ? format(dayDate, "EEEE") : "Unscheduled";
         return (
           <div key={key} className="flex gap-3">
-            {/* Bold day badge */}
-            <div className="flex w-12 shrink-0 flex-col items-center pt-1">
-              <span className="text-[10px] font-body font-semibold uppercase tracking-wide text-brand">
+            {/* Day marker, trimmed. The 2xl numeral plus a weekday underneath
+                took more vertical space than the entries it was labelling. */}
+            <div className="flex w-10 shrink-0 flex-col items-center pt-1.5">
+              <span className="font-mono text-[9px] font-medium uppercase tracking-wider text-brand">
                 {dayAbbr}
               </span>
-              <span className="font-heading text-2xl font-bold leading-none text-foreground">
+              <span className="tnum font-heading text-lg font-bold leading-none text-foreground">
                 {dayNum}
               </span>
-              {!condensed && (
-                <span className="mt-1 text-[10px] font-body text-muted-foreground">
-                  {dayName.slice(0, 3)}
-                </span>
-              )}
+              <span className="mt-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+                {dayName.slice(0, 3)}
+              </span>
             </div>
-            <ul className="flex-1 space-y-2">
+            <ul className="flex-1 space-y-1.5">
               {groupItems.map((item) => (
                 <li key={item.id}>
                   <AgendaHoverCard details={item} side="left">
+                    {/* Two lines, not three. The time used to sit under the
+                        subtitle as a third stacked row, which made every entry
+                        ~76px tall — thirteen of them ran the widget past 1000px.
+                        Pulled onto the title line and right-aligned, it also
+                        becomes scannable down a column instead of being buried
+                        in each card. Tabular figures keep that column true. */}
                     <Link
                       href={item.href}
-                      className="group flex items-start gap-3 rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5 hover:shadow-sm cursor-pointer"
+                      className="group flex items-center gap-2.5 rounded-lg border border-border bg-background/40 px-2.5 py-2 transition-all hover:border-brand/40 hover:bg-brand/5 cursor-pointer"
                     >
                       <span
-                        className="mt-1 h-2 w-2 shrink-0 rounded-full ring-4 ring-background"
+                        className="h-1.5 w-1.5 shrink-0 rounded-full"
                         style={{ backgroundColor: item.color }}
                       />
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
                           <KindBadge kind={item.kind} />
-                          <span className="truncate font-heading text-sm font-semibold text-foreground">
+                          <span className="truncate font-heading text-[13px] font-semibold text-foreground">
                             {item.title}
                           </span>
                         </div>
                         {item.subtitle && (
-                          <div className="mt-0.5 truncate text-[11px] font-body text-muted-foreground">
+                          <div className="truncate text-[11px] font-body text-muted-foreground">
                             {item.subtitle}
                           </div>
                         )}
-                        <div className="mt-1 text-[10px] font-body font-medium text-muted-foreground">
-                          {item.start && item.hasTime ? (
-                            <>
-                              {format(item.start, "h:mm a")}
-                              {item.end ? ` – ${format(item.end, "h:mm a")}` : ""}
-                            </>
-                          ) : (
-                            "All day"
-                          )}
-                        </div>
                       </div>
+                      <span className="tnum shrink-0 self-start pt-0.5 font-mono text-[10px] text-muted-foreground">
+                        {item.start && item.hasTime
+                          ? format(item.start, "h:mm a")
+                          : "All day"}
+                      </span>
                     </Link>
                   </AgendaHoverCard>
                 </li>
