@@ -1,56 +1,13 @@
-"use client";
-
-import { useEffect, useRef, useState } from "react";
 import {
   IconAirConditioning,
-  IconDroplet,
   IconBolt,
-  IconSpray,
+  IconDroplet,
   IconPlant2,
+  IconSpray,
   IconTool,
 } from "@tabler/icons-react";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
-
-/* ---------- Animated counter hook ---------- */
-function useCountUp(target: number, duration = 2000) {
-  const [value, setValue] = useState(0);
-  const ref = useRef<HTMLDivElement>(null);
-  const hasAnimated = useRef(false);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting && !hasAnimated.current) {
-          hasAnimated.current = true;
-          const start = performance.now();
-          const animate = (now: number) => {
-            const progress = Math.min((now - start) / duration, 1);
-            const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-            setValue(Math.floor(eased * target));
-            if (progress < 1) requestAnimationFrame(animate);
-          };
-          requestAnimationFrame(animate);
-        }
-      },
-      { threshold: 0.3 },
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [target, duration]);
-
-  return { ref, value };
-}
-
-const STATS = [
-  { target: 500, suffix: "+", label: "Service Businesses" },
-  { target: 4.9, suffix: "★", label: "Average Rating", isDecimal: true },
-  { target: 6, suffix: "+", label: "Industries Served" },
-  { target: 99, suffix: "%", label: "Uptime" },
-] as const;
+import { Badge } from "@/components/ui/badge";
+import { Reveal } from "./reveal";
 
 const INDUSTRIES = [
   { icon: IconAirConditioning, label: "HVAC" },
@@ -61,77 +18,49 @@ const INDUSTRIES = [
   { icon: IconTool, label: "Handyman" },
 ] as const;
 
-function StatCard({
-  target,
-  suffix,
-  label,
-  isDecimal,
-  delay,
-}: {
-  target: number;
-  suffix: string;
-  label: string;
-  isDecimal?: boolean;
-  delay: number;
-}) {
-  const intTarget = isDecimal ? Math.floor(target * 10) : target;
-  const { ref, value } = useCountUp(intTarget);
-  const display = isDecimal ? (value / 10).toFixed(1) : value;
-
-  return (
-    <Fade inView inViewOnce delay={delay}>
-      <div
-        ref={ref}
-        className="rounded-2xl border border-border/50 bg-card/50 p-6 text-center backdrop-blur-sm"
-      >
-        <p className="font-heading text-3xl font-bold text-ink sm:text-4xl">
-          {display}
-          <span className="text-brand">{suffix}</span>
-        </p>
-        <p className="mt-1 text-sm text-ink/50">{label}</p>
-      </div>
-    </Fade>
-  );
-}
-
+/**
+ * Trust strip.
+ *
+ * Was a 342px band of four animated counter cards — "500+ businesses",
+ * "4.9★", "6+ industries", "99% uptime" — two of which repeated numbers the
+ * hero had already stated a screen earlier, and one of which ("6+ industries")
+ * simply counted the row of icons printed underneath it. Repeating a claim
+ * three times weakens it. The count now lives in the hero; this strip carries
+ * the one thing the hero cannot, which is the breadth itself.
+ */
 export function TrustBar() {
   return (
-    <section aria-labelledby="trust-heading" className="bg-surface py-16 sm:py-20">
-      <div className="mx-auto max-w-5xl px-6">
-        {/* Stat cards */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {STATS.map((stat, i) => (
-            <StatCard
-              key={stat.label}
-              target={stat.target}
-              suffix={stat.suffix}
-              label={stat.label}
-              isDecimal={"isDecimal" in stat && stat.isDecimal}
-              delay={i * 100}
-            />
-          ))}
-        </div>
+    <section
+      aria-labelledby="trust-heading"
+      className="border-y border-border bg-surface-alt py-7"
+    >
+      <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8">
+        <Reveal className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+          <h2
+            id="trust-heading"
+            className="shrink-0 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground"
+          >
+            Built for
+          </h2>
 
-        {/* Industry icons */}
-        <Fade inView inViewOnce delay={400}>
-          <div className="mt-12 flex flex-wrap items-center justify-center gap-8 sm:gap-12">
-            <p
-              id="trust-heading"
-              className="text-xs font-semibold uppercase tracking-wider text-ink/30"
-            >
-              Built for
-            </p>
+          {/* Wraps on desktop, scrolls on mobile — never forces the page wide. */}
+          <ul
+            role="list"
+            className="strip-scroll -mx-5 flex min-w-0 gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
+          >
             {INDUSTRIES.map((industry) => (
-              <div
-                key={industry.label}
-                className="flex items-center gap-2 text-ink/40"
-              >
-                <industry.icon size={18} stroke={1.5} />
-                <span className="text-sm font-medium">{industry.label}</span>
-              </div>
+              <li key={industry.label}>
+                <Badge
+                  variant="secondary"
+                  className="gap-1.5 whitespace-nowrap px-3 py-1.5 text-[13px] font-medium text-muted-foreground"
+                >
+                  <industry.icon size={15} stroke={1.6} aria-hidden="true" />
+                  {industry.label}
+                </Badge>
+              </li>
             ))}
-          </div>
-        </Fade>
+          </ul>
+        </Reveal>
       </div>
     </section>
   );

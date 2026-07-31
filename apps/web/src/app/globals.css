@@ -16,102 +16,157 @@
     margin-right: 0 !important;
   }
 
+  /* RemoveScroll locks scrolling by setting `overflow: hidden` on <body> — but
+     the rule above makes <html> the scroll container, so that lock applies to
+     an element that was never scrolling. Radix still intercepts wheel and touch
+     events, so a real user is mostly held in place, but anything that scrolls
+     the container directly (programmatic scroll, keyboard, some in-app
+     navigations) walks straight through it and the page slides away behind the
+     open dialog.
+     This affects every Dialog and Sheet in the app, not just the landing nav.
+     `scrollbar-gutter: stable` is already set above, so removing the scrollbar
+     here shifts no layout. */
+  html:has(body[data-scroll-locked]) {
+    overflow: hidden;
+  }
+
+  /* The landing navbar is fixed, so an anchor jump would otherwise park the
+     section heading underneath it. Every in-page target opts in. */
+  [id] {
+    scroll-margin-top: 6rem;
+  }
+
+  /* ─────────────────────────────────────────────────────────────────
+     ELEVATION MODEL — read this before changing any neutral.
+
+     Four surfaces, strictly ordered by how "close" they are to the reader.
+     The order must hold in BOTH themes, or cards stop reading as cards:
+
+        background  <  surface  <  surface-alt  <  card
+
+     Light mode moves toward white as things rise; dark mode moves toward
+     light grey. That was previously broken in dark: --card sat at 10% while
+     --surface-alt was 12%, so any card placed on an alt-coloured section was
+     DARKER than the section behind it and visually sank instead of lifting.
+
+     Neutrals are warm (hue ~25-32, low saturation). The brand is orange
+     (hue 24); the old cool blue-slate neutrals fought it on every surface.
+     Keeping the neutrals on the same side of the wheel lets the orange read
+     as the accent rather than as an intrusion.
+     ───────────────────────────────────────────────────────────────── */
+
   :root {
-    /* shadcn defaults — light mode */
-    --background: 220 14% 96%;
-    --foreground: 222 47% 11%;
+    /* Elevation ramp — light */
+    --background: 32 24% 98%;
+    --surface: 32 24% 98%;
+    --surface-alt: 32 18% 95%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 25 20% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 24 95% 53%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 220 14% 96%;
-    --muted-foreground: 220 9% 43%;
-    --accent: 24 100% 96%;
-    --accent-foreground: 24 95% 27%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 220 13% 91%;
-    --input: 220 13% 78%;
+    --popover-foreground: 25 20% 12%;
+
+    /* Text */
+    --foreground: 25 20% 12%;
+    --ink: 25 20% 12%;
+    --muted: 32 18% 95%;
+    --muted-foreground: 28 8% 42%;
+
+    /* Lines */
+    --border: 30 14% 89%;
+    --input: 30 12% 80%;
     --ring: 24 95% 53%;
     --radius: 0.5rem;
 
-    /* Brand: "Desert Heat" palette */
+    /* Brand — unchanged hue/sat/lightness. The dashboard, charts, PDFs and
+       email templates all key off this; it is the one value that must not
+       drift. */
+    --primary: 24 95% 53%;
+    --primary-foreground: 0 0% 100%;
     --brand: 24 95% 53%;
     --brand-foreground: 0 0% 100%;
     --brand-light: 24 100% 96%;
-    --midnight: 222 47% 11%;
-    --midnight-foreground: 210 40% 98%;
-    --midnight-light: 222 30% 18%;
-    --surface: 220 14% 96%;
-    --surface-alt: 220 13% 91%;
-    --ink: 222 47% 11%;
+
+    --secondary: 32 18% 95%;
+    --secondary-foreground: 25 20% 12%;
+    --accent: 24 100% 95%;
+    --accent-foreground: 24 90% 30%;
+    --destructive: 0 78% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Always-dark slab. Used by the auth shell, the public booking and quote
+       portals, and the landing page's closing band — contexts that are dark
+       in both themes on purpose. Warmed to match the neutrals above. */
+    --midnight: 25 14% 9%;
+    --midnight-foreground: 30 20% 94%;
+    --midnight-light: 25 12% 14%;
 
     /* Chart palette */
     --chart-1: 24 95% 53%;
     --chart-2: 173 58% 39%;
-    --chart-3: 222 47% 31%;
-    --chart-4: 43 96% 56%;
-    --chart-5: 142 71% 45%;
+    --chart-3: 25 25% 32%;
+    --chart-4: 43 96% 52%;
+    --chart-5: 142 65% 40%;
 
     /* Admin accent (red theme for super admin sidebar) */
     --admin-accent: 0 72% 51%;
     --admin-accent-foreground: 0 0% 100%;
     --admin-accent-light: 0 86% 97%;
-    --admin-sidebar-bg: 0 63% 15%;
+    --admin-sidebar-bg: 0 55% 14%;
     --admin-sidebar-foreground: 0 86% 97%;
     --admin-ring: 0 72% 51%;
   }
 
   .dark {
-    --background: 222 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222 30% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222 30% 10%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 24 90% 55%;
+    /* Elevation ramp — dark. Ascending, which is the fix. */
+    --background: 25 12% 6%;
+    --surface: 25 12% 7%;
+    --surface-alt: 25 11% 10%;
+    --card: 25 10% 13%;
+    --card-foreground: 30 20% 94%;
+    --popover: 25 10% 13%;
+    --popover-foreground: 30 20% 94%;
+
+    /* Text */
+    --foreground: 30 20% 94%;
+    --ink: 30 20% 94%;
+    --muted: 25 10% 15%;
+    --muted-foreground: 28 8% 64%;
+
+    /* Lines — must stay above --card (13%) or borders vanish on cards. */
+    --border: 25 9% 19%;
+    --input: 25 9% 24%;
+    --ring: 24 95% 56%;
+
+    --primary: 24 95% 56%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 24 50% 15%;
-    --accent-foreground: 24 90% 85%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 24 90% 55%;
-
-    /* Brand overrides for dark mode */
-    --brand: 24 90% 55%;
+    --brand: 24 95% 56%;
     --brand-foreground: 0 0% 100%;
-    --brand-light: 24 50% 15%;
-    --midnight: 222 47% 11%;
-    --midnight-foreground: 210 40% 98%;
-    --midnight-light: 222 30% 18%;
-    --surface: 222 30% 8%;
-    --surface-alt: 222 25% 12%;
-    --ink: 210 30% 88%;
+    --brand-light: 24 40% 16%;
 
-    /* Chart palette — dark */
-    --chart-1: 24 90% 55%;
+    --secondary: 25 10% 15%;
+    --secondary-foreground: 30 20% 94%;
+    --accent: 24 40% 16%;
+    --accent-foreground: 24 90% 82%;
+    --destructive: 0 62% 42%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Slightly lifted in dark so the closing band separates from --surface. */
+    --midnight: 25 13% 10%;
+    --midnight-foreground: 30 20% 94%;
+    --midnight-light: 25 11% 15%;
+
+    --chart-1: 24 95% 58%;
     --chart-2: 173 50% 50%;
-    --chart-3: 217 33% 55%;
-    --chart-4: 43 96% 56%;
-    --chart-5: 142 71% 55%;
+    --chart-3: 30 22% 62%;
+    --chart-4: 43 96% 60%;
+    --chart-5: 142 60% 52%;
 
-    /* Admin accent — dark mode */
-    --admin-accent: 0 72% 55%;
+    --admin-accent: 0 72% 57%;
     --admin-accent-foreground: 0 0% 100%;
-    --admin-accent-light: 0 50% 15%;
-    --admin-sidebar-bg: 0 60% 8%;
+    --admin-accent-light: 0 45% 16%;
+    --admin-sidebar-bg: 0 45% 9%;
     --admin-sidebar-foreground: 0 60% 90%;
-    --admin-ring: 0 72% 55%;
+    --admin-ring: 0 72% 57%;
   }
 }
 
@@ -124,113 +179,84 @@
   }
 }
 
-/* Aurora gradient animation */
-@keyframes aurora {
-  0%,
-  100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
+/* ─────────────────────────────────────────────────────────────────────
+   RULED SHEET — the landing page's structural motif.
 
-.aurora-bg {
-  background: radial-gradient(
-      ellipse 80% 50% at 20% 40%,
-      hsl(var(--brand) / 0.12) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse 60% 40% at 80% 60%,
-      hsl(222 47% 20% / 0.25) 0%,
-      transparent 50%
-    ),
-    radial-gradient(
-      ellipse 50% 30% at 50% 20%,
-      hsl(220 60% 30% / 0.15) 0%,
-      transparent 50%
-    ),
-    hsl(var(--midnight));
-  background-size: 200% 200%;
-  animation: aurora 15s ease-in-out infinite;
-}
+   Field service runs on ruled paper: work orders, day sheets, estimate
+   pads. These utilities draw that ruling so the page's own furniture
+   echoes the artefact the product replaces.
+   ───────────────────────────────────────────────────────────────────── */
 
-/* Infinite marquee scroll */
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
-}
-
-/* Scroll-reveal animation keyframes */
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes slide-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes scale-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Utility classes for scroll-triggered animations */
 @layer utilities {
-  .animate-fade-in-up {
-    animation: fade-in-up 0.6s ease-out forwards;
-  }
-  .animate-fade-in {
-    animation: fade-in 0.6s ease-out forwards;
-  }
-  .animate-slide-in-left {
-    animation: slide-in-left 0.6s ease-out forwards;
-  }
-  .animate-scale-in {
-    animation: scale-in 0.5s ease-out forwards;
+  /* Horizontal hairlines at --row spacing. */
+  .sheet-rows {
+    background-image: linear-gradient(
+      to bottom,
+      hsl(var(--border)) 1px,
+      transparent 1px
+    );
+    background-size: 100% var(--row, 3rem);
   }
 
-  /* Starting state for scroll-reveal (hidden) */
-  .reveal-hidden {
-    opacity: 0;
-    transform: translateY(24px);
+  /* Faint full-bleed ruling for section backgrounds — fades out downward so
+     it reads as texture rather than as a table. */
+  .sheet-wash {
+    background-image: linear-gradient(
+      to bottom,
+      hsl(var(--border) / 0.55) 1px,
+      transparent 1px
+    );
+    background-size: 100% 3rem;
+    mask-image: linear-gradient(to bottom, black, transparent 70%);
+    -webkit-mask-image: linear-gradient(to bottom, black, transparent 70%);
   }
-  .reveal-visible {
-    animation: fade-in-up 0.6s ease-out forwards;
+
+  /* Tabular figures — times, money and counts must not jitter as they change
+     or as rows align. Pairs with font-mono. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   SCROLL REVEAL
+
+   The hidden state is scoped to `html.js`, which an inline script in
+   app/layout.tsx sets before paint. Without that guard a reader with
+   JavaScript disabled — or one whose bundle simply hasn't arrived yet —
+   gets a fully server-rendered page pinned at opacity 0.
+   ───────────────────────────────────────────────────────────────────── */
+
+@layer utilities {
+  .js .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  .js .reveal-ready {
+    transition:
+      opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+      transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+    transition-delay: var(--reveal-delay, 0ms);
+  }
+
+  .js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .js .reveal,
+  .js .reveal.is-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
   }
 }
 
@@ -304,6 +330,25 @@
 
 .kanban-column-scroll:hover::-webkit-scrollbar-thumb {
   background-color: hsl(var(--muted-foreground) / 0.4);
+}
+
+/* Horizontal strips (industry tabs) — same treatment, laid on its side. */
+.strip-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.25) transparent;
+}
+
+.strip-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.strip-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.strip-scroll::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.25);
+  border-radius: 9999px;
 }
 
 /* Smooth scrolling for Radix scroll areas */

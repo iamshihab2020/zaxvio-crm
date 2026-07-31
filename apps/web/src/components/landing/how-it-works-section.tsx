@@ -1,76 +1,77 @@
-"use client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Reveal } from "./reveal";
+import { Section, SectionHeading } from "./section";
 
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
-
+/**
+ * Steps are marked with elapsed time rather than 01 / 02 / 03.
+ *
+ * The section's claim is "ten minutes". Numbering the steps only tells you
+ * there are three of them — something the eye already knows — whereas the
+ * elapsed clock carries the claim itself and lets the reader check it: the
+ * last marker reads 0:10, and it is the promise. It is also the page's own
+ * material, since the product's unit of measure is time.
+ */
 const STEPS = [
+  /* Descriptions are deliberately kept to a similar length. The cards stretch
+     to a shared row height, so a short one leaves a visible hole under its
+     text rather than sitting neatly beside its neighbours. */
   {
-    number: "1",
-    title: "Sign Up",
-    description: "Create your account in under 2 minutes. No credit card required.",
+    at: "0:00",
+    title: "Create the account",
+    description:
+      "An email and a password is the whole of it. No card, no sales call, and no demo to sit through first.",
   },
   {
-    number: "2",
-    title: "Set Up Your Business",
+    at: "0:02",
+    title: "Add your services and hours",
     description:
-      "Add your services, pricing, and availability. Import existing customers.",
+      "What you do, what you charge, and when you work. Bring your customer list over from a spreadsheet if you have one.",
   },
   {
-    number: "3",
-    title: "Start Managing Jobs",
+    at: "0:10",
+    title: "Book the first job",
     description:
-      "Schedule jobs, send invoices, and track everything from your phone.",
+      "Put a job on the board yourself, or send your booking link and let the customer put it there for you.",
   },
 ] as const;
 
 export function HowItWorksSection() {
   return (
-    <section
-      aria-labelledby="how-it-works-heading"
-      className="bg-surface-alt py-24"
-    >
-      <div className="mx-auto max-w-5xl px-6">
-        <Fade inView inViewOnce className="text-center">
-          <h2
-            id="how-it-works-heading"
-            className="font-heading text-3xl font-bold tracking-tight text-ink sm:text-4xl"
-          >
-            Up and running in 10 minutes
-          </h2>
-          <p className="mx-auto mt-4 max-w-xl text-lg text-ink/60">
-            No training, no onboarding calls. If you can use a smartphone,
-            you can use Zaxvio.
-          </p>
-        </Fade>
+    <Section surface="base" labelledBy="how-it-works-heading">
+      <SectionHeading
+        id="how-it-works-heading"
+        label="Getting started"
+        title="Up and running in ten minutes."
+        lede="No onboarding call and no training. If you can use a phone, you can use Zaxvio."
+      />
 
-        <div className="relative mt-16 grid gap-8 md:grid-cols-3">
-          {/* Connecting gradient line (desktop) */}
-          <div
-            className="pointer-events-none absolute left-[16.5%] right-[16.5%] top-10 hidden h-[2px] bg-gradient-to-r from-brand/20 via-brand/50 to-brand/20 md:block"
-            aria-hidden="true"
-          />
+      <ol role="list" className="mt-10 grid gap-5 sm:mt-12 md:grid-cols-3">
+        {STEPS.map((step, i) => (
+          /* flex column + flex-1 rather than `h-full` on the card: `h-full`
+             resolves against the grid item's full height while the card also
+             carries a top margin, so each card overhung its own list item by
+             exactly that margin. */
+          <Reveal as="li" key={step.at} delay={i * 90} className="flex flex-col">
+            <div className="flex items-center gap-3">
+              <span className="tnum font-mono text-sm font-medium text-brand">
+                {step.at}
+              </span>
+              <span aria-hidden="true" className="h-px flex-1 bg-border" />
+            </div>
 
-          {STEPS.map((step, i) => (
-            <Fade key={step.number} inView inViewOnce delay={i * 150}>
-              <div className="relative flex flex-col items-center text-center">
-                {/* Large gradient number */}
-                <div className="relative z-10 flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-brand to-brand/70 font-heading text-3xl font-bold text-brand-foreground shadow-lg shadow-brand/20">
-                  {step.number}
-                </div>
-
-                {/* Glass card */}
-                <div className="mt-6 w-full rounded-2xl border border-border/50 bg-card/80 p-6 backdrop-blur-sm">
-                  <h3 className="font-heading text-xl font-semibold text-ink">
-                    {step.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-ink/60">
-                    {step.description}
-                  </p>
-                </div>
-              </div>
-            </Fade>
-          ))}
-        </div>
-      </div>
-    </section>
+            <Card className="mt-4 flex-1">
+              <CardContent className="p-5 sm:p-6">
+                <h3 className="font-heading text-lg font-semibold text-ink">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground text-pretty">
+                  {step.description}
+                </p>
+              </CardContent>
+            </Card>
+          </Reveal>
+        ))}
+      </ol>
+    </Section>
   );
 }

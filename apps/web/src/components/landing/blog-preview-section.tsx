@@ -1,120 +1,107 @@
-"use client";
-
 import Link from "next/link";
-import {
-  IconArrowRight,
-  IconBulb,
-  IconBook,
-  IconTrendingUp,
-} from "@tabler/icons-react";
+import { IconArrowRight } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
+import { Card, CardContent } from "@/components/ui/card";
+import { Reveal } from "./reveal";
+import { Section, SectionHeading } from "./section";
 
 const PREVIEW_POSTS = [
   {
     slug: "streamline-service-business-operations",
-    title: "5 Ways to Streamline Your Service Business Operations",
+    title: "5 ways to streamline your service business operations",
     excerpt:
-      "From digital scheduling to automated invoicing, discover how top service businesses eliminate paperwork and win back hours every week.",
-    category: "Business Tips",
+      "From digital scheduling to automated invoicing — how busy service businesses win back hours every week.",
+    category: "Business tips",
     date: "Mar 28, 2026",
-    gradient: "from-brand via-orange-500 to-amber-400",
-    icon: IconBulb,
+    readingTime: "6 min",
   },
   {
     slug: "complete-guide-digital-invoicing",
-    title: "The Complete Guide to Digital Invoicing for Field Service",
+    title: "The complete guide to digital invoicing for field service",
     excerpt:
-      "Stop chasing payments. Learn how field service professionals use on-site invoicing to get paid the same day.",
+      "Stop chasing payments. How field service pros use on-site invoicing to get paid the same day.",
     category: "Guides",
     date: "Mar 22, 2026",
-    gradient: "from-blue-600 via-blue-400 to-cyan-400",
-    icon: IconBook,
+    readingTime: "9 min",
   },
   {
     slug: "paper-to-digital-service-businesses",
-    title: "Why Service Businesses Are Switching from Paper to Digital",
+    title: "Why service businesses are switching from paper to digital",
     excerpt:
-      "The clipboard-and-carbon-copy era is ending. Here's why the smartest service businesses are going digital — and how to make the switch.",
-    category: "Industry Insights",
+      "The clipboard-and-carbon-copy era is ending. Why the switch is happening, and how to make it.",
+    category: "Industry",
     date: "Mar 15, 2026",
-    gradient: "from-emerald-600 via-emerald-400 to-teal-300",
-    icon: IconTrendingUp,
+    readingTime: "5 min",
   },
 ] as const;
 
+/**
+ * Post cards lost their 160px gradient cover blocks.
+ *
+ * Those covers carried no information — the gradient was picked per post at
+ * random and the icon inside it repeated the category badge printed directly
+ * underneath. Removing them lets the headline lead, which is the only part a
+ * reader actually chooses on, and takes a third off the card height.
+ */
 export function BlogPreviewSection() {
   return (
-    <section
-      aria-labelledby="blog-preview-heading"
-      className="bg-surface py-24"
-    >
-      <div className="mx-auto max-w-7xl px-6">
-        <Fade inView inViewOnce className="text-center">
-          <h2
-            id="blog-preview-heading"
-            className="font-heading text-3xl font-bold tracking-tight text-ink sm:text-4xl"
-          >
-            From the Blog
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-ink/60">
-            Tips, guides, and insights for service businesses.
-          </p>
-        </Fade>
-
-        <div className="mt-16 grid gap-8 md:grid-cols-3">
-          {PREVIEW_POSTS.map((post, i) => (
-            <Fade key={post.slug} inView inViewOnce delay={i * 100}>
-              <Link href={`/blog/${post.slug}`} className="group block h-full cursor-pointer">
-                <Card className="h-full overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
-                  {/* Cover gradient with grid overlay + icon */}
-                  <div
-                    className={`relative flex h-40 items-center justify-center bg-gradient-to-br ${post.gradient}`}
-                    aria-hidden="true"
-                  >
-                    {/* Dot grid overlay */}
-                    <div
-                      className="absolute inset-0 opacity-[0.12]"
-                      style={{
-                        backgroundImage:
-                          "radial-gradient(circle, white 1px, transparent 1px)",
-                        backgroundSize: "16px 16px",
-                      }}
-                    />
-                    {/* Category icon */}
-                    <post.icon size={48} stroke={1} className="relative text-white/25" />
-                  </div>
-                  <CardContent className="p-6">
-                    <Badge variant="secondary" className="mb-3 text-xs">
-                      {post.category}
-                    </Badge>
-                    <h3 className="font-heading text-lg font-semibold text-ink line-clamp-2 group-hover:text-brand transition-colors">
-                      {post.title}
-                    </h3>
-                    <p className="mt-2 text-sm leading-relaxed text-ink/60 line-clamp-2">
-                      {post.excerpt}
-                    </p>
-                    <p className="mt-4 text-xs text-ink/40">{post.date}</p>
-                  </CardContent>
-                </Card>
-              </Link>
-            </Fade>
-          ))}
-        </div>
-
-        <Fade inView inViewOnce delay={300}>
-          <div className="mt-12 text-center">
-            <Button asChild variant="outline" className="gap-2">
-              <Link href="/blog">
-                View All Posts
-                <IconArrowRight size={16} stroke={2} />
-              </Link>
-            </Button>
-          </div>
-        </Fade>
+    <Section surface="base" labelledBy="blog-heading">
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <SectionHeading
+          id="blog-heading"
+          label="Writing"
+          title="From the blog"
+          lede="Tips and guides for running a service business."
+          className="flex-1"
+        />
+        <Reveal delay={60}>
+          <Button asChild variant="outline" className="h-10">
+            <Link href="/blog">
+              All posts
+              <IconArrowRight className="!size-4" />
+            </Link>
+          </Button>
+        </Reveal>
       </div>
-    </section>
+
+      <div className="mt-10 grid gap-5 sm:mt-12 md:grid-cols-3">
+        {PREVIEW_POSTS.map((post, i) => (
+          <Reveal key={post.slug} delay={i * 90}>
+            <Card className="group relative h-full transition-colors duration-200 hover:border-brand/40">
+              <CardContent className="flex h-full flex-col p-6">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="font-mono text-[11px]">
+                    {post.category}
+                  </Badge>
+                  <span className="tnum font-mono text-[11px] text-muted-foreground">
+                    {post.readingTime}
+                  </span>
+                </div>
+
+                <h3 className="mt-4 font-heading text-lg font-semibold leading-snug text-ink text-pretty">
+                  {/* Stretched link — the whole card is the hit area, but only
+                      the title is announced as the link. */}
+                  <Link
+                    href={`/blog/${post.slug}`}
+                    className="after:absolute after:inset-0 group-hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {post.title}
+                  </Link>
+                </h3>
+
+                <p className="mt-2.5 flex-1 text-sm leading-relaxed text-muted-foreground text-pretty">
+                  {post.excerpt}
+                </p>
+
+                <p className="tnum mt-5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                  {post.date}
+                </p>
+              </CardContent>
+            </Card>
+          </Reveal>
+        ))}
+      </div>
+    </Section>
   );
 }

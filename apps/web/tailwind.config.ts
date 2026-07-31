@@ -9,6 +9,10 @@ const config: Config = {
       fontFamily: {
         heading: ["var(--font-heading)", "sans-serif"],
         body: ["var(--font-body)", "sans-serif"],
+        // Utility face for times, counts and money — anything read as data
+        // rather than as prose. DM Mono is DM Sans' sibling, so it pairs by
+        // lineage instead of arriving as an unrelated third typeface.
+        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
       },
       colors: {
         border: "hsl(var(--border))",

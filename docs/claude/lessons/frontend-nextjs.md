@@ -181,3 +181,50 @@ From [[bookings-calendar|the report]] — the front-end half.
 - **Rows that are `onClick`-only are invisible to a keyboard.** No `tabIndex`, no Enter/Space handler, no `aria-sort` on the headers. The customers audit made rows reachable and it did not propagate — same class as everything above.
 - **A `Record<string, unknown>` callback prop forces a double cast at every call site.** `onSaved?: (updated: Record<string, unknown>) => void` is why both settings pages wrote `as unknown as TenantData`, which [[strict-rules]] §4 bans. The type already existed (`Tenant`, inferred from the Drizzle schema) — the prop just wasn't using it.
 - **Pointing `window.open` at the API origin is the one request that relies on a cross-origin cookie.** It works in development because everything is `localhost` and breaks the moment the API is on another domain. Fetch it in a server action, where the cookie header is set explicitly, and hand the browser a blob.
+
+## Landing redesign — layout, theming and Radix internals (2026-07-31)
+
+- **`overflow-x-auto` does not clip inside a grid or flex item.** Grid and flex items default to
+  `min-width: auto`, which is *content* width, so the track grows to fit the scroller instead of the
+  scroller clipping. On `/` the industry tab strip lived in a grid column and pushed the document to
+  **976px on a 390px viewport** — every section on the page scrolled sideways because of one element.
+  Any scroll container inside a grid/flex parent needs `min-w-0` on the item, or the container must be
+  full-width and not a track child. Measure with
+  `document.documentElement.scrollWidth - clientWidth`, not by eye.
+- **`body { overflow: hidden }` locks nothing in this app — `<html>` is the scroll container.**
+  globals.css sets `overflow-y: scroll` on `<html>`, so Radix's RemoveScroll (which locks `<body>` and
+  sets `data-scroll-locked`) has no CSS effect. Radix still intercepts wheel/touch, so a mouse user is
+  mostly held, but programmatic and keyboard scrolling walk straight through. This affected **every
+  Dialog and Sheet in the app**, not just the landing nav. Fixed once in globals.css with
+  `html:has(body[data-scroll-locked]) { overflow: hidden }`; `scrollbar-gutter: stable` means no layout
+  shift. Verify with `window.scrollTo()` while the dialog is open, not by trying to scroll by hand.
+- **The dark-mode elevation ramp must ascend, and it did not.** `--card` was `10%` while `--surface-alt`
+  was `12%`, so every card sitting on an alt-coloured section was *darker* than the section behind it
+  and visually sank. The ordering `background ≤ surface < surface-alt < card`, with `--border` above
+  `--card`, has to hold in both themes. Assert it by reading the lightness channel out of the custom
+  properties rather than trusting the swatches.
+- **`AutoHeight` (animate-ui `TabsContents`) measures its child, so a top margin on that child collapses
+  out of the measured box.** `TabsContent className="mt-6"` made the panel render exactly 24px short and
+  clip its own last row of bullets, with `overflow: hidden` hiding the evidence. Put the gap on a
+  wrapper *outside* `TabsContents`, never as a margin on the measured child.
+- **`h-full` plus a top margin makes a card overhang its own grid item by exactly the margin.** `h-full`
+  resolves against the item's full height while the element starts lower. Use `flex flex-col` on the
+  item and `flex-1` on the card.
+- **A scroll-reveal whose hidden state lives in the React tree turns a slow bundle into a blank page.**
+  The old `Fade` mounted a framer-motion component per card at `opacity: 0`; if the bundle was slow or
+  failed, the fully server-rendered page stayed invisible. Scope the hidden state to `html.js`, set by a
+  one-line inline script in `<head>`, so it fails open. Confirm with
+  `curl localhost:3000/ | grep '<your headline>'` that the copy is in the HTML at all.
+- **Verify reveal state in a focused tab.** A backgrounded or unfocused Chrome throttles
+  `requestAnimationFrame`, CSS transitions and IntersectionObserver delivery, so a fast programmatic
+  scroll loop reports elements as never revealed and stuck at `opacity: 0` when they are fine for a real
+  user. Park the element mid-viewport, wait, and re-read — do not trust a tight `scrollTo` sweep.
+- **Never run `next build` while `next dev` is serving the same app.** The build overwrites `.next/`
+  under the dev server and every request then 500s with `Cannot find module './NNNN.js'`. Recovery is
+  stop dev → delete `.next` → restart.
+- **Structured data that contradicts the visible page is a rich-results violation.** `json-ld.tsx`
+  claimed `4.8` from `127` ratings while the hero rendered `4.9` from `500+`. If a number appears in
+  both places, it has one source.
+- **A rotating word inside the `<h1>` is measurable layout shift on the page's largest text**, and it
+  makes the heading's text content unstable for crawlers and screen readers. State the varying part in
+  an eyebrow and let a dedicated section carry the proof.

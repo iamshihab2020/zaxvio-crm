@@ -91,7 +91,10 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(echo \"--- exit: $? ---\")",
-      "Bash(NEXT_PUBLIC_API_URL=https://zaxvio-crm-web.vercel.app API_INTERNAL_URL=https://zaxvio-api.onrender.com FRONTEND_URL=https://zaxvio-crm-web.vercel.app npx next build)"
+      "Bash(NEXT_PUBLIC_API_URL=https://zaxvio-crm-web.vercel.app API_INTERNAL_URL=https://zaxvio-api.onrender.com FRONTEND_URL=https://zaxvio-crm-web.vercel.app npx next build)",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__resize_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot"
     ]
   },
   "hooks": {

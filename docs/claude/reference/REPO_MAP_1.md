@@ -439,16 +439,22 @@ apps/web/
     |   |   +-- tooltip.tsx
     |   |
     |   +-- landing/                 # Landing page section components
-    |   |   +-- navbar.tsx
+    |   |   +-- navbar.tsx           # Full-width bar; mobile menu is a shadcn Sheet
+    |   |   +-- section.tsx          # <Section> surface band + <SectionHeading> ruled header
+    |   |   +-- reveal.tsx           # IntersectionObserver scroll reveal (CSS classes, html.js guarded)
     |   |   +-- hero-section.tsx
+    |   |   +-- day-sheet.tsx        # Signature: live time-ruled day schedule in the hero
+    |   |   +-- trust-bar.tsx        # Compact "Built for <trade>" strip
     |   |   +-- features-section.tsx
+    |   |   +-- industry-showcase.tsx # shadcn Tabs, one panel per trade
     |   |   +-- how-it-works-section.tsx
-    |   |   +-- pricing-section.tsx
+    |   |   +-- pricing-section.tsx  # Sticky price rail + included list + replacement ledger
     |   |   +-- testimonials-section.tsx
     |   |   +-- faq-section.tsx
+    |   |   +-- blog-preview-section.tsx
     |   |   +-- final-cta-section.tsx
     |   |   +-- footer.tsx
-    |   |   +-- section-reveal.tsx   # IntersectionObserver scroll reveal
+    |   |   +-- json-ld.tsx          # SoftwareApplication + FAQPage structured data
     |   |
     |   +-- booking-portal/          # Public booking portal components
     |   |   +-- booking-progress-indicator.tsx  # Step dots (5 steps)

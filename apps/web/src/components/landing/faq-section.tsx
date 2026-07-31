@@ -1,49 +1,40 @@
-"use client";
-
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/animate-ui/components/radix/accordion";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 import { FAQ_ITEMS } from "@/lib/landing/faq-data";
+import { Reveal } from "./reveal";
+import { Section, SectionHeading } from "./section";
 
 export function FaqSection() {
   return (
-    <section
-      id="faq"
-      aria-labelledby="faq-heading"
-      className="bg-surface py-16 sm:py-20"
-    >
-      <div className="mx-auto max-w-3xl px-4 sm:px-6">
-        <Fade inView inViewOnce className="text-center">
-          <h2
-            id="faq-heading"
-            className="font-heading text-3xl font-bold tracking-tight text-ink sm:text-4xl"
-          >
-            Frequently asked questions
-          </h2>
-          <p className="mt-4 text-lg text-ink/60">
-            Got questions? We&apos;ve got answers.
-          </p>
-        </Fade>
+    <Section id="faq" surface="alt" labelledBy="faq-heading">
+      <div className="grid gap-8 lg:grid-cols-3 lg:gap-12">
+        <SectionHeading
+          id="faq-heading"
+          label="Questions"
+          title="Answers, before you ask."
+          lede="Still stuck? Every plan includes support from a person."
+          className="lg:sticky lg:top-28 lg:self-start"
+        />
 
-        <Fade inView inViewOnce delay={150}>
-          <Accordion type="single" collapsible className="mt-8">
+        <Reveal delay={80} className="lg:col-span-2">
+          <Accordion type="single" collapsible className="w-full">
             {FAQ_ITEMS.map((item, i) => (
-              <AccordionItem key={i} value={`faq-${i}`}>
-                <AccordionTrigger className="text-left text-ink">
+              <AccordionItem key={item.question} value={`faq-${i}`}>
+                <AccordionTrigger className="text-left font-medium text-ink hover:text-brand">
                   {item.question}
                 </AccordionTrigger>
-                <AccordionContent className="text-ink/70">
+                <AccordionContent className="leading-relaxed text-muted-foreground text-pretty">
                   {item.answer}
                 </AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>
-        </Fade>
+        </Reveal>
       </div>
-    </section>
+    </Section>
   );
 }

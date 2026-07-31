@@ -1,44 +1,76 @@
-"use client";
-
 import Link from "next/link";
+import { IconArrowRight } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
+import { Reveal } from "./reveal";
 
+/**
+ * Closing band.
+ *
+ * Sits on the always-dark `midnight` slab and runs straight into the footer
+ * with no seam, so the page ends on one dark foot in both themes. The ruled
+ * wash is the same motif the hero opens with — the page closes the way it
+ * started.
+ */
 export function FinalCtaSection() {
   return (
     <section
       aria-labelledby="final-cta-heading"
-      className="aurora-bg relative overflow-hidden py-24 sm:py-32"
+      className="relative overflow-hidden bg-midnight text-midnight-foreground"
     >
-      <Fade inView inViewOnce>
-        <div className="relative z-10 mx-auto max-w-2xl px-6 text-center">
-          {/* Glass card */}
-          <div className="rounded-3xl border border-white/10 bg-white/5 p-10 backdrop-blur-xl sm:p-14">
-            <h2
-              id="final-cta-heading"
-              className="font-heading text-3xl font-bold tracking-tight text-midnight-foreground sm:text-4xl"
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-[0.07]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to bottom, hsl(var(--midnight-foreground)) 1px, transparent 1px)",
+          backgroundSize: "100% 3rem",
+        }}
+      />
+
+      <div className="relative mx-auto w-full max-w-6xl px-5 py-20 sm:px-6 sm:py-24 lg:px-8">
+        <Reveal className="max-w-2xl">
+          <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
+            Start today
+          </span>
+
+          <h2
+            id="final-cta-heading"
+            className="mt-5 font-heading text-[2rem] font-bold leading-[1.1] tracking-tight text-balance sm:text-4xl lg:text-5xl"
+          >
+            Your next job could already be on the board.
+          </h2>
+
+          <p className="mt-5 max-w-lg text-base leading-relaxed text-midnight-foreground/60 sm:text-lg">
+            Set it up in ten minutes. Keep the free trial running until you know
+            it works for you.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              asChild
+              size="lg"
+              className="h-12 w-full px-7 text-base font-semibold sm:w-auto"
             >
-              Ready to run your service business smarter?
-            </h2>
-            <p className="mx-auto mt-4 max-w-lg text-lg text-midnight-foreground/60">
-              Join hundreds of service professionals who&apos;ve ditched the
-              clipboard for good.
-            </p>
-            <div className="mt-8">
-              <Button
-                asChild
-                size="lg"
-                className="h-12 rounded-xl bg-brand px-10 font-heading text-sm font-semibold text-brand-foreground shadow-lg shadow-brand/25 hover:bg-brand/90 hover:shadow-xl hover:shadow-brand/30 transition-all"
-              >
-                <Link href="/signup">Start Your Free Trial</Link>
-              </Button>
-              <p className="mt-4 text-sm text-midnight-foreground/40">
-                No credit card required &middot; Set up in 10 minutes
-              </p>
-            </div>
+              <Link href="/signup">
+                Start free trial
+                <IconArrowRight className="!size-[18px]" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="ghost"
+              size="lg"
+              className="h-12 w-full px-7 text-base text-midnight-foreground/70 hover:bg-midnight-light hover:text-midnight-foreground sm:w-auto"
+            >
+              <Link href="/login">I already have an account</Link>
+            </Button>
           </div>
-        </div>
-      </Fade>
+
+          <p className="mt-6 font-mono text-[11px] uppercase tracking-wider text-midnight-foreground/40">
+            No card required &middot; Cancel any time &middot; Export your data
+          </p>
+        </Reveal>
+      </div>
     </section>
   );
 }

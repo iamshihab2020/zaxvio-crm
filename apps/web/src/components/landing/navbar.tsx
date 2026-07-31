@@ -1,181 +1,254 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { IconMenu2, IconX } from "@tabler/icons-react";
+import { IconMenu2 } from "@tabler/icons-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
+import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "Industries", href: "#industries" },
   { label: "Pricing", href: "#pricing" },
-  { label: "Blog", href: "/blog" },
   { label: "FAQ", href: "#faq" },
+  { label: "Blog", href: "/blog" },
 ] as const;
 
+const SECTION_IDS = ["features", "industries", "pricing", "faq"] as const;
+
+/**
+ * Landing navbar.
+ *
+ * Deliberately a full-width bar rather than the floating rounded pill it
+ * replaces. The pill forced two problems that could not be fixed separately:
+ * its contents sat over a permanently dark hero, so every label needed a
+ * light-on-dark and a dark-on-light variant switched by scroll position — and
+ * the light-on-dark variant leaked `hover:bg-white/10` into light mode, where
+ * it is invisible. A full-bleed mobile menu could also never line up with a
+ * floating rounded box, leaving a visible seam. A bar inherits the page's own
+ * surface tokens, so neither problem exists.
+ *
+ * The mobile menu is a shadcn `Sheet` (Radix Dialog). That supplies the focus
+ * trap, Escape handling, overlay dismissal and scroll lock that the previous
+ * hand-rolled panel either lacked or got wrong — its `body { overflow: hidden }`
+ * was a no-op, because globals.css makes <html> the scroll container, so the
+ * page scrolled away behind the open menu.
+ */
 export function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  const closeMobile = useCallback(() => setMobileOpen(false), []);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [active, setActive] = useState<string | null>(null);
+  const pendingHash = useRef<string | null>(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  /* Highlight whichever section the reader is currently in. */
   useEffect(() => {
-    if (mobileOpen) {
-      document.body.style.overflow = "hidden";
-      const onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === "Escape") closeMobile();
-      };
-      window.addEventListener("keydown", onKeyDown);
-      return () => {
-        document.body.style.overflow = "";
-        window.removeEventListener("keydown", onKeyDown);
-      };
-    } else {
-      document.body.style.overflow = "";
-    }
-  }, [mobileOpen, closeMobile]);
+    const targets = SECTION_IDS.map((id) => document.getElementById(id)).filter(
+      (el): el is HTMLElement => el !== null,
+    );
+    if (targets.length === 0) return;
 
-  const handleAnchorClick = (
-    e: React.MouseEvent<HTMLAnchorElement>,
-    href: string,
-  ) => {
-    if (!href.startsWith("#")) return;
-    e.preventDefault();
-    const el = document.querySelector(href);
-    if (el) el.scrollIntoView({ behavior: "smooth" });
-    closeMobile();
-  };
+    /* Track which sections are currently in the band, rather than reading only
+       the entries that changed. An observer callback reports changes, so
+       reacting to `entries` alone leaves the last match highlighted after the
+       reader scrolls back to the hero — the nav claimed "FAQ" at scroll 0. */
+    const visible = new Set<string>();
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+
+        const first = SECTION_IDS.find((id) => visible.has(id));
+        setActive(first ? `#${first}` : null);
+      },
+      { rootMargin: "-25% 0px -60% 0px" },
+    );
+
+    targets.forEach((el) => observer.observe(el));
+    return () => observer.disconnect();
+  }, []);
+
+  /* An in-sheet anchor has to wait for the Sheet to close before scrolling —
+     Radix still holds the scroll lock at click time, which would swallow it. */
+  useEffect(() => {
+    if (menuOpen || !pendingHash.current) return;
+    const hash = pendingHash.current;
+    pendingHash.current = null;
+    const id = window.setTimeout(() => {
+      document.querySelector(hash)?.scrollIntoView({ behavior: "smooth" });
+      history.replaceState(null, "", hash);
+    }, 220);
+    return () => window.clearTimeout(id);
+  }, [menuOpen]);
+
+  const handleAnchorClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, href: string, inSheet: boolean) => {
+      if (!href.startsWith("#")) return;
+      e.preventDefault();
+
+      if (inSheet) {
+        pendingHash.current = href;
+        setMenuOpen(false);
+        return;
+      }
+
+      // scroll-margin-top in globals.css keeps the heading clear of this bar.
+      document.querySelector(href)?.scrollIntoView({ behavior: "smooth" });
+      history.replaceState(null, "", href);
+    },
+    [],
+  );
 
   return (
-    <>
-      {/* Floating glass navbar */}
-      <header
-        className={`fixed left-4 right-4 top-4 z-50 rounded-2xl transition-all duration-300 ${
-          scrolled || mobileOpen
-            ? "border border-border/50 bg-background/80 shadow-lg shadow-black/5 backdrop-blur-xl"
-            : "border border-transparent bg-white/5 backdrop-blur-sm"
-        }`}
+    <header
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 transition-colors duration-200",
+        scrolled
+          ? "border-b border-border bg-surface/90 backdrop-blur-md"
+          : "border-b border-transparent",
+      )}
+    >
+      <nav
+        aria-label="Main"
+        className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-5 sm:px-6 lg:px-8"
       >
-        <nav
-          aria-label="Main navigation"
-          className="mx-auto flex max-w-7xl items-center justify-between px-5 py-3"
-        >
-          <Logo size="md" />
+        <Logo size="md" />
 
-          {/* Desktop nav */}
-          <ul className="hidden items-center gap-1 md:flex" role="list">
-            {NAV_LINKS.map((link) => (
+        <ul className="ml-4 hidden items-center gap-0.5 md:flex" role="list">
+          {NAV_LINKS.map((link) => {
+            const isActive = active === link.href;
+            return (
               <li key={link.href}>
-                <a
-                  href={link.href}
-                  onClick={(e) => handleAnchorClick(e, link.href)}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors hover:bg-white/10 ${
-                    scrolled
-                      ? "text-foreground/70 hover:text-foreground"
-                      : "text-white/70 hover:text-white"
-                  }`}
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    "h-9 px-3 text-sm",
+                    isActive
+                      ? "text-brand hover:text-brand"
+                      : "text-muted-foreground hover:text-ink",
+                  )}
                 >
-                  {link.label}
-                </a>
+                  <a
+                    href={link.href}
+                    aria-current={isActive ? "true" : undefined}
+                    onClick={(e) => handleAnchorClick(e, link.href, false)}
+                  >
+                    {link.label}
+                  </a>
+                </Button>
               </li>
-            ))}
-          </ul>
-
-          {/* Desktop CTAs */}
-          <div className="hidden items-center gap-2 md:flex">
-            <ThemeToggle
-              className={scrolled ? "text-foreground/60" : "text-white/60"}
-            />
-            <Link
-              href="/login"
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-                scrolled
-                  ? "text-foreground/70 hover:text-foreground"
-                  : "text-white/60 hover:text-white"
-              }`}
-            >
-              Log in
-            </Link>
-            <Link
-              href="/signup"
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground shadow-md shadow-brand/20 transition-all hover:bg-brand/90 hover:shadow-lg hover:shadow-brand/30"
-            >
-              Get Started
-            </Link>
-          </div>
-
-          {/* Mobile hamburger */}
-          <button
-            type="button"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            className={`md:hidden ${scrolled || mobileOpen ? "text-foreground" : "text-white"}`}
-            aria-label={mobileOpen ? "Close menu" : "Open menu"}
-            aria-expanded={mobileOpen}
-          >
-            {mobileOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
-          </button>
-        </nav>
-      </header>
-
-      {/* Mobile menu */}
-      <div
-        className={`fixed inset-0 z-40 flex flex-col bg-background pt-[80px] transition-all duration-300 ease-in-out md:hidden ${
-          mobileOpen
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 -translate-y-4 pointer-events-none"
-        }`}
-        aria-hidden={!mobileOpen}
-      >
-        <ul className="flex flex-col px-6 pt-6" role="list">
-          {NAV_LINKS.map((link) => (
-            <li key={link.href} className="border-b border-border/20">
-              <a
-                href={link.href}
-                onClick={(e) => handleAnchorClick(e, link.href)}
-                className="block py-4 text-lg font-medium text-foreground transition-colors hover:text-brand active:text-brand"
-                tabIndex={mobileOpen ? 0 : -1}
-              >
-                {link.label}
-              </a>
-            </li>
-          ))}
+            );
+          })}
         </ul>
 
-        <div className="mt-8 flex flex-col gap-3 px-6">
-          <Link
-            href="/signup"
-            onClick={closeMobile}
-            className="rounded-xl bg-brand px-4 py-3 text-center text-base font-semibold text-brand-foreground transition-colors hover:bg-brand/90"
-            tabIndex={mobileOpen ? 0 : -1}
-          >
-            Get Started
-          </Link>
-          <Link
-            href="/login"
-            onClick={closeMobile}
-            className="rounded-xl border border-border px-4 py-3 text-center text-base font-medium text-foreground transition-colors hover:bg-accent"
-            tabIndex={mobileOpen ? 0 : -1}
-          >
-            Log in
-          </Link>
-        </div>
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          {/* 40px floor on every control in the bar — shadcn's default `h-9`
+              is 36px, which is under the comfortable tap target for a page
+              read one-handed on a phone. */}
+          <ThemeToggle className="h-10 w-10" />
 
-        <div className="mt-auto border-t border-border/20 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">
-              Theme
-            </span>
-            <ThemeToggle />
-          </div>
+          <Button
+            asChild
+            variant="ghost"
+            className="hidden h-10 text-muted-foreground hover:text-ink sm:inline-flex"
+          >
+            <Link href="/login">Log in</Link>
+          </Button>
+
+          <Button asChild className="h-10 font-semibold">
+            <Link href="/signup">Start free trial</Link>
+          </Button>
+
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+            <SheetTrigger asChild>
+              {/* 44×44 — the minimum comfortable tap target. The trigger this
+                  replaces was a bare 24px icon. */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="-mr-2 h-11 w-11 md:hidden"
+                aria-label="Open menu"
+              >
+                <IconMenu2 className="!size-[22px]" />
+              </Button>
+            </SheetTrigger>
+
+            <SheetContent
+              side="right"
+              showCloseButton
+              aria-describedby={undefined}
+              className="flex w-[86%] flex-col gap-0 p-0 sm:max-w-sm"
+            >
+              <SheetTitle className="sr-only">Menu</SheetTitle>
+
+              <div className="flex h-16 shrink-0 items-center px-5">
+                <Logo size="md" />
+              </div>
+              <Separator />
+
+              <nav aria-label="Mobile" className="flex-1 overflow-y-auto px-3 py-2">
+                <ul role="list">
+                  {NAV_LINKS.map((link) => (
+                    <li key={link.href}>
+                      <Button
+                        asChild
+                        variant="ghost"
+                        className="h-auto min-h-[52px] w-full justify-start px-3 text-base font-medium text-ink"
+                      >
+                        <a
+                          href={link.href}
+                          onClick={(e) => handleAnchorClick(e, link.href, true)}
+                        >
+                          {link.label}
+                        </a>
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </nav>
+
+              <Separator />
+              <div className="grid shrink-0 gap-2 p-5">
+                <Button asChild size="lg" className="h-12 text-base font-semibold">
+                  <Link href="/signup" onClick={() => setMenuOpen(false)}>
+                    Start free trial
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="lg"
+                  className="h-12 text-base"
+                >
+                  <Link href="/login" onClick={() => setMenuOpen(false)}>
+                    Log in
+                  </Link>
+                </Button>
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
-      </div>
-    </>
+      </nav>
+    </header>
   );
 }

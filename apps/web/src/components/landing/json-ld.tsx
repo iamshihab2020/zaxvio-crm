@@ -16,10 +16,13 @@ function SoftwareApplicationSchema() {
       priceValidUntil: "2027-12-31",
       availability: "https://schema.org/InStock",
     },
+    // Must match the rating rendered in the hero. Structured data that
+    // contradicts the visible page is a rich-results violation, and this said
+    // 4.8 from 127 while the page said 4.9 from 500+.
     aggregateRating: {
       "@type": "AggregateRating",
-      ratingValue: "4.8",
-      ratingCount: "127",
+      ratingValue: "4.9",
+      ratingCount: "500",
     },
   };
 

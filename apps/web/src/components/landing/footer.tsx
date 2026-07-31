@@ -1,127 +1,89 @@
 import Link from "next/link";
+import { Separator } from "@/components/ui/separator";
 import { Logo } from "@/components/logo";
 
+/**
+ * Footer.
+ *
+ * Two columns instead of five. The old "Industries" column listed five labels
+ * that all pointed at the same `#industries` anchor, so four of them were
+ * decoration; the About, Contact, Privacy and Terms entries pointed at `href="#"`,
+ * which scrolls the reader to the top of the page and looks broken. Dead links
+ * in a footer cost trust on the one page whose whole job is earning it, so they
+ * are gone until the pages behind them exist.
+ */
+
 const PRODUCT_LINKS = [
-  { label: "Features", href: "#features" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "FAQ", href: "#faq" },
+  { label: "Features", href: "/#features" },
+  { label: "Industries", href: "/#industries" },
+  { label: "Pricing", href: "/#pricing" },
+  { label: "FAQ", href: "/#faq" },
 ] as const;
 
-const INDUSTRY_LINKS = [
-  { label: "HVAC", href: "#industries" },
-  { label: "Plumbing", href: "#industries" },
-  { label: "Electrical", href: "#industries" },
-  { label: "Cleaning", href: "#industries" },
-  { label: "Landscaping", href: "#industries" },
-] as const;
-
-const RESOURCES_LINKS = [
+const ACCOUNT_LINKS = [
   { label: "Blog", href: "/blog" },
-  { label: "About", href: "#" },
-  { label: "Contact", href: "#" },
+  { label: "Start free trial", href: "/signup" },
+  { label: "Log in", href: "/login" },
 ] as const;
 
-const LEGAL_LINKS = [
-  { label: "Privacy Policy", href: "#" },
-  { label: "Terms of Service", href: "#" },
-] as const;
+function FooterColumn({
+  heading,
+  links,
+}: {
+  heading: string;
+  links: readonly { label: string; href: string }[];
+}) {
+  return (
+    <nav aria-label={heading}>
+      <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-midnight-foreground/40">
+        {heading}
+      </h3>
+      {/* Footer links are the easiest thing on a page to under-size: the text
+          is 18px tall, so the tap target is 18px unless the anchor is given
+          height of its own. */}
+      <ul role="list" className="mt-2">
+        {links.map((link) => (
+          <li key={link.label}>
+            <Link
+              href={link.href}
+              className="inline-flex min-h-[40px] items-center rounded-sm text-sm text-midnight-foreground/60 transition-colors hover:text-midnight-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
 
 export function Footer() {
   return (
     <footer className="bg-midnight text-midnight-foreground" role="contentinfo">
-      {/* Gradient separator */}
-      <div className="h-px bg-gradient-to-r from-transparent via-brand/30 to-transparent" aria-hidden="true" />
-      <div className="mx-auto max-w-7xl px-6 py-16">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-5">
-          {/* Brand column */}
-          <div className="col-span-2 md:col-span-1">
+      <Separator className="bg-midnight-foreground/10" />
+
+      <div className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-6 lg:px-8">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="lg:col-span-2">
             <Logo size="md" />
-            <p className="mt-3 text-sm text-midnight-foreground/60">
-              All-in-one service management for field service businesses.
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-midnight-foreground/60">
+              Scheduling, quotes, invoices and customer history for field
+              service businesses. One plan, one price.
             </p>
           </div>
 
-          {/* Product */}
-          <nav aria-label="Product links">
-            <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-midnight-foreground/40">
-              Product
-            </h3>
-            <ul className="mt-4 space-y-3" role="list">
-              {PRODUCT_LINKS.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-midnight-foreground/60 transition-colors hover:text-white"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Industries */}
-          <nav aria-label="Industry links">
-            <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-midnight-foreground/40">
-              Industries
-            </h3>
-            <ul className="mt-4 space-y-3" role="list">
-              {INDUSTRY_LINKS.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-midnight-foreground/60 transition-colors hover:text-white"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Resources */}
-          <nav aria-label="Resources links">
-            <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-midnight-foreground/40">
-              Resources
-            </h3>
-            <ul className="mt-4 space-y-3" role="list">
-              {RESOURCES_LINKS.map((link) => (
-                <li key={link.label}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-midnight-foreground/60 transition-colors hover:text-white"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </nav>
-
-          {/* Legal */}
-          <nav aria-label="Legal links">
-            <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-midnight-foreground/40">
-              Legal
-            </h3>
-            <ul className="mt-4 space-y-3" role="list">
-              {LEGAL_LINKS.map((link) => (
-                <li key={link.label}>
-                  <a
-                    href={link.href}
-                    className="text-sm text-midnight-foreground/60 transition-colors hover:text-white"
-                  >
-                    {link.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </nav>
+          <FooterColumn heading="Product" links={PRODUCT_LINKS} />
+          <FooterColumn heading="Account" links={ACCOUNT_LINKS} />
         </div>
 
-        {/* Bottom bar */}
-        <div className="mt-12 border-t border-midnight-foreground/10 pt-8">
-          <p className="text-center text-sm text-midnight-foreground/40">
-            &copy; {new Date().getFullYear()} Zaxvio. All rights reserved.
+        <Separator className="my-8 bg-midnight-foreground/10" />
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="tnum font-mono text-[11px] uppercase tracking-wider text-midnight-foreground/40">
+            &copy; {new Date().getFullYear()} Zaxvio
+          </p>
+          <p className="text-[11px] text-midnight-foreground/40">
+            Built for HVAC, plumbing, electrical, cleaning and landscaping.
           </p>
         </div>
       </div>

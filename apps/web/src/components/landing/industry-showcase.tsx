@@ -1,30 +1,36 @@
 "use client";
 
-import { useState } from "react";
 import {
   IconAirConditioning,
-  IconDroplet,
   IconBolt,
-  IconSpray,
-  IconPlant2,
-  IconTool,
   IconCheck,
+  IconDroplet,
+  IconPlant2,
+  IconSpray,
+  IconTool,
 } from "@tabler/icons-react";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
-import { motion, AnimatePresence } from "motion/react";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Tabs,
+  TabsContent,
+  TabsContents,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { Section, SectionHeading } from "./section";
 
 const INDUSTRIES = [
   {
     id: "hvac",
     label: "HVAC",
     icon: IconAirConditioning,
-    headline: "Built for HVAC Professionals",
+    headline: "Built for HVAC",
     description:
-      "From emergency AC repairs to routine maintenance, manage your entire HVAC operation from one dashboard. Track equipment, log refrigerants, and invoice on-site.",
+      "Emergency AC calls and routine maintenance run through the same board. Track the equipment you installed, log refrigerant for compliance, and invoice before you leave the driveway.",
     bullets: [
-      "Equipment tracking & maintenance logs",
+      "Equipment and maintenance history per address",
       "Refrigerant logging for compliance",
-      "Emergency dispatch & scheduling",
+      "Emergency dispatch and scheduling",
       "On-site invoice generation",
     ],
   },
@@ -32,26 +38,26 @@ const INDUSTRIES = [
     id: "plumbing",
     label: "Plumbing",
     icon: IconDroplet,
-    headline: "Built for Plumbing Businesses",
+    headline: "Built for plumbing",
     description:
-      "Handle emergency callouts, document pipe systems, and convert quotes to jobs with a single tap. Your customers' plumbing history is always at your fingertips.",
+      "Take the callout, document what you found, and turn the quote into a job with one tap. Every customer's pipe history is on their record when the next call comes in.",
     bullets: [
       "Emergency callout management",
-      "Pipe system documentation",
+      "Photo documentation per job",
       "Quote-to-job conversion",
-      "Customer plumbing history",
+      "Full customer service history",
     ],
   },
   {
     id: "electrical",
     label: "Electrical",
     icon: IconBolt,
-    headline: "Built for Electricians",
+    headline: "Built for electricians",
     description:
-      "Schedule inspections, track panel upgrades, and use safety checklists to ensure every job meets code. Invoice customers before you leave the site.",
+      "Book inspections, track panel upgrades, and run a safety checklist on every job so nothing ships out of code. Invoice from the site.",
     bullets: [
       "Inspection scheduling",
-      "Panel upgrade tracking",
+      "Panel and circuit records",
       "Safety checklist templates",
       "Field invoicing",
     ],
@@ -60,12 +66,12 @@ const INDUSTRIES = [
     id: "cleaning",
     label: "Cleaning",
     icon: IconSpray,
-    headline: "Built for Cleaning Services",
+    headline: "Built for cleaning services",
     description:
-      "Automate recurring bookings, assign team schedules, and track property-specific cleaning requirements. Your whole operation, organized.",
+      "Recurring bookings repeat themselves, your crew sees their own day, and every property keeps its own list of what needs doing.",
     bullets: [
       "Recurring booking automation",
-      "Cleaning checklists",
+      "Per-property checklists",
       "Team schedule management",
       "Customer property profiles",
     ],
@@ -74,9 +80,9 @@ const INDUSTRIES = [
     id: "landscaping",
     label: "Landscaping",
     icon: IconPlant2,
-    headline: "Built for Landscapers",
+    headline: "Built for landscapers",
     description:
-      "Plan seasonal work, manage long-term maintenance contracts, and document properties with photos. Send quotes and invoices from the field.",
+      "Plan the season, keep maintenance contracts on schedule, and document each property with photos. Quote and invoice from the field.",
     bullets: [
       "Seasonal job planning",
       "Maintenance contract tracking",
@@ -86,137 +92,111 @@ const INDUSTRIES = [
   },
   {
     id: "general",
-    label: "Any Trade",
+    label: "Any trade",
     icon: IconTool,
-    headline: "Built for Any Service Business",
+    headline: "Built for any service business",
     description:
-      "Zaxvio isn't locked to one industry. If you schedule jobs, serve customers, and send invoices — it fits your workflow. Customize everything.",
+      "Zaxvio isn't locked to one trade. If you book jobs, serve customers and send invoices, it fits — you define the service types, the stages and the checklists.",
     bullets: [
       "Custom service categories",
       "Flexible checklist builder",
-      "Universal job pipeline",
+      "Job stages you define",
       "Works for any field service",
     ],
   },
-];
+] as const;
 
+/**
+ * Industries.
+ *
+ * Rebuilt on shadcn `Tabs`. The previous version was a hand-rolled list of
+ * `<button>`s in a grid column, which cost roving-focus keyboard support and
+ * caused the page's worst layout bug: the column was a grid item, grid items
+ * default to `min-width: auto`, and so the `overflow-x-auto` strip inside it
+ * never clipped. Measured on a 390px viewport, that pushed the document to
+ * 976px wide — every section on the page scrolled sideways because of this one
+ * element. A full-width strip above the panel cannot reproduce it.
+ */
 export function IndustryShowcase() {
-  const [active, setActive] = useState("hvac");
-  const current = INDUSTRIES.find((i) => i.id === active) ?? INDUSTRIES[0];
-
   return (
-    <section
-      id="industries"
-      aria-labelledby="industries-heading"
-      className="bg-surface-alt py-24"
-    >
-      <div className="mx-auto max-w-6xl px-6">
-        <Fade inView inViewOnce className="text-center">
-          <h2
-            id="industries-heading"
-            className="font-heading text-3xl font-bold tracking-tight text-ink sm:text-4xl"
-          >
-            One platform. Every service industry.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-ink/60">
-            See how Zaxvio adapts to your business.
-          </p>
-        </Fade>
+    <Section id="industries" surface="alt" labelledBy="industries-heading">
+      <SectionHeading
+        id="industries-heading"
+        label="Industries"
+        title="One platform. Every service trade."
+        lede="The same board, quotes and invoices — set up for how your trade actually works."
+      />
 
-        <Fade inView inViewOnce delay={150}>
-          <div className="mt-12 grid gap-6 lg:grid-cols-12">
-            {/* Left: Industry tabs — vertical on desktop, horizontal on mobile */}
-            <div className="lg:col-span-4">
-              <div className="flex gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-visible lg:pb-0">
-                {INDUSTRIES.map((industry) => {
-                  const isActive = active === industry.id;
-                  return (
-                    <button
-                      key={industry.id}
-                      type="button"
-                      onClick={() => setActive(industry.id)}
-                      className={`group flex shrink-0 cursor-pointer items-center gap-3 rounded-2xl border px-5 py-4 text-left transition-all lg:w-full ${
-                        isActive
-                          ? "border-brand/30 bg-brand/5 shadow-md shadow-brand/10"
-                          : "border-border/50 bg-card hover:border-border hover:bg-muted/50"
-                      }`}
-                    >
-                      <div
-                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${
-                          isActive
-                            ? "bg-brand text-brand-foreground"
-                            : "bg-muted text-ink/40 group-hover:text-ink/60"
-                        }`}
-                      >
-                        <industry.icon size={20} stroke={1.5} />
-                      </div>
-                      <span
-                        className={`text-sm font-semibold transition-colors ${
-                          isActive ? "text-brand" : "text-ink/60 group-hover:text-ink"
-                        }`}
-                      >
-                        {industry.label}
+      <Tabs defaultValue="hvac" className="mt-10 gap-0 sm:mt-12">
+        <div className="strip-scroll -mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
+          <TabsList className="w-max min-w-full gap-1">
+            {INDUSTRIES.map((industry) => (
+              <TabsTrigger
+                key={industry.id}
+                value={industry.id}
+                className="gap-2 px-3 py-2.5 text-sm sm:px-4"
+              >
+                <industry.icon size={16} stroke={1.6} aria-hidden="true" />
+                {industry.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
+
+        {/*
+          The gap between the strip and the panel lives OUT here, not on
+          TabsContent. TabsContents wraps its child in an AutoHeight measurer
+          with `overflow: hidden`; a top margin on the measured child collapses
+          out of the measured box, so the panel rendered exactly one margin
+          short and clipped its own last row of bullets.
+        */}
+        <div className="mt-6">
+          <TabsContents>
+            {INDUSTRIES.map((industry) => (
+              <TabsContent key={industry.id} value={industry.id} className="mt-0">
+                <Card>
+                  <CardContent className="p-6 sm:p-8">
+                    <div className="flex items-start gap-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
+                        <industry.icon
+                          size={22}
+                          stroke={1.6}
+                          aria-hidden="true"
+                        />
                       </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Right: Content panel */}
-            <div className="lg:col-span-8">
-              <div className="relative min-h-[360px]">
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={current.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.25, ease: "easeOut" }}
-                    className="rounded-3xl border border-border/50 bg-card p-8 sm:p-10"
-                  >
-                    {/* Header */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-brand/20 to-brand/5 text-brand">
-                        <current.icon size={24} stroke={1.5} />
+                      <div className="min-w-0">
+                        <h3 className="font-heading text-xl font-bold tracking-tight text-ink sm:text-2xl">
+                          {industry.headline}
+                        </h3>
+                        <p className="mt-3 max-w-2xl leading-relaxed text-muted-foreground text-pretty">
+                          {industry.description}
+                        </p>
                       </div>
-                      <h3 className="font-heading text-xl font-bold text-ink sm:text-2xl">
-                        {current.headline}
-                      </h3>
                     </div>
 
-                    {/* Description */}
-                    <p className="mt-5 text-base leading-relaxed text-ink/60">
-                      {current.description}
-                    </p>
-
-                    {/* Bullet grid */}
-                    <div className="mt-8 grid gap-4 sm:grid-cols-2">
-                      {current.bullets.map((bullet) => (
-                        <div
-                          key={bullet}
-                          className="flex items-start gap-3 rounded-xl border border-border/30 bg-muted/30 p-4"
-                        >
-                          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand/10">
-                            <IconCheck
-                              size={14}
-                              className="text-brand"
-                              stroke={2.5}
-                            />
-                          </div>
-                          <span className="text-sm font-medium text-ink/70">
-                            {bullet}
-                          </span>
-                        </div>
+                    <ul
+                      role="list"
+                      className="mt-7 grid gap-x-6 gap-y-3 sm:grid-cols-2"
+                    >
+                      {industry.bullets.map((bullet) => (
+                        <li key={bullet} className="flex items-start gap-2.5">
+                          <IconCheck
+                            size={16}
+                            stroke={2.5}
+                            className="mt-0.5 shrink-0 text-brand"
+                            aria-hidden="true"
+                          />
+                          <span className="text-sm text-ink/80">{bullet}</span>
+                        </li>
                       ))}
-                    </div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
-            </div>
-          </div>
-        </Fade>
-      </div>
-    </section>
+                    </ul>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+            ))}
+          </TabsContents>
+        </div>
+      </Tabs>
+    </Section>
   );
 }

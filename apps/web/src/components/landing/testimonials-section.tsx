@@ -1,96 +1,92 @@
-"use client";
-
 import { IconStarFilled } from "@tabler/icons-react";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Reveal } from "./reveal";
+import { Section, SectionHeading } from "./section";
 
 const TESTIMONIALS = [
   {
     quote:
-      "I used to lose track of callbacks all the time. Now every job is on my dashboard and my customers book themselves. Game changer.",
+      "I used to lose track of callbacks all the time. Now every job is on the board and my customers book themselves.",
     name: "Mike Torres",
     business: "Torres Home Services",
     location: "Houston, TX",
     initials: "MT",
-    color: "bg-blue-500",
   },
   {
     quote:
-      "Invoicing on the spot means I get paid the same day instead of chasing people for weeks. Worth every penny of the $49.",
+      "Invoicing on the spot means I get paid the same day instead of chasing people for weeks. Worth the $49 on its own.",
     name: "Sarah Chen",
     business: "ClearFlow Plumbing",
     location: "Tampa, FL",
     initials: "SC",
-    color: "bg-emerald-500",
   },
   {
     quote:
-      "My wife used to do all the paperwork at night. Now the system handles scheduling, quotes, and invoices. We got our evenings back.",
+      "My wife used to do the paperwork at night. Now scheduling, quotes and invoices handle themselves. We got our evenings back.",
     name: "James Whitfield",
     business: "BrightSpark Electrical",
     location: "Dallas, TX",
     initials: "JW",
-    color: "bg-violet-500",
   },
 ] as const;
 
 export function TestimonialsSection() {
   return (
-    <section
-      aria-labelledby="testimonials-heading"
-      className="bg-surface-alt py-24"
-    >
-      <div className="mx-auto max-w-7xl px-6">
-        <Fade inView inViewOnce className="text-center">
-          <h2
-            id="testimonials-heading"
-            className="font-heading text-3xl font-bold tracking-tight text-ink sm:text-4xl"
-          >
-            Trusted by service professionals across the country
-          </h2>
-        </Fade>
+    <Section surface="base" labelledBy="testimonials-heading">
+      <SectionHeading
+        id="testimonials-heading"
+        label="Customers"
+        title="What service businesses say."
+      />
 
-        <div className="mt-16 grid gap-6 md:grid-cols-3">
-          {TESTIMONIALS.map((t, i) => (
-            <Fade key={t.name} inView inViewOnce delay={i * 100}>
-              <div className="relative h-full rounded-3xl border border-border/50 bg-card p-7 transition-all duration-300 hover:shadow-lg hover:shadow-black/5">
-                {/* Stars */}
-                <div className="mb-4 flex gap-0.5">
-                  {Array.from({ length: 5 }).map((_, j) => (
-                    <IconStarFilled
-                      key={j}
-                      size={14}
-                      className="text-amber-400"
-                    />
-                  ))}
-                </div>
-
-                {/* Quote */}
-                <p className="text-sm leading-relaxed text-ink/70">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-
-                {/* Author */}
-                <div className="mt-6 flex items-center gap-3 border-t border-border/50 pt-5">
-                  {/* Avatar */}
-                  <div
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white ${t.color}`}
-                  >
-                    {t.initials}
+      <div className="mt-10 grid gap-5 sm:mt-12 md:grid-cols-3">
+        {TESTIMONIALS.map((t, i) => (
+          <Reveal key={t.name} delay={i * 90}>
+            <Card className="h-full">
+              <CardContent className="h-full p-6">
+                {/* figure/figcaption is the correct pairing for a quote plus
+                    its attribution — figcaption is invalid anywhere else. */}
+                <figure className="flex h-full flex-col">
+                  <div className="flex gap-0.5" aria-label="Rated 5 out of 5">
+                    {Array.from({ length: 5 }).map((_, j) => (
+                      <IconStarFilled
+                        key={j}
+                        size={13}
+                        className="text-amber-500"
+                        aria-hidden="true"
+                      />
+                    ))}
                   </div>
-                  <div>
-                    <p className="font-heading text-sm font-semibold text-ink">
-                      {t.name}
-                    </p>
-                    <p className="text-xs text-ink/50">
-                      {t.business} &middot; {t.location}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Fade>
-          ))}
-        </div>
+
+                  <blockquote className="mt-4 flex-1 text-[15px] leading-relaxed text-ink/80 text-pretty">
+                    &ldquo;{t.quote}&rdquo;
+                  </blockquote>
+
+                  <Separator className="my-5" />
+
+                  <figcaption className="flex items-center gap-3">
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback className="bg-brand/10 text-xs font-semibold text-brand">
+                        {t.initials}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <p className="truncate font-heading text-sm font-semibold text-ink">
+                        {t.name}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {t.business} &middot; {t.location}
+                      </p>
+                    </div>
+                  </figcaption>
+                </figure>
+              </CardContent>
+            </Card>
+          </Reveal>
+        ))}
       </div>
-    </section>
+    </Section>
   );
 }

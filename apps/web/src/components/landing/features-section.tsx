@@ -1,35 +1,55 @@
-"use client";
-
 import {
-  IconLayoutDashboard,
-  IconReceipt,
-  IconFileText,
-  IconUsers,
   IconCalendarCheck,
   IconChartBar,
+  IconFileText,
+  IconLayoutKanban,
+  IconReceipt,
+  IconUsers,
 } from "@tabler/icons-react";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Reveal } from "./reveal";
+import { Section, SectionHeading } from "./section";
 
-/* ---------- Kanban Visual ---------- */
+/* ── Inline visuals ─────────────────────────────────────────────────────
+   Each featured card carries a small diagram of the thing it describes,
+   drawn with the same tokens as the rest of the page. These used to sit on
+   hardcoded `bg-midnight` slabs with `text-white/40` labels, which meant two
+   of the six cards ignored the theme entirely and read as holes in light
+   mode.
+   ──────────────────────────────────────────────────────────────────────── */
+
 function KanbanVisual() {
+  const columns = [
+    { label: "Scheduled", cards: ["Johnson AC", "Smith Heat"], dot: "bg-sky-500" },
+    { label: "On site", cards: ["Park Office"], dot: "bg-brand" },
+    { label: "Done", cards: ["Rivera", "Chen", "Lee"], dot: "bg-emerald-500" },
+  ];
+
   return (
-    <div className="mt-6 flex gap-2.5">
-      {[
-        { label: "Scheduled", cards: ["Johnson AC", "Smith Heat"], dot: "bg-blue-400" },
-        { label: "In Progress", cards: ["Park Office"], dot: "bg-brand" },
-        { label: "Complete", cards: ["Rivera HVAC", "Chen Repair", "Lee Install"], dot: "bg-emerald-400" },
-      ].map((col) => (
-        <div key={col.label} className="flex-1">
+    <div className="grid grid-cols-3 gap-2 sm:gap-3" aria-hidden="true">
+      {columns.map((col) => (
+        <div key={col.label} className="min-w-0">
           <div className="mb-2 flex items-center gap-1.5">
-            <span className={`h-1.5 w-1.5 rounded-full ${col.dot}`} />
-            <span className="text-[10px] font-medium text-white/40">{col.label}</span>
-            <span className="ml-auto text-[10px] text-white/25">{col.cards.length}</span>
+            <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${col.dot}`} />
+            <span className="truncate font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+              {col.label}
+            </span>
+            <span className="tnum ml-auto font-mono text-[10px] text-muted-foreground/60">
+              {col.cards.length}
+            </span>
           </div>
           <div className="space-y-1.5">
             {col.cards.map((card) => (
               <div
                 key={card}
-                className="rounded-lg bg-white/[0.07] px-2.5 py-2 text-[10px] font-medium text-white/50 border border-white/[0.05]"
+                className="truncate rounded-md border border-border bg-surface-alt px-2 py-1.5 text-[11px] font-medium text-muted-foreground"
               >
                 {card}
               </div>
@@ -41,20 +61,23 @@ function KanbanVisual() {
   );
 }
 
-/* ---------- Chart Visual ---------- */
 function ChartVisual() {
-  const bars = [35, 55, 45, 70, 50, 85, 65, 90, 60, 78, 92, 80];
+  const bars = [35, 55, 45, 70, 50, 85, 62, 90, 58, 78, 92, 80];
   return (
-    <div className="mt-6">
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-medium text-white/40">Monthly Revenue</span>
-        <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400">+18%</span>
+    <div aria-hidden="true">
+      <div className="mb-2 flex items-baseline justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Revenue
+        </span>
+        <span className="tnum font-mono text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+          +18%
+        </span>
       </div>
-      <div className="flex items-end gap-[3px] h-24">
+      <div className="flex h-20 items-end gap-[3px]">
         {bars.map((h, i) => (
           <div
             key={i}
-            className="flex-1 rounded-t-sm bg-gradient-to-t from-brand to-brand/20"
+            className="flex-1 rounded-sm bg-brand/70"
             style={{ height: `${h}%` }}
           />
         ))}
@@ -63,120 +86,135 @@ function ChartVisual() {
   );
 }
 
-/* ---------- Small feature card ---------- */
+function BookingVisual() {
+  const slots = ["08:00", "09:30", "11:00", "13:30", "15:00", "16:30"];
+  const taken = new Set(["09:30", "15:00"]);
+  return (
+    <div className="flex flex-wrap gap-1.5" aria-hidden="true">
+      {slots.map((slot) => (
+        <span
+          key={slot}
+          className={
+            taken.has(slot)
+              ? "tnum rounded-md border border-border bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground/50 line-through"
+              : "tnum rounded-md border border-brand/40 bg-brand/10 px-2.5 py-1.5 font-mono text-[11px] font-medium text-brand"
+          }
+        >
+          {slot}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ── Cards ──────────────────────────────────────────────────────────────── */
+
 function FeatureCard({
   icon: Icon,
   title,
   description,
+  visual,
+  className,
   delay,
 }: {
   icon: typeof IconReceipt;
   title: string;
   description: string;
+  visual?: React.ReactNode;
+  className?: string;
   delay: number;
 }) {
   return (
-    <Fade inView inViewOnce delay={delay}>
-      <div className="group h-full rounded-2xl border border-border/50 bg-card p-6 transition-all duration-300 hover:border-brand/20 hover:shadow-lg hover:shadow-brand/5">
-        <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand/15 to-brand/5 text-brand transition-transform duration-300 group-hover:scale-110">
-          <Icon size={20} stroke={1.5} />
-        </div>
-        <h3 className="font-heading text-base font-semibold text-ink">{title}</h3>
-        <p className="mt-1.5 text-sm leading-relaxed text-ink/55">{description}</p>
-      </div>
-    </Fade>
+    <Reveal delay={delay} className={className}>
+      <Card className="flex h-full flex-col transition-colors duration-200 hover:border-brand/40">
+        <CardHeader className="space-y-0 p-5 sm:p-6">
+          <span className="mb-4 flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10 text-brand">
+            <Icon size={19} stroke={1.6} aria-hidden="true" />
+          </span>
+          <CardTitle className="font-heading text-base font-semibold text-ink">
+            {title}
+          </CardTitle>
+          <CardDescription className="pt-1.5 text-sm leading-relaxed">
+            {description}
+          </CardDescription>
+        </CardHeader>
+        {visual ? (
+          <CardContent className="mt-auto p-5 pt-0 sm:p-6 sm:pt-0">
+            {visual}
+          </CardContent>
+        ) : null}
+      </Card>
+    </Reveal>
   );
 }
 
 export function FeaturesSection() {
   return (
-    <section
-      id="features"
-      aria-labelledby="features-heading"
-      className="bg-surface py-24"
-    >
-      <div className="mx-auto max-w-6xl px-6">
-        <Fade inView inViewOnce className="text-center">
-          <h2
-            id="features-heading"
-            className="font-heading text-3xl font-bold tracking-tight text-ink sm:text-4xl"
-          >
-            Everything you need. Nothing you don&apos;t.
-          </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-ink/60">
-            Purpose-built tools for service professionals who want to work
-            smarter, not harder.
-          </p>
-        </Fade>
+    <Section id="features" surface="base" labelledBy="features-heading">
+      <SectionHeading
+        id="features-heading"
+        label="Features"
+        title="Everything you need. Nothing you don't."
+        lede="Six tools that cover the whole job, from the first call to the paid invoice."
+      />
 
-        <div className="mt-16 space-y-4">
-          {/* Row 1: Hero card (dark bg) + 2 small cards */}
-          <div className="grid gap-4 lg:grid-cols-5">
-            {/* Hero: Job Dashboard — DARK background */}
-            <Fade inView inViewOnce delay={0} className="lg:col-span-3">
-              <div className="h-full rounded-2xl bg-midnight p-7 text-midnight-foreground">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand/20 text-brand">
-                  <IconLayoutDashboard size={20} stroke={1.5} />
-                </div>
-                <h3 className="font-heading text-lg font-semibold">Job Dashboard</h3>
-                <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-white/50">
-                  Kanban board for every job — scheduled, in-progress, complete. Drag, drop, done.
-                </p>
-                <KanbanVisual />
-              </div>
-            </Fade>
-
-            {/* 2 small cards stacked */}
-            <div className="flex flex-col gap-4 lg:col-span-2">
-              <FeatureCard
-                icon={IconReceipt}
-                title="Digital Invoicing"
-                description="Generate and send professional invoices on-site. Get paid faster with online payments."
-                delay={100}
-              />
-              <FeatureCard
-                icon={IconFileText}
-                title="Quote Builder"
-                description="Build and send branded quotes in minutes. One click converts to a job."
-                delay={200}
-              />
+      <div className="mt-10 grid gap-4 sm:mt-12 md:grid-cols-6">
+        <FeatureCard
+          className="md:col-span-4"
+          delay={0}
+          icon={IconLayoutKanban}
+          title="Job board"
+          description="Every job on one board — scheduled, on site, done. Drag a card to move it; the customer gets told automatically."
+          visual={<KanbanVisual />}
+        />
+        <FeatureCard
+          className="md:col-span-2"
+          delay={60}
+          icon={IconChartBar}
+          title="Revenue analytics"
+          description="What you earned, what's outstanding, and which services actually pay."
+          visual={<ChartVisual />}
+        />
+        <FeatureCard
+          className="md:col-span-2"
+          delay={120}
+          icon={IconReceipt}
+          title="Invoicing"
+          description="Bill on site the moment the job is done. Customers pay from the email."
+        />
+        <FeatureCard
+          className="md:col-span-2"
+          delay={180}
+          icon={IconFileText}
+          title="Quotes"
+          description="Send a branded quote in minutes. When it's accepted, it becomes a job in one tap."
+        />
+        <FeatureCard
+          className="md:col-span-2"
+          delay={240}
+          icon={IconUsers}
+          title="Customer history"
+          description="Every past job, note, photo and piece of equipment, on the customer's record."
+        />
+        <FeatureCard
+          className="md:col-span-6"
+          delay={300}
+          icon={IconCalendarCheck}
+          title="Customers book themselves"
+          description="Share one link. They see your real availability and pick a slot — no phone tag, and nothing double-booked."
+          visual={
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <BookingVisual />
+              <Badge
+                variant="secondary"
+                className="w-fit gap-1.5 px-3 py-1.5 font-mono text-[11px]"
+              >
+                zaxvio.com/book/your-business
+              </Badge>
             </div>
-          </div>
-
-          {/* Row 2: 2 small cards + Hero card (dark bg) */}
-          <div className="grid gap-4 lg:grid-cols-5">
-            {/* 2 small cards stacked */}
-            <div className="flex flex-col gap-4 lg:col-span-2">
-              <FeatureCard
-                icon={IconUsers}
-                title="Customer Database"
-                description="Full history for every customer — equipment, past jobs, notes, and communication."
-                delay={300}
-              />
-              <FeatureCard
-                icon={IconCalendarCheck}
-                title="Self-Booking Portal"
-                description="Customers pick a time from your live availability. No more phone tag."
-                delay={400}
-              />
-            </div>
-
-            {/* Hero: KPI Analytics — DARK background */}
-            <Fade inView inViewOnce delay={500} className="lg:col-span-3">
-              <div className="h-full rounded-2xl bg-midnight p-7 text-midnight-foreground">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-brand/20 text-brand">
-                  <IconChartBar size={20} stroke={1.5} />
-                </div>
-                <h3 className="font-heading text-lg font-semibold">KPI Analytics</h3>
-                <p className="mt-1.5 max-w-sm text-sm leading-relaxed text-white/50">
-                  Revenue, completion rates, and job trends at a glance. Know your numbers.
-                </p>
-                <ChartVisual />
-              </div>
-            </Fade>
-          </div>
-        </div>
+          }
+        />
       </div>
-    </section>
+    </Section>
   );
 }
