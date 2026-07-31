@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { IconSettings, IconLogout } from "@tabler/icons-react";
 import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
+import { PageActionsSlot } from "@/components/dashboard/page-actions";
 import { useSession, signOut } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -86,17 +87,22 @@ export function Navbar() {
       {/* Brand accent line */}
       <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-brand to-transparent opacity-50" />
 
-      {/* Page title */}
-      <div className="flex items-center">
+      {/* Page title — the only <h1> on the page now that PageHeader is gone. */}
+      <div className="flex min-w-0 items-center">
         {pageTitle && (
-          <h1 className="font-heading text-lg font-semibold text-foreground truncate">
+          <h1 className="truncate font-heading text-lg font-semibold text-foreground">
             {pageTitle}
           </h1>
         )}
       </div>
 
-      {/* Controls */}
-      <div className="flex items-center gap-0.5 rounded-xl bg-muted/50 px-1.5 py-1">
+      {/* Page-supplied controls, portalled up from the page body. Sits between
+          the title and the account controls, so per-page actions and global
+          ones never mix. */}
+      <PageActionsSlot className="ml-auto flex min-w-0 items-center justify-end gap-2 overflow-x-auto pl-4" />
+
+      {/* Account controls */}
+      <div className="ml-3 flex shrink-0 items-center gap-0.5 rounded-xl bg-muted/50 px-1.5 py-1">
         <ThemeToggle />
 
         <NotificationBell />

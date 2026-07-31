@@ -12,7 +12,6 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
@@ -201,12 +200,6 @@ export function AssetsPageClient({
 
   return (
     <section className="p-6">
-      <PageHeader
-        title="Assets"
-        subtitle="Track equipment, units, and devices across all customers."
-        className="mb-4"
-      />
-
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards

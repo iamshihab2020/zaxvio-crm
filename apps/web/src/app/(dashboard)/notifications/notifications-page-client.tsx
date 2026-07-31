@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/reusable/page-header";
 import { NotificationItem } from "@/components/dashboard/notifications/notification-item";
 import {
   getNotifications,
@@ -143,24 +143,16 @@ export function NotificationsPageClient({
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageHeader
-        title="Notifications"
-        subtitle={
-          unreadCount > 0
-            ? `${unreadCount} unread notification${unreadCount !== 1 ? "s" : ""}`
-            : "You're all caught up"
-        }
-        action={
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={unreadCount === 0 || markAllReadMutation.isPending}
-            onClick={markAllAsRead}
-          >
-            Mark all as read
-          </Button>
-        }
-      />
+      <PageActions>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={unreadCount === 0 || markAllReadMutation.isPending}
+          onClick={markAllAsRead}
+        >
+          Mark all as read
+        </Button>
+      </PageActions>
 
       <div className="rounded-lg border border-border bg-card">
         {notifications.length === 0 ? (

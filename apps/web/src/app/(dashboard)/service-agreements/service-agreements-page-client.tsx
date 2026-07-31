@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconFileCheck,
@@ -13,7 +14,6 @@ import {
   IconPower,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
@@ -263,21 +263,16 @@ export function ServiceAgreementsPageClient({
 
   return (
     <section className="p-6">
-      <PageHeader
-        title="Service Agreements"
-        subtitle="Manage recurring service contracts and maintenance plans."
-        action={
-          <Button
-            onClick={openCreateDialog}
-            size="sm"
-            className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
-          >
-            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-            Add Agreement
-          </Button>
-        }
-        className="mb-4"
-      />
+      <PageActions>
+        <Button
+          onClick={openCreateDialog}
+          size="sm"
+          className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
+        >
+          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+          Add Agreement
+        </Button>
+      </PageActions>
 
       {/* Stats Cards */}
       {!showEmptyState && (

@@ -11,6 +11,7 @@ import { ImpersonationRequestListener } from "@/components/dashboard/impersonati
 import { ImpersonationActiveIndicator } from "@/components/dashboard/impersonation-active-indicator";
 import { HelpChatbot } from "@/components/dashboard/chatbot/help-chatbot";
 import { PageContent } from "@/components/dashboard/page-content";
+import { PageActionsProvider } from "@/components/dashboard/page-actions";
 
 export default async function DashboardLayout({
   children,
@@ -62,10 +63,15 @@ export default async function DashboardLayout({
               To bring it back, restore components/dashboard/global-fetch-indicator.tsx
               from git history — but it needs a threshold above the real p95
               latency, not below it. */}
-          <Navbar />
-          <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
-            {children}
-          </PageContent>
+          {/* Wraps both, because pages portal their action buttons up into the
+              navbar — the two are siblings, so a context is the only way for
+              one to reach the other. */}
+          <PageActionsProvider>
+            <Navbar />
+            <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
+              {children}
+            </PageContent>
+          </PageActionsProvider>
         </DashboardShell>
         <HelpChatbot />
       </div>

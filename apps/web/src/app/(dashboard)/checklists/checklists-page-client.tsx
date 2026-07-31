@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -10,7 +11,6 @@ import {
   IconStack2,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
@@ -230,17 +230,12 @@ export function ChecklistsPageClient({
 
   return (
     <section className="p-6">
-      <PageHeader
-        title="Checklists"
-        subtitle="Create reusable task templates for your service jobs."
-        action={
-          <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-            New Template
-          </Button>
-        }
-        className="mb-4"
-      />
+      <PageActions>
+        <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+          New Template
+        </Button>
+      </PageActions>
 
       {/* Stats Cards */}
       {!showEmptyState && (

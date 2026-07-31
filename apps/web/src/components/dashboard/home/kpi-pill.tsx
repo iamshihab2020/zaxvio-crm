@@ -3,11 +3,31 @@
 import Link from "next/link";
 import type { TablerIcon } from "@tabler/icons-react";
 import { IconTrendingUp, IconTrendingDown } from "@tabler/icons-react";
-import { Area, AreaChart, ResponsiveContainer } from "recharts";
-import type { DashboardSparklinePoint } from "@hvac-saas/types";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { cn } from "@/lib/utils";
 
+/**
+ * One KPI card. The three on the dashboard read as a set, so every one of them
+ * has exactly the same three rows:
+ *
+ *   [icon] Label ....................... [chip]
+ *   VALUE
+ *   supporting line
+ *
+ * They previously did not. The sparkline was only ever passed to "Jobs Today",
+ * because it is the only metric with a series behind it — so one card had a
+ * chart filling its lower half and the other two were empty. The chip slot was
+ * worse: a trend badge rendered hard right, while `windowLabel` rendered inline
+ * beside the label, so the same conceptual element sat in two different places
+ * depending on which card you looked at. And `comparisonLabel` printed *beside*
+ * the value while `footnote` printed *underneath* it, so the supporting text
+ * changed position card to card and the numbers no longer shared a baseline.
+ *
+ * The sparkline is gone rather than faked onto the other two. The component's
+ * own comment called it decorative, it pulled recharts into a card that shows
+ * one number, and a flourish only one card in three can have is not a
+ * flourish — it is an inconsistency.
+ */
 interface KpiPillProps {
   label: string;
   value: string;
@@ -16,10 +36,9 @@ interface KpiPillProps {
   previousValue?: number;
   comparisonLabel?: string;
   trendInverted?: boolean;
-  sparklineData?: DashboardSparklinePoint[];
   href?: string;
   accent?: "brand" | "indigo" | "emerald";
-  /** Small line under the value, e.g. "3 unpaid invoices". */
+  /** Supporting line under the value, e.g. "5 unpaid invoices". */
   footnote?: string;
   footnoteTone?: "muted" | "danger";
   /** Set when this metric ignores the dashboard date picker. */
@@ -46,25 +65,22 @@ function computeTrend(current: number, previous: number): Trend {
 
 const ACCENT_STYLES: Record<
   NonNullable<KpiPillProps["accent"]>,
-  { iconBg: string; iconColor: string; stroke: string; id: string }
+  { iconBg: string; iconColor: string; glow: string }
 > = {
   brand: {
     iconBg: "bg-brand/10",
     iconColor: "text-brand",
-    stroke: "hsl(var(--brand))",
-    id: "brand",
+    glow: "hsl(var(--brand))",
   },
   indigo: {
     iconBg: "bg-indigo-500/10",
     iconColor: "text-indigo-500",
-    stroke: "rgb(99 102 241)",
-    id: "indigo",
+    glow: "rgb(99 102 241)",
   },
   emerald: {
     iconBg: "bg-emerald-500/10",
     iconColor: "text-emerald-500",
-    stroke: "rgb(16 185 129)",
-    id: "emerald",
+    glow: "rgb(16 185 129)",
   },
 };
 
@@ -76,7 +92,6 @@ export function KpiPill({
   previousValue,
   comparisonLabel = "vs last period",
   trendInverted = false,
-  sparklineData,
   href,
   accent = "brand",
   footnote,
@@ -96,10 +111,20 @@ export function KpiPill({
       : true;
 
   const accentStyle = ACCENT_STYLES[accent];
-  const gradientId = `kpi-spark-${accentStyle.id}-${label.replace(/\s+/g, "")}`;
 
-  // Charts are decorative here; the number beside them carries the meaning.
-  // Screen readers get one sentence rather than an unreadable SVG.
+  /**
+   * One supporting line for every card, whatever it is made of. The trend's
+   * comparison ("vs yesterday") used to sit beside the value and the footnote
+   * underneath it; joining them here means all three cards put their supporting
+   * text in the same place and their numbers share a baseline.
+   */
+  const supporting = [
+    trend.kind !== "none" ? comparisonLabel : null,
+    footnote,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   const ariaLabel = [
     `${label}: ${value}`,
     trend.kind === "pct"
@@ -120,42 +145,15 @@ export function KpiPill({
         href && "cursor-pointer hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-lg",
       )}
     >
-      {/* Subtle brand glow on hover */}
+      {/* Subtle accent glow on hover */}
       <div
         className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-0 blur-3xl transition-opacity group-hover:opacity-40"
-        style={{ background: accentStyle.stroke }}
+        style={{ background: accentStyle.glow }}
         aria-hidden
       />
 
-      {/* Sparkline background — decorative, described by the card's aria-label */}
-      {sparklineData && sparklineData.length > 0 && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 opacity-60"
-        >
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={sparklineData} margin={{ top: 4, right: 0, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={accentStyle.stroke} stopOpacity={0.35} />
-                  <stop offset="100%" stopColor={accentStyle.stroke} stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <Area
-                type="monotone"
-                dataKey="value"
-                stroke={accentStyle.stroke}
-                strokeWidth={1.5}
-                fill={`url(#${gradientId})`}
-                dot={false}
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
-      <div className="relative flex items-start justify-between gap-3">
+      {/* Row 1 — icon, label, and ONE chip slot, always hard right. */}
+      <div className="relative flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
           {Icon && (
             <div
@@ -170,9 +168,9 @@ export function KpiPill({
           <span className="truncate text-xs font-body text-muted-foreground">
             {label}
           </span>
-          {windowLabel && <WidgetWindowBadge label={windowLabel} />}
         </div>
-        {trend.kind === "pct" && (
+
+        {trend.kind === "pct" ? (
           <span
             className={cn(
               "inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium font-body",
@@ -188,37 +186,34 @@ export function KpiPill({
             )}
             {trend.pct}%
           </span>
-        )}
-        {trend.kind === "new" && (
+        ) : trend.kind === "new" ? (
           <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium font-body text-emerald-600 dark:text-emerald-400">
             New
           </span>
-        )}
+        ) : windowLabel ? (
+          <WidgetWindowBadge label={windowLabel} />
+        ) : null}
       </div>
 
-      <div className="relative mt-4 flex items-baseline gap-2">
-        <span className="font-heading text-3xl font-semibold tracking-tight text-foreground">
+      {/* Row 2 — the number, alone, so all three share a baseline. */}
+      <div className="relative mt-4">
+        <span className="tnum font-heading text-3xl font-semibold tracking-tight text-foreground">
           {value}
         </span>
-        {trend.kind !== "none" && (
-          <span className="text-[11px] font-body text-muted-foreground">
-            {comparisonLabel}
-          </span>
-        )}
       </div>
 
-      {footnote && (
-        <div
-          className={cn(
-            "relative mt-1 text-[11px] font-body",
-            footnoteTone === "danger"
-              ? "font-medium text-rose-600 dark:text-rose-400"
-              : "text-muted-foreground",
-          )}
-        >
-          {footnote}
-        </div>
-      )}
+      {/* Row 3 — always rendered, so cards stay the same height when a card has
+          nothing to say here. */}
+      <div
+        className={cn(
+          "relative mt-1 min-h-4 truncate text-[11px] font-body",
+          footnoteTone === "danger"
+            ? "font-medium text-rose-600 dark:text-rose-400"
+            : "text-muted-foreground",
+        )}
+      >
+        {supporting}
+      </div>
     </div>
   );
 

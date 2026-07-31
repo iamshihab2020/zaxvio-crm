@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { format, parseISO, subYears } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import {
@@ -17,7 +18,6 @@ import {
   DateRangePicker,
   type DatePreset,
 } from "@/components/ui/date-range-picker";
-import { PageHeader } from "@/components/reusable/page-header";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
@@ -137,25 +137,14 @@ export function ReportsPageClient({
   return (
     <section className="p-6">
       <Fade inView inViewOnce delay={0}>
-        <PageHeader
-          title="Reports & Analytics"
-          subtitle={
-            current
-              ? `${current.range.from} to ${current.range.to} · grouped by ${current.granularity}`
-              : undefined
-          }
-          className="mb-4"
-          action={
-            <>
-              <DateRangePicker
-                dateRange={displayRange}
-                onDateRangeChange={handleRangeChange}
-                extraPresets={EXTRA_PRESETS}
-              />
-              <ExportCsvButton report={current} />
-            </>
-          }
-        />
+        <PageActions>
+          <DateRangePicker
+            dateRange={displayRange}
+            onDateRangeChange={handleRangeChange}
+            extraPresets={EXTRA_PRESETS}
+          />
+          <ExportCsvButton report={current} />
+        </PageActions>
       </Fade>
 
       <Tabs

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconPlus,
@@ -11,7 +12,6 @@ import {
   IconBolt,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
@@ -232,17 +232,12 @@ export function CatalogPageClient({
 
   return (
     <section className="p-6">
-      <PageHeader
-        title="Catalog"
-        subtitle="Manage your parts, labor rates, and service items."
-        action={
-          <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-            Add Item
-          </Button>
-        }
-        className="mb-4"
-      />
+      <PageActions>
+        <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+          Add Item
+        </Button>
+      </PageActions>
 
       {/* Stats Cards */}
       {!showEmptyState && (

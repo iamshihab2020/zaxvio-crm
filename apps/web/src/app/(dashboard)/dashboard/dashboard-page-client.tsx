@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import {
   differenceInCalendarDays,
   format,
@@ -22,7 +23,6 @@ import type {
 import { useDashboardStats } from "@/hooks/queries";
 import type { DashboardStatsParams } from "@/actions/dashboard";
 import { DateRangePicker } from "@/components/ui/date-range-picker";
-import { PageHeader } from "@/components/reusable/page-header";
 import { formatCurrency } from "@/lib/format";
 import { DashboardSkeleton } from "@/components/dashboard/home/dashboard-skeleton";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
@@ -173,19 +173,13 @@ export function DashboardPageClient({
   return (
     <section className="p-6">
       <div className="space-y-6">
-        <PageHeader
-          title="Dashboard"
-          subtitle="Overview of your business at a glance."
-          action={
-            <div className="flex items-center gap-2">
-              <DateRangePicker
-                dateRange={dateRange}
-                onDateRangeChange={handleDateRangeChange}
-              />
-              <QuickActions />
-            </div>
-          }
-        />
+        <PageActions>
+          <DateRangePicker
+            dateRange={dateRange}
+            onDateRangeChange={handleDateRangeChange}
+          />
+          <QuickActions />
+        </PageActions>
 
         <DashboardToolbar
           updatedAt={dataUpdatedAt}
@@ -216,7 +210,6 @@ export function DashboardPageClient({
                   currentValue={kpis.jobsToday.count}
                   previousValue={kpis.jobsToday.yesterdayCount}
                   comparisonLabel="vs yesterday"
-                  sparklineData={stats.weeklyJobVolume}
                   href="/jobs"
                   footnote={
                     kpis.jobsToday.emergencyCount > 0

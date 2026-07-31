@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff, IconX } from "@tabler/icons-react";
 import { queryKeys } from "@/lib/query-keys";
 import { Badge } from "@/components/ui/badge";
-import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
@@ -280,17 +280,12 @@ export function CustomersPageClient({
         </div>
       )}
 
-      <PageHeader
-        title="Customers"
-        subtitle="Manage your customer database and contact information."
-        action={
-          <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-            Add Customer
-          </Button>
-        }
-        className="mb-4"
-      />
+      <PageActions>
+        <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+          Add Customer
+        </Button>
+      </PageActions>
 
       {showEmptyState && (
         <EmptyState

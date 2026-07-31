@@ -72,7 +72,6 @@ import {
   IconArchive,
   IconArchiveOff,
 } from "@tabler/icons-react";
-import { PageHeader } from "@/components/reusable/page-header";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -770,7 +769,6 @@ export function JobsPageClient({
 
   return (
     <section className="px-5 pt-2.5 pb-0">
-      <PageHeader title="Jobs" subtitle="Track and manage all your service jobs." className="mb-2" />
       {/* Unified toolbar */}
       <div className="mb-4 flex items-center rounded-xl border border-border/60 bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-1.5">
         {/* Left: Pipeline selector */}

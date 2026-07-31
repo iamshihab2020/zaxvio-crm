@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { useSearchParams, useRouter } from "next/navigation";
 import { readUrlStatus, QUOTE_STATUSES } from "@/lib/url-filters";
 import { useQueryClient } from "@tanstack/react-query";
@@ -46,7 +47,6 @@ import {
 } from "@/components/dashboard/quotes/quote-detail-sheet";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { EmptyState } from "@/components/reusable/empty-state";
-import { PageHeader } from "@/components/reusable/page-header";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { useRowSelection } from "@/hooks/use-row-selection";
@@ -312,17 +312,12 @@ export function QuotesPageClient({
 
   return (
     <section className="p-6">
-      <PageHeader
-        title="Quotes"
-        subtitle="Prepare and send estimates to your customers."
-        action={
-          <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-            New Quote
-          </Button>
-        }
-        className="mb-4"
-      />
+      <PageActions>
+        <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+          New Quote
+        </Button>
+      </PageActions>
 
       {/* Empty state */}
       {showEmptyState && (

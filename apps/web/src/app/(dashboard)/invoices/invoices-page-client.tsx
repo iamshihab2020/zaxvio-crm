@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { PageActions } from "@/components/dashboard/page-actions";
 import { useSearchParams, useRouter } from "next/navigation";
 import { readUrlStatus, INVOICE_STATUSES } from "@/lib/url-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -21,7 +22,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
-import { PageHeader } from "@/components/reusable/page-header";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
@@ -379,21 +379,16 @@ export function InvoicesPageClient({
 
   return (
     <section className="p-6">
-      <PageHeader
-        title="Invoices"
-        subtitle="Create, send, and track payment for your invoices."
-        action={
-          <Button
-            onClick={() => setCreateDialogOpen(true)}
-            size="sm"
-            className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
-          >
-            <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-            New Invoice
-          </Button>
-        }
-        className="mb-4"
-      />
+      <PageActions>
+        <Button
+          onClick={() => setCreateDialogOpen(true)}
+          size="sm"
+          className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
+        >
+          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+          New Invoice
+        </Button>
+      </PageActions>
 
       {/* Stats Cards */}
       {!showEmptyState && !statsError && (

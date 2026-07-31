@@ -468,6 +468,7 @@ apps/web/
     |   |   +-- booking-step-confirmation.tsx   # Step 5: success screen
     |   |
     |   +-- dashboard/               # Dashboard-specific components (by entity)
+    |   |   +-- page-actions.tsx    # Portal: pages render action buttons into the navbar
     |   |   +-- dashboard-shell.tsx  # Shell layout (sidebar + navbar + content)
     |   |   +-- global-fetch-indicator.tsx  # Background refetch progress bar (TanStack Query isFetching)
     |   |   +-- navbar.tsx           # Top navigation bar
@@ -660,7 +661,6 @@ apps/web/
     |   |   +-- delete-confirm-dialog.tsx
     |   |   +-- editable-field.tsx         # Inline editable text field
     |   |   +-- empty-state.tsx
-    |   |   +-- page-header.tsx            # Page title + subtitle + action button
     |   |   +-- pagination.tsx
     |   |   +-- scroll-fade-area.tsx
     |   |   +-- search-input.tsx           # Search input with icon (no built-in debounce)
