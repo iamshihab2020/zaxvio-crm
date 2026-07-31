@@ -144,7 +144,7 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
   }, [from, to]);
 
   return (
-    <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
+    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <h3 className="font-heading text-sm font-semibold text-foreground">
@@ -214,7 +214,13 @@ function GroupedList({ items, condensed }: { items: AgendaItem[]; condensed: boo
   }, [items]);
 
   return (
-    <div className="mt-4 max-h-[700px] space-y-4 overflow-y-auto pr-1">
+    /* `flex-1 min-h-0` instead of `max-h-[700px]`: the list now takes whatever
+       height the row gives it and scrolls inside that, rather than *setting*
+       the row height at 700px. It was the tallest thing in the row, so its
+       neighbour — which has ~340px of content — was stretched to match and
+       carried ~450px of empty card. `min-h-0` is required, or a flex child
+       refuses to shrink below its content and scrolls the page instead. */
+    <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
       {groups.map(([key, groupItems]) => {
         const dayDate = key === "unscheduled" ? null : parseISO(key);
         const dayAbbr = dayDate ? format(dayDate, "MMM").toUpperCase() : "—";

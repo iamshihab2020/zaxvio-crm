@@ -11,7 +11,6 @@ import { ImpersonationRequestListener } from "@/components/dashboard/impersonati
 import { ImpersonationActiveIndicator } from "@/components/dashboard/impersonation-active-indicator";
 import { HelpChatbot } from "@/components/dashboard/chatbot/help-chatbot";
 import { PageContent } from "@/components/dashboard/page-content";
-import { GlobalFetchIndicator } from "@/components/dashboard/global-fetch-indicator";
 
 export default async function DashboardLayout({
   children,
@@ -51,7 +50,18 @@ export default async function DashboardLayout({
               <ImpersonationActiveIndicator />
             </>
           )}
-          <GlobalFetchIndicator />
+          {/* The global background-fetch progress bar was removed here. It sat
+              at the top of the viewport and animated left-to-right whenever any
+              query was in flight for longer than its threshold. On this stack
+              every request crosses browser -> Vercel server action -> Render ->
+              Neon, measured at 300-960ms even for endpoints that touch no
+              database, so it fired on essentially every navigation and filter
+              change and read as a permanent distraction rather than as
+              feedback. Individual pages already show their own skeletons and
+              disabled states, which is where loading belongs.
+              To bring it back, restore components/dashboard/global-fetch-indicator.tsx
+              from git history — but it needs a threshold above the real p95
+              latency, not below it. */}
           <Navbar />
           <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
             {children}

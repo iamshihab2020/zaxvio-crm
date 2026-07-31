@@ -158,9 +158,13 @@ export function JobsManagementPanel({
           <TabsTrigger value="priority" className="text-xs">Priority</TabsTrigger>
           <TabsTrigger value="service" className="text-xs">Service</TabsTrigger>
         </TabsList>
-        <TabsContent value={segment} className="mt-4 flex-1">
+        <TabsContent value={segment} className="mt-4 flex flex-1 flex-col">
           <SegmentBar buckets={buckets} total={total} />
-          <ul className="mt-5 grid grid-cols-2 gap-3">
+          {/* `flex-1` + `auto-rows-fr` lets the tiles absorb whatever height is
+              left in the row, instead of sitting at their natural size and
+              leaving the bottom of the card empty. Equal-height rows keep the
+              2x2 grid regular however many buckets there are. */}
+          <ul className="mt-5 grid flex-1 auto-rows-fr grid-cols-2 gap-3">
             {buckets.length === 0 ? (
               <li className="col-span-2 rounded-xl border border-dashed border-border bg-muted/10 p-4 text-center text-xs font-body text-muted-foreground">
                 No data in current range.
@@ -171,7 +175,7 @@ export function JobsManagementPanel({
                   <Link
                     href={bucketHref(segment, b.key, pipelineId)}
                     aria-label={`${b.label}: ${b.count} jobs`}
-                    className="block rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5"
+                    className="flex h-full flex-col justify-center rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5"
                   >
                     <div className="flex items-center gap-2">
                       <span

@@ -261,8 +261,14 @@ export function DashboardPageClient({
               </WidgetErrorBoundary>
             )}
 
-            {/* Row 3: Jobs Management + Agenda side-by-side */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {/* Row 3: Jobs Management + Agenda side-by-side.
+                `lg:min-h-[28rem]` gives the pair a deliberate height. Without
+                it the row was sized by whichever widget happened to be tallest
+                — the Agenda, whose list ran to 700px — and the other card was
+                stretched to match with nothing to put in the gap. Both children
+                are `h-full` and manage their own overflow, so the row grows
+                only if their content genuinely needs it. */}
+            <div className="grid grid-cols-1 gap-6 lg:min-h-[28rem] lg:grid-cols-2">
               {prefs.visible.jobsManagement && (
                 <WidgetErrorBoundary name="Jobs management">
                   <JobsManagementPanel
