@@ -12,7 +12,8 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --fix",
-    "seed:admin": "tsx src/scripts/seed-admin.ts"
+    "seed:admin": "tsx src/scripts/seed-admin.ts",
+    "seed:demo": "tsx src/scripts/seed-demo-data.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1095.0",

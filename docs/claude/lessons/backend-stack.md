@@ -102,3 +102,35 @@
 - **`@react-pdf/renderer` fetches remote `<Image src>` from the API process.** `logoUrl` was `z.string().url()`, so any syntactically valid URL — including `http://169.254.169.254/latest/meta-data/` — was fetched server-side with no timeout, from an endpoint that had no rate limit. Untrusted input reaching a new interpreter, same class as the LLM-prompt and email-header rules. A tenant asset must be constrained to *our* bucket under *that tenant's* prefix, not merely to "a URL".
 - **CPU-bound endpoints need their own rate limit, not the global one.** Two endpoints ran a synchronous PDF render under the shared 100 req/min bucket; 100 concurrent renders stall the event loop for every tenant on the instance. The global limit is sized for JSON handlers and says nothing about work per request.
 - **Index what the WHERE clause actually filters on.** `invoices` had indexes on `(tenant_id, invoice_number)` and `(tenant_id, status)` while the list filtered on `customer_id`, `job_id` and `due_date`, and `invoice_line_items` / `invoice_payments` had **no index on `invoice_id` at all** — so every detail fetch and every recalculation was a sequential scan of a tenant-shared table. Indexes tend to get written when the table is created and never revisited when the filters are added.
+
+## Seeding a tenant (2026-07-31)
+
+- **Job, invoice and quote numbers come from `BEFORE INSERT` database triggers, not application code.**
+  `generate_job_number()` / `generate_invoice_number()` / `generate_quote_number()` fire only when the
+  column `IS NULL OR = ''`, take a tenant-scoped `pg_advisory_xact_lock`, and issue
+  `JOB-<year>-NNNN` per tenant. `POST /jobs` inserts `jobNumber: ""` for exactly this reason. Any seed
+  or script that invents its own number silently bypasses the sequence and can collide with the next
+  real insert — always insert the empty string and let the trigger do it.
+- **Invoice status is derived, never asserted.** `deriveStatus()` in
+  `services/invoices/status.service.ts` computes it from the payment rows: no payments → `draft` or
+  `sent`, partial → `partially_paid`, full → `paid`; `void` is terminal. A seed that writes
+  `status: "paid"` with no payment rows produces a row the application will silently re-derive to
+  `sent` on the first edit. Import the real function rather than restating the rule — same for
+  `splitPayment()` (overpayment becomes `credit_amount`, it is not clamped away) and
+  `dueDateFromTerms()`.
+- **Never write a literal money figure next to the line items that produce it.** Seed payments as
+  *intent* — "settle the rest", "overpay by 50" — and resolve them against the total computed from the
+  lines. Hardcoded amounts made three invoices land one cent-to-a-few-dollars off, which silently
+  turned "paid in full" into `partially_paid`, because status follows the money.
+- **`total` on every `*_line_items` table is `GENERATED ALWAYS AS (quantity * unit_price)`.** Inserting
+  it is a hard error. Read it back to reconcile the parent's `subtotal` — that is the cheapest possible
+  check that a seed's arithmetic agrees with the database's.
+- **`jobs.status` is the stage's `name` denormalised; `jobs.stage_id` is the real pointer.** Write both,
+  from the same resolved stage, or the board and the list disagree. `completed_at` must be set iff the
+  stage's `lifecycle` is `completed`.
+- **`bookings.converted_to_job_id` and `jobs.booking_id` are two halves of one link** and both must be
+  written. They also form a cycle, so a tenant-scoped wipe has to null one side before deleting either.
+- **`as const` on a seed dataset makes optional fields unreachable.** It turns each array into a tuple
+  of literal object types, so a property only some members carry (`notes`, `catalog`, `convertedJob`)
+  is absent from the union and `TS2339`s at every call site. Declare an explicit interface instead —
+  it still checks every enum string against the schema, and keeps optional fields optional.

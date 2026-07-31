@@ -196,6 +196,22 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **Demo Data Seed** (2026-07-31) — New `pnpm seed:demo` (`apps/api/src/scripts/seed-demo-data.ts`
+      + `seed-demo-dataset.ts`). Resolves a tenant from the owner's email, then fills it with a working
+      dataset: 13 customers, 19 jobs across all three stages, 12 invoices, 7 quotes, 8 bookings,
+      15 catalog items, 10 equipment records, 4 checklist templates, contracts, calendar events,
+      notes and activity. Seeded **Shihab Roofing Corp** (`shihab.sharetasking@gmail.com`).
+      Correctness came from reading the schema rather than guessing: job/invoice/quote numbers are
+      left empty so the `generate_*_number()` **triggers** issue them; `total` on line items is a
+      GENERATED column and is never inserted; `jobs.status` is written from the resolved stage's name
+      with `stage_id` alongside it; and invoice status is produced by importing the live
+      `deriveStatus`/`splitPayment`/`dueDateFromTerms` rather than asserted, so the seed cannot
+      contradict the rules the app enforces. Payments state intent ("settle the rest", "overpay by
+      50") and are resolved against the computed total — hardcoded figures had silently turned two
+      paid invoices into `partially_paid`. Everything is scoped to one `tenant_id`; auth tables are
+      never touched; `--reset` re-runs cleanly. **Verified 18/18 by execution against Neon**,
+      including the overpayment landing in `credit_amount` ($50) rather than being clamped, a genuine
+      overdue invoice, both sides of the booking↔job link, and zero cross-tenant references.
 - [x] **Landing Page Redesign + Navbar Rebuild** (2026-07-31) — Rebuilt `/` end-to-end and retuned the
       global colour tokens. Fixed by measurement: **491px of horizontal overflow** on a 390px viewport
       (the industry tab strip was an `overflow-x-auto` inside a grid item, which never clips because

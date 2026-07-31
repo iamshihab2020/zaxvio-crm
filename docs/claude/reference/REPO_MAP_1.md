@@ -263,6 +263,8 @@ apps/api/
 |   |   ~ .gitkeep                # Planned: background cron runners
 |   +-- scripts/
 |       +-- seed-admin.ts         # Seed super admin from env vars (idempotent)
+|       +-- seed-demo-data.ts     # Seed one tenant with a working dataset (pnpm seed:demo [-- --reset])
+|       +-- seed-demo-dataset.ts  # The demo content itself — pure data, no DB access
 |
 +-- tests/
     +-- integration/
