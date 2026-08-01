@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { PageActions } from "@/components/dashboard/page-actions";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -230,13 +229,6 @@ export function ChecklistsPageClient({
 
   return (
     <section className="p-6">
-      <PageActions>
-        <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-          New Template
-        </Button>
-      </PageActions>
-
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -330,6 +322,10 @@ export function ChecklistsPageClient({
               <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
                 {filteredTemplates.length} {filteredTemplates.length === 1 ? "Template" : "Templates"}
               </span>
+              <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+                New Template
+              </Button>
             </div>
           </div>
 

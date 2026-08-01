@@ -3,8 +3,6 @@ import { z } from "zod";
 import type { DbClient } from "../types.js";
 import {
   activityRow,
-  sparklineCountRow,
-  sparklineAmountRow,
   dashboardPipelineRow,
   upcomingEventRow,
   upcomingJobRow,
@@ -61,47 +59,12 @@ export async function getRecentActivity(db: DbClient, tenantId: string, limit = 
   return z.array(activityRow).parse(rows);
 }
 
-/** Weekly job volume sparkline (last 7 days, tenant-local). */
-export async function getWeeklyJobVolume(
-  db: DbClient,
-  tenantId: string,
-  timezone: string,
-) {
-  const today = tenantToday(timezone);
-  const rows = await db.execute(sql`
-    SELECT
-      d.day::date::text AS day,
-      COUNT(j.id)::text AS count
-    FROM generate_series(${today} - 6, ${today}, '1 day') AS d(day)
-    LEFT JOIN jobs j
-      ON j.tenant_id = ${tenantId}
-      AND j.archived_at IS NULL
-      AND j.scheduled_date = d.day
-    GROUP BY d.day
-    ORDER BY d.day
-  `);
-  return z.array(sparklineCountRow).parse(rows);
-}
-
-/** Weekly revenue sparkline (last 7 days, tenant-local). */
-export async function getWeeklyRevenue(
-  db: DbClient,
-  tenantId: string,
-  timezone: string,
-) {
-  const today = tenantToday(timezone);
-  const rows = await db.execute(sql`
-    SELECT
-      d.day::date::text AS day,
-      COALESCE(SUM(ip.amount::numeric), 0)::text AS amount
-    FROM generate_series(${today} - 6, ${today}, '1 day') AS d(day)
-    LEFT JOIN invoice_payments ip
-      ON ip.tenant_id = ${tenantId} AND ip.payment_date::date = d.day
-    GROUP BY d.day
-    ORDER BY d.day
-  `);
-  return z.array(sparklineAmountRow).parse(rows);
-}
+/* `getWeeklyJobVolume` and `getWeeklyRevenue` lived here, feeding the sparkline
+   on the "Jobs Today" KPI pill. That sparkline was removed when the three pills
+   were made a consistent set, but both queries stayed in the dashboard fan-out —
+   two round trips per load, parsed, mapped onto the response and read by nobody.
+   The forward-looking Week Ahead widget covers the same question better, from
+   the agenda payload the dashboard already fetches. */
 
 /** Calendar events in a forward window (dashboard agenda). */
 export async function getUpcomingEvents(

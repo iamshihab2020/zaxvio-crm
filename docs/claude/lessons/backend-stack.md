@@ -134,3 +134,12 @@
   of literal object types, so a property only some members carry (`notes`, `catalog`, `convertedJob`)
   is absent from the union and `TS2339`s at every call site. Declare an explicit interface instead —
   it still checks every enum string against the schema, and keeps optional fields optional.
+- **A payload field outlives the component that read it.** `weeklyJobVolume` and `weeklyRevenue`
+  stayed in the dashboard fan-out for months after the KPI sparkline that consumed them was deleted —
+  two queries per dashboard load, parsed, mapped and read by nobody. When you delete a UI element,
+  grep the field it consumed across `packages/types` and the service that builds it.
+- **"Invoiced" must exclude drafts, not just voids.** `getCollectionRate` counted every non-void
+  invoice, so unsent drafts sat in the denominator and the reported collection rate was lower than
+  the business had actually failed to collect. Measured on the demo tenant: one draft worth
+  $12,669.58 against $19,079.08 genuinely billed — a 66% overstatement. Keep the filter in one `sql`
+  fragment shared by every query that says "billed".

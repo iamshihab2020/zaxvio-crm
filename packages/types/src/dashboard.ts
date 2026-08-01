@@ -2,8 +2,13 @@ export interface DashboardKpis {
   jobsToday: { count: number; emergencyCount: number; yesterdayCount: number };
   /** Every unpaid invoice, right now — not scoped to the selected date range. */
   outstandingBalance: { amount: number; invoiceCount: number };
-  /** Revenue collected inside the selected date range, vs the preceding equal span. */
-  rangeRevenue: { amount: number; previousAmount: number };
+  /**
+   * Revenue collected inside the selected date range, vs the preceding equal
+   * span. `billedAmount` is the face value of invoices *issued* in the same
+   * range — a different event from cash received, which is the point: the gap
+   * between them is the money still to chase.
+   */
+  rangeRevenue: { amount: number; previousAmount: number; billedAmount: number };
   /** Distinct customers with a job in the trailing 90 days. */
   activeCustomers: { count: number };
 }
@@ -23,7 +28,10 @@ export interface DashboardPipelineItem {
 export interface DashboardRevenueTrendItem {
   month: string;
   monthLabel: string;
+  /** Cash received in this bucket. */
   amount: number;
+  /** Face value of invoices issued in this bucket — excludes drafts and voids. */
+  billed: number;
 }
 
 export type DashboardRevenueGranularity = "day" | "week" | "month";
@@ -126,11 +134,6 @@ export interface DashboardQuoteSummary {
   conversionRate: number;
 }
 
-export interface DashboardSparklinePoint {
-  day: string;
-  value: number;
-}
-
 export interface DashboardStats {
   /**
    * The range the backend actually used, resolved in the tenant's timezone.
@@ -145,8 +148,6 @@ export interface DashboardStats {
   recentActivity: DashboardActivityItem[];
   invoiceAging: DashboardAgingBucket[];
   quoteSummary: DashboardQuoteSummary;
-  weeklyJobVolume: DashboardSparklinePoint[];
-  weeklyRevenue: DashboardSparklinePoint[];
   retentionTrend: DashboardRetentionPoint[];
   revenueGranularity: DashboardRevenueGranularity;
   priorityBreakdown: DashboardCategoryCount[];

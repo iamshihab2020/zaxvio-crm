@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { PageActions } from "@/components/dashboard/page-actions";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconFileCheck,
@@ -263,17 +262,6 @@ export function ServiceAgreementsPageClient({
 
   return (
     <section className="p-6">
-      <PageActions>
-        <Button
-          onClick={openCreateDialog}
-          size="sm"
-          className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
-        >
-          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-          Add Agreement
-        </Button>
-      </PageActions>
-
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -339,6 +327,14 @@ export function ServiceAgreementsPageClient({
                 onChange={handleSearchChange}
                 placeholder="Search agreements..."
               />
+              <Button
+                onClick={openCreateDialog}
+                size="sm"
+                className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
+              >
+                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+                Add Agreement
+              </Button>
             </div>
           </div>
 

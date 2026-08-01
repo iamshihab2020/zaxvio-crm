@@ -228,3 +228,27 @@ From [[bookings-calendar|the report]] — the front-end half.
 - **A rotating word inside the `<h1>` is measurable layout shift on the page's largest text**, and it
   makes the heading's text content unstable for crawlers and screen readers. State the varying part in
   an eyebrow and let a dedicated section carry the proof.
+- **`react-day-picker` v9 folds every click into the range already selected, so a picker that always
+  has a complete range applied can never start a new one.** `addToRange` treats a click on either
+  endpoint as "collapse to that day" — with `Jan 1 – Aug 1` selected, clicking Aug 1 returns
+  `{from: Aug 1, to: Aug 1}`. That is what makes a range control look jammed on a single date. Pass
+  `resetOnSelect` so a click begins a fresh range, and hold the half-finished selection in local
+  state: `onSelect` fires on the first click with `to: undefined`, and pushing that partial value to
+  the page makes consumers read it as "no range" and refetch their default.
+- **Persist a date range as the *preset* the user chose, not the dates it resolved to.** Storing
+  `2026-07-25 → 2026-08-01` for "last 7 days" means next week the dashboard opens on a stale window
+  still labelled last 7 days. Recompute presets against today on load; store absolute dates only for
+  a hand-picked custom range.
+- **A default of "month-to-date" renders as a single day on the 1st of the month**, which reads as a
+  broken page: one chart bucket, no trend, and a range picker that appears stuck on today.
+- **Render the window the payload reports, not the number in the widget's title.** The dashboard
+  agenda's `from → to` is today *plus seven* — eight calendar days — so a "next 7 days" strip built
+  from a hardcoded `7` silently dropped work that the Agenda beside it still listed. Derive the
+  column count from `differenceInCalendarDays(to, from) + 1`.
+- **A `calc(100vh - Nrem)` panel height is a constant standing in for four measurements, and it drifts.**
+  The Kanban board reserved `12.5rem` for navbar + page padding + toolbar + scrollbar; the real total was
+  about `9rem`, so the columns stopped ~60px short of the fold and clipped a card mid-row while empty
+  space sat below them. The column's inner scroller then repeated the same constant with a second `- 60px`
+  fudge for its own header, so the two had to be kept in agreement by hand. Measure with
+  `getBoundingClientRect().top` (`use-fill-viewport-height`) and let the inner scroller be `flex-1 min-h-0`
+  — it already knows its room, because it is a stretched flex child of a fixed-height row.

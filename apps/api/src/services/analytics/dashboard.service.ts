@@ -118,8 +118,8 @@ async function fetchDashboardStats(
     yesterdayJobsResult,
     invoiceAgingResult,
     quoteSummaryResult,
-    weeklyJobVolumeResult,
-    weeklyRevenueResult,
+    invoicedTrendResult,
+    invoicedTotalResult,
     retentionResult,
     priorityBreakdownResult,
     serviceBreakdownResult,
@@ -151,10 +151,10 @@ async function fetchDashboardStats(
     quotesInvoicesQ.getInvoiceAgingBuckets(db, tenantId, timezone),
     // 11. Quote summary
     quotesInvoicesQ.getQuoteSummary(db, tenantId, rangeFrom, rangeTo, timezone),
-    // 12. Weekly job volume sparkline
-    dashboardQ.getWeeklyJobVolume(db, tenantId, timezone),
-    // 13. Weekly revenue sparkline
-    dashboardQ.getWeeklyRevenue(db, tenantId, timezone),
+    // 12. Billed trend — same buckets as the revenue trend, so the two plot together
+    revenueQ.getInvoicedTrend(db, tenantId, rangeFrom, rangeTo, granularity),
+    // 13. Billed total for the range
+    revenueQ.getInvoicedTotal(db, tenantId, rangeFrom, rangeTo),
     // 14. Repeat-customer retention trend (last 6 months, independent of range)
     customersQ.getRepeatCustomerRateByMonth(db, tenantId, retentionFrom, today),
     // 15. Priority breakdown for range
@@ -186,6 +186,19 @@ async function fetchDashboardStats(
   const outstandingBalance = invoiceAging.reduce((sum, b) => sum + b.amount, 0);
   const openInvoiceCount = invoiceAging.reduce((sum, b) => sum + b.count, 0);
 
+  /**
+   * Merge billed onto collected **by bucket key**, never by array index.
+   *
+   * Both series come from the same `bucketSeries(granularity, from, to)`, so
+   * today they are the same length in the same order — but zipping on index is
+   * exactly the defect the /reports audit found (REP-02), where two
+   * `generate_series` results were paired positionally and a month went
+   * missing. A key lookup cannot drift.
+   */
+  const billedByBucket = new Map(
+    invoicedTrendResult.map((row) => [row.month, pFloat(row.amount)]),
+  );
+
   return {
     range: { from: rangeFrom, to: rangeTo },
     kpis: {
@@ -201,6 +214,7 @@ async function fetchDashboardStats(
       rangeRevenue: {
         amount: pFloat(revenueResult[0]?.amount),
         previousAmount: pFloat(prevRevenueResult[0]?.amount),
+        billedAmount: pFloat(invoicedTotalResult[0]?.amount),
       },
       activeCustomers: {
         count: pInt(activeCustomersResult[0]?.total),
@@ -215,6 +229,7 @@ async function fetchDashboardStats(
       month: row.month,
       monthLabel: row.month_label,
       amount: pFloat(row.amount),
+      billed: billedByBucket.get(row.month) ?? 0,
     })),
     recentActivity: activityResult.map((row) => ({
       id: row.id,
@@ -233,14 +248,6 @@ async function fetchDashboardStats(
       pending: pInt(quoteSummaryRow?.pending),
       conversionRate: totalQuotes > 0 ? Math.round((accepted / totalQuotes) * 100) : 0,
     },
-    weeklyJobVolume: weeklyJobVolumeResult.map((row) => ({
-      day: row.day,
-      value: pInt(row.count),
-    })),
-    weeklyRevenue: weeklyRevenueResult.map((row) => ({
-      day: row.day,
-      value: pFloat(row.amount),
-    })),
     retentionTrend: retentionResult.map((row) => {
       const total = pInt(row.total_count);
       const repeat = pInt(row.repeat_count);

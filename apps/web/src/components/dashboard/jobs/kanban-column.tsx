@@ -90,10 +90,13 @@ export function KanbanColumn({
       </div>
 
       {/* Cards */}
-      <div
-        className="flex-1 overflow-y-auto kanban-column-scroll px-1"
-        style={{ maxHeight: "calc(100vh - 12.5rem - 60px)" }}
-      >
+      {/* `min-h-0` instead of a second copy of the board's viewport maths: the
+          column is a stretched flex item of a fixed-height row, so the card
+          area already knows how much room it has. A flex child refuses to
+          shrink below its content without `min-h-0`, which is why the old
+          `maxHeight: calc(100vh - 12.5rem - 60px)` existed — and why it had to
+          be kept in step with the board by hand. */}
+      <div className="min-h-0 flex-1 overflow-y-auto kanban-column-scroll px-1">
         <SortableContext items={jobIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2.5">
             {jobs.map((job, index) => (

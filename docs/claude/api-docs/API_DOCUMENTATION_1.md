@@ -395,7 +395,7 @@ All "today" boundaries resolve in the tenant's timezone (`tenants.timezone`), no
 
 | Follows `from`/`to` | Fixed window |
 |---|---|
-| `kpis.rangeRevenue`, `revenueTrend`, `quoteSummary`, `priorityBreakdown`, `serviceBreakdown`, `serviceRevenue`, `topCustomers` | `kpis.jobsToday` (today), `kpis.outstandingBalance` (all open), `kpis.activeCustomers` (trailing 90d), `overdueInvoices` (all open), `invoiceAging` (all open), `agenda` (next 7d), `retentionTrend` (last 6 months), `recentActivity` (latest 10), `weeklyJobVolume` / `weeklyRevenue` (last 7d) |
+| `kpis.rangeRevenue` (including `billedAmount`), `revenueTrend` (both series), `quoteSummary`, `priorityBreakdown`, `serviceBreakdown`, `serviceRevenue`, `topCustomers` | `kpis.jobsToday` (today), `kpis.outstandingBalance` (all open), `kpis.activeCustomers` (trailing 90d), `overdueInvoices` (all open), `invoiceAging` (all open), `agenda` (today + 7d), `retentionTrend` (last 6 months), `recentActivity` (latest 10) |
 
 **Notes:**
 
@@ -406,6 +406,18 @@ All "today" boundaries resolve in the tenant's timezone (`tenants.timezone`), no
 - Archived jobs (`archived_at IS NOT NULL`) are excluded from every job count.
 - `range` echoes the range the backend actually used, so the client can display it without
   recomputing "this month" from the browser clock.
+- `revenueTrend[].amount` is **cash received** (`invoice_payments.payment_date`);
+  `revenueTrend[].billed` is the **face value of invoices issued** in the same bucket
+  (`invoices.issued_date`). Two different events, deliberately on one series so the
+  collection gap is visible. Both come from the same `generate_series`, so the bucket keys
+  match one-for-one.
+- "Billed" excludes `draft` and `void` invoices as well as archived ones: a draft has never
+  been sent to anybody and a void was withdrawn. `kpis.rangeRevenue.billedAmount` and the
+  `collectionRate` on `GET /reports?section=revenue` use that same definition.
+- `agenda.from`/`agenda.to` span **8 calendar days** (today plus seven), not seven. Render
+  the window the payload reports rather than assuming a count.
+- `weeklyJobVolume` and `weeklyRevenue` were **removed** (2026-08-01). They fed a KPI
+  sparkline that no longer exists and had no other reader.
 
 **Response** `200 OK`
 
@@ -416,7 +428,7 @@ All "today" boundaries resolve in the tenant's timezone (`tenants.timezone`), no
     "kpis": {
       "jobsToday": { "count": 5, "emergencyCount": 1, "yesterdayCount": 3 },
       "outstandingBalance": { "amount": 15420, "invoiceCount": 12 },
-      "rangeRevenue": { "amount": 28500, "previousAmount": 24100 },
+      "rangeRevenue": { "amount": 28500, "previousAmount": 24100, "billedAmount": 33900 },
       "activeCustomers": { "count": 47 }
     },
     "overdueInvoices": { "count": 3, "totalAmount": 4200 },
@@ -425,8 +437,8 @@ All "today" boundaries resolve in the tenant's timezone (`tenants.timezone`), no
       { "stageName": "in_progress", "stageLabel": "In Progress", "stageColor": "amber", "count": 3 }
     ],
     "revenueTrend": [
-      { "month": "2026-07-01", "monthLabel": "Jul 01", "amount": 1200 },
-      { "month": "2026-07-02", "monthLabel": "Jul 02", "amount": 0 }
+      { "month": "2026-07-01", "monthLabel": "Jul 01", "amount": 1200, "billed": 1850 },
+      { "month": "2026-07-02", "monthLabel": "Jul 02", "amount": 0, "billed": 640 }
     ],
     "revenueGranularity": "day",
     "recentActivity": [
@@ -448,8 +460,6 @@ All "today" boundaries resolve in the tenant's timezone (`tenants.timezone`), no
     "quoteSummary": {
       "totalQuotes": 24, "accepted": 16, "declined": 3, "pending": 5, "conversionRate": 67
     },
-    "weeklyJobVolume": [{ "day": "2026-07-21", "value": 4 }],
-    "weeklyRevenue": [{ "day": "2026-07-21", "value": 3200 }],
     "retentionTrend": [
       { "month": "2026-02", "monthLabel": "Feb 2026", "repeatCount": 8, "totalCount": 20, "repeatRate": 40 }
     ],

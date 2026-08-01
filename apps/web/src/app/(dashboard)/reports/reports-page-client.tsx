@@ -137,13 +137,14 @@ export function ReportsPageClient({
   return (
     <section className="p-6">
       <Fade inView inViewOnce delay={0}>
+        {/* The range governs every tab, so it stays with the page title.
+            Export produces the *current* tab's CSV, so it sits with the tabs. */}
         <PageActions>
           <DateRangePicker
             dateRange={displayRange}
             onDateRangeChange={handleRangeChange}
             extraPresets={EXTRA_PRESETS}
           />
-          <ExportCsvButton report={current} />
         </PageActions>
       </Fade>
 
@@ -152,14 +153,21 @@ export function ReportsPageClient({
         onValueChange={(v) => setActiveTab(v as ReportSection)}
       >
         <Fade inView inViewOnce delay={80}>
-          <TabsList className="mb-4">
-            {TABS.map((tab) => (
-              <TabsTrigger key={tab.value} value={tab.value}>
-                <tab.icon className="h-3.5 w-3.5" aria-hidden />
-                {tab.label}
-              </TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1 overflow-x-auto">
+              <TabsList>
+                {TABS.map((tab) => (
+                  <TabsTrigger key={tab.value} value={tab.value}>
+                    <tab.icon className="h-3.5 w-3.5" aria-hidden />
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
+            <div className="shrink-0 pb-1">
+              <ExportCsvButton report={current} />
+            </div>
+          </div>
         </Fade>
 
         {TABS.map((tab) => (

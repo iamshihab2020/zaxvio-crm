@@ -219,18 +219,6 @@ export const todayJobRow = z.object({
   service_type: z.string(),
 });
 
-export const sparklineRow = z.object({
-  day: z.string(),
-});
-
-export const sparklineCountRow = sparklineRow.extend({
-  count: z.string(),
-});
-
-export const sparklineAmountRow = sparklineRow.extend({
-  amount: z.string(),
-});
-
 export const dashboardPipelineRow = z.object({
   stage_name: z.string(),
   stage_label: z.string(),

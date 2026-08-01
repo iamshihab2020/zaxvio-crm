@@ -37,7 +37,7 @@ interface KpiPillProps {
   comparisonLabel?: string;
   trendInverted?: boolean;
   href?: string;
-  accent?: "brand" | "indigo" | "emerald";
+  accent?: "brand" | "indigo" | "emerald" | "teal";
   /** Supporting line under the value, e.g. "5 unpaid invoices". */
   footnote?: string;
   footnoteTone?: "muted" | "danger";
@@ -81,6 +81,13 @@ const ACCENT_STYLES: Record<
     iconBg: "bg-emerald-500/10",
     iconColor: "text-emerald-500",
     glow: "rgb(16 185 129)",
+  },
+  // Keyed to the scheduled-work series token so the four pills and the Week
+  // Ahead strip draw from one set of hues rather than two.
+  teal: {
+    iconBg: "bg-[hsl(var(--series-booking)/0.12)]",
+    iconColor: "text-[hsl(var(--series-booking))]",
+    glow: "hsl(var(--series-booking))",
   },
 };
 
@@ -152,23 +159,22 @@ export function KpiPill({
         aria-hidden
       />
 
-      {/* Row 1 — icon, label, and ONE chip slot, always hard right. */}
-      <div className="relative flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          {Icon && (
-            <div
-              className={cn(
-                "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl",
-                accentStyle.iconBg,
-              )}
-            >
-              <Icon className={cn("h-4 w-4", accentStyle.iconColor)} aria-hidden />
-            </div>
-          )}
-          <span className="truncate text-xs font-body text-muted-foreground">
-            {label}
-          </span>
-        </div>
+      {/* Row 1 — icon and the chip. The label moves BELOW the value: a KPI card
+          is read number-first, and putting the label above it makes the eye
+          parse a caption before the thing it captions. */}
+      <div className="relative flex items-start justify-between gap-3">
+        {Icon ? (
+          <div
+            className={cn(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+              accentStyle.iconBg,
+            )}
+          >
+            <Icon className={cn("h-[18px] w-[18px]", accentStyle.iconColor)} aria-hidden />
+          </div>
+        ) : (
+          <span />
+        )}
 
         {trend.kind === "pct" ? (
           <span
@@ -195,24 +201,31 @@ export function KpiPill({
         ) : null}
       </div>
 
-      {/* Row 2 — the number, alone, so all three share a baseline. */}
-      <div className="relative mt-4">
-        <span className="tnum font-heading text-3xl font-semibold tracking-tight text-foreground">
+      {/* Row 2 — the number, big and alone. */}
+      <div className="relative mt-5">
+        <span className="tnum font-heading text-[2rem] font-bold leading-none tracking-tight text-foreground">
           {value}
         </span>
       </div>
 
-      {/* Row 3 — always rendered, so cards stay the same height when a card has
-          nothing to say here. */}
-      <div
-        className={cn(
-          "relative mt-1 min-h-4 truncate text-[11px] font-body",
-          footnoteTone === "danger"
-            ? "font-medium text-rose-600 dark:text-rose-400"
-            : "text-muted-foreground",
+      {/* Row 3 — what the number is, then the detail. Always rendered, so the
+          three cards keep equal height even when one has nothing to add. */}
+      <div className="relative mt-2 flex min-h-5 flex-wrap items-baseline gap-x-1.5">
+        <span className="text-sm font-body font-medium text-foreground">
+          {label}
+        </span>
+        {supporting && (
+          <span
+            className={cn(
+              "truncate text-[11px] font-body",
+              footnoteTone === "danger"
+                ? "font-medium text-rose-600 dark:text-rose-400"
+                : "text-muted-foreground",
+            )}
+          >
+            {supporting}
+          </span>
         )}
-      >
-        {supporting}
       </div>
     </div>
   );

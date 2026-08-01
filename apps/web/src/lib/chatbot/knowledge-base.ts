@@ -78,7 +78,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["date range", "period", "filter", "picker", "window", "badge", "timezone"],
     question: "Which dashboard widgets follow the date range picker?",
     answer:
-      "Only some of them, and the ones that don't say so on the card.\n\n**Follow the picker:** Revenue chart, Jobs Management, Quote Funnel, Revenue by Service, Top Customers.\n\n**Fixed window** (marked with a small grey badge): Agenda (*Next 7 days*), Invoice Aging and Outstanding (*All open*), Retention Rate (*Last 6 months*), Activity Feed (*Latest 10*), and Jobs Today (always today).\n\n\"Today\" is calculated in your business timezone from **Settings → Business**, not the server's — so the dashboard rolls over at midnight where you are.",
+      "Only some of them, and the ones that don't say so on the card.\n\n**Follow the picker:** Revenue chart (both the collected and the billed figure), Jobs Management, Quote Funnel, Revenue by Service, Top Customers.\n\n**Fixed window** (marked with a small grey badge): Agenda and Week Ahead (*next 7 days*), Invoice Aging and Outstanding (*All open*), Active Customers (*Last 90 days*), Retention Rate (*Last 6 months*), Activity Feed (*Latest 10*), and Jobs Today (always today).\n\nYour selection is **remembered** — come back tomorrow and the dashboard opens on the same range. A preset like *Last 7 days* is re-read against today's date rather than replaying last week's dates.\n\n\"Today\" is calculated in your business timezone from **Settings → Business**, not the server's — so the dashboard rolls over at midnight where you are.",
   },
   {
     id: "dashboard-revenue-range",
@@ -89,12 +89,28 @@ const entries: KnowledgeEntry[] = [
       "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, daily bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe big revenue figure and the chart always cover exactly the same window, so the number matches the area you see. Widgets marked with a grey badge (Agenda, Invoice Aging, Retention) keep their own fixed window.",
   },
   {
-    id: "dashboard-quick-actions",
+    id: "dashboard-billed-vs-collected",
     category: "dashboard",
-    keywords: ["quick action", "shortcut", "new job", "dashboard button"],
-    question: "What are the quick action buttons on the dashboard?",
+    keywords: ["billed", "collected", "revenue chart", "dashed line", "outstanding", "gap", "cash"],
+    question: "What is the dashed line on the revenue chart?",
     answer:
-      "The dashboard has **4 quick action buttons** at the top:\n\n• **New Job** — Opens the create job dialog\n• **New Customer** — Opens the create customer dialog\n• **View Invoices** — Navigates to the invoices page\n• **View Schedule** — Navigates to the calendar/schedule page",
+      "That's **Billed** — the face value of the invoices you issued in each period. The filled orange area is **Collected** — the cash that actually arrived.\n\nThey are two different events, which is the point: the space between the dashed line and the filled area is work you have invoiced but not been paid for. Hover any point to see both figures and what is still outstanding.\n\nBilled leaves out **draft** and **void** invoices — a draft has never been sent to anyone, and a void was withdrawn — so it only counts money someone actually owes you.",
+  },
+  {
+    id: "dashboard-week-ahead",
+    category: "dashboard",
+    keywords: ["week ahead", "capacity", "busy", "load", "free day", "schedule", "strip"],
+    question: "What does the Week Ahead strip show?",
+    answer:
+      "One column per day for the coming week, stacked by what is on it: **jobs** (orange), **bookings** (teal) and **calendar events** (indigo). Today's column is outlined.\n\nIt answers what a list cannot — which day is stacked up and which day is empty. The header names your busiest day and counts the days still open. Hover a column for the breakdown, or click it to open the schedule.\n\nThe Agenda beside it lists the same items in time order, entry by entry.",
+  },
+  {
+    id: "where-are-create-buttons",
+    category: "dashboard",
+    keywords: ["quick action", "shortcut", "new job", "create", "add button", "where"],
+    question: "Where do I create a new job, customer or invoice?",
+    answer:
+      "Each page has its own create button, next to the search box on that page's list:\n\n• **New Job** — Jobs page toolbar\n• **Add Customer** — Customers page, beside the search box\n• **New Invoice** — Invoices page, beside the search box\n• **New Quote** — Quotes page, beside the search box\n• **Add Agreement**, **Add Item**, **New Template** — same place on their own pages\n\nThe top bar keeps only the date range picker, on Dashboard and Reports, because that setting governs the whole page. Buttons that create something sit next to the thing they create.",
   },
 
   // ═══════════════════════════════════════
@@ -866,7 +882,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["shortcut", "keyboard", "quick", "tips"],
     question: "Are there any tips for working faster?",
     answer:
-      "Speed tips:\n\n• Use the **chatbot** (this!) to create customers, events, and jobs quickly\n• Use **quick actions** on the Dashboard for common tasks\n• **Drag jobs** on the calendar to reschedule\n• **Drag cards** on the Kanban board to change status\n• Use **catalog items** in line items for consistent pricing\n• Set a **default tax rate** to avoid typing it every time\n• Link **checklist items to catalog** for auto-billing",
+      "Speed tips:\n\n• Use the **chatbot** (this!) to create customers, events, and jobs quickly\n• Create records from the button beside the search box on each page\n• **Drag jobs** on the calendar to reschedule\n• **Drag cards** on the Kanban board to change status\n• Use **catalog items** in line items for consistent pricing\n• Set a **default tax rate** to avoid typing it every time\n• Link **checklist items to catalog** for auto-billing",
   },
   {
     id: "tips-mobile",

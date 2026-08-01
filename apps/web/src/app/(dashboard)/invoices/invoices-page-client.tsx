@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { PageActions } from "@/components/dashboard/page-actions";
 import { useSearchParams, useRouter } from "next/navigation";
 import { readUrlStatus, INVOICE_STATUSES } from "@/lib/url-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
@@ -379,17 +378,6 @@ export function InvoicesPageClient({
 
   return (
     <section className="p-6">
-      <PageActions>
-        <Button
-          onClick={() => setCreateDialogOpen(true)}
-          size="sm"
-          className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
-        >
-          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-          New Invoice
-        </Button>
-      </PageActions>
-
       {/* Stats Cards */}
       {!showEmptyState && !statsError && (
         <>
@@ -488,6 +476,14 @@ export function InvoicesPageClient({
               {viewMounted && (
                 <ViewModeToggle value={viewMode} onChange={setViewMode} />
               )}
+              <Button
+                onClick={() => setCreateDialogOpen(true)}
+                size="sm"
+                className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
+              >
+                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+                New Invoice
+              </Button>
             </div>
           </div>
 

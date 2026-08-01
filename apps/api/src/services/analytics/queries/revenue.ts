@@ -72,6 +72,66 @@ export async function getRevenueTotal(
   return z.array(totalAmountRow).parse(rows);
 }
 
+/**
+ * What was *billed* per bucket, on the same series as `getRevenueTrend`.
+ *
+ * Deliberately a different event from revenue: revenue is cash received on a
+ * payment date, this is the face value of invoices issued. Charting them
+ * together is what makes the collection gap visible — and both are dollars, so
+ * they share one axis.
+ *
+ * `BILLED_FILTER` is the single definition of "billed" for the whole file:
+ * a draft has never been sent to anyone and a void invoice was withdrawn, so
+ * neither is money anybody owes. Every query using it aliases the table `i`, so
+ * the fragment can qualify its columns and never bind to the wrong relation.
+ */
+const BILLED_FILTER = sql`i.archived_at IS NULL AND i.status NOT IN ('draft', 'void')`;
+
+export async function getInvoicedTrend(
+  db: DbClient,
+  tenantId: string,
+  from: string,
+  to: string,
+  granularity: TrendGranularity = "month",
+) {
+  const b = bucketSeries(granularity, from, to);
+  const rows = await db.execute(sql`
+    SELECT
+      ${b.key} AS month,
+      ${b.label} AS month_label,
+      COALESCE(SUM(i.total_amount::numeric), 0)::text AS amount
+    FROM ${b.series}
+    LEFT JOIN invoices i
+      ON i.tenant_id = ${tenantId}
+      AND ${BILLED_FILTER}
+      AND i.issued_date >= m.bucket
+      AND i.issued_date < m.bucket + ${b.step}
+      AND i.issued_date >= ${from}::date
+      AND i.issued_date <= ${to}::date
+    GROUP BY m.bucket
+    ORDER BY m.bucket
+  `);
+  return z.array(revenueTrendRow).parse(rows);
+}
+
+/** Total billed in a date range — the headline figure beside collected revenue. */
+export async function getInvoicedTotal(
+  db: DbClient,
+  tenantId: string,
+  from: string,
+  to: string,
+) {
+  const rows = await db.execute(sql`
+    SELECT COALESCE(SUM(i.total_amount::numeric), 0)::text AS amount
+    FROM invoices i
+    WHERE i.tenant_id = ${tenantId}
+      AND ${BILLED_FILTER}
+      AND i.issued_date >= ${from}::date
+      AND i.issued_date <= ${to}::date
+  `);
+  return z.array(totalAmountRow).parse(rows);
+}
+
 /** Revenue grouped by job service type. */
 export async function getRevenueByServiceType(
   db: DbClient,
@@ -149,7 +209,14 @@ export async function getAvgJobValueTrend(
   return z.array(avgJobValueRow).parse(rows);
 }
 
-/** Collection rate: total invoiced vs total collected, for any date window. */
+/**
+ * Collection rate: total invoiced vs total collected, for any date window.
+ *
+ * Shares `BILLED_FILTER` with the billed trend, so /reports and /dashboard
+ * cannot disagree about what counts as invoiced. It previously excluded only
+ * void invoices, which put unsent **drafts** into the denominator and reported
+ * a collection rate lower than the business had actually failed to collect.
+ */
 export async function getCollectionRate(
   db: DbClient,
   params: DateRangeParams,
@@ -159,14 +226,13 @@ export async function getCollectionRate(
   const { tenantId } = params;
   const rows = await db.execute(sql`
     SELECT
-      COALESCE(SUM(total_amount::numeric), 0)::text AS invoiced,
-      COALESCE(SUM(amount_paid::numeric), 0)::text AS collected
-    FROM invoices
-    WHERE tenant_id = ${tenantId}
-      AND archived_at IS NULL
-      AND status != 'void'
-      AND issued_date >= ${from}::date
-      AND issued_date <= ${to}::date
+      COALESCE(SUM(i.total_amount::numeric), 0)::text AS invoiced,
+      COALESCE(SUM(i.amount_paid::numeric), 0)::text AS collected
+    FROM invoices i
+    WHERE i.tenant_id = ${tenantId}
+      AND ${BILLED_FILTER}
+      AND i.issued_date >= ${from}::date
+      AND i.issued_date <= ${to}::date
   `);
   return z.array(collectionRateRow).parse(rows);
 }

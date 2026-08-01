@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 export type WidgetKey =
   | "kpis"
   | "revenue"
+  | "weekAhead"
   | "jobsManagement"
   | "retention"
   | "invoiceAging"
@@ -18,6 +19,7 @@ export type WidgetKey =
 export const ALL_WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "kpis", label: "KPI Pills" },
   { key: "revenue", label: "Revenue Chart" },
+  { key: "weekAhead", label: "Week Ahead" },
   { key: "jobsManagement", label: "Jobs Management" },
   { key: "retention", label: "Retention Rate" },
   { key: "invoiceAging", label: "Invoice Aging" },
@@ -45,6 +47,7 @@ const DEFAULT_VISIBLE: Record<WidgetKey, boolean> = {
   kpis: true,
   agenda: true,
   revenue: true,
+  weekAhead: true,
   invoiceAging: true,
   jobsManagement: true,
   // Analyst-grade metrics — valuable, but not daily. Opt in via Customize.

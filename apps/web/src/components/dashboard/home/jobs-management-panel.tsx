@@ -7,6 +7,7 @@ import type {
   DashboardPipelineItem,
   Pipeline,
 } from "@hvac-saas/types";
+import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Select,
@@ -158,47 +159,56 @@ export function JobsManagementPanel({
           <TabsTrigger value="priority" className="text-xs">Priority</TabsTrigger>
           <TabsTrigger value="service" className="text-xs">Service</TabsTrigger>
         </TabsList>
-        <TabsContent value={segment} className="mt-4">
-          <SegmentBar buckets={buckets} total={total} />
-          {/* Tiles stay at their natural size. Stretching them to fill the row
-              (flex-1 + auto-rows-fr) turned a gap at the bottom of the card
-              into four 450px-tall tiles with the numbers stranded at the
-              bottom — worse than the gap it was meant to remove. The row is
-              capped instead, in dashboard-page-client.tsx. */}
-          <ul className="mt-5 grid grid-cols-2 gap-3">
-            {buckets.length === 0 ? (
-              <li className="col-span-2 rounded-xl border border-dashed border-border bg-muted/10 p-4 text-center text-xs font-body text-muted-foreground">
-                No data in current range.
-              </li>
-            ) : (
-              buckets.map((b) => (
-                <li key={b.key}>
-                  <Link
-                    href={bucketHref(segment, b.key, pipelineId)}
-                    aria-label={`${b.label}: ${b.count} jobs`}
-                    className="block rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span
-                        aria-hidden
-                        className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: b.color }}
-                      />
-                      <span className="truncate text-[11px] font-body text-muted-foreground">
-                        {b.label}
-                      </span>
-                    </div>
-                    <div className="mt-1 font-heading text-xl font-semibold text-foreground">
-                      {b.count}
-                      <span className="ml-1 text-[11px] font-body font-normal text-muted-foreground">
-                        jobs
-                      </span>
-                    </div>
-                  </Link>
-                </li>
-              ))
-            )}
-          </ul>
+        <TabsContent value={segment} className="mt-4 min-h-0 flex-1 overflow-y-auto">
+          {/*
+            A donut with a legend, not a 2x2 grid of count tiles.
+
+            The tiles were the wrong chart for the question. This data is a
+            composition — how the 19 jobs split across four states — and four
+            separate numbers make the reader do the division themselves. A ring
+            shows the split at a glance and keeps the total in the middle, and
+            because it is one fixed-size object plus a list, it fills the card
+            at any height instead of leaving a hole under a short grid.
+          */}
+          {buckets.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center text-xs font-body text-muted-foreground">
+              No data in current range.
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
+              <BucketDonut buckets={buckets} total={total} />
+
+              <ul className="w-full min-w-0 flex-1 space-y-0.5">
+                {buckets.map((b) => {
+                  const pct = total > 0 ? Math.round((b.count / total) * 100) : 0;
+                  return (
+                    <li key={b.key}>
+                      <Link
+                        href={bucketHref(segment, b.key, pipelineId)}
+                        aria-label={`${b.label}: ${b.count} jobs, ${pct}% of ${total}`}
+                        className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-brand/5"
+                      >
+                        <span
+                          aria-hidden
+                          className="h-2 w-2 shrink-0 rounded-full"
+                          style={{ backgroundColor: b.color }}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-body text-muted-foreground">
+                          {b.label}
+                        </span>
+                        <span className="tnum shrink-0 font-heading text-[15px] font-semibold text-foreground">
+                          {b.count}
+                        </span>
+                        <span className="tnum w-9 shrink-0 text-right font-mono text-[10px] text-muted-foreground">
+                          {pct}%
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
@@ -244,27 +254,58 @@ function resolveStageColor(raw: string | null | undefined, index: number): strin
   return PALETTE[index % PALETTE.length]!;
 }
 
-function SegmentBar({ buckets, total }: { buckets: Bucket[]; total: number }) {
-  if (total === 0) {
-    return <div className="h-3 w-full rounded-full bg-muted/50" aria-hidden />;
-  }
+/**
+ * Composition ring for the active segment.
+ *
+ * Replaces the stacked `SegmentBar`, which showed the same split as a 12px
+ * strip above four count tiles — the strip was too thin to read a proportion
+ * from, and the tiles gave counts without shares, so neither told the reader
+ * what fraction of the work sat in each state.
+ *
+ * The ring is decorative for assistive tech: the legend beside it is a real
+ * list of links carrying label, count and percentage, so nothing here is the
+ * only route to the data.
+ */
+function BucketDonut({ buckets, total }: { buckets: Bucket[]; total: number }) {
+  const data = buckets.filter((b) => b.count > 0);
+
   return (
     <div
-      className={cn(
-        "flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted/50 ring-1 ring-border/50",
-      )}
+      aria-hidden
+      className="relative h-[132px] w-[132px] shrink-0"
     >
-      {buckets.map((b) => (
-        <div
-          key={b.key}
-          className="h-full transition-all first:rounded-l-full last:rounded-r-full"
-          style={{
-            width: `${(b.count / total) * 100}%`,
-            backgroundColor: b.color,
-          }}
-          title={`${b.label}: ${b.count}`}
-        />
-      ))}
+      {total === 0 || data.length === 0 ? (
+        <div className="h-full w-full rounded-full border-8 border-muted/50" />
+      ) : (
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={data}
+              dataKey="count"
+              nameKey="label"
+              innerRadius="70%"
+              outerRadius="100%"
+              paddingAngle={data.length > 1 ? 2 : 0}
+              strokeWidth={0}
+              isAnimationActive={false}
+            >
+              {data.map((b) => (
+                <Cell key={b.key} fill={b.color} />
+              ))}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+      )}
+
+      {/* Total sits in the hole, where the eye already is. */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <span className="tnum font-heading text-2xl font-bold leading-none text-foreground">
+          {total}
+        </span>
+        <span className="mt-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+          jobs
+        </span>
+      </div>
     </div>
   );
 }

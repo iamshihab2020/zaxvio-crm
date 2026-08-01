@@ -69,12 +69,12 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
           </p>
         </div>
       ) : (
-        <div className="mt-5 space-y-4">
-          {/* Stacked bar — decorative; the grid below is the accessible version */}
+        <div className="mt-5 flex min-h-0 flex-1 flex-col gap-4">
+          {/* Stacked bar — decorative; the rows below are the accessible version */}
           <div
             aria-hidden
             className={cn(
-              "flex h-3 w-full gap-0.5 overflow-hidden rounded-full bg-muted/50 ring-1 ring-border/50",
+              "flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-muted/50 ring-1 ring-border/50",
             )}
           >
             {rows.map(
@@ -93,40 +93,69 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
             )}
           </div>
 
-          {/* Bucket grid — each bucket links into a filtered invoice list */}
-          <ul className="grid grid-cols-2 gap-3">
-            {rows.map((row) => (
-              <li key={row.key}>
-                <Link
-                  href={
-                    row.key === "current"
-                      ? "/invoices?status=sent"
-                      : "/invoices?status=overdue"
-                  }
-                  aria-label={`${row.config.label}: ${formatCurrency(row.amount)} across ${row.count} ${row.count === 1 ? "invoice" : "invoices"}`}
-                  className="block rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5"
-                >
-                  <div className="flex items-center gap-2">
+          {/*
+            Rows, not a 2-column tile grid. There are five buckets and always
+            will be, so a two-wide grid orphans the fifth tile on its own row
+            every single time — the layout could never come out even. Rows also
+            let each bucket carry its own share bar, so the shape of the debt is
+            readable down the column instead of only in the stacked bar above.
+          */}
+          <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
+            {rows.map((row) => {
+              const share = totalAmount > 0 ? (row.amount / totalAmount) * 100 : 0;
+              return (
+                <li key={row.key}>
+                  <Link
+                    href={
+                      row.key === "current"
+                        ? "/invoices?status=sent"
+                        : "/invoices?status=overdue"
+                    }
+                    aria-label={`${row.config.label}: ${formatCurrency(row.amount)} across ${row.count} ${row.count === 1 ? "invoice" : "invoices"}`}
+                    className={cn(
+                      "grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1.5 rounded-lg px-2 py-2 transition-colors hover:bg-brand/5",
+                      row.amount === 0 && "opacity-50",
+                    )}
+                  >
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: row.config.color }}
+                      />
+                      <span className="truncate text-[13px] font-body text-muted-foreground">
+                        {row.config.label}
+                      </span>
+                    </span>
+
+                    <span className="flex shrink-0 items-baseline gap-2">
+                      <span className="tnum font-heading text-[15px] font-semibold text-foreground">
+                        {formatCurrency(row.amount)}
+                      </span>
+                      <span className="tnum w-16 text-right font-mono text-[10px] text-muted-foreground">
+                        {row.count === 0
+                          ? "—"
+                          : `${row.count} ${row.count === 1 ? "inv" : "invs"}`}
+                      </span>
+                    </span>
+
+                    {/* Share of the outstanding total, spanning both columns. */}
                     <span
                       aria-hidden
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: row.config.color }}
-                    />
-                    <span className="truncate text-[11px] font-body text-muted-foreground">
-                      {row.config.label}
+                      className="col-span-2 h-1 overflow-hidden rounded-full bg-muted/60"
+                    >
+                      <span
+                        className="block h-full rounded-full transition-all"
+                        style={{
+                          width: `${share}%`,
+                          backgroundColor: row.config.color,
+                        }}
+                      />
                     </span>
-                  </div>
-                  <div className="mt-1 flex items-baseline justify-between gap-2">
-                    <span className="font-heading text-lg font-semibold text-foreground">
-                      {formatCurrency(row.amount)}
-                    </span>
-                    <span className="text-[11px] font-body text-muted-foreground">
-                      {row.count} {row.count === 1 ? "invoice" : "invoices"}
-                    </span>
-                  </div>
-                </Link>
-              </li>
-            ))}
+                  </Link>
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { PageActions } from "@/components/dashboard/page-actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff, IconX } from "@tabler/icons-react";
 import { queryKeys } from "@/lib/query-keys";
@@ -280,13 +279,6 @@ export function CustomersPageClient({
         </div>
       )}
 
-      <PageActions>
-        <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-          Add Customer
-        </Button>
-      </PageActions>
-
       {showEmptyState && (
         <EmptyState
           icon={IconUsers}
@@ -338,12 +330,16 @@ export function CustomersPageClient({
                 </Button>
               </Badge>
             )}
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
               <SearchInput
                 value={search}
                 onChange={handleSearchChange}
                 placeholder="Search by name, email, or phone..."
               />
+              <Button onClick={openCreateDialog} size="sm" className="shrink-0 bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+                Add Customer
+              </Button>
             </div>
           </div>
 

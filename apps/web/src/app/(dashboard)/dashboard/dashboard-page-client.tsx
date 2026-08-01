@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageActions } from "@/components/dashboard/page-actions";
 import {
   differenceInCalendarDays,
@@ -15,6 +15,7 @@ import {
   IconBriefcase,
   IconCashBanknote,
   IconTrendingUp,
+  IconUsers,
 } from "@tabler/icons-react";
 import type {
   DashboardRevenueGranularity,
@@ -28,7 +29,6 @@ import { DashboardSkeleton } from "@/components/dashboard/home/dashboard-skeleto
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { WidgetErrorBoundary } from "@/components/reusable/widget-error-boundary";
 import { OverdueAlertBanner } from "@/components/dashboard/home/overdue-alert-banner";
-import { QuickActions } from "@/components/dashboard/home/quick-actions";
 import { RecentActivityFeed } from "@/components/dashboard/home/recent-activity-feed";
 import { KpiPill } from "@/components/dashboard/home/kpi-pill";
 import { DashboardToolbar } from "@/components/dashboard/home/dashboard-toolbar";
@@ -36,11 +36,13 @@ import { RevenueRangeChart, type RevenueRange } from "@/components/dashboard/hom
 import { JobsManagementPanel } from "@/components/dashboard/home/jobs-management-panel";
 import { RetentionChart } from "@/components/dashboard/home/retention-chart";
 import { AgendaTimeline } from "@/components/dashboard/home/agenda-timeline";
+import { WeekAhead } from "@/components/dashboard/home/week-ahead";
 import { InvoiceAging } from "@/components/dashboard/home/invoice-aging";
 import { QuoteConversion } from "@/components/dashboard/home/quote-conversion";
 import { RevenueByServiceChart } from "@/components/dashboard/home/revenue-by-service-chart";
 import { TopCustomersCard } from "@/components/dashboard/home/top-customers-card";
 import { useDashboardWidgetPrefs } from "@/hooks/use-dashboard-widget-prefs";
+import { useDashboardDateRange } from "@/hooks/use-dashboard-date-range";
 
 function rangeFromPreset(preset: RevenueRange): {
   range: DateRange;
@@ -102,6 +104,36 @@ export function DashboardPageClient({
   const [pipelineId, setPipelineId] = useState<string | null>(null);
 
   const prefs = useDashboardWidgetPrefs();
+  const { stored: storedRange, save: saveRange } = useDashboardDateRange();
+
+  // Restore the saved range once localStorage is readable. Presets are
+  // recomputed against today's date rather than replayed as stored dates.
+  useEffect(() => {
+    const stored = storedRange;
+    if (!stored) return;
+    if (stored.preset) {
+      const { range, granularity } = rangeFromPreset(stored.preset);
+      setRevenueRange(stored.preset);
+      setDateParams({
+        from: format(range.from!, "yyyy-MM-dd"),
+        to: format(range.to!, "yyyy-MM-dd"),
+        granularity,
+      });
+      return;
+    }
+    if (stored.from && stored.to) {
+      setRevenueRange(null);
+      setDateParams({
+        from: stored.from,
+        to: stored.to,
+        granularity:
+          stored.granularity ??
+          granularityForSpan(
+            differenceInCalendarDays(parseISO(stored.to), parseISO(stored.from)),
+          ),
+      });
+    }
+  }, [storedRange]);
 
   const { data: result, isLoading, isFetching, dataUpdatedAt, refetch } =
     useDashboardStats(dateParams, {
@@ -121,31 +153,43 @@ export function DashboardPageClient({
     return { from: parseISO(stats.range.from), to: parseISO(stats.range.to) };
   }, [stats?.range]);
 
-  const handleDateRangeChange = useCallback((range: DateRange | undefined) => {
-    if (!range?.from || !range?.to) {
-      setDateParams({});
-      setRevenueRange(null);
-      return;
-    }
-    const span = differenceInCalendarDays(range.to, range.from);
-    setDateParams({
-      from: format(range.from, "yyyy-MM-dd"),
-      to: format(range.to, "yyyy-MM-dd"),
-      granularity: granularityForSpan(span),
-    });
-    // Highlight a preset tab only when the span matches one exactly.
-    setRevenueRange(inferPreset(range));
-  }, []);
+  const handleDateRangeChange = useCallback(
+    (range: DateRange | undefined) => {
+      // The picker no longer emits half-finished selections, so a missing end
+      // means the range was genuinely cleared: fall back to the tenant-resolved
+      // default and forget the saved one.
+      if (!range?.from || !range?.to) {
+        setDateParams({});
+        setRevenueRange(null);
+        saveRange(null);
+        return;
+      }
+      const span = differenceInCalendarDays(range.to, range.from);
+      const from = format(range.from, "yyyy-MM-dd");
+      const to = format(range.to, "yyyy-MM-dd");
+      const granularity = granularityForSpan(span);
+      setDateParams({ from, to, granularity });
+      // Highlight a preset tab only when the span matches one exactly.
+      const preset = inferPreset(range);
+      setRevenueRange(preset);
+      saveRange(preset ? { preset } : { preset: null, from, to, granularity });
+    },
+    [saveRange],
+  );
 
-  const handleRevenueRangeChange = useCallback((preset: RevenueRange) => {
-    const { range, granularity } = rangeFromPreset(preset);
-    setRevenueRange(preset);
-    setDateParams({
-      from: format(range.from!, "yyyy-MM-dd"),
-      to: format(range.to!, "yyyy-MM-dd"),
-      granularity,
-    });
-  }, []);
+  const handleRevenueRangeChange = useCallback(
+    (preset: RevenueRange) => {
+      const { range, granularity } = rangeFromPreset(preset);
+      setRevenueRange(preset);
+      setDateParams({
+        from: format(range.from!, "yyyy-MM-dd"),
+        to: format(range.to!, "yyyy-MM-dd"),
+        granularity,
+      });
+      saveRange({ preset });
+    },
+    [saveRange],
+  );
 
   if (isLoading && !stats) {
     return (
@@ -172,13 +216,15 @@ export function DashboardPageClient({
 
   return (
     <section className="p-6">
-      <div className="space-y-6">
+      <div className="space-y-8">
+        {/* Only the range picker goes to the navbar: it governs the whole page,
+            so it belongs beside the page title. Per-object actions live next to
+            the objects they create. */}
         <PageActions>
           <DateRangePicker
             dateRange={dateRange}
             onDateRangeChange={handleDateRangeChange}
           />
-          <QuickActions />
         </PageActions>
 
         <DashboardToolbar
@@ -192,7 +238,7 @@ export function DashboardPageClient({
         {!prefs.hydrated ? (
           <DashboardSkeleton />
         ) : (
-          <div className="space-y-6">
+          <div className="space-y-8">
             {prefs.visible.overdueAlert && (
               <WidgetErrorBoundary name="Overdue alert">
                 <OverdueAlertBanner overdueInvoices={stats.overdueInvoices} />
@@ -201,7 +247,7 @@ export function DashboardPageClient({
 
             {/* Row 1: KPI pills */}
             {prefs.visible.kpis && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiPill
                   icon={IconBriefcase}
                   accent="brand"
@@ -237,6 +283,18 @@ export function DashboardPageClient({
                   href="/quotes"
                   footnote={`${stats.quoteSummary.accepted} of ${stats.quoteSummary.totalQuotes} accepted`}
                 />
+                {/* `activeCustomers` was computed on every dashboard load and
+                    displayed nowhere. It is the one KPI here that measures the
+                    book of business rather than this week's work. */}
+                <KpiPill
+                  icon={IconUsers}
+                  accent="teal"
+                  label="Active Customers"
+                  value={String(kpis.activeCustomers.count)}
+                  windowLabel="Last 90 days"
+                  href="/customers"
+                  footnote="with a job booked"
+                />
               </div>
             )}
 
@@ -248,20 +306,31 @@ export function DashboardPageClient({
                   granularity={stats.revenueGranularity}
                   currentValue={kpis.rangeRevenue.amount}
                   previousValue={kpis.rangeRevenue.previousAmount}
+                  billedValue={kpis.rangeRevenue.billedAmount}
                   range={revenueRange}
                   onRangeChange={handleRevenueRangeChange}
                 />
               </WidgetErrorBoundary>
             )}
 
-            {/* Row 3: Jobs Management + Agenda side-by-side.
-                A FIXED height, not a minimum. `min-h` let the Agenda grow to
-                its full content height — thirteen entries ran it past 1000px —
-                and dragged its neighbour along with it. The Agenda scrolls
-                internally instead, and 24rem is set by the Jobs panel, whose
-                content is a fixed 2x2 grid and cannot grow — about 308px, so
-                22rem leaves it a normal bottom margin rather than a hole. */}
-            <div className="grid grid-cols-1 gap-6 lg:h-[22rem] lg:grid-cols-2">
+            {/*
+              ONE flowing grid for every mid-size widget, instead of four fixed
+              two-up rows.
+
+              The rows were the reason holes kept appearing. Each was its own
+              grid with two conditionally-rendered children, so hiding a single
+              widget in Customize left half a row empty — with Quote Funnel off,
+              Invoice Aging sat alone beside 50% of nothing. And because a grid
+              row is as tall as its tallest child, the Agenda's long list
+              stretched whatever happened to sit next to it, leaving a void
+              under a short neighbour.
+
+              Flowing them through one grid means hiding a widget simply reflows
+              the rest, and `auto-rows-[24rem]` fixes every row to the same
+              height so no card can drag another. Each widget already fills its
+              cell with `h-full` and manages its own overflow.
+            */}
+            <div className="grid grid-cols-1 gap-6 lg:auto-rows-[24rem] lg:grid-cols-2 xl:grid-cols-3">
               {prefs.visible.jobsManagement && (
                 <WidgetErrorBoundary name="Jobs management">
                   <JobsManagementPanel
@@ -273,18 +342,14 @@ export function DashboardPageClient({
                   />
                 </WidgetErrorBoundary>
               )}
-              {prefs.visible.agenda && (
-                <WidgetErrorBoundary name="Agenda">
-                  <AgendaTimeline agenda={stats.agenda} />
-                </WidgetErrorBoundary>
-              )}
-            </div>
-
-            {/* Row 4: Invoice Aging + Quote Funnel */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {prefs.visible.invoiceAging && (
                 <WidgetErrorBoundary name="Invoice aging">
                   <InvoiceAging data={stats.invoiceAging} />
+                </WidgetErrorBoundary>
+              )}
+              {prefs.visible.agenda && (
+                <WidgetErrorBoundary name="Agenda">
+                  <AgendaTimeline agenda={stats.agenda} />
                 </WidgetErrorBoundary>
               )}
               {prefs.visible.quoteFunnel && (
@@ -292,10 +357,6 @@ export function DashboardPageClient({
                   <QuoteConversion data={stats.quoteSummary} />
                 </WidgetErrorBoundary>
               )}
-            </div>
-
-            {/* Row 5: Retention + Revenue by Service */}
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {prefs.visible.retention && (
                 <WidgetErrorBoundary name="Retention">
                   <RetentionChart data={stats.retentionTrend} />
@@ -308,18 +369,33 @@ export function DashboardPageClient({
               )}
             </div>
 
-            {/* Row 6: Top Customers (full width) */}
-            {prefs.visible.topCustomers && (
-              <WidgetErrorBoundary name="Top customers">
-                <TopCustomersCard data={stats.topCustomers} />
+            {/* The week's shape, directly under the widgets that describe the
+                work. Full width on purpose: seven columns on a shared baseline
+                need horizontal room, and it answers the question the Agenda
+                above it raises — "which day is that pile actually on". */}
+            {prefs.visible.weekAhead && (
+              <WidgetErrorBoundary name="Week ahead">
+                <WeekAhead agenda={stats.agenda} />
               </WidgetErrorBoundary>
             )}
 
-            {/* Row 7: Activity Feed (full width) */}
-            {prefs.visible.activity && (
-              <WidgetErrorBoundary name="Activity feed">
-                <RecentActivityFeed activities={stats.recentActivity} />
-              </WidgetErrorBoundary>
+            {/* Top Customers and Activity are both ranked lists of short rows.
+                Full width gave each one a single column of text across 1800px
+                and stacked them into ~700px of scroll; side by side they read
+                as the pair they are. */}
+            {(prefs.visible.topCustomers || prefs.visible.activity) && (
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                {prefs.visible.topCustomers && (
+                  <WidgetErrorBoundary name="Top customers">
+                    <TopCustomersCard data={stats.topCustomers} />
+                  </WidgetErrorBoundary>
+                )}
+                {prefs.visible.activity && (
+                  <WidgetErrorBoundary name="Activity feed">
+                    <RecentActivityFeed activities={stats.recentActivity} />
+                  </WidgetErrorBoundary>
+                )}
+              </div>
             )}
           </div>
         )}

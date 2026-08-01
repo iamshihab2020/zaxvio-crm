@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { PageActions } from "@/components/dashboard/page-actions";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
@@ -143,18 +142,25 @@ export function NotificationsPageClient({
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <PageActions>
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={unreadCount === 0 || markAllReadMutation.isPending}
-          onClick={markAllAsRead}
-        >
-          Mark all as read
-        </Button>
-      </PageActions>
-
       <div className="rounded-lg border border-border bg-card">
+        {/* Card header — "Mark all as read" acts on this list, so it belongs on
+            the list rather than up in the navbar. */}
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <span className="font-body text-sm text-muted-foreground">
+            {unreadCount > 0
+              ? `${unreadCount} unread`
+              : "You're all caught up"}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={unreadCount === 0 || markAllReadMutation.isPending}
+            onClick={markAllAsRead}
+          >
+            Mark all as read
+          </Button>
+        </div>
+
         {notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-light">

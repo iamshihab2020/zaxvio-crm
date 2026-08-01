@@ -96,6 +96,27 @@ export function DateRangePicker({
   extraPresets,
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
+  /**
+   * The half-finished selection, held here instead of being pushed to the page.
+   *
+   * `onSelect` fires on *every* click, and the first click of a range carries
+   * `to: undefined`. That partial value used to go straight out to the page,
+   * where /dashboard read the missing `to` as "no range" and fell back to
+   * month-to-date, and /reports discarded the selection and re-rendered the
+   * server's range. Either way, picking a start date silently threw the range
+   * away and refetched — on the 1st of a month, month-to-date is a single day,
+   * so the control appeared to jam on "Aug 1 – Aug 1".
+   *
+   * Nothing leaves this component until both ends exist.
+   */
+  const [draft, setDraft] = React.useState<DateRange | undefined>(dateRange);
+
+  // Reopening always starts from what is actually applied, so an abandoned
+  // selection cannot linger into the next visit.
+  const handleOpenChange = (next: boolean) => {
+    if (next) setDraft(dateRange);
+    setOpen(next);
+  };
 
   const allPresets = React.useMemo(() => {
     if (!extraPresets?.length) return PRESETS as unknown as DatePreset[];
@@ -104,12 +125,23 @@ export function DateRangePicker({
 
   const handlePreset = (preset: DatePreset) => {
     const range = preset.getValue();
+    setDraft(range);
     onDateRangeChange(range);
     setOpen(false);
   };
 
+  const handleSelect = (range: DateRange | undefined) => {
+    setDraft(range);
+    // A complete range is the commit. Clicking a single day twice is a valid
+    // one-day range and commits the same way.
+    if (range?.from && range?.to) {
+      onDateRangeChange(range);
+      setOpen(false);
+    }
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -156,9 +188,25 @@ export function DateRangePicker({
           <div className="p-2">
             <Calendar
               mode="range"
-              defaultMonth={dateRange?.from}
-              selected={dateRange}
-              onSelect={onDateRangeChange}
+              /**
+               * A click starts a NEW range instead of stretching the applied
+               * one. Without this, react-day-picker folds every click into the
+               * range already selected — and because the dashboard always has a
+               * complete range selected, clicking either end point returned
+               * `{from: day, to: day}`. That is the "Aug 1, 2026 – Aug 1, 2026"
+               * the picker kept collapsing to: not a stuck control, a one-day
+               * range the user never asked for and could not get out of,
+               * because the next click collapsed it again.
+               */
+              resetOnSelect
+              // Open on the month the range *ends* in, not the one it starts
+              // in: a Jan–Aug range used to open on January and February, two
+              // panels away from anything the user was about to adjust.
+              defaultMonth={
+                dateRange?.to ? subMonths(dateRange.to, 1) : subMonths(new Date(), 1)
+              }
+              selected={draft}
+              onSelect={handleSelect}
               numberOfMonths={2}
               disabled={{ after: new Date() }}
             />

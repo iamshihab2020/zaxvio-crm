@@ -24,6 +24,7 @@ import { reorderJobs, updateJobStatus } from "@/actions/jobs";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { useFillViewportHeight } from "@/hooks/use-fill-viewport-height";
 
 interface PipelineStage {
   id: string;
@@ -63,6 +64,7 @@ export function KanbanBoard({
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const boardHeight = useFillViewportHeight(scrollRef);
   const pendingMoveRef = useRef(false);
   const snapshotRef = useRef<JobCardData[]>([]);
 
@@ -349,7 +351,7 @@ export function KanbanBoard({
         <ScrollArea className="w-full" type="scroll">
           <div
             className={cn("flex gap-3 py-1 mx-[2px]", !activeJob && "cursor-grab active:cursor-grabbing")}
-            style={{ height: "calc(100vh - 12.5rem)" }}
+            style={{ height: boardHeight }}
             onMouseDown={handleMouseDown}
           >
             {stages.map((stage) => (

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { PageActions } from "@/components/dashboard/page-actions";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconPlus,
@@ -232,13 +231,6 @@ export function CatalogPageClient({
 
   return (
     <section className="p-6">
-      <PageActions>
-        <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-          <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-          Add Item
-        </Button>
-      </PageActions>
-
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -356,6 +348,10 @@ export function CatalogPageClient({
               <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
                 {pagination.total} {pagination.total === 1 ? "Item" : "Items"}
               </span>
+              <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
+                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
+                Add Item
+              </Button>
             </div>
           </div>
 

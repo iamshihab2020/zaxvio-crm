@@ -8,6 +8,35 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Dashboard Charts + Date Range Fix (2026-08-01) — COMPLETE
+The dashboard answered "money in", "who owes", "what state is the work in" and "what's next (list)".
+It did not answer **"am I billing as fast as I'm collecting"** or **"how loaded is my week"**.
+Three payload fields — `kpis.activeCustomers`, `weeklyJobVolume`, `weeklyRevenue` — were fetched on
+every load and rendered nowhere. **Verified 18/18 by execution against Neon.**
+- [x] **Billed vs Collected** — the revenue hero gained a second series. New `getInvoicedTrend` +
+      `getInvoicedTotal`, merged into `revenueTrend` **by bucket key, not by index** (the /reports
+      audit's REP-02 bug). One `BILLED_FILTER` — excludes draft, void and archived — now shared with
+      `getCollectionRate`, which had counted drafts: on the demo tenant a single **$12,669.58 draft**
+      against $19,079.08 genuinely billed, a 66% overstatement of what had been invoiced.
+- [x] **Week Ahead** — full-width load strip under the mid-grid: stacked jobs/bookings/events per
+      day, today outlined, busiest and open days named. Derived client-side from `stats.agenda`, so
+      **no new query**. The harness caught that `agenda.from → to` is **8** days, not 7 — a hardcoded
+      seven columns dropped a real booking the Agenda still listed.
+- [x] **Active Customers** as a 4th KPI pill — spends `kpis.activeCustomers` instead of dropping it.
+      New `teal` accent keyed to the shared series token.
+- [x] Deleted `weeklyJobVolume` / `weeklyRevenue` end to end (queries, Zod rows, type, service).
+      Net query count unchanged: two dead queries out, two live ones in.
+- [x] **Date range picker fixed.** Two defects: (1) `react-day-picker` v9 folds every click into the
+      selected range, so with a complete range always applied, clicking either endpoint returned
+      `{from: day, to: day}` — the "Aug 1, 2026 – Aug 1, 2026" the control kept collapsing to; fixed
+      with `resetOnSelect` plus a local draft so no half-finished selection reaches the page.
+      (2) The range was component state, so every visit reset to month-to-date — which on the 1st of
+      a month *is* a single day. New `use-dashboard-date-range` stores presets **as presets** and
+      recomputes them against today.
+- [x] Layout: Top Customers + Activity Feed share one two-column row; the skeleton now matches the
+      real default widget set.
+- [x] Housekeeping: REPO_MAP, API docs (dashboard stats shape), knowledge base, lessons.
+
 ### Page-by-Page Audits (2026-07-27)
 Reports live in [[reports/README|docs/claude/reports/]]. One file per page.
 - [x] `/dashboard` — [[dashboard|report]]: 29 findings audited and **all 29 fixed** (2026-07-27)

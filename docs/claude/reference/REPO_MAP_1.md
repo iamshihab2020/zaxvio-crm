@@ -350,6 +350,9 @@ apps/web/
     |   +-- use-notifications.ts     # Real-time notification hook (SSE + server actions)
     |   +-- use-event-stream.ts      # Subscribe to one SSE channel/event; replaces .channel().on("broadcast")
     |   +-- use-debounced-value.ts   # Generic debounce hook (value + delay → debounced value)
+    |   +-- use-dashboard-widget-prefs.ts # Which dashboard widgets are visible (localStorage)
+    |   +-- use-dashboard-date-range.ts   # Remembers the dashboard range; presets stored as presets
+    |   +-- use-fill-viewport-height.ts   # Measured height so a panel runs to the fold (Kanban board)
     |   +-- queries/                 # TanStack Query hooks (one file per domain)
     |       +-- index.ts                       # Barrel export for all query hooks
     |       +-- use-customers.ts               # Customer queries & mutations
@@ -491,14 +494,14 @@ apps/web/
     |   |   |   +-- dashboard-toolbar.tsx        # Ask AI + Customize + Last updated
     |   |   |   +-- invoice-aging.tsx            # 5 AR buckets, each links to filtered invoices
     |   |   |   +-- jobs-management-panel.tsx    # Status/Priority/Service tabs, own pipeline query
-    |   |   |   +-- kpi-pill.tsx                 # KPI pill w/ sparkline, footnote, window badge
+    |   |   |   +-- kpi-pill.tsx                 # KPI pill: value, label, trend chip, window badge
     |   |   |   +-- overdue-alert-banner.tsx
-    |   |   |   +-- quick-actions.tsx
     |   |   |   +-- quote-conversion.tsx
     |   |   |   +-- recent-activity-feed.tsx
     |   |   |   +-- retention-chart.tsx          # Monthly repeat-customer rate bars
     |   |   |   +-- revenue-by-service-chart.tsx # Horizontal bars, top 6 services + "Other"
-    |   |   |   +-- revenue-range-chart.tsx      # 1D/1W/1M/6M/1Y/ALL area chart
+    |   |   |   +-- revenue-range-chart.tsx      # 1D/1W/1M/6M/1Y/ALL — collected area + billed line
+    |   |   |   +-- week-ahead.tsx               # Per-day stacked load strip (jobs/bookings/events)
     |   |   |   +-- top-customers-card.tsx       # Ranked list of top 5 customers by revenue
     |   |   |   +-- widget-window-badge.tsx      # Marks widgets that ignore the date picker
     |   |   |   # chart-data-table / widget-error-boundary / dashboard-load-error moved

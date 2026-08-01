@@ -43,7 +43,10 @@ function getActivityHref(activity: DashboardActivityItem): string {
 
 export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
   return (
-    <Card>
+    /* `h-full` + an internal scroll: this now shares a grid row with Top
+       Customers, and ten activity rows against five customer rows would
+       otherwise set the row height and leave its neighbour half empty. */
+    <Card className="flex h-full flex-col overflow-hidden">
       <CardHeader className="pb-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -54,7 +57,7 @@ export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
           </div>
         </div>
       </CardHeader>
-      <CardContent className="px-0 pb-0">
+      <CardContent className="min-h-0 flex-1 overflow-y-auto px-0 pb-0">
         {activities.length === 0 ? (
           <div className="flex h-24 items-center justify-center px-6 pb-6">
             <div className="text-center">
