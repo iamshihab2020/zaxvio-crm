@@ -54,6 +54,9 @@ import {
   CatalogItemPicker,
   type CatalogPickerItem,
 } from "@/components/dashboard/catalog/catalog-item-picker";
+import { CatalogPriceHint } from "@/components/dashboard/reusable/catalog-price-hint";
+import { resolveLineItemDescription } from "@/lib/line-items";
+import { QuickPriceInput } from "@/components/dashboard/reusable/quick-price-input";
 import {
   CustomerPicker,
   type CustomerSelection,
@@ -104,6 +107,8 @@ interface NewItemForm {
   unitPrice: string;
   catalogItemId: string | null;
   catalogItemLabel: string;
+  /** The catalog list price, kept so the form can show what this line overrides. */
+  catalogUnitPrice: string | null;
 }
 
 const emptyItemForm: NewItemForm = {
@@ -113,6 +118,7 @@ const emptyItemForm: NewItemForm = {
   unitPrice: "",
   catalogItemId: null,
   catalogItemLabel: "",
+  catalogUnitPrice: null,
 };
 
 const emptyForm: Omit<QuoteFormData, "lineItems"> = {
@@ -146,6 +152,8 @@ export function QuoteCreateDialog({
   // New line item form
   const [showAddItem, setShowAddItem] = useState(false);
   const [itemForm, setItemForm] = useState<NewItemForm>(emptyItemForm);
+  /** A price typed into the quick-add field but never committed — flushed at submit. */
+  const [pendingPrice, setPendingPrice] = useState("");
 
   useEffect(() => {
     const defaultTaxPct = defaultTaxRate
@@ -172,6 +180,7 @@ export function QuoteCreateDialog({
     setCreatingCustomer(false);
     setShowAddItem(false);
     setItemForm(emptyItemForm);
+    setPendingPrice("");
   }, [open, defaultTaxRate]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -223,7 +232,26 @@ export function QuoteCreateDialog({
 
     // Convert percentage to decimal
     const taxDecimal = taxRateNum / 100;
-    onSave({ ...form, customerId, taxRate: taxDecimal.toString(), lineItems });
+
+    // Flush a quick price typed but never committed, so it cannot be silently
+    // dropped by pressing Save.
+    const pending = pendingPrice.trim();
+    const pendingNumber = Number(pending);
+    const itemsToSave =
+      pending !== "" && Number.isFinite(pendingNumber) && pendingNumber >= 0
+        ? [
+            ...lineItems,
+            {
+              description: resolveLineItemDescription({ itemType: "other" }),
+              itemType: "other",
+              quantity: "1",
+              unitPrice: pendingNumber.toFixed(2),
+              catalogItemId: null,
+            },
+          ]
+        : lineItems;
+
+    onSave({ ...form, customerId, taxRate: taxDecimal.toString(), lineItems: itemsToSave });
   }
 
   function updateField(field: keyof typeof emptyForm, value: string) {
@@ -242,11 +270,17 @@ export function QuoteCreateDialog({
   }
 
   function handleAddItem() {
-    if (!itemForm.description.trim() || !itemForm.unitPrice.trim()) return;
+    if (!itemForm.unitPrice.trim()) return;
     setLineItems((prev) => [
       ...prev,
       {
-        description: itemForm.description,
+        // Resolved with the same rule the API applies, so an unnamed line
+        // reads the same here as it will after the save.
+        description: resolveLineItemDescription({
+          description: itemForm.description,
+          catalogName: itemForm.catalogItemLabel,
+          itemType: itemForm.itemType,
+        }),
         itemType: itemForm.itemType,
         quantity: itemForm.quantity,
         unitPrice: itemForm.unitPrice,
@@ -540,6 +574,24 @@ export function QuoteCreateDialog({
                   )}
                 </div>
 
+                <QuickPriceInput
+                  label="Add a price"
+                  value={pendingPrice}
+                  onValueChange={setPendingPrice}
+                  onAdd={(price) =>
+                    setLineItems((prev) => [
+                      ...prev,
+                      {
+                        description: resolveLineItemDescription({ itemType: "other" }),
+                        itemType: "other",
+                        quantity: "1",
+                        unitPrice: price,
+                        catalogItemId: null,
+                      },
+                    ])
+                  }
+                />
+
                 {/* Existing items */}
                 {lineItems.length > 0 && (
                   <div className="rounded-md border border-border overflow-hidden">
@@ -639,7 +691,7 @@ export function QuoteCreateDialog({
                                 ...f,
                                 catalogItemId: item.id,
                                 catalogItemLabel: item.name,
-                                description: item.name,
+                                catalogUnitPrice: item.unitPrice,
                                 unitPrice: parseFloat(item.unitPrice).toFixed(2),
                                 itemType: item.itemType,
                               }));
@@ -648,13 +700,14 @@ export function QuoteCreateDialog({
                                 ...f,
                                 catalogItemId: null,
                                 catalogItemLabel: "",
+                                catalogUnitPrice: null,
                               }));
                             }
                           }}
                         />
                       </div>
                       <Input
-                        placeholder="Description"
+                        placeholder="Description (optional)"
                         value={itemForm.description}
                         onChange={(e) =>
                           setItemForm((f) => ({ ...f, description: e.target.value }))
@@ -694,6 +747,10 @@ export function QuoteCreateDialog({
                           tabIndex={showAddItem ? 0 : -1}
                         />
                       </div>
+                      <CatalogPriceHint
+                        catalogPrice={itemForm.catalogUnitPrice}
+                        currentPrice={itemForm.unitPrice}
+                      />
                       <div className="flex gap-2 justify-end">
                         <Button
                           type="button"
@@ -714,7 +771,7 @@ export function QuoteCreateDialog({
                           className="h-7 text-xs bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
                           tabIndex={showAddItem ? 0 : -1}
                           onClick={handleAddItem}
-                          disabled={!itemForm.description.trim() || !itemForm.unitPrice.trim()}
+                          disabled={!itemForm.unitPrice.trim()}
                         >
                           Add
                         </Button>

@@ -136,7 +136,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
         style={{ gridTemplateRows: isNewMode ? "0fr" : "1fr", opacity: isNewMode ? 0 : 1 }}
       >
         <div className="overflow-hidden">
-          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+          <Popover modal open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"

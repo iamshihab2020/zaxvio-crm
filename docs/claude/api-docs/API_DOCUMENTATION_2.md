@@ -358,13 +358,18 @@ fields is required.
 
 | From | Allowed to |
 |---|---|
-| `scheduled` | `scheduled`, `in_progress`, `cancelled` |
+| `scheduled` | `scheduled`, `in_progress`, `completed`, `cancelled` |
 | `in_progress` | `in_progress`, `completed`, `cancelled` |
 | `completed` | `completed` (terminal) |
 | `cancelled` | `cancelled`, `scheduled` |
 
 Moving between two stages that share a lifecycle is always allowed — that is ordinary
 workflow, not a state change.
+
+`scheduled → completed` is deliberate (2026-08-01). The Manage Pipeline UI only asks a tenant
+to mark which stage **completes** a job and which **cancels** it; every other stage is open
+work and is stored as `scheduled`. A board of Lead → Site visit → Quoted → Done therefore has
+no `in_progress` stage at all, and without this row a job on it could never be finished.
 
 **Response** `200 OK` — the updated job row.
 

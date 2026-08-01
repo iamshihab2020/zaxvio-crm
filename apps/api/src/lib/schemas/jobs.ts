@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idParam, paginationQuery, boundedText } from "./common.js";
+import { idParam, paginationQuery, boundedText, lineItemDescription } from "./common.js";
 
 // ── Stage / status ────────────────────────────────────────────────────────────
 //
@@ -226,7 +226,7 @@ export const quantitySchema = z.coerce
   .max(MONEY_MAX);
 
 export const addLineItemBody = z.object({
-  description: boundedText(500).optional(),
+  description: lineItemDescription,
   unitPrice: moneySchema.optional(),
   itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
   quantity: quantitySchema.optional(),
@@ -235,7 +235,7 @@ export const addLineItemBody = z.object({
 });
 
 export const updateLineItemBody = z.object({
-  description: boundedText(500).min(1).optional(),
+  description: lineItemDescription,
   quantity: quantitySchema.optional(),
   unitPrice: moneySchema.optional(),
   sortOrder: z.coerce.number().int().min(0).max(100_000).optional(),

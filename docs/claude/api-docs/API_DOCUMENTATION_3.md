@@ -1240,6 +1240,13 @@ It defaults to `scheduled`, which is the safe entry point: a new column can alwa
 work. Set it to `completed` and dropping a job there will demand the required checklist
 items and email the customer.
 
+**What the UI exposes.** Manage Pipeline only offers `completed` and `cancelled`, as a marker
+on a stage rather than a classifier — those are the two that change what happens to a job
+rather than just where it sits. Everything unmarked is written as `scheduled`, and any number
+of stages may share it. The dialog also keeps the markers exclusive: marking one stage as the
+completing stage clears the mark from whichever stage held it, which (per `PATCH` below) also
+clears `completed_at` on the jobs in the stage that lost it.
+
 **Response** `201 Created`
 
 ```json
@@ -1298,7 +1305,11 @@ job whose status had drifted is corrected rather than missed).
 ```
 
 Changing `lifecycle` changes what dropping a job into this column does — see
-`POST /pipeline-stages` above.
+`POST /pipeline-stages` above — and **reconciles the jobs already sitting in the stage**
+(2026-08-01). Promoting a stage to `completed` stamps `completed_at` on every job in it that
+has none; demoting it away from `completed` clears `completed_at` for all of them. Without
+that, marking a stage "Completed" left its existing jobs unstamped, so lifecycle-based counts
+and the `completed_at`-based reports disagreed about the same jobs.
 
 **Response** `200 OK`
 

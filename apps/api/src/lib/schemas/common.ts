@@ -80,3 +80,15 @@ export const isoMonth = z
 export function boundedText(max: number) {
   return z.string().max(max, `Too long (max ${max} characters)`);
 }
+
+/**
+ * Line item description — optional on every verb, on jobs, invoices and quotes.
+ *
+ * A line item can be nothing but a price; when it is, the API names it after its
+ * item type (see `lib/line-items.ts`), so nothing renders blank on a PDF. Lives
+ * here because the three domains kept three different rules for one field:
+ * jobs required 1-500 chars on update but not on add, invoices required 1-500 on
+ * both, and quotes accepted an **unbounded** string — on the text that renders
+ * into the public quote portal.
+ */
+export const lineItemDescription = boundedText(500).optional();

@@ -68,6 +68,9 @@ import {
   CatalogItemPicker,
   type CatalogPickerItem,
 } from "@/components/dashboard/catalog/catalog-item-picker";
+import { CatalogPriceHint } from "@/components/dashboard/reusable/catalog-price-hint";
+import { resolveLineItemDescription } from "@/lib/line-items";
+import { QuickPriceInput } from "@/components/dashboard/reusable/quick-price-input";
 import { createCustomer } from "@/actions/customers";
 import { getJobAssignees } from "@/actions/jobs";
 import { AssetPicker } from "@/components/dashboard/equipment/asset-picker";
@@ -162,6 +165,8 @@ interface NewItemForm {
   unitPrice: string;
   catalogItemId: string | null;
   catalogItemLabel: string;
+  /** The catalog list price, kept so the form can show what this line overrides. */
+  catalogUnitPrice: string | null;
 }
 
 const emptyItemForm: NewItemForm = {
@@ -171,6 +176,7 @@ const emptyItemForm: NewItemForm = {
   unitPrice: "",
   catalogItemId: null,
   catalogItemLabel: "",
+  catalogUnitPrice: null,
 };
 
 const emptyForm: Omit<JobFormData, "lineItems"> = {
@@ -215,6 +221,12 @@ export function JobCreateDialog({
   const [members, setMembers] = useState<AssigneeMember[]>([]);
   const [showAddItem, setShowAddItem] = useState(false);
   const [itemForm, setItemForm] = useState<NewItemForm>(emptyItemForm);
+  /**
+   * A price typed into the quick-add field but never committed with Enter.
+   * Held here rather than inside the input so submit can flush it: typing 500
+   * and going straight to "Create Job" used to create a job worth nothing.
+   */
+  const [pendingPrice, setPendingPrice] = useState("");
 
   const isEditing = !!job;
 
@@ -272,6 +284,7 @@ export function JobCreateDialog({
     setCreatingCustomer(false);
     setShowAddItem(false);
     setItemForm(emptyItemForm);
+    setPendingPrice("");
   }, [job, open, defaultTaxRate]);
 
   useEffect(() => {
@@ -345,7 +358,27 @@ export function JobCreateDialog({
     }
 
     const taxDecimal = taxRateNum / 100;
-    onSave({ ...form, customerId, taxRate: taxDecimal.toString(), status: initialStatus, lineItems });
+
+    // Flush a quick price the user typed but never committed. Read from the
+    // local variable, not from state after a setState — this runs in the same
+    // tick as the save.
+    const pending = pendingPrice.trim();
+    const pendingNumber = Number(pending);
+    const itemsToSave =
+      pending !== "" && Number.isFinite(pendingNumber) && pendingNumber >= 0
+        ? [
+            ...lineItems,
+            {
+              description: resolveLineItemDescription({ itemType: "other" }),
+              itemType: "other",
+              quantity: "1",
+              unitPrice: pendingNumber.toFixed(2),
+              catalogItemId: null,
+            },
+          ]
+        : lineItems;
+
+    onSave({ ...form, customerId, taxRate: taxDecimal.toString(), status: initialStatus, lineItems: itemsToSave });
   }
 
   function updateField(field: keyof typeof emptyForm, value: string) {
@@ -367,7 +400,7 @@ export function JobCreateDialog({
   }
 
   function handleAddItem() {
-    if (!itemForm.description.trim() || !itemForm.unitPrice.trim()) return;
+    if (!itemForm.unitPrice.trim()) return;
     const qty = parseFloat(itemForm.quantity);
     const price = parseFloat(itemForm.unitPrice);
     if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
@@ -375,7 +408,13 @@ export function JobCreateDialog({
     setLineItems((prev) => [
       ...prev,
       {
-        description: itemForm.description,
+        // Resolved with the same rule the API applies, so an unnamed line
+        // reads the same here as it will after the save.
+        description: resolveLineItemDescription({
+          description: itemForm.description,
+          catalogName: itemForm.catalogItemLabel,
+          itemType: itemForm.itemType,
+        }),
         itemType: itemForm.itemType,
         quantity: itemForm.quantity,
         unitPrice: itemForm.unitPrice,
@@ -730,6 +769,27 @@ export function JobCreateDialog({
               !isSidebar && "lg:border-l lg:border-border lg:pl-6",
             )}>
               <FormSection icon={IconPackage} label="Line Items">
+                {/* A price with nothing else to say. Adds a line underneath, so
+                    there is still one money model, but the number is the only
+                    thing asked for. */}
+                <QuickPriceInput
+                  label="Add a price"
+                  value={pendingPrice}
+                  onValueChange={setPendingPrice}
+                  onAdd={(price) =>
+                    setLineItems((prev) => [
+                      ...prev,
+                      {
+                        description: resolveLineItemDescription({ itemType: "other" }),
+                        itemType: "other",
+                        quantity: "1",
+                        unitPrice: price,
+                        catalogItemId: null,
+                      },
+                    ])
+                  }
+                />
+
                 {lineItems.length > 0 && (
                   <span className="text-xs text-muted-foreground -mt-2 block">
                     {lineItems.length} {lineItems.length === 1 ? "item" : "items"}
@@ -816,7 +876,7 @@ export function JobCreateDialog({
                                 ...f,
                                 catalogItemId: item.id,
                                 catalogItemLabel: item.name,
-                                description: item.name,
+                                catalogUnitPrice: item.unitPrice,
                                 unitPrice: parseFloat(item.unitPrice).toFixed(2),
                                 itemType: item.itemType,
                               }));
@@ -825,21 +885,42 @@ export function JobCreateDialog({
                                 ...f,
                                 catalogItemId: null,
                                 catalogItemLabel: "",
+                                catalogUnitPrice: null,
                               }));
                             }
                           }}
                         />
                       </div>
-                      <Input
-                        placeholder="Description"
-                        value={itemForm.description}
-                        onChange={(e) => setItemForm((f) => ({ ...f, description: e.target.value }))}
-                        className="text-sm h-8"
-                        tabIndex={showAddItem ? 0 : -1}
-                      />
-                      <div className="flex gap-2">
+                      <div>
+                        <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
+                          Description
+                        </label>
+                        {/* Placeholder, not a copied value: picking a catalog
+                            item used to write its name into this field, so the
+                            name appeared twice, one line apart. As ghost text it
+                            says what the line will be called while leaving the
+                            field genuinely empty and overridable — which is what
+                            the API does with it. */}
+                        <Input
+                          placeholder={itemForm.catalogItemLabel || "Optional — defaults to the item type"}
+                          value={itemForm.description}
+                          onChange={(e) => setItemForm((f) => ({ ...f, description: e.target.value }))}
+                          className="text-sm h-8"
+                          tabIndex={showAddItem ? 0 : -1}
+                        />
+                      </div>
+
+                      {/* Three unlabelled boxes read as "Service Call | 1 |
+                          385.00" — nothing said which was quantity and which was
+                          money. Column headers, and widths that fit the values:
+                          quantity is one or two digits, a price is five or six. */}
+                      <div className="grid grid-cols-[1fr_2.75rem_5.25rem] gap-2">
+                        <label className="text-[10px] font-medium text-muted-foreground">Type</label>
+                        <label className="text-[10px] font-medium text-muted-foreground">Qty</label>
+                        <label className="text-[10px] font-medium text-muted-foreground">Price</label>
+
                         <Select value={itemForm.itemType} onValueChange={(v) => setItemForm((f) => ({ ...f, itemType: v }))}>
-                          <SelectTrigger className="h-8 text-xs font-body flex-1">
+                          <SelectTrigger className="h-8 min-w-0 text-xs font-body">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -848,14 +929,23 @@ export function JobCreateDialog({
                             ))}
                           </SelectContent>
                         </Select>
-                        <Input placeholder="Qty" value={itemForm.quantity} onChange={(e) => setItemForm((f) => ({ ...f, quantity: e.target.value }))} className="w-14 text-sm h-8" tabIndex={showAddItem ? 0 : -1} />
-                        <Input placeholder="Price" value={itemForm.unitPrice} onChange={(e) => setItemForm((f) => ({ ...f, unitPrice: e.target.value }))} className="w-20 text-sm h-8" tabIndex={showAddItem ? 0 : -1} />
+                        <Input inputMode="decimal" value={itemForm.quantity} onChange={(e) => setItemForm((f) => ({ ...f, quantity: e.target.value }))} className="h-8 px-2 text-center text-sm tnum" tabIndex={showAddItem ? 0 : -1} />
+                        <div className="relative">
+                          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                          <Input inputMode="decimal" placeholder="0.00" value={itemForm.unitPrice} onChange={(e) => setItemForm((f) => ({ ...f, unitPrice: e.target.value }))} className="h-8 pl-5 pr-2 text-right text-sm tnum" tabIndex={showAddItem ? 0 : -1} />
+                        </div>
                       </div>
-                      <div className="flex gap-2 justify-end">
+
+                      <CatalogPriceHint
+                        catalogPrice={itemForm.catalogUnitPrice}
+                        currentPrice={itemForm.unitPrice}
+                      />
+
+                      <div className="flex justify-end gap-2 border-t border-border pt-2.5">
                         <Button type="button" variant="outline" size="sm" className="h-7 text-xs cursor-pointer" tabIndex={showAddItem ? 0 : -1} onClick={() => { setShowAddItem(false); setItemForm(emptyItemForm); }}>
                           Cancel
                         </Button>
-                        <Button type="button" size="sm" className="h-7 text-xs bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer" tabIndex={showAddItem ? 0 : -1} onClick={handleAddItem} disabled={!itemForm.description.trim() || !itemForm.unitPrice.trim()}>
+                        <Button type="button" size="sm" className="h-7 text-xs bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer" tabIndex={showAddItem ? 0 : -1} onClick={handleAddItem} disabled={!itemForm.unitPrice.trim()}>
                           Add
                         </Button>
                       </div>

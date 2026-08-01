@@ -74,8 +74,19 @@ export function CatalogItemPicker({
     return () => clearTimeout(timer);
   }, [search, open, fetchItems]);
 
+  /**
+   * `modal` on the Popover, because this picker opens inside the Create Job and
+   * Create Quote dialogs.
+   *
+   * A Radix Dialog mounts react-remove-scroll with its own content as the only
+   * scrollable shard, and a Popover renders in a portal *outside* that subtree.
+   * The wheel event over this list was therefore swallowed and the results
+   * would not scroll — with a visible scrollbar sitting right there, which made
+   * it read as a broken list rather than a locked one. A modal Popover
+   * registers its own content as a shard, which re-permits the wheel.
+   */
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover modal open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
           type="button"

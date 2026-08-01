@@ -40,6 +40,8 @@ import {
   IconPlus,
   IconCheck,
   IconX,
+  IconAlertTriangle,
+  IconDots,
 } from "@tabler/icons-react";
 import {
   STAGE_COLOR_KEYS,
@@ -52,15 +54,129 @@ import {
   deletePipelineStage,
   reorderPipelineStages,
 } from "@/actions/pipeline-stages";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { StageLifecycle } from "@/lib/constants/stage-lifecycle";
 
 interface PipelineStageWithCount {
   id: string;
   name: string;
   label: string;
   color: string;
+  lifecycle: StageLifecycle;
   sortOrder: number;
   isDefault: boolean;
   jobCount: number;
+}
+
+type StageEdit = { label?: string; color?: string; lifecycle?: StageLifecycle };
+
+/**
+ * Only two stages in a pipeline need to mean anything to the system: the one
+ * that finishes a job and the one that abandons it. Everything else is just
+ * workflow — a lead, an appointment, a survey, parts on order — and asking
+ * "counts as?" on every row four times over made the common stage look like it
+ * needed a decision when it does not.
+ *
+ * So the control is a *marker*, not a classifier: unmarked is the default and
+ * says nothing, and only the two ends carry a badge. Underneath, an unmarked
+ * stage is still `scheduled` — open work — which is what makes moving freely
+ * between any number of middle stages legal.
+ */
+type StageMark = "completed" | "cancelled" | "none";
+
+function markOf(lifecycle: StageLifecycle): StageMark {
+  return lifecycle === "completed" || lifecycle === "cancelled"
+    ? lifecycle
+    : "none";
+}
+
+const MARK_META: Record<
+  Exclude<StageMark, "none">,
+  { badge: string; menu: string; className: string }
+> = {
+  completed: {
+    badge: "Completes job",
+    menu: "Completes the job",
+    className:
+      "border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+  },
+  cancelled: {
+    badge: "Cancels job",
+    menu: "Cancels the job",
+    className: "border-border bg-muted text-muted-foreground",
+  },
+};
+
+function StageMarkMenu({
+  mark,
+  onChange,
+}: {
+  mark: StageMark;
+  onChange: (next: StageMark) => void;
+}) {
+  const options: { value: StageMark; label: string; hint: string }[] = [
+    {
+      value: "none",
+      label: "No special meaning",
+      hint: "Just a step in the workflow",
+    },
+    {
+      value: "completed",
+      label: MARK_META.completed.menu,
+      hint: "Stamps the completion date and sends the completion email",
+    },
+    {
+      value: "cancelled",
+      label: MARK_META.cancelled.menu,
+      hint: "Drops the job out of active work",
+    },
+  ];
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+          title="What this stage means"
+        >
+          <IconDots className="h-4 w-4" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuLabel className="text-[11px] font-body font-normal text-muted-foreground">
+          When a job lands here
+        </DropdownMenuLabel>
+        {options.map((o) => (
+          <DropdownMenuItem
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            className="flex-col items-start gap-0.5"
+          >
+            <span className="flex w-full items-center gap-2 text-sm font-body">
+              <IconCheck
+                className={cn(
+                  "h-3.5 w-3.5 shrink-0",
+                  mark === o.value ? "opacity-100 text-brand" : "opacity-0",
+                )}
+              />
+              {o.label}
+            </span>
+            <span className="pl-[1.375rem] text-[11px] font-body text-muted-foreground">
+              {o.hint}
+            </span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 interface PipelineStagesDialogProps {
@@ -76,12 +192,15 @@ interface PipelineStagesDialogProps {
 function SortableStageRow({
   stage,
   onUpdate,
+  onMark,
   onDelete,
 }: {
   stage: PipelineStageWithCount;
-  onUpdate: (id: string, data: { label?: string; color?: string }) => void;
+  onUpdate: (id: string, data: StageEdit) => void;
+  onMark: (id: string, mark: StageMark) => void;
   onDelete: (id: string) => void;
 }) {
+  const mark = markOf(stage.lifecycle);
   const {
     attributes,
     listeners,
@@ -123,10 +242,11 @@ function SortableStageRow({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2",
+        "rounded-md border border-border bg-card px-3 py-2",
         isDragging && "shadow-lg ring-2 ring-brand/30",
       )}
     >
+      <div className="flex items-center gap-3">
       {/* Drag handle */}
       <button
         {...attributes}
@@ -213,12 +333,26 @@ function SortableStageRow({
         </Button>
       )}
 
+      {/* Only a marked stage says anything; the rest stay quiet. */}
+      {mark !== "none" && (
+        <span
+          className={cn(
+            "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-body font-medium",
+            MARK_META[mark].className,
+          )}
+        >
+          {MARK_META[mark].badge}
+        </span>
+      )}
+
       {/* Job count badge */}
       {stage.jobCount > 0 && (
         <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-muted px-1.5 text-xs font-medium text-muted-foreground shrink-0">
           {stage.jobCount}
         </span>
       )}
+
+      <StageMarkMenu mark={mark} onChange={(next) => onMark(stage.id, next)} />
 
       {/* Delete button */}
       <Button
@@ -240,6 +374,7 @@ function SortableStageRow({
       >
         <IconTrash className="h-4 w-4" />
       </Button>
+      </div>
     </div>
   );
 }
@@ -294,10 +429,7 @@ export function PipelineStagesDialog({
     }
   }
 
-  async function handleUpdate(
-    id: string,
-    data: { label?: string; color?: string },
-  ) {
+  async function handleUpdate(id: string, data: StageEdit) {
     // Optimistic update
     setLocalStages((prev) =>
       prev.map((s) => (s.id === id ? { ...s, ...data } : s)),
@@ -310,6 +442,58 @@ export function PipelineStagesDialog({
     } else {
       onStagesChange();
     }
+  }
+
+  /**
+   * Marking is exclusive: a pipeline has one stage that finishes a job and one
+   * that abandons it. Moving the mark clears it from whichever stage held it,
+   * so a board can never present two different "Done" columns that both claim
+   * to complete the work.
+   */
+  async function handleMark(id: string, mark: StageMark) {
+    const target = localStages.find((s) => s.id === id);
+    if (!target || markOf(target.lifecycle) === mark) return;
+
+    const lifecycle: StageLifecycle = mark === "none" ? "scheduled" : mark;
+    const displaced =
+      mark === "none"
+        ? []
+        : localStages.filter((s) => s.id !== id && s.lifecycle === mark);
+
+    setLocalStages((prev) =>
+      prev.map((s) =>
+        s.id === id
+          ? { ...s, lifecycle }
+          : displaced.some((d) => d.id === s.id)
+            ? { ...s, lifecycle: "scheduled" as StageLifecycle }
+            : s,
+      ),
+    );
+
+    for (const stage of displaced) {
+      const cleared = await updatePipelineStage(stage.id, {
+        lifecycle: "scheduled",
+      });
+      if (cleared.error) {
+        toast.error(cleared.error);
+        setLocalStages(stages);
+        return;
+      }
+    }
+
+    const result = await updatePipelineStage(id, { lifecycle });
+    if (result.error) {
+      toast.error(result.error);
+      setLocalStages(stages);
+      return;
+    }
+
+    toast.success(
+      mark === "none"
+        ? `"${target.label}" no longer changes a job's state`
+        : `"${target.label}" now ${MARK_META[mark].menu.toLowerCase()}`,
+    );
+    onStagesChange();
   }
 
   async function handleDelete(id: string) {
@@ -357,15 +541,38 @@ export function PipelineStagesDialog({
     }
   }
 
+  /**
+   * A pipeline with nothing marked Completed is a pipeline jobs can never
+   * finish in: no completion date, no completion email, nothing counted as done
+   * in reports. Worth saying out loud rather than letting it be discovered a
+   * month later in an empty report.
+   */
+  const hasCompletedStage = localStages.some((s) => s.lifecycle === "completed");
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="font-heading">Manage Pipeline</DialogTitle>
           <DialogDescription className="font-body text-sm">
-            Add, rename, recolor, reorder, or remove stages. Drag to reorder.
+            Name your stages whatever your business calls them, and add as many
+            as you need. Only two carry meaning: mark the one that{" "}
+            <strong className="font-medium text-foreground">completes</strong> a
+            job and the one that{" "}
+            <strong className="font-medium text-foreground">cancels</strong> it,
+            from each stage&rsquo;s ⋯ menu. Drag to reorder.
           </DialogDescription>
         </DialogHeader>
+
+        {!hasCompletedStage && localStages.length > 0 && (
+          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+            <IconAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <p className="text-xs font-body text-amber-700 dark:text-amber-400">
+              No stage completes a job, so work in this pipeline can never
+              finish. Pick one from its ⋯ menu.
+            </p>
+          </div>
+        )}
 
         <div className="space-y-2 max-h-[400px] overflow-y-auto py-2">
           <DndContext
@@ -382,6 +589,7 @@ export function PipelineStagesDialog({
                   key={stage.id}
                   stage={stage}
                   onUpdate={handleUpdate}
+                  onMark={handleMark}
                   onDelete={handleDelete}
                 />
               ))}
@@ -391,7 +599,8 @@ export function PipelineStagesDialog({
 
         {/* Add stage form */}
         {adding ? (
-          <div className="flex items-center gap-2 pt-1">
+          <div className="space-y-2 pt-1">
+          <div className="flex items-center gap-2">
             {/* Color picker for new stage */}
             <Popover>
               <PopoverTrigger asChild>
@@ -452,6 +661,12 @@ export function PipelineStagesDialog({
             >
               Cancel
             </Button>
+          </div>
+
+          <p className="pl-7 text-[11px] font-body text-muted-foreground">
+            A new stage is a normal step in the workflow. Use its ⋯ menu if this
+            is the one that completes or cancels a job.
+          </p>
           </div>
         ) : (
           <Button

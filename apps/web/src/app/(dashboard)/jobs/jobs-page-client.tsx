@@ -97,12 +97,16 @@ interface PipelineData {
   jobCount: number;
 }
 
+import type { StageLifecycle } from "@/lib/constants/stage-lifecycle";
+
 interface PipelineStageWithCount {
   id: string;
   pipelineId: string;
   name: string;
   label: string;
   color: string;
+  /** Which of the four real job statuses this stage stands for. */
+  lifecycle: StageLifecycle;
   sortOrder: number;
   isDefault: boolean;
   jobCount: number;

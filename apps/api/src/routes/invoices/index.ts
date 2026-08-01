@@ -42,6 +42,7 @@ import {
 } from "@hvac-saas/database";
 import { downloadFile, deleteFiles } from "../../lib/storage.js";
 import { containsPattern } from "../../lib/search.js";
+import { isItemType, resolveLineItemDescription } from "../../lib/line-items.js";
 import { todayInTimezone } from "../../lib/timezone.js";
 import {
   loadEditableInvoice,
@@ -605,11 +606,18 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
-      if (!description || !unitPrice || !itemType) {
+      // A description is optional — a line can be nothing but a price. What it
+      // is called falls back to the item type so nothing renders blank on the
+      // PDF the customer receives.
+      if (!unitPrice || !isItemType(itemType)) {
         return reply.status(400).send({
-          message: "description, unitPrice, and itemType are required",
+          message: "unitPrice and itemType are required",
         });
       }
+      const resolvedDescription = resolveLineItemDescription({
+        description,
+        itemType,
+      });
 
       const lineItem = await db.transaction(async (tx) => {
         const [created] = await tx
@@ -619,7 +627,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
             invoiceId: id,
             catalogItemId: body.catalogItemId ?? null,
             itemType,
-            description,
+            description: resolvedDescription,
             quantity: body.quantity ?? "1",
             unitPrice,
             sortOrder: body.sortOrder ?? 0,

@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 
 import { API_URL } from "@/lib/api-url";
+import type { StageLifecycle } from "@/lib/constants/stage-lifecycle";
 
 async function getCookieHeader() {
   const cookieStore = await cookies();
@@ -37,6 +38,7 @@ export async function getPipelineStages(pipelineId?: string) {
 export async function createPipelineStage(data: {
   label: string;
   color?: string;
+  lifecycle?: StageLifecycle;
   pipelineId: string;
 }) {
   try {
@@ -64,7 +66,7 @@ export async function createPipelineStage(data: {
 
 export async function updatePipelineStage(
   id: string,
-  data: { label?: string; color?: string },
+  data: { label?: string; color?: string; lifecycle?: StageLifecycle },
 ) {
   try {
     const res = await fetch(`${API_URL}/pipeline-stages/${id}`, {

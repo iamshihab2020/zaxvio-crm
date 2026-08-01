@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idParam, paginationQuery, isoDate, booleanFlag } from "./common.js";
+import { idParam, paginationQuery, isoDate, booleanFlag, lineItemDescription } from "./common.js";
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -117,7 +117,7 @@ export const updateInvoiceBody = z.object({
 });
 
 export const addLineItemBody = z.object({
-  description: z.string().min(1).max(500).optional(),
+  description: lineItemDescription,
   unitPrice: moneyString.optional(),
   itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
   quantity: z
@@ -129,7 +129,7 @@ export const addLineItemBody = z.object({
 });
 
 export const updateLineItemBody = z.object({
-  description: z.string().min(1).max(500).optional(),
+  description: lineItemDescription,
   quantity: z
     .string()
     .regex(/^\d{1,6}(\.\d{1,2})?$/, "Quantity must be a positive number")

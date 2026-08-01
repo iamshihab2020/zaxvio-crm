@@ -58,7 +58,13 @@ type Db = ReturnType<typeof getDb>;
  * illegal transition and the write was skipped entirely.
  */
 const LIFECYCLE_TRANSITIONS: Record<JobLifecycle, JobLifecycle[]> = {
-  scheduled: ["in_progress", "cancelled"],
+  // `scheduled → completed` is allowed on purpose. A pipeline only has to
+  // declare which stage completes a job and which cancels it; every other stage
+  // is open work and is stored as `scheduled`. So a board of Lead → Site visit →
+  // Quoted → Done has no `in_progress` stage at all, and without this a job
+  // could never reach Done. It is also the normal path for a one-visit call:
+  // booked this morning, finished this afternoon.
+  scheduled: ["in_progress", "completed", "cancelled"],
   in_progress: ["completed", "cancelled"],
   completed: [], // terminal
   cancelled: ["scheduled"], // allow re-scheduling

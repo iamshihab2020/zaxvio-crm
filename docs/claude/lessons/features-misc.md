@@ -46,3 +46,16 @@
 - **Always update `docs/project_docs/REPO_MAP.md` when adding/removing/moving files** — The repo map got severely outdated (showed routes as "planned" that were done months ago). Any PR that creates new files, folders, routes, components, schema files, actions, or migrations MUST update the repo map in the same commit. Same discipline as `docs/todo.md` and `docs/lessons.md`.
 - **Per-page fixes do not propagate — end every audit with a repo-wide sweep of the class you just fixed.** Measured on the invoices audit ([[invoices|§2]]): of 17 remediation patterns established by the five previous page audits, exactly **one** (`bulkToast`) had reached `/invoices`. The error-state component, the `EntityDetailShell.loadError` prop, the 404-vs-500 split, the deep-link bounce guard, `escapeLike`, `findForeignRef`, `loadEditableJob`, route-level rate limits and tenant-timezone handling had all been written and none was applied outside the page that motivated it. The one pattern that *did* hold repo-wide is the one the bookings audit explicitly swept for and reported a count on ("5 found outside scope, 0 remain"). **Extract the helper, grep for the class, fix every call site, and record the count in the report** — otherwise the same finding is re-discovered on every page and the fix cost is paid N times.
 - **A shared component's new capability is opt-in, so it silently misses existing callers.** `EntityDetailShell` gained `loadError`/`onRetry` during the jobs work; the prop is optional, so the three sheets that already used the shell kept rendering blank on a 500 and the compiler said nothing. When adding a prop that fixes a bug, either make it required or audit every existing consumer in the same commit.
+- **Line items are one concept with three schemas, and they had drifted.** The description field was
+  `boundedText(500).optional()` on job add but `.min(1)` on job update, `.min(1).max(500)` on both
+  invoice verbs, and an **unbounded** `z.string()` on quotes — the field that renders into the public
+  quote portal and the quote PDF. All three now share `lineItemDescription` in `schemas/common.ts`.
+- **A line item can be nothing but a price.** Requiring a description made someone name a $40 disposal
+  fee before the number was accepted. The column stays `NOT NULL`: `lib/line-items.ts` resolves the
+  name as typed → catalog item → item type label, so a blank one reads "Service Call" rather than
+  leaving a blank cell on a customer-facing PDF, and no renderer needs a null branch.
+- **The catalog price was always an override, but nothing on screen said so.** Picking a catalog item
+  only prefills `unitPrice`; the field stayed editable and the API keeps whatever the client sends
+  (`unitPrice ?? catalogItem.unitPrice`). Users read the prefill as fixed. `CatalogPriceHint` now
+  prints the list price and the difference, so charging $50 against a $149 catalog item is visible
+  rather than silent.

@@ -252,3 +252,25 @@ From [[bookings-calendar|the report]] — the front-end half.
   fudge for its own header, so the two had to be kept in agreement by hand. Measure with
   `getBoundingClientRect().top` (`use-fill-viewport-height`) and let the inner scroller be `flex-1 min-h-0`
   — it already knows its room, because it is a stretched flex child of a fixed-height row.
+- **A segment's `loading.tsx` applies to its children, so a detail route inherits the *list* page's
+  skeleton.** `/jobs/[id]` rendered four columns of Kanban card placeholders and then swapped them
+  for a three-panel detail page — a loading state that shows the wrong page is worse than none,
+  because it tells the reader they opened something they did not. Every `[id]` route under a segment
+  that has its own `loading.tsx` needs one too; `/jobs`, `/quotes`, `/invoices`, `/assets` and
+  `/customers` were all doing it. One `DetailPageSkeleton` with `info`/`sidebar` props covers all
+  five, and its panel widths must match the detail client's (`lg:w-80`, `xl:block w-72`) or the
+  content lands somewhere the skeleton never was.
+- **A combobox inside a Radix Dialog will not scroll with the wheel.** The Dialog mounts
+  `react-remove-scroll` with its own content as the only permitted scrollable shard, and the
+  Popover renders in a portal *outside* that subtree — so wheel events over the list are swallowed
+  while its scrollbar sits there visibly, which reads as a broken list rather than a locked one.
+  Fix is `<Popover modal>`: a modal Popover registers its own content as a shard. Applied to the
+  catalog, customer, asset and assignee pickers — all four were affected, only one was reported.
+- **A quick-add field inside a form must flush on submit, not only on Enter.** The Line Items price
+  input committed on Enter or its + button, so typing `500` and clicking "Create Job" created a job
+  worth **$0.00** — verified in the database: the job existed with `subtotal 0.00` and zero line
+  items, no error and no warning anywhere. Blur-commit alone does not fix it: clicking the submit
+  button races the state update, and the button's own `onClick` fires after the input's blur has
+  already cleared the field (commit from `onMouseDown` instead). The reliable fix is to lift the
+  pending value into the parent and append it inside the submit handler, reading the local variable
+  rather than state.

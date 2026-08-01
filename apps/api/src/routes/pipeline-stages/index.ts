@@ -10,6 +10,7 @@ import {
   and,
   asc,
   count,
+  isNull,
   sql,
 } from "@hvac-saas/database";
 import {
@@ -361,8 +362,34 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
         updates.color = body.color;
       }
 
-      if (body.lifecycle) {
+      /**
+       * Changing what a stage *means* has to reach the jobs already sitting in
+       * it, or the two disagree: mark "Done" as completed and every job already
+       * parked there keeps `completed_at = NULL`, so lifecycle-based counts say
+       * eleven completed while the average-completion-time report — which reads
+       * `completed_at` — sees none of them. Same rule as a job moving into or
+       * out of the stage (`stageUpdate` in job-stages.service), applied in bulk.
+       */
+      if (body.lifecycle && body.lifecycle !== existing.lifecycle) {
         updates.lifecycle = body.lifecycle;
+
+        if (body.lifecycle === "completed") {
+          await db
+            .update(jobs)
+            .set({ completedAt: new Date(), updatedAt: new Date() })
+            .where(
+              and(
+                eq(jobs.tenantId, tenantId),
+                eq(jobs.stageId, id),
+                isNull(jobs.completedAt),
+              ),
+            );
+        } else if (existing.lifecycle === "completed") {
+          await db
+            .update(jobs)
+            .set({ completedAt: null, updatedAt: new Date() })
+            .where(and(eq(jobs.tenantId, tenantId), eq(jobs.stageId, id)));
+        }
       }
 
       if (body.label?.trim()) {

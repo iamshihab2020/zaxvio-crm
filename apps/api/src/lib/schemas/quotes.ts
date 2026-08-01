@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { idParam, paginationQuery } from "./common.js";
+import { idParam, paginationQuery, lineItemDescription } from "./common.js";
 
 export { idParam };
 
@@ -42,7 +42,7 @@ export const updateQuoteBody = z.object({
 export const addLineItemBody = z.object({
   catalogItemId: z.string().uuid().optional(),
   itemType: z.string().optional(),
-  description: z.string().optional(),
+  description: lineItemDescription,
   quantity: z.string().optional(),
   unitPrice: z.string().optional(),
   sortOrder: z.coerce.number().int().optional(),
@@ -51,7 +51,7 @@ export const addLineItemBody = z.object({
 export const updateLineItemBody = z.object({
   catalogItemId: z.string().uuid().optional(),
   itemType: z.string().optional(),
-  description: z.string().optional(),
+  description: lineItemDescription,
   quantity: z.string().optional(),
   unitPrice: z.string().optional(),
   sortOrder: z.coerce.number().int().optional(),

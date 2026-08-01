@@ -44,6 +44,7 @@ import {
 } from "../../lib/schemas/quotes.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import { containsPattern } from "../../lib/search.js";
+import { isItemType, resolveLineItemDescription } from "../../lib/line-items.js";
 
 // ========== HELPERS ==========
 
@@ -652,11 +653,18 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
-      if (!description || !unitPrice || !itemType) {
+      // A description is optional — a line can be nothing but a price. What it
+      // is called falls back to the item type, which matters most here: this
+      // text renders on the public quote portal and the quote PDF.
+      if (!unitPrice || !isItemType(itemType)) {
         return reply.status(400).send({
-          message: "description, unitPrice, and itemType are required",
+          message: "unitPrice and itemType are required",
         });
       }
+      const resolvedDescription = resolveLineItemDescription({
+        description,
+        itemType,
+      });
 
       const [lineItem] = await db
         .insert(quoteLineItems)
@@ -664,8 +672,8 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           tenantId,
           quoteId: id,
           catalogItemId: body.catalogItemId || null,
-          itemType: itemType as never,
-          description,
+          itemType,
+          description: resolvedDescription,
           quantity: body.quantity || "1",
           unitPrice,
           sortOrder: body.sortOrder || 0,
@@ -673,7 +681,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .returning();
 
       await recalculateQuoteTotals(db, id, tenantId);
-      await logQuoteActivity(db, tenantId, id, "line_item.added", `Line item added: ${description}`, request.authUser.userId, { description });
+      await logQuoteActivity(db, tenantId, id, "line_item.added", `Line item added: ${resolvedDescription}`, request.authUser.userId, { description: resolvedDescription });
 
       return reply.status(201).send({ data: lineItem });
     },

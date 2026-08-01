@@ -82,6 +82,7 @@ import {
 import { paginationQuery } from "../../lib/schemas/common.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import { escapeLike } from "../../lib/search.js";
+import { isItemType, resolveLineItemDescription } from "../../lib/line-items.js";
 import { formatDateInTimezone } from "../../lib/timezone.js";
 import {
   canTransition,
@@ -1203,11 +1204,18 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         itemType = itemType || catalogItem.itemType;
       }
 
-      if (!description || unitPrice == null || !itemType) {
+      // A description is optional: a line can be nothing but a price. What it
+      // is *called* falls back to the item type, so nothing renders blank on a
+      // PDF. Price and type are still required — they are the line's substance.
+      if (unitPrice == null || !isItemType(itemType)) {
         return reply.status(400).send({
-          message: "description, unitPrice, and itemType are required",
+          message: "unitPrice and itemType are required",
         });
       }
+      const resolvedDescription = resolveLineItemDescription({
+        description,
+        itemType,
+      });
 
       const [lineItem] = await db
         .insert(jobLineItems)
@@ -1215,8 +1223,8 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           tenantId,
           jobId: id,
           catalogItemId: body.catalogItemId || null,
-          itemType: itemType as never,
-          description,
+          itemType,
+          description: resolvedDescription,
           quantity: String(body.quantity ?? 1),
           unitPrice: String(unitPrice),
           sortOrder: body.sortOrder || 0,
@@ -1230,7 +1238,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         tenantId,
         jobId: id,
         type: "line_item.added",
-        description: `Added line item: ${description}`,
+        description: `Added line item: ${resolvedDescription}`,
         metadata: { lineItemId: lineItem.id },
         performedBy: userId,
       });

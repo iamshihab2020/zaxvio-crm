@@ -35,6 +35,8 @@ import {
   CatalogItemPicker,
   type CatalogPickerItem,
 } from "@/components/dashboard/catalog/catalog-item-picker";
+import { QuickPriceInput } from "@/components/dashboard/reusable/quick-price-input";
+import { CatalogPriceHint } from "@/components/dashboard/reusable/catalog-price-hint";
 
 interface LineItem {
   id: string;
@@ -60,6 +62,8 @@ interface AddForm {
   unitPrice: string;
   catalogItemId: string | null;
   catalogItemLabel: string;
+  /** The catalog list price, kept so the form can show what this line overrides. */
+  catalogUnitPrice: string | null;
 }
 
 const emptyForm: AddForm = {
@@ -69,6 +73,7 @@ const emptyForm: AddForm = {
   unitPrice: "",
   catalogItemId: null,
   catalogItemLabel: "",
+  catalogUnitPrice: null,
 };
 
 export function JobDetailLineItems({
@@ -88,8 +93,8 @@ export function JobDetailLineItems({
   );
 
   async function handleAdd() {
-    if (!form.description.trim() || !form.unitPrice.trim()) {
-      toast.error("Description and unit price are required");
+    if (!form.unitPrice.trim()) {
+      toast.error("A price is required");
       return;
     }
     const qty = parseFloat(form.quantity);
@@ -123,6 +128,7 @@ export function JobDetailLineItems({
       unitPrice: li.unitPrice,
       catalogItemId: li.catalogItemId,
       catalogItemLabel: "",
+      catalogUnitPrice: null,
     });
   }
 
@@ -158,8 +164,29 @@ export function JobDetailLineItems({
     }
   }
 
+  /**
+   * A price with nothing else to say — a lead logged at $500, a call-out at $85.
+   * It still creates a line item, so there is one money model rather than a
+   * flat amount sitting beside a summed subtotal; the API names the line from
+   * its item type, and the row stays fully editable.
+   */
+  async function handleQuickPrice(price: string) {
+    const result = await addJobLineItem(jobId, {
+      itemType: "other",
+      quantity: "1",
+      unitPrice: price,
+    });
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      onUpdate();
+    }
+  }
+
   return (
     <div>
+      <QuickPriceInput onAdd={handleQuickPrice} className="mb-3" />
+
       {lineItems.length === 0 && !showAdd && (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
           <IconPackage className="h-8 w-8 text-muted-foreground mb-2" />
@@ -334,7 +361,7 @@ export function JobDetailLineItems({
                     ...f,
                     catalogItemId: item.id,
                     catalogItemLabel: item.name,
-                    description: item.name,
+                    catalogUnitPrice: item.unitPrice,
                     unitPrice: parseFloat(item.unitPrice).toFixed(2),
                     itemType: item.itemType,
                   }));
@@ -343,13 +370,14 @@ export function JobDetailLineItems({
                     ...f,
                     catalogItemId: null,
                     catalogItemLabel: "",
+                    catalogUnitPrice: null,
                   }));
                 }
               }}
             />
           </div>
           <Input
-            placeholder="Description"
+            placeholder={form.catalogItemLabel || "Description — optional, defaults to the item type"}
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             className="text-sm"
@@ -380,6 +408,10 @@ export function JobDetailLineItems({
               className="w-28 text-sm"
             />
           </div>
+          <CatalogPriceHint
+            catalogPrice={form.catalogUnitPrice}
+            currentPrice={form.unitPrice}
+          />
           <div className="flex gap-2 justify-end">
             <Button
               variant="outline"

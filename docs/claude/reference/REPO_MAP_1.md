@@ -404,6 +404,7 @@ apps/web/
     |       +-- catalog-options.ts   # Catalog item types, units
     |       +-- job-options.ts       # Service types, priorities
     |       +-- stage-color-presets.ts  # 8 color presets for pipeline stages
+    +-- stage-lifecycle.ts       # The four job lifecycles a custom stage can mean + UI copy
     |
     +-- components/
     |   +-- auth-shell.tsx           # Split-panel auth wrapper (brand panel + form panel)
@@ -675,6 +676,10 @@ apps/web/
     |   |   +-- chart-data-table.tsx       # sr-only table paired with a chart (a11y) — dashboard + reports
     |   |   +-- widget-error-boundary.tsx  # Per-card boundary; one crash can't blank the page
     |   |   +-- load-error-state.tsx       # Whole-page failure state with retry (NOT the empty state)
+    |   |   +-- catalog-price-hint.tsx    # Shows the catalog list price and what this line overrides
+    |   |   +-- quick-price-input.tsx     # $ field + Enter → one price-only line item
+    |   |   +-- detail-page-skeleton.tsx  # Loading UI for /<entity>/[id]; each route needs its own
+    |   |                                  #   loading.tsx or it inherits the LIST page's skeleton
     |   |
     |   +-- superadmin/             # Super admin components (red-themed admin panel)
     |       +-- superadmin-sidebar.tsx          # Red-accented collapsible sidebar (6 nav items)

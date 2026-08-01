@@ -70,3 +70,20 @@ See [[jobs|the report]] for the full 38 findings + 3 more found while fixing the
 - **"Half-built feature" has a specific tell: the wire supports it and nothing calls it.** `assigneeId` was in `jobListQuery`, honoured by the route, and typed into the API — but `getJobs` never put it in the query string and no control existed. Identical shape to the customers tag filter. The cheap check when finishing any feature: grep the param name across `actions/` and `components/`; if it appears only in the schema and the route, nobody can reach it.
 - **Two `useEffect`s reading the same state in one commit will race, and the loser reads stale.** `/jobs/[id]` had one effect setting the view preference to `page` and another navigating away whenever the preference was not `page`. On mount with a stored `sidebar` preference the second read the pre-update value and pushed back to `/jobs`, so every deep link bounced. A `useRef` latch that records "we have arrived" separates *adopting* a mode from *reacting to a change of* mode.
 - **Docs drift is measurable, so measure it.** 13 of 27 job endpoints were undocumented — including `PATCH /jobs/:id/status`, the single most important one on the page. Counting `fastify.(get|post|patch|delete)` in the route file and diffing against `###` headings in the API docs takes one line and turns "the docs feel stale" into a number you can close.
+- **A stage's *lifecycle* is a marker, not a classifier — ask about the two ends only.** The first
+  cut of the Manage Pipeline UI put a "Counts as: scheduled / in progress / completed / cancelled"
+  select on every row, which asks four questions where two matter. A pipeline only has to declare
+  which stage **completes** a job and which **cancels** it; a lead, a site visit, an appointment or
+  parts-on-order are all just open work. Unmarked stages are stored as `scheduled`, any number may
+  share it, and moving between same-lifecycle stages is always legal.
+- **That simplification forces `scheduled → completed` to be a legal transition.** With no
+  `in_progress` stage in a custom pipeline (Lead → Site visit → Quoted → Done), the old table made
+  Done unreachable. It is also the normal path for a one-visit call.
+- **Changing what a stage means has to reach the jobs already in it.** Marking "Done" as completed
+  left its existing jobs with `completed_at = NULL`, so lifecycle-based counts and the
+  `completed_at`-based reports disagreed about the same eleven jobs. `PATCH /pipeline-stages/:id`
+  now stamps or clears them in bulk, the same rule `stageUpdate` applies to a single move.
+- **Revenue is not tied to job completion at all.** It is `SUM(invoice_payments.amount)` by payment
+  date — cash received. Completing a job stamps `completed_at`, fires the E-05 email and counts as
+  finished work in reports, but money only appears once an invoice exists and a payment is recorded
+  against it.
