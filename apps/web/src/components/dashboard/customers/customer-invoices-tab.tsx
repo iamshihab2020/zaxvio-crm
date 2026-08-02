@@ -10,6 +10,9 @@ import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { InvoiceStatusBadge } from "@/components/dashboard/invoices/invoice-status-badge";
 import { getInvoices } from "@/actions/invoices";
+// ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
+// timezone rendered the previous day. These are all `date` columns.
+import { formatDateOnly as formatDate } from "@/lib/format";
 
 interface InvoiceRow {
   id: string;
@@ -28,13 +31,6 @@ function formatCurrency(val: string) {
   return `$${parseFloat(val).toFixed(2)}`;
 }
 
-function formatDate(val: string) {
-  return new Date(val).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 const PAGE_SIZE = 20;
 

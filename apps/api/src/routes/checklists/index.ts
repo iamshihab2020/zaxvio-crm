@@ -46,7 +46,7 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       if (serviceType) {
         filters.push(
-          eq(checklistTemplates.serviceType, serviceType as never),
+          eq(checklistTemplates.serviceType, serviceType),
         );
       }
 
@@ -158,7 +158,7 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .values({
           tenantId,
           name: body.name,
-          serviceType: body.serviceType as never,
+          serviceType: body.serviceType,
           isActive: body.isActive,
         })
         .returning();

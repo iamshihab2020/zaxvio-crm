@@ -32,6 +32,7 @@ import {
 } from "@/components/dashboard/service-agreements/service-agreement-dialog";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { seeded } from "@/hooks/queries/seed";
 import {
   useServiceAgreements,
   useCreateServiceAgreement,
@@ -133,7 +134,15 @@ export function ServiceAgreementsPageClient({
 
   // ── Query ─────────────────────────────────────────────────
   const listParams = { search: debouncedSearch, page, limit: 15 };
-  const agreementsQuery = useServiceAgreements(listParams);
+  // ARC-06
+  const agreementsQuery = useServiceAgreements(
+    listParams,
+    seeded(page === 1 && !debouncedSearch, {
+      data: initialAgreements,
+      pagination: initialPagination,
+      error: null,
+    }),
+  );
 
   const agreements = (agreementsQuery.data?.data ?? []) as AgreementRow[];
   const pagination =

@@ -1,11 +1,13 @@
 "use client"
 
 import * as React from "react"
+// Tabler, not lucide — lucide shipped for this file and one other while the
+// other 221 use Tabler. Aliased so the markup below is unchanged. (ARC-14)
 import {
-  ChevronDownIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-} from "lucide-react"
+  IconChevronDown as ChevronDownIcon,
+  IconChevronLeft as ChevronLeftIcon,
+  IconChevronRight as ChevronRightIcon,
+} from "@tabler/icons-react"
 import { DayButton, DayPicker, getDefaultClassNames } from "react-day-picker"
 
 import { cn } from "@/lib/utils"

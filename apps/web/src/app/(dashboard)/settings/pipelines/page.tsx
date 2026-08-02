@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { getPipelines } from "@/actions/pipelines";
-import { PipelinesSettingsClient } from "./pipelines-settings-client";
+import {
+  PipelinesSettingsClient,
+  type PipelineData,
+} from "./pipelines-settings-client";
 
 export const metadata: Metadata = {
   title: "Pipelines Settings",
@@ -10,5 +13,5 @@ export const metadata: Metadata = {
 export default async function PipelinesSettingsPage() {
   const result = await getPipelines();
 
-  return <PipelinesSettingsClient initialPipelines={(result.data ?? []) as never[]} />;
+  return <PipelinesSettingsClient initialPipelines={(result.data ?? []) as PipelineData[]} />;
 }

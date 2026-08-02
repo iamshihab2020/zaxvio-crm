@@ -15,4 +15,3 @@ export * from "./use-notifications";
 export * from "./use-tenant";
 export * from "./use-tags";
 export * from "./use-conversations";
-export * from "./use-admin";

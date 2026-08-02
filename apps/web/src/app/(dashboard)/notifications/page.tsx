@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getNotifications } from "@/actions/notifications";
 import { NotificationsPageClient } from "./notifications-page-client";
+import type { NotificationWithReadStatus } from "@hvac-saas/types";
 
 export const metadata: Metadata = {
   title: "Notifications",
@@ -12,7 +13,7 @@ export default async function NotificationsPage() {
 
   return (
     <NotificationsPageClient
-      initialNotifications={(result.data ?? []) as never[]}
+      initialNotifications={(result.data ?? []) as NotificationWithReadStatus[]}
       initialNextCursor={result.nextCursor}
     />
   );

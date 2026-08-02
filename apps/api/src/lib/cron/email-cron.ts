@@ -431,6 +431,48 @@ export async function processTrialExpiryWarnings(): Promise<void> {
 }
 
 /**
+ * Expire quotes whose `expiry_date` has passed **in the tenant's own timezone**.
+ *
+ * This work used to run at the top of `GET /quotes` and `GET /quotes/:id` — a
+ * write on a read path, firing an UPDATE across the tenant's whole quote table
+ * on every list render — and it computed "today" as
+ * `new Date().toISOString().split("T")[0]`, i.e. server UTC. Verified at
+ * `2026-08-02 02:00 UTC`: UTC says `08-02` while `America/Chicago` says
+ * `08-01`, so a quote valid until today was already expired through the
+ * tenant's entire evening, which is when a homeowner actually reads an
+ * estimate (QUO-09).
+ *
+ * Reads now derive the display status instead, so the UI is correct the instant
+ * a quote lapses; this sweep is what makes the stored column agree. One
+ * statement spanning tenants in different zones, same shape as the overdue
+ * claim above.
+ */
+export async function processQuoteExpiry(): Promise<void> {
+  const db = getDb();
+  const nowIso = new Date().toISOString();
+
+  try {
+    const expired = await db.execute(sql`
+      UPDATE quotes AS q
+      SET status = 'expired', updated_at = ${nowIso}
+      FROM tenants AS t
+      WHERE t.id = q.tenant_id
+        AND q.status = 'sent'
+        AND q.expiry_date IS NOT NULL
+        AND q.expiry_date < (now() AT TIME ZONE t.timezone)::date
+      RETURNING q.id
+    `);
+
+    const count = Array.from(expired).length;
+    if (count > 0) {
+      console.info(`[email-cron] Expired ${count} quote(s)`);
+    }
+  } catch (err) {
+    console.error("[email-cron] Quote expiry sweep failed:", err);
+  }
+}
+
+/**
  * Start all email cron jobs with setInterval.
  * Call this once from server startup.
  */
@@ -471,7 +513,17 @@ export function startEmailCronJobs(): void {
     );
   }, FIFTEEN_MINUTES);
 
-  console.info("[email-cron] Email cron jobs started (6h interval, 15m for E-12)");
+  // Quote expiry is a date boundary, so hourly keeps the stored column within an
+  // hour of the derived one every read already shows.
+  setInterval(() => {
+    processQuoteExpiry().catch((err) =>
+      console.error("[email-cron] Quote expiry cron failed:", err),
+    );
+  }, ONE_HOUR);
+
+  console.info(
+    "[email-cron] Email cron jobs started (6h interval, 15m for E-12, 1h for quote expiry)",
+  );
 
   // Run once on startup after a brief delay
   setTimeout(() => {
@@ -479,5 +531,6 @@ export function startEmailCronJobs(): void {
     processContractRenewalReminders().catch(console.error);
     processTrialExpiryWarnings().catch(console.error);
     processReviewRequests().catch(console.error);
+    processQuoteExpiry().catch(console.error);
   }, 10_000); // 10s delay to let server finish starting
 }

@@ -38,6 +38,7 @@ import {
   prefetchEquipment,
 } from "@/hooks/queries";
 import { useRowSelection } from "@/hooks/use-row-selection";
+import { seeded } from "@/hooks/queries/seed";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
@@ -105,7 +106,15 @@ export function AssetsPageClient({
 
   // ── Queries ────────────────────────────────────────────────
   const listParams = { search: debouncedSearch, page, limit: 15 };
-  const assetsQuery = useEquipment(listParams);
+  // ARC-06: the server already fetched this exact page and the prop was being
+  // dropped, so every visit fetched twice and still showed a skeleton.
+  const assetsQuery = useEquipment(listParams, {
+    seed: seeded(page === 1 && !debouncedSearch, {
+      data: initialAssets,
+      pagination: initialPagination,
+      error: null,
+    }),
+  });
 
   const assets = (assetsQuery.data?.data ?? []) as AssetRow[];
   const pagination = (assetsQuery.data?.pagination ?? DEFAULT_PAGINATION) as PaginationData;

@@ -20,20 +20,9 @@ import {
   IconDevices2,
 } from "@tabler/icons-react";
 
-function formatCurrency(val: string | null) {
-  const num = parseFloat(val ?? "0");
-  if (num < 0) return `\u2212$${Math.abs(num).toFixed(2)}`;
-  return `$${num.toFixed(2)}`;
-}
-
-function formatDate(val: string | null) {
-  if (!val) return "\u2014";
-  return new Date(val).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
+// QUO-10: `new Date("2026-08-01")` is UTC midnight, so this printed the previous
+// day for every US tenant while the customer portal printed the right one.
+import { formatMoney as formatCurrency, formatDateOnly as formatDate } from "@/lib/format";
 
 interface QuoteDetailTabProps {
   quote: {

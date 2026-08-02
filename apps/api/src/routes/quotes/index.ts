@@ -44,94 +44,25 @@ import {
 } from "../../lib/schemas/quotes.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import { containsPattern } from "../../lib/search.js";
-import { isItemType, resolveLineItemDescription } from "../../lib/line-items.js";
-
-// ========== HELPERS ==========
-
-/**
- * Auto-expire sent quotes past their expiryDate.
- * Single UPDATE, no extra queries.
- */
-async function autoExpireQuotes(
-  db: ReturnType<typeof getDb>,
-  tenantId: string,
-) {
-  const today = new Date().toISOString().split("T")[0];
-  await db
-    .update(quotes)
-    .set({ status: "expired" as never, updatedAt: new Date() })
-    .where(
-      and(
-        eq(quotes.tenantId, tenantId),
-        eq(quotes.status, "sent" as never),
-        lt(quotes.expiryDate, today),
-      ),
-    );
-}
-
-async function logQuoteActivity(
-  db: ReturnType<typeof getDb>,
-  tenantId: string,
-  quoteId: string,
-  type: string,
-  description: string,
-  performedBy?: string,
-  metadata?: Record<string, unknown>,
-) {
-  await db.insert(quoteActivities).values({
-    tenantId,
-    quoteId,
-    type,
-    description,
-    performedBy: performedBy ?? null,
-    metadata: metadata ?? null,
-  });
-}
-
-async function recalculateQuoteTotals(
-  db: ReturnType<typeof getDb>,
-  quoteId: string,
-  tenantId: string,
-) {
-  // Sum all line items
-  const result = await db
-    .select({
-      subtotal: sql<string>`COALESCE(SUM(quantity * unit_price), 0)`,
-    })
-    .from(quoteLineItems)
-    .where(
-      and(
-        eq(quoteLineItems.quoteId, quoteId),
-        eq(quoteLineItems.tenantId, tenantId),
-      ),
-    );
-
-  const subtotal = parseFloat(result[0]?.subtotal ?? "0");
-
-  // Get quote tax rate and discount
-  const [q] = await db
-    .select({
-      taxRate: quotes.taxRate,
-      discountAmount: quotes.discountAmount,
-    })
-    .from(quotes)
-    .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
-
-  const taxRate = parseFloat(q?.taxRate ?? "0");
-  const discountAmount = parseFloat(q?.discountAmount ?? "0");
-  const taxAmount = subtotal * taxRate;
-  const totalAmount = subtotal + taxAmount - discountAmount;
-
-  await db
-    .update(quotes)
-    .set({
-      subtotal: subtotal.toFixed(2),
-      taxAmount: taxAmount.toFixed(2),
-      totalAmount: totalAmount.toFixed(2),
-      updatedAt: new Date(),
-    })
-    .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
-}
+import { resolveLineItemDescription } from "../../lib/line-items.js";
+import {
+  loadEditableQuote,
+  assertDraft,
+  ownsCustomer,
+  loadQuotableEquipment,
+  canTransitionQuote,
+  transitionRefusal,
+  isQuoteStatus,
+  type QuoteStatus,
+} from "../../lib/quote-guards.js";
+import {
+  recalculateQuoteTotals,
+  logQuoteActivity,
+  getQuoteStats,
+  displayStatus,
+  statusCondition,
+} from "../../services/quotes/quotes.service.js";
+import { todayInTimezone, formatDateOnly } from "../../lib/timezone.js";
 
 // ========== ROUTES ==========
 
@@ -158,10 +89,8 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       } = request.query;
 
       const tenantId = request.authUser.tenantId!;
+      const timezone = request.authUser.tenantTimezone;
       const db = getDb();
-
-      // Auto-expire sent quotes past their expiry date
-      await autoExpireQuotes(db, tenantId);
 
       const pageNum = page;
       const limitNum = limit;
@@ -182,8 +111,11 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         );
       }
 
+      // Filter on the *derived* status so `?status=expired` returns the quotes
+      // the user can see are expired, and `?status=sent` does not include ones
+      // that have already lapsed but which the cron has not swept yet.
       if (status) {
-        filters.push(eq(quotes.status, status as never));
+        filters.push(statusCondition(status, timezone));
       }
       if (customerId) {
         filters.push(eq(quotes.customerId, customerId));
@@ -246,9 +178,13 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       ]);
 
       const total = totalResult[0]?.total ?? 0;
+      const today = todayInTimezone(timezone);
 
       return reply.send({
-        data,
+        data: data.map((row) => ({
+          ...row,
+          status: displayStatus(row, today),
+        })),
         pagination: {
           page: pageNum,
           limit: limitNum,
@@ -267,27 +203,12 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
     "/stats",
     { preHandler: [requireTenant] },
     async (request, reply) => {
-      const tenantId = request.authUser.tenantId!;
-      const db = getDb();
-
-      const [result] = await db
-        .select({
-          draft: sql<number>`COUNT(*) FILTER (WHERE status = 'draft')`,
-          sent: sql<number>`COUNT(*) FILTER (WHERE status = 'sent')`,
-          accepted: sql<number>`COUNT(*) FILTER (WHERE status = 'accepted')`,
-          declined: sql<number>`COUNT(*) FILTER (WHERE status = 'declined')`,
-        })
-        .from(quotes)
-        .where(eq(quotes.tenantId, tenantId));
-
-      return reply.send({
-        data: {
-          draft: Number(result.draft),
-          sent: Number(result.sent),
-          accepted: Number(result.accepted),
-          declined: Number(result.declined),
-        },
-      });
+      const stats = await getQuoteStats(
+        getDb(),
+        request.authUser.tenantId!,
+        request.authUser.tenantTimezone,
+      );
+      return reply.send({ data: stats });
     },
   );
 
@@ -301,10 +222,8 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
+      const timezone = request.authUser.tenantTimezone;
       const db = getDb();
-
-      // Auto-expire this quote if past expiry
-      await autoExpireQuotes(db, tenantId);
 
       const quoteRow = await db
         .select({
@@ -362,6 +281,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       return reply.send({
         data: {
           ...quoteRow,
+          status: displayStatus(quoteRow, todayInTimezone(timezone)),
           lineItems,
         },
       });
@@ -379,41 +299,30 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const body = request.body;
 
+      const timezone = request.authUser.tenantTimezone;
       const db = getDb();
 
-      // Validate customer
-      const customer = await db
-        .select({ id: customers.id })
-        .from(customers)
-        .where(
-          and(
-            eq(customers.tenantId, tenantId),
-            eq(customers.id, body.customerId),
-          ),
-        )
-        .then((r) => r[0]);
-
-      if (!customer) {
+      if (!(await ownsCustomer(db, tenantId, body.customerId))) {
         return reply.status(400).send({ message: "Customer not found" });
       }
 
-      // Validate discount amount
-      if (body.discountAmount !== undefined) {
-        const d = parseFloat(body.discountAmount);
-        if (isNaN(d) || d < 0) {
-          return reply.status(400).send({ message: "Discount amount must be a non-negative number" });
+      // QUO-22: `customerId` was validated and `equipmentId` was written
+      // straight from the body. Equipment belongs to a customer, so a mis-set id
+      // put another customer's serial number on a PDF that gets emailed out.
+      if (body.equipmentId) {
+        const owned = await loadQuotableEquipment(
+          db,
+          tenantId,
+          body.equipmentId,
+          body.customerId,
+        );
+        if (!owned.ok) {
+          return reply.status(owned.status).send({ message: owned.message });
         }
       }
 
-      // Validate tax rate (decimal: 0.0825 = 8.25%)
-      if (body.taxRate !== undefined) {
-        const t = parseFloat(body.taxRate);
-        if (isNaN(t) || t < 0 || t > 1) {
-          return reply.status(400).send({ message: "Tax rate must be between 0 and 1 (e.g., 0.0825 for 8.25%)" });
-        }
-      }
-
-      // Get default tax rate from tenant if not specified
+      // Ranges are enforced by `taxRateString` / `moneyString` in the schema now,
+      // so the hand-rolled parseFloat guards that used to live here are gone.
       let taxRate = body.taxRate;
       if (!taxRate) {
         const [tenant] = await db
@@ -423,33 +332,96 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         taxRate = tenant?.defaultTaxRate ?? "0";
       }
 
-      // Default expiry: 30 days from now
-      const today = new Date();
-      const defaultExpiry = new Date(today);
-      defaultExpiry.setDate(defaultExpiry.getDate() + 30);
+      // Dates default in the *tenant's* timezone. `new Date()` here meant a
+      // quote raised at 7pm Central was stamped with tomorrow's issue date.
+      const today = todayInTimezone(timezone);
+      const defaultExpiry = new Date(`${today}T12:00:00Z`);
+      defaultExpiry.setUTCDate(defaultExpiry.getUTCDate() + 30);
 
-      const [quote] = await db
-        .insert(quotes)
-        .values({
+      // Any catalog ids supplied with the lines must belong to this tenant.
+      // Checked before the transaction so a bad id is a 400 rather than a
+      // rollback of a quote the user watched succeed.
+      const catalogIds = [
+        ...new Set(
+          (body.lineItems ?? [])
+            .map((li) => li.catalogItemId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ];
+      if (catalogIds.length > 0) {
+        const owned = await db
+          .select({ id: catalogItems.id })
+          .from(catalogItems)
+          .where(
+            and(
+              eq(catalogItems.tenantId, tenantId),
+              inArray(catalogItems.id, catalogIds),
+            ),
+          );
+        if (owned.length !== catalogIds.length) {
+          return reply.status(400).send({ message: "Catalog item not found" });
+        }
+      }
+
+      // One transaction: the quote, its line items, the totals and the activity
+      // row land together or not at all (QUO-28).
+      const created = await db.transaction(async (tx) => {
+        // The number comes from a BEFORE INSERT trigger, so `RETURNING` already
+        // carries it — the handler used to select the row again to read it
+        // (QUO-32, verified).
+        const [quote] = await tx
+          .insert(quotes)
+          .values({
+            tenantId,
+            customerId: body.customerId,
+            quoteNumber: "", // Auto-generated by DB trigger
+            issuedDate: body.issuedDate || today,
+            expiryDate:
+              body.expiryDate || defaultExpiry.toISOString().split("T")[0],
+            taxRate: taxRate ?? "0",
+            discountAmount: body.discountAmount || "0",
+            notes: body.notes || null,
+            equipmentId: body.equipmentId || null,
+          })
+          .returning();
+
+        if (body.lineItems && body.lineItems.length > 0) {
+          await tx.insert(quoteLineItems).values(
+            body.lineItems.map((li, index) => ({
+              tenantId,
+              quoteId: quote.id,
+              catalogItemId: li.catalogItemId || null,
+              itemType: li.itemType,
+              description: resolveLineItemDescription({
+                description: li.description,
+                itemType: li.itemType,
+              }),
+              quantity: li.quantity || "1",
+              unitPrice: li.unitPrice,
+              sortOrder: li.sortOrder ?? index,
+            })),
+          );
+          await recalculateQuoteTotals(tx, quote.id, tenantId);
+        }
+
+        await logQuoteActivity(tx, {
           tenantId,
-          customerId: body.customerId,
-          quoteNumber: "", // Auto-generated by DB trigger
-          issuedDate: body.issuedDate || today.toISOString().split("T")[0],
-          expiryDate: body.expiryDate || defaultExpiry.toISOString().split("T")[0],
-          taxRate: taxRate ?? "0",
-          discountAmount: body.discountAmount || "0",
-          notes: body.notes || null,
-          equipmentId: body.equipmentId || null,
-        })
-        .returning();
+          quoteId: quote.id,
+          type: "quote.created",
+          description: `Quote ${quote.quoteNumber} created`,
+          performedBy: request.authUser.userId,
+          metadata: { lineItemCount: body.lineItems?.length ?? 0 },
+        });
 
-      // Re-fetch to get auto-generated quoteNumber
-      const [created] = await db
-        .select()
-        .from(quotes)
-        .where(eq(quotes.id, quote.id));
+        // Re-read so the response carries the recalculated totals rather than
+        // the zeroes the row was inserted with.
+        const [withTotals] = await tx
+          .select()
+          .from(quotes)
+          .where(and(eq(quotes.id, quote.id), eq(quotes.tenantId, tenantId)));
 
-      await logQuoteActivity(db, tenantId, created.id, "quote.created", `Quote ${created.quoteNumber} created`, request.authUser.userId);
+        return withTotals;
+      });
 
       return reply.status(201).send({ data: created });
     },
@@ -468,52 +440,32 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body;
       const db = getDb();
 
-      const existing = await db
-        .select()
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
+      }
+      const existing = guard.quote;
 
-      if (!existing) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const draftGate = assertDraft(existing, "edited");
+      if (draftGate) {
+        return reply.status(draftGate.status).send({ message: draftGate.message });
       }
 
-      if (existing.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ message: "Only draft quotes can be edited" });
-      }
-
-      // Validate discount amount
-      if (body.discountAmount !== undefined) {
-        const d = parseFloat(body.discountAmount);
-        if (isNaN(d) || d < 0) {
-          return reply.status(400).send({ message: "Discount amount must be a non-negative number" });
-        }
-      }
-
-      // Validate tax rate
-      if (body.taxRate !== undefined) {
-        const t = parseFloat(body.taxRate);
-        if (isNaN(t) || t < 0 || t > 1) {
-          return reply.status(400).send({ message: "Tax rate must be between 0 and 1 (e.g., 0.0825 for 8.25%)" });
-        }
-      }
-
-      // Validate customer ID change
       if (body.customerId && body.customerId !== existing.customerId) {
-        const newCustomer = await db
-          .select({ id: customers.id })
-          .from(customers)
-          .where(
-            and(
-              eq(customers.tenantId, tenantId),
-              eq(customers.id, body.customerId),
-            ),
-          )
-          .then((r) => r[0]);
-        if (!newCustomer) {
+        if (!(await ownsCustomer(db, tenantId, body.customerId))) {
           return reply.status(400).send({ message: "Customer not found" });
+        }
+      }
+
+      if (body.equipmentId) {
+        const owned = await loadQuotableEquipment(
+          db,
+          tenantId,
+          body.equipmentId,
+          body.customerId ?? existing.customerId,
+        );
+        if (!owned.ok) {
+          return reply.status(owned.status).send({ message: owned.message });
         }
       }
 
@@ -555,7 +507,14 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(eq(quotes.id, id));
 
       const changedFields = Object.keys(updates).filter((k) => k !== "updatedAt");
-      await logQuoteActivity(db, tenantId, id, "quote.updated", `Quote updated (${changedFields.join(", ")})`, request.authUser.userId, { changedFields });
+      await logQuoteActivity(db, {
+        tenantId,
+        quoteId: id,
+        type: "quote.updated",
+        description: `Quote updated (${changedFields.join(", ")})`,
+        performedBy: request.authUser.userId,
+        metadata: { changedFields },
+      });
 
       return reply.send({ data: updated });
     },
@@ -573,20 +532,14 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      const existing = await db
-        .select({ id: quotes.id, status: quotes.status })
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!existing) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
 
-      if (existing.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ message: "Only draft quotes can be deleted" });
+      const draftGate = assertDraft(guard.quote, "deleted");
+      if (draftGate) {
+        return reply.status(draftGate.status).send({ message: draftGate.message });
       }
 
       await db
@@ -612,28 +565,20 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body;
       const db = getDb();
 
-      // Verify quote exists and is draft
-      const q = await db
-        .select({ id: quotes.id, status: quotes.status })
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!q) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
-
-      if (q.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ message: "Can only add line items to draft quotes" });
+      const draftGate = assertDraft(guard.quote, "given line items");
+      if (draftGate) {
+        return reply.status(draftGate.status).send({ message: draftGate.message });
       }
 
       let description = body.description;
       let unitPrice = body.unitPrice;
       let itemType = body.itemType;
+      let catalogName: string | null = null;
 
-      // Auto-fill from catalog
       if (body.catalogItemId) {
         const catalogItem = await db
           .select()
@@ -646,42 +591,61 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           )
           .then((r) => r[0]);
 
-        if (catalogItem) {
-          description = description || catalogItem.name;
-          unitPrice = unitPrice || catalogItem.unitPrice;
-          itemType = itemType || catalogItem.itemType;
+        // A catalog id that is not this tenant's is a 400, not a silent
+        // fall-through to an unpriced line.
+        if (!catalogItem) {
+          return reply.status(400).send({ message: "Catalog item not found" });
         }
+        catalogName = catalogItem.name;
+        unitPrice = unitPrice || catalogItem.unitPrice;
+        itemType = itemType || catalogItem.itemType;
       }
 
       // A description is optional — a line can be nothing but a price. What it
-      // is called falls back to the item type, which matters most here: this
-      // text renders on the public quote portal and the quote PDF.
-      if (!unitPrice || !isItemType(itemType)) {
+      // is called falls back to the catalog name and then the item type, which
+      // matters most here: this text renders on the public quote portal and the
+      // quote PDF. `itemType` is now an enum at the schema, so the hand-rolled
+      // `isItemType` check is only guarding the "neither supplied nor derivable"
+      // case.
+      if (!unitPrice || !itemType) {
         return reply.status(400).send({
           message: "unitPrice and itemType are required",
         });
       }
       const resolvedDescription = resolveLineItemDescription({
         description,
+        catalogName,
         itemType,
       });
 
-      const [lineItem] = await db
-        .insert(quoteLineItems)
-        .values({
+      // One transaction: insert, recalculate, log. A failure part-way used to
+      // leave stored totals that did not match the line items (QUO-28).
+      const lineItem = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(quoteLineItems)
+          .values({
+            tenantId,
+            quoteId: id,
+            catalogItemId: body.catalogItemId || null,
+            itemType,
+            description: resolvedDescription,
+            quantity: body.quantity || "1",
+            unitPrice,
+            sortOrder: body.sortOrder ?? 0,
+          })
+          .returning();
+
+        await recalculateQuoteTotals(tx, id, tenantId);
+        await logQuoteActivity(tx, {
           tenantId,
           quoteId: id,
-          catalogItemId: body.catalogItemId || null,
-          itemType,
-          description: resolvedDescription,
-          quantity: body.quantity || "1",
-          unitPrice,
-          sortOrder: body.sortOrder || 0,
-        })
-        .returning();
-
-      await recalculateQuoteTotals(db, id, tenantId);
-      await logQuoteActivity(db, tenantId, id, "line_item.added", `Line item added: ${resolvedDescription}`, request.authUser.userId, { description: resolvedDescription });
+          type: "line_item.added",
+          description: `Line item added: ${resolvedDescription}`,
+          performedBy: request.authUser.userId,
+          metadata: { description: resolvedDescription },
+        });
+        return row;
+      });
 
       return reply.status(201).send({ data: lineItem });
     },
@@ -700,20 +664,13 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body;
       const db = getDb();
 
-      // Verify quote is draft
-      const q = await db
-        .select({ status: quotes.status })
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!q) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
-      if (q.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ message: "Can only edit line items on draft quotes" });
+      const draftGate = assertDraft(guard.quote, "edited");
+      if (draftGate) {
+        return reply.status(draftGate.status).send({ message: draftGate.message });
       }
 
       const existing = await db
@@ -732,6 +689,24 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Line item not found" });
       }
 
+      if (body.catalogItemId) {
+        const [owned] = await db
+          .select({ id: catalogItems.id })
+          .from(catalogItems)
+          .where(
+            and(
+              eq(catalogItems.tenantId, tenantId),
+              eq(catalogItems.id, body.catalogItemId),
+            ),
+          );
+        if (!owned) {
+          return reply.status(400).send({ message: "Catalog item not found" });
+        }
+      }
+
+      // `itemType` is validated by the schema now — this handler used to copy
+      // whatever was in the body into the update, so "banana" reached the
+      // pgEnum as a 500 while POST 400'd on the same input (QUO-19).
       const allowedFields = [
         "description",
         "quantity",
@@ -739,23 +714,37 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         "sortOrder",
         "itemType",
         "catalogItemId",
-      ];
+      ] as const;
       const updates: Record<string, unknown> = {};
-      const bodyRecord = body as Record<string, unknown>;
       for (const field of allowedFields) {
-        if (field in bodyRecord) {
-          updates[field] = bodyRecord[field];
+        if (field in body) {
+          updates[field] = body[field];
         }
       }
 
-      const [updated] = await db
-        .update(quoteLineItems)
-        .set(updates)
-        .where(and(eq(quoteLineItems.id, lineItemId), eq(quoteLineItems.tenantId, tenantId)))
-        .returning();
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(quoteLineItems)
+          .set(updates)
+          .where(
+            and(
+              eq(quoteLineItems.id, lineItemId),
+              eq(quoteLineItems.tenantId, tenantId),
+              eq(quoteLineItems.quoteId, id),
+            ),
+          )
+          .returning();
 
-      await recalculateQuoteTotals(db, id, tenantId);
-      await logQuoteActivity(db, tenantId, id, "line_item.updated", "Line item updated", request.authUser.userId);
+        await recalculateQuoteTotals(tx, id, tenantId);
+        await logQuoteActivity(tx, {
+          tenantId,
+          quoteId: id,
+          type: "line_item.updated",
+          description: "Line item updated",
+          performedBy: request.authUser.userId,
+        });
+        return row;
+      });
 
       return reply.send({ data: updated });
     },
@@ -777,19 +766,13 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const db = getDb();
 
       // Verify quote is draft
-      const q = await db
-        .select({ status: quotes.status })
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!q) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
-      if (q.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ message: "Can only remove line items from draft quotes" });
+      const draftGate = assertDraft(guard.quote, "changed");
+      if (draftGate) {
+        return reply.status(draftGate.status).send({ message: draftGate.message });
       }
 
       const existing = await db
@@ -808,18 +791,26 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Line item not found" });
       }
 
-      await db
-        .delete(quoteLineItems)
-        .where(
-          and(
-            eq(quoteLineItems.tenantId, tenantId),
-            eq(quoteLineItems.quoteId, id),
-            eq(quoteLineItems.id, lineItemId),
-          ),
-        );
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(quoteLineItems)
+          .where(
+            and(
+              eq(quoteLineItems.tenantId, tenantId),
+              eq(quoteLineItems.quoteId, id),
+              eq(quoteLineItems.id, lineItemId),
+            ),
+          );
 
-      await recalculateQuoteTotals(db, id, tenantId);
-      await logQuoteActivity(db, tenantId, id, "line_item.removed", "Line item removed", request.authUser.userId);
+        await recalculateQuoteTotals(tx, id, tenantId);
+        await logQuoteActivity(tx, {
+          tenantId,
+          quoteId: id,
+          type: "line_item.removed",
+          description: "Line item removed",
+          performedBy: request.authUser.userId,
+        });
+      });
 
       return reply.send({ message: "Line item deleted" });
     },
@@ -837,22 +828,18 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
+      const timezone = request.authUser.tenantTimezone;
       const db = getDb();
 
-      const q = await db
-        .select()
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!q) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
+      const q = guard.quote;
 
-      if (q.status !== "draft") {
-        return reply
-          .status(400)
-          .send({ message: "Only draft quotes can be sent" });
+      const draftGate = assertDraft(q, "sent");
+      if (draftGate) {
+        return reply.status(draftGate.status).send({ message: draftGate.message });
       }
 
       // Get line items, customer, tenant, equipment info
@@ -922,7 +909,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .update(quotes)
         .set({
           pdfStoragePath: storagePath,
-          status: "sent" as never,
+          status: "sent",
           accessToken,
           updatedAt: new Date(),
         })
@@ -933,7 +920,13 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .from(quotes)
         .where(eq(quotes.id, id));
 
-      await logQuoteActivity(db, tenantId, id, "quote.sent", "Quote sent", request.authUser.userId);
+      await logQuoteActivity(db, {
+        tenantId,
+        quoteId: id,
+        type: "quote.sent",
+        description: "Quote sent",
+        performedBy: request.authUser.userId,
+      });
 
       // E-13: Send quote email with PDF attachment (fire-and-forget)
       if (customer?.email) {
@@ -952,12 +945,12 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
             businessPhone: tenant?.phone ?? null,
             businessAddress: tenant?.address ?? null,
             quoteNumber: q.quoteNumber ?? `QT-${q.id.slice(0, 8)}`,
-            issuedDate: q.issuedDate
-              ? new Date(q.issuedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-              : new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }),
-            expiryDate: q.expiryDate
-              ? new Date(q.expiryDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
-              : "30 days",
+            // `new Date("2026-08-01")` is UTC midnight, so this rendered the day
+            // before for any negative-offset reader. `formatDateOnly` parses at
+            // local noon, which is the same rule the customer portal already
+            // used — the two surfaces printed different dates (QUO-10).
+            issuedDate: formatDateOnly(q.issuedDate) ?? formatDateOnly(todayInTimezone(timezone))!,
+            expiryDate: formatDateOnly(q.expiryDate) ?? "30 days",
             lineItems: lineItems.map((li) => ({
               description: li.description ?? "",
               quantity: Number(li.quantity ?? 1),
@@ -1091,32 +1084,34 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      const q = await db
-        .select({ id: quotes.id, status: quotes.status, quoteNumber: quotes.quoteNumber })
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!q) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
+      const q = guard.quote;
 
-      if (q.status !== "sent") {
+      if (!canTransitionQuote(q.status, "accepted")) {
         return reply
           .status(400)
-          .send({ message: "Only sent quotes can be accepted" });
+          .send({ message: transitionRefusal(q.status, "accepted") });
       }
 
       const [updated] = await db
         .update(quotes)
         .set({
-          status: "accepted" as never,
+          status: "accepted",
           updatedAt: new Date(),
         })
         .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
         .returning();
 
-      await logQuoteActivity(db, tenantId, id, "quote.accepted", "Quote accepted", request.authUser.userId);
+      await logQuoteActivity(db, {
+        tenantId,
+        quoteId: id,
+        type: "quote.accepted",
+        description: "Quote accepted",
+        performedBy: request.authUser.userId,
+      });
 
       dispatchNotification({
         tenantId,
@@ -1145,32 +1140,34 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      const q = await db
-        .select({ id: quotes.id, status: quotes.status, quoteNumber: quotes.quoteNumber })
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!q) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
+      const q = guard.quote;
 
-      if (q.status !== "sent") {
+      if (!canTransitionQuote(q.status, "declined")) {
         return reply
           .status(400)
-          .send({ message: "Only sent quotes can be declined" });
+          .send({ message: transitionRefusal(q.status, "declined") });
       }
 
       const [updated] = await db
         .update(quotes)
         .set({
-          status: "declined" as never,
+          status: "declined",
           updatedAt: new Date(),
         })
         .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
         .returning();
 
-      await logQuoteActivity(db, tenantId, id, "quote.declined", "Quote declined", request.authUser.userId);
+      await logQuoteActivity(db, {
+        tenantId,
+        quoteId: id,
+        type: "quote.declined",
+        description: "Quote declined",
+        performedBy: request.authUser.userId,
+      });
 
       dispatchNotification({
         tenantId,
@@ -1203,15 +1200,11 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const body = request.body ?? {};
       const db = getDb();
 
-      const q = await db
-        .select()
-        .from(quotes)
-        .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
-        .then((r) => r[0]);
-
-      if (!q) {
-        return reply.status(404).send({ message: "Quote not found" });
+      const guard = await loadEditableQuote(db, tenantId, id);
+      if (!guard.ok) {
+        return reply.status(guard.status).send({ message: guard.message });
       }
+      const q = guard.quote;
 
       if (q.status !== "accepted" && q.status !== "sent") {
         return reply
@@ -1238,6 +1231,11 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       } catch (err) {
         if (err instanceof Error && err.message === "ALREADY_CONVERTED") {
           return reply.status(400).send({ message: "This quote has already been converted to a job" });
+        }
+        // QUO-27: a stage id from another pipeline (or another tenant) is a
+        // client bug, not a move — 400 rather than silently re-piping the job.
+        if (err instanceof Error && err.message === "INVALID_STAGE") {
+          return reply.status(400).send({ message: "That stage does not belong to the default pipeline" });
         }
         throw err;
       }
@@ -1342,12 +1340,27 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      await db
+      // `count: ids.length` reported the *request*, not the result — archiving
+      // ten ids of which three exist said "10 archived" (QUO-29). `RETURNING`
+      // gives the real number, and the `{succeeded, failed, errors}` shape is
+      // what `bulkToast` reads to report partial failure honestly.
+      const archived = await db
         .update(quotes)
         .set({ archivedAt: new Date(), updatedAt: new Date() })
-        .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.id, ids)));
+        .where(
+          and(
+            eq(quotes.tenantId, tenantId),
+            inArray(quotes.id, ids),
+            isNull(quotes.archivedAt),
+          ),
+        )
+        .returning({ id: quotes.id });
 
-      return reply.send({ message: "Quotes archived", count: ids.length });
+      return reply.send({
+        succeeded: archived.length,
+        failed: ids.length - archived.length,
+        errors: [],
+      });
     },
   );
 
@@ -1363,7 +1376,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      await db
+      const restored = await db
         .update(quotes)
         .set({ archivedAt: null, updatedAt: new Date() })
         .where(
@@ -1372,9 +1385,14 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
             inArray(quotes.id, ids),
             isNotNull(quotes.archivedAt),
           ),
-        );
+        )
+        .returning({ id: quotes.id });
 
-      return reply.send({ message: "Quotes restored", count: ids.length });
+      return reply.send({
+        succeeded: restored.length,
+        failed: ids.length - restored.length,
+        errors: [],
+      });
     },
   );
 
@@ -1397,6 +1415,13 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const eligible: string[] = [];
       const errors: { id: string; message: string }[] = [];
+      const found = new Set(existing.map((r) => r.id));
+
+      for (const id of ids) {
+        if (!found.has(id)) {
+          errors.push({ id, message: "Quote not found" });
+        }
+      }
 
       for (const row of existing) {
         if (row.status === "draft") {
@@ -1415,9 +1440,12 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.id, eligible)));
       }
 
+      // Was `{message, deleted, errors}` with no `failed`, so `bulkToast` took
+      // the server `message` and the success branch: selecting ten sent quotes
+      // and pressing Delete reported success and deleted nothing (QUO-29).
       return reply.send({
-        message: "Bulk delete complete",
-        deleted: eligible.length,
+        succeeded: eligible.length,
+        failed: errors.length,
         errors,
       });
     },
@@ -1425,7 +1453,19 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   /**
    * POST /quotes/bulk-status-update
-   * Update status for the given quote IDs (tenant-scoped).
+   * Move quotes to a new status, one transition table shared with the single
+   * handlers.
+   *
+   * QUO-01. This used to be one `UPDATE` with no current-status check, no
+   * transition check and no archived check. Because `sent` is not merely a
+   * status — `/send` is what mints the access token, renders the PDF and emails
+   * the customer — flipping a draft to `sent` here produced a quote with no
+   * token and no PDF that `/send`, `PATCH` and `DELETE` then all refused,
+   * because all three require `draft`. The quote could not be sent, edited or
+   * deleted. Verified: `status=sent, token=NULL, pdf=NULL`.
+   *
+   * `sent` is no longer an accepted target at the schema; the transition table
+   * governs the rest. Filter-then-execute so partial failure is reported.
    */
   fastify.post(
     "/bulk-status-update",
@@ -1435,12 +1475,68 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      await db
-        .update(quotes)
-        .set({ status: status as never, updatedAt: new Date() })
+      const existing = await db
+        .select({
+          id: quotes.id,
+          status: quotes.status,
+          archivedAt: quotes.archivedAt,
+        })
+        .from(quotes)
         .where(and(eq(quotes.tenantId, tenantId), inArray(quotes.id, ids)));
 
-      return reply.send({ message: "Quotes updated", count: ids.length });
+      const eligible: string[] = [];
+      const errors: { id: string; message: string }[] = [];
+      const found = new Set(existing.map((r) => r.id));
+
+      for (const id of ids) {
+        if (!found.has(id)) errors.push({ id, message: "Quote not found" });
+      }
+
+      for (const row of existing) {
+        if (row.archivedAt) {
+          errors.push({
+            id: row.id,
+            message: "Cannot modify an archived quote. Restore it first.",
+          });
+          continue;
+        }
+        const from = isQuoteStatus(row.status) ? row.status : "draft";
+        if (!canTransitionQuote(from, status)) {
+          errors.push({ id: row.id, message: transitionRefusal(from, status) });
+          continue;
+        }
+        eligible.push(row.id);
+      }
+
+      if (eligible.length > 0) {
+        await db.transaction(async (tx) => {
+          await tx
+            .update(quotes)
+            .set({ status, updatedAt: new Date() })
+            .where(
+              and(eq(quotes.tenantId, tenantId), inArray(quotes.id, eligible)),
+            );
+
+          // The single-quote handlers log an activity row for every status
+          // change; the bulk path logged none, so a quote could change status
+          // with no trace of who did it or when.
+          for (const quoteId of eligible) {
+            await logQuoteActivity(tx, {
+              tenantId,
+              quoteId,
+              type: `quote.${status}`,
+              description: `Quote marked ${status} (bulk)`,
+              performedBy: request.authUser.userId,
+            });
+          }
+        });
+      }
+
+      return reply.send({
+        succeeded: eligible.length,
+        failed: errors.length,
+        errors,
+      });
     },
   );
 };

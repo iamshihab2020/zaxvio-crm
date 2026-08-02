@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useCatalogItems } from "@/hooks/queries";
 import {
   Popover,
   PopoverContent,
@@ -17,7 +19,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { IconSelector, IconCheck, IconX } from "@tabler/icons-react";
-import { getCatalogItems } from "@/actions/catalog";
 
 export interface CatalogPickerItem {
   id: string;
@@ -42,37 +43,40 @@ export function CatalogItemPicker({
 }: CatalogItemPickerProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [items, setItems] = useState<CatalogPickerItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const fetchItems = useCallback(async (q: string) => {
-    setLoading(true);
-    const result = await getCatalogItems({ search: q, limit: 10 });
-    if (result.data) {
-      setItems(
-        result.data.map((c: CatalogPickerItem) => ({
-          id: c.id,
-          name: c.name,
-          category: c.category,
-          unitPrice: c.unitPrice,
-          itemType: c.itemType,
-        })),
-      );
-    }
-    setLoading(false);
-  }, []);
+  /**
+   * Reads through TanStack Query instead of calling the server action directly.
+   *
+   * What was wrong: this fetched on **mount** with a bare server action and no
+   * cache. `CatalogItemPicker` mounts once per line item, and the Create Quote
+   * dialog also mounts `CustomerPicker` and `AssetPicker`, each doing the same
+   * thing. Next.js queues server actions, so those uncached round trips ran one
+   * after another — Next → Fastify → Neon each time — and the one the user
+   * actually opened waited behind the ones they didn't. Every re-open of the
+   * dialog paid the whole cost again.
+   *
+   * Now: nothing fetches until the popover opens, identical queries dedupe
+   * across every picker on the page, and the result is cached for a minute —
+   * the catalog is reference data, not a live feed.
+   */
+  const itemsQuery = useCatalogItems(
+    { search: debouncedSearch || undefined, limit: 10 },
+    { enabled: open },
+  );
 
-  // Prefetch catalog items on mount so data is ready instantly
-  useEffect(() => {
-    fetchItems("");
-  }, [fetchItems]);
-
-  // Refetch when user searches inside the popover
-  useEffect(() => {
-    if (!open || search === "") return;
-    const timer = setTimeout(() => fetchItems(search), 300);
-    return () => clearTimeout(timer);
-  }, [search, open, fetchItems]);
+  const items = ((itemsQuery.data?.data ?? []) as CatalogPickerItem[]).map(
+    (c) => ({
+      id: c.id,
+      name: c.name,
+      category: c.category,
+      unitPrice: c.unitPrice,
+      itemType: c.itemType,
+    }),
+  );
+  // Only a first load is worth a "Searching..." — a background refetch of an
+  // already-populated list should not blank the results out.
+  const loading = itemsQuery.isPending && open;
 
   /**
    * `modal` on the Popover, because this picker opens inside the Create Job and

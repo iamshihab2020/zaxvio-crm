@@ -31,12 +31,6 @@ const config = {
       // Server-sent events. EventSource sends credentials, so it has the same
       // first-party requirement as auth.
       { source: "/events", destination: `${apiOrigin}/events` },
-      // The one dashboard component that fetches the API straight from the
-      // browser (asset-service-history-tab). No page route lives here.
-      {
-        source: "/equipment/:id/history",
-        destination: `${apiOrigin}/equipment/:id/history`,
-      },
     ];
   },
   experimental: {

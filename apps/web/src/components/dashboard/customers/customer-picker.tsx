@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
   Popover,
   PopoverContent,
@@ -18,7 +18,8 @@ import {
   IconArrowBack,
   IconAlertCircle,
 } from "@tabler/icons-react";
-import { getCustomers } from "@/actions/customers";
+import { useCustomers } from "@/hooks/queries";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { formatPhoneInput } from "@/lib/phone";
 
 export type CustomerSelection =
@@ -58,40 +59,33 @@ interface CustomerOption {
 
 export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) {
   const [search, setSearch] = useState("");
-  const [customers, setCustomers] = useState<CustomerOption[]>([]);
   const [popoverOpen, setPopoverOpen] = useState(false);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
   const isNewMode = value?.type === "new";
 
-  const fetchCustomers = useCallback(async (q: string) => {
-    const result = await getCustomers({ search: q, limit: 10 });
-    if (result.data) {
-      setCustomers(
-        result.data.map((c: CustomerOption) => ({
-          id: c.id,
-          firstName: c.firstName,
-          lastName: c.lastName,
-          address: c.address ?? null,
-          city: c.city ?? null,
-          state: c.state ?? null,
-          zipCode: c.zipCode ?? null,
-        })),
-      );
-    }
-  }, []);
+  /**
+   * Lazy *and* cached. It was already lazy — the fetch was gated on
+   * `popoverOpen` — but it went straight to the server action with no cache, so
+   * closing and re-opening the dropdown re-ran the identical query, and the
+   * request queued behind whatever the sibling pickers were fetching.
+   */
+  const customersQuery = useCustomers(
+    { search: debouncedSearch || undefined, limit: 10 },
+    { enabled: popoverOpen },
+  );
 
-  // Fetch customers when popover opens (lazy — not on every mount)
-  useEffect(() => {
-    if (!popoverOpen) return;
-    fetchCustomers("");
-  }, [popoverOpen, fetchCustomers]);
-
-  // Refetch when user searches inside the popover
-  useEffect(() => {
-    if (!popoverOpen || search === "") return;
-    const timer = setTimeout(() => fetchCustomers(search), 300);
-    return () => clearTimeout(timer);
-  }, [search, popoverOpen, fetchCustomers]);
+  const customers = ((customersQuery.data?.data ?? []) as CustomerOption[]).map(
+    (c) => ({
+      id: c.id,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      address: c.address ?? null,
+      city: c.city ?? null,
+      state: c.state ?? null,
+      zipCode: c.zipCode ?? null,
+    }),
+  );
 
   function handleSelect(customer: CustomerOption) {
     onChange({
@@ -170,7 +164,9 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
               <div className="max-h-[200px] overflow-y-auto p-1">
                 {customers.length === 0 && (
                   <p className="py-4 text-center text-sm text-muted-foreground">
-                    No customers found
+                    {/* Loading is not empty — the list used to assert "no
+                        customers found" for the whole of the first fetch. */}
+                    {customersQuery.isPending ? "Searching…" : "No customers found"}
                   </p>
                 )}
                 {customers.map((c) => (

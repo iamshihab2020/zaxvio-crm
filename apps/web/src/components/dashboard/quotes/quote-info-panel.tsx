@@ -2,6 +2,11 @@
 
 import Link from "next/link";
 import { IconCalendar, IconReceipt, IconBriefcase } from "@tabler/icons-react";
+// QUO-10: `new Date("2026-08-01")` is UTC midnight, so this printed the previous
+// day for every US tenant while the customer portal — which anchors at local
+// midnight — printed the right one. `formatDateOnly` is the shared fix invoices
+// has used since INV-19.
+import { formatMoney as formatCurrency, formatDateOnly as formatDate } from "@/lib/format";
 import { QuoteStatusBadge } from "./quote-status-badge";
 import type { QuoteDetail } from "./quote-detail-sheet";
 
@@ -9,20 +14,6 @@ interface QuoteInfoPanelProps {
   quote: QuoteDetail;
 }
 
-function formatCurrency(val: string | null) {
-  const num = parseFloat(val ?? "0");
-  if (num < 0) return `\u2212$${Math.abs(num).toFixed(2)}`;
-  return `$${num.toFixed(2)}`;
-}
-
-function formatDate(val: string | null) {
-  if (!val) return "\u2014";
-  return new Date(val).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 export function QuoteInfoPanel({ quote }: QuoteInfoPanelProps) {
   const taxPercent = parseFloat(quote.taxRate ?? "0") * 100;

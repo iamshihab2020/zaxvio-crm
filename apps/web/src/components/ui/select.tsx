@@ -2,7 +2,12 @@
 
 import * as React from "react"
 import * as SelectPrimitive from "@radix-ui/react-select"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
+// Tabler, not lucide — see calendar.tsx. (ARC-14)
+import {
+  IconCheck as Check,
+  IconChevronDown as ChevronDown,
+  IconChevronUp as ChevronUp,
+} from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
 

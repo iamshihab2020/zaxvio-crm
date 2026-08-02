@@ -1,5 +1,6 @@
 "use client";
 
+import type * as React from "react";
 import { useCallback, useMemo, useRef, useEffect, type MutableRefObject } from "react";
 import {
   Calendar as BigCalendar,
@@ -34,9 +35,22 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
-/* ── DnD-enhanced calendar (typed as any to avoid react-big-calendar generic issues) ── */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const DnDCalendar = withDragAndDrop(BigCalendar as any) as any;
+/* ── DnD-enhanced calendar ──
+   `withDragAndDrop` erases react-big-calendar's generics, so the wrapped
+   component cannot be expressed with the library's own types. Rather than
+   `as any` at both ends (strict-rules §4), the wrapper is typed as the prop
+   surface this file actually passes — which is what a reader needs to know,
+   and what breaks the build if a prop is renamed. (ARC-17) */
+type DnDCalendarProps = React.ComponentProps<typeof BigCalendar> & {
+  onEventDrop?: (args: { event: CalendarEvent; start: Date | string; end: Date | string }) => void;
+  onEventResize?: (args: { event: CalendarEvent; start: Date | string; end: Date | string }) => void;
+  resizable?: boolean;
+  draggableAccessor?: (event: CalendarEvent) => boolean;
+};
+
+const DnDCalendar = withDragAndDrop(
+  BigCalendar as React.ComponentType<Record<string, unknown>>,
+) as unknown as React.ComponentType<DnDCalendarProps>;
 
 /* ── Types ── */
 export interface CalendarEvent {

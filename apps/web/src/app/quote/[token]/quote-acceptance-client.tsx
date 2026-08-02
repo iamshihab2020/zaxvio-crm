@@ -6,7 +6,8 @@ import { QuoteResponseButtons } from "@/components/quote-portal/quote-response-b
 import { QuoteConfirmation } from "@/components/quote-portal/quote-confirmation";
 import { QuoteExpiredView } from "@/components/quote-portal/quote-expired-view";
 import { acceptPublicQuote, declinePublicQuote } from "@/actions/public-quote";
-import { IconShieldCheck } from "@tabler/icons-react";
+import { LicenseBadge } from "@/components/public/license-badge";
+import { IconPrinter } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -14,6 +15,7 @@ interface QuoteData {
   business: {
     name: string;
     logoUrl: string | null;
+    licenseNumber?: string | null;
     phone: string | null;
     address: string | null;
     city: string | null;
@@ -78,6 +80,15 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
   );
   const [jobCreated, setJobCreated] = useState(false);
 
+  // The earliest date the customer may request, in the *business's* zone — the
+  // browser's "today" can be a day ahead or behind it.
+  const todayInBusinessTimezone = new Intl.DateTimeFormat("en-CA", {
+    timeZone: business.timezone ?? "America/Chicago",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
   // Build booking portal URL with customer data pre-filled
   function buildBookingUrl(): string {
     const params = new URLSearchParams();
@@ -91,10 +102,16 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
     return `/book/${business.slug}${qs ? `?${qs}` : ""}`;
   }
 
-  async function handleAccept() {
+  async function handleAccept(schedule?: {
+    scheduledDate?: string;
+    scheduledTime?: string;
+  }) {
     setAccepting(true);
     setError(null);
-    const result = await acceptPublicQuote(token);
+    // QUO-26: this called `acceptPublicQuote(token)` with no second argument, so
+    // the preferred date the API, the DB and the job conversion all support was
+    // never sent.
+    const result = await acceptPublicQuote(token, schedule);
     setAccepting(false);
 
     if (result.error) {
@@ -123,42 +140,51 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Branded Header */}
-      <header className="bg-midnight dark:bg-card border-b border-border">
-        <div className="mx-auto max-w-xl px-4 py-8 text-center">
-          {business.logoUrl && (
-            <img
-              src={business.logoUrl}
-              alt={business.name}
-              className="mx-auto mb-4 h-14 w-auto object-contain"
-            />
-          )}
-          <h1 className="text-2xl font-bold font-heading text-white dark:text-foreground">
-            {business.name}
-          </h1>
-          <p className="mt-2 text-sm text-white/70 dark:text-muted-foreground font-body">
-            Estimate {quote.quoteNumber}
-          </p>
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 dark:bg-muted/50 px-3 py-1">
-            <IconShieldCheck className="h-3.5 w-3.5 text-green-400" />
-            <span className="text-xs font-medium text-white/80 dark:text-muted-foreground">
-              Licensed &amp; Insured
-            </span>
+    <div className="quote-doc min-h-screen bg-surface-alt">
+      {/* Letterhead. Left-aligned rather than centred: this is correspondence
+          from a business, and a centred logo over a centred name is the shape
+          of every template. */}
+      <header className="border-b border-ink/15 bg-midnight dark:border-border dark:bg-card">
+        <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-4 px-5 py-6">
+          <div className="flex items-center gap-3">
+            {business.logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={business.logoUrl}
+                alt=""
+                width={44}
+                height={44}
+                className="h-11 w-11 shrink-0 rounded object-contain"
+              />
+            )}
+            <div>
+              <p className="font-heading text-lg font-semibold leading-tight text-white dark:text-foreground">
+                {business.name}
+              </p>
+              {business.phone && (
+                <p className="tnum font-mono text-[11px] text-white/60 dark:text-muted-foreground">
+                  {business.phone}
+                </p>
+              )}
+            </div>
           </div>
+          <LicenseBadge licenseNumber={business.licenseNumber} />
         </div>
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-xl px-4 py-6">
+      <main className="mx-auto max-w-2xl px-4 py-6 sm:py-10">
         {/* Error Banner */}
         {error && (
-          <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
+          <div
+            role="alert"
+            className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 font-body text-sm text-destructive"
+          >
             {error}
           </div>
         )}
 
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
+        <div className="rounded-lg border border-ink/15 bg-card p-5 shadow-sm dark:border-border sm:p-8">
           {/* Expired */}
           {quote.status === "expired" && (
             <QuoteExpiredView
@@ -171,12 +197,12 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
           {/* Already accepted/declined (from initial load) */}
           {alreadyResponded && quote.status !== "expired" && (
             <div className="space-y-6">
-              <div className="text-center">
-                <Badge variant={quote.status === "accepted" ? "default" : "secondary"} className="mb-4">
+              <div className="flex items-center gap-2 border-b border-ink/15 pb-4 dark:border-border">
+                <Badge variant={quote.status === "accepted" ? "default" : "secondary"}>
                   {quote.status === "accepted" ? "Accepted" : "Declined"}
                 </Badge>
-                <p className="text-sm text-muted-foreground font-body">
-                  This estimate has already been {quote.status}.
+                <p className="font-body text-sm text-muted-foreground">
+                  You&rsquo;ve already responded to this estimate.
                 </p>
               </div>
               <QuoteReviewCard business={business} quote={quote} />
@@ -185,14 +211,14 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
 
           {/* Step: Review */}
           {!alreadyResponded && step === "review" && (
-            <div className="space-y-6">
+            <div className="space-y-7">
               <QuoteReviewCard business={business} quote={quote} />
-              <div className="flex justify-end">
+              <div className="no-print flex justify-end border-t border-ink/10 pt-5 dark:border-border">
                 <Button
                   onClick={() => setStep("respond")}
-                  className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+                  className="cursor-pointer bg-brand font-body text-brand-foreground hover:bg-brand/90"
                 >
-                  Continue to Respond
+                  Respond to this estimate
                 </Button>
               </div>
             </div>
@@ -201,25 +227,32 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
           {/* Step: Respond */}
           {step === "respond" && (
             <div className="space-y-6">
-              <div className="text-center space-y-1">
-                <h2 className="text-lg font-semibold font-heading">
-                  Respond to Estimate
-                </h2>
-                <p className="text-sm text-muted-foreground font-body">
-                  {quote.quoteNumber} &mdash; Total:{" "}
-                  <span className="font-semibold text-foreground">
+              {/* The figure the customer is deciding on is repeated here at the
+                  same weight it carries on the document, so the decision screen
+                  never asks "how much was it again?". */}
+              <div className="border-b border-ink/15 pb-5 dark:border-border">
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
+                  {quote.quoteNumber}
+                </p>
+                <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                  <h2 className="font-heading text-lg font-semibold text-foreground">
+                    Accept or decline
+                  </h2>
+                  <span className="tnum font-mono text-2xl font-medium text-foreground">
                     {new Intl.NumberFormat("en-US", {
                       style: "currency",
                       currency: "USD",
                     }).format(Number(quote.totalAmount))}
                   </span>
-                </p>
+                </div>
               </div>
               <QuoteResponseButtons
-                onAccept={() => handleAccept()}
+                onAccept={handleAccept}
                 onDecline={handleDecline}
                 accepting={accepting}
                 declining={declining}
+                schedulingEnabled={settings.postAcceptanceScheduling}
+                minDate={todayInBusinessTimezone}
               />
             </div>
           )}
@@ -236,19 +269,35 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
           )}
         </div>
 
-        {/* Footer */}
-        <p className="mt-6 text-center text-xs text-muted-foreground font-body">
-          {business.address && (
-            <>
-              {business.address}
-              {business.city && `, ${business.city}`}
-              {business.state && `, ${business.state}`}
-              {business.zipCode && ` ${business.zipCode}`}
-              <br />
-            </>
-          )}
-          {business.phone && <>Phone: {business.phone}</>}
-        </p>
+        {/* Footer: the return address, plus the one action a paper document
+            needs. People print estimates and set them beside competing bids. */}
+        <footer className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-ink/10 pt-4 dark:border-border">
+          <p className="font-mono text-[11px] leading-relaxed text-muted-foreground">
+            {business.address && (
+              <>
+                {business.address}
+                {business.city && `, ${business.city}`}
+                {business.state && `, ${business.state}`}
+                {business.zipCode && ` ${business.zipCode}`}
+              </>
+            )}
+            {business.phone && (
+              <>
+                <br />
+                <span className="tnum">{business.phone}</span>
+              </>
+            )}
+          </p>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => window.print()}
+            className="no-print cursor-pointer font-mono text-[11px] uppercase tracking-[0.14em] text-muted-foreground"
+          >
+            <IconPrinter className="mr-1.5 h-3.5 w-3.5" aria-hidden />
+            Print
+          </Button>
+        </footer>
       </main>
     </div>
   );

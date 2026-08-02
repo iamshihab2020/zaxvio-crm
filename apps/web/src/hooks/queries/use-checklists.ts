@@ -11,8 +11,12 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export function useChecklistTemplates(params: Record<string, unknown>) {
+export function useChecklistTemplates(
+  params: Record<string, unknown>,
+  seed?: object,
+) {
   return useQuery({
+    ...seed,
     queryKey: queryKeys.checklists.list(params),
     queryFn: () =>
       getChecklistTemplates(params as Parameters<typeof getChecklistTemplates>[0]),

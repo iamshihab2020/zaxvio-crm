@@ -396,3 +396,57 @@
     height: 0;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Print — the customer-facing estimate.
+
+   People print an estimate and set it beside two competing bids, which is
+   exactly the moment the document has to look like it came from a real
+   business. There were no print rules at all, so this printed the dark
+   letterhead band, the Respond button and the Print button itself.
+
+   Scoped to `.quote-doc` so nothing here can leak into the dashboard.
+   ───────────────────────────────────────────────────────────────────── */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .quote-doc {
+    background: #fff !important;
+    min-height: 0 !important;
+  }
+
+  /* The branded band is screen furniture; on paper the letterhead should be
+     ink on white, which is also what a customer's printer can actually do. */
+  .quote-doc header {
+    background: #fff !important;
+    border-bottom: 1px solid #000 !important;
+  }
+
+  .quote-doc header * {
+    color: #000 !important;
+  }
+
+  .quote-doc main {
+    max-width: none !important;
+    padding: 0 !important;
+  }
+
+  .quote-doc main > div {
+    border: 0 !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Keep the total block readable without relying on background printing,
+     which most browsers disable by default. */
+  .quote-doc .bg-brand-light\/60 {
+    background: transparent !important;
+  }
+
+  /* A line item should never be split across a page break. */
+  .quote-doc li {
+    break-inside: avoid;
+  }
+}

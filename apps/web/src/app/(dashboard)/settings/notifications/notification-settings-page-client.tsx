@@ -76,8 +76,16 @@ function buildPreferencesMap(
   return map;
 }
 
+export interface NotificationPreference {
+  notificationType: string;
+  inApp: boolean;
+  email: boolean;
+  sms: boolean;
+  voice: boolean;
+}
+
 interface NotificationSettingsPageClientProps {
-  initialPreferences?: Array<{ notificationType: string; inApp: boolean; email: boolean; sms: boolean; voice: boolean }>;
+  initialPreferences?: NotificationPreference[];
 }
 
 export function NotificationSettingsPageClient({ initialPreferences }: NotificationSettingsPageClientProps) {

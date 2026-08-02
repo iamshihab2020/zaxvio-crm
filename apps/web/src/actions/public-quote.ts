@@ -2,6 +2,11 @@
 
 import { API_URL } from "@/lib/api-url";
 
+/**
+ * `notFound` distinguishes "this token is not a quote" from "we could not
+ * reach the API" (QUO-07). The page used to call `notFound()` on both, so an
+ * outage told the customer their estimate did not exist.
+ */
 export async function getPublicQuote(token: string) {
   try {
     const res = await fetch(`${API_URL}/public/quote/${token}`, {
@@ -10,13 +15,21 @@ export async function getPublicQuote(token: string) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Quote not found" };
+      return {
+        data: null,
+        notFound: res.status === 404,
+        error: err.message ?? "We couldn't load this estimate right now.",
+      };
     }
 
     const json = await res.json();
-    return { data: json.data, error: null };
+    return { data: json.data, notFound: false, error: null };
   } catch {
-    return { data: null, error: "Network error" };
+    return {
+      data: null,
+      notFound: false,
+      error: "We couldn't reach the server. Please try again in a moment.",
+    };
   }
 }
 

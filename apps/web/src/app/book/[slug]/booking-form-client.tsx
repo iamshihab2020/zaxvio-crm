@@ -10,7 +10,7 @@ import { BookingStepDate } from "@/components/booking-portal/booking-step-date";
 import { BookingStepTime } from "@/components/booking-portal/booking-step-time";
 import { BookingStepInfo, type CustomerInfo } from "@/components/booking-portal/booking-step-info";
 import { submitPublicBooking, getPublicAvailability, getPublicSlots } from "@/actions/bookings";
-import { IconShieldCheck } from "@tabler/icons-react";
+import { LicenseBadge } from "@/components/public/license-badge";
 import { cn } from "@/lib/utils";
 
 interface InitialCustomer {
@@ -24,6 +24,7 @@ interface BookingFormClientProps {
   slug: string;
   businessName: string;
   logoUrl: string | null;
+  licenseNumber?: string | null;
   serviceTypes: string[];
   embed?: boolean;
   source?: "portal" | "embed" | "widget";
@@ -44,6 +45,7 @@ export function BookingFormClient({
   slug,
   businessName,
   logoUrl,
+  licenseNumber,
   serviceTypes,
   embed = false,
   source = "portal",
@@ -272,11 +274,8 @@ export function BookingFormClient({
             <p className="mt-2 text-sm text-white/70 dark:text-muted-foreground font-body">
               Schedule your service appointment in minutes
             </p>
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 dark:bg-muted/50 px-3 py-1">
-              <IconShieldCheck className="h-3.5 w-3.5 text-green-400" />
-              <span className="text-xs font-medium text-white/80 dark:text-muted-foreground">
-                Licensed &amp; Insured
-              </span>
+            <div className="mt-3">
+              <LicenseBadge licenseNumber={licenseNumber} />
             </div>
           </div>
         </header>

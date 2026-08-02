@@ -1,99 +1,25 @@
 "use server";
 
-import { cookies } from "next/headers";
-
-import { API_URL } from "@/lib/api-url";
-
-async function getCookieHeader() {
-  const cookieStore = await cookies();
-  return cookieStore
-    .getAll()
-    .map((c) => `${c.name}=${c.value}`)
-    .join("; ");
-}
+import { apiGet, apiSend, apiVoid } from "@/lib/api-fetch";
 
 export async function getTags() {
-  try {
-    const res = await fetch(`${API_URL}/tags`, {
-      headers: { cookie: await getCookieHeader() },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Failed to fetch tags" };
-    }
-
-    const json = await res.json();
-    return { data: json.data, error: null };
-  } catch {
-    return { data: null, error: "Network error" };
-  }
+  return apiGet<unknown[]>("/tags", { fallback: "Failed to fetch tags" });
 }
 
 export async function createTag(name: string, color?: string) {
-  try {
-    const res = await fetch(`${API_URL}/tags`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        cookie: await getCookieHeader(),
-      },
-      body: JSON.stringify({ name, color }),
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Failed to create tag" };
-    }
-
-    const json = await res.json();
-    return { data: json.data, error: null };
-  } catch {
-    return { data: null, error: "Network error" };
-  }
+  return apiSend("/tags", "POST", { name, color }, {
+    fallback: "Failed to create tag",
+  });
 }
 
 export async function updateTag(id: string, name: string, color?: string) {
-  try {
-    const res = await fetch(`${API_URL}/tags/${id}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        cookie: await getCookieHeader(),
-      },
-      body: JSON.stringify({ name, color }),
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { data: null, error: err.message ?? "Failed to update tag" };
-    }
-
-    const json = await res.json();
-    return { data: json.data, error: null };
-  } catch {
-    return { data: null, error: "Network error" };
-  }
+  return apiSend(`/tags/${id}`, "PATCH", { name, color }, {
+    fallback: "Failed to update tag",
+  });
 }
 
 export async function deleteTag(id: string) {
-  try {
-    const res = await fetch(`${API_URL}/tags/${id}`, {
-      method: "DELETE",
-      headers: { cookie: await getCookieHeader() },
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      return { error: err.message ?? "Failed to delete tag" };
-    }
-
-    return { error: null };
-  } catch {
-    return { error: "Network error" };
-  }
+  return apiVoid(`/tags/${id}`, "DELETE", undefined, {
+    fallback: "Failed to delete tag",
+  });
 }

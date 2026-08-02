@@ -82,3 +82,31 @@ export function formatDateInTimezone(
     year: "numeric",
   }).format(date);
 }
+
+/**
+ * Render a `date` column (`YYYY-MM-DD`) for an email or PDF without the
+ * UTC-midnight day shift.
+ *
+ * `new Date("2026-08-01").toLocaleDateString()` is UTC midnight rendered in the
+ * *process* zone, so it prints the previous day anywhere west of UTC. The E-13
+ * quote email did exactly that, and the customer portal — which anchors at local
+ * midnight — printed a different date for the same field (QUO-10).
+ *
+ * Mirrors `formatDateOnly` in the web app's `lib/format.ts`; returns null rather
+ * than an em dash so callers can choose their own fallback.
+ */
+export function formatDateOnly(
+  value: string | null | undefined,
+  options?: Intl.DateTimeFormatOptions,
+): string | null {
+  if (!value) return null;
+  const d = new Date(`${value.slice(0, 10)}T12:00:00Z`);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString("en-US", {
+    timeZone: "UTC",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    ...options,
+  });
+}

@@ -143,3 +143,15 @@
   the business had actually failed to collect. Measured on the demo tenant: one draft worth
   $12,669.58 against $19,079.08 genuinely billed — a 66% overstatement. Keep the filter in one `sql`
   fragment shared by every query that says "billed".
+- **`db.execute()` returns the rows array directly, not `{ rows }`.** The project uses
+  `drizzle-orm/postgres-js`, whose `execute` resolves to a `Result` that *is* an array —
+  `res.rows` is `undefined` and every `.rows.length` on it throws. The `node-postgres`
+  shape (`{ rows: [...] }`) is what most Drizzle examples show, so any harness copied
+  from the docs fails on the first raw query. Destructure with `const [row] = await
+  db.execute(sql\`…\`)`.
+- **`SUM(quantity * unit_price)` is not the number the user is looking at.** Where line
+  items store `total` as a `GENERATED` `numeric(10,2)` column, Postgres rounds *per row*,
+  so the UI's column sums rounded values while a recalculation that re-multiplies sums the
+  raw ones. Two lines of `1.5 × 10.33` render as $15.50 each above a subtotal of $30.99
+  (measured on quotes). Sum the stored `total`, or round each product, but never mix the
+  two in one document.

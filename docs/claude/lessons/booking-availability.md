@@ -74,3 +74,21 @@ Full page audit + remediation — 34 findings, all fixed. See [[bookings-calenda
   end-minutes still dropped the 17:00 slot on a 17:30 close: I wrote "the hour must fit
   before closing" when the rule is "the slot must start before closing". It read
   correctly. The harness on `09:00–17:30` is what caught it.
+- **A settings toggle that only shapes an outgoing email is not a switch.**
+  `quoteOnlineAcceptanceEnabled` is read in exactly one place — deciding whether the E-13
+  email carries a portal link — while the public `GET`/`accept`/`decline` routes never
+  consult it. Turning it off stops new links being *sent* and leaves every previously
+  issued link fully live. For any public-token surface, enforce the kill switch in the
+  resolver that loads the record, not at the call site that hands the URL out.
+- **Token routes need the row lock, not just the status check.** The public quote accept
+  and decline both do resolve → `if (status !== "sent")` → update, with no transaction.
+  Two tabs both pass the check: an accept racing a decline ends with the quote `declined`
+  and a real scheduled job created by the accept path. The convert helper next door
+  already had the pattern (`SELECT … FOR UPDATE` inside a transaction) — the guard belongs
+  on every unauthenticated state change, not only the one that creates a row.
+- **`status = 'sent'` is a side effect, not a value — do not let anything set it directly.** Sending
+  a quote mints the access token, renders the PDF and emails the customer. A bulk endpoint that
+  wrote the status directly produced quotes with no token and no PDF which `/send`, `PATCH` and
+  `DELETE` then all refused, because all three require `draft` — unusable *and* undeletable. The
+  durable fix was to leave `draft → sent` out of the transition table entirely and drop `sent` from
+  the bulk schema's enum, so the illegal state is unrepresentable rather than merely guarded.

@@ -14,8 +14,12 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export function useServiceAgreements(params: Record<string, unknown>) {
+export function useServiceAgreements(
+  params: Record<string, unknown>,
+  seed?: object,
+) {
   return useQuery({
+    ...seed,
     queryKey: queryKeys.serviceAgreements.list(params),
     queryFn: () =>
       getMaintenanceContracts(params as Parameters<typeof getMaintenanceContracts>[0]),

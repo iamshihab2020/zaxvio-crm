@@ -482,7 +482,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["status", "draft", "sent", "accepted", "declined", "expired", "quote status"],
     question: "What are the quote statuses?",
     answer:
-      "Quotes follow this workflow:\n\n• **Draft** — Just created, editable\n• **Sent** — Emailed to customer\n• **Accepted** — Customer accepted the quote\n• **Declined** — Customer declined\n• **Expired** — Past the expiry date without a response\n\nQuotes auto-expire when their expiry date passes.",
+      "Quotes follow this workflow:\n\n• **Draft** — Just created, editable. Only drafts can be edited or deleted\n• **Sent** — Emailed to the customer with a PDF and a private acceptance link\n• **Accepted** — Customer accepted, online or by phone\n• **Declined** — Customer declined, optionally with a reason\n• **Expired** — Past the expiry date without a response\n\nA quote becomes **Sent** only by pressing Send — that's what generates the PDF and the customer's link — so the status can't be set directly, in bulk or otherwise. From Sent it can move to Accepted, Declined or Expired; those three are final.\n\nExpiry is judged in **your business timezone**, so a quote valid \"until the 1st\" stays live through the whole of the 1st where you are.",
   },
   {
     id: "quotes-convert",
@@ -498,7 +498,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["send", "email", "deliver", "quote email"],
     question: "How do I send a quote to a customer?",
     answer:
-      'Open the quote detail page and click **"Send Quote"**. This emails the quote PDF to the customer and changes the status from Draft to Sent. The customer has until the expiry date to respond.',
+      'Open the quote detail page and click **"Send Quote"**. This generates the PDF, emails it to the customer, and gives them a private link where they can accept or decline online. The status changes from Draft to Sent, after which the quote can no longer be edited.\n\nIf you switch **online acceptance** off in Settings → Quotes, links you already sent stop working too — not just new ones.',
   },
   {
     id: "quotes-sort",

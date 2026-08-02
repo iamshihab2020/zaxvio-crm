@@ -57,10 +57,7 @@ const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // Filter by item type
       if (itemType) {
         filters.push(
-          eq(
-            catalogItems.itemType,
-            itemType as never,
-          ),
+          eq(catalogItems.itemType, itemType),
         );
       }
 
@@ -192,7 +189,7 @@ const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .values({
           tenantId,
           name: body.name.trim(),
-          itemType: body.itemType as never,
+          itemType: body.itemType,
           unitPrice: String(body.unitPrice),
           unit: (body.unit || "each").trim(),
           category: body.category ? body.category.trim() : null,

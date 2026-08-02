@@ -11,16 +11,35 @@ import {
   eq,
   and,
   asc,
-  lt,
+  isNull,
 } from "@hvac-saas/database";
 import {
   quoteTokenParam,
   acceptQuoteBody,
   declineQuoteBody,
 } from "../../lib/schemas/public-quote.js";
+import { displayStatus } from "../../services/quotes/quotes.service.js";
+import { todayInTimezone } from "../../lib/timezone.js";
+
+/**
+ * Rate limits, same shape and reasoning as `routes/public/booking.ts`.
+ *
+ * These three endpoints had **none** (QUO-12). They inherited the global
+ * 100/min bucket, so this was throttling rather than its absence — but the two
+ * unauthenticated *mutations* in the product sat at the same limit as a
+ * dashboard page load, and the tightening pass that produced booking's limits
+ * walked straight past this file. [[security-rules]] §4.
+ */
+const READ_LIMIT = { max: 60, timeWindow: "1 minute" } as const;
+const RESPOND_LIMIT = { max: 10, timeWindow: "1 minute" } as const;
 
 /** Broadcast quote status change over SSE so the dashboard updates live. */
-async function broadcastQuoteUpdate(tenantId: string, quoteId: string, status: string, quoteNumber: string | null) {
+function broadcastQuoteUpdate(
+  tenantId: string,
+  quoteId: string,
+  status: string,
+  quoteNumber: string | null,
+) {
   try {
     publish(tenantId, "quotes", "quote_updated", { quoteId, status, quoteNumber });
   } catch (err) {
@@ -29,8 +48,21 @@ async function broadcastQuoteUpdate(tenantId: string, quoteId: string, status: s
 }
 
 /**
- * Resolve a quote by access token. Returns quote + tenant + customer name + settings.
- * Returns null if not found, tenant inactive, or token missing.
+ * Resolve a quote by access token.
+ *
+ * Returns null when the token is unknown, the tenant is inactive, the tenant has
+ * turned online acceptance off, or the quote has been archived.
+ *
+ * The `quoteOnlineAcceptanceEnabled` check is QUO-04. That flag was consulted in
+ * exactly one place in the codebase — deciding whether the E-13 email carried a
+ * link — while these three routes never looked at it. Turning the toggle off
+ * stopped new links being *sent* and left every previously issued link fully
+ * live, which is the opposite of what the settings page says it does (it
+ * force-disables the two dependent toggles at the same time).
+ *
+ * The `archivedAt` check is QUO-23: archiving is the tenant's "make this go
+ * away" action and it did not stop the portal serving the quote or accepting a
+ * response to it.
  */
 async function resolveQuoteByToken(token: string) {
   const db = getDb();
@@ -57,6 +89,10 @@ async function resolveQuoteByToken(token: string) {
       // Tenant fields
       businessName: tenants.businessName,
       logoUrl: tenants.logoUrl,
+      // The portal printed a hardcoded "Licensed & Insured" badge on every
+      // tenant's estimate. The column has always existed; the badge just never
+      // read it. Now the claim is only made when there is a number behind it.
+      licenseNumber: tenants.licenseNumber,
       slug: tenants.slug,
       phone: tenants.phone,
       address: tenants.address,
@@ -66,6 +102,7 @@ async function resolveQuoteByToken(token: string) {
       timezone: tenants.timezone,
       quoteTermsConditions: tenants.quoteTermsConditions,
       quoteFooterMessage: tenants.quoteFooterMessage,
+      quoteOnlineAcceptanceEnabled: tenants.quoteOnlineAcceptanceEnabled,
       quotePostAcceptanceScheduling: tenants.quotePostAcceptanceScheduling,
       quoteAutoConvertToJob: tenants.quoteAutoConvertToJob,
       tenantIsActive: tenants.isActive,
@@ -79,32 +116,13 @@ async function resolveQuoteByToken(token: string) {
     .from(quotes)
     .innerJoin(tenants, eq(tenants.id, quotes.tenantId))
     .innerJoin(customers, eq(customers.id, quotes.customerId))
-    .where(eq(quotes.accessToken, token))
+    .where(and(eq(quotes.accessToken, token), isNull(quotes.archivedAt)))
     .then((r) => r[0] ?? null);
 
-  if (!result || !result.tenantIsActive) return null;
+  if (!result) return null;
+  if (!result.tenantIsActive) return null;
+  if (result.quoteOnlineAcceptanceEnabled === false) return null;
   return result;
-}
-
-/**
- * Auto-expire a quote if past its expiryDate. Returns true if expired.
- */
-async function autoExpireIfNeeded(
-  db: ReturnType<typeof getDb>,
-  quoteId: string,
-  tenantId: string,
-  expiryDate: string | null,
-  currentStatus: string,
-): Promise<boolean> {
-  if (currentStatus !== "sent" || !expiryDate) return false;
-  const today = new Date().toISOString().split("T")[0];
-  if (expiryDate >= today) return false;
-
-  await db
-    .update(quotes)
-    .set({ status: "expired" as never, updatedAt: new Date() })
-    .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
-  return true;
 }
 
 const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
@@ -116,7 +134,7 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.get(
     "/:token",
-    { schema: { params: quoteTokenParam } },
+    { schema: { params: quoteTokenParam }, config: { rateLimit: READ_LIMIT } },
     async (request, reply) => {
       const { token } = request.params;
       const result = await resolveQuoteByToken(token);
@@ -125,17 +143,13 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Quote not found" });
       }
 
-      // Auto-expire if past expiryDate
-      const expired = await autoExpireIfNeeded(
-        getDb(),
-        result.id,
-        result.tenantId,
-        result.expiryDate,
-        result.status,
-      );
-      const status = expired ? "expired" : result.status;
+      // Derived, not written. This used to UPDATE the row on a GET — and in
+      // **UTC**, so for a Chicago tenant a quote valid until today already read
+      // as expired from 7pm the evening before (QUO-09, verified). The cron
+      // sweep owns the write; reads just show the truth.
+      const tz = result.timezone ?? "America/Chicago";
+      const status = displayStatus(result, todayInTimezone(tz));
 
-      // Fetch line items
       const db = getDb();
       const lineItems = await db
         .select({
@@ -160,6 +174,7 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           business: {
             name: result.businessName,
             logoUrl: result.logoUrl,
+            licenseNumber: result.licenseNumber,
             phone: result.phone,
             address: result.address,
             city: result.city,
@@ -175,13 +190,7 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
             status,
             issuedDate: result.issuedDate,
             expiryDate: result.expiryDate,
-            lineItems: lineItems.map((li) => ({
-              description: li.description,
-              quantity: li.quantity,
-              unitPrice: li.unitPrice,
-              total: li.total,
-              itemType: li.itemType,
-            })),
+            lineItems,
             subtotal: result.subtotal,
             taxAmount: result.taxAmount,
             discountAmount: result.discountAmount,
@@ -207,6 +216,66 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
+  /**
+   * Claim a `sent` quote for a response, under a row lock.
+   *
+   * QUO-03. Accept and decline were both resolve → `if (status !== "sent")` →
+   * update, with no transaction and no lock, so two requests could both pass the
+   * check. A double-click produced two activity rows, two notifications and two
+   * `convertQuoteToJob` calls; worse, an accept racing a decline left the quote
+   * `declined` **and** a real scheduled job created by the accept path, with
+   * nothing to reconcile them.
+   *
+   * The claim re-reads the status inside the lock and writes the terminal status
+   * in the same transaction, so exactly one of N concurrent responses wins and
+   * the losers get the "already responded" 400. Returns the row as it was *at*
+   * the moment of the claim.
+   */
+  async function claimQuoteResponse(
+    quoteId: string,
+    tenantId: string,
+    timezone: string,
+    apply: { status: "accepted" | "declined"; declineReason?: string | null; scheduledDate?: string | null; scheduledTime?: string | null },
+  ): Promise<{ ok: true } | { ok: false; message: string }> {
+    const db = getDb();
+    return db.transaction(async (tx) => {
+      const [locked] = await tx
+        .select({
+          id: quotes.id,
+          status: quotes.status,
+          expiryDate: quotes.expiryDate,
+        })
+        .from(quotes)
+        .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)))
+        .for("update");
+
+      if (!locked) return { ok: false as const, message: "Quote not found" };
+
+      if (displayStatus(locked, todayInTimezone(timezone)) === "expired") {
+        return { ok: false as const, message: "This quote has expired" };
+      }
+      if (locked.status !== "sent") {
+        return {
+          ok: false as const,
+          message: "This quote has already been responded to",
+        };
+      }
+
+      await tx
+        .update(quotes)
+        .set({
+          status: apply.status,
+          declineReason: apply.declineReason ?? null,
+          customerScheduledDate: apply.scheduledDate ?? null,
+          customerScheduledTime: apply.scheduledTime ?? null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
+
+      return { ok: true as const };
+    });
+  }
+
   // ===== ACCEPT QUOTE =====
 
   /**
@@ -215,7 +284,10 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.post(
     "/:token/accept",
-    { schema: { params: quoteTokenParam, body: acceptQuoteBody } },
+    {
+      schema: { params: quoteTokenParam, body: acceptQuoteBody },
+      config: { rateLimit: RESPOND_LIMIT },
+    },
     async (request, reply) => {
       const { token } = request.params;
       const body = request.body ?? {};
@@ -226,40 +298,26 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Quote not found" });
       }
 
-      // Auto-expire check
-      const expired = await autoExpireIfNeeded(
-        db,
-        result.id,
-        result.tenantId,
-        result.expiryDate,
-        result.status,
-      );
-      if (expired) {
-        return reply.status(400).send({ message: "This quote has expired" });
+      const tz = result.timezone ?? "America/Chicago";
+
+      // The customer may only propose a date when the tenant has turned
+      // post-acceptance scheduling on. The API used to accept and store one
+      // regardless of the setting.
+      const wantsSchedule = result.quotePostAcceptanceScheduling === true;
+      const scheduledDate = wantsSchedule ? (body.scheduledDate ?? null) : null;
+      const scheduledTime = wantsSchedule ? (body.scheduledTime ?? null) : null;
+
+      const claim = await claimQuoteResponse(result.id, result.tenantId, tz, {
+        status: "accepted",
+        scheduledDate,
+        scheduledTime,
+      });
+      if (!claim.ok) {
+        return reply.status(400).send({ message: claim.message });
       }
 
-      if (result.status !== "sent") {
-        return reply
-          .status(400)
-          .send({ message: "This quote has already been responded to" });
-      }
-
-      // Update quote to accepted
-      await db
-        .update(quotes)
-        .set({
-          status: "accepted" as never,
-          customerScheduledDate: body.scheduledDate ?? null,
-          customerScheduledTime: body.scheduledTime ?? null,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(eq(quotes.id, result.id), eq(quotes.tenantId, result.tenantId)),
-        );
-
-      // Log activity
-      const scheduleInfo = body.scheduledDate
-        ? ` — preferred date: ${body.scheduledDate}${body.scheduledTime ? ` at ${body.scheduledTime}` : ""}`
+      const scheduleInfo = scheduledDate
+        ? ` — preferred date: ${scheduledDate}${scheduledTime ? ` at ${scheduledTime}` : ""}`
         : "";
       await db.insert(quoteActivities).values({
         tenantId: result.tenantId,
@@ -267,22 +325,17 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         type: "quote.accepted",
         description: `Quote accepted by customer online${scheduleInfo}`,
         performedBy: null,
-        metadata: body.scheduledDate
-          ? {
-              scheduledDate: body.scheduledDate,
-              scheduledTime: body.scheduledTime,
-              source: "public",
-            }
+        metadata: scheduledDate
+          ? { scheduledDate, scheduledTime, source: "public" }
           : { source: "public" },
       });
 
-      // Dispatch notification
       dispatchNotification({
         tenantId: result.tenantId,
         type: "quote_accepted",
         title: `Quote ${result.quoteNumber ?? ""} accepted online`,
-        description: body.scheduledDate
-          ? `Customer accepted and requested ${body.scheduledDate}${body.scheduledTime ? ` at ${body.scheduledTime}` : ""}`
+        description: scheduledDate
+          ? `Customer accepted and requested ${scheduledDate}${scheduledTime ? ` at ${scheduledTime}` : ""}`
           : "Customer accepted the quote online",
         entityType: "quote",
         entityId: result.id,
@@ -290,16 +343,17 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         metadata: { quoteNumber: result.quoteNumber, source: "public" },
       });
 
-      // Auto-convert to job if enabled
+      // Auto-convert to job if enabled. Only reachable by the request that won
+      // the claim, so this can no longer run twice for one quote.
       let jobCreated = false;
       if (result.quoteAutoConvertToJob) {
         try {
           const { convertQuoteToJob } = await import(
             "../../lib/quote-to-job.js"
           );
-          await convertQuoteToJob(db, result, {
-            scheduledDate: body.scheduledDate,
-            scheduledTime: body.scheduledTime,
+          await convertQuoteToJob(db, { ...result, status: "accepted" }, {
+            scheduledDate: scheduledDate ?? undefined,
+            scheduledTime: scheduledTime ?? undefined,
             performedBy: null,
           });
           jobCreated = true;
@@ -308,8 +362,7 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
-      // Broadcast to dashboard for live table refresh
-      await broadcastQuoteUpdate(result.tenantId, result.id, "accepted", result.quoteNumber);
+      broadcastQuoteUpdate(result.tenantId, result.id, "accepted", result.quoteNumber);
 
       return reply.send({
         data: { status: "accepted", jobCreated },
@@ -325,7 +378,10 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
    */
   fastify.post(
     "/:token/decline",
-    { schema: { params: quoteTokenParam, body: declineQuoteBody } },
+    {
+      schema: { params: quoteTokenParam, body: declineQuoteBody },
+      config: { rateLimit: RESPOND_LIMIT },
+    },
     async (request, reply) => {
       const { token } = request.params;
       const body = request.body ?? {};
@@ -336,37 +392,15 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Quote not found" });
       }
 
-      // Auto-expire check
-      const expired = await autoExpireIfNeeded(
-        db,
-        result.id,
-        result.tenantId,
-        result.expiryDate,
-        result.status,
-      );
-      if (expired) {
-        return reply.status(400).send({ message: "This quote has expired" });
+      const tz = result.timezone ?? "America/Chicago";
+      const claim = await claimQuoteResponse(result.id, result.tenantId, tz, {
+        status: "declined",
+        declineReason: body.reason ?? null,
+      });
+      if (!claim.ok) {
+        return reply.status(400).send({ message: claim.message });
       }
 
-      if (result.status !== "sent") {
-        return reply
-          .status(400)
-          .send({ message: "This quote has already been responded to" });
-      }
-
-      // Update quote to declined
-      await db
-        .update(quotes)
-        .set({
-          status: "declined" as never,
-          declineReason: body.reason ?? null,
-          updatedAt: new Date(),
-        })
-        .where(
-          and(eq(quotes.id, result.id), eq(quotes.tenantId, result.tenantId)),
-        );
-
-      // Log activity
       const reasonNote = body.reason ? ` — reason: "${body.reason}"` : "";
       await db.insert(quoteActivities).values({
         tenantId: result.tenantId,
@@ -380,7 +414,6 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         },
       });
 
-      // Dispatch notification
       dispatchNotification({
         tenantId: result.tenantId,
         type: "quote_declined",
@@ -398,7 +431,6 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         },
       });
 
-      // Broadcast to dashboard for live table refresh
       broadcastQuoteUpdate(result.tenantId, result.id, "declined", result.quoteNumber);
 
       return reply.send({

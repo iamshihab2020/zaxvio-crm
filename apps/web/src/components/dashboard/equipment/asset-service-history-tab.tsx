@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   Table,
@@ -13,6 +12,11 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconBriefcase, IconFileCheck, IconFileDescription } from "@tabler/icons-react";
+import { useEquipmentHistory } from "@/hooks/queries";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
+// ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
+// timezone rendered the previous day. These are all `date` columns.
+import { formatDateOnly as formatDate } from "@/lib/format";
 
 interface AssetServiceHistoryTabProps {
   equipmentId: string;
@@ -56,14 +60,6 @@ interface HistoryData {
   quotes: HistoryQuote[];
 }
 
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function formatCurrency(val: string | null) {
   if (!val) return "—";
@@ -96,31 +92,27 @@ const quoteStatusColors: Record<string, string> = {
 export function AssetServiceHistoryTab({
   equipmentId,
 }: AssetServiceHistoryTabProps) {
-  const [data, setData] = useState<HistoryData | null>(null);
-  const [loading, setLoading] = useState(true);
+  // ARC-16: was a bare browser fetch to NEXT_PUBLIC_API_URL with a `// silent
+  // fail` catch, so a 500 rendered as "no service history" — the same
+  // failed-is-not-empty defect the page audits kept finding. Now it goes
+  // through the action layer like everything else, and says when it breaks.
+  const historyQuery = useEquipmentHistory(equipmentId);
+  const data = (historyQuery.data?.data ?? null) as HistoryData | null;
+  const loading = historyQuery.isPending;
+  const loadError = historyQuery.isError
+    ? "Something went wrong loading this history."
+    : (historyQuery.data?.error ?? null);
 
-  const fetchHistory = useCallback(async () => {
-    setLoading(true);
-    try {
-      const API_URL =
-        process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
-      const res = await fetch(
-        `${API_URL}/equipment/${equipmentId}/history`,
-        { cache: "no-store" },
-      );
-      if (res.ok) {
-        const json = await res.json();
-        setData(json.data as HistoryData);
-      }
-    } catch {
-      // silent fail
-    }
-    setLoading(false);
-  }, [equipmentId]);
-
-  useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+  if (loadError) {
+    return (
+      <LoadErrorState
+        title="Couldn't load service history"
+        message={loadError}
+        onRetry={() => historyQuery.refetch()}
+        isRetrying={historyQuery.isFetching}
+      />
+    );
+  }
 
   if (loading) {
     return (

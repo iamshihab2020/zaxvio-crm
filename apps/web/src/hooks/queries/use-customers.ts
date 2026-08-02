@@ -26,11 +26,15 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export function useCustomers(params: Record<string, unknown>) {
+export function useCustomers(
+  params: Record<string, unknown>,
+  options?: { enabled?: boolean },
+) {
   return useQuery({
     queryKey: queryKeys.customers.list(params),
     queryFn: () => getCustomers(params as Parameters<typeof getCustomers>[0]),
     placeholderData: (prev) => prev,
+    enabled: options?.enabled ?? true,
   });
 }
 

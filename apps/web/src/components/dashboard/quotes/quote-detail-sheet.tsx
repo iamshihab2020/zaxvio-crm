@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,14 +14,15 @@ import { IconDots, IconTrash } from "@tabler/icons-react";
 import { QuoteStatusBadge } from "./quote-status-badge";
 import { QuoteDetailTab } from "./quote-detail-tab";
 import { QuoteLineItemsTab } from "./quote-line-items-tab";
+import { downloadQuotePdf } from "@/actions/quotes";
+import { openPdfPayload } from "@/lib/open-pdf";
 import {
-  getQuote,
-  sendQuote,
-  getQuotePdfUrl,
-  acceptQuote,
-  declineQuote,
-  convertQuoteToJob,
-} from "@/actions/quotes";
+  useQuote,
+  useSendQuote,
+  useAcceptQuote,
+  useDeclineQuote,
+  useConvertQuoteToJob,
+} from "@/hooks/queries";
 import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
 
 export interface QuoteDetail {
@@ -81,84 +82,77 @@ export function QuoteDetailSheet({
   onDataChange,
 }: QuoteDetailSheetProps) {
   const router = useRouter();
-  const [quote, setQuote] = useState<QuoteDetail | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [sendLoading, setSendLoading] = useState(false);
-  const [convertLoading, setConvertLoading] = useState(false);
 
-  useEffect(() => {
-    if (!quoteId || !open) {
-      setQuote(null);
-      return;
-    }
-    setLoading(true);
-    getQuote(quoteId).then((res) => {
-      if (res.data) setQuote(res.data as QuoteDetail);
-      setLoading(false);
-    });
-  }, [quoteId, open]);
+  // QUO-15: this held its own `useState` copy fetched with a bare server
+  // action, so opening the same quote five times was five fetches and every
+  // mutation left the list, the stats and the dashboard stale. `useQuote`
+  // existed the whole time with zero callers.
+  const quoteQuery = useQuote(quoteId ?? "");
+  const quote = (quoteQuery.data?.data ?? null) as QuoteDetail | null;
+  const loading = Boolean(quoteId) && open && quoteQuery.isPending;
+  // QUO-06: the fetch used to be `.then(res => { if (res.data) … })` with no
+  // catch and `res.error` discarded, so a 500 opened a blank sheet.
+  const loadError = quoteQuery.isError
+    ? "Something went wrong loading this quote."
+    : (quoteQuery.data?.error ?? null);
 
-  async function refreshDetail() {
-    if (!quoteId) return;
-    const res = await getQuote(quoteId);
-    if (res.data) setQuote(res.data as QuoteDetail);
-  }
+  const sendMutation = useSendQuote();
+  const acceptMutation = useAcceptQuote();
+  const declineMutation = useDeclineQuote();
+  const convertMutation = useConvertQuoteToJob();
 
-  async function handleSend() {
+  const sendLoading = sendMutation.isPending;
+  const convertLoading = convertMutation.isPending;
+
+  function handleSend() {
     if (!quote) return;
-    setSendLoading(true);
-    const result = await sendQuote(quote.id);
-    setSendLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote sent successfully");
-      refreshDetail();
-      onDataChange();
-    }
+    sendMutation.mutate(quote.id, {
+      onSuccess: (res) => {
+        if (!res.error) onDataChange();
+      },
+    });
   }
 
   async function handleDownloadPdf() {
     if (!quote) return;
-    const url = await getQuotePdfUrl(quote.id);
-    window.open(url, "_blank");
+    // QUO-13: was `window.open(rawApiUrl)`, which the browser requests
+    // cross-origin without the session cookie — a 401 body in a new tab.
+    const res = await downloadQuotePdf(quote.id);
+    if (res.error || !res.data) {
+      toast.error(res.error ?? "Couldn't open the PDF");
+      return;
+    }
+    openPdfPayload(res.data);
   }
 
-  async function handleAccept() {
+  function handleAccept() {
     if (!quote) return;
-    const result = await acceptQuote(quote.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote accepted");
-      refreshDetail();
-      onDataChange();
-    }
+    acceptMutation.mutate(quote.id, {
+      onSuccess: (res) => {
+        if (!res.error) onDataChange();
+      },
+    });
   }
 
-  async function handleDecline() {
+  function handleDecline() {
     if (!quote) return;
-    const result = await declineQuote(quote.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote declined");
-      refreshDetail();
-      onDataChange();
-    }
+    declineMutation.mutate(quote.id, {
+      onSuccess: (res) => {
+        if (!res.error) onDataChange();
+      },
+    });
   }
 
-  async function handleConvert(pipelineStageId: string) {
+  function handleConvert(pipelineStageId: string) {
     if (!quote) return;
-    setConvertLoading(true);
-    const result = await convertQuoteToJob(quote.id, pipelineStageId);
-    setConvertLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Job created from quote");
-      router.push(`/jobs/${result.data.id}`);
-    }
+    convertMutation.mutate(
+      { id: quote.id, pipelineStageId },
+      {
+        onSuccess: (res) => {
+          if (!res.error) router.push(`/jobs/${res.data.id}`);
+        },
+      },
+    );
   }
 
   const tabs = useMemo(
@@ -191,7 +185,7 @@ export function QuoteDetailSheet({
                   lineItems={quote.lineItems}
                   isDraft={quote.status === "draft"}
                   onUpdate={() => {
-                    refreshDetail();
+                    quoteQuery.refetch();
                     onDataChange();
                   }}
                 />
@@ -213,6 +207,8 @@ export function QuoteDetailSheet({
       onOpenChange={onOpenChange}
       loading={loading}
       hasData={!!quote}
+      loadError={loadError}
+      onRetry={() => quoteQuery.refetch()}
       renderTitle={() => (
         <>
           <span className="font-heading text-xl tracking-tight">

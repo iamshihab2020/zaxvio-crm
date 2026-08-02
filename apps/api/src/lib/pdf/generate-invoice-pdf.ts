@@ -57,7 +57,12 @@ export async function generateInvoicePdf(
     tenant: tenant ?? null,
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const buffer = await renderToBuffer(element as any);
+  // `@react-pdf/renderer` ships its own React types, which do not unify with
+  // React 18's `ReactElement`. A specific cast to the parameter type is what
+  // strict-rules §4 asks for here — `as any` would also hide a genuine
+  // mis-shaped element. (ARC-17)
+  const buffer = await renderToBuffer(
+    element as unknown as Parameters<typeof renderToBuffer>[0],
+  );
   return Buffer.from(buffer);
 }

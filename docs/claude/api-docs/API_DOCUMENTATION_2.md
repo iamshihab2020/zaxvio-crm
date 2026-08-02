@@ -938,36 +938,32 @@ Create a new quote. Auto-generates `quoteNumber` (format: `QT-YYYY-XXXX`). Logs 
   "customerId": "cust_001",
   "issuedDate": "2026-03-28",
   "expiryDate": "2026-04-28",
-  "taxRate": "8.25",
+  "taxRate": "0.0825",
   "discountAmount": "50.00",
-  "notes": "Includes 1-year warranty on all parts",
-  "lineItems": [
-    {
-      "catalogItemId": "cat_010",
-      "description": "New Trane XR15 Heat Pump - 3 Ton",
-      "quantity": 1,
-      "unitPrice": "1200.00",
-      "itemType": "part"
-    },
-    {
-      "description": "Installation Labor (8 hours)",
-      "quantity": 8,
-      "unitPrice": "85.00",
-      "itemType": "labor"
-    }
-  ]
+  "notes": "Includes 1-year warranty on all parts"
 }
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `customerId` | uuid | Yes | Customer ID |
-| `issuedDate` | string | No | `YYYY-MM-DD` (default: today) |
-| `expiryDate` | string | No | `YYYY-MM-DD` |
-| `taxRate` | number | No | Tax rate percentage |
-| `discountAmount` | number | No | Flat discount amount |
-| `notes` | string | No | Quote notes (shown on PDF) |
-| `lineItems` | array | No | Initial line items |
+| `customerId` | uuid | Yes | Must belong to this tenant |
+| `issuedDate` | string | No | `YYYY-MM-DD`, a **real calendar date**. Defaults to today **in the tenant's timezone** |
+| `expiryDate` | string | No | `YYYY-MM-DD`, real calendar date. Defaults to issue + 30 days |
+| `taxRate` | string | No | **Decimal fraction, 0–1** — `"0.0825"` is 8.25%, not `"8.25"`. Defaults to the tenant's `defaultTaxRate` |
+| `discountAmount` | string | No | Flat amount, `0` – `99999999.99` |
+| `notes` | string | No | Max 5000 chars. Shown on the PDF and the public portal |
+| `equipmentId` | uuid | No | Must belong to this tenant **and to `customerId`** |
+
+> **Validation.** `issuedDate` / `expiryDate` go through `isoDate`, which rejects
+> both the Postgres magic values (`infinity`, `today`, `epoch`, `now`) and dates
+> that do not exist (`2026-02-30`). All of those used to be accepted and stored
+> (QUO-17): an `infinity` expiry never lapsed and rendered as `Invalid Date`
+> everywhere.
+>
+> **There is no `lineItems` field** — this endpoint has never accepted one.
+> Add lines with `POST /quotes/:id/line-items` after creating the quote.
+
+The insert and its activity row are one transaction.
 
 **Response** `201 Created`
 
@@ -1040,13 +1036,17 @@ Get a single quote with line items.
 
 **Auth:** `requireTenant`
 
-Update a quote. Only draft quotes can be modified. Automatically recalculates totals.
+Update a quote. **Only draft quotes**, and **not archived ones** — every mutating
+handler now goes through `loadEditableQuote` (QUO-23; an archived quote used to be
+fully editable and sendable). `customerId` and `equipmentId` are re-checked against
+the tenant, and equipment against the customer (QUO-22). Financial changes
+recalculate the totals.
 
 **Request Body** (all fields optional):
 
 ```json
 {
-  "taxRate": "8.25",
+  "taxRate": "0.0825",
   "discountAmount": "100.00",
   "expiryDate": "2026-05-01",
   "notes": "Updated terms"
@@ -1290,3 +1290,153 @@ Get the activity timeline for a quote.
 
 ---
 
+
+### `GET /quotes/stats`
+
+**Auth:** `requireTenant`
+
+Status counts for the KPI cards, in one query. Counts **exclude archived quotes**
+(the list excludes them too — they used to disagree, QUO-08) and use the
+*derived* status, so a `sent` quote past its expiry is counted as `expired` the
+moment it lapses rather than when the cron next runs.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": { "draft": 3, "sent": 4, "accepted": 6, "declined": 1, "expired": 2 }
+}
+```
+
+---
+
+### `POST /quotes/bulk-archive`
+
+**Auth:** `requireTenant`
+
+**Body:** `{ "ids": ["qt_001", "qt_002"] }` (1–100 uuids)
+
+**Response** `200 OK` — `{ "succeeded": 2, "failed": 0, "errors": [] }`
+
+`succeeded` is the number of rows actually archived, not the number requested.
+Already-archived ids count as `failed`.
+
+---
+
+### `POST /quotes/bulk-restore`
+
+**Auth:** `requireTenant`
+
+**Body:** `{ "ids": [...] }` · **Response:** `{ succeeded, failed, errors }`
+
+Only rows that were archived are restored; ids that were already active count as
+`failed`.
+
+---
+
+### `POST /quotes/bulk-delete`
+
+**Auth:** `requireTenant`
+
+**Body:** `{ "ids": [...] }` · **Response:** `{ succeeded, failed, errors }`
+
+Hard-deletes **draft quotes only**. Non-draft ids and unknown ids come back in
+`errors` with a per-id reason, e.g.
+`{ "id": "qt_009", "message": "Quote is sent, only draft quotes can be deleted" }`.
+
+---
+
+### `POST /quotes/bulk-status-update`
+
+**Auth:** `requireTenant`
+
+**Body:** `{ "ids": [...], "status": "accepted" | "declined" | "expired" }`
+
+**Response** `200 OK` — `{ succeeded, failed, errors }`
+
+`"sent"` is **not** an accepted value. A quote becomes `sent` only through
+`POST /quotes/:id/send`, which generates the PDF, mints the access token and
+emails the customer; setting the status directly produced a quote with no token
+and no PDF that `/send`, `PATCH` and `DELETE` all then refused (QUO-01).
+
+Each id is checked against the same transition table the single-quote handlers
+use — `sent → accepted | declined | expired`, and nothing else — plus the
+archived guard. Refusals are reported per id in `errors`; eligible rows are
+updated in one transaction and each gets an activity row.
+
+---
+
+## Public Quote Portal
+
+Unauthenticated. The `token` is the `access_token` minted by
+`POST /quotes/:id/send` (a v4 UUID, 122 bits, backed by a UNIQUE index).
+
+A token resolves only when **all** of the following hold: the tenant is active,
+the tenant has **online acceptance enabled** (`quoteOnlineAcceptanceEnabled` —
+enforced here, not just when building the email link, QUO-04), and the quote is
+not archived. Otherwise `404`.
+
+Rate limits: `60/min` for the read, `10/min` for each response verb.
+
+### `GET /public/quote/:token`
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "business": { "name": "...", "logoUrl": null, "phone": "...", "address": "...",
+                  "city": "...", "state": "...", "zipCode": "...", "slug": "...",
+                  "timezone": "America/Chicago" },
+    "quote": { "id": "qt_001", "quoteNumber": "QT-2026-0001", "status": "sent",
+               "issuedDate": "2026-08-01", "expiryDate": "2026-08-31",
+               "lineItems": [{ "description": "Labor", "quantity": "1.50",
+                               "unitPrice": "10.33", "total": "15.50",
+                               "itemType": "labor" }],
+               "subtotal": "31.00", "taxAmount": "2.56", "discountAmount": "0.00",
+               "totalAmount": "33.56", "notes": null,
+               "termsConditions": null, "footerMessage": null,
+               "customerName": "Jane Doe", "customerEmail": "jane@example.com",
+               "customerPhone": "...", "customerAddress": "...",
+               "declineReason": null,
+               "customerScheduledDate": null, "customerScheduledTime": null },
+    "settings": { "postAcceptanceScheduling": false, "autoConvertToJob": false }
+  }
+}
+```
+
+`status` is **derived** in the tenant's timezone — a lapsed quote reads
+`expired` without the endpoint writing to the row. The sweep that updates the
+stored column runs hourly in the cron (QUO-09).
+
+### `POST /public/quote/:token/accept`
+
+**Body** (both optional, and both ignored unless the tenant has
+`quotePostAcceptanceScheduling` enabled):
+
+```json
+{ "scheduledDate": "2026-08-15", "scheduledTime": "09:00" }
+```
+
+`scheduledDate` must be a real calendar date (`2026-13-45` is rejected) and
+`scheduledTime` a real `HH:MM`.
+
+**Response** `200 OK` — `{ "data": { "status": "accepted", "jobCreated": true } }`
+
+The status change is claimed under `SELECT … FOR UPDATE` inside a transaction, so
+exactly one of N concurrent requests wins and the rest get `400`. Auto-convert
+to a job runs only for the winner, so a double-click can no longer produce two
+notifications, two activity rows, or a job on a quote that ended up declined
+(QUO-03).
+
+**Errors:** `400 This quote has expired` · `400 This quote has already been responded to` · `404 Quote not found`
+
+### `POST /public/quote/:token/decline`
+
+**Body:** `{ "reason": "Too expensive" }` (optional, max 2000 chars)
+
+**Response** `200 OK` — `{ "data": { "status": "declined" } }`
+
+Same claim-under-lock semantics and the same error set as `accept`.
+
+---

@@ -25,6 +25,10 @@ import {
   IconMessageCircle,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import {
+  JOBS_PIPELINE_EVENT,
+  readJobsPipeline,
+} from "@/lib/jobs-pipeline-preference";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -117,9 +121,23 @@ export function Sidebar() {
   const useTooltipMode = isCollapsed && !isHoverExpanded && mode === "icon-tooltip";
 
   // Resolve Jobs href with last-used pipeline from localStorage
+  /**
+   * The Jobs link carries the pipeline you were last on, so hovering it, opening
+   * it in a new tab or bookmarking it all land on the board you actually use.
+   *
+   * The listener matters: this sidebar lives in the layout and does not remount
+   * on client navigation, so reading localStorage once on mount left the link
+   * stale for the rest of the session — visiting /jobs seeded the value and the
+   * link still read a bare `/jobs` until a full page reload.
+   */
   const [jobsPipelineId, setJobsPipelineId] = useState<string | null>(null);
   useEffect(() => {
-    setJobsPipelineId(localStorage.getItem("jobs-pipeline-id"));
+    setJobsPipelineId(readJobsPipeline());
+    const onChange = (e: Event) => {
+      setJobsPipelineId((e as CustomEvent<string>).detail);
+    };
+    window.addEventListener(JOBS_PIPELINE_EVENT, onChange);
+    return () => window.removeEventListener(JOBS_PIPELINE_EVENT, onChange);
   }, []);
 
   const resolvedNavGroups = useMemo(() => {

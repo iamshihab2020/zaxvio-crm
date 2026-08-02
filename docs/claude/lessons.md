@@ -6,12 +6,12 @@ Non-obvious insights, patterns, and mistakes worth remembering. Split by topic f
 
 | File | Topics | Lessons |
 |------|--------|---------|
-| [[backend-stack]] | Drizzle ORM, Supabase, Fastify, Zod schemas | 28 |
+| [[backend-stack]] | Drizzle ORM, Supabase, Fastify, Zod schemas | 30 |
 | [[auth-flow]] | Better Auth + Fastify integration, auth flow, org plugin | 16 |
-| [[frontend-nextjs]] | Next.js 14, UI/UX patterns, react-big-calendar, charts, animations, AI SDK | 40 |
-| [[booking-availability]] | Booking portal, availability, public quote acceptance | 20 |
+| [[frontend-nextjs]] | Next.js 14, UI/UX patterns, react-big-calendar, charts, animations, AI SDK | 41 |
+| [[booking-availability]] | Booking portal, availability, public quote acceptance | 23 |
 | [[tenant-security]] | Tenant init/settings, security hardening, multi-pipeline | 12 |
-| [[jobs-customers]] | Job API audit, customer-to-job flow, dual-view page | 20 |
+| [[jobs-customers]] | Job API audit, customer-to-job flow, dual-view page | 22 |
 | [[features-misc]] | Equipment/assets, file uploads, conversations, bulk ops, maintenance | 22 |
 
 ## Rules

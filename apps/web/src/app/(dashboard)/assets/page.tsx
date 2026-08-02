@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { getEquipment } from "@/actions/equipment";
 import { AssetsPageClient } from "./assets-page-client";
+import type { AssetRow } from "@/components/dashboard/equipment/asset-table";
+import type { PaginationData } from "@/lib/pagination";
 
 export const metadata: Metadata = {
   title: "Assets",
@@ -12,8 +14,8 @@ export default async function AssetsPage() {
 
   return (
     <AssetsPageClient
-      initialAssets={(result.data ?? []) as never[]}
-      initialPagination={result.pagination as never}
+      initialAssets={(result.data ?? []) as AssetRow[]}
+      initialPagination={result.pagination as PaginationData | undefined}
     />
   );
 }

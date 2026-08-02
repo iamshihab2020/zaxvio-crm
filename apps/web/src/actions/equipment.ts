@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 
 import { API_URL } from "@/lib/api-url";
+import { apiGet } from "@/lib/api-fetch";
 
 async function getCookieHeader() {
   const cookieStore = await cookies();
@@ -293,4 +294,17 @@ export async function bulkDeleteEquipment(ids: string[]) {
   } catch {
     return { succeeded: 0, failed: ids.length, errors: [], error: "Network error" };
   }
+}
+
+/**
+ * ARC-16. This lived in the component as a bare browser `fetch` to
+ * `NEXT_PUBLIC_API_URL` — against the "never call the API directly from a
+ * client component" rule, sending no credentials, and working only because
+ * `next.config.mjs` carried a rewrite for this one path. Its catch block was
+ * literally `// silent fail`, so an error rendered as an empty history.
+ */
+export async function getEquipmentHistory(equipmentId: string) {
+  return apiGet<unknown>(`/equipment/${equipmentId}/history`, {
+    fallback: "Failed to load service history",
+  });
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { booleanFlag } from "./common.js";
 import { idParam, paginationQuery } from "./common.js";
 
 // ── Params ────────────────────────────────────────────────────────────────────
@@ -11,7 +12,10 @@ export const catalogListQuery = paginationQuery.extend({
   itemType: z
     .enum(["labor", "part", "material", "service_call", "other"])
     .optional(),
-  showArchived: z.coerce.boolean().optional().default(false),
+  // `booleanFlag`, not `z.coerce.boolean()` — the latter is `Boolean(value)`
+  // and `Boolean("false")` is true, so `?showArchived=false` returned
+  // archived-only. Same defect as CUST-29, which is why the helper exists.
+  showArchived: booleanFlag.optional().default(false),
   sortBy: z
     .enum(["createdAt", "name", "unitPrice", "category", "itemType"])
     .default("createdAt"),

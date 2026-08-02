@@ -51,6 +51,7 @@ export default async function BookingPage({ params, searchParams }: BookingPageP
       slug={slug}
       businessName={result.data.businessName}
       logoUrl={result.data.logoUrl}
+      licenseNumber={result.data.licenseNumber}
       serviceTypes={result.data.serviceTypes}
       embed={isEmbed}
       source={bookingSource}

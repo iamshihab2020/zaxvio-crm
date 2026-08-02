@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useEquipment } from "@/hooks/queries";
 import { IconDevices2, IconCheck, IconSelector } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,6 @@ import {
   CommandEmpty,
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
-import { getEquipment } from "@/actions/equipment";
 
 interface AssetPickerProps {
   customerId: string | null;
@@ -40,25 +40,30 @@ export function AssetPicker({
   disabled,
 }: AssetPickerProps) {
   const [open, setOpen] = useState(false);
-  const [assets, setAssets] = useState<AssetOption[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  const fetchAssets = useCallback(async () => {
-    if (!customerId) {
-      setAssets([]);
-      return;
-    }
-    setLoading(true);
-    const result = await getEquipment({ customerId, limit: 100 });
-    if (result.data) {
-      setAssets(result.data as AssetOption[]);
-    }
-    setLoading(false);
-  }, [customerId]);
+  /**
+   * Fetches when the popover opens, not when the dialog mounts.
+   *
+   * This used to call a bare server action from a mount effect, so simply
+   * opening Create Quote spent a Next → Fastify → Neon round trip on a dropdown
+   * the user may never touch. Next.js queues server actions, so that trip sat
+   * in front of the picker they *did* open — which is what made opening a
+   * selection feel slow. There was no cache either, so every re-open of the
+   * dialog paid for it again.
+   *
+   * `useEquipment` has existed with a 30s cache the whole time and this
+   * component never called it.
+   */
+  // `|| !!value` so a picker that already has a selection can still resolve its
+  // label without being opened — otherwise an edit surface would render
+  // "Select asset..." over a real selection.
+  const assetsQuery = useEquipment(
+    { customerId: customerId ?? undefined, limit: 100 },
+    { enabled: (open || !!value) && !!customerId },
+  );
 
-  useEffect(() => {
-    fetchAssets();
-  }, [fetchAssets]);
+  const assets = (assetsQuery.data?.data ?? []) as AssetOption[];
+  const loading = assetsQuery.isPending && open && !!customerId;
 
   // Reset value if customer changes
   useEffect(() => {

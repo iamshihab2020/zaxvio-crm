@@ -55,6 +55,7 @@ import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import type { AssigneeMember } from "@/components/dashboard/jobs/assignee-picker";
 import { getPipelines } from "@/actions/pipelines";
 import { getPipelineStages } from "@/actions/pipeline-stages";
+import { rememberJobsPipeline, readJobsPipeline } from "@/lib/jobs-pipeline-preference";
 import { getTenant } from "@/actions/tenants";
 import { PipelineTabs } from "@/components/dashboard/jobs/pipeline-tabs";
 import { JobTable } from "@/components/dashboard/jobs/job-table";
@@ -151,7 +152,7 @@ export function JobsPageClient({
     if (typeof window === "undefined") return initialPipelineId;
     const urlPipeline = new URLSearchParams(window.location.search).get("pipeline");
     if (urlPipeline) return urlPipeline;
-    const stored = localStorage.getItem("jobs-pipeline-id");
+    const stored = readJobsPipeline();
     if (stored) return stored;
     return initialPipelineId;
   });
@@ -294,7 +295,7 @@ export function JobsPageClient({
 
     const urlPipeline = searchParams.get("pipeline");
     const storedPipeline = typeof window !== "undefined"
-      ? localStorage.getItem("jobs-pipeline-id")
+      ? readJobsPipeline()
       : null;
 
     let resolvedId: string | null = null;
@@ -308,15 +309,63 @@ export function JobsPageClient({
 
     if (resolvedId) {
       setSelectedPipelineId(resolvedId);
-      localStorage.setItem("jobs-pipeline-id", resolvedId);
-      if (searchParams.get("pipeline") !== resolvedId) {
-        const params = new URLSearchParams(searchParams.toString());
-        params.set("pipeline", resolvedId);
-        router.replace(`/jobs?${params.toString()}`);
-      }
+      rememberJobsPipeline(resolvedId);
+      // The URL is written by the sync effect below, not here.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pipelinesData]);
+
+  /**
+   * Keep `?pipeline=` in step with the board actually on screen.
+   *
+   * This used to live inside the resolver above — which is guarded by
+   * `pipelineResolved`, and that ref starts **true** whenever the server
+   * pre-rendered pipelines. That is the normal path, so on a plain visit to
+   * `/jobs` the resolver returned immediately and the URL never gained the
+   * parameter: the page showed the default pipeline while the address bar
+   * claimed no opinion, so the link could not be shared, bookmarked or
+   * reloaded onto the same board.
+   *
+   * `replace`, never `push` — a pipeline is where you are, not somewhere you
+   * navigated to, and pushing would make Back walk through every pipeline you
+   * looked at instead of leaving the page.
+   */
+  /**
+   * Drop a selection that no longer exists.
+   *
+   * `selectedPipelineId` is seeded from the URL or localStorage before the
+   * pipeline list has been checked, and the resolver above is skipped entirely
+   * on the server-rendered path — so a bookmarked or remembered id belonging to
+   * a deleted pipeline stuck, and the board rendered empty with nothing saying
+   * why.
+   */
+  useEffect(() => {
+    if (!selectedPipelineId || pipelinesData.length === 0) return;
+    if (pipelinesData.some((p) => p.id === selectedPipelineId)) return;
+    const fallback =
+      pipelinesData.find((p) => p.isDefault)?.id ?? pipelinesData[0]?.id ?? null;
+    if (!fallback) return;
+    setSelectedPipelineId(fallback);
+    rememberJobsPipeline(fallback);
+  }, [pipelinesData, selectedPipelineId]);
+
+  useEffect(() => {
+    if (!selectedPipelineId) return;
+
+    /**
+     * Also the only place the remembered pipeline is written on a normal visit.
+     * The sidebar builds its Jobs link from `jobs-pipeline-id`, and that key was
+     * only ever set by the skipped resolver or by explicitly clicking a pipeline
+     * tab — so on a fresh browser the sidebar link stayed a bare `/jobs`
+     * forever, because the code that would have seeded it never ran.
+     */
+    rememberJobsPipeline(selectedPipelineId);
+
+    if (searchParams.get("pipeline") === selectedPipelineId) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("pipeline", selectedPipelineId);
+    router.replace(`/jobs?${params.toString()}`, { scroll: false });
+  }, [selectedPipelineId, searchParams, router]);
 
   // The server rendered ONE pipeline with NO filters applied. `initialData`
   // seeds whichever key is currently mounted and TanStack stamps it fresh at
@@ -533,10 +582,8 @@ export function JobsPageClient({
 
   function handlePipelineChange(pipelineId: string) {
     setSelectedPipelineId(pipelineId);
-    localStorage.setItem("jobs-pipeline-id", pipelineId);
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("pipeline", pipelineId);
-    router.replace(`/jobs?${params.toString()}`);
+    rememberJobsPipeline(pipelineId);
+    // The URL follows from the sync effect above — one writer, not three.
   }
 
   // Clear selection when filters or pipeline change

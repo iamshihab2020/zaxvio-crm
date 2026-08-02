@@ -1,13 +1,6 @@
 "use client";
 
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { formatDateOnly } from "@/lib/format";
 
 interface LineItem {
   description: string;
@@ -42,118 +35,187 @@ interface QuoteReviewCardProps {
   };
 }
 
-function formatCurrency(value: string | number): string {
+function money(value: string | number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(Number(value));
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
-    month: "long",
-    day: "numeric",
-    year: "numeric",
-  });
+/** A quantity reads better as `2` than `2.00`, but `1.5` must survive. */
+function qty(value: string): string {
+  const n = Number(value);
+  return Number.isInteger(n) ? String(n) : n.toString();
 }
 
+/**
+ * The estimate, as a document rather than a web card.
+ *
+ * The portal was built in April; the house visual language was rebuilt at the
+ * end of July around ruled work-order paper, DM Mono labels
+ * (`uppercase tracking-[0.18em]`) and tabular figures. This page — the only one
+ * in the quotes domain a *customer* ever sees, and the one where the money is
+ * decided — used none of it: zero of six portal files touched `font-mono` or
+ * `tnum`, on a page that is almost entirely a column of money.
+ *
+ * The structure here is the estimate pad a contractor actually hands you: a
+ * ruled ladder of lines, labels in the left margin, and the total stamped at
+ * the bottom rather than right-aligned at the same weight as "Subtotal".
+ */
 export function QuoteReviewCard({ business, quote }: QuoteReviewCardProps) {
+  const hasDiscount = Number(quote.discountAmount) > 0;
+  const hasTax = Number(quote.taxAmount) > 0;
+
   return (
-    <div className="space-y-6">
-      {/* Quote Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-sm text-muted-foreground font-body">Estimate</p>
-          <p className="text-lg font-semibold font-heading">{quote.quoteNumber}</p>
+    <div className="space-y-7">
+      {/* ── Docket head: the quote number is the document's identity, so it is
+             set in the utility face at display size, not the display face. ── */}
+      <header className="border-b border-ink/15 pb-5 dark:border-border">
+        <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <div>
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
+              Estimate
+            </p>
+            <p className="tnum mt-1 font-mono text-2xl font-medium text-foreground">
+              {quote.quoteNumber}
+            </p>
+          </div>
+          <dl className="grid grid-cols-[auto_auto] gap-x-4 gap-y-1 text-right">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              Issued
+            </dt>
+            <dd className="tnum font-mono text-xs text-foreground">
+              {formatDateOnly(quote.issuedDate)}
+            </dd>
+            {quote.expiryDate && (
+              <>
+                <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                  Valid until
+                </dt>
+                <dd className="tnum font-mono text-xs text-foreground">
+                  {formatDateOnly(quote.expiryDate)}
+                </dd>
+              </>
+            )}
+          </dl>
         </div>
-        <div className="text-right text-sm text-muted-foreground font-body">
-          <p>Issued: {formatDate(quote.issuedDate)}</p>
-          {quote.expiryDate && (
-            <p>Valid until: {formatDate(quote.expiryDate)}</p>
+
+        <div className="mt-4 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            Prepared for
+          </span>
+          <span className="font-body text-sm font-medium text-foreground">
+            {quote.customerName}
+          </span>
+        </div>
+      </header>
+
+      {/* ── The ruled ladder. Not a <table> element: at 360px a four-column
+             table either scrolls sideways or crushes the description, and the
+             description is the part a customer reads. Each line becomes its own
+             ruled row with the figure right-aligned in the margin. ── */}
+      <section>
+        <div className="flex items-baseline justify-between border-b border-ink/15 pb-1.5 dark:border-border">
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            Scope of work
+          </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            Amount
+          </span>
+        </div>
+
+        <ul className="divide-y divide-ink/10 dark:divide-border/60">
+          {quote.lineItems.map((item, i) => (
+            <li
+              key={i}
+              className="flex items-start justify-between gap-4 py-3"
+            >
+              <div className="min-w-0">
+                <p className="font-body text-sm text-foreground">
+                  {item.description}
+                </p>
+                {Number(item.quantity) !== 1 && (
+                  <p className="tnum mt-0.5 font-mono text-xs text-muted-foreground">
+                    {qty(item.quantity)} × {money(item.unitPrice)}
+                  </p>
+                )}
+              </div>
+              <p className="tnum shrink-0 font-mono text-sm text-foreground">
+                {money(item.total)}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* ── Totals, then the stamp. Subtotal and tax stay deliberately quiet so
+             the one number the customer is deciding on carries the page. ── */}
+      <section className="space-y-4">
+        <dl className="ml-auto w-full max-w-[16rem] space-y-1.5">
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+              Subtotal
+            </dt>
+            <dd className="tnum font-mono text-sm text-muted-foreground">
+              {money(quote.subtotal)}
+            </dd>
+          </div>
+          {hasTax && (
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+                Tax
+              </dt>
+              <dd className="tnum font-mono text-sm text-muted-foreground">
+                {money(quote.taxAmount)}
+              </dd>
+            </div>
           )}
-        </div>
-      </div>
+          {hasDiscount && (
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-brand">
+                Discount
+              </dt>
+              <dd className="tnum font-mono text-sm text-brand">
+                −{money(quote.discountAmount)}
+              </dd>
+            </div>
+          )}
+        </dl>
 
-      {/* Customer */}
-      <div>
-        <p className="text-xs uppercase tracking-wider text-muted-foreground font-heading mb-1">
-          Prepared for
-        </p>
-        <p className="text-sm font-medium font-body">{quote.customerName}</p>
-      </div>
-
-      {/* Line Items */}
-      <div className="rounded-lg border border-border overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="font-heading text-xs">Description</TableHead>
-              <TableHead className="font-heading text-xs text-center w-20">Qty</TableHead>
-              <TableHead className="font-heading text-xs text-right w-24">Price</TableHead>
-              <TableHead className="font-heading text-xs text-right w-24">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {quote.lineItems.map((item, i) => (
-              <TableRow key={i}>
-                <TableCell className="font-body text-sm">{item.description}</TableCell>
-                <TableCell className="font-body text-sm text-center">
-                  {Number(item.quantity)}
-                </TableCell>
-                <TableCell className="font-body text-sm text-right">
-                  {formatCurrency(item.unitPrice)}
-                </TableCell>
-                <TableCell className="font-body text-sm text-right font-medium">
-                  {formatCurrency(item.total)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      {/* Totals */}
-      <div className="ml-auto w-64 space-y-1 text-sm font-body">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Subtotal</span>
-          <span>{formatCurrency(quote.subtotal)}</span>
-        </div>
-        {Number(quote.taxAmount) > 0 && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Tax</span>
-            <span>{formatCurrency(quote.taxAmount)}</span>
+        {/* The signature element: the total as a stamped block, ruled top and
+            bottom, the way a figure is boxed on a paper work order. */}
+        <div className="border-y-2 border-brand/70 bg-brand-light/60 px-4 py-4 dark:bg-brand-light/30">
+          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <span className="font-mono text-[11px] uppercase tracking-[0.18em] text-foreground">
+              Total due
+            </span>
+            <span className="tnum font-mono text-3xl font-medium leading-none text-foreground sm:text-4xl">
+              {money(quote.totalAmount)}
+            </span>
           </div>
-        )}
-        {Number(quote.discountAmount) > 0 && (
-          <div className="flex justify-between text-green-600 dark:text-green-400">
-            <span>Discount</span>
-            <span>-{formatCurrency(quote.discountAmount)}</span>
-          </div>
-        )}
-        <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
-          <span>Total</span>
-          <span className="text-brand">{formatCurrency(quote.totalAmount)}</span>
         </div>
-      </div>
+      </section>
 
-      {/* Notes */}
       {quote.notes && (
-        <div className="rounded-lg bg-muted/50 p-4">
-          <p className="text-xs uppercase tracking-wider text-muted-foreground font-heading mb-1">
+        <section>
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             Notes
           </p>
-          <p className="text-sm text-foreground font-body whitespace-pre-wrap">
+          <p className="mt-1.5 whitespace-pre-wrap font-body text-sm leading-relaxed text-foreground">
             {quote.notes}
           </p>
-        </div>
+        </section>
       )}
 
-      {/* Terms */}
       {quote.termsConditions && (
-        <div className="text-xs text-muted-foreground font-body">
-          <p className="font-semibold mb-1">Terms & Conditions</p>
-          <p className="whitespace-pre-wrap">{quote.termsConditions}</p>
-        </div>
+        <section className="border-t border-ink/15 pt-4 dark:border-border">
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
+            Terms
+          </p>
+          <p className="mt-1.5 whitespace-pre-wrap font-body text-xs leading-relaxed text-muted-foreground">
+            {quote.termsConditions}
+          </p>
+        </section>
       )}
     </div>
   );

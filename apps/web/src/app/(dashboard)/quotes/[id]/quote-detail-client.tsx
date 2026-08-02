@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import type { QuoteDetail } from "@/components/dashboard/quotes/quote-detail-sheet";
-import { getQuote } from "@/actions/quotes";
+import { useQuote } from "@/hooks/queries";
 import { QuoteDetailHeader } from "@/components/dashboard/quotes/quote-detail-header";
 import { QuoteInfoPanel } from "@/components/dashboard/quotes/quote-info-panel";
 import { QuoteTabsPanel } from "@/components/dashboard/quotes/quote-tabs-panel";
@@ -20,28 +20,40 @@ export function QuoteDetailClient({
 }: QuoteDetailClientProps) {
   const router = useRouter();
   const { mode: viewMode, setMode: setViewMode, mounted: viewMounted } = useViewPreference("quotes");
-  const [quote, setQuote] = useState<QuoteDetail>(initialQuote);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Set preference to "page" since user is on the full page view
+  // QUO-15: reads through TanStack Query so mutations made here invalidate the
+  // list, the stats and the dashboard. Seeded from the server render, so there
+  // is no second fetch on arrival.
+  const quoteQuery = useQuote(initialQuote.id, {
+    data: initialQuote,
+    error: null,
+  });
+  const quote = (quoteQuery.data?.data ?? initialQuote) as QuoteDetail;
+
+  // QUO-16: these were two effects racing on the same value. On mount with a
+  // stored preference of "sheet", the first set it to "page" while the second
+  // read the still-stale "sheet" and pushed straight back to /quotes — so any
+  // deep link into a quote bounced to the list. Landing on this route *is* the
+  // preference; only a later, deliberate change should navigate. Same fix as
+  // JOB-38, which has carried this ref since 2026-07-29.
+  const adoptedPageMode = useRef(false);
   useEffect(() => {
-    if (viewMounted && viewMode !== "page") {
-      setViewMode("page");
-    }
+    if (!viewMounted || adoptedPageMode.current) return;
+    adoptedPageMode.current = true;
+    if (viewMode !== "page") setViewMode("page");
   }, [viewMounted]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // When user switches away from "page" mode, navigate back to list with deep-link
   useEffect(() => {
-    if (viewMounted && viewMode !== "page") {
-      router.push(`/quotes?quoteId=${quote.id}`);
-    }
+    if (!viewMounted || !adoptedPageMode.current) return;
+    if (viewMode === "page") return;
+    router.push(`/quotes?quoteId=${quote.id}`);
   }, [viewMode, viewMounted, router, quote.id]);
 
   const refreshQuote = useCallback(async () => {
-    const res = await getQuote(quote.id);
-    if (res.data) setQuote(res.data as QuoteDetail);
+    await quoteQuery.refetch();
     setRefreshKey((k) => k + 1);
-  }, [quote.id]);
+  }, [quoteQuery]);
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">

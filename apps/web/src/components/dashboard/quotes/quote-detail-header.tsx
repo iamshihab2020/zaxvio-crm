@@ -27,14 +27,15 @@ import {
   IconTrash,
   IconExternalLink,
 } from "@tabler/icons-react";
+import { downloadQuotePdf } from "@/actions/quotes";
 import {
-  sendQuote,
-  getQuotePdfUrl,
-  acceptQuote,
-  declineQuote,
-  convertQuoteToJob,
-  deleteQuote,
-} from "@/actions/quotes";
+  useSendQuote,
+  useAcceptQuote,
+  useDeclineQuote,
+  useConvertQuoteToJob,
+  useDeleteQuote,
+} from "@/hooks/queries";
+import { openPdfPayload } from "@/lib/open-pdf";
 import type { QuoteDetail } from "./quote-detail-sheet";
 
 interface QuoteDetailHeaderProps {
@@ -49,11 +50,21 @@ export function QuoteDetailHeader({
   children,
 }: QuoteDetailHeaderProps) {
   const router = useRouter();
-  const [sendLoading, setSendLoading] = useState(false);
-  const [convertLoading, setConvertLoading] = useState(false);
   const [convertDialogOpen, setConvertDialogOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // QUO-15: these were bare server-action calls, so nothing on this page
+  // invalidated the quotes list, the jobs board or the dashboard after a send,
+  // an accept or a convert. The hooks that do have existed all along.
+  const sendMutation = useSendQuote();
+  const acceptMutation = useAcceptQuote();
+  const declineMutation = useDeclineQuote();
+  const convertMutation = useConvertQuoteToJob();
+  const deleteMutation = useDeleteQuote();
+
+  const sendLoading = sendMutation.isPending;
+  const convertLoading = convertMutation.isPending;
+  const deleteLoading = deleteMutation.isPending;
 
   const canSend = quote.status === "draft";
   const canAcceptDecline = quote.status === "sent";
@@ -65,66 +76,58 @@ export function QuoteDetailHeader({
     `${quote.customerFirstName ?? ""} ${quote.customerLastName ?? ""}`.trim() ||
     "Unknown Customer";
 
-  async function handleSend() {
-    setSendLoading(true);
-    const result = await sendQuote(quote.id);
-    setSendLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote sent successfully");
-      onUpdate();
-    }
+  function handleSend() {
+    sendMutation.mutate(quote.id, {
+      onSuccess: (res) => {
+        if (!res.error) onUpdate();
+      },
+    });
   }
 
   async function handleDownloadPdf() {
-    const url = await getQuotePdfUrl(quote.id);
-    window.open(url, "_blank");
+    const res = await downloadQuotePdf(quote.id);
+    if (res.error || !res.data) {
+      toast.error(res.error ?? "Couldn't open the PDF");
+      return;
+    }
+    openPdfPayload(res.data);
   }
 
-  async function handleAccept() {
-    const result = await acceptQuote(quote.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote accepted");
-      onUpdate();
-    }
+  function handleAccept() {
+    acceptMutation.mutate(quote.id, {
+      onSuccess: (res) => {
+        if (!res.error) onUpdate();
+      },
+    });
   }
 
-  async function handleDecline() {
-    const result = await declineQuote(quote.id);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote declined");
-      onUpdate();
-    }
+  function handleDecline() {
+    declineMutation.mutate(quote.id, {
+      onSuccess: (res) => {
+        if (!res.error) onUpdate();
+      },
+    });
   }
 
-  async function handleConvert(pipelineStageId: string) {
-    setConvertLoading(true);
-    const result = await convertQuoteToJob(quote.id, pipelineStageId);
-    setConvertLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Job created from quote");
-      router.push(`/jobs/${result.data.id}`);
-    }
+  function handleConvert(pipelineStageId: string) {
+    convertMutation.mutate(
+      { id: quote.id, pipelineStageId },
+      {
+        onSuccess: (res) => {
+          if (!res.error) router.push(`/jobs/${res.data.id}`);
+        },
+      },
+    );
   }
 
-  async function handleDelete() {
-    setDeleteLoading(true);
-    const result = await deleteQuote(quote.id);
-    setDeleteLoading(false);
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Quote deleted");
-      setDeleteOpen(false);
-      router.push("/quotes");
-    }
+  function handleDelete() {
+    deleteMutation.mutate(quote.id, {
+      onSuccess: (res) => {
+        if (res.error) return;
+        setDeleteOpen(false);
+        router.push("/quotes");
+      },
+    });
   }
 
   return (

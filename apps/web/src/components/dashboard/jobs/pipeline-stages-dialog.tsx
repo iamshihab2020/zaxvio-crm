@@ -470,15 +470,18 @@ export function PipelineStagesDialog({
       ),
     );
 
-    for (const stage of displaced) {
-      const cleared = await updatePipelineStage(stage.id, {
-        lifecycle: "scheduled",
-      });
-      if (cleared.error) {
-        toast.error(cleared.error);
-        setLocalStages(stages);
-        return;
-      }
+    // Issued together rather than one-at-a-time in a loop (ARC-18). The first
+    // error rolls the whole optimistic update back, as before.
+    const clearedResults = await Promise.all(
+      displaced.map((stage) =>
+        updatePipelineStage(stage.id, { lifecycle: "scheduled" }),
+      ),
+    );
+    const clearFailure = clearedResults.find((r) => r.error);
+    if (clearFailure) {
+      toast.error(clearFailure.error!);
+      setLocalStages(stages);
+      return;
     }
 
     const result = await updatePipelineStage(id, { lifecycle });

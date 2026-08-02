@@ -30,7 +30,7 @@ import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { Input } from "@/components/ui/input";
 
-interface PipelineData {
+export interface PipelineData {
   id: string;
   name: string;
   label: string;

@@ -103,6 +103,8 @@ export const queryKeys = {
     detail: (id: string) => ["equipment", "detail", id] as const,
     refrigerantLogs: (equipmentId: string) =>
       ["equipment", "detail", equipmentId, "refrigerantLogs"] as const,
+    history: (equipmentId: string) =>
+      ["equipment", "detail", equipmentId, "history"] as const,
   },
 
   // ── Catalog ────────────────────────────────────────────────

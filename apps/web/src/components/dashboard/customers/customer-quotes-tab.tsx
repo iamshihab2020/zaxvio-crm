@@ -10,6 +10,9 @@ import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { QuoteStatusBadge } from "@/components/dashboard/quotes/quote-status-badge";
 import { getQuotes } from "@/actions/quotes";
+// ARC-12: issuedDate/expiryDate are `date` columns; `new Date(col)` is UTC
+// midnight and rendered the previous day west of UTC.
+import { formatDateOnly as formatDate } from "@/lib/format";
 
 interface QuoteRow {
   id: string;
@@ -28,14 +31,6 @@ function formatCurrency(val: string) {
   return `$${parseFloat(val).toFixed(2)}`;
 }
 
-function formatDate(val: string | null) {
-  if (!val) return "\u2014";
-  return new Date(val).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
 
 const PAGE_SIZE = 20;
 

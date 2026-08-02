@@ -45,7 +45,96 @@ Reports live in [[reports/README|docs/claude/reports/]]. One file per page.
 - [x] `/customers` — [[customers|report]]: 35 findings audited and **all 35 fixed** (2026-07-27)
 - [x] Jobs — [[jobs|report]]: 42 findings audited and **all 48 fixed** (2026-07-29) — the 42 plus 6 found while fixing. (The report header had undercounted its own medium section as 16; it is 20.)
 - [x] Invoices — [[invoices|report]]: 42 findings audited and **all 42 fixed** (2026-07-29)
-- [ ] Next page to audit — user picks (suggested: Quotes — shares the money model and adds a public token surface)
+- [x] Quotes — [[quotes|report]]: **35 findings, all open** (2026-08-01). Verified 24 checks by
+      execution (6 pass, 18 fail). The page is the control group for [[invoices|§2]]'s process
+      change: **6 of 6** patterns that were swept repo-wide arrived here, **0 of 19** applied
+      only in place did. Worst finding is a regression of a fix three days old —
+      `lib/quote-to-job.ts` writes `jobs.status` by hand and never sets `stage_id`, so every job
+      created from a quote is outside the stage model, counts as 0 in the pipeline stage counts
+      and matches no lifecycle filter. Also: `bulk-status-update` can flip a draft to `sent`
+      with no token and no PDF, after which `/send`, `PATCH` and `DELETE` all refuse it — the
+      quote is unusable and undeletable; the public accept/decline pair is an unserialised
+      read-then-write, so an accept racing a decline leaves a scheduled job on a declined quote;
+      and `quoteOnlineAcceptanceEnabled` is enforced in exactly one place — building the email
+      link — so turning it off leaves every issued portal link live.
+- [ ] Next page to audit — user picks (suggested: Assets & Service Agreements, or Catalog +
+      Checklists together — both are settings-shaped and share the catalog line-item model)
+
+### Quotes Remediation (2026-08-01) — COMPLETE
+All 35 findings in [[quotes|the report]] are fixed; the record is [[quotes|§8]]. **Verified 32/32 by
+execution** against Neon, `tsc` clean on both packages.
+- [x] **Phase 1 — QUO-02, 27** — `lib/quote-to-job.ts` now resolves through
+      `job-stages.service.ts` and writes `stage_id`. This was a regression of a fix three days old:
+      the jobs audit converted every `jobs.status` writer inside `routes/jobs` and never grepped
+      outside it, so for four days every job created from a quote counted **0** in the stage-keyed
+      pipeline counts and matched no `?lifecycle=` filter. `resolveStage` already refused a
+      cross-pipeline stage, so QUO-27 closed with it. Found on the way: `job-stages.service.ts`
+      typed its `Db` as `ReturnType<typeof getDb>`, which a transaction does not satisfy — the
+      service literally could not be called from inside one.
+- [x] **Phase 2 — QUO-01, 35** — new `lib/quote-guards.ts` holds the transition table, and
+      `draft → sent` is absent *by construction*: `sent` is not a value `bulkQuoteStatusBody`
+      accepts, because only `/send` can mint the token and PDF that make a sent quote usable.
+- [x] **Phase 3 — QUO-03, 04, 12** — `claimQuoteResponse` re-reads status inside
+      `SELECT … FOR UPDATE`; the online-acceptance kill switch and the archived check moved into
+      `resolveQuoteByToken` so they gate the mutations, not just the email link; rate limits copied
+      from `public/booking.ts`.
+- [x] **Phase 4 — money + time** — QUO-08, 09, 10, 11. Subtotal sums the **stored** per-row total,
+      so `31.00` now equals what the customer's line items add up to (was `30.99`); expiry is
+      derived in tenant time on read and swept hourly by the cron instead of `UPDATE`-ing on every
+      `GET`; dashboard, portal and E-13 email finally print the same date.
+- [x] **Phase 5 — schemas + guards** — QUO-17…23, 28, 29, 30. `isoDate` rejects all 7
+      magic/invalid dates on both verbs, `loadEditableQuote` on all 10 mutating handlers,
+      `services/quotes/` created.
+- [x] **Phase 6 — migration** `20260801000001_quotes_audit.sql` applied to Neon, idempotent across
+      4 runs. UNIQUE index on `access_token` (verified: duplicate raises `23505`), index on
+      `quote_line_items` (it had none at all), `archived_at` index, plus the QUO-02 backfill.
+- [x] **Phase 7 — frontend** QUO-05, 06, 07, 13, 14, 15, 16, 26, 31…34. Six hooks that had **zero
+      callers** are now the only way the page mutates; the portal's scheduling step — built end to
+      end on the server in April and never once reachable — is wired up.
+- [x] **Phase 8 — docs** 7 undocumented endpoints written up, plus 3 corrections to existing docs
+      (`taxRate` was documented as a percentage when the API wants a 0–1 fraction; `POST /quotes`
+      was documented as accepting a `lineItems` array it has never accepted).
+
+### Architecture Audit (2026-08-02) — 14 of 21 fixed, 1 withdrawn, 6 open
+[[architecture|The report]] answers why the page sweeps kept failing to propagate: **there was
+nothing to propagate into.** [[decisions|ADR-002]] now names the one data-access pattern.
+- [x] **ARC-02 (the seam)** — `lib/api-fetch.ts`: one module, one `fetch`, owns cookies, timeouts
+      (there were none), and a `{data, error, status, notFound}` contract. `tags.ts` migrated as
+      proof: 99 lines → 25, no behaviour change
+- [x] **ARC-04** — deleted `use-admin.ts` entire: 21 hooks, 225 lines, zero callers (superadmin is
+      pure RSC). 160 hooks → 140
+- [x] **ARC-06** — 4 pages now consume their SSR payload via new `hooks/queries/seed.ts`
+- [x] **ARC-10/17** — 0 `as never` and 0 `as any` left in code
+- [x] **ARC-12** — 6 files onto shared `formatDateOnly`
+- [x] **ARC-13/14/19** — 6 dead deps gone, `packages/ui` deleted (it was `export {}`), lucide
+      retired, `@types/*` moved to devDependencies
+- [x] **ARC-16** — equipment history off its bare browser fetch; bespoke rewrite deleted. Its catch
+      block was literally `// silent fail`
+- [x] **ARC-18/21** — sequential loop fixed; ADR-002 written
+- [x] **Found while fixing** — `catalogListQuery.showArchived` used `z.coerce.boolean()`, so
+      `?showArchived=false` returned **archived only** (CUST-29 recurrence); `PaginationData` was
+      declared 8 times and is now `lib/pagination.ts`
+- [x] **ARC-08 withdrawn** — all 16 schema-less handlers read no input at all. The original count
+      came from a regex that missed multi-line options objects. See [[architecture|§7.2]]
+- [ ] **ARC-02 (rest)** — 19 action files still to migrate onto `api-fetch`. Mechanical
+- [ ] **ARC-01** — reads off Server Actions. Needs the `/api/*` rewrite **and** a rate-limiter IP
+      review (`req.ip` → `x-forwarded-for`). One file now that the client exists
+- [ ] **ARC-05** — extract services for `jobs` (2,497 lines) and `customers` (1,316). Own pass
+- [ ] **ARC-07** — 16 pages with no error state. Wants a shared list shell, not 16 copies
+- [ ] **ARC-09** — 6 components with inline `useQuery`; this is also the fix for the ~37 remaining
+      callerless hooks (`useJobs` is dead *because* `/jobs` bypasses it)
+
+### Cross-Page Sweeps — OPEN (baseline measured 2026-08-01)
+[[quotes|§8.2]] is the first audit to *measure* the propagation problem instead of asserting it was
+solved. The quotes remediation fixed quotes; these counts are what remains repo-wide. Re-measure
+when closing — the number is the deliverable, not the intent.
+- [ ] **`isError` on list pages** — 17 `*-page-client.tsx` still have none (was 18). `/dashboard` is
+      a false positive (per-widget error boundaries). Real targets: assets, catalog, checklists,
+      conversations, service-agreements, 3 settings pages, 7 superadmin pages.
+- [ ] **`new Date(col).toLocaleDateString`** — 20 sites left in `components/dashboard/` (was 23).
+      3 render `timestamptz`, where it is correct; the rest shift a `date` column back a day.
+- [ ] **Bare `z.string()` on a date reaching a `::date` cast** — 1 file left: `schemas/equipment.ts`.
+      `isoDate` in `common.ts` has been the fix since BOOK-04.
 
 ### Invoices Remediation (2026-07-29) — COMPLETE
 All 42 findings in [[invoices|the report]] are fixed; the record is [[invoices|§7]]. The headline

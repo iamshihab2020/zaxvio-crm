@@ -15,16 +15,29 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export function useCatalogItems(params: Record<string, unknown>) {
+/**
+ * `staleTime` matters more here than on most lists: the catalog is reference
+ * data that changes rarely, and `CatalogItemPicker` mounts once per line item.
+ * Without a cache, adding a fourth line to a quote refetched the same ten rows
+ * a fourth time.
+ */
+export function useCatalogItems(
+  params: Record<string, unknown>,
+  options?: { enabled?: boolean; seed?: object },
+) {
   return useQuery({
+    ...options?.seed,
     queryKey: queryKeys.catalog.list(params),
     queryFn: () => getCatalogItems(params as Parameters<typeof getCatalogItems>[0]),
     placeholderData: (prev) => prev,
+    staleTime: 60_000,
+    enabled: options?.enabled ?? true,
   });
 }
 
-export function useCatalogCategories() {
+export function useCatalogCategories(seed?: object) {
   return useQuery({
+    ...seed,
     queryKey: queryKeys.catalog.categories(),
     queryFn: () => getCatalogCategories(),
     staleTime: 5 * 60_000,

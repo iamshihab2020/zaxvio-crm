@@ -125,6 +125,9 @@ apps/api/
 |   |   +-- invoice-guards.ts     # loadEditableInvoice()/assertPayable()/assertDraft() + the FK
 |   |   |                         # ownership checks. No mutating invoice handler checked archivedAt,
 |   |   |                         # and a draft could take a payment and email a receipt (INV-01)
+|   |   +-- quote-guards.ts       # loadEditableQuote()/assertDraft() + THE quote transition table.
+|   |   |                         # `draft -> sent` is deliberately absent: only /send may produce a
+|   |   |                         # sent quote, because it mints the token and PDF (QUO-01)
 |   |   +-- admin-audit.ts        # logAdminAction() — append-only audit log helper
 |   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
 |   |   +-- platform-events.ts    # emitPlatformEvent() — fire-and-forget activity tracking
@@ -238,6 +241,12 @@ apps/api/
 |   |   |   |                         # copyJobLineItems(), findActiveInvoiceForJob()
 |   |   |   +-- pdf.service.ts        # loadPdfBundle/renderInvoicePdf/storeInvoicePdf +
 |   |   |                             # contentDisposition() (header injection, security-rules §6)
+|   |   +-- quotes/
+|   |   |   +-- quotes.service.ts     # recalculateQuoteTotals() — sums the STORED per-row total, so
+|   |   |                             # the subtotal equals the lines the customer sees, and round2()
+|   |   |                             # at each step like invoices; expiredCondition()/displayStatus()
+|   |   |                             # (derived in tenant tz — reads no longer UPDATE on GET),
+|   |   |                             # getQuoteStats() with the archived filter the cards lacked
 |   |   +-- job-stages.service.ts     # THE stage resolver: resolveStage/matchStage by id-or-name,
 |   |   |                             # canTransition() keyed on stage.lifecycle (not on status),
 |   |   |                             # stageUpdate() -> {stageId,status,completedAt}. One place a
@@ -375,6 +384,7 @@ apps/web/
     |       +-- use-admin.ts                   # Admin panel queries & mutations
     |
     +-- lib/
+    |   +-- jobs-pipeline-preference.ts # Remembered Jobs pipeline; shared by the page and the sidebar
     |   +-- env.ts                   # Zod-validated web env (getClientEnv/getServerEnv/validateEnv), run at boot
     |   +-- storage-url.ts           # Build public R2 URLs for job attachments
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)

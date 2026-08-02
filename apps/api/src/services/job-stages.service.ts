@@ -49,7 +49,11 @@ export interface ResolvedStage {
   sortOrder: number;
 }
 
-type Db = ReturnType<typeof getDb>;
+// `Omit<…, "$client">` so a transaction handle satisfies it too — the stage
+// resolvers are called from inside `db.transaction(...)` (quote→job conversion),
+// and a bare `ReturnType<typeof getDb>` requires `$client`, which a
+// `PgTransaction` does not carry.
+type Db = Omit<ReturnType<typeof getDb>, "$client">;
 
 /**
  * Allowed *lifecycle* transitions. Keyed on lifecycle, never on a stage name —

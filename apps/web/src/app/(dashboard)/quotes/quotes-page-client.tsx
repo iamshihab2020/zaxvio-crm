@@ -20,6 +20,7 @@ import {
   IconArchive,
   IconArchiveOff,
   IconTrash,
+  IconClockX,
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
@@ -46,6 +47,7 @@ import {
 } from "@/components/dashboard/quotes/quote-detail-sheet";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { EmptyState } from "@/components/reusable/empty-state";
+import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { useRowSelection } from "@/hooks/use-row-selection";
@@ -60,7 +62,6 @@ import {
   useTenantSettings,
   prefetchQuotes,
 } from "@/hooks/queries";
-import { addQuoteLineItem } from "@/actions/quotes";
 import { useEventStream } from "@/hooks/use-event-stream";
 
 const SORT_OPTIONS = [
@@ -98,6 +99,7 @@ interface QuoteStats {
   sent: number;
   accepted: number;
   declined: number;
+  expired: number;
 }
 
 interface QuotesPageClientProps {
@@ -189,16 +191,42 @@ export function QuotesPageClient({
     showArchived: showingArchived || undefined,
   };
 
-  const quotesQuery = useQuotes(listParams);
-  const statsQuery = useQuoteStats();
+  // QUO-14: the server render fetched the list and the stats, passed them in,
+  // and nothing read them — so every visit paid for both twice and still showed
+  // a skeleton. Seed only the exact key the server rendered (the first page,
+  // no filters), with an honest `updatedAt` so it refetches on schedule rather
+  // than looking fresh forever.
+  const isInitialParams =
+    page === 1 &&
+    !debouncedSearch &&
+    !statusFilter &&
+    !showingArchived &&
+    sortBy === "createdAt" &&
+    sortOrder === "desc";
+
+  const quotesQuery = useQuotes(
+    listParams,
+    isInitialParams && initialQuotes.length > 0 && initialPagination
+      ? { data: initialQuotes, pagination: initialPagination, error: null }
+      : undefined,
+  );
+  const statsQuery = useQuoteStats(
+    initialStats ? { data: initialStats, error: null } : undefined,
+  );
   const tenantQuery = useTenantSettings();
 
   // Derived state
   const quotes = (quotesQuery.data?.data ?? []) as QuoteRow[];
   const pagination = (quotesQuery.data?.pagination ?? { page: 1, limit: 15, total: 0, totalPages: 0 }) as PaginationInfo;
   const loading = quotesQuery.isPending;
+  // QUO-05: `failed` is not `empty`. Without this a 500 rendered "No quotes
+  // yet — Create your first estimate" over four zeroed KPI cards.
+  const loadFailed =
+    quotesQuery.isError || Boolean(quotesQuery.data?.error && !quotesQuery.data?.data);
+  const statsFailed =
+    statsQuery.isError || Boolean(statsQuery.data?.error && !statsQuery.data?.data);
   const rawStats = statsQuery.data?.data as QuoteStats | undefined;
-  const stats = rawStats ?? { draft: 0, sent: 0, accepted: 0, declined: 0 };
+  const stats = rawStats ?? { draft: 0, sent: 0, accepted: 0, declined: 0, expired: 0 };
   const defaultTaxRate = (prefetchedTaxRate !== "0" ? prefetchedTaxRate : tenantQuery.data?.data?.defaultTaxRate) ?? "0";
 
   // Prefetch next page
@@ -238,24 +266,27 @@ export function QuotesPageClient({
         discountAmount: data.discountAmount || undefined,
         notes: data.notes || undefined,
         equipmentId: data.equipmentId || undefined,
+        // Sent with the quote instead of looped afterwards. The old flow
+        // created the quote, then fired one server action per line from here —
+        // and because Next queues server actions, the dialog sat open for the
+        // whole chain and stayed open entirely if any of them rejected, with
+        // the quote already created behind it.
+        lineItems: data.lineItems?.length
+          ? data.lineItems.map((li, index) => ({
+              description: li.description || undefined,
+              itemType: li.itemType,
+              quantity: li.quantity || undefined,
+              unitPrice: li.unitPrice,
+              sortOrder: index,
+              ...(li.catalogItemId ? { catalogItemId: li.catalogItemId } : {}),
+            }))
+          : undefined,
       },
       {
-        onSuccess: async (res) => {
+        onSuccess: (res) => {
           if (res.error) return;
-          // Add line items if any were provided during creation
-          const quoteId = res.data?.id;
-          if (quoteId && data.lineItems && data.lineItems.length > 0) {
-            for (const li of data.lineItems) {
-              await addQuoteLineItem(quoteId, {
-                description: li.description,
-                itemType: li.itemType,
-                quantity: li.quantity,
-                unitPrice: li.unitPrice,
-                ...(li.catalogItemId ? { catalogItemId: li.catalogItemId } : {}),
-              });
-            }
-          }
           setCreateDialogOpen(false);
+          const quoteId = res.data?.id;
           if (quoteId) {
             setSelectedQuoteId(quoteId);
             setSheetOpen(true);
@@ -306,8 +337,26 @@ export function QuotesPageClient({
   }
 
   const hasQuotes = quotes.length > 0;
-  const showEmptyState = !loading && !hasQuotes && !search && !statusFilter && !showingArchived;
-  const showNoResults = !loading && !hasQuotes && (!!search || !!statusFilter || showingArchived);
+  const showEmptyState =
+    !loading && !loadFailed && !hasQuotes && !search && !statusFilter && !showingArchived;
+  const showNoResults =
+    !loading && !loadFailed && !hasQuotes && (!!search || !!statusFilter || showingArchived);
+
+  if (loadFailed) {
+    return (
+      <section className="p-6">
+        <LoadErrorState
+          title="Couldn't load your quotes"
+          message={quotesQuery.data?.error ?? undefined}
+          onRetry={() => {
+            quotesQuery.refetch();
+            statsQuery.refetch();
+          }}
+          isRetrying={quotesQuery.isFetching}
+        />
+      </section>
+    );
+  }
 
   return (
     <section className="p-6">
@@ -322,14 +371,16 @@ export function QuotesPageClient({
         />
       )}
 
-      {/* Stats Cards */}
-      {!showEmptyState && (
+      {/* Stats Cards — hidden rather than zeroed when the count query fails, so
+          the cards never assert "0 accepted" on a 500 (QUO-05). */}
+      {!showEmptyState && !statsFailed && (
         <StatsCards
           stats={[
             { label: "Draft", count: stats.draft, icon: IconFileText, color: "text-muted-foreground", bg: "bg-muted/50" },
             { label: "Sent", count: stats.sent, icon: IconSend, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-950/40" },
             { label: "Accepted", count: stats.accepted, icon: IconCircleCheck, color: "text-green-600 dark:text-green-400", bg: "bg-green-50 dark:bg-green-950/40" },
             { label: "Declined", count: stats.declined, icon: IconX, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-950/40" },
+            { label: "Expired", count: stats.expired, icon: IconClockX, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/40" },
           ]}
           activeFilter={statusFilter}
           onFilterChange={setStatusFilter}
@@ -345,7 +396,14 @@ export function QuotesPageClient({
             <StatusFilterTabs
               options={VIEW_OPTIONS}
               value={viewFilter}
-              onChange={setViewFilter}
+              onChange={(next) => {
+                // The status tabs are hidden while Archived is showing, so a
+                // status left applied here filters the list by a control the
+                // user can no longer see — which reads as "the filters don't
+                // work". Switching views clears it.
+                if (next === "archived") setStatusFilter("");
+                setViewFilter(next);
+              }}
             />
             {!showingArchived && (
               <StatusFilterTabs

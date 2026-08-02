@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "kill-port 4000 && tsx watch src/server.ts",
-    "build": "echo \"api: no build step — run with tsx, see start\"",
+    "build": "echo \"api: no build step \u2014 run with tsx, see start\"",
     "start": "tsx src/server.ts",
     "test": "vitest run",
     "test:unit": "vitest run --config vitest.config.ts",
@@ -31,7 +31,6 @@
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
     "fastify": "^5.8.2",
-    "fastify-plugin": "^5.1.0",
     "fastify-type-provider-zod": "^6.1.0",
     "postgres": "^3.4.8",
     "react": "^18.3.1",

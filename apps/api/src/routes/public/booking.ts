@@ -54,6 +54,9 @@ async function resolveTenantBySlug(slug: string) {
       id: tenants.id,
       businessName: tenants.businessName,
       logoUrl: tenants.logoUrl,
+      // The portal printed a hardcoded "Licensed & Insured" badge for every
+      // tenant. The column has always existed; the badge never read it.
+      licenseNumber: tenants.licenseNumber,
       slug: tenants.slug,
       timezone: tenants.timezone,
       bookingSlotCapacity: tenants.bookingSlotCapacity,
@@ -85,6 +88,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
         data: {
           businessName: tenant.businessName,
           logoUrl: tenant.logoUrl,
+          licenseNumber: tenant.licenseNumber,
           slug: tenant.slug,
           timezone: tenant.timezone,
           serviceTypes: [...SERVICE_TYPES],
@@ -540,6 +544,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
           booking,
           businessName: tenant.businessName,
           logoUrl: tenant.logoUrl,
+          licenseNumber: tenant.licenseNumber,
           timezone: tenant.timezone,
         },
       });

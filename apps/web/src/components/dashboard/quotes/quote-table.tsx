@@ -12,6 +12,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { getQuote } from "@/actions/quotes";
 import { Checkbox } from "@/components/ui/checkbox";
+// QUO-10: `new Date("2026-08-01")` is UTC midnight, so these printed the
+// previous day for every US tenant while the customer portal — which anchors
+// at local midnight — printed the right one. `formatDateOnly` is the shared
+// fix invoices has used since INV-19.
+import { formatMoney as formatCurrency, formatDateOnly as formatDate } from "@/lib/format";
 import { QuoteStatusBadge } from "./quote-status-badge";
 
 export interface QuoteRow {
@@ -34,20 +39,6 @@ interface QuoteTableProps {
   onToggleSelectAll?: () => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
-}
-
-function formatCurrency(val: string | null) {
-  const num = parseFloat(val ?? "0");
-  return `$${num.toFixed(2)}`;
-}
-
-function formatDate(val: string | null) {
-  if (!val) return "\u2014";
-  return new Date(val).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 export function QuoteTable({

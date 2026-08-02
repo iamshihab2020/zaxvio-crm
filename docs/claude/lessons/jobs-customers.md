@@ -87,3 +87,25 @@ See [[jobs|the report]] for the full 38 findings + 3 more found while fixing the
   date — cash received. Completing a job stamps `completed_at`, fires the E-05 email and counts as
   finished work in reports, but money only appears once an invoice exists and a payment is recorded
   against it.
+- **A one-shot `useRef` guard skips its whole body on the server-rendered path.** `/jobs` resolved the
+  pipeline and wrote `?pipeline=` in the same effect, guarded by
+  `useRef(initialPipelines.length > 0)` — which starts **true** whenever the server pre-rendered
+  pipelines, i.e. every normal visit. So the board showed the default pipeline while the URL claimed
+  no opinion, and the link could not be shared, bookmarked or reloaded onto the same board. Anything
+  that must happen on *every* visit belongs in its own effect, not inside a run-once resolver.
+- **One writer per URL parameter.** `?pipeline=` was written in three places (the resolver, the
+  pipeline-tab handler, and nowhere for the default case, which was the bug). A single effect that
+  syncs the param to the selected id covers all of them — and it must use `router.replace`, not
+  `push`: a pipeline is where you are, not somewhere you navigated to, so pushing makes Back walk
+  through every pipeline you looked at.
+- **A "one place that writes X" rule only holds if you grep for writers outside the directory you
+  are editing.** The jobs audit built `job-stages.service.ts` as the single writer of
+  `jobs.status`/`stage_id` and converted every handler in `routes/jobs` — but `lib/quote-to-job.ts`
+  writes a job too, and it kept setting `status` by hand with `stage_id` left NULL. For four days
+  every job created from a quote counted **0** in the stage-keyed pipeline counts and matched no
+  `?lifecycle=` filter, because both are keyed on `stage_id`. When you centralise a write, the
+  verification step is `grep -rl "<column>" apps/api/src`, not a read of the folder you refactored.
+- **Typing a service's `Db` as `ReturnType<typeof getDb>` silently forbids calling it in a
+  transaction.** A `PgTransaction` has no `$client`, so it is not assignable, and the failure only
+  appears the first time someone tries to compose the service into a larger atomic operation.
+  `Omit<ReturnType<typeof getDb>, "$client">` is the shape every service in this repo should use.

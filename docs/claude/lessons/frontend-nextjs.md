@@ -274,3 +274,17 @@ From [[bookings-calendar|the report]] — the front-end half.
   already cleared the field (commit from `onMouseDown` instead). The reliable fix is to lift the
   pending value into the parent and append it inside the submit handler, reading the local variable
   rather than state.
+- **A layout component that reads localStorage once on mount never sees a later write.** The sidebar
+  builds its Jobs link from `jobs-pipeline-id`, read in a `useEffect([])` — but the sidebar lives in
+  the dashboard layout and does not remount on client navigation, so visiting /jobs seeded the value
+  and the link still read a bare `/jobs` for the rest of the session. `storage` events do not help:
+  the browser only fires those in *other* tabs. Pair the write with a `CustomEvent` on `window` and
+  have the reader subscribe (`lib/jobs-pipeline-preference.ts`).
+- **`new Date("2026-08-01")` is UTC midnight, so every US timezone renders the day before.**
+  A bare `YYYY-MM-DD` from a Postgres `date` column hits the ISO-date branch of the JS
+  parser, which is UTC; `.toLocaleDateString()` then converts *back* into local time and
+  loses a day. Proven with `TZ=America/Chicago`: the quotes dashboard prints **Jul 31**
+  where the customer's portal prints **Aug 1** for the same `expiry_date`, because the
+  portal happens to use the correct form. Always `new Date(val + "T00:00:00")` for a
+  date-only column, or the shared `formatDateOnly`. This is separate from tenant-timezone
+  plumbing — it is wrong even when the tenant and the browser agree.

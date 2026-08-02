@@ -2,7 +2,13 @@
 
 import * as React from 'react';
 import { useTheme } from 'next-themes';
-import { Monitor, Moon, Sun } from 'lucide-react';
+// Tabler, not lucide — the last of three files keeping a second icon library
+// in the bundle for the other 221 that use Tabler. (ARC-14)
+import {
+  IconDeviceDesktop as Monitor,
+  IconMoon as Moon,
+  IconSun as Sun,
+} from '@tabler/icons-react';
 import { VariantProps } from 'class-variance-authority';
 
 import {

@@ -18,6 +18,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react";
+// ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
+// timezone rendered the previous day. These are all `date` columns.
+import { formatDateOnly as formatDate } from "@/lib/format";
 
 export interface AgreementRow {
   id: string;
@@ -52,13 +55,6 @@ interface ServiceAgreementTableProps {
   isIndeterminate?: boolean;
 }
 
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 function formatCurrency(val: string | null) {
   if (!val) return "—";

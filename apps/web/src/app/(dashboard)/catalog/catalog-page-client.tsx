@@ -21,6 +21,7 @@ import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog
 import { CatalogTable } from "@/components/dashboard/catalog/catalog-table";
 import { CatalogItemDialog, type CatalogItemFormData } from "@/components/dashboard/catalog/catalog-item-dialog";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { seeded } from "@/hooks/queries/seed";
 import {
   useCatalogItems,
   useCatalogCategories,
@@ -100,8 +101,19 @@ export function CatalogPageClient({
     itemType: filterItemType || undefined,
     showArchived,
   };
-  const itemsQuery = useCatalogItems(listParams);
-  const categoriesQuery = useCatalogCategories();
+  // ARC-06
+  const itemsQuery = useCatalogItems(listParams, {
+    seed: seeded(
+      page === 1 && !debouncedSearch && !filterItemType && !showArchived,
+      { data: initialItems, pagination: initialPagination, error: null },
+    ),
+  });
+  const categoriesQuery = useCatalogCategories(
+    seeded(initialCategories.length > 0, {
+      data: initialCategories,
+      error: null,
+    }),
+  );
 
   const items = itemsQuery.data?.data ?? [];
   const pagination = itemsQuery.data?.pagination ?? DEFAULT_PAGINATION;

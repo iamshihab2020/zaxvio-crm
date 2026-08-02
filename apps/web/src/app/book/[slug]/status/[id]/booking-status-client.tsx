@@ -10,10 +10,10 @@ import {
   IconCalendar,
   IconTool,
   IconMapPin,
-  IconShieldCheck,
   IconX,
   IconLoader2,
 } from "@tabler/icons-react";
+import { LicenseBadge } from "@/components/public/license-badge";
 import type { ServiceType, BookingStatus } from "@hvac-saas/types";
 
 interface BookingStatusClientProps {
@@ -32,6 +32,7 @@ interface BookingStatusClientProps {
     };
     businessName: string;
     logoUrl: string | null;
+    licenseNumber?: string | null;
     timezone: string | null;
   };
 }
@@ -117,7 +118,7 @@ export function BookingStatusClient({
     return () => clearInterval(interval);
   }, [slug, bookingId]);
 
-  const { booking, businessName, logoUrl } = data;
+  const { booking, businessName, logoUrl, licenseNumber } = data;
   const statusConfig = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.pending;
   const StatusIcon = statusConfig.icon;
 
@@ -136,11 +137,8 @@ export function BookingStatusClient({
           <h1 className="text-2xl font-bold font-heading text-white dark:text-foreground">
             {businessName}
           </h1>
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 dark:bg-muted/50 px-3 py-1">
-            <IconShieldCheck className="h-3.5 w-3.5 text-green-400" />
-            <span className="text-xs font-medium text-white/80 dark:text-muted-foreground">
-              Licensed &amp; Insured
-            </span>
+          <div className="mt-3">
+            <LicenseBadge licenseNumber={licenseNumber} />
           </div>
         </div>
       </header>

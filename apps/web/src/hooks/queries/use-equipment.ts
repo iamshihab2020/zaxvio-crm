@@ -5,6 +5,7 @@ import { queryKeys } from "@/lib/query-keys";
 import {
   getEquipment,
   getEquipmentItem,
+  getEquipmentHistory,
   createEquipment,
   updateEquipment,
   deleteEquipment,
@@ -15,11 +16,32 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export function useEquipment(params: Record<string, unknown>) {
+/**
+ * `enabled` lets a picker hold the fetch until its popover is actually opened.
+ * `AssetPicker` used to fire a bare server action on *mount*, so opening the
+ * Create Quote dialog spent a round trip on a dropdown the user may never
+ * touch — and Next queues server actions, so that trip delayed the picker they
+ * did open.
+ */
+export function useEquipment(
+  params: Record<string, unknown>,
+  options?: { enabled?: boolean; seed?: object },
+) {
   return useQuery({
+    ...options?.seed,
     queryKey: queryKeys.equipment.list(params),
     queryFn: () => getEquipment(params as Parameters<typeof getEquipment>[0]),
     placeholderData: (prev) => prev,
+    staleTime: 30_000,
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function useEquipmentHistory(equipmentId: string) {
+  return useQuery({
+    queryKey: queryKeys.equipment.history(equipmentId),
+    queryFn: () => getEquipmentHistory(equipmentId),
+    enabled: !!equipmentId,
     staleTime: 30_000,
   });
 }

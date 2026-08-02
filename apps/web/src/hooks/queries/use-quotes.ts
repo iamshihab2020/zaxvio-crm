@@ -20,27 +20,49 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export function useQuotes(params: Record<string, unknown>) {
+/**
+ * `initialData` seeds the exact key the server rendered and nothing else.
+ *
+ * The page used to accept `initialQuotes` / `initialPagination` props and never
+ * read them, so every visit fetched the list twice and still showed a skeleton
+ * (QUO-14). `initialDataUpdatedAt` is what stops the seed from looking
+ * permanently fresh — without it the query would never refetch on mount.
+ */
+export function useQuotes(
+  params: Record<string, unknown>,
+  initialData?: Awaited<ReturnType<typeof getQuotes>>,
+) {
   return useQuery({
     queryKey: queryKeys.quotes.list(params),
     queryFn: () => getQuotes(params as Parameters<typeof getQuotes>[0]),
     placeholderData: (prev) => prev,
+    initialData,
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
   });
 }
 
-export function useQuoteStats() {
+export function useQuoteStats(
+  initialData?: Awaited<ReturnType<typeof getQuoteStats>>,
+) {
   return useQuery({
     queryKey: queryKeys.quotes.stats(),
     queryFn: () => getQuoteStats(),
+    initialData,
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
   });
 }
 
-export function useQuote(id: string) {
+export function useQuote(
+  id: string,
+  initialData?: Awaited<ReturnType<typeof getQuote>>,
+) {
   return useQuery({
     queryKey: queryKeys.quotes.detail(id),
     queryFn: () => getQuote(id),
     enabled: !!id,
     staleTime: 30_000,
+    initialData,
+    initialDataUpdatedAt: initialData ? Date.now() : undefined,
   });
 }
 
@@ -102,13 +124,14 @@ export function useSendQuote() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => sendQuote(id),
-    onSuccess: (res) => {
+    onSuccess: (res, id) => {
       if (res.error) {
         toast.error(res.error);
         return;
       }
       toast.success("Quote sent");
       qc.invalidateQueries({ queryKey: queryKeys.quotes.all });
+      qc.invalidateQueries({ queryKey: queryKeys.quotes.detail(id) });
     },
     onError: () => toast.error("Failed to send quote"),
   });
@@ -118,17 +141,36 @@ export function useAcceptQuote() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => acceptQuote(id),
-    onSuccess: (res) => {
+    onSuccess: (res, id) => {
       if (res.error) {
         toast.error(res.error);
         return;
       }
       toast.success("Quote accepted");
       qc.invalidateQueries({ queryKey: queryKeys.quotes.all });
+      qc.invalidateQueries({ queryKey: queryKeys.quotes.detail(id) });
       qc.invalidateQueries({ queryKey: queryKeys.jobs.all });
       qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
     },
     onError: () => toast.error("Failed to accept quote"),
+  });
+}
+
+export function useDeclineQuote() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => declineQuote(id),
+    onSuccess: (res, id) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Quote declined");
+      qc.invalidateQueries({ queryKey: queryKeys.quotes.all });
+      qc.invalidateQueries({ queryKey: queryKeys.quotes.detail(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.dashboard.all });
+    },
+    onError: () => toast.error("Failed to decline quote"),
   });
 }
 

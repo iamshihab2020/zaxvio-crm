@@ -96,6 +96,14 @@ export async function createQuote(data: {
   discountAmount?: string;
   notes?: string;
   equipmentId?: string;
+  lineItems?: Array<{
+    description?: string;
+    itemType: string;
+    quantity?: string;
+    unitPrice: string;
+    catalogItemId?: string;
+    sortOrder?: number;
+  }>;
 }) {
   try {
     const res = await fetch(`${API_URL}/quotes`, {
@@ -198,8 +206,45 @@ export async function sendQuote(id: string) {
   }
 }
 
-export async function getQuotePdfUrl(id: string) {
-  return `${API_URL}/quotes/${id}/pdf`;
+/**
+ * QUO-13. This was `getQuotePdfUrl`, a `"use server"` function whose entire body
+ * was a template literal (so every PDF click paid a server round trip to
+ * concatenate a string — QUO-33), and the components then `window.open`'d that
+ * API-origin URL. The browser sends no session cookie cross-origin, so the user
+ * got a 401 body in a new tab. Invoices fixed this as INV-34; quotes was never
+ * migrated. Same shape as `downloadInvoicePdf` on purpose.
+ */
+export async function downloadQuotePdf(id: string) {
+  try {
+    const res = await fetch(`${API_URL}/quotes/${id}/pdf`, {
+      headers: { cookie: await getCookieHeader() },
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      return {
+        data: null,
+        error: (err as { message?: string }).message ?? "Failed to load PDF",
+      };
+    }
+
+    const buffer = await res.arrayBuffer();
+    return {
+      data: {
+        // Base64 so it survives the server-action boundary, which does not
+        // serialise ArrayBuffer.
+        base64: Buffer.from(buffer).toString("base64"),
+        filename:
+          res.headers
+            .get("content-disposition")
+            ?.match(/filename="([^"]+)"/)?.[1] ?? `quote-${id}.pdf`,
+      },
+      error: null,
+    };
+  } catch {
+    return { data: null, error: "Network error" };
+  }
 }
 
 // ===== LINE ITEMS =====

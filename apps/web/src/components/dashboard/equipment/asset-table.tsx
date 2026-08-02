@@ -18,6 +18,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react";
+// ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
+// timezone rendered the previous day. These are all `date` columns.
+import { formatDateOnly as formatDate } from "@/lib/format";
 
 export interface AssetRow {
   id: string;
@@ -68,14 +71,6 @@ function getWarrantyStatus(warrantyExpiry: string | null) {
   return { label: "Under Warranty", variant: "default" as const };
 }
 
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
 
 export function AssetTable({
   assets,

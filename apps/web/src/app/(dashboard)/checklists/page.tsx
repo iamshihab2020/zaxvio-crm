@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { getChecklistTemplates } from "@/actions/checklists";
 import { ChecklistsPageClient } from "./checklists-page-client";
+import type { ChecklistTemplate } from "@/components/dashboard/checklists/checklist-template-list";
 
 export const metadata: Metadata = {
   title: "Checklists",
@@ -12,7 +13,7 @@ export default async function ChecklistsPage() {
 
   return (
     <ChecklistsPageClient
-      initialTemplates={(result.data ?? []) as never[]}
+      initialTemplates={(result.data ?? []) as ChecklistTemplate[]}
     />
   );
 }

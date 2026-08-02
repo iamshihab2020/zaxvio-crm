@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { seeded } from "@/hooks/queries/seed";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -91,7 +92,14 @@ export function ChecklistsPageClient({
     serviceType: filterServiceType || undefined,
     showInactive: statusFilter === "inactive" || statusFilter === "",
   };
-  const templatesQuery = useChecklistTemplates(listParams);
+  // ARC-06
+  const templatesQuery = useChecklistTemplates(
+    listParams,
+    seeded(!filterServiceType && initialTemplates.length > 0, {
+      data: initialTemplates,
+      error: null,
+    }),
+  );
 
   const templates = (templatesQuery.data?.data ?? []) as ChecklistTemplate[];
   const loading = templatesQuery.isLoading;

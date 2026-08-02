@@ -45,3 +45,71 @@ Drop Supabase completely. No component of it remains.
 
 - A second API instance is needed → replace the in-process bus with Redis pub/sub.
 - Storage exceeds 10 GB → R2 is $0.015/GB-month beyond the free tier, still with no egress charge.
+
+---
+
+## ADR-002 — One data-access pattern: `api-fetch` → server action → TanStack Query
+
+**Date**: 2026-08-02
+**Status**: Accepted — migration in progress
+
+### Context
+
+The [[architecture]] audit found **four** ways to reach the API coexisting, with
+nothing naming the intended one (ARC-21):
+
+1. Server action → TanStack Query hook (the majority)
+2. Inline `useQuery` in a component, bypassing the hook layer (6 files)
+3. Pure RSC — `page.tsx` awaits the action and passes props (all 7 superadmin pages)
+4. A bare browser `fetch` to `NEXT_PUBLIC_API_URL` (1 component, propped up by a
+   one-endpoint rewrite in `next.config.mjs`)
+
+Underneath them sat **216 hand-written `fetch` blocks** across 20 action files,
+returning four different response shapes, with `getCookieHeader()` duplicated 19
+times and the string `"Network error"` written out 208 times.
+
+That last part is the reason this ADR exists. The page audits had been finding
+the same defect repeatedly — CUST-03, INV-11, QUO-07, QUO-29 are all "error
+handling is wrong in one of the 216 copies". Fixing them one page at a time
+could never converge, because there was no shared place for a fix to live.
+
+### Decision
+
+**`lib/api-fetch.ts` is the only module that may call the API.** Everything else
+composes on top of it.
+
+| Layer | Rule |
+|---|---|
+| `lib/api-fetch.ts` | The single `fetch`. Owns the base URL, the cookie header, timeouts, error normalisation and the `{data, error, status, notFound}` contract. |
+| `actions/*.ts` | Thin. One `apiGet`/`apiSend`/`apiVoid`/`apiBulk`/`apiBinary` call each, plus the path and a fallback message. No `try/catch`, no `res.ok`, no cookie handling. |
+| `hooks/queries/*.ts` | The only place components read or mutate. Owns the query key, `staleTime`, invalidation and the toast. |
+| Components | Call hooks. **Never** an action directly, **never** `fetch`. |
+| `page.tsx` (RSC) | May await an action for initial data, and must pass it through `seeded()` so the client consumes it instead of refetching. |
+
+Pure RSC (pattern 3) stays legitimate for read-only screens with no client
+interactivity — superadmin is the example. What is **not** legitimate is a
+client component fetching directly (pattern 4, now removed) or a page inventing
+its own `useQuery` (pattern 2, to be migrated).
+
+### Why the transport stays a Server Action, for now
+
+Reads travelling over Server Actions is a real cost (ARC-01): they are POST-only,
+uncacheable, and React **serializes** them, so concurrent reads queue. That is
+what made the Create Quote pickers feel slow.
+
+The fix is known — extend the `/api/*` rewrite that already carries
+`/api/auth/*` and `/events`, and let the browser call the API same-origin. It is
+deliberately **not** bundled into this ADR, because it changes the rate limiter's
+IP handling (`req.ip` + `INTERNAL_PROXY_SECRET` + `x-client-ip` today;
+`x-forwarded-for` through a rewrite) and cannot be verified without running the
+app. With `api-fetch.ts` in place it becomes a change in one file rather than
+twenty, which is the point of doing this first.
+
+### Consequences
+
+- A fix to error handling, retries, timeouts or auth is now **one edit**.
+- `status` and `notFound` come out of the transport, so the 404-vs-500 collapse
+  (INV-11, QUO-07) is not expressible any more.
+- Every request has a timeout. Previously a hung API hung the server action.
+- Cost: 20 action files to migrate. `tags.ts` went 99 lines → 25 with no
+  behaviour change; the rest are the same shape.
