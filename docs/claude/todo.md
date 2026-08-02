@@ -8,6 +8,38 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Landing Page De-Slop (2026-08-02) — UNCOMMITTED, awaiting review
+Mode: Redesign-Overhaul, brand-preserved. Dials 5/3/5 → 7/5/5. 15 files in
+`components/landing/`, nothing outside it. **Not committed at the user's instruction.**
+- [x] **Eyebrow system retired.** `SectionHeading.label` is now optional; it was required,
+      so all 10 sections rendered a mono-caps eyebrow *by construction*. That single
+      templated rhythm was the loudest generic signal on the page. 15 `uppercase tracking`
+      declarations → 3 (hero, the day-sheet date field, and the now-unused code path).
+- [x] **Fabricated review rating removed**, on-page and from JSON-LD `aggregateRating`
+      (claimed 4.9 from 500 ratings; the DB has one tenant and no users). This is a
+      rich-results violation, not a taste call. Star rows on the 3 testimonial cards went
+      with it, taking `amber-500` — a second accent existing only for those stars.
+- [x] **Layout repetition broken.** 3 sections shared `md:grid-cols-3` → 1. How It Works
+      became a ruled left-rail sequence (suits the 0:00/0:02/0:10 markers far better than
+      3 equal cards, which actively hid the ordering); Testimonials became lead-plus-two.
+- [x] **13 user-visible em-dashes → 0.** Includes 2 pricing table cells whose entire
+      content was `"—"` standing in for "no cost". Voice untouched otherwise.
+- [x] **Colour lock.** 4 accent families → 1. Deleted `ChartVisual` (12 hardcoded bars +
+      an invented "+18%" in emerald, the page's only unsupported business-outcome claim);
+      dropped the sky/emerald/brand kanban dots, which restated their own column headings.
+- [x] **Hero.** 5 text elements → 4, subtext 29 words → 17, eyebrow's 4 middle dots → 0.
+- [x] **`navbar.tsx` scroll listener → IntersectionObserver on a top sentinel.** A
+      continuous input was driving React state and re-rendering the header every frame;
+      the correct pattern was already in the same file, 10 lines below.
+- [x] Preservation audit **empty**: 0 changes to routes, the 5 anchors, nav labels, footer
+      hrefs, `<h1>`, metadata, sitemap, robots. Brand audit clean: `--brand`, the
+      Space Grotesk/DM Sans/DM Mono stack and `logo.tsx` untouched.
+- [ ] **Page still has zero photographs.** Blocked on real assets, not on code. Shot list:
+      hero 4:5 technician on site; 6× industry tab 16:10; testimonial faces 1:1; and an
+      OG image at 1200x630 (the `summary_large_image` card currently has nothing to show).
+- [ ] Run `pnpm typecheck`, then check `/` at 390px for horizontal scroll (this page has
+      regressed on that before).
+
 ### Production Build Repair (2026-08-02)
 Three failures in a row on `main`, each hiding the next.
 - [x] **`ERR_PNPM_OUTDATED_LOCKFILE`** — ARC-13/14 pruned 6 deps and deleted `packages/ui` without

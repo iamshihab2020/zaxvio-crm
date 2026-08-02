@@ -14,7 +14,6 @@ export function FaqSection() {
       <div className="grid gap-8 lg:grid-cols-3 lg:gap-12">
         <SectionHeading
           id="faq-heading"
-          label="Questions"
           title="Answers, before you ask."
           lede="Still stuck? Every plan includes support from a person."
           className="lg:sticky lg:top-28 lg:self-start"

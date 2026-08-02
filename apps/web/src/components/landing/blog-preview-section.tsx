@@ -11,7 +11,7 @@ const PREVIEW_POSTS = [
     slug: "streamline-service-business-operations",
     title: "5 ways to streamline your service business operations",
     excerpt:
-      "From digital scheduling to automated invoicing — how busy service businesses win back hours every week.",
+      "From digital scheduling to automated invoicing, and how busy service businesses win back hours every week.",
     category: "Business tips",
     date: "Mar 28, 2026",
     readingTime: "6 min",
@@ -50,7 +50,6 @@ export function BlogPreviewSection() {
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeading
           id="blog-heading"
-          label="Writing"
           title="From the blog"
           lede="Tips and guides for running a service business."
           className="flex-1"
@@ -94,7 +93,7 @@ export function BlogPreviewSection() {
                   {post.excerpt}
                 </p>
 
-                <p className="tnum mt-5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                <p className="tnum mt-5 font-mono text-[11px] text-muted-foreground">
                   {post.date}
                 </p>
               </CardContent>

@@ -369,3 +369,26 @@ From [[bookings-calendar|the report]] — the front-end half.
   component failed to compile. The shared client can only carry a shape across the
   server-action boundary if the call site names it — prefer the Drizzle-inferred row from
   `@hvac-saas/types` so it tracks the schema.
+- **A required prop can manufacture a design problem across a whole page.** The landing
+  page's `SectionHeading` took `label` as a *required* string, so all ten sections
+  rendered a mono uppercase eyebrow whether or not one helped. No individual section was
+  wrong; the uniformity was. That one signature did more to make the page read as
+  machine-generated than any component in it. When a presentational prop is required,
+  every consumer is forced into the same rhythm, and "templated" is exactly what a forced
+  rhythm looks like. Default decorative props to optional.
+- **Deleting a decorative element is often the fix for a colour-system violation.** The
+  page had four accent families against a one-accent rule. Three of them lived inside two
+  small diagrams: a fake revenue chart used `emerald` for an invented "+18%", kanban
+  column dots used `sky` and `emerald`, and star rows used `amber`. None survived the
+  question "what does this tell the reader that the text beside it does not?" Chasing the
+  colours would have meant recolouring; chasing the *purpose* deleted them.
+- **Invented numbers on a marketing page can be a compliance problem, not a taste one.**
+  The hero claimed "4.9 from 500+ service businesses" and `json-ld.tsx` mirrored it into
+  `aggregateRating`. A prior fix had made the two agree, which addressed the smaller
+  issue: asserting a review count you do not have is a Google rich-results violation
+  whether or not the visible page repeats it. Before styling a metric, check it exists.
+  This one was checkable in seconds: the database has one tenant and no seeded users.
+- **`window.addEventListener("scroll", ...)` to set a boolean is always the wrong tool.**
+  A continuous input driving React state re-renders on every frame. For "has the page
+  scrolled at all", put a zero-height sentinel at the top of the document and observe it:
+  the callback fires twice per session instead of hundreds of times per scroll.

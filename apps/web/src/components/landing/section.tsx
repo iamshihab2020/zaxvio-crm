@@ -5,14 +5,20 @@ import { Reveal } from "./reveal";
  * The landing page's two structural primitives.
  *
  * `Section` owns the surface band and the vertical rhythm, so the light/dark
- * alternation is decided in one place instead of being retyped — and mistyped —
+ * alternation is decided in one place instead of being retyped, and mistyped,
  * on every section. `SectionHeading` owns the ruled header.
  *
- * The rule is the page's structural device: a mono label sitting on a hairline
- * that runs to the right edge, the way a field is labelled on a work order.
- * It is left-aligned on purpose. Centred headings read as a brochure; this
- * audience reads the page one-handed on a phone, where a left edge to scan
- * down is worth more than symmetry.
+ * The rule is the page's structural device: a hairline running to the right
+ * edge, the way a field is ruled on a work order. It is left-aligned on
+ * purpose. Centred headings read as a brochure; this audience reads the page
+ * one-handed on a phone, where a left edge to scan down is worth more than
+ * symmetry.
+ *
+ * `label` is OPTIONAL and should stay that way. It used to be required, which
+ * meant all ten sections rendered a mono uppercase eyebrow by construction, and
+ * that single templated rhythm was the page's loudest generic-AI signature.
+ * An eyebrow earns its place at most a few times per page; a section's position
+ * already tells the reader what it is. Default to omitting it.
  */
 
 type Surface = "base" | "alt" | "dark";
@@ -58,8 +64,11 @@ export function SectionHeading({
   className,
 }: {
   id: string;
-  /** Mono eyebrow that sits on the rule. */
-  label: string;
+  /**
+   * Optional mono eyebrow sitting on the rule. Omit it unless the section
+   * genuinely cannot be identified without one; see the note above.
+   */
+  label?: string;
   title: React.ReactNode;
   lede?: React.ReactNode;
   /** `dark` when the section sits on the midnight slab. */
@@ -75,9 +84,11 @@ export function SectionHeading({
           than as the sheet's ruling, and it disagreed with every full-width
           element below it. */}
       <div className="flex items-center gap-4">
-        <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-brand">
-          {label}
-        </span>
+        {label ? (
+          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-brand">
+            {label}
+          </span>
+        ) : null}
         <span
           aria-hidden="true"
           className={cn(

@@ -38,7 +38,7 @@ export function TrustBar() {
         <Reveal className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
           <h2
             id="trust-heading"
-            className="shrink-0 font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground"
+            className="shrink-0 text-sm font-medium text-muted-foreground"
           >
             Built for
           </h2>

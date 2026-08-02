@@ -40,8 +40,8 @@ const INCLUDED = [
  * mean the numbers line up and can actually be read down the column.
  */
 const REPLACES = [
-  { what: "Paper diary and clipboard", cost: "—", note: "Slow, and it gets lost" },
-  { what: "Phone-tag scheduling", cost: "—", note: "Missed calls are missed jobs" },
+  { what: "Paper diary and clipboard", cost: "No cost", note: "Slow, and it gets lost" },
+  { what: "Phone-tag scheduling", cost: "No cost", note: "Missed calls are missed jobs" },
   { what: "Spreadsheets", cost: "$10", note: "Per month" },
   { what: "Three separate apps", cost: "$150", note: "Per month, typical" },
 ] as const;
@@ -51,9 +51,8 @@ export function PricingSection() {
     <Section id="pricing" surface="alt" labelledBy="pricing-heading">
       <SectionHeading
         id="pricing-heading"
-        label="Pricing"
         title="One plan. One price. Everything in it."
-        lede="Priced per business, not per user — bring your helper and your office manager at no extra cost."
+        lede="Priced per business, not per user. Bring your helper and your office manager at no extra cost."
       />
 
       {/*
@@ -100,12 +99,12 @@ export function PricingSection() {
               <dl className="grid grid-cols-2 gap-x-4 gap-y-4">
                 {[
                   { term: "Setup fee", detail: "None" },
-                  { term: "Contract", detail: "None — monthly" },
+                  { term: "Contract", detail: "None, monthly" },
                   { term: "Extra users", detail: "Included" },
                   { term: "Your data", detail: "Export any time" },
                 ].map((row) => (
                   <div key={row.term}>
-                    <dt className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <dt className="text-xs text-muted-foreground">
                       {row.term}
                     </dt>
                     <dd className="mt-1 text-sm font-medium text-ink">
@@ -122,7 +121,7 @@ export function PricingSection() {
         <Reveal delay={100} className="lg:col-span-3">
           <Card className="h-full">
             <CardContent className="p-6 sm:p-8">
-              <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+              <h3 className="font-heading text-sm font-semibold text-ink">
                 Included
               </h3>
               <ul
@@ -145,7 +144,7 @@ export function PricingSection() {
               <Separator className="my-7" />
 
               <Table>
-                <TableCaption className="caption-top mt-0 pb-3 text-left font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+                <TableCaption className="caption-top mt-0 pb-3 text-left font-heading text-sm font-semibold text-ink">
                   What it replaces
                 </TableCaption>
                 <TableBody>

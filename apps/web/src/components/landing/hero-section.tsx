@@ -1,19 +1,28 @@
 import Link from "next/link";
-import { IconArrowRight, IconStarFilled } from "@tabler/icons-react";
+import { IconArrowRight } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { DaySheet } from "./day-sheet";
 import { Reveal } from "./reveal";
-
-const INDUSTRIES = "HVAC · Plumbing · Electrical · Cleaning · Landscaping";
 
 /**
  * Hero.
  *
  * The headline no longer carries a rotating industry word. That trick reflowed
- * the <h1> every 2.5 seconds — measurable layout shift on the page's largest
- * text — and left the heading's text content unstable for screen readers and
- * crawlers. The multi-industry claim is stated plainly in the eyebrow instead,
- * and the Industries section proves it properly.
+ * the <h1> every 2.5 seconds, a measurable layout shift on the page's largest
+ * text, and left the heading's text content unstable for screen readers and
+ * crawlers.
+ *
+ * This is the page's only eyebrow. It used to read
+ * "HVAC · Plumbing · Electrical · Cleaning · Landscaping", which carried four
+ * separators on one line and restated the six trades that the strip directly
+ * below prints with icons. Saying a thing twice in two screens weakens it.
+ *
+ * The rating row that sat under the CTAs is gone. It made the hero five text
+ * elements deep, and the figure itself ("4.9 from 500+ service businesses") was
+ * invented: there are no such reviews. It was also mirrored into JSON-LD as an
+ * aggregateRating, which is a rich-results violation rather than a design
+ * choice. The trial terms it shared a line with are stated in Pricing and again
+ * in the closing band, so nothing true was lost.
  */
 export function HeroSection() {
   return (
@@ -40,7 +49,7 @@ export function HeroSection() {
         <div className="lg:col-span-6">
           <Reveal>
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
-              {INDUSTRIES}
+              Field service software
             </p>
           </Reveal>
 
@@ -55,9 +64,8 @@ export function HeroSection() {
 
           <Reveal delay={120}>
             <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">
-              Zaxvio keeps your schedule, quotes, invoices and customer history
-              in one place — so you can book a job, finish it, and get paid
-              without going back to the office.
+              Your schedule, quotes, invoices and customer history in one place.
+              Book a job, finish it, get paid.
             </p>
           </Reveal>
 
@@ -84,25 +92,6 @@ export function HeroSection() {
             </div>
           </Reveal>
 
-          <Reveal delay={240}>
-            <div className="mt-7 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-muted-foreground">
-              <span className="flex items-center gap-0.5" aria-hidden="true">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <IconStarFilled key={i} size={13} className="text-amber-500" />
-                ))}
-              </span>
-              <span>
-                <span className="tnum font-mono font-medium text-ink">4.9</span> from
-                500+ service businesses
-              </span>
-              {/* The divider only earns its place when both items sit on one
-                  line; when the row wraps it strands a pipe at the end. */}
-              <span aria-hidden="true" className="hidden text-border sm:inline">
-                |
-              </span>
-              <span>No card to start</span>
-            </div>
-          </Reveal>
         </div>
 
         {/* Signature */}

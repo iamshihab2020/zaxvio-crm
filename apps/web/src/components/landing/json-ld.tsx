@@ -16,14 +16,15 @@ function SoftwareApplicationSchema() {
       priceValidUntil: "2027-12-31",
       availability: "https://schema.org/InStock",
     },
-    // Must match the rating rendered in the hero. Structured data that
-    // contradicts the visible page is a rich-results violation, and this said
-    // 4.8 from 127 while the page said 4.9 from 500+.
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      ratingCount: "500",
-    },
+    /*
+     * No `aggregateRating`. It claimed 4.9 from 500 ratings, and no such
+     * ratings exist. The earlier concern here was that the number disagreed
+     * with the hero, which was the smaller of the two problems: asserting a
+     * review count you do not have is a structured-data violation whether or
+     * not the visible page repeats it. Reinstate this block only when there is
+     * a real review source to derive it from, and derive it rather than typing
+     * a figure in.
+     */
   };
 
   return (

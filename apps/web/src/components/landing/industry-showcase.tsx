@@ -96,7 +96,7 @@ const INDUSTRIES = [
     icon: IconTool,
     headline: "Built for any service business",
     description:
-      "Zaxvio isn't locked to one trade. If you book jobs, serve customers and send invoices, it fits — you define the service types, the stages and the checklists.",
+      "Zaxvio isn't locked to one trade. If you book jobs, serve customers and send invoices, it fits. You define the service types, the stages and the checklists.",
     bullets: [
       "Custom service categories",
       "Flexible checklist builder",
@@ -122,9 +122,8 @@ export function IndustryShowcase() {
     <Section id="industries" surface="alt" labelledBy="industries-heading">
       <SectionHeading
         id="industries-heading"
-        label="Industries"
         title="One platform. Every service trade."
-        lede="The same board, quotes and invoices — set up for how your trade actually works."
+        lede="The same board, quotes and invoices, set up for how your trade actually works."
       />
 
       <Tabs defaultValue="hvac" className="mt-10 gap-0 sm:mt-12">

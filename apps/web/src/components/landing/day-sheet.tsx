@@ -37,9 +37,9 @@ const JOBS: {
   service: string;
   status: JobStatus;
 }[] = [
-  { start: 7.5, end: 9, customer: "Johnson Residence", service: "No heat — emergency", status: "done" },
+  { start: 7.5, end: 9, customer: "Johnson Residence", service: "No heat, emergency call", status: "done" },
   { start: 9.5, end: 11, customer: "Oak Park Office", service: "Quarterly service", status: "done" },
-  { start: 11.5, end: 13.5, customer: "Rivera Home", service: "New install — day 1", status: "active" },
+  { start: 11.5, end: 13.5, customer: "Rivera Home", service: "New install, day 1", status: "active" },
   { start: 14, end: 15.5, customer: "Chen Apartment", service: "Filter + coil clean", status: "booked" },
   { start: 16, end: 17.5, customer: "Williams House", service: "Duct inspection", status: "booked" },
 ];
@@ -107,14 +107,16 @@ export function DaySheet() {
               Today&rsquo;s schedule
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <Badge variant="secondary" className="tnum font-mono text-[11px]">
-              5 jobs
-            </Badge>
-            <Badge variant="brand" className="tnum font-mono text-[11px]">
-              $2,480
-            </Badge>
-          </div>
+          {/* The count is derived, so it cannot drift from the rows below it.
+              A `$2,480` takings badge used to sit beside it; that figure was
+              invented, and a revenue number is the single detail that turns a
+              diagram into something the reader reads as a real screenshot. */}
+          <Badge
+            variant="secondary"
+            className="tnum shrink-0 font-mono text-[11px]"
+          >
+            {JOBS.length} jobs
+          </Badge>
         </div>
 
         <Separator />
@@ -167,12 +169,10 @@ export function DaySheet() {
                     </span>
                   </div>
                   <p className="truncate text-[11px] opacity-70">{job.service}</p>
+                  {/* A pinging dot on invented data is a live-status cue with
+                      nothing live behind it. The word alone carries the state. */}
                   {job.status === "active" ? (
-                    <span className="mt-1 inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-wider text-brand">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand opacity-60" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
-                      </span>
+                    <span className="mt-1 inline-flex font-mono text-[10px] text-brand">
                       {STATUS_LABEL[job.status]}
                     </span>
                   ) : null}
@@ -196,7 +196,7 @@ export function DaySheet() {
       </Card>
 
       <figcaption className="sr-only">
-        Example day: five jobs between 7am and 6pm — two finished, one in
+        Example day: five jobs between 7am and 6pm. Two finished, one in
         progress, two still booked.
       </figcaption>
     </figure>

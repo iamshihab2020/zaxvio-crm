@@ -35,7 +35,7 @@ function FooterColumn({
 }) {
   return (
     <nav aria-label={heading}>
-      <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-midnight-foreground/40">
+      <h3 className="text-sm font-semibold text-midnight-foreground/70">
         {heading}
       </h3>
       {/* Footer links are the easiest thing on a page to under-size: the text
@@ -79,7 +79,7 @@ export function Footer() {
         <Separator className="my-8 bg-midnight-foreground/10" />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="tnum font-mono text-[11px] uppercase tracking-wider text-midnight-foreground/40">
+          <p className="tnum font-mono text-[11px] text-midnight-foreground/40">
             &copy; {new Date().getFullYear()} Zaxvio
           </p>
           <p className="text-[11px] text-midnight-foreground/40">

@@ -48,12 +48,25 @@ export function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
   const pendingHash = useRef<string | null>(null);
+  const sentinel = useRef<HTMLDivElement>(null);
 
+  /* Whether the page has scrolled at all, from a sentinel at the top of the
+     document rather than a scroll listener.
+
+     The listener this replaces ran `setScrolled` on every scroll frame, so a
+     continuous input drove React state and re-rendered the header on each one.
+     The observer fires twice in a session: once when the sentinel leaves the
+     viewport and once when it comes back. The same pattern is used directly
+     below for section highlighting, so the file already depended on it. */
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    const el = sentinel.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setScrolled(!entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
   /* Highlight whichever section the reader is currently in. */
@@ -118,14 +131,24 @@ export function Navbar() {
   );
 
   return (
-    <header
-      className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-colors duration-200",
-        scrolled
-          ? "border-b border-border bg-surface/90 backdrop-blur-md"
-          : "border-b border-transparent",
-      )}
-    >
+    <>
+      {/* Sits at the very top of the document, behind the fixed header, and is
+          watched by the observer above. 8px matches the old scrollY threshold
+          exactly, so the bar turns opaque at the same point it always did. */}
+      <div
+        ref={sentinel}
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-2"
+      />
+
+      <header
+        className={cn(
+          "fixed inset-x-0 top-0 z-50 transition-colors duration-200",
+          scrolled
+            ? "border-b border-border bg-surface/90 backdrop-blur-md"
+            : "border-b border-transparent",
+        )}
+      >
       <nav
         aria-label="Main"
         className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-5 sm:px-6 lg:px-8"
@@ -249,6 +272,7 @@ export function Navbar() {
           </Sheet>
         </div>
       </nav>
-    </header>
+      </header>
+    </>
   );
 }
