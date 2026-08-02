@@ -106,33 +106,23 @@ export function DashboardPageClient({
   const prefs = useDashboardWidgetPrefs();
   const { stored: storedRange, save: saveRange } = useDashboardDateRange();
 
-  // Restore the saved range once localStorage is readable. Presets are
-  // recomputed against today's date rather than replayed as stored dates.
+  // Restore the saved range once localStorage is readable. The stored dates are
+  // replayed exactly — a shortcut like "Last 7 days" or the 1W tab is a way of
+  // entering a range, not a standing instruction to re-derive one against
+  // today, so nothing here recomputes.
   useEffect(() => {
     const stored = storedRange;
     if (!stored) return;
-    if (stored.preset) {
-      const { range, granularity } = rangeFromPreset(stored.preset);
-      setRevenueRange(stored.preset);
-      setDateParams({
-        from: format(range.from!, "yyyy-MM-dd"),
-        to: format(range.to!, "yyyy-MM-dd"),
-        granularity,
-      });
-      return;
-    }
-    if (stored.from && stored.to) {
-      setRevenueRange(null);
-      setDateParams({
-        from: stored.from,
-        to: stored.to,
-        granularity:
-          stored.granularity ??
-          granularityForSpan(
-            differenceInCalendarDays(parseISO(stored.to), parseISO(stored.from)),
-          ),
-      });
-    }
+    setRevenueRange(stored.preset ?? null);
+    setDateParams({
+      from: stored.from,
+      to: stored.to,
+      granularity:
+        stored.granularity ??
+        granularityForSpan(
+          differenceInCalendarDays(parseISO(stored.to), parseISO(stored.from)),
+        ),
+    });
   }, [storedRange]);
 
   const { data: result, isLoading, isFetching, dataUpdatedAt, refetch } =
@@ -146,12 +136,22 @@ export function DashboardPageClient({
 
   const stats = result?.data ?? null;
 
-  // Reflect the backend-resolved range in the picker, so what is displayed is
-  // always what was queried.
+  // Show the user's own selection whenever there is one. Only when nothing has
+  // been chosen does the control fall back to the backend-resolved range, which
+  // is the tenant-timezone month-to-date default the browser cannot reproduce.
+  //
+  // Reading `stats.range` unconditionally used to make the control flicker back
+  // to that default: a refetch empties `stats`, and the SSR payload always
+  // carries the default range regardless of what was restored from storage. On
+  // the 2nd of a month, month-to-date renders as "Aug 1 – Aug 2", so a saved
+  // range appeared to reset itself on every visit.
   const dateRange = useMemo<DateRange | undefined>(() => {
+    if (dateParams.from && dateParams.to) {
+      return { from: parseISO(dateParams.from), to: parseISO(dateParams.to) };
+    }
     if (!stats?.range) return undefined;
     return { from: parseISO(stats.range.from), to: parseISO(stats.range.to) };
-  }, [stats?.range]);
+  }, [dateParams.from, dateParams.to, stats?.range]);
 
   const handleDateRangeChange = useCallback(
     (range: DateRange | undefined) => {
@@ -168,11 +168,16 @@ export function DashboardPageClient({
       const from = format(range.from, "yyyy-MM-dd");
       const to = format(range.to, "yyyy-MM-dd");
       const granularity = granularityForSpan(span);
-      setDateParams({ from, to, granularity });
-      // Highlight a preset tab only when the span matches one exactly.
+      // Highlight a preset tab when the span happens to match one. This is
+      // cosmetic: the dates below are what gets stored and replayed either way.
+      // Storing the inferred preset *instead of* the dates is what used to make
+      // a hand-picked range move — a 7-day selection was saved as "1W" and came
+      // back as the seven days ending today, so any deliberate choice of an
+      // earlier week silently jumped forward.
       const preset = inferPreset(range);
       setRevenueRange(preset);
-      saveRange(preset ? { preset } : { preset: null, from, to, granularity });
+      setDateParams({ from, to, granularity });
+      saveRange({ from, to, granularity, preset });
     },
     [saveRange],
   );
@@ -180,13 +185,14 @@ export function DashboardPageClient({
   const handleRevenueRangeChange = useCallback(
     (preset: RevenueRange) => {
       const { range, granularity } = rangeFromPreset(preset);
+      const from = format(range.from!, "yyyy-MM-dd");
+      const to = format(range.to!, "yyyy-MM-dd");
       setRevenueRange(preset);
-      setDateParams({
-        from: format(range.from!, "yyyy-MM-dd"),
-        to: format(range.to!, "yyyy-MM-dd"),
-        granularity,
-      });
-      saveRange({ preset });
+      setDateParams({ from, to, granularity });
+      // Resolve the shortcut to real dates *now* and store those. The tab is an
+      // input, not a subscription: clicking 1W on the 2nd means that week, not
+      // "whatever the last week happens to be whenever I next open this page".
+      saveRange({ from, to, granularity, preset });
     },
     [saveRange],
   );

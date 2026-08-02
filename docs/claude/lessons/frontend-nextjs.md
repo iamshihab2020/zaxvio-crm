@@ -312,3 +312,21 @@ From [[bookings-calendar|the report]] — the front-end half.
   members are identical (`Root`, `List`, `Trigger`, `Content`, `Item`, `Header`) — and the
   scoped packages are already direct dependencies, so it pulls nothing new in. The
   meta-package re-exports every primitive, most of which this app never uses.
+- **Persisting a relative preset as a preset makes a user's explicit choice move on its own.**
+  The dashboard range picker stored "last 7 days" as `{preset: "1W"}` and recomputed it against
+  today on every load, reasoning that replaying stored dates would show a stale window still
+  labelled "last 7 days". The reasoning is defensible; the behaviour is not what anyone wants.
+  Worse, the page could not tell a *shortcut* click from a *calendar* pick — `DateRangePicker`
+  emits a bare `DateRange` for both — so it guessed with `inferPreset()`, which maps any span of
+  0, 6 or 29 days onto `1D`/`1W`/`1M`. A hand-drawn Jul 20–Jul 26 was therefore saved as `1W`
+  and came back as the seven days ending today: the user's deliberate choice of an *earlier*
+  week silently jumped forward. Rule: **a shortcut is a way of entering a value, not a standing
+  subscription to one.** Resolve it to concrete dates at click time and store those. Keep the
+  preset name if you need it to highlight a tab, but never let it be the source of truth.
+- **Deriving a control's displayed value from the server response makes it flicker to the
+  default.** The picker rendered `stats.range` — what the API resolved — so that display always
+  matched the query. But `stats` is empty during a refetch, and the SSR payload always carries
+  the tenant's month-to-date default regardless of what was restored from localStorage. On the
+  2nd of a month that default renders as "Aug 1 – Aug 2", which reads exactly like the saved
+  range resetting itself. Show the user's own selection when there is one and fall back to the
+  server's resolved range only when there isn't.

@@ -8,6 +8,27 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Date Range Persistence (2026-08-02) — COMPLETE
+The 2026-08-01 fix below stored a preset *as a preset* and recomputed it against today on every
+load. That is the opposite of what the range picker is for: a selection the user made must stay
+put until they change it.
+- [x] **Everything is stored as two absolute dates**, shortcuts included. `StoredDateRange` now
+      requires `from`/`to`; `preset` survives only to highlight the matching tab and never decides
+      which dates are used. Entries in the old preset-only format fail `parse()` and are dropped,
+      costing one re-selection.
+- [x] **`inferPreset` is cosmetic now.** It was being used to *choose what to store*, so any
+      hand-picked span of exactly 1, 7 or 30 days was saved as `1D`/`1W`/`1M` and replayed as the
+      window ending today — deliberately picking an earlier week jumped it forward to this one.
+- [x] **The picker shows the user's selection, not `stats.range`.** Reading the server's resolved
+      range meant an in-flight refetch blanked the control and the SSR payload reasserted the
+      tenant default — on 2026-08-02 that default is literally "Aug 1 – Aug 2", so a saved range
+      looked like it reset on every visit.
+- [x] Housekeeping: chatbot knowledge base (2 entries documented the old sliding behaviour),
+      lessons.
+- [ ] **`/reports` has no persistence at all** — `reports-page-client.tsx:71` is a plain
+      `useState<DateRange>(undefined)`, so its range resets on every visit. Same picker, same
+      expectation; wants the same treatment.
+
 ### Dashboard Charts + Date Range Fix (2026-08-01) — COMPLETE
 The dashboard answered "money in", "who owes", "what state is the work in" and "what's next (list)".
 It did not answer **"am I billing as fast as I'm collecting"** or **"how loaded is my week"**.
