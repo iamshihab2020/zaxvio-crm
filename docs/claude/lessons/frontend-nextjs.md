@@ -288,3 +288,27 @@ From [[bookings-calendar|the report]] — the front-end half.
   portal happens to use the correct form. Always `new Date(val + "T00:00:00")` for a
   date-only column, or the shared `formatDateOnly`. This is separate from tenant-timezone
   plumbing — it is wrong even when the tenant and the browser agree.
+- **A "0 imports" dead-dependency count is only as good as the import forms it searched for.**
+  The architecture audit removed `radix-ui` (the meta-package) from `apps/web` on a measured
+  count of 0 importers. The real count was 2: `animate-ui/primitives/radix/tabs.tsx` and
+  `.../accordion.tsx` do `import { Tabs as TabsPrimitive } from 'radix-ui'`, the namespace
+  form, while the other ~20 Radix consumers use scoped `@radix-ui/react-*` paths. Searching
+  for the scoped prefix finds the 20 and silently reports the meta-package as unused. Before
+  deleting a dependency, grep for the **bare package name as a quoted import specifier**
+  (`from ['"]<name>['"]`), not just for a path prefix — and remember a package can be
+  consumed under more than one form in the same app.
+- **Deleting a dep from `package.json` without regenerating the lockfile changes nothing, then
+  changes everything at once.** For four days CI kept installing `radix-ui` because
+  `pnpm-lock.yaml` still listed it, so the broken imports resolved and every deploy was green.
+  The moment the lockfile was regenerated — for an unrelated reason — `next build` failed on
+  imports that had been wrong since the cleanup. Two consequences: (1) a green deploy after a
+  dependency change proves nothing until the lockfile is regenerated in the same commit;
+  (2) a stale local `node_modules` hides the same class of break, because it holds packages
+  the manifest no longer declares. `pnpm install --frozen-lockfile` is the check that
+  reproduces CI, and Vercel applies it implicitly — `ERR_PNPM_OUTDATED_LOCKFILE` fails the
+  build before a single file is compiled.
+- **Prefer the scoped Radix package over the `radix-ui` meta-package.** `import * as X from
+  '@radix-ui/react-tabs'` is a drop-in for `import { Tabs as X } from 'radix-ui'` — the
+  members are identical (`Root`, `List`, `Trigger`, `Content`, `Item`, `Header`) — and the
+  scoped packages are already direct dependencies, so it pulls nothing new in. The
+  meta-package re-exports every primitive, most of which this app never uses.

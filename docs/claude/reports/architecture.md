@@ -257,15 +257,27 @@ as UTC midnight, so every negative-offset timezone renders the previous day.
 `formatDateOnly` exists and is used by invoices and quotes only. 3 of the 20
 render `timestamptz`, where the current code is correct — real count **~17**.
 
-**ARC-13 · 5 dependencies are never imported.**
+**ARC-13 · 5 dependencies are never imported.** ⚠️ **The `radix-ui` row was wrong —
+corrected 2026-08-02, see below.**
 
 | Package | Imports | Note |
 |---|---|---|
 | `chart.js` | 0 | Every chart is Recharts |
 | `react-chartjs-2` | 0 | — |
-| `radix-ui` (meta) | 0 | All 20 files use the scoped `@radix-ui/react-*` |
+| ~~`radix-ui` (meta)~~ | **2** | **WRONG.** `animate-ui/primitives/radix/{tabs,accordion}.tsx` import it as `import { Tabs as TabsPrimitive } from 'radix-ui'`. Removing it broke the production build |
 | `fastify-plugin` | 0 | API |
 | `@hvac-saas/ui` | 0 | Workspace package whose `index.ts` is `export {}` and whose `components/` is empty — yet every app depends on it |
+
+> **Correction (2026-08-02).** The count above was produced by searching for the
+> package name as an import *path*. That finds `from "radix-ui"` — but the two real
+> consumers were missed because the audit read "20 files use the scoped
+> `@radix-ui/react-*`" as covering all Radix usage, and never checked whether any
+> file used *both* forms. Two did. The dep was removed from `apps/web/package.json`,
+> which is not what broke anything on its own: the stale `pnpm-lock.yaml` meant CI
+> kept installing `radix-ui` anyway for four days. Regenerating the lockfile removed
+> it for real and `next build` failed on the two unresolved imports. Fixed by pointing
+> both files at `@radix-ui/react-tabs` / `@radix-ui/react-accordion`, which were
+> already dependencies — so the meta-package stays out. See [[frontend-nextjs]].
 
 **ARC-14 · Two icon libraries.** `@tabler/icons-react` in **221** files;
 `lucide-react` in **2** — `ui/calendar.tsx` and `ui/select.tsx`, both stock
