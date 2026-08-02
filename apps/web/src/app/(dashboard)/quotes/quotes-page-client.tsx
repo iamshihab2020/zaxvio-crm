@@ -63,6 +63,7 @@ import {
   prefetchQuotes,
 } from "@/hooks/queries";
 import { useEventStream } from "@/hooks/use-event-stream";
+import { toCreateQuotePayload } from "@/lib/quote-payload";
 
 const SORT_OPTIONS = [
   { value: "createdAt", label: "Date Created" },
@@ -258,30 +259,7 @@ export function QuotesPageClient({
 
   function handleCreate(data: QuoteFormData) {
     createMutation.mutate(
-      {
-        customerId: data.customerId,
-        issuedDate: data.issuedDate || undefined,
-        expiryDate: data.expiryDate || undefined,
-        taxRate: data.taxRate,
-        discountAmount: data.discountAmount || undefined,
-        notes: data.notes || undefined,
-        equipmentId: data.equipmentId || undefined,
-        // Sent with the quote instead of looped afterwards. The old flow
-        // created the quote, then fired one server action per line from here —
-        // and because Next queues server actions, the dialog sat open for the
-        // whole chain and stayed open entirely if any of them rejected, with
-        // the quote already created behind it.
-        lineItems: data.lineItems?.length
-          ? data.lineItems.map((li, index) => ({
-              description: li.description || undefined,
-              itemType: li.itemType,
-              quantity: li.quantity || undefined,
-              unitPrice: li.unitPrice,
-              sortOrder: index,
-              ...(li.catalogItemId ? { catalogItemId: li.catalogItemId } : {}),
-            }))
-          : undefined,
-      },
+      toCreateQuotePayload(data),
       {
         onSuccess: (res) => {
           if (res.error) return;

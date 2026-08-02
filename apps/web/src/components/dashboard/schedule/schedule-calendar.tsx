@@ -1,6 +1,5 @@
 "use client";
 
-import type * as React from "react";
 import { useCallback, useMemo, useRef, useEffect, type MutableRefObject } from "react";
 import {
   Calendar as BigCalendar,
@@ -36,21 +35,20 @@ const localizer = dateFnsLocalizer({
 });
 
 /* ── DnD-enhanced calendar ──
-   `withDragAndDrop` erases react-big-calendar's generics, so the wrapped
-   component cannot be expressed with the library's own types. Rather than
-   `as any` at both ends (strict-rules §4), the wrapper is typed as the prop
-   surface this file actually passes — which is what a reader needs to know,
-   and what breaks the build if a prop is renamed. (ARC-17) */
-type DnDCalendarProps = React.ComponentProps<typeof BigCalendar> & {
-  onEventDrop?: (args: { event: CalendarEvent; start: Date | string; end: Date | string }) => void;
-  onEventResize?: (args: { event: CalendarEvent; start: Date | string; end: Date | string }) => void;
-  resizable?: boolean;
-  draggableAccessor?: (event: CalendarEvent) => boolean;
-};
+   `withDragAndDrop` does *not* erase react-big-calendar's generics — it is
+   declared `<TEvent extends object, TResource extends object>` and returns
+   `DragAndDropCalendarProps<TEvent, TResource>`, which is `CalendarProps` plus
+   the drag props. So the calendar is parameterised with this file's own event
+   type and needs no cast at either end.
 
-const DnDCalendar = withDragAndDrop(
-  BigCalendar as React.ComponentType<Record<string, unknown>>,
-) as unknown as React.ComponentType<DnDCalendarProps>;
+   The previous version cast `BigCalendar` to `ComponentType<Record<string,
+   unknown>>` and the result back through `as unknown as` (itself against
+   strict-rules §4). That erased `TEvent` to the library's default `Event`, so
+   `components`, `eventPropGetter`, `onSelectEvent` and `draggableAccessor`
+   were all checked against `object` — and none of the `CalendarEvent`
+   handlers below fit, which is exactly what the build failed on. A cast that
+   loses a type argument does not silence an error, it relocates it. (ARC-17) */
+const DnDCalendar = withDragAndDrop<CalendarEvent, object>(BigCalendar);
 
 /* ── Types ── */
 export interface CalendarEvent {

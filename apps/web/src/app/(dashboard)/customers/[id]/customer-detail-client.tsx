@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import type { Customer } from "@hvac-saas/types";
 import { queryKeys } from "@/lib/query-keys";
+import { toCreateQuotePayload } from "@/lib/quote-payload";
 import { useCustomer } from "@/hooks/queries";
 import { CustomerDetailHeader } from "@/components/dashboard/customers/customer-detail-header";
 import { CustomerTabsPanel } from "@/components/dashboard/customers/customer-tabs-panel";
@@ -146,7 +147,7 @@ export function CustomerDetailClient({
 
   async function handleCreateQuote(data: QuoteFormData) {
     setSaving(true);
-    const res = await createQuote(data);
+    const res = await createQuote(toCreateQuotePayload(data));
     setSaving(false);
     if (res.error || !res.data) {
       toast.error(res.error ?? "Could not create the quote");

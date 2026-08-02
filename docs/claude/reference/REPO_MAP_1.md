@@ -397,6 +397,12 @@ apps/web/
     |   |                            # the API origin, the one request relying on a cross-origin cookie
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
     |   +-- query-keys.ts            # Centralized TanStack Query key factory for 18 domains
+    |   +-- quote-payload.ts         # toCreateQuotePayload() — the ONE place the quote dialog's form
+    |   |                            # state becomes a POST /quotes body. The form holds "" and null
+    |   |                            # for empty inputs; the API takes neither (catalogItemId is
+    |   |                            # .uuid().optional(), not .nullable()) and needs a sortOrder the
+    |   |                            # form never carries. /quotes had it inline, /customers/[id] had
+    |   |                            # nothing and did not compile
     |   +-- url-filters.ts           # Allow-listed ?status= reader for list-page deep links
     |   +-- entity-links.ts          # jobLink()/bookingLink()/invoiceLink()/quoteLink() — the ONE
     |   |                            # place a detail deep-link param name is spelled. Emitting

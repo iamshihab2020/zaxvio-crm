@@ -8,6 +8,35 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Production Build Repair (2026-08-02)
+Three failures in a row on `main`, each hiding the next.
+- [x] **`ERR_PNPM_OUTDATED_LOCKFILE`** — ARC-13/14 pruned 6 deps and deleted `packages/ui` without
+      regenerating `pnpm-lock.yaml`. Vercel installs frozen, so it refused before compiling
+      anything. Regenerated: 3 insertions, 544 deletions, no version bumps.
+- [x] **`radix-ui` not found** — ARC-13 recorded 0 importers for the meta-package; the real count
+      was 2 (`animate-ui/primitives/radix/{tabs,accordion}.tsx`, both load-bearing under
+      `ui/tabs.tsx` and the landing FAQ). The stale lockfile had been installing it anyway for
+      four days, which is why no earlier deploy caught it. Repointed at the scoped
+      `@radix-ui/react-{tabs,accordion}`, already direct deps. ARC-13's table corrected.
+- [x] **`QuoteFormData` not assignable** — pre-existing in `02d4441`, which died at install and so
+      was never type-checked. `catalogItemId` is `string | null` on the form and
+      `.uuid().optional()` on the API. New `lib/quote-payload.ts`; `/quotes` had the mapping
+      inline, `/customers/[id]` had none — that page's New Quote flow could not have worked.
+- [x] **Ran `pnpm typecheck`** — it found 8 more errors behind the one `next build` reported, in
+      2 files, both from the same unverified commit. All fixed:
+      - `actions/tags.ts` — the ARC-02 proof-of-concept migration left `apiGet<unknown[]>` and a
+        bare `apiSend` whose `T` resolves to `unknown`, so `customer-tags-input.tsx` could not
+        read `res.data.id`. Now typed with `Tag` from `@hvac-saas/types`.
+      - `schedule-calendar.tsx` — the ARC-17 comment claimed `withDragAndDrop` "erases the
+        generics" and cast around it. It doesn't; the *cast* erased `TEvent`, so all four
+        `CalendarEvent` handlers were checked against `object`.
+        `withDragAndDrop<CalendarEvent, object>(BigCalendar)` needs no cast, and removes an
+        `as unknown as` that broke strict-rules §4.
+      - `schedule-event.tsx` — `ScheduleEventProps` carried `[key: string]: unknown` to "accept"
+        the library's spread props. Interfaces get no implicit index signature in TypeScript, so
+        this made `EventProps` unassignable to it. Removed.
+- [ ] **Re-run `pnpm typecheck`**, then push.
+
 ### Date Range Persistence (2026-08-02) — COMPLETE
 The 2026-08-01 fix below stored a preset *as a preset* and recomputed it against today on every
 load. That is the opposite of what the range picker is for: a selection the user made must stay

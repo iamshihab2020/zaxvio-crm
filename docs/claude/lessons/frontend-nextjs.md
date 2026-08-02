@@ -330,3 +330,42 @@ From [[bookings-calendar|the report]] — the front-end half.
   2nd of a month that default renders as "Aug 1 – Aug 2", which reads exactly like the saved
   range resetting itself. Show the user's own selection when there is one and fall back to the
   server's resolved range only when there isn't.
+- **A build that dies at `pnpm install` never type-checks, so the next green install surfaces
+  errors from commits you thought were fine.** `02d4441` failed on `ERR_PNPM_OUTDATED_LOCKFILE`
+  before a single file compiled. Fixing the lockfile two commits later made the build reach
+  `tsc`, which immediately failed on a type error that had shipped in `02d4441` itself. When a
+  build fails at an early stage, nothing after that stage has been verified — treat the whole
+  commit as unchecked rather than assuming only the reported step is broken.
+- **A form's "empty" is not the API's "absent".** The quote dialog stores an unselected catalog
+  item as `null` and every other empty input as `""`. `POST /quotes` declares
+  `catalogItemId: z.string().uuid().optional()` — optional but *not* nullable — so `null` is a
+  400, and `""` fails the uuid and numeric-string checks too. `/quotes` had the conversion
+  written inline in its `handleCreate`; `/customers/[id]` passed the form state straight to
+  `createQuote`, which did not compile and would have been rejected at runtime if it had. The
+  conversion now lives in `lib/quote-payload.ts`. Any form whose fields are optional server-side
+  needs one of these, and it belongs beside the type, not in whichever page happened to be
+  written first.
+- **A cast that drops a type argument relocates the error, it does not remove it.**
+  `schedule-calendar.tsx` wrapped react-big-calendar as
+  `withDragAndDrop(BigCalendar as ComponentType<Record<string, unknown>>) as unknown as
+  ComponentType<DnDCalendarProps>`, on the stated belief that the addon "erases the generics".
+  It does not: `withDragAndDrop<TEvent extends object, TResource extends object>` returns
+  `CalendarProps<TEvent, TResource>` plus the drag props. The cast is what erased `TEvent`, to
+  the library default `Event` — after which `components`, `eventPropGetter`, `onSelectEvent` and
+  `draggableAccessor` were all checked against `object` and every `CalendarEvent` handler in the
+  file failed. `withDragAndDrop<CalendarEvent, object>(BigCalendar)` needs no cast at either
+  end. Before reaching for a cast on a third-party component, read its `.d.ts` — the generic you
+  need is often already there. (Note `as unknown as` was itself against strict-rules §4.)
+- **Never put `[key: string]: unknown` on a component's props to "accept" a caller's extra
+  props.** A callee does not declare the caller's extras — passing more props than a component
+  reads is always fine. What the index signature *does* do is break assignability in the other
+  direction: TypeScript gives implicit index signatures to type aliases but **not to
+  interfaces**, so `ScheduleEventProps` having one made react-big-calendar's `EventProps`
+  interface unassignable to it. The widening intended as permissive was the thing rejecting the
+  library's own type.
+- **Type arguments on the API client are load-bearing, not decoration.** `apiGet<unknown[]>` and
+  a bare `apiSend` (where `T` silently resolves to `unknown`) left `actions/tags.ts` returning
+  values that narrow to `{}` after a truthy check, so every `res.data.id` in the consuming
+  component failed to compile. The shared client can only carry a shape across the
+  server-action boundary if the call site names it — prefer the Drizzle-inferred row from
+  `@hvac-saas/types` so it tracks the schema.

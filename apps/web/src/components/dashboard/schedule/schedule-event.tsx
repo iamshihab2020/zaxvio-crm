@@ -105,14 +105,20 @@ const PRIORITY_DOT: Record<string, string> = {
 };
 
 /**
- * react-big-calendar spreads its own internal props onto custom event
- * components. `unknown` accepts them without letting anything read them
- * untyped — `any` here would have let a typo through silently.
+ * The props these components actually read. react-big-calendar passes more
+ * (`localizer`, `continuesPrior`, `slotStart`, …) and that is fine — a
+ * component receiving extra props needs no declaration for them.
+ *
+ * There used to be a `[key: string]: unknown` here for that purpose, which had
+ * the opposite effect of the one intended: the library's `EventProps` is an
+ * *interface*, and TypeScript does not give interfaces implicit index
+ * signatures, so `EventProps<CalendarEvent>` could not be assigned to this type
+ * at all. Widening props to accept a caller's extras is not something the
+ * callee declares.
  */
 export interface ScheduleEventProps {
   event: CalendarEvent;
   title?: string;
-  [key: string]: unknown;
 }
 
 function toAgendaDetails(event: CalendarEvent): AgendaDetails {
