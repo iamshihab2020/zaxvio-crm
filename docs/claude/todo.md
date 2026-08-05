@@ -8,6 +8,75 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Security Audit Remediation (2026-08-06)
+Whole-codebase security review (auth, public surface, tenant isolation, injection, storage,
+web layer). 7 candidates, each put through an independent adversarial verification pass:
+**2 confirmed HIGH, 1 confirmed LOW, 4 refuted.** The 4 refuted were all real code defects
+whose exploit required guessing a UUID the app never discloses — fixed anyway, because the
+invariant is one feature away from mattering.
+
+#### Phase 1 — the two HIGH findings (one root cause)
+- [x] **`/api/auth/admin/*` closed at the proxy** (`apps/api/src/server.ts:159`). The app models
+      three admin tiers in `user.adminTier`, but `routes/admin/admins.ts:88` sets
+      `role: "admin"` **unconditionally for every tier** — and `role` is the only thing
+      better-auth's admin plugin checks. The catch-all forwards `/api/auth/*` to
+      `auth.handler` with no preHandler, so `support`/`billing_admin` could call
+      `set-role`, `create-user` and `impersonate-user` directly: mint a platform admin
+      without the `super_admin` gate or the owner check, or take a full session as any
+      tenant user — no reason, no `tenants.isActive` check, no `admin_audit_log` row.
+      Plugin stays registered (it owns the `role`/`banned` columns); only its HTTP surface
+      closes. Verified zero callers: `adminClient()` is registered but never used. The
+      denylist folds case **and** percent-encoding before comparing — `/API/AUTH/ADMIN/…`
+      and `/api/auth/%61dmin/…` are both refused, since a guard that normalizes less than
+      the router it guards is decorative. Dot segments were already resolved by `new URL`.
+- [ ] **Regression test blocked: the repo has no test harness.** `pnpm test` runs
+      `vitest run`, but vitest is in no `package.json` and there are zero `*.test.ts` files
+      repo-wide. Standing up vitest is its own task; writing a test that cannot execute is
+      worse than none. The guard is commented with what it defends instead.
+
+#### Phase 2 — the LOW finding
+- [x] **Open redirect on login** (`login/page.tsx:78`). `callbackUrl` went from the query
+      string straight into `window.location.replace()`. `middleware.ts:82` only ever writes
+      a pathname, but nothing enforced that on read. New `lib/safe-redirect.ts` — rejects
+      absolute URLs and both protocol-relative forms (`//host` and `/\host`; browsers
+      normalise the backslash while parsing the authority, so checking only `//` misses it).
+
+#### Phase 3 — the refuted-but-real ownership gaps
+Same defect in all three: a client-supplied FK written with no tenant check, plus read joins
+with no tenant predicate. `jobs`/`invoices`/`quotes` all guard this; these never got it.
+- [x] **`lib/tenant-guards.ts`** — canonical home for the `owns*` family, moved out of
+      `job-guards.ts` (which re-exports, so `routes/jobs` is untouched). The filename was
+      the bug: importing "job guards" into the calendar reads like a mistake, so nobody did,
+      and invoices/quotes wrote their own copies instead.
+- [x] **Conversations** — `ownsCustomer` on `POST /conversations`, plus a tenant predicate
+      on all three `customers` joins (`service:95,150`, `routes:147`) and the bare
+      `where(eq(customers.id, …))` at `service:188`. Worst of the three: the join chose who
+      `POST /:id/messages` emails, so an unchecked id leaked name/email/phone **and** sent
+      attacker-authored mail to another tenant's customer.
+- [x] **Checklists** — `ownsCatalogItem` on both item writers, plus the two
+      `leftJoin(catalogItems)` sites (`checklists:124`, `jobs:460`).
+- [x] **Calendar events** — `ownsCustomer` on `POST` and `PATCH`. No read path joins this
+      column today, so it was integrity rather than disclosure; the first page that renders
+      a customer name beside an event is what would have converted it.
+
+#### Phase 4 — housekeeping
+- [x] REPO_MAP (both new modules), API docs (3 endpoints gained a 400/404; `POST
+      /conversations` was undocumented entirely), lessons (`auth-flow`, `tenant-security`).
+- [ ] **Not run: `pnpm typecheck`.** No verification command was executed in this session —
+      the user runs those. Nothing here is confirmed compiling.
+- [ ] Follow-up: `invoice-guards.ts:181` and `quote-guards.ts:193` still carry their own
+      `ownsCustomer` copies — fold into `tenant-guards.ts`.
+- [ ] Follow-up: conversations API docs describe `GET /conversations/:id` (embedded
+      messages) and `POST /:id/send`; the code has `GET|POST /:id/messages`. Pre-existing
+      drift, flagged inline in the doc, not reconciled here.
+
+**Audited clean** (recorded so it isn't re-litigated): 49 `db.execute` sites all
+parameterized, zero `sql.raw` repo-wide, sort/granularity identifiers resolve through closed
+enums; public quote tokens are `randomUUID()` with accept/decline serialized under
+`SELECT … FOR UPDATE`; no webhook handler exists yet (**review signature verification the day
+Lemon Squeezy lands**); storage keys server-derived; SSE tenant-scoped; 3
+`dangerouslySetInnerHTML` sites all render server-owned data.
+
 ### Landing Page De-Slop (2026-08-02) — UNCOMMITTED, awaiting review
 Mode: Redesign-Overhaul, brand-preserved. Dials 5/3/5 → 7/5/5. 15 files in
 `components/landing/`, nothing outside it. **Not committed at the user's instruction.**

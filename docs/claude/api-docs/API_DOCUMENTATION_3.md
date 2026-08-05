@@ -935,7 +935,11 @@ Add an item to a checklist template.
 }
 ```
 
-**Response** `201 Created`
+`catalogItemId`, when supplied, must name a catalog item belonging to the caller's
+tenant — it is the id that later auto-adds a line item to a job.
+
+**Response** `201 Created` · **Errors** `404 Not Found` (template),
+`400 Bad Request` — `{ "message": "Catalog item not found" }`
 
 #### `PATCH /checklists/:id/items/:itemId`
 
@@ -950,7 +954,8 @@ Add an item to a checklist template.
 }
 ```
 
-**Response** `200 OK`
+**Response** `200 OK` · **Errors** `404 Not Found` (item),
+`400 Bad Request` (foreign `catalogItemId`)
 
 #### `DELETE /checklists/:id/items/:itemId`
 

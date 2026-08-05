@@ -13,6 +13,7 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import { ownsCustomer } from "../../lib/tenant-guards.js";
 import {
   calendarEventsQuery,
   createCalendarEventBody,
@@ -123,8 +124,18 @@ const calendarEventRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const body = request.body;
 
+      const db = getDb();
+
+      // No read path joins this column back to `customers` today, so this is
+      // integrity rather than disclosure — but it is a client-supplied FK on a
+      // tenant table, and the day something renders the customer's name here is
+      // the day it becomes a leak.
+      const customerId = emptyToNull(body.customerId);
+      if (customerId && !(await ownsCustomer(db, tenantId, customerId))) {
+        return reply.status(400).send({ message: "Customer not found" });
+      }
+
       try {
-        const db = getDb();
         const [event] = await db
           .insert(calendarEvents)
           .values({
@@ -139,7 +150,7 @@ const calendarEventRoutes: FastifyPluginAsyncZod = async (fastify) => {
             address: emptyToNull(body.address),
             notes: emptyToNull(body.notes),
             color: body.color || "purple",
-            customerId: emptyToNull(body.customerId),
+            customerId,
           })
           .returning();
 
@@ -177,6 +188,12 @@ const calendarEventRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Event not found" });
       }
 
+      const nextCustomerId =
+        body.customerId !== undefined ? emptyToNull(body.customerId) : undefined;
+      if (nextCustomerId && !(await ownsCustomer(db, tenantId, nextCustomerId))) {
+        return reply.status(400).send({ message: "Customer not found" });
+      }
+
       try {
         const updates: Record<string, unknown> = { updatedAt: sql`now()` };
         if (body.title !== undefined) updates.title = body.title;
@@ -189,7 +206,7 @@ const calendarEventRoutes: FastifyPluginAsyncZod = async (fastify) => {
         if (body.address !== undefined) updates.address = emptyToNull(body.address);
         if (body.notes !== undefined) updates.notes = emptyToNull(body.notes);
         if (body.color !== undefined) updates.color = body.color;
-        if (body.customerId !== undefined) updates.customerId = emptyToNull(body.customerId);
+        if (body.customerId !== undefined) updates.customerId = nextCustomerId;
 
         // tenantId in the WHERE, not just the id ([[security-rules]] §1) — the
         // ownership check above is separated from this write by an `await`.

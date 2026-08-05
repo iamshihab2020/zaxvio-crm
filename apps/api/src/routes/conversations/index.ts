@@ -25,6 +25,7 @@ import {
   eq,
   and,
 } from "@hvac-saas/database";
+import { ownsCustomer } from "../../lib/tenant-guards.js";
 
 const conversationRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -74,6 +75,14 @@ const conversationRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const { customerId, channel, subject } = request.body;
+
+      // The customer id is a bare uuid off the request body. Without this the
+      // conversation is created under *our* tenant pointing at someone else's
+      // customer, and every read after it joins that row in — name, email and
+      // phone — while POST /:id/messages would happily email them.
+      if (!(await ownsCustomer(getDb(), tenantId, customerId))) {
+        return reply.status(404).send({ error: "Customer not found" });
+      }
 
       const conversation = await getOrCreateConversation(
         tenantId,
@@ -138,7 +147,16 @@ const conversationRoutes: FastifyPluginAsyncZod = async (fastify) => {
           customerLastName: customers.lastName,
         })
         .from(conversations)
-        .innerJoin(customers, eq(conversations.customerId, customers.id))
+        // tenantId on the joined side too: the conversation row being ours says
+        // nothing about the customer it points at, and this join decides who
+        // receives the email below.
+        .innerJoin(
+          customers,
+          and(
+            eq(conversations.customerId, customers.id),
+            eq(customers.tenantId, tenantId),
+          ),
+        )
         .where(
           and(
             eq(conversations.id, conversationId),

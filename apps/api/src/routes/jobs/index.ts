@@ -459,7 +459,10 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           )
           .leftJoin(
             catalogItems,
-            eq(checklistItems.catalogItemId, catalogItems.id),
+            and(
+              eq(checklistItems.catalogItemId, catalogItems.id),
+              eq(catalogItems.tenantId, tenantId),
+            ),
           )
           .where(
             and(

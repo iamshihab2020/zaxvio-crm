@@ -442,18 +442,19 @@ being sold.
 | `address` | string | No | Max 500 |
 | `notes` | string | No | Max 2,000 |
 | `color` | enum | No | `purple` (default), `blue`, `green`, `amber`, `red`, `teal` |
-| `customerId` | uuid | No | Links the event to a customer |
+| `customerId` | uuid | No | Links the event to a customer. Must belong to the caller's tenant |
 
-**Response** `201 Created`
+**Response** `201 Created` · **Error** `400 Bad Request` — `{ "message": "Customer not found" }`
+when `customerId` names a customer outside the tenant.
 
 ### `PATCH /calendar-events/:id`
 
 **Auth:** `requireTenant`
 
 Same fields, all optional; nullable ones accept `null` to clear. `endTime` must
-still be after `startTime`.
+still be after `startTime`. `customerId` is tenant-checked as on `POST`.
 
-**Response** `200 OK` · **Error** `404 Not Found`
+**Response** `200 OK` · **Error** `404 Not Found`, `400 Bad Request` (foreign `customerId`)
 
 ### `DELETE /calendar-events/:id`
 
@@ -1313,6 +1314,35 @@ List all conversations with customers, organized by channel.
   }
 }
 ```
+
+### `POST /conversations`
+
+**Auth:** `requireTenant`
+
+Get or create a conversation with a customer on a channel. Idempotent per
+`(tenant, customer, channel)` — an existing thread is returned rather than duplicated.
+
+**Request Body:**
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `customerId` | uuid | Yes | Must belong to the caller's tenant |
+| `channel` | enum | Yes | `email` \| `sms` |
+| `subject` | string | No | Applied only when a new thread is created |
+
+`customerId` is checked against the tenant before anything is written. It decides
+whose name, email and phone the response carries, and who `POST /:id/messages`
+later emails — an unchecked value would have been a cross-tenant disclosure and an
+outbound email to another tenant's customer.
+
+**Response** `200 OK` · **Error** `404 Not Found` — `{ "error": "Customer not found" }`
+
+> **Doc drift, not yet reconciled:** the two entries below describe
+> `GET /conversations/:id` returning an embedded `messages` array and a
+> `POST /conversations/:id/send`. The implementation has
+> `GET /conversations/:id/messages` (cursor-paginated) and
+> `POST /conversations/:id/messages`. Left as-is here because correcting it is a
+> documentation pass, not part of the security fix that touched this route.
 
 ### `GET /conversations/:id`
 

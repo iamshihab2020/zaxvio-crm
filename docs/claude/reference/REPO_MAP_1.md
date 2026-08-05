@@ -119,7 +119,12 @@ apps/api/
 |   |   |                         # countLinkedInvoices(), sendJobCompletionEmailFor() — the side
 |   |   |                         # effects single and bulk job endpoints must share
 |   |   +-- job-guards.ts         # loadEditableJob()/assertEditable() (archived-job guard, was on
-|   |   |                         # 4 of 14 mutating handlers) + findForeignRef()/ownsX() tenant checks
+|   |   |                         # 4 of 14 mutating handlers). Re-exports the ownsX() family from
+|   |   |                         # tenant-guards.ts, where it now lives
+|   |   +-- tenant-guards.ts      # ownsCustomer/Equipment/Booking/CatalogItem + findForeignRef() —
+|   |   |                         # "does this id belong to the caller's tenant?" for every FK that
+|   |   |                         # arrives in a request body. Lived in job-guards, so conversations,
+|   |   |                         # checklists and calendar-events each wrote one unchecked (2026-08-06)
 |   |   +-- upload-limits.ts      # UPLOAD_LIMITS + bodyLimitFor() so the number a handler enforces
 |   |   |                         # and the number Fastify enforces cannot drift; MIME allowlist
 |   |   +-- invoice-guards.ts     # loadEditableInvoice()/assertPayable()/assertDraft() + the FK
@@ -404,6 +409,10 @@ apps/web/
     |   |                            # form never carries. /quotes had it inline, /customers/[id] had
     |   |                            # nothing and did not compile
     |   +-- url-filters.ts           # Allow-listed ?status= reader for list-page deep links
+    |   +-- safe-redirect.ts         # safeRedirectPath() — ?callbackUrl= went from the query string
+    |   |                            # into window.location.replace(). middleware only ever writes a
+    |   |                            # pathname, but /login is public and the value is read back raw.
+    |   |                            # Rejects absolute URLs and both host forms, `//x` and `/\x`
     |   +-- entity-links.ts          # jobLink()/bookingLink()/invoiceLink()/quoteLink() — the ONE
     |   |                            # place a detail deep-link param name is spelled. Emitting
     |   |                            # ?job= at a page reading ?jobId= has now been a bug 3 times

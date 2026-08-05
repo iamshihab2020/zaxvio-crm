@@ -12,6 +12,7 @@ import {
   count,
   sql,
 } from "@hvac-saas/database";
+import { ownsCatalogItem } from "../../lib/tenant-guards.js";
 import {
   idParam,
   checklistItemParams,
@@ -123,7 +124,10 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .from(checklistItems)
         .leftJoin(
           catalogItems,
-          eq(checklistItems.catalogItemId, catalogItems.id),
+          and(
+            eq(checklistItems.catalogItemId, catalogItems.id),
+            eq(catalogItems.tenantId, tenantId),
+          ),
         )
         .where(
           and(
@@ -324,6 +328,15 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Checklist template not found" });
       }
 
+      // Verifying the template is not the same as verifying the catalog item —
+      // this is the check jobs and quotes do on the identical field.
+      if (
+        body.catalogItemId &&
+        !(await ownsCatalogItem(db, tenantId, body.catalogItemId))
+      ) {
+        return reply.status(400).send({ message: "Catalog item not found" });
+      }
+
       const [item] = await db
         .insert(checklistItems)
         .values({
@@ -370,6 +383,13 @@ const checklistRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       if (!existing) {
         return reply.status(404).send({ message: "Checklist item not found" });
+      }
+
+      if (
+        body.catalogItemId &&
+        !(await ownsCatalogItem(db, tenantId, body.catalogItemId))
+      ) {
+        return reply.status(400).send({ message: "Catalog item not found" });
       }
 
       const updates: Record<string, unknown> = {};

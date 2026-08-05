@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, authClient } from "@/lib/auth-client";
 import { initializeTenant } from "@/actions/tenants";
+import { safeRedirectPath } from "@/lib/safe-redirect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -75,9 +76,11 @@ function LoginForm() {
         // Ensure tenant row exists (covers users who signed up when API was down)
         await initializeTenant();
 
-        const callbackUrl = searchParams.get("callbackUrl");
+        // Relative same-origin paths only — the value is attacker-writable, and
+        // this is a real navigation, not a router push. See lib/safe-redirect.ts.
+        const callbackUrl = safeRedirectPath(searchParams.get("callbackUrl"));
         // Hard navigation — back button can't return to login
-        window.location.replace(callbackUrl ?? "/dashboard");
+        window.location.replace(callbackUrl);
       } else {
         // No orgs — send to signup to create one
         window.location.replace("/signup");

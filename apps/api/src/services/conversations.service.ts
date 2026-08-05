@@ -92,7 +92,13 @@ export async function listConversations(
         customerPhone: customers.phone,
       })
       .from(conversations)
-      .innerJoin(customers, eq(conversations.customerId, customers.id))
+      .innerJoin(
+        customers,
+        and(
+          eq(conversations.customerId, customers.id),
+          eq(customers.tenantId, tenantId),
+        ),
+      )
       .where(baseWhere)
       .orderBy(desc(conversations.lastMessageAt))
       .limit(limit)
@@ -143,7 +149,13 @@ export async function getOrCreateConversation(
       customerPhone: customers.phone,
     })
     .from(conversations)
-    .innerJoin(customers, eq(conversations.customerId, customers.id))
+    .innerJoin(
+      customers,
+      and(
+        eq(conversations.customerId, customers.id),
+        eq(customers.tenantId, tenantId),
+      ),
+    )
     .where(
       and(
         eq(conversations.tenantId, tenantId),
@@ -176,7 +188,7 @@ export async function getOrCreateConversation(
       phone: customers.phone,
     })
     .from(customers)
-    .where(eq(customers.id, customerId))
+    .where(and(eq(customers.tenantId, tenantId), eq(customers.id, customerId)))
     .then((r) => r[0]);
 
   return {

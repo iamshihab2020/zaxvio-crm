@@ -22,3 +22,34 @@
 - **Better Auth `getInvitation` returns 403 for non-members** — Can't fetch invitation details for users who aren't org members yet. The invite acceptance page should show generic "accept/decline" without fetching details.
 - **Better Auth org plugin method names differ from docs** — `createInvitation` → `inviteMember`, `memberId` → `memberIdOrEmail`, `getInvitation` takes `{ query: { id } }` not `{ invitationId }`. Always check TypeScript errors for correct parameter shapes.
 - **Better Auth `invitation` table needs `createdAt`** — The Drizzle schema was missing `createdAt` on the invitation table. Better Auth requires it for the `inviteMember` endpoint. Always match the exact schema Better Auth expects.
+
+## Better Auth plugins mount routes you did not write (2026-08-06, security audit)
+
+- **A plugin's endpoints are part of your attack surface the moment you register it.**
+  `admin({ defaultRole: "user", adminRole: "admin" })` looks like configuration. It also
+  mounts `/api/auth/admin/set-role`, `create-user`, `impersonate-user`, `ban-user`,
+  `set-password` and `remove-user`, each gated only by better-auth's *default* access
+  control table — which grants the whole set to any user whose `role === "admin"`. We had
+  never opened that table, so we never knew what we had published.
+- **Two authorization models over one column is one model too many.** The platform gates
+  admin work on `user.adminTier` (`super_admin` | `support` | `billing_admin`), but
+  `routes/admin/admins.ts` sets `role: "admin"` for *every* tier — the tier lives in a
+  column better-auth has never heard of. So `requireAdminTier(["super_admin","support"])`
+  on `/admin/impersonation/start` was real, and completely irrelevant: a `billing_admin`
+  could POST `/api/auth/admin/impersonate-user` and get a full session as any tenant user,
+  with no reason, no `tenants.isActive` check and no `admin_audit_log` row. The custom
+  impersonation flow was well built. It just was not the only door.
+- **A catch-all proxy inherits every route behind it.** `fastify.route({ url: "/api/auth/*" })`
+  forwards to `auth.handler` with no `preHandler`; whatever the library mounts is live. If
+  you proxy a framework wholesale, enumerate what it mounts — do not assume the endpoints
+  you call are the endpoints that exist.
+- **Blocking the HTTP surface beats reconfiguring the permission table.** We kept the plugin
+  (it owns the `role`/`banned`/`impersonatedBy` columns and the session shape) and 404'd
+  `/api/auth/admin/*` at the proxy. A custom `ac`/`roles` config would have meant
+  re-deriving better-auth's permission model correctly and re-deriving it again on every
+  upgrade. Confirmed zero callers first: `adminClient()` is registered in the web client
+  and has never been used.
+- **A denylist must normalize at least as hard as the router it guards.** Case and
+  percent-encoding both have to be folded before the comparison, or `/API/AUTH/ADMIN/...`
+  and `/api/auth/%61dmin/...` walk past it. Dot segments were already handled — `new URL()`
+  resolves them, and it is the same normalized URL that gets handed to the handler.
