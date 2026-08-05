@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 
 /**
- * The dashboard's date range, remembered between visits.
+ * A date range picked on a dashboard page, remembered between visits.
  *
- * It used to live in component state only, so every navigation back to
- * /dashboard threw the selection away and reset to month-to-date — which on the
- * 1st of a month is a single day, making the whole page look broken.
+ * It used to live in component state only, so every navigation back threw the
+ * selection away and reset to the server default — which for month-to-date on
+ * the 1st of a month is a single day, making the whole page look broken.
  *
  * **Whatever the user selects is what they get back, until they select
  * something else.** The range is therefore always stored as two absolute dates,
@@ -19,10 +19,16 @@ import { useCallback, useEffect, useState } from "react";
  *
  * `preset` is carried alongside purely so the matching tab can be highlighted.
  * It never affects which dates are used — if it disagrees with `from`/`to`, the
- * dates win.
+ * dates win. Only /dashboard has shortcut tabs; /reports stores no preset and
+ * simply gets `null` back.
+ *
+ * One hook, one storage key per page. The key is what separates /dashboard's
+ * range from /reports' — they are the same control with the same expectation,
+ * but they are not the same selection, and sharing a key would make changing
+ * one silently change the other.
  */
 
-export type DashboardRangePreset = "1D" | "1W" | "1M" | "6M" | "1Y" | "ALL";
+export type RangePreset = "1D" | "1W" | "1M" | "6M" | "1Y" | "ALL";
 
 export interface StoredDateRange {
   /** Authoritative. A `yyyy-MM-dd` day, inclusive. */
@@ -31,11 +37,15 @@ export interface StoredDateRange {
   to: string;
   granularity?: "day" | "week" | "month";
   /** Cosmetic only: which shortcut tab to light up. */
-  preset?: DashboardRangePreset | null;
+  preset?: RangePreset | null;
 }
 
-const STORAGE_KEY = "dashboard-date-range";
-const PRESETS: DashboardRangePreset[] = ["1D", "1W", "1M", "6M", "1Y", "ALL"];
+export const DATE_RANGE_KEYS = {
+  dashboard: "dashboard-date-range",
+  reports: "reports-date-range",
+} as const;
+
+const PRESETS: RangePreset[] = ["1D", "1W", "1M", "6M", "1Y", "ALL"];
 const GRANULARITIES = ["day", "week", "month"] as const;
 
 const isDate = (s: unknown): s is string =>
@@ -53,9 +63,8 @@ function parse(raw: string): StoredDateRange | null {
   if (!isDate(v.from) || !isDate(v.to) || v.from > v.to) return null;
 
   const preset =
-    typeof v.preset === "string" &&
-    PRESETS.includes(v.preset as DashboardRangePreset)
-      ? (v.preset as DashboardRangePreset)
+    typeof v.preset === "string" && PRESETS.includes(v.preset as RangePreset)
+      ? (v.preset as RangePreset)
       : null;
 
   return {
@@ -66,30 +75,37 @@ function parse(raw: string): StoredDateRange | null {
   };
 }
 
-export function useDashboardDateRange() {
+export function useStoredDateRange(storageKey: string) {
   const [stored, setStored] = useState<StoredDateRange | null>(null);
   const [hydrated, setHydrated] = useState(false);
 
+  // Deliberately an effect rather than a lazy `useState` initialiser: the
+  // server renders with no stored range, so reading localStorage during the
+  // first render would produce markup React then has to discard as a hydration
+  // mismatch. The cost is one extra fetch on a visit with a saved range.
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (raw) setStored(parse(raw));
     } catch {
       /* a malformed or unreadable entry just means "no saved range" */
     } finally {
       setHydrated(true);
     }
-  }, []);
+  }, [storageKey]);
 
-  const save = useCallback((next: StoredDateRange | null) => {
-    setStored(next);
-    try {
-      if (next) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-      else localStorage.removeItem(STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const save = useCallback(
+    (next: StoredDateRange | null) => {
+      setStored(next);
+      try {
+        if (next) localStorage.setItem(storageKey, JSON.stringify(next));
+        else localStorage.removeItem(storageKey);
+      } catch {
+        /* ignore */
+      }
+    },
+    [storageKey],
+  );
 
   return { stored, hydrated, save };
 }

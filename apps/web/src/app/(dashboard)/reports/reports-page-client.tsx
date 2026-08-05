@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageActions } from "@/components/dashboard/page-actions";
 import { format, parseISO, subYears } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -19,6 +19,10 @@ import {
   type DatePreset,
 } from "@/components/ui/date-range-picker";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
+import {
+  DATE_RANGE_KEYS,
+  useStoredDateRange,
+} from "@/hooks/use-stored-date-range";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ReportsSkeleton,
@@ -67,8 +71,25 @@ export function ReportsPageClient({
   );
   // No explicit range until the user picks one. The browser cannot reproduce
   // "month to date in the tenant's timezone", so the API resolves it and echoes
-  // the window back — the picker renders what was queried, not a guess.
+  // the window back: the picker renders what was queried, not a guess.
   const [picked, setPicked] = useState<DateRange | undefined>(undefined);
+
+  const { stored: storedRange, save: saveRange } = useStoredDateRange(
+    DATE_RANGE_KEYS.reports,
+  );
+
+  // Replay the saved range once localStorage is readable. Stored dates are
+  // absolute and are used verbatim — a shortcut like "Last 12 months" is a way
+  // of entering a range, not a standing instruction to re-derive one against
+  // today. This page keeps its own key: /reports and /dashboard are the same
+  // control with the same expectation, but not the same selection.
+  useEffect(() => {
+    if (!storedRange) return;
+    setPicked({
+      from: parseISO(storedRange.from),
+      to: parseISO(storedRange.to),
+    });
+  }, [storedRange]);
 
   const params: ReportStatsParams = useMemo(
     () => ({
@@ -105,10 +126,24 @@ export function ReportsPageClient({
     return { from: parseISO(report.range.from), to: parseISO(report.range.to) };
   }, [picked, report?.range]);
 
-  const handleRangeChange = useCallback((range: DateRange | undefined) => {
-    // A half-finished selection would send `from` without `to`; wait for both.
-    setPicked(range?.from && range?.to ? range : undefined);
-  }, []);
+  const handleRangeChange = useCallback(
+    (range: DateRange | undefined) => {
+      // The picker no longer emits half-finished selections, so a missing end
+      // means the range was genuinely cleared: fall back to the tenant-resolved
+      // default and forget the saved one.
+      if (!range?.from || !range?.to) {
+        setPicked(undefined);
+        saveRange(null);
+        return;
+      }
+      setPicked(range);
+      saveRange({
+        from: format(range.from, "yyyy-MM-dd"),
+        to: format(range.to, "yyyy-MM-dd"),
+      });
+    },
+    [saveRange],
+  );
 
   if (isLoading && !report) {
     return (

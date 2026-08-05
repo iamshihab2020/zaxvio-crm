@@ -235,10 +235,11 @@ From [[bookings-calendar|the report]] — the front-end half.
   `resetOnSelect` so a click begins a fresh range, and hold the half-finished selection in local
   state: `onSelect` fires on the first click with `to: undefined`, and pushing that partial value to
   the page makes consumers read it as "no range" and refetch their default.
-- **Persist a date range as the *preset* the user chose, not the dates it resolved to.** Storing
-  `2026-07-25 → 2026-08-01` for "last 7 days" means next week the dashboard opens on a stale window
-  still labelled last 7 days. Recompute presets against today on load; store absolute dates only for
-  a hand-picked custom range.
+- ~~**Persist a date range as the *preset* the user chose, not the dates it resolved to.**~~
+  **WRONG — reversed 2026-08-02.** This was written from the implementation rather than from
+  observing it, and it is the exact reasoning that made a saved range move on its own. Store two
+  absolute dates, always. The full account is below, under "a shortcut is a way of entering a
+  value, not a standing subscription to one".
 - **A default of "month-to-date" renders as a single day on the 1st of the month**, which reads as a
   broken page: one chart bucket, no trend, and a range picker that appears stuck on today.
 - **Render the window the payload reports, not the number in the widget's title.** The dashboard
@@ -392,3 +393,15 @@ From [[bookings-calendar|the report]] — the front-end half.
   A continuous input driving React state re-renders on every frame. For "has the page
   scrolled at all", put a zero-height sentinel at the top of the document and observe it:
   the callback fires twice per session instead of hundreds of times per scroll.
+- **Two pages sharing a persistence hook must not share its storage key.** When /reports needed
+  the same remembered date range as /dashboard, the hook was parameterised by key rather than
+  copied — one implementation, `DATE_RANGE_KEYS.dashboard` and `DATE_RANGE_KEYS.reports`. The
+  tempting simplification is one key for "the date range", since it is visibly the same control
+  with the same expectation. It is not the same *selection*: the pages answer different questions
+  at different cadences, and a shared key means narrowing Reports to last quarter silently
+  narrows the Dashboard too, with no visible cause on the page that changed.
+- **Restore persisted state in an effect, not a lazy `useState` initialiser.** The initialiser
+  runs during render, where `localStorage` does not exist on the server, so the markup React
+  hydrates against would disagree with the client's. The cost is one extra fetch on a visit with
+  saved state; the alternative is a hydration error. Same reason `useDashboardWidgetPrefs` reads
+  in an effect and exposes `hydrated`.

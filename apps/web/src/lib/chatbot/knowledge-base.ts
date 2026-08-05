@@ -127,10 +127,10 @@ const entries: KnowledgeEntry[] = [
   {
     id: "reports-date-range",
     category: "reports",
-    keywords: ["date range", "period", "quarter", "last month", "granularity", "day", "week", "month", "compare"],
+    keywords: ["date range", "period", "quarter", "last month", "granularity", "day", "week", "month", "compare", "saved", "remember", "reset"],
     question: "How do I change the reporting period?",
     answer:
-      "Use the **date range picker** at the top right. Presets include Today, Last 7 days, This month, Last month, Last 3 months, **This quarter**, **Last quarter**, Last 6 months, This year, **Last year**, Last 12 months and All time — or pick any custom range on the calendar.\n\nThe chart grouping adjusts itself to the range: **daily** bars for a month or less, **weekly** up to about four months, **monthly** beyond that. The subtitle under the page title always tells you the exact window and grouping being shown.\n\n\"Today\" is resolved in your business timezone from **Settings → Business**, not your browser's.",
+      "Use the **date range picker** at the top right. Presets include Today, Last 7 days, This month, Last month, Last 3 months, **This quarter**, **Last quarter**, Last 6 months, This year, **Last year**, Last 12 months and All time — or pick any custom range on the calendar.\n\n**Your selection sticks.** Reports remembers it in this browser and shows you the same window next visit, and it stays put until you change it — a preset is resolved to real dates the moment you click it, so \"Last 7 days\" stays those seven days rather than sliding forward. Clear the range to go back to the default period. Reports keeps its own range, separate from the Dashboard's.\n\nThe chart grouping adjusts itself to the range: **daily** bars for a month or less, **weekly** up to about four months, **monthly** beyond that. The subtitle under the page title always tells you the exact window and grouping being shown.\n\n\"Today\" is resolved in your business timezone from **Settings → Business**, not your browser's.",
   },
   {
     id: "reports-previous-period",

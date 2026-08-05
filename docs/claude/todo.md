@@ -86,9 +86,13 @@ put until they change it.
       looked like it reset on every visit.
 - [x] Housekeeping: chatbot knowledge base (2 entries documented the old sliding behaviour),
       lessons.
-- [ ] **`/reports` has no persistence at all** — `reports-page-client.tsx:71` is a plain
-      `useState<DateRange>(undefined)`, so its range resets on every visit. Same picker, same
-      expectation; wants the same treatment.
+- [x] **`/reports` now persists too** (2026-08-06). Its range was a plain
+      `useState<DateRange>(undefined)` and reset on every visit. Rather than copy the fix,
+      `use-dashboard-date-range.ts` became `use-stored-date-range.ts` and takes a storage key, so
+      one implementation backs both pages and a future third one. Keys are separate
+      (`DATE_RANGE_KEYS`): same control, same expectation, different selections — sharing a key
+      would have made changing one silently change the other. Clearing the range still falls back
+      to the tenant-resolved default and forgets what was saved.
 
 ### Dashboard Charts + Date Range Fix (2026-08-01) — COMPLETE
 The dashboard answered "money in", "who owes", "what state is the work in" and "what's next (list)".
@@ -113,8 +117,9 @@ every load and rendered nowhere. **Verified 18/18 by execution against Neon.**
       `{from: day, to: day}` — the "Aug 1, 2026 – Aug 1, 2026" the control kept collapsing to; fixed
       with `resetOnSelect` plus a local draft so no half-finished selection reaches the page.
       (2) The range was component state, so every visit reset to month-to-date — which on the 1st of
-      a month *is* a single day. New `use-dashboard-date-range` stores presets **as presets** and
-      recomputes them against today.
+      a month *is* a single day. A new persistence hook stored presets **as presets** and recomputed
+      them against today — superseded the next day by the entry above, and now
+      `use-stored-date-range.ts`.
 - [x] Layout: Top Customers + Activity Feed share one two-column row; the skeleton now matches the
       real default widget set.
 - [x] Housekeeping: REPO_MAP, API docs (dashboard stats shape), knowledge base, lessons.

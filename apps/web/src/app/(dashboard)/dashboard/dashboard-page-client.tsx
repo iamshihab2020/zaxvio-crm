@@ -42,7 +42,10 @@ import { QuoteConversion } from "@/components/dashboard/home/quote-conversion";
 import { RevenueByServiceChart } from "@/components/dashboard/home/revenue-by-service-chart";
 import { TopCustomersCard } from "@/components/dashboard/home/top-customers-card";
 import { useDashboardWidgetPrefs } from "@/hooks/use-dashboard-widget-prefs";
-import { useDashboardDateRange } from "@/hooks/use-dashboard-date-range";
+import {
+  DATE_RANGE_KEYS,
+  useStoredDateRange,
+} from "@/hooks/use-stored-date-range";
 
 function rangeFromPreset(preset: RevenueRange): {
   range: DateRange;
@@ -104,7 +107,9 @@ export function DashboardPageClient({
   const [pipelineId, setPipelineId] = useState<string | null>(null);
 
   const prefs = useDashboardWidgetPrefs();
-  const { stored: storedRange, save: saveRange } = useDashboardDateRange();
+  const { stored: storedRange, save: saveRange } = useStoredDateRange(
+    DATE_RANGE_KEYS.dashboard,
+  );
 
   // Restore the saved range once localStorage is readable. The stored dates are
   // replayed exactly — a shortcut like "Last 7 days" or the 1W tab is a way of

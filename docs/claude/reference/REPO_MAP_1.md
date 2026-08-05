@@ -360,7 +360,7 @@ apps/web/
     |   +-- use-event-stream.ts      # Subscribe to one SSE channel/event; replaces .channel().on("broadcast")
     |   +-- use-debounced-value.ts   # Generic debounce hook (value + delay → debounced value)
     |   +-- use-dashboard-widget-prefs.ts # Which dashboard widgets are visible (localStorage)
-    |   +-- use-dashboard-date-range.ts   # Remembers the dashboard range; presets stored as presets
+    |   +-- use-stored-date-range.ts      # Remembers a page's date range as two absolute dates (one key per page: dashboard, reports)
     |   +-- use-fill-viewport-height.ts   # Measured height so a panel runs to the fold (Kanban board)
     |   +-- queries/                 # TanStack Query hooks (one file per domain)
     |       +-- index.ts                       # Barrel export for all query hooks
