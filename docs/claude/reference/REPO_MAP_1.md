@@ -149,6 +149,10 @@ apps/api/
 |   |   |   +-- calendar-events.ts # + colour enum, endTime-after-startTime refinement
 |   |   |   +-- availability.ts    # weekly schedule + overrides + slotCapacity
 |   |   |   +-- public-booking.ts  # The hardened public submit body
+|   |   |   +-- job-costing.ts     # Expense CRUD bodies, PATCH /jobs/:id/labor, member cost rates.
+|   |   |   |                      # Money and hours are strings matched against a regex, never
+|   |   |   |                      # z.number() — a float round-trip on the way to numeric(10,2) is
+|   |   |   |                      # how a cost ends up a cent off the sum it came from
 |   |   |   ~ ...one file per remaining domain
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
@@ -190,6 +194,9 @@ apps/api/
 |   |   |                         # the transitions and the PDF all live in services/invoices/
 |   |   +-- jobs/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, checklist, photos, activities
+|   |   |   +-- costing.ts        # 6 endpoints under the same /jobs prefix: GET /:id/costs (the derived
+|   |   |                         # margin), expenses CRUD, PATCH /:id/labor. A sibling plugin rather
+|   |   |                         # than more lines in index.ts, which is already 2,497 (ARC-05)
 |   |   +-- pipelines/
 |   |   |   +-- index.ts          # CRUD /pipelines (list, create, update, delete)
 |   |   +-- pipeline-stages/
@@ -202,6 +209,8 @@ apps/api/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /tags (tenant-level reusable tags)
 |   |   +-- tenants/
 |   |   |   +-- index.ts          # GET/PATCH /tenants/current, POST /tenants/initialize (+availability seeding)
+|   |   |   +-- member-rates.ts   # GET/PUT/DELETE /tenants/member-rates — per-person hourly cost.
+|   |   |                         # requireOrgRole(owner|admin) throughout: a rate is payroll data
 |   |   +-- calendar-events/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /calendar-events
 |   |   +-- equipment/
@@ -215,7 +224,7 @@ apps/api/
 |   |   +-- events/
 |   |   |   +-- index.ts          # GET /events — SSE stream (text/event-stream), tenant-scoped; ?tenantId= admin-only
 |   |   +-- reports/
-|   |   |   +-- index.ts          # GET /reports/stats?section=&from=&to=&granularity= — one endpoint, 5 sections
+|   |   |   +-- index.ts          # GET /reports/stats?section=&from=&to=&granularity= — one endpoint, 6 sections
 |   |   +-- admin/                 # Super admin API routes (prefix: /admin)
 |   |   |   +-- index.ts          # Master plugin, registers sub-routes
 |   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
@@ -256,6 +265,27 @@ apps/api/
 |   |   |                             # canTransition() keyed on stage.lifecycle (not on status),
 |   |   |                             # stageUpdate() -> {stageId,status,completedAt}. One place a
 |   |   |                             # job changes column; makes custom stages reachable
+|   |   +-- costing/
+|   |   |   +-- money.ts              # Integer-cent arithmetic. A margin is a DIFFERENCE of two sums,
+|   |   |   |                         # so float error there is doubled; marginPct() returns null on
+|   |   |   |                         # zero revenue, because a percentage of nothing is undefined
+|   |   |   +-- costing.service.ts    # summarise(): THE definition of a job's margin — which costs
+|   |   |   |                         # count, which revenue basis wins (invoiced, else the job total),
+|   |   |   |                         # and when the figure is too incomplete to state. Never stored
+|   |   |   +-- profitability.service.ts # The /reports profitability section. Rolls up in TS over
+|   |   |   |                         # per-job rows rather than SQL GROUP BY, so the report cannot
+|   |   |   |                         # form a second opinion about margin. Incomplete jobs are
+|   |   |   |                         # EXCLUDED from the money and counted, never summed with the
+|   |   |   |                         # missing half read as zero
+|   |   |   +-- rates.ts              # resolveLaborCostRate(): member override -> tenant default ->
+|   |   |   |                         # null. Never 0 — unknown labour must stay unknown, not free
+|   |   |   +-- schemas.ts            # Zod row shapes for the raw SQL (api-rules §4)
+|   |   |   +-- queries/
+|   |   |       +-- job-costs.ts      # COST_INPUT_COLUMNS/LATERALS, shared with profitability. Three
+|   |   |       |                     # correlated LATERALs, not joins: joining line items AND expenses
+|   |   |       |                     # to jobs multiplies the two sets and the wrong total looks fine
+|   |   |       +-- profitability.ts  # Completed jobs in the window (by completed_at in tenant tz)
+|   |   |                             # with their four grouping dimensions
 |   |   +-- conversations.service.ts
 |   |   +-- notifications.service.ts
 |   |   +-- analytics/
@@ -371,6 +401,9 @@ apps/web/
     |       +-- index.ts                       # Barrel export for all query hooks
     |       +-- use-customers.ts               # Customer queries & mutations
     |       +-- use-jobs.ts                    # Job queries & mutations
+    |       +-- use-job-costing.ts             # Cost summary, expenses CRUD, hours. Every mutation
+    |       |                                  # invalidates the whole job-detail subtree — the margin
+    |       |                                  # is derived from line items, expenses AND hours
     |       +-- use-invoices.ts                # Invoice queries & mutations
     |       +-- use-quotes.ts                  # Quote queries & mutations
     |       +-- use-bookings.ts                # Booking queries & mutations
@@ -393,7 +426,7 @@ apps/web/
     |   +-- env.ts                   # Zod-validated web env (getClientEnv/getServerEnv/validateEnv), run at boot
     |   +-- storage-url.ts           # Build public R2 URLs for job attachments
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
-    |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR)
+    |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR) + getServerOrgRole()
     |   +-- event-stream.ts          # Shared SSE connection to /events (replaced Supabase Realtime); openTenantStream() for admins
     |   +-- format.ts                # formatCurrency(), formatMoney() (thousands separators — the
     |   |                            # invoice table and PDF each printed `$1234.50`), formatDateOnly()
@@ -560,7 +593,14 @@ apps/web/
     |   |   |   +-- job-detail-activities.tsx
     |   |   |   +-- job-detail-checklist.tsx
     |   |   |   +-- job-detail-info.tsx
-    |   |   |   +-- job-detail-line-items.tsx
+    |   |   |   +-- job-detail-costs.tsx        # The Costs tab: margin headline, hours + snapshotted
+    |   |   |   |                                # rate, expenses CRUD. Says "provisional" and lists the
+    |   |   |   |                                # gaps rather than printing a number it can't back up
+    |   |   |   +-- job-cost-stack.tsx          # One bar: cost segments, a rule at what was billed, and
+    |   |   |   |                                # a HATCHED margin when the cost side is incomplete —
+    |   |   |   |                                # that remainder is profit *or* an unentered cost
+    |   |   |   +-- job-detail-line-items.tsx   # Cost sits under the price; "no cost" is stated, since
+    |   |   |   |                                # a blank cell reads as zero and zero reads as profit
     |   |   |   +-- job-detail-page-header.tsx
     |   |   |   +-- job-detail-photos.tsx
     |   |   |   +-- job-detail-sheet.tsx
@@ -646,6 +686,9 @@ apps/web/
     |   |   |   +-- customers-tab.tsx            # New-customer trend, active/inactive, repeat/one-time
     |   |   |   +-- quotes-invoices-tab.tsx      # Quote funnel, invoice status, aging, overdue trend
     |   |   |   +-- bookings-tab.tsx             # Volume, service type, day of week, conversion
+    |   |   |   +-- profitability-tab.tsx        # Margin by job / service type / customer / assignee.
+    |   |   |   |                                # Names the jobs left out and why; a "set up costing"
+    |   |   |   |                                # empty state rather than a confident 100% margin
     |   |   |   +-- report-chart-card.tsx        # Card + error boundary + optional sr-only data table
     |   |   |   +-- report-data-table.tsx        # Generic table; rowKey + optional rowHref drill-through
     |   |   |   +-- report-kpi-row.tsx           # KPI cards; "New" badge for a zero baseline
@@ -808,7 +851,8 @@ apps/web/
         |   |   +-- schedule-page-client.tsx
         |   |
         |   +-- settings/
-        |       +-- layout.tsx                       # Settings shell with tab navigation
+        |       +-- layout.tsx                       # Settings shell — resolves the org role server-side, passes it to SettingsNav
+        |       +-- loading.tsx                      # Suspense boundary for the segment (6 of 12 pages await a server action)
         |       +-- page.tsx                         # Redirects to /settings/profile
         |       +-- profile/
         |       |   +-- page.tsx

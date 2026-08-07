@@ -405,3 +405,48 @@ From [[bookings-calendar|the report]] — the front-end half.
   hydrates against would disagree with the client's. The cost is one extra fetch on a visit with
   saved state; the alternative is a hydration error. Same reason `useDashboardWidgetPrefs` reads
   in an effect and exposes `hydrated`.
+- **A `useEffect` fetch cannot gate what the server renders — so anything it hides is guaranteed
+  to pop in.** `SettingsNav` filtered Business and Billing on `useOrgRole()`, a bare
+  `useState`/`useEffect` calling `authClient.organization.getActiveMember()`. `orgRole` is `null`
+  through the entire server render *and* the first client paint, so the HTML always shipped a nav
+  missing two items, then reflowed the groups below them 300–960ms later (browser → Vercel rewrite
+  → Render → Neon). The hook even returned `isLoading`, which the nav destructured as `roleLoading`
+  and never used, so there was not so much as a placeholder holding the space. The fix is not a
+  skeleton: resolve role-gated data in the server layout and pass it down as a prop. Rule of thumb —
+  **if a value decides what is on screen at first paint, it cannot be fetched from the client.**
+- **`session.user.role` is the platform role, not the organization role.** Better Auth keeps them in
+  different places: `admin | null` on the session user, versus `owner | admin | member` on the
+  membership row behind `/organization/get-active-member-role`. `getServerSession()` gives you the
+  first and never the second, which is why the org role needed its own server helper. Prefer
+  `get-active-member-role` over `get-active-member` — same round trip, returns `{ role }` instead of
+  the whole membership row, and the role was all any caller wanted.
+- **A segment with no `loading.tsx` makes its *siblings* look broken.** Six of the twelve settings
+  pages are async server components awaiting a server action, and `/settings` was the only route
+  under `(dashboard)` without a `loading.tsx`. Next.js will not commit a client-side navigation
+  until the RSC payload lands, so clicking a sidebar link left the old page up with the old item
+  still highlighted — `usePathname()` had not changed yet. The sidebar was reported as "slow to
+  render" when it had never unmounted and was not re-rendering at all; the missing Suspense
+  boundary was one directory away. When a nav feels frozen, check whether the *destination* is
+  blocking the transition before touching the nav.
+
+## Rendering a number you cannot fully back up
+
+- **A blank cell reads as zero, and zero cost reads as pure profit.** Where a
+  cost is genuinely unset, print "no cost" rather than leaving the cell empty —
+  on job line items and in the catalog table both. This is the cheapest place in
+  the whole costing feature to prevent a wrong conclusion.
+- **Put the uncertainty in the shape, not in a warning icon.** `job-cost-stack.tsx`
+  hatches the *margin* segment when the cost side is incomplete, because that
+  remainder is profit **or** a cost nobody entered — two different claims. A
+  solid green bar with a caveat underneath still reads as a solid green bar; the
+  caveat is the part people skip.
+- **Scale a comparison bar to `max(revenue, cost)` and rule the smaller one.**
+  Scaling to revenue alone means an over-budget job and a break-even job both
+  draw a full bar, and the overrun is only visible as a minus sign you have to
+  read. With the larger side as 100% and a rule at what was billed, the overrun
+  has length.
+- **Mount a derived-data tab only while it is selected.** `Costs` recomputes its
+  summary on every read, so rendering it behind an inactive tab issues that query
+  for every job the user clicks through. Radix `Tabs` unmounts inactive content
+  by default — the trap is a tabs API that builds its `content` array eagerly and
+  then force-mounts.

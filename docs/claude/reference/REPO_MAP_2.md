@@ -17,7 +17,7 @@ packages/database/
     +-- client.ts             # Drizzle client (lazy singleton via postgres driver)
     +-- schema/
         +-- index.ts              # Barrel re-export of all tables, enums, relations
-        +-- enums.ts              # 13 pgEnum definitions (incl. serviceFrequencyEnum)
+        +-- enums.ts              # 14 pgEnum definitions (incl. serviceFrequencyEnum, expenseCategoryEnum)
         +-- auth.ts               # Better Auth tables: user, session, account, verification, organization, member, invitation
         +-- tenants.ts            # tenants table (with organizationId FK)
         +-- users.ts              # users table (replaced by Better Auth user + member)
@@ -27,11 +27,14 @@ packages/database/
         +-- customer-notes.ts     # customerNotes table
         +-- customer-activities.ts # customerActivities table
         +-- calendar-events.ts    # calendarEvents table
-        +-- catalog.ts            # catalogItems table
+        +-- catalog.ts            # catalogItems table (unitCost — nullable, never defaulted to 0)
         +-- equipment.ts          # equipment, refrigerantLogs tables (jobId FK to jobs)
         +-- maintenance.ts        # maintenanceContracts table (with frequency column)
         +-- bookings.ts           # bookings table
-        +-- jobs.ts               # jobs, jobLineItems, jobPhotos tables (status is text, equipmentId FK)
+        +-- jobs.ts               # jobs, jobLineItems, jobPhotos tables (status is text, equipmentId FK).
+        |                         # jobs.actualHours + jobs.laborCostRate (snapshotted, so a raise does
+        |                         # not rewrite old margins); jobLineItems.unitCost + generated costTotal
+        +-- costing.ts            # jobExpenses, tenantMemberRates tables
         +-- job-activities.ts     # jobActivities table
         +-- invoices.ts           # invoices, invoiceLineItems, invoicePayments tables
         +-- quotes.ts             # quotes, quoteLineItems tables
@@ -57,6 +60,9 @@ packages/types/
     +-- index.ts              # Barrel re-export
     +-- enums.ts              # Const arrays + union types for all enums
     +-- tenant.ts             # Tenant, TenantInsert, TenantUpdate
+    +-- costing.ts            # JobExpense, TenantMemberRate + the DERIVED contracts: CostCoverage
+    |                         # (what the margin doesn't know), JobCostSummary, ProfitabilityRow,
+    |                         # ProfitabilitySection
     +-- user.ts               # User, UserInsert
     +-- customer.ts           # Customer, CustomerInsert, CustomerUpdate
     +-- customer-note.ts      # CustomerNote types

@@ -4,6 +4,7 @@ export * from "./user.js";
 export * from "./subscription.js";
 export * from "./customer.js";
 export * from "./job.js";
+export * from "./costing.js";
 export * from "./invoice.js";
 export * from "./quote.js";
 export * from "./booking.js";

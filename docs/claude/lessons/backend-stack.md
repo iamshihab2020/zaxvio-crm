@@ -155,3 +155,42 @@
   raw ones. Two lines of `1.5 × 10.33` render as $15.50 each above a subtotal of $30.99
   (measured on quotes). Sum the stored `total`, or round each product, but never mix the
   two in one document.
+
+## Job costing
+
+- **Joining two child tables to one parent multiplies them.** Aggregating
+  `job_line_items` *and* `job_expenses` against `jobs` in one query is a
+  cartesian product: a job with 4 line items and 3 expenses counts each line
+  item 3 times and each expense 4. The failure is silent and plausible —
+  nothing about $2,400 looks like $800 counted three times. Use one correlated
+  `LEFT JOIN LATERAL` per child, or one query per child.
+- **A margin is a *difference* of two sums, so float error is doubled.** Parse
+  every `numeric` string to integer cents, do the arithmetic there, and format
+  once on the way out. `services/costing/money.ts` is the implementation. The
+  quotes audit had already found a subtotal a cent off the lines that produced
+  it (QUO-08); a margin lands on the number a contractor prices their work with.
+- **A percentage of zero revenue is `null`, not `0`.** Returning 0 files a job
+  that cost $300 and billed nothing next to one that broke even exactly. Every
+  `marginPct` in this codebase is `number | null` for that reason.
+- **`z.coerce.boolean()` is `Boolean(value)`, so the string `"false"` is
+  `true`.** I nearly shipped a `configured: z.coerce.boolean()` on a raw-SQL row.
+  It is the same defect as `?showArchived=false` returning archived-only rows
+  (CUST-29). When a raw query wants a yes/no, `SELECT COUNT(*)` and compare in
+  TypeScript — a count has no coercion edge.
+- **Roll a report up in TypeScript when the definition already lives there.**
+  The profitability section groups per-job rows in `profitability.service.ts`
+  rather than in a SQL `GROUP BY`, because `summarise()` is the one definition of
+  what a job's margin is — including when it is too incomplete to state.
+  Re-expressing that in SQL gives the report a second opinion that will
+  eventually disagree with the job's own Costs tab, and the user has no way to
+  tell which is lying. Bound the row set instead, and report when the bound bites.
+- **An unknown cost makes a total incomplete, not lower.** Nothing about the
+  arithmetic distinguishes "this line costs nothing" from "nobody costed this
+  line" — both add 0. So the sum travels with a count of what was skipped
+  (`CostCoverage`), and jobs with gaps are *excluded* from report aggregates
+  rather than averaged in, which would drag every group's margin toward 100% and
+  make a losing segment look healthy.
+- **Snapshot a rate onto the row, don't join it.** `jobs.labor_cost_rate` is
+  copied at the moment hours are saved, so giving somebody a raise does not
+  retroactively rewrite last year's margins. Same reasoning as `unit_price` on
+  line items, which the codebase had done since the beginning.

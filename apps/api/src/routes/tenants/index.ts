@@ -12,6 +12,7 @@ import {
 } from "@hvac-saas/database";
 import { uploadFile, deleteFiles, getPublicUrl } from "../../lib/storage.js";
 import tenantImpersonationRoutes from "./impersonation.js";
+import memberRateRoutes from "./member-rates.js";
 import {
   updateTenantBody,
   uploadLogoBody,
@@ -34,6 +35,7 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
   // Sub-routes
   await fastify.register(tenantImpersonationRoutes, { prefix: "/impersonation" });
+  await fastify.register(memberRateRoutes, { prefix: "/member-rates" });
   /**
    * GET /tenants/current
    *
@@ -82,6 +84,7 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
         "state",
         "zipCode",
         "defaultTaxRate",
+        "defaultLaborCostRate",
         "googleReviewUrl",
         "logoUrl",
         "timezone",
@@ -124,6 +127,16 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // DB stores defaultTaxRate as text
       if (updates.defaultTaxRate !== undefined) {
         updates.defaultTaxRate = String(updates.defaultTaxRate);
+      }
+
+      // `numeric` column, so a string — but null must survive as null. Passing
+      // it through `String()` would store the literal text "null", which then
+      // reads back as a rate and prices every job's labour against nonsense.
+      if (updates.defaultLaborCostRate !== undefined) {
+        updates.defaultLaborCostRate =
+          updates.defaultLaborCostRate === null
+            ? null
+            : String(updates.defaultLaborCostRate);
       }
 
       updates.updatedAt = new Date();

@@ -157,6 +157,99 @@ const entries: KnowledgeEntry[] = [
       "**Dashboard** answers *what needs doing today* — fixed, operational windows. **Reports** answers *how did we do over a period* — any date range, with period-over-period comparison and CSV export.\n\nBoth read the same underlying data and follow the same counting rules:\n\n• **Archived** jobs, bookings, customers, invoices and quotes are excluded from every count, so the totals match the list pages\n• **Payments you've already received are always counted**, even if the invoice was later archived — archiving hides a document, it doesn't un-collect the money\n• An invoice is **overdue** when its due date has passed and it isn't fully paid\n\nIf a report fails to load you'll see an error with a **Try again** button — an empty chart always means there genuinely was no activity.",
   },
 
+
+  // ═══════════════════════════════════════
+  // ── Job Costing & Profitability ──
+  // ═══════════════════════════════════════
+  {
+    id: "costing-overview",
+    category: "jobs",
+    keywords: ["cost", "costing", "margin", "profit", "profitability", "make money", "markup", "made on this job"],
+    question: "How do I see what a job actually made me?",
+    answer:
+      "Open any job and go to the **Costs** tab. It shows what you charged, what the work cost, and the margin between them.
+
+The cost side has three parts:
+
+• **Parts & materials** — the cost of each line item, from your catalog or typed on the line
+• **Time on site** — the hours you record, priced at your labour cost rate
+• **Expenses** — anything no line item covers: a parts run, a subcontractor, a permit fee
+
+Revenue is what you **invoiced** for the job. If there's no invoice yet, the job's own total stands in and the tab says so.",
+  },
+  {
+    id: "costing-provisional",
+    category: "jobs",
+    keywords: ["provisional", "incomplete", "not proven", "hatched", "missing cost", "why no margin", "estimate"],
+    question: "Why does my margin say it's provisional?",
+    answer:
+      "Because part of the cost side hasn't been entered, so the margin can't be stated as fact.
+
+A missing cost doesn't make a job cheaper — it makes the total **unknown**. If we filled the gap with zero, an uncosted job would look like pure profit, which is the one thing a costing tool must never do.
+
+The Costs tab lists exactly what's missing, and the bar shows the margin hatched rather than solid until it's complete. Usually it's one of:
+
+• A line item with no cost set — add one on the **Line Items** tab, or set the cost on the catalog item so it fills in automatically next time
+• No hours recorded — enter them under **Time on site**
+• No labour cost rate — set one in **Settings → Business**, or per person in **Settings → Team**",
+  },
+  {
+    id: "costing-expenses",
+    category: "jobs",
+    keywords: ["expense", "expenses", "receipt", "subcontractor", "permit", "fuel", "rental", "extra cost"],
+    question: "How do I add an expense to a job?",
+    answer:
+      "On the job's **Costs** tab, click **Add expense**. Give it a description, a category, the date and the amount — a supplier is optional.
+
+Categories: Materials, Subcontractor, Permits & fees, Fuel & travel, Equipment rental, Other.
+
+Expenses come straight off the job's margin. They're for costs no line item accounts for, so you don't double-count anything you already billed as a line.",
+  },
+  {
+    id: "costing-labor-rate",
+    category: "settings",
+    keywords: ["labour rate", "labor rate", "hourly cost", "cost rate", "what an hour costs", "wage", "burden", "overhead"],
+    question: "What is the labour cost rate, and where do I set it?",
+    answer:
+      "It's what an hour of work **costs you** — wages plus overhead — not what you charge the customer. It's what turns hours on a job into a cost.
+
+Set a business-wide default in **Settings → Business**. To give one person a different rate, use **Settings → Team → Cost Rates**; anyone without their own rate uses the default.
+
+When you save hours on a job, the rate is **copied onto that job**. Giving somebody a raise later changes future jobs only — it never rewrites margins you've already reported.
+
+Leaving it blank is allowed. Jobs then report labour as a missing input rather than as free.",
+  },
+  {
+    id: "costing-catalog-cost",
+    category: "catalog",
+    keywords: ["item cost", "unit cost", "what it costs me", "buy price", "wholesale", "supplier price"],
+    question: "Can I record what a catalog item costs me?",
+    answer:
+      "Yes — each catalog item has a **Your cost** field alongside its price. Fill it in and every job that uses the item picks up that cost automatically, so margins work without extra typing.
+
+You can still change the cost on an individual job line: a supplier price that moved this week belongs on that job, not on the catalog record.
+
+Leaving it blank is fine, but jobs using the item will report an incomplete margin. The catalog table marks uncosted items as **no cost** so you can see what's left to fill in.",
+  },
+  {
+    id: "reports-profitability",
+    category: "reports",
+    keywords: ["profitability", "margin report", "which jobs make money", "most profitable", "losing money", "by customer", "by assignee"],
+    question: "What's on the Profitability tab?",
+    answer:
+      "It answers *what did we keep* over the period, grouped four ways:
+
+• **Thinnest margins** — the jobs where least of what you charged stayed with you. Click one to open it
+• **By service type** — which kinds of work pay
+• **By customer** — your biggest accounts, and what they leave behind
+• **By assignee** — what each person's work returns once their time is costed
+
+A job counts here when it was **completed** in the range, whatever day it was scheduled.
+
+**Jobs with incomplete costs are left out of the figures**, and the page tells you how many. Including them would treat the missing costs as free and make every margin look better than it is. Open a job's Costs tab to see what it's missing.
+
+If you haven't set any costs yet, the tab shows you the two things to set up instead of a made-up number.",
+  },
   // ═══════════════════════════════════════
   // ── Customers ──
   // ═══════════════════════════════════════

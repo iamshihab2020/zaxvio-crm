@@ -29,6 +29,7 @@ import { JobDetailChecklist } from "./job-detail-checklist";
 import { JobDetailPhotos } from "./job-detail-photos";
 import { JobDetailDocuments } from "./job-detail-documents";
 import { JobDetailActivities } from "./job-detail-activities";
+import { JobDetailCosts } from "./job-detail-costs";
 import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
 
 interface PipelineStage {
@@ -75,6 +76,7 @@ export interface JobDetail {
     description: string;
     quantity: string;
     unitPrice: string;
+    unitCost: string | null;
     total: string | null;
     catalogItemId: string | null;
     sortOrder: number | null;
@@ -233,6 +235,11 @@ export function JobDetailSheet({
                   onUpdate={refreshDetail}
                 />
               ),
+            },
+            {
+              value: "costs",
+              label: "Costs",
+              content: <JobDetailCosts jobId={job.id} />,
             },
             {
               value: "checklist",

@@ -1181,6 +1181,10 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       let description = body.description;
       let unitPrice: string | number | undefined = body.unitPrice;
+      // Snapshotted from the catalog below, never joined at read time: a
+      // supplier price change must not move the margin on a closed job. Same
+      // reasoning as `unitPrice`, which has always been copied this way.
+      let unitCost: string | number | null | undefined = body.unitCost;
       let itemType = body.itemType;
 
       // If catalogItemId provided, auto-fill from catalog
@@ -1204,6 +1208,10 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
         description = description || catalogItem.name;
         unitPrice = unitPrice ?? catalogItem.unitPrice;
+        // `??`, so an explicit request-supplied cost wins — including an
+        // explicit null, which means "this one's cost is unknown" and must not
+        // be overwritten by the catalog's figure.
+        unitCost = unitCost !== undefined ? unitCost : catalogItem.unitCost;
         itemType = itemType || catalogItem.itemType;
       }
 
@@ -1230,6 +1238,7 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           description: resolvedDescription,
           quantity: String(body.quantity ?? 1),
           unitPrice: String(unitPrice),
+          unitCost: unitCost == null ? null : String(unitCost),
           sortOrder: body.sortOrder || 0,
         })
         .returning();
@@ -1292,6 +1301,11 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         "description",
         "quantity",
         "unitPrice",
+        // `unitCost` belongs in this list, not in a hand-written `if` beside
+        // it: the loop's `!== undefined` test already distinguishes "field
+        // absent" from an explicit `null`, so clearing a cost back to unknown
+        // works without a special case.
+        "unitCost",
         "sortOrder",
         "itemType",
       ] as const;

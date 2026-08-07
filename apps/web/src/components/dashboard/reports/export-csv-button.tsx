@@ -17,6 +17,7 @@ const SECTION_TITLES: Record<ReportSectionResponse["section"], string> = {
   customers: "Customers Report",
   "quotes-invoices": "Quotes & Invoices Report",
   bookings: "Bookings Report",
+  profitability: "Profitability Report",
 };
 
 export function ExportCsvButton({ report }: ExportCsvButtonProps) {
@@ -337,6 +338,58 @@ function buildCsvRows(report: ReportSectionResponse): Row[] {
             ["Conversion Rate (%)", d.bookingConversionRate.rate],
           ],
         ),
+      );
+      return rows;
+    }
+    case "profitability": {
+      const d = report.data;
+      const group = (rows: typeof d.byJob): Row[] =>
+        rows.map((r) => [
+          r.label,
+          r.jobCount,
+          r.revenue,
+          r.cost,
+          r.margin,
+          // A percentage of nothing is not 0% — it is nothing, and the export
+          // says so rather than writing a number the spreadsheet would average.
+          r.marginPct === null ? "" : Math.round(r.marginPct * 100),
+          r.excludedJobCount,
+        ]);
+      const header: Row = [
+        "Name",
+        "Jobs",
+        "Revenue",
+        "Cost",
+        "Margin",
+        "Margin %",
+        "Jobs not costed",
+      ];
+      rows.push(
+        ...section(
+          "Summary",
+          ["Metric", "Value"],
+          [
+            ["Jobs Counted", d.totals.jobCount],
+            ["Jobs Not Costed", d.totals.excludedJobCount],
+            ["Revenue", d.totals.revenue],
+            ["Cost", d.totals.cost],
+            ["Margin", d.totals.margin],
+            [
+              "Margin %",
+              d.totals.marginPct === null
+                ? ""
+                : Math.round(d.totals.marginPct * 100),
+            ],
+            // Recorded in the file itself: a truncated export that does not say
+            // so is indistinguishable from a complete one once it is a .csv on
+            // somebody's desktop.
+            ["Complete", d.totals.truncated ? "No — capped at 2000 jobs" : "Yes"],
+          ],
+        ),
+        ...section("Thinnest Margins by Job", header, group(d.byJob)),
+        ...section("By Service Type", header, group(d.byServiceType)),
+        ...section("By Customer", header, group(d.byCustomer)),
+        ...section("By Assignee", header, group(d.byAssignee)),
       );
       return rows;
     }

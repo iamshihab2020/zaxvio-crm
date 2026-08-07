@@ -8,6 +8,7 @@ import type {
   QuoteInvoiceReportData,
   BookingReportData,
 } from "@hvac-saas/types";
+import { getProfitabilityReport } from "../costing/profitability.service.js";
 import { pInt, pFloat, SERVICE_TYPE_LABELS, PAYMENT_METHOD_LABELS, PRIORITY_LABELS, QUOTE_STATUS_LABELS, INVOICE_STATUS_LABELS, AGING_LABELS, DAY_NAMES, JOB_STATUS_COLORS } from "./helpers.js";
 import { analyticsCache, CACHE_TTL } from "./cache.js";
 import * as revenueQ from "./queries/revenue.js";
@@ -90,6 +91,22 @@ async function buildSectionResponse(
       return { ...meta, section, data: await getQuoteInvoiceReport(db, params) };
     case "bookings":
       return { ...meta, section, data: await getBookingReport(db, params) };
+    case "profitability":
+      // No trend and no comparison series, so this is the one section that
+      // ignores `granularity` and `compareRange`. They stay in the envelope
+      // because the envelope describes what the server resolved, not what each
+      // section happened to consume.
+      return {
+        ...meta,
+        section,
+        data: await getProfitabilityReport(
+          db,
+          params.tenantId,
+          params.timezone,
+          params.rangeFrom,
+          params.rangeTo,
+        ),
+      };
     default: {
       const exhaustive: never = section;
       throw new Error(`Unhandled report section: ${String(exhaustive)}`);

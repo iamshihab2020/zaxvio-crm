@@ -136,3 +136,18 @@ export const deliveryStatusEnum = pgEnum("delivery_status", [
 ]);
 
 export const photoTagEnum = pgEnum("photo_tag", ["before", "after", "general"]);
+
+/**
+ * What a job cost you outside its line items. Line items record what was
+ * *billed*; these record what was *spent* — the supply-house run, the permit,
+ * the sub. Deliberately coarse: a contractor entering this on a phone will not
+ * pick from twenty categories.
+ */
+export const expenseCategoryEnum = pgEnum("expense_category", [
+  "material",
+  "subcontractor",
+  "permit",
+  "fuel",
+  "equipment_rental",
+  "other",
+]);

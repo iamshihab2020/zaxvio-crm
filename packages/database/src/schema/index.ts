@@ -15,6 +15,7 @@ export * from "./equipment";
 export * from "./maintenance";
 export * from "./bookings";
 export * from "./jobs";
+export * from "./costing";
 export * from "./invoices";
 export * from "./quotes";
 export * from "./schedule";

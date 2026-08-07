@@ -28,7 +28,7 @@ One section per request — 6-9 parallel queries rather than all 37.
 
 | Parameter | Type | Default | Notes |
 |-----------|------|---------|-------|
-| `section` | enum | `revenue` | `revenue` · `jobs` · `customers` · `quotes-invoices` · `bookings` |
+| `section` | enum | `revenue` | `revenue` · `jobs` · `customers` · `quotes-invoices` · `bookings` · `profitability` |
 | `from` | `YYYY-MM-DD` | 1st of the current month **in the tenant's timezone** | 400 on any other format |
 | `to` | `YYYY-MM-DD` | today in the tenant's timezone | |
 | `granularity` | enum | inferred from the span | `day` (≤31d) · `week` (≤120d) · `month` |
@@ -66,6 +66,34 @@ two previous ones, so "Last month" plotted March against January.
 | `customers` | `CustomerReportData` | `newCustomersTrend`, `growthRate`, `activeVsInactive`, `topCustomersByJobCount`, `repeatVsOneTime`, `kpis` |
 | `quotes-invoices` | `QuoteInvoiceReportData` | `quoteConversionFunnel`, `invoiceStatusDistribution`, `invoiceAgingDetail`, `avgDaysToPayment`, `overdueInvoiceTrend`, `quoteKpis`, `invoiceKpis` |
 | `bookings` | `BookingReportData` | `bookingVolumeTrend`, `bookingsByServiceType`, `bookingConversionRate`, `bookingsByDayOfWeek`, `kpis` |
+| `profitability` | `ProfitabilitySection` | `totals`, `byJob`, `byServiceType`, `byCustomer`, `byAssignee` |
+
+**`profitability` is the one section that ignores `granularity` and
+`compareRange`** — it has no trend to bucket and no comparison series. Both stay
+in the envelope, which reports what the server resolved, not what each section
+consumed.
+
+Window membership is `completed_at` in the tenant's timezone, not
+`scheduled_date`: a job scheduled in March that finished in May earned its money
+in May.
+
+Three things about the figures that callers must not paper over:
+
+- **Jobs whose cost inputs are incomplete are excluded from the money**, and
+  counted in `excludedJobCount` on every row and on `totals`. Summing them would
+  read the missing half as zero and pull every margin toward 100%.
+- **`marginPct` is `null`, not `0`, when revenue is zero.** A percentage of
+  nothing is undefined. A job that cost $300 and billed nothing is not the same
+  as one that broke even.
+- **`totals.costingConfigured` is `false`** when the tenant has set no catalog
+  costs and no labour rate. The client shows a setup prompt rather than a
+  confident 100%-margin report.
+- **`totals.truncated`** is `true` when the window held more than 2,000 completed
+  jobs; the figures then cover the most recently completed 2,000.
+
+Money values are strings (`numeric` columns). `byJob` returns up to 100 rows,
+thinnest margin first; `byCustomer` up to 25, highest revenue first;
+`byServiceType` and `byAssignee` are unbounded.
 
 Example (`section=revenue`, abridged):
 

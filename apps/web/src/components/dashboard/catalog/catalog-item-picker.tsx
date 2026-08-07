@@ -25,6 +25,8 @@ export interface CatalogPickerItem {
   name: string;
   category: string | null;
   unitPrice: string;
+  /** What the item costs the business. Null when nobody has costed it. */
+  unitCost: string | null;
   itemType: string;
 }
 
@@ -71,6 +73,7 @@ export function CatalogItemPicker({
       name: c.name,
       category: c.category,
       unitPrice: c.unitPrice,
+      unitCost: c.unitCost ?? null,
       itemType: c.itemType,
     }),
   );

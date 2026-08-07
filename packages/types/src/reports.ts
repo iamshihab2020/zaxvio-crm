@@ -1,3 +1,5 @@
+import type { ProfitabilitySection } from "./costing.js";
+
 // ── Report section types ──
 
 export type ReportSection =
@@ -5,7 +7,8 @@ export type ReportSection =
   | "jobs"
   | "customers"
   | "quotes-invoices"
-  | "bookings";
+  | "bookings"
+  | "profitability";
 
 /** Bucket size for every trend on the page. */
 export type ReportGranularity = "day" | "week" | "month";
@@ -203,7 +206,11 @@ export type ReportSectionResponse =
       section: "quotes-invoices";
       data: QuoteInvoiceReportData;
     })
-  | (ReportEnvelopeMeta & { section: "bookings"; data: BookingReportData });
+  | (ReportEnvelopeMeta & { section: "bookings"; data: BookingReportData })
+  | (ReportEnvelopeMeta & {
+      section: "profitability";
+      data: ProfitabilitySection;
+    });
 
 /** The payload type for one section, e.g. `ReportDataFor<"jobs">`. */
 export type ReportDataFor<S extends ReportSection> = Extract<

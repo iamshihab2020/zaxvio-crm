@@ -146,6 +146,9 @@ export function CatalogSettingsPageClient() {
       name: data.name,
       itemType: data.itemType,
       unitPrice: data.unitPrice,
+      // Sent even when null: clearing a cost has to reach the API, or an item
+      // can be costed once and never un-costed.
+      unitCost: data.unitCost,
       unit: data.unit,
       category: data.category || undefined,
       description: data.description || undefined,

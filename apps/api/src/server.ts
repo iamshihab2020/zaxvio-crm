@@ -21,6 +21,7 @@ import customerRoutes from "./routes/customers/index.js";
 import tagRoutes from "./routes/tags/index.js";
 import catalogRoutes from "./routes/catalog/index.js";
 import jobRoutes from "./routes/jobs/index.js";
+import jobCostingRoutes from "./routes/jobs/costing.js";
 import checklistRoutes from "./routes/checklists/index.js";
 import pipelineRoutes from "./routes/pipelines/index.js";
 import pipelineStagesRoutes from "./routes/pipeline-stages/index.js";
@@ -260,6 +261,10 @@ export async function buildServer() {
   await fastify.register(tagRoutes, { prefix: "/tags" });
   await fastify.register(catalogRoutes, { prefix: "/catalog" });
   await fastify.register(jobRoutes, { prefix: "/jobs" });
+  // Costing shares the /jobs prefix but lives in its own plugin: routes/jobs/
+  // index.ts is already 2,497 lines and is the file ARC-05 wants split, so new
+  // surface area goes beside it rather than into it.
+  await fastify.register(jobCostingRoutes, { prefix: "/jobs" });
   await fastify.register(checklistRoutes, { prefix: "/checklists" });
   await fastify.register(pipelineRoutes, { prefix: "/pipelines" });
   await fastify.register(pipelineStagesRoutes, { prefix: "/pipeline-stages" });

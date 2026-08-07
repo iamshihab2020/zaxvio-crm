@@ -50,6 +50,11 @@ export const queryKeys = {
       ["jobs", "detail", jobId, "documents"] as const,
     activities: (jobId: string, params?: Record<string, unknown>) =>
       ["jobs", "detail", jobId, "activities", params ?? {}] as const,
+    // Nested under the job's detail key so editing a line item, an expense or
+    // the recorded hours all invalidate the same subtree — the cost summary is
+    // derived from every one of them and must never survive a change to any.
+    costs: (jobId: string) => ["jobs", "detail", jobId, "costs"] as const,
+    expenses: (jobId: string) => ["jobs", "detail", jobId, "expenses"] as const,
   },
 
   // ── Pipelines ──────────────────────────────────────────────
@@ -193,6 +198,7 @@ export const queryKeys = {
   tenant: {
     all: ["tenant"] as const,
     settings: () => ["tenant", "settings"] as const,
+    memberRates: () => ["tenant", "memberRates"] as const,
   },
 
   // ── Conversations (Supabase Realtime — rarely queried via TQ) ──

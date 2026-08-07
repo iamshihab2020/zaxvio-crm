@@ -7,6 +7,7 @@ import { JobDetailChecklist } from "./job-detail-checklist";
 import { JobDetailPhotos } from "./job-detail-photos";
 import { JobDetailDocuments } from "./job-detail-documents";
 import { JobDetailActivities } from "./job-detail-activities";
+import { JobDetailCosts } from "./job-detail-costs";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface JobTabsPanelProps {
@@ -25,6 +26,14 @@ export function JobTabsPanel({ job, onUpdate }: JobTabsPanelProps) {
           className="cursor-pointer data-[state=active]:border-b-2 data-[state=active]:border-brand rounded-none"
         >
           Line Items ({job.lineItems.length})
+        </TabsTrigger>
+        {/* Directly after Line Items: costs are read against the prices set
+            there, and the two tabs are edited in the same sitting. */}
+        <TabsTrigger
+          value="costs"
+          className="cursor-pointer data-[state=active]:border-b-2 data-[state=active]:border-brand rounded-none"
+        >
+          Costs
         </TabsTrigger>
         <TabsTrigger
           value="checklist"
@@ -53,6 +62,12 @@ export function JobTabsPanel({ job, onUpdate }: JobTabsPanelProps) {
             lineItems={job.lineItems}
             onUpdate={onUpdate}
           />
+        </TabsContent>
+        <TabsContent value="costs" className="mt-0">
+          {/* Mounted only while selected: the summary is derived on every read,
+              so an unopened tab must not be issuing that query on every job the
+              user clicks through. */}
+          {activeTab === "costs" && <JobDetailCosts jobId={job.id} />}
         </TabsContent>
         <TabsContent value="checklist" className="mt-0">
           <JobDetailChecklist

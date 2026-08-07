@@ -91,6 +91,8 @@ export async function createCatalogItem(data: {
   name: string;
   itemType: string;
   unitPrice: number;
+  /** Null clears the cost back to "not tracked". */
+  unitCost?: number | null;
   unit?: string;
   category?: string;
   description?: string;
@@ -124,6 +126,7 @@ export async function updateCatalogItem(
     name?: string;
     itemType?: string;
     unitPrice?: number;
+    unitCost?: number | null;
     unit?: string;
     category?: string;
     description?: string;

@@ -683,6 +683,7 @@ Get distinct category names for the tenant. Useful for filter dropdowns.
   "name": "Capacitor - 45/5 MFD",
   "itemType": "part",
   "unitPrice": "45.00",
+  "unitCost": "28.40",
   "unit": "each",
   "category": "Electrical",
   "description": "Dual run capacitor for AC compressor"
@@ -694,6 +695,7 @@ Get distinct category names for the tenant. Useful for filter dropdowns.
 | `name` | string | Yes | Item name |
 | `itemType` | string | Yes | `labor`, `part`, `material`, `service_call`, `other` |
 | `unitPrice` | number | Yes | Price per unit (>= 0) |
+| `unitCost` | number \| null | No | What the item costs you. **Null means "not costed", which is not the same as costing nothing** — an item left uncosted makes a job's margin incomplete rather than reporting the item as pure profit. Prefills the line item's `unitCost` when the item is added to a job. Send `null` on `PATCH` to clear it |
 | `unit` | string | No | Unit of measure (default: `"each"`) |
 | `category` | string | No | Category name |
 | `description` | string | No | Description |
@@ -707,6 +709,7 @@ Get distinct category names for the tenant. Useful for filter dropdowns.
     "name": "Capacitor - 45/5 MFD",
     "itemType": "part",
     "unitPrice": "45.00",
+    "unitCost": "28.40",
     "unit": "each",
     "category": "Electrical",
     "isActive": true,

@@ -4,6 +4,7 @@ import {
   text,
   boolean,
   integer,
+  numeric,
   timestamp,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
@@ -38,6 +39,18 @@ export const tenants = pgTable(
     trialEndsAt: timestamp("trial_ends_at", { withTimezone: true }),
     referredByAffiliateId: text("referred_by_affiliate_id"),
     defaultTaxRate: text("default_tax_rate").default("0"),
+    /**
+     * Loaded hourly cost of a technician — wage plus burden, not the rate you
+     * bill. Used as the fallback when a job's labour cost rate is resolved and
+     * the assignee has no `tenant_member_rates` override.
+     *
+     * Nullable, and NULL means "not configured": job costing reports labour as
+     * a missing input rather than as free.
+     */
+    defaultLaborCostRate: numeric("default_labor_cost_rate", {
+      precision: 10,
+      scale: 2,
+    }),
     licenseNumber: text("license_number"),
     invoicePaymentTerms: text("invoice_payment_terms"),
     invoicePaymentInstructions: text("invoice_payment_instructions"),

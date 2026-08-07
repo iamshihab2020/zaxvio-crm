@@ -20,6 +20,7 @@ import { equipment, refrigerantLogs } from "./equipment";
 import { maintenanceContracts } from "./maintenance";
 import { bookings } from "./bookings";
 import { jobs, jobLineItems, jobPhotos, jobDocuments } from "./jobs";
+import { jobExpenses, tenantMemberRates } from "./costing";
 import { invoices, invoiceLineItems, invoicePayments } from "./invoices";
 import { quotes, quoteLineItems } from "./quotes";
 import { availabilitySchedules, scheduleOverrides } from "./schedule";
@@ -265,7 +266,37 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   invoices: many(invoices),
   refrigerantLogs: many(refrigerantLogs),
   activities: many(jobActivities),
+  expenses: many(jobExpenses),
 }));
+
+export const jobExpensesRelations = relations(jobExpenses, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [jobExpenses.tenantId],
+    references: [tenants.id],
+  }),
+  job: one(jobs, {
+    fields: [jobExpenses.jobId],
+    references: [jobs.id],
+  }),
+  createdByUser: one(user, {
+    fields: [jobExpenses.createdBy],
+    references: [user.id],
+  }),
+}));
+
+export const tenantMemberRatesRelations = relations(
+  tenantMemberRates,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [tenantMemberRates.tenantId],
+      references: [tenants.id],
+    }),
+    user: one(user, {
+      fields: [tenantMemberRates.userId],
+      references: [user.id],
+    }),
+  }),
+);
 
 export const jobLineItemsRelations = relations(jobLineItems, ({ one }) => ({
   tenant: one(tenants, {

@@ -322,6 +322,8 @@ export async function addJobLineItem(
   data: {
     description?: string;
     unitPrice?: string;
+    /** What the line costs you. Null clears it back to "not costed". */
+    unitCost?: string | null;
     itemType?: string;
     quantity?: string;
     sortOrder?: number;
@@ -358,6 +360,7 @@ export async function updateJobLineItem(
     description?: string;
     quantity?: string;
     unitPrice?: string;
+    unitCost?: string | null;
     sortOrder?: number;
     itemType?: string;
   },

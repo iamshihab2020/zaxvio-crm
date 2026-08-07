@@ -79,6 +79,25 @@ export const jobs = pgTable(
     totalAmount: numeric("total_amount", { precision: 10, scale: 2 })
       .notNull()
       .default("0"),
+    /**
+     * Hours actually spent on site, which is *not* the same as the labour that
+     * got billed. A job quoted at a 3-hour flat rate that took 5 hours reads as
+     * healthy margin if you only ever look at line items — the exact failure
+     * that makes a costing tool worse than none, because it tells you you are
+     * winning while you lose. Captured once at completion (prefilled from
+     * scheduled_start/scheduled_end where both are set).
+     */
+    actualHours: numeric("actual_hours", { precision: 6, scale: 2 }),
+    /**
+     * The hourly cost rate applied to `actualHours`, snapshotted onto the job.
+     *
+     * Resolved at entry time from the assignee's `tenant_member_rates` row,
+     * falling back to `tenants.default_labor_cost_rate`. Stored rather than
+     * joined so that giving yourself a raise does not retroactively rewrite
+     * last year's margins — same reasoning as the unit-cost snapshot on line
+     * items below.
+     */
+    laborCostRate: numeric("labor_cost_rate", { precision: 10, scale: 2 }),
     notes: text("notes"),
     sortOrder: integer("sort_order").notNull().default(0),
     completedAt: timestamp("completed_at", { withTimezone: true }),
@@ -124,8 +143,22 @@ export const jobLineItems = pgTable("job_line_items", {
     .notNull()
     .default("1"),
   unitPrice: numeric("unit_price", { precision: 10, scale: 2 }).notNull(),
+  /**
+   * Copied from `catalog_items.unit_cost` when the line is added, then freely
+   * editable — a **snapshot, not a join**. Supplier prices move, and a closed
+   * job's margin must not move with them. This mirrors `unitPrice` above,
+   * which has always been copied rather than read through `catalogItemId`.
+   *
+   * NULL means the cost is unknown. See the note on `catalogItems.unitCost`.
+   */
+  unitCost: numeric("unit_cost", { precision: 10, scale: 2 }),
   total: numeric("total", { precision: 10, scale: 2 }).generatedAlwaysAs(
     sql`quantity * unit_price`,
+  ),
+  /** Generated twin of `total`. NULL propagates, so an uncosted line stays
+   *  visibly uncosted instead of silently contributing zero cost. */
+  costTotal: numeric("cost_total", { precision: 10, scale: 2 }).generatedAlwaysAs(
+    sql`quantity * unit_cost`,
   ),
   sortOrder: integer("sort_order").default(0),
   createdAt: timestamp("created_at", { withTimezone: true })

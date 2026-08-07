@@ -8,6 +8,99 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Job Costing & Profitability (2026-08-07)
+The CRM tracked what a job **charged** and nothing about what it **cost**, so it could not answer
+"am I making money on this work". `jobs` had zero cost columns; `catalog_items` had a price and no
+cost. Built end to end: capture on the job, a Costs tab, and a Profitability section on `/reports`.
+
+**The rule the whole feature rests on:** an unknown cost makes a total *incomplete*, not lower.
+A line item with no cost adds 0, which is arithmetically identical to costing nothing — and that is
+exactly the danger, because zero cost reads as pure profit. So `CostCoverage` travels with every
+money figure, and incomplete jobs are **excluded** from report aggregates rather than averaged in.
+
+#### Schema + migration
+- [x] `20260806000001_job_costing.sql`, idempotent throughout (`DO $$` guard on the enum, an
+      `information_schema` guard on the generated column). New: `job_expenses`,
+      `tenant_member_rates`, `expense_category` enum, `jobs.actual_hours`, `jobs.labor_cost_rate`,
+      `job_line_items.unit_cost` + generated `cost_total`, `catalog_items.unit_cost`,
+      `tenants.default_labor_cost_rate`, 3 supporting indexes.
+- [x] **Every cost column is nullable with no zero default.** A `DEFAULT 0` would have made the
+      whole feature quietly wrong on day one.
+- [x] `jobs.labor_cost_rate` is **snapshotted**, not joined — a raise must not rewrite last year's
+      margins. Same reasoning as `unit_price`, which line items have always copied.
+
+#### API
+- [x] `services/costing/` — `money.ts` (integer cents; a margin is a *difference* of two sums, so
+      float error is doubled), `costing.service.ts` (`summarise()` — THE definition of a job's
+      margin), `rates.ts` (member override → tenant default → **null**, never 0),
+      `profitability.service.ts`, `queries/job-costs.ts`, `queries/profitability.ts`.
+- [x] Three correlated `LEFT JOIN LATERAL`s, not joins. Joining line items **and** expenses to jobs
+      multiplies the two sets — 4 items × 3 expenses counts each item 3× — and the wrong number
+      looks entirely plausible.
+- [x] `routes/jobs/costing.ts` (6 endpoints) and `routes/tenants/member-rates.ts` (3) as **sibling
+      plugins** under the existing prefixes; `routes/jobs/index.ts` is 2,497 lines and is ARC-05's
+      target. Every mutating handler runs `loadEditableJob` first; member rates are
+      `requireOrgRole(["owner","admin"])` throughout, because a rate is payroll data.
+- [x] `?section=profitability` on `/reports/stats`. Rolls up in TypeScript over per-job rows rather
+      than a SQL `GROUP BY`, so the report cannot form a second opinion about margin that disagrees
+      with the job's own Costs tab. Row set bounded at 2,000 and `totals.truncated` says when it bit.
+- [x] Caught before shipping: `z.coerce.boolean()` on a raw-SQL row is `Boolean(value)`, so `"false"`
+      → **true**. Same defect as `?showArchived=false` returning archived-only rows. Replaced with
+      two integer counts.
+
+#### Frontend
+- [x] **Costs tab** on both the job sheet and the job detail page. Margin headline, the cost stack,
+      hours + the snapshotted rate, expenses CRUD. Mounted only while selected — the summary is
+      derived on every read.
+- [x] `job-cost-stack.tsx` — one bar, scaled to `max(revenue, cost)` with a rule at what was billed,
+      so an overrun has length instead of a minus sign. **The margin segment is hatched, not filled,
+      when the cost side is incomplete**: that remainder is profit *or* an unentered cost, and a
+      solid green bar over a half-costed job is the most misleading thing this feature could draw.
+- [x] Line items and the catalog table print **"no cost"** rather than leaving the cell blank — a
+      blank cell reads as zero and zero reads as profit.
+- [x] **Profitability tab** on `/reports`: margin by job (thinnest first), service type, customer,
+      assignee. Names how many jobs were left out and why. A "set up costing" empty state instead of
+      a confident 100% margin for a tenant who has entered nothing.
+- [x] Catalog **Your cost** field, Settings → Business **labour cost rate**, Settings → Team
+      **Cost Rates** (all members listed, not just those with an override — "who is still on the
+      default" is the question a list of exceptions cannot answer).
+- [x] Housekeeping: REPO_MAP 1 + 2, API docs (10 new endpoints + `unitCost`/`defaultLaborCostRate`
+      on 3 existing bodies), 6 chatbot knowledge-base entries, lessons (backend-stack, frontend-nextjs).
+
+- [ ] **Not verified.** No typecheck/lint/build run this session — the user runs those.
+- [ ] **Migration not applied.** `20260806000001_job_costing.sql` has not been run against Neon.
+      Nothing works until it is.
+- [ ] Follow-up: nothing prompts for hours at completion. The natural place is the completion gate
+      in `PATCH /jobs/:id/status`, prefilled from `scheduled_start`/`scheduled_end` where both are set.
+- [ ] Follow-up: quotes have no cost side, so there is no way to see margin *before* committing to
+      a price. `quote_line_items` would need the same `unit_cost` + generated `cost_total` pair.
+
+### Settings Sidebar Render Delay (2026-08-06)
+Reported as "the sidebar takes time to render on reload or when I change settings page".
+Two unrelated defects producing one symptom; the sidebar was innocent in the second.
+- [x] **Reload — the nav shipped incomplete.** `settings-nav.tsx` gated Business and Billing on
+      `useOrgRole()`, a bare `useEffect` fetch. `orgRole` is `null` for the whole server render
+      and the whole first paint, so those two items were *always* absent from the HTML and
+      arrived one browser → Vercel → Render → Neon round trip later, shoving Documents / Jobs /
+      Scheduling down. The hook returned `isLoading`; the nav destructured it as `roleLoading`
+      and never used it, so nothing even held the space. New `getServerOrgRole()` in
+      `lib/auth-server.ts` resolves it in the settings layout and passes it as a prop — the
+      nav is now complete in the server HTML and does nothing on mount.
+      Uses `/organization/get-active-member-role` (returns `{ role }`) rather than
+      `get-active-member` (the whole membership row); the role was all either caller wanted.
+      `hooks/use-org-role.ts` deleted — one importer, now zero.
+- [x] **Navigation — no Suspense boundary under `/settings`.** 6 of 12 settings pages are async
+      server components awaiting a server action, and settings was the **only** route under
+      `(dashboard)` with no `loading.tsx` (13 others have one). Next.js will not commit the
+      transition until the RSC payload lands, so clicking a link left the old page up with the
+      old item highlighted — `usePathname()` had not changed. The nav never unmounted and never
+      re-rendered; the destination was blocking it. Added `settings/loading.tsx`.
+- [ ] **Not verified.** No typecheck/build/browser run this session — the user runs those.
+      Worth a look on `/settings/business` reload (Business + Billing should be in the initial
+      paint, no shift) and on a click from Business → Pipelines (highlight should move instantly).
+- [ ] Pre-existing, untouched: the nav links to `/settings/billing` and no `billing/page.tsx`
+      exists, so that item 404s for owners.
+
 ### Security Audit Remediation (2026-08-06)
 Whole-codebase security review (auth, public surface, tenant isolation, injection, storage,
 web layer). 7 candidates, each put through an independent adversarial verification pass:
