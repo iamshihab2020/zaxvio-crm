@@ -17,6 +17,12 @@ export interface ContractRenewalEmailProps {
   daysUntilExpiry: number;
   annualPrice: number;
   visitsPerYear?: number | null;
+  /**
+   * Required. A renewal reminder is a sales message about a contract nobody has
+   * renewed — the recipient owes nothing and asked for nothing. One of the two
+   * sends DF-NOT-01 named as the reason the opt-out had to exist.
+   */
+  unsubscribeUrl: string;
 }
 
 export function ContractRenewalEmail({
@@ -30,6 +36,7 @@ export function ContractRenewalEmail({
   daysUntilExpiry,
   annualPrice,
   visitsPerYear,
+  unsubscribeUrl,
 }: ContractRenewalEmailProps) {
   const firstName = customerName.split(" ")[0];
 
@@ -40,6 +47,7 @@ export function ContractRenewalEmail({
       logoUrl={businessLogoUrl}
       businessPhone={businessPhone}
       businessAddress={businessAddress}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Section style={renewBadgeWrapStyle}>
         <Text style={renewBadgeStyle}>RENEWAL REMINDER</Text>
@@ -118,6 +126,7 @@ export default function ContractRenewalPreview() {
       daysUntilExpiry={22}
       annualPrice={349}
       visitsPerYear={2}
+      unsubscribeUrl="https://app.zaxvio.com/unsubscribe/preview-token"
     />
   );
 }

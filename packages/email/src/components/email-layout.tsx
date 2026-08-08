@@ -30,6 +30,19 @@ export interface EmailLayoutProps {
   businessAddress?: string | null;
   businessPhone?: string | null;
   businessEmail?: string | null;
+  /**
+   * One-click unsubscribe, for **non-transactional** mail only.
+   *
+   * It lives on the shared layout rather than in each template because that is
+   * the difference between "every marketing email has an unsubscribe link" and
+   * "fourteen templates each remembered to add one". DF-NOT-01 is the record of
+   * how that goes: fifteen templates, zero unsubscribe links.
+   *
+   * Omitted for transactional mail on purpose. An invoice is not something a
+   * recipient can decline, and offering to unsubscribe from one invites them to
+   * try and then be surprised when the next one arrives anyway.
+   */
+  unsubscribeUrl?: string | null;
   children: React.ReactNode;
 }
 
@@ -40,6 +53,7 @@ export function EmailLayout({
   businessAddress,
   businessPhone,
   businessEmail,
+  unsubscribeUrl,
   children,
 }: EmailLayoutProps) {
   return (
@@ -97,6 +111,18 @@ export function EmailLayout({
               </Text>
             )}
             <Hr style={footerDividerStyle} />
+            {unsubscribeUrl && (
+              <Text style={unsubscribeStyle}>
+                {/* Deliberately says what stays, not just what stops. A reader
+                    who thinks unsubscribing cancels their invoices will not
+                    click, and a reader who thinks it did will be surprised. */}
+                Don&rsquo;t want these emails?{" "}
+                <Link href={unsubscribeUrl} style={unsubscribeLinkStyle}>
+                  Unsubscribe
+                </Link>
+                . You&rsquo;ll still get estimates, invoices and receipts.
+              </Text>
+            )}
             <Text style={poweredByStyle}>
               Powered by{" "}
               <Link href="https://zaxvio.com" style={zaxvioLinkStyle}>
@@ -201,6 +227,18 @@ const footerTextStyle: React.CSSProperties = {
 const footerDividerStyle: React.CSSProperties = {
   borderColor: BORDER_LIGHT,
   margin: "16px 0",
+};
+
+const unsubscribeStyle: React.CSSProperties = {
+  color: MUTED_TEXT,
+  fontSize: "11px",
+  lineHeight: "1.6",
+  margin: "0 0 8px",
+};
+
+const unsubscribeLinkStyle: React.CSSProperties = {
+  color: MUTED_TEXT,
+  textDecoration: "underline",
 };
 
 const poweredByStyle: React.CSSProperties = {

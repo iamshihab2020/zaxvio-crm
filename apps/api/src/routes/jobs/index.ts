@@ -96,6 +96,11 @@ import {
   transitionMessage,
   type JobLifecycle,
 } from "../../services/job-stages.service.js";
+import { emitStageChangeEvents } from "../../services/jobs/stage-events.service.js";
+import {
+  emitJobCreatedEvent,
+  emitJobUpdatedEvents,
+} from "../../services/jobs/job-events.service.js";
 
 // ========== HELPERS ==========
 
@@ -109,8 +114,13 @@ import {
 // on the status string and no entry listed itself, so a same-column drag read
 // as an illegal transition and the write was skipped.
 
+// `Omit<…, "$client">` rather than the bare handle: a Drizzle transaction has
+// every query method but no `$client`, so typing this as `ReturnType<typeof
+// getDb>` made the function uncallable from inside a transaction. That is the
+// same defect QUO-02 found in `job-stages.service.ts`, and it is why this was
+// the one statement in `PATCH /jobs/:id` that could not join the others.
 async function recalculateJobTotals(
-  db: ReturnType<typeof getDb>,
+  db: Omit<ReturnType<typeof getDb>, "$client">,
   jobId: string,
   tenantId: string,
 ) {
@@ -662,6 +672,23 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           performedBy: userId,
         });
 
+        // The event goes in the same transaction as the job. Outside it, a
+        // failure between the two would leave a job no automation ever sees —
+        // and nothing anywhere would show that anything had been missed.
+        // `emitJobCreatedEvent` re-reads the row itself, so it gets the
+        // trigger-issued `jobNumber` and the resolved stage without this route
+        // assembling a payload.
+        await emitJobCreatedEvent(tx, {
+          tenantId,
+          actorUserId: userId,
+          jobId: job.id,
+          // A job created against a booking is a conversion, whatever screen it
+          // was clicked from — an automation that greets a new customer needs to
+          // know they have already had a booking confirmation.
+          origin: body.bookingId ? "booking" : "manual",
+          originId: body.bookingId || null,
+        });
+
         // Re-fetch inside the transaction for the trigger-generated jobNumber.
         const [row] = await tx
           .select()
@@ -853,37 +880,61 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         updates.stageId = rehomedStageId;
       }
 
-      await db
-        .update(jobs)
-        .set(updates)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
+      // One transaction. These were four loose statements, and the events now
+      // added are the reason it matters: `emitJobUpdatedEvents` reads the row
+      // back to build its payload, so it must see the update, and the update
+      // must not survive without it. The activity row joins them for the same
+      // reason it does in `POST` — a change with no trail is invisible.
+      const final = await db.transaction(async (tx) => {
+        await tx
+          .update(jobs)
+          .set(updates)
+          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
 
-      // Recalculate totals if tax rate changed
-      if (changedFields.includes("taxRate")) {
-        await recalculateJobTotals(db, id, tenantId);
-      }
+        // Recalculate totals if tax rate changed
+        if (changedFields.includes("taxRate")) {
+          await recalculateJobTotals(tx, id, tenantId);
+        }
 
-      // Log activity
-      if (changedFields.length > 0) {
-        const readableFields = changedFields
-          .map((f) => fieldLabels[f] ?? f)
-          .join(", ");
-        await db.insert(jobActivities).values({
+        // Log activity
+        if (changedFields.length > 0) {
+          const readableFields = changedFields
+            .map((f) => fieldLabels[f] ?? f)
+            .join(", ");
+          await tx.insert(jobActivities).values({
+            tenantId,
+            jobId: id,
+            type: "job.updated",
+            description: `Updated ${readableFields}`,
+            metadata: { changedFields },
+            performedBy: userId,
+          });
+        }
+
+        // `job.updated`, plus `job.assigned` and `job.scheduled` when those
+        // specific things moved. The previous values come from `existing`,
+        // read before the update — the only place they still exist.
+        await emitJobUpdatedEvents(tx, {
           tenantId,
+          actorUserId: userId,
           jobId: id,
-          type: "job.updated",
-          description: `Updated ${readableFields}`,
-          metadata: { changedFields },
-          performedBy: userId,
+          previous: {
+            assigneeId: existing.assigneeId,
+            scheduledDate: existing.scheduledDate,
+            scheduledStart: existing.scheduledStart,
+            scheduledEnd: existing.scheduledEnd,
+          },
+          changedFields,
         });
-      }
 
-      // Re-fetch after potential recalculation. Tenant-scoped like every other
-      // read — this one had only the job id (security-rules §1).
-      const [final] = await db
-        .select()
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
+        // Re-fetch after potential recalculation. Tenant-scoped like every
+        // other read — this one had only the job id (security-rules §1).
+        const [row] = await tx
+          .select()
+          .from(jobs)
+          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
+        return row;
+      });
 
       return reply.send({ data: final });
     },
@@ -980,26 +1031,55 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
-      const [updated] = await db
-        .update(jobs)
-        .set({ ...stageUpdate(target, fromLifecycle), updatedAt: new Date() })
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .returning();
+      // One transaction: the move, its activity row and its workflow events.
+      // The events must not be able to commit without the move, or an
+      // automation fires for a change that did not happen; the move must not be
+      // able to commit without the events, or an automation is permanently
+      // un-fired with nothing left to show for it.
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(jobs)
+          .set({ ...stageUpdate(target, fromLifecycle), updatedAt: new Date() })
+          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
+          .returning();
 
-      // Log activity
-      await db.insert(jobActivities).values({
-        tenantId,
-        jobId: id,
-        type: "job.status_changed",
-        description: `Status changed from ${existing.status} to ${target.label}`,
-        metadata: {
-          from: existing.status,
-          to: status,
-          fromLifecycle,
-          toLifecycle: target.lifecycle,
-          stageId: target.id,
-        },
-        performedBy: userId,
+        await tx.insert(jobActivities).values({
+          tenantId,
+          jobId: id,
+          type: "job.status_changed",
+          description: `Status changed from ${existing.status} to ${target.label}`,
+          metadata: {
+            from: existing.status,
+            to: status,
+            fromLifecycle,
+            toLifecycle: target.lifecycle,
+            stageId: target.id,
+          },
+          performedBy: userId,
+        });
+
+        await emitStageChangeEvents(tx, {
+          tenantId,
+          actorUserId: userId,
+          bulk: false,
+          transitions: [
+            {
+              jobId: id,
+              // `jobs.status` is the stage's name, denormalised — so the row
+              // itself carries the old stage's name without a second read.
+              from: existing.stageId
+                ? {
+                    id: existing.stageId,
+                    name: existing.status,
+                    lifecycle: fromLifecycle,
+                  }
+                : null,
+              to: { id: target.id, name: target.name, lifecycle: target.lifecycle },
+            },
+          ],
+        });
+
+        return row;
       });
 
       dispatchNotification({
@@ -2457,6 +2537,28 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 );
             }
           }
+
+          // Same helper as the single-job path, inside the same transaction as
+          // the writes. JOB-22 was exactly this divergence one layer up — the
+          // bulk path skipped the completion email the single path sent — so
+          // the two paths share the one implementation by construction.
+          await emitStageChangeEvents(tx, {
+            tenantId,
+            actorUserId: userId,
+            bulk: true,
+            transitions: eligibleIds.map((jobId) => {
+              const target = targetByJob.get(jobId)!;
+              const prev = lifecycleByJob.get(jobId) ?? "scheduled";
+              const job = existing.find((j) => j.id === jobId);
+              return {
+                jobId,
+                from: job?.stageId
+                  ? { id: job.stageId, name: job.status, lifecycle: prev }
+                  : null,
+                to: { id: target.id, name: target.name, lifecycle: target.lifecycle },
+              };
+            }),
+          });
         });
 
         // Log activity for each updated job

@@ -152,6 +152,24 @@ export const queryKeys = {
     list: () => ["tags", "list"] as const,
   },
 
+  // ── Workflows (Automations) ────────────────────────────────
+  // `validation` and `versions` nest under the workflow's detail key, so
+  // publishing invalidates the whole subtree in one call — a publish changes
+  // the version list, the dirty flag and (by clearing the errors it just
+  // passed) the validation, and three separate invalidations is three chances
+  // to forget one.
+  workflows: {
+    all: ["workflows"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["workflows", "list", params] as const,
+    detail: (id: string) => ["workflows", "detail", id] as const,
+    validation: (id: string) => ["workflows", "detail", id, "validation"] as const,
+    versions: (id: string) => ["workflows", "detail", id, "versions"] as const,
+    builderContext: (id: string) =>
+      ["workflows", "detail", id, "builderContext"] as const,
+    quota: () => ["workflows", "quota"] as const,
+  },
+
   // ── Dashboard ──────────────────────────────────────────────
   dashboard: {
     all: ["dashboard"] as const,

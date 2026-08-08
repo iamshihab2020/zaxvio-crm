@@ -1,6 +1,6 @@
 # Deferred Fixes
 
-> Related: [[todo]] | [[strict-rules]] | [[bookings]] | [[tenants]] | [[invoices]]
+> Related: [[todo]] | [[strict-rules]] | [[bookings]] | [[tenants]] | [[invoices]] | [[notifications]]
 
 Tracked bugs, validation gaps, and improvements discovered during end-to-end flow audits. These are **real issues** found in the codebase that are deferred because the related feature isn't live yet or the fix is lower priority.
 
@@ -24,6 +24,7 @@ Tracked bugs, validation gaps, and improvements discovered during end-to-end flo
 | [invoices.md](./invoices.md) | Invoice system | 5 | 2026-04-12 |
 | [bookings.md](./bookings.md) | Public booking, booking→job, availability, booking form | 26 | 2026-04-13 |
 | [tenants.md](./tenants.md) | Tenant init, settings, slug, logo upload, middleware | 12 | 2026-04-13 |
+| [notifications.md](./notifications.md) | Notification fan-out, Resend delivery, email crons, consent | 2 open (3 fixed) | 2026-08-07 |
 
 ## Rules
 

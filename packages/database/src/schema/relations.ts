@@ -45,6 +45,10 @@ import {
   notificationDeliveries,
 } from "./notifications";
 import { conversations, messages } from "./conversations";
+import { workflows, workflowVersions, workflowFolders } from "./workflows";
+import { workflowNodes, workflowEdges } from "./workflow-graph";
+import { workflowExecutions, nodeExecutionLogs } from "./workflow-runs";
+import { workflowEventQueue } from "./workflow-events";
 
 // --- Better Auth: User relations ---
 export const userRelations = relations(user, ({ many }) => ({
@@ -120,6 +124,10 @@ export const tenantsRelations = relations(tenants, ({ one, many }) => ({
   notifications: many(notifications),
   notificationChannelConfigs: many(notificationChannelConfig),
   jobDocuments: many(jobDocuments),
+  workflows: many(workflows),
+  workflowFolders: many(workflowFolders),
+  workflowExecutions: many(workflowExecutions),
+  workflowEventQueue: many(workflowEventQueue),
 }));
 
 // --- Subscription relations ---
@@ -759,3 +767,108 @@ export const messagesRelations = relations(messages, ({ one }) => ({
     references: [conversations.id],
   }),
 }));
+
+// --- Workflow automation relations ---
+//
+// The graph tables (workflow_nodes / workflow_edges) deliberately have no
+// relation to each other: an edge's endpoints are plain uuids with no foreign
+// key, because a whole-graph save deletes and re-inserts in one transaction and
+// the validator checks referential sanity anyway. Declaring a Drizzle relation
+// over a link Postgres does not enforce would be a promise the schema keeps
+// only by accident.
+export const workflowsRelations = relations(workflows, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [workflows.tenantId],
+    references: [tenants.id],
+  }),
+  folder: one(workflowFolders, {
+    fields: [workflows.folderId],
+    references: [workflowFolders.id],
+  }),
+  nodes: many(workflowNodes),
+  edges: many(workflowEdges),
+  versions: many(workflowVersions),
+  executions: many(workflowExecutions),
+}));
+
+export const workflowFoldersRelations = relations(
+  workflowFolders,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [workflowFolders.tenantId],
+      references: [tenants.id],
+    }),
+    workflows: many(workflows),
+  }),
+);
+
+export const workflowVersionsRelations = relations(
+  workflowVersions,
+  ({ one, many }) => ({
+    workflow: one(workflows, {
+      fields: [workflowVersions.workflowId],
+      references: [workflows.id],
+    }),
+    executions: many(workflowExecutions),
+  }),
+);
+
+export const workflowNodesRelations = relations(workflowNodes, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [workflowNodes.workflowId],
+    references: [workflows.id],
+  }),
+}));
+
+export const workflowEdgesRelations = relations(workflowEdges, ({ one }) => ({
+  workflow: one(workflows, {
+    fields: [workflowEdges.workflowId],
+    references: [workflows.id],
+  }),
+}));
+
+export const workflowExecutionsRelations = relations(
+  workflowExecutions,
+  ({ one, many }) => ({
+    tenant: one(tenants, {
+      fields: [workflowExecutions.tenantId],
+      references: [tenants.id],
+    }),
+    workflow: one(workflows, {
+      fields: [workflowExecutions.workflowId],
+      references: [workflows.id],
+    }),
+    version: one(workflowVersions, {
+      fields: [workflowExecutions.workflowVersionId],
+      references: [workflowVersions.id],
+    }),
+    customer: one(customers, {
+      fields: [workflowExecutions.customerId],
+      references: [customers.id],
+    }),
+    nodeLogs: many(nodeExecutionLogs),
+  }),
+);
+
+export const nodeExecutionLogsRelations = relations(
+  nodeExecutionLogs,
+  ({ one }) => ({
+    execution: one(workflowExecutions, {
+      fields: [nodeExecutionLogs.executionId],
+      references: [workflowExecutions.id],
+    }),
+  }),
+);
+
+// The outbox relates only to its tenant. It deliberately does not point at a
+// workflow: a queue row exists *before* anyone knows which workflows it will
+// match, and a row that matched nothing is still a row worth keeping.
+export const workflowEventQueueRelations = relations(
+  workflowEventQueue,
+  ({ one }) => ({
+    tenant: one(tenants, {
+      fields: [workflowEventQueue.tenantId],
+      references: [tenants.id],
+    }),
+  }),
+);

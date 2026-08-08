@@ -30,6 +30,7 @@ import {
   sendTrialExpiringEmail,
   sendReviewRequestEmail,
 } from "../email.js";
+import { canEmailCustomer, unsubscribeUrl } from "../email-consent.js";
 
 type Db = ReturnType<typeof getDb>;
 
@@ -255,10 +256,26 @@ export async function processReviewRequests(): Promise<void> {
           db.select().from(tenants).where(eq(tenants.id, row.tenant_id)).then((r) => r[0]),
         ]);
 
-        if (!customer?.email || !tenant?.googleReviewUrl) continue;
+        if (!customer || !tenant?.googleReviewUrl) continue;
+
+        // "Please leave us a review" is not transactional — the customer did not
+        // ask for it and it does not concern money they owe. It is one of the
+        // two sends DF-NOT-01 named as the reason an opt-out had to exist at
+        // all, so it goes through the one gate rather than checking
+        // `customer.email` and hoping.
+        const consent = await canEmailCustomer(db, {
+          tenantId: row.tenant_id,
+          customerId: row.customer_id,
+          purpose: "marketing",
+        });
+        if (!consent.allowed || !consent.email) {
+          console.info(`[email-cron] E-12 skipped for invoice ${row.id}: ${consent.reason}`);
+          continue;
+        }
 
         await sendReviewRequestEmail({
-          to: customer.email,
+          to: consent.email,
+          unsubscribeUrl: unsubscribeUrl(row.tenant_id, row.customer_id),
           props: {
             customerName: `${customer.firstName} ${customer.lastName}`.trim(),
             businessName: tenant.businessName ?? "HVAC Service",
@@ -321,13 +338,31 @@ export async function processContractRenewalReminders(): Promise<void> {
           db.select().from(tenants).where(eq(tenants.id, contract.tenantId)).then((r) => r[0]),
         ]);
 
-        if (!customer?.email) continue;
+        if (!customer) continue;
+
+        // The second of DF-NOT-01's two non-transactional sends. A renewal
+        // reminder is a sales message about a contract that has not been
+        // renewed — the recipient owes nothing and asked for nothing.
+        const consent = await canEmailCustomer(db, {
+          tenantId: contract.tenantId,
+          customerId: contract.customerId,
+          purpose: "marketing",
+        });
+        if (!consent.allowed || !consent.email) {
+          console.info(`[email-cron] E-09 skipped for contract ${contract.id}: ${consent.reason}`);
+          // Deliberately NOT marked as reminded. If this customer resubscribes
+          // while the contract is still inside its 30-day window, they should
+          // get the reminder — stamping `renewalReminderSentAt` here would
+          // record a send that never happened and suppress the real one.
+          continue;
+        }
 
         const endDate = new Date(contract.endDate + "T00:00:00");
         const daysUntilExpiry = Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
         await sendContractRenewalEmail({
-          to: customer.email,
+          to: consent.email,
+          unsubscribeUrl: unsubscribeUrl(contract.tenantId, contract.customerId),
           props: {
             customerName: `${customer.firstName} ${customer.lastName}`.trim(),
             businessName: tenant?.businessName ?? "HVAC Service",

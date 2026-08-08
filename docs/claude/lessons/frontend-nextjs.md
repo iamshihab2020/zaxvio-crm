@@ -450,3 +450,188 @@ From [[bookings-calendar|the report]] — the front-end half.
   for every job the user clicks through. Radix `Tabs` unmounts inactive content
   by default — the trap is a tabs API that builds its `content` array eagerly and
   then force-mounts.
+- **Never type a server action with a Drizzle row type — declare the wire shape.**
+  `Workflow`, `Customer`, `Job` and every other `$inferSelect` type declares
+  timestamps as `Date`. Nothing that crosses a server action is a `Date`: the
+  boundary is JSON, so they arrive as strings. Typing an action's return with the
+  row type type-checks the entire page against a shape it never receives, and
+  then every date helper — all of which take `string` — needs a cast to compile.
+  The tell is reaching for `as unknown as X`, which strict-rules §4 forbids and
+  which is the type system correctly refusing an impossible conversion. Declare
+  the serialized shape once in the action file where the boundary actually is;
+  consumers then need no casts at all.
+- **`formatDateOnly` is for `date` columns and nothing else.** It anchors at UTC
+  noon and formats in UTC, which is exactly right for a `date` and exactly wrong
+  for a `timestamptz`, whose instant it discards. For an "updated 2 hours ago"
+  column use `formatRelativeTime`; for a displayed timestamp use the tenant zone
+  via `lib/tenant-time.ts`. The repo-wide sweep counting these still has 20 open
+  sites, so the wrong one is currently the more common one to copy.
+- **A `Tooltip` on a disabled control never opens** — a disabled element fires no
+  pointer events. Wrap it in a plain `<span>` and put the trigger on that. This
+  bites precisely where it matters most, because a disabled control is the one a
+  user most needs an explanation for ("Publish this automation before switching
+  it on").
+- **`type` and `interface` are not interchangeable where an index signature is
+  needed.** A type alias gets an implicit index signature and is assignable to
+  `Record<string, unknown>`; an interface does not and is not. Query-key
+  factories take `Record<string, unknown>`, so params declared as an `interface`
+  need a cast at every call site. Declare params objects as `type`. Related: this
+  is why adding `[key: string]: unknown` to `ScheduleEventProps` backfired — the
+  workaround made the library's own props unassignable to it.
+- **A canvas library is a view over your store, except for drag position.**
+  React Flow owns the frames of a drag; write to the store on drag *stop*, not
+  on `onNodesChange`. Committing every frame puts one undo entry on the history
+  stack per pixel moved, so Ctrl+Z undoes the animation instead of the move —
+  the rule "undo covers node changes" is then satisfied and useless. The same
+  reasoning applies to text: coalesce parameter edits on `(nodeId, field)` within
+  ~600ms or undo becomes a character-by-character eraser.
+- **Turn off the canvas library's own delete key when deletion has invariants.**
+  React Flow's `deleteKeyCode` removes the node and its edges, which silently
+  severs a graph that needed its neighbours relinked. Set `deleteKeyCode={null}`
+  and handle Delete yourself so removal and relink are one store action. The
+  catch to remember: that also disables *edge* deletion, so the handler has to
+  cover selected edges too or connections become undeletable.
+- **Load an editor's state keyed on the record id, not on the fetched payload.**
+  A `useEffect` that re-seeds a store whenever `data` changes will reset the
+  canvas on any background refetch — including one returning an identical
+  graph — discarding whatever the user had drawn since. Guard with a ref holding
+  the id already loaded. This is the most damaging thing a builder can do and it
+  produces no error.
+- **`nodeTypes` / `edgeTypes` must be module-scope constants.** A fresh object
+  literal on each render makes React Flow tear down and rebuild every node, which
+  shows up as node state resetting while you type.
+- **The repo's CSS tokens are raw HSL triplets, so `var(--brand)` is not a
+  colour.** Tailwind wraps them (`hsl(var(--brand))`). Inline SVG attributes and
+  `style` props do not, so `stroke: "var(--border)"` silently renders black. Any
+  colour set outside a Tailwind class needs the `hsl()` wrapper.
+- **React Flow's `OnNodeDrag` passes a DOM `MouseEvent | TouchEvent`**, not a
+  React synthetic event, unlike `NodeMouseHandler` which does. Type handlers with
+  the library's own exported types rather than hand-writing the signature.
+- **Every product category has a default look, and reaching for a library's
+  demo styling lands you in it.** A node editor built from React Flow's examples
+  is a rounded card with a tinted icon tile, grey bezier wires and the stock
+  Controls/MiniMap — i.e. n8n, Zapier, Make and every clone. It is not neutral;
+  it is a specific look that arrives whether or not it suits the product. The
+  way out is to ask what the thing being drawn actually *is* in the user's world.
+  An automation in this CRM is a **dispatch rule** for a contractor, which is a
+  routing diagram — so: right-angled `smoothstep` paths instead of beziers, a
+  category **spine** down the node's left edge instead of a tinted tile, branch
+  labels on the wire rather than the handle. Same components, same tokens,
+  entirely different read.
+- **Colour-coding survives better as an edge than as a fill.** Six category
+  colours rendered as filled icon tiles turn a canvas into a bag of sweets and
+  fight a single-accent brand. The same six as a 3px spine carry identical
+  information at a fraction of the chroma, and scale to twenty nodes on screen.
+- **Keep one marker vocabulary per concept across every surface.** "Draft" was a
+  badge on the list and a different badge in the toolbar; "Live" was a badge in
+  one place and a dot-and-label in another. One system — ● live · ○ off ·
+  ◌ draft · – archived, shape carrying the meaning so it survives greyscale —
+  means a state is one thing in the product. Check the *other* screen whenever
+  you restyle a status.
+- **Mono is for identifiers, not for atmosphere.** This repo's `font-mono` is
+  documented as the face for "times, counts and money — anything read as data
+  rather than as prose", and the landing-page work deleted 12 of 15
+  `uppercase tracking` declarations as the loudest generic signal on the page.
+  So `v3`, a branch name and an `off` chip earn mono; a tracked-caps section
+  eyebrow reintroduces exactly what was removed.
+- **A workspace package written with ESM `.js` specifiers breaks the Next build,
+  and nothing else notices.** `packages/workflow-nodes` writes its internal
+  imports as `./node-definition.js`. That is correct for `tsx` (which runs the
+  API's raw TypeScript), it type-checks under the repo's
+  `moduleResolution: "bundler"` where the extension is permitted, and vitest
+  resolves it — so three of the four consumers are happy. Webpack takes the
+  specifier literally, looks for a `.js` that was never emitted, and fails with
+  `Can't resolve './node-definition.js'`. Fix in `next.config.mjs`:
+  `config.resolve.extensionAlias = { ".js": [".ts", ".tsx", ".js"] }`, keeping
+  `.js` last so real JS in `node_modules` still resolves. Note it is a *webpack*
+  option — Turbopack needs its own setting, and at that point the honest fix is
+  to drop the extensions so every bundler agrees without configuration. Every
+  other package in this monorepo already omits them; workflow-nodes is the
+  outlier.
+- **An unrun page hides a whole package's build breakage.** This error was
+  reachable from `lib/phone.ts` — which re-exports from the same package and is
+  used by the customer pages — since P3. It surfaced only when a new route
+  imported the package and someone finally ran `next dev`. "It type-checks" and
+  "the tests pass" say nothing about whether the bundler can resolve it; those
+  are three different resolvers with three different rules.
+- **This app forces a scrollbar on every page on purpose — theme it, do not
+  delete it.** `globals.css` sets `overflow-y: scroll` plus
+  `scrollbar-gutter: stable` on `<html>` so an opening Radix dialog cannot shift
+  the layout. The visible cost is the browser's own chrome sitting on screen
+  permanently, and in dark mode a light OS scrollbar against a near-black app is
+  the loudest thing in the window. The fix is `scrollbar-width: thin` plus
+  `::-webkit-scrollbar-thumb` on the border token with a transparent
+  `background-clip: padding-box` border, so the thumb reads as a floating pill.
+  Do not reach for `scrollbar-width: none`: most pages genuinely scroll, and the
+  scrollbar is the only signal of how much is left.
+- **A full-viewport surface opts out via an attribute, not by editing the global
+  rule.** `html:has([data-fills-viewport]) { overflow: hidden }` lets one route
+  (the automation builder) stop the page scrolling while every other page keeps
+  the anti-shift behaviour. `:has()` was already used in this file for the
+  scroll-lock fix, so it is an established pattern rather than a new dependency.
+- **The dashboard navbar is `h-14` (3.5rem), not 4rem.** Any full-height page
+  computing `calc(100vh - 4rem)` is 8px short of the fold and will not line up.
+  Use `100dvh` rather than `100vh` too — on mobile the collapsing address bar
+  makes `vh` taller than the visible viewport, which clips a fixed toolbar.
+- **Persist a dragged panel width on pointer-UP, never on move.** Writing to
+  `localStorage` on every `pointermove` is ~60 synchronous writes a second and
+  the drag visibly stutters on them. Keep a live value in state, mirror it in a
+  ref, and write once on release — the pattern `use-detail-shell.ts` already
+  uses. Three details that are easy to miss: set `cursor`/`user-select` on
+  `<body>` rather than the handle (once the pointer leaves the 6px strip a
+  handle-scoped cursor reverts and the drag looks dead); listen for
+  `pointercancel` as well as `pointerup` or a browser gesture leaves the whole
+  document unselectable; and **re-clamp the stored width on load**, because a
+  width chosen on a 27" monitor restored on a laptop leaves no room for content.
+- **A resize handle inside an `overflow-hidden` shell must not be centred on the
+  border.** The usual `-translate-x-1/2` puts half the grab area outside the
+  panel, where it is clipped — so the target is half the size it looks and the
+  cursor only changes on one side. Keep it fully inside, or move the overflow
+  clipping to an inner element.
+- **Suppress a width transition while dragging.** A panel with
+  `transition-[width]` for its open/close animation will lag the pointer by that
+  duration during a resize, which reads as the panel resisting. Same for the
+  first frame after mount when restoring a saved width — otherwise the panel
+  animates from its default to the stored value on every page load.
+- **Check a new surface's type conventions against the codebase before trusting
+  your eye.** A feature built in isolation drifts from the app around it in ways
+  that are obvious on screen and invisible in review. Measure rather than guess:
+  `grep -rho 'text-\[[0-9]*px\]' | sort | uniq -c` against the same for
+  `text-xs|sm|base` shows what the app's scale actually is. In this repo it is
+  `text-xs`/`text-sm` (903 uses) with `text-[11px]`/`text-[10px]` as an accepted
+  small-chrome vocabulary (149 uses) — so those brackets are fine and
+  `text-[13px]` is not, because it lands between two established steps.
+- **The dashboard's section-label pattern is
+  `text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading`**
+  (63 uses), and its form labels are `<Label className="font-body">` and nothing
+  more (59 uses) — size and weight come from the primitive. Writing a group
+  heading as ordinary body text, or a field label at a custom size, is what makes
+  a new panel look like it belongs to a different application than the one beside
+  it. Note this is the *dashboard's* convention: the landing page deliberately
+  retired tracked-caps eyebrows, and the two surfaces do not share a rule.
+- **`<body>` already carries `font-body`, so explicit `font-body` is redundant —
+  but write it anyway.** The codebase does, 800 times. Consistency with the
+  surrounding code beats a technically-minimal class list; a file that omits it
+  reads as having been written by someone who did not check.
+- **React Flow ships no `font-family`.** If canvas text looks wrong, the cause is
+  the classes on your own nodes, not the library's stylesheet — worth confirming
+  with `grep font-family` in its `dist/` before going looking for an override to
+  fight.
+- **If the server validates persisted state, the action that triggers it must
+  persist first.** Publish loads the draft graph from the database and validates
+  that — correct, because a publish trusting a client's "it's valid" would
+  publish whatever the client claimed. But with Save as a separate button,
+  pressing Publish after adding a step reported "Nothing starts this automation":
+  true of the stored draft, and obviously false to the person looking at the
+  trigger they had just placed. The user reads that as "it didn't save". Publish
+  now saves first and aborts if the save fails — a failed save (a 409) must never
+  be followed by publishing someone else's graph. The general rule: any button
+  whose server-side check reads persisted state either writes first or is
+  disabled while dirty; leaving it to report on stale data is a bug that reads as
+  a lie.
+- **A silent success needs somewhere else to show.** Save deliberately has no
+  toast — a builder saves constantly and a toast per save buries the 409 that
+  matters. That is right, but it means the only feedback is the button changing
+  to "Saved", and if anything downstream then contradicts it the user concludes
+  the save failed. Removing confirmation and leaving a downstream action to
+  disagree is worse than the toast would have been.

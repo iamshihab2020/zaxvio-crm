@@ -72,6 +72,11 @@ export function CustomersPageClient({
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [tagFilter, setTagFilter] = useState<{ id: string; name: string } | null>(null);
   const showingArchived = viewFilter === "archived";
+  // Its own tab rather than a checkbox, because "who can I no longer email" is a
+  // view of the list, not a modifier on one. It is deliberately NOT combined
+  // with Archived: an unsubscribed customer is usually a *live* customer you
+  // have to keep serving, and folding the two would suggest otherwise.
+  const showingOptedOut = viewFilter === "unsubscribed";
   const debouncedSearch = useDebouncedValue(search, 300);
 
   // Dialog state
@@ -105,6 +110,7 @@ export function CustomersPageClient({
     sortOrder,
     showArchived: showingArchived || undefined,
     tagId: tagFilter?.id,
+    optedOut: showingOptedOut || undefined,
   };
 
   // Seed the cache from the server render instead of throwing it away. The page
@@ -126,6 +132,11 @@ export function CustomersPageClient({
           sortOrder: "desc",
           showArchived: undefined,
           tagId: undefined,
+          // Present-and-undefined, mirroring `listParams`. The key has to be
+          // byte-identical to the one the query builds or the seed lands
+          // somewhere nothing reads — JOB-05 is the record of seeding a key the
+          // page never asked for.
+          optedOut: undefined,
         }),
         { data: initialCustomers, pagination: initialPagination, error: null },
         { updatedAt: seededAt },
@@ -266,7 +277,7 @@ export function CustomersPageClient({
 
   const hasCustomers = customers.length > 0;
   const loadFailed = customersQuery.isError || !!customersQuery.data?.error;
-  const isFiltered = !!search || showingArchived || !!tagFilter;
+  const isFiltered = !!search || showingArchived || showingOptedOut || !!tagFilter;
   // A failed request must not read as "you have no customers" (CUST-02).
   const showEmptyState = !loading && !loadFailed && !hasCustomers && !isFiltered;
   const showNoResults = !loading && !loadFailed && !hasCustomers && isFiltered;
@@ -310,6 +321,7 @@ export function CustomersPageClient({
               options={[
                 { value: "", label: "Active" },
                 { value: "archived", label: "Archived" },
+                { value: "unsubscribed", label: "Unsubscribed" },
               ]}
               value={viewFilter}
               onChange={handleViewFilterChange}
@@ -363,7 +375,9 @@ export function CustomersPageClient({
                 ? `No customers found matching “${search}”`
                 : tagFilter
                   ? `No customers tagged “${tagFilter.name}”`
-                  : "No archived customers"}
+                  : showingOptedOut
+                    ? "Nobody has unsubscribed. Every customer with an email address can still be reached."
+                    : "No archived customers"}
             </p>
           )}
 

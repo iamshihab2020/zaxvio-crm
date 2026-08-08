@@ -10,7 +10,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["navigate", "find", "where", "sidebar", "menu", "page", "go to"],
     question: "How do I navigate the app?",
     answer:
-      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Conversations** — Send emails to customers, view message history\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space.",
+      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Conversations** — Send emails to customers, view message history\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Automate** group — Automations\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space.",
   },
   {
     id: "conversations-feature",
@@ -27,6 +27,53 @@ const entries: KnowledgeEntry[] = [
     question: "How do I get started?",
     answer:
       "Welcome! Here's the recommended setup order:\n\n1. **Settings > Business** — Add your business name, phone, address, and logo\n2. **Settings > Business** — Set your default tax rate\n3. **Catalog** — Add your common parts, labor items, and services with prices\n4. **Checklists** — Create checklist templates for your service types\n5. **Customers** — Add your existing customers\n6. **Settings > Scheduling** — Set your weekly availability hours\n7. **Jobs** — Create your first job and try the Kanban board\n\nYou're ready to start managing your service business!",
+  },
+  {
+    id: "general-automations",
+    category: "general",
+    keywords: [
+      "automation",
+      "automate",
+      "workflow",
+      "trigger",
+      "auto send",
+      "automatic email",
+      "follow up automatically",
+      "sequence",
+    ],
+    question: "Can I automate things like follow-up emails?",
+    answer:
+      "Yes. Go to **Automations** in the sidebar, under the **Automate** group.\n\n**How to build one:**\n1. Click **New automation** and give it a name\n2. Choose what starts it — a job being completed, or an invoice being paid in full\n3. Click the **+** under a step to add the next one: send an email, notify your team, or add a note to the customer\n4. Press **Save**, then **Publish**\n5. Switch it **on**\n\n**Saving is not publishing.** Save keeps your work; Publish is what makes the new version the one that actually runs. And a published automation still does nothing until you switch it on — that's deliberate, so nothing starts emailing customers while you're still building it.\n\nTwo things worth knowing:\n\n• **Customers can unsubscribe** from anything an automation sends. If they have, the email step is skipped and the rest of the automation still runs — you'll see the reason on the run.\n• **Estimates, invoices and receipts are never affected** by an unsubscribe. Those aren't marketing, so they always go out.",
+  },
+  {
+    id: "automations-draft-vs-published",
+    category: "general",
+    keywords: [
+      "automation not running",
+      "automation broken",
+      "publish automation",
+      "draft automation",
+      "automation off",
+      "switch on automation",
+      "why isn't my automation working",
+    ],
+    question: "I built an automation but it isn't doing anything",
+    answer:
+      "Almost always one of two things, and the Automations list tells you which:\n\n**It says Draft.** Drawing an automation isn't the same as publishing it. Open it and press **Publish** — until you do, it has no published version and cannot run at all. The on/off switch stays disabled and will tell you the same thing if you hover it.\n\n**It says Off.** It's published but switched off. Flip the toggle on the list, or open it — there's a banner saying so.\n\nA third possibility if it says **Live**: the automation ran but a step was skipped. Common reason is the customer having unsubscribed from non-essential email.\n\nNew automations are **always created switched off** on purpose. Nothing starts emailing your customers the moment you build it.",
+  },
+  {
+    id: "automations-publish-blocked",
+    category: "general",
+    keywords: [
+      "can't publish",
+      "publish blocked",
+      "publish error",
+      "automation errors",
+      "fix automation",
+    ],
+    question: "Why can't I publish my automation?",
+    answer:
+      "Publishing checks the whole automation first and refuses if something would stop it working. You'll get a list of exactly what to fix — click any item to jump to the step it's about.\n\n**The usual ones:**\n\n• **Nothing starts it** — add a trigger step.\n• **A step is missing something** — a required field is empty.\n• **A step isn't connected** — nothing above it, so it could never run.\n• **A branch goes nowhere** — one side of a split has no next step.\n• **The step needs a different kind of record** — e.g. a job step under a trigger that gives you a customer.\n\nYou'll also see **warnings**. Those don't block publishing — they're things worth a look, like a step nothing can reach.\n\nPublishing never changes a run that's already going. Anything mid-flight finishes on the version it started with.",
   },
   {
     id: "general-capabilities",
@@ -292,6 +339,23 @@ If you haven't set any costs yet, the tab shows you the two things to set up ins
     question: "How do I archive or delete a customer?",
     answer:
       "**Archive** is what you usually want. It hides the customer from the Active tab without touching their history. Use the row menu or select several and click **Archive**. The **Archived** tab lists them, and each row has a **Restore** action.\n\n**Delete is permanent and is refused while the customer still has any job, invoice or quote — archived ones included.** The message tells you exactly what's blocking it. This is deliberate: jobs are linked to the customer, so deleting one would take its line items, photos and checklists with it.\n\nIf you delete several at once, anyone who is blocked is skipped and reported back to you — the toast says how many actually went through.",
+  },
+  {
+    id: "customers-unsubscribe",
+    category: "customers",
+    keywords: [
+      "unsubscribe",
+      "opt out",
+      "opted out",
+      "stop emails",
+      "marketing email",
+      "email preferences",
+      "resubscribe",
+      "unsubscribed",
+    ],
+    question: "What happens when a customer unsubscribes?",
+    answer:
+      "Every marketing email you send carries an unsubscribe link in the footer, and one-click unsubscribe in Gmail and Outlook works too. When a customer uses it:\n\n• They stop receiving **review requests**, **contract renewal reminders**, and anything an automation sends\n• They **keep** receiving estimates, invoices, receipts and booking confirmations — those are about work they asked for, so they're not something to unsubscribe from\n\n**Where to see it:** an amber **Unsubscribed** badge appears next to their email address on the customer page, with the date. The **Unsubscribed** tab on the Customers list shows everyone you can no longer email.\n\n**Resubscribing** isn't a link they can click by accident — if a customer asks to start receiving emails again, that has to be done deliberately from their record.\n\nThis is per business: unsubscribing from you doesn't affect any other business using Zaxvio.",
   },
   {
     id: "customers-duplicates",

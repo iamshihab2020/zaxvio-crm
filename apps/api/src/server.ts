@@ -31,6 +31,9 @@ import dashboardRoutes from "./routes/dashboard/index.js";
 import availabilityRoutes from "./routes/availability/index.js";
 import publicBookingRoutes from "./routes/public/booking.js";
 import publicQuoteRoutes from "./routes/public/quote.js";
+import publicUnsubscribeRoutes from "./routes/public/unsubscribe.js";
+import workflowRoutes from "./routes/workflows/index.js";
+import workflowGraphRoutes from "./routes/workflows/graph.js";
 import bookingRoutes from "./routes/bookings/index.js";
 import calendarEventRoutes from "./routes/calendar-events/index.js";
 import equipmentRoutes from "./routes/equipment/index.js";
@@ -274,6 +277,9 @@ export async function buildServer() {
   await fastify.register(availabilityRoutes, { prefix: "/availability" });
   await fastify.register(publicBookingRoutes, { prefix: "/public/booking" });
   await fastify.register(publicQuoteRoutes, { prefix: "/public/quote" });
+  await fastify.register(publicUnsubscribeRoutes, { prefix: "/public/unsubscribe" });
+  await fastify.register(workflowRoutes, { prefix: "/workflows" });
+  await fastify.register(workflowGraphRoutes, { prefix: "/workflows" });
   await fastify.register(bookingRoutes, { prefix: "/bookings" });
   await fastify.register(calendarEventRoutes, { prefix: "/calendar-events" });
   await fastify.register(equipmentRoutes, { prefix: "/equipment" });
@@ -312,6 +318,11 @@ async function start() {
 
   const shutdown = async (signal: string) => {
     printShutdownMessage(signal);
+    // Stop claiming before the pool closes, so nothing is left mid-flight
+    // holding a connection that is about to disappear. Anything already claimed
+    // is durable and comes back through stale recovery on the next boot.
+    const { stopEventWorker } = await import("./services/workflow/events/worker.js");
+    stopEventWorker();
     await server.close();
     await closeDb();
     process.exit(0);
@@ -331,6 +342,32 @@ async function start() {
   const { startEmailCronJobs } = await import("./lib/cron/email-cron.js");
   startEmailCronJobs();
   printCronStarted(["E-07 Invoice Overdue", "E-09 Renewal", "E-10 Trial Expiry"]);
+
+  // The workflow outbox worker. Started after `listen` for the same reason the
+  // crons are: a request served during boot should not race a background claim
+  // for the same connection pool.
+  //
+  // Subscribers are **registered here**, at the composition root, rather than
+  // imported by the worker — that is what keeps `worker.ts` free of any
+  // dependency on the engine, so the transport can be tested without booting
+  // the thing it carries. `goal_listener` has no handler until P6, and an
+  // unregistered subscriber completes its row rather than dead-lettering it.
+  const { startEventWorker, registerSubscriber } = await import(
+    "./services/workflow/events/worker.js"
+  );
+  const { handleTriggerEvent } = await import("./services/workflow/triggers/index.js");
+  const { getDb: getWorkflowDb } = await import("@hvac-saas/database");
+
+  registerSubscriber("workflow_trigger", async (event) => {
+    // Business outcomes — no filter matched, the subject was deleted, this
+    // automation is already running for this record — are **returns**, not
+    // throws. Throwing sends the row back for five attempts and a dead letter,
+    // and a dead-letter table full of "this automation correctly did not run"
+    // is worse than no dead-letter table.
+    await handleTriggerEvent(getWorkflowDb(), event);
+  });
+
+  startEventWorker();
 }
 
 start();

@@ -30,10 +30,72 @@
     overflow: hidden;
   }
 
+  /* A full-height app surface — the automation builder — opts the page out
+     of scrolling entirely.
+
+     The forced scrollbar above earns its place on ordinary pages, which
+     scroll. The builder does not: it fills the viewport and does its own
+     scrolling inside its panels, so a page scrollbar there is a control
+     that can never move. `scrollbar-gutter: stable` still reserves the
+     gutter, so opening a dialog over the canvas shifts nothing. */
+  html:has([data-fills-viewport]) {
+    overflow: hidden;
+  }
+
   /* The landing navbar is fixed, so an anchor jump would otherwise park the
      section heading underneath it. Every in-page target opts in. */
   [id] {
     scroll-margin-top: 6rem;
+  }
+
+  /* ───────────────────────────────────────────────────────────────
+     SCROLLBARS
+
+     The rule above forces a scrollbar on every page — deliberately, so
+     an opening dialog cannot shift the layout. The cost is that the
+     browser's default chrome is permanently on screen, and in dark mode
+     a light grey OS scrollbar against a near-black app is the loudest
+     thing in the window.
+
+     So it is themed rather than removed. Removing it is tempting and
+     wrong: most pages here genuinely scroll, and a scrollbar is the only
+     indication of how much is left — `scrollbar-width: none` buys a
+     cleaner screenshot and costs real orientation.
+
+     Thin, transparent track, thumb at the border token, brighter on
+     hover. Present when looked for, invisible when not.
+     ─────────────────────────────────────────────────────────────── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border-radius: 9999px;
+    /* Transparent border inset from the track, so the thumb reads as a
+       floating pill rather than as a filled channel edge-to-edge. */
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--input));
+  }
+
+  /* The corner where two scrollbars meet renders as a hard white square
+     otherwise, which is very visible in dark mode. */
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   /* ─────────────────────────────────────────────────────────────────
@@ -288,6 +350,103 @@
   .animate-card-enter {
     animation: card-enter 0.3s ease-out both;
     animation-delay: var(--enter-delay, 0ms);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────
+   AUTOMATION BUILDER — motion
+
+   Three rules this set follows, because a node editor is the easiest
+   place in an app to over-animate:
+
+   1. Motion explains a CHANGE, never decorates a resting state. Things
+      animate when they appear, and then stop.
+   2. Nothing on the canvas animates while it is being dragged or
+      panned — a transform fighting the pointer feels broken, not lively.
+   3. Everything here is switched off under prefers-reduced-motion at
+      the bottom of this block. A canvas that scales and slides is
+      exactly the kind of motion that triggers vestibular symptoms.
+   ───────────────────────────────────────────────────────────────── */
+
+/* A step arriving on the canvas. Scales from slightly small so it reads
+   as "placed", and starts from the point it was added rather than
+   sliding in from an edge it has no relationship to. */
+@keyframes node-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Rows in the palette and fields in the config panel. Travels along the
+   axis the panel opened from, so the motion agrees with the layout. */
+@keyframes panel-item-enter {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes panel-item-enter-right {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* The empty canvas's trigger placeholder. A slow breath, not a pulse —
+   it is the only thing on screen and it only has to be findable, not
+   urgent. */
+@keyframes placeholder-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--brand) / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px hsl(var(--brand) / 0.08);
+  }
+}
+
+@layer utilities {
+  .animate-node-enter {
+    animation: node-enter 0.18s cubic-bezier(0.2, 0, 0.13, 1.4) both;
+  }
+
+  .animate-panel-item {
+    animation: panel-item-enter 0.22s ease-out both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  .animate-panel-item-right {
+    animation: panel-item-enter-right 0.22s ease-out both;
+    animation-delay: var(--enter-delay, 0ms);
+  }
+
+  .animate-placeholder-breathe {
+    animation: placeholder-breathe 3.2s ease-in-out infinite;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-node-enter,
+  .animate-panel-item,
+  .animate-panel-item-right,
+  .animate-placeholder-breathe {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 

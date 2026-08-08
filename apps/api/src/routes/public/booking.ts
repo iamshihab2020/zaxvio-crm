@@ -32,6 +32,8 @@ import {
   slotsQuery,
   submitBookingBody,
 } from "../../lib/schemas/public-booking.js";
+import { emitBookingCreatedEvent } from "../../services/bookings/booking-events.service.js";
+import { emitCustomerCreatedEvent } from "../../services/customers/customer-events.service.js";
 
 /**
  * Rate limits for the unauthenticated surface ([[security-rules]] §4).
@@ -301,6 +303,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
           }
 
           // Create new customer if no match found
+          let customerIsNew = false;
           if (!customerId) {
             const nameParts = trimmedName.split(/\s+/);
             const firstName = nameParts[0] || trimmedName;
@@ -319,6 +322,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
               .returning();
 
             customerId = newCustomer.id;
+            customerIsNew = true;
           }
 
           // 2. Double-booking guard, re-checked inside the transaction.
@@ -339,7 +343,7 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
             throw new Error("SLOT_TAKEN");
           }
 
-          return tx
+          const inserted = await tx
             .insert(bookings)
             .values({
               tenantId: tenant.id,
@@ -357,6 +361,39 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
               quoteId: body.quoteId ?? null,
             })
             .returning();
+
+          // Events, in the same transaction as the rows they describe. This is
+          // the reason the outbox exists rather than a direct call: a portal
+          // submission that failed the double-booking re-check must not leave a
+          // workflow enrolled for a booking that was never made, and the visitor
+          // must not wait on an automation to get their 201.
+          //
+          // `actorUserId` is null throughout — a portal visitor is not a user of
+          // this CRM, and stamping one would put a fabricated name on the run's
+          // audit trail.
+          if (customerIsNew && customerId) {
+            await emitCustomerCreatedEvent(tx, {
+              tenantId: tenant.id,
+              actorUserId: null,
+              customerId,
+              source: "booking",
+            });
+          }
+
+          if (inserted[0]) {
+            await emitBookingCreatedEvent(tx, {
+              tenantId: tenant.id,
+              actorUserId: null,
+              bookingId: inserted[0].id,
+              // `body.source` also feeds `bookings.source`, which is free text
+              // and accepts anything. The event's `source` is a closed set, so
+              // anything that is not a recognised channel is reported as the
+              // portal it in fact came through.
+              source: body.source === "api" ? "api" : "portal",
+            });
+          }
+
+          return inserted;
         });
         created = rows[0] ?? null;
       } catch (err) {

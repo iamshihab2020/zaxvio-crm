@@ -36,7 +36,9 @@ import {
   IconDots,
   IconTrash,
   IconAlertCircle,
+  IconMailOff,
 } from "@tabler/icons-react";
+import { formatDateOnly } from "@/lib/format";
 
 interface TagData {
   id: string;
@@ -254,6 +256,15 @@ export function CustomerDetailHeader({
     .filter(Boolean)
     .join(", ");
 
+  // The column is a `timestamptz`, so the *type* is `Date` while the value that
+  // actually arrives over JSON is an ISO string. Round-tripping through `new
+  // Date` is correct for both and does not need a cast — the alternative,
+  // `String(aDate)`, produces "Thu Aug 07 2026" and `formatDateOnly` would slice
+  // ten characters off the weekday.
+  const optOutDate = customer.emailOptOutAt
+    ? formatDateOnly(new Date(customer.emailOptOutAt).toISOString())
+    : null;
+
   return (
     <>
       <div className="border-b border-border bg-card">
@@ -356,6 +367,22 @@ export function CustomerDetailHeader({
                     className="text-xs text-foreground"
                   />
                 </span>
+                {/*
+                  Sits beside the address, not somewhere in a settings tab. A
+                  tenant about to build an automated follow-up needs to see this
+                  where they see the address they are about to send to — the
+                  whole failure mode DF-NOT-01 describes is a rule that exists
+                  and is invisible at the moment it matters.
+                */}
+                {customer.emailOptOutAt ? (
+                  <span
+                    className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+                    title={`Unsubscribed ${optOutDate}. They'll still receive estimates, invoices and receipts.`}
+                  >
+                    <IconMailOff className="h-3 w-3" />
+                    Unsubscribed
+                  </span>
+                ) : null}
                 {/* Address is editable here now. It was read-only while name,
                     phone and email were not — and a service address is the field
                     a dispatcher corrects most often (CUST report §5.5). */}

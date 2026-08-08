@@ -19,6 +19,14 @@ import {
   canTransitionBooking,
   transitionError,
 } from "../../services/bookings.service.js";
+import {
+  emitBookingConvertedEvent,
+  emitBookingRescheduledEvent,
+  emitBookingStatusEvents,
+  type BookingStatusTransition,
+} from "../../services/bookings/booking-events.service.js";
+import { emitJobCreatedEvent } from "../../services/jobs/job-events.service.js";
+import { emitCustomerCreatedEvent } from "../../services/customers/customer-events.service.js";
 import { checkSlotBookable } from "../../services/availability.service.js";
 import { getTenantTomorrow, getMaxBookingDate } from "../../lib/timezone.js";
 import { env } from "../../lib/env.js";
@@ -424,42 +432,78 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       updates.updatedAt = new Date();
 
-      const [updated] = await db
-        .update(bookings)
-        .set(updates)
-        .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
-        .returning();
-
       const userId = request.authUser.userId;
 
-      // DF-BK-21: Log activity for status changes
-      if (updates.status && updates.status !== existing.status) {
-        await db.insert(bookingActivities).values({
-          tenantId,
-          bookingId: id,
-          type: "booking.status_changed",
-          description: `Status changed from "${existing.status}" to "${updates.status}"`,
-          metadata: { previousStatus: existing.status, newStatus: updates.status },
-          performedBy: userId,
-        });
-      }
+      // The update, its activity rows and its events in one transaction. They
+      // were three loose statements; the events make that untenable, because a
+      // booking that committed a cancellation without its `booking.cancelled`
+      // event leaves an automation permanently un-fired and nothing on screen
+      // to show for it.
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(bookings)
+          .set(updates)
+          .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
+          .returning();
 
-      if (isReschedule) {
-        await db.insert(bookingActivities).values({
-          tenantId,
-          bookingId: id,
-          type: "booking.rescheduled",
-          description: `Rescheduled to ${nextDate}${nextTime ? ` at ${nextTime}` : ""}`,
-          metadata: {
-            previousDate: existing.bookingDate,
-            previousTime: existing.preferredTime,
-            newDate: nextDate,
-            newTime: nextTime,
-            forced: body.force === true,
-          },
-          performedBy: userId,
-        });
-      }
+        // DF-BK-21: Log activity for status changes
+        if (updates.status && updates.status !== existing.status) {
+          await tx.insert(bookingActivities).values({
+            tenantId,
+            bookingId: id,
+            type: "booking.status_changed",
+            description: `Status changed from "${existing.status}" to "${updates.status}"`,
+            metadata: { previousStatus: existing.status, newStatus: updates.status },
+            performedBy: userId,
+          });
+        }
+
+        if (isReschedule) {
+          await tx.insert(bookingActivities).values({
+            tenantId,
+            bookingId: id,
+            type: "booking.rescheduled",
+            description: `Rescheduled to ${nextDate}${nextTime ? ` at ${nextTime}` : ""}`,
+            metadata: {
+              previousDate: existing.bookingDate,
+              previousTime: existing.preferredTime,
+              newDate: nextDate,
+              newTime: nextTime,
+              forced: body.force === true,
+            },
+            performedBy: userId,
+          });
+        }
+
+        // The same helper the bulk path and DELETE call. A no-op transition
+        // emits nothing, so re-saving a confirmed booking sends no second
+        // confirmation.
+        if (body.status) {
+          await emitBookingStatusEvents(tx, {
+            tenantId,
+            actorUserId: userId,
+            transitions: [
+              {
+                bookingId: id,
+                from: existing.status as BookingStatus,
+                to: body.status,
+              },
+            ],
+          });
+        }
+
+        if (isReschedule) {
+          await emitBookingRescheduledEvent(tx, {
+            tenantId,
+            actorUserId: userId,
+            bookingId: id,
+            fromDate: existing.bookingDate,
+            fromTime: existing.preferredTime,
+          });
+        }
+
+        return row;
+      });
 
       // DF-BK-23: Send confirmation email when status changes to "confirmed"
       if (updates.status === "confirmed" && existing.status !== "confirmed" && existing.customerEmail) {
@@ -620,6 +664,17 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
                 .returning();
 
               customerId = newCustomer.id;
+
+              // A conversion that has to invent a customer has created one, and
+              // that is the same event `POST /customers` emits. Source is
+              // `booking` so a welcome automation can tell "signed up" from
+              // "we made them a record because they booked".
+              await emitCustomerCreatedEvent(tx, {
+                tenantId,
+                actorUserId: userId,
+                customerId: newCustomer.id,
+                source: "booking",
+              });
             }
 
             // Update booking with customer reference
@@ -774,6 +829,50 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
             performedBy: userId,
           });
 
+          // 9. Events, inside the same transaction as everything above.
+          //
+          // Read the job back for its trigger-issued number before either event
+          // uses it — `newJob.jobNumber` is the pre-trigger empty string, which
+          // is why the activity row above falls back to the id.
+          const [convertedJob] = await tx
+            .select({ id: jobs.id, jobNumber: jobs.jobNumber })
+            .from(jobs)
+            .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, newJob.id)));
+
+          // A conversion also confirms a pending booking, and that is a real
+          // status change a customer-facing automation should see. Emitted
+          // through the shared helper so it is the same event a manual confirm
+          // produces.
+          if (booking.status === "pending") {
+            await emitBookingStatusEvents(tx, {
+              tenantId,
+              actorUserId: userId,
+              transitions: [
+                { bookingId: booking.id, from: "pending", to: "confirmed" },
+              ],
+            });
+          }
+
+          await emitBookingConvertedEvent(tx, {
+            tenantId,
+            actorUserId: userId,
+            bookingId: booking.id,
+            job: {
+              id: convertedJob.id,
+              jobNumber: convertedJob.jobNumber ?? "",
+            },
+          });
+
+          // And `job.created`, from the same helper `POST /jobs` and the quote
+          // conversion use — three ways to create a job, one payload shape.
+          await emitJobCreatedEvent(tx, {
+            tenantId,
+            actorUserId: userId,
+            jobId: newJob.id,
+            origin: "booking",
+            originId: booking.id,
+          });
+
           return newJob;
         });
       } catch (err) {
@@ -859,20 +958,39 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const userId = request.authUser.userId;
 
-      const [updated] = await db
-        .update(bookings)
-        .set({ status: "cancelled", updatedAt: new Date() })
-        .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
-        .returning();
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(bookings)
+          .set({ status: "cancelled", updatedAt: new Date() })
+          .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
+          .returning();
 
-      // DF-BK-21: Log cancel activity
-      await db.insert(bookingActivities).values({
-        tenantId,
-        bookingId: id,
-        type: "booking.cancelled",
-        description: `Booking cancelled (was "${existing.status}")`,
-        metadata: { previousStatus: existing.status },
-        performedBy: userId,
+        // DF-BK-21: Log cancel activity
+        await tx.insert(bookingActivities).values({
+          tenantId,
+          bookingId: id,
+          type: "booking.cancelled",
+          description: `Booking cancelled (was "${existing.status}")`,
+          metadata: { previousStatus: existing.status },
+          performedBy: userId,
+        });
+
+        // Cancelling through DELETE and cancelling through PATCH are the same
+        // event. The route above returns early for an already-cancelled
+        // booking, so this is always a real transition.
+        await emitBookingStatusEvents(tx, {
+          tenantId,
+          actorUserId: userId,
+          transitions: [
+            {
+              bookingId: id,
+              from: existing.status as BookingStatus,
+              to: "cancelled",
+            },
+          ],
+        });
+
+        return row;
       });
 
       // DF-BK-22: Notify team of cancellation
@@ -1121,22 +1239,36 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       // Same status machine as PATCH /bookings/:id (BOOK-22).
       const eligibleIds: string[] = [];
+      const transitions: BookingStatusTransition[] = [];
       for (const row of existing) {
         const from = row.status as BookingStatus;
         if (!canTransitionBooking(from, status)) {
           errors.push({ id: row.id, reason: transitionError(from, status) });
         } else {
           eligibleIds.push(row.id);
+          transitions.push({ bookingId: row.id, from, to: status });
         }
       }
 
       if (eligibleIds.length > 0) {
-        await db
-          .update(bookings)
-          .set({ status, updatedAt: new Date() })
-          .where(
-            and(eq(bookings.tenantId, tenantId), inArray(bookings.id, eligibleIds)),
-          );
+        await db.transaction(async (tx) => {
+          await tx
+            .update(bookings)
+            .set({ status, updatedAt: new Date() })
+            .where(
+              and(eq(bookings.tenantId, tenantId), inArray(bookings.id, eligibleIds)),
+            );
+
+          // The same emitter the single path uses. JOB-22 was exactly this
+          // divergence in the jobs domain — the bulk path silently skipped what
+          // the single path did — and it is not going to be re-introduced here
+          // by having two places that decide what a status change means.
+          await emitBookingStatusEvents(tx, {
+            tenantId,
+            actorUserId: request.authUser.userId,
+            transitions,
+          });
+        });
       }
 
       return reply.send({ succeeded: eligibleIds.length, failed: errors.length, errors });

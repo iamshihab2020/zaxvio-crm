@@ -23,3 +23,4 @@ export * from "./pipeline-stage.js";
 export * from "./dashboard.js";
 export * from "./notification.js";
 export * from "./reports.js";
+export * from "./workflow.js";

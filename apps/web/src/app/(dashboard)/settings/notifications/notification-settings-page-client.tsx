@@ -38,6 +38,12 @@ const NOTIFICATION_CHANNEL_DEFAULTS: Record<
   quote_declined: { inApp: true, email: true, sms: false, voice: false },
   invoice_overdue: { inApp: true, email: true, sms: false, voice: false },
   team_member_joined: { inApp: true, email: false, sms: false, voice: false },
+  message_received: { inApp: true, email: true, sms: false, voice: false },
+  // In-app on, email **off** by default. An automation can fire a hundred times
+  // a day and the point of one is to save you attention, not spend it — a
+  // tenant who wants these in their inbox can say so, and a tenant who does not
+  // should never have had to.
+  workflow_alert: { inApp: true, email: false, sms: false, voice: false },
 };
 
 const NOTIFICATION_TYPES = [
@@ -49,6 +55,8 @@ const NOTIFICATION_TYPES = [
   { type: "quote_declined", label: "Quote Declined" },
   { type: "invoice_overdue", label: "Invoice Overdue" },
   { type: "team_member_joined", label: "Team Member Joined" },
+  { type: "message_received", label: "Customer Replied" },
+  { type: "workflow_alert", label: "Automation Alerts" },
 ] as const;
 
 interface ChannelConfig {

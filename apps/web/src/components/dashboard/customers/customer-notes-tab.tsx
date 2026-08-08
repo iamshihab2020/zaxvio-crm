@@ -18,10 +18,27 @@ import { IconNote, IconEdit, IconTrash, IconCheck, IconX } from "@tabler/icons-r
 interface Note {
   id: string;
   content: string;
-  createdBy: string;
+  /** Null when an automation wrote it. */
+  createdBy: string | null;
   authorName: string | null;
+  createdByWorkflowId: string | null;
+  authorWorkflowName: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Who wrote this note.
+ *
+ * An automation is a real author and is named as one — "Quote follow-up"
+ * rather than "Unknown", which reads as data loss. "Unknown" survives for the
+ * genuine case: a note whose author has since been removed from the team.
+ */
+function authorLabel(note: Note): string {
+  if (note.authorName) return note.authorName;
+  if (note.authorWorkflowName) return `${note.authorWorkflowName} (automation)`;
+  if (note.createdByWorkflowId) return "An automation";
+  return "Unknown";
 }
 
 interface CustomerNotesTabProps {
@@ -181,7 +198,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
                     </p>
                     <div className="flex items-center justify-between border-t border-border/40 pt-2.5">
                       <p className="text-xs text-muted-foreground">
-                        {note.authorName ?? "Unknown"} &middot;{" "}
+                        {authorLabel(note)} &middot;{" "}
                         {new Date(note.createdAt).toLocaleDateString()}{" "}
                         {new Date(note.createdAt).toLocaleTimeString([], {
                           hour: "2-digit",

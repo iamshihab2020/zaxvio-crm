@@ -194,3 +194,179 @@
   copied at the moment hours are saved, so giving somebody a raise does not
   retroactively rewrite last year's margins. Same reasoning as `unit_price` on
   line items, which the codebase had done since the beginning.
+
+## Test harness against Neon (2026-08-07)
+
+- **`withRollback` is the whole integration-test story: run against the real database, commit
+  nothing.** Every test body runs inside a transaction that is unconditionally rolled back, so
+  tests exercise real foreign keys, real partial unique indexes and real generated columns, and
+  leave the database exactly as they found it — no truncate step, no fixture cleanup, no ordering
+  dependency between suites. This is only possible because the services here already accept a
+  transaction handle (`Omit<ReturnType<typeof getDb>, "$client">`, added for the quote→job
+  conversion). That decision paid for itself twice.
+- **A constraint violation aborts the whole transaction, so a schema test cannot assert twice.**
+  Postgres returns `25P02 current transaction is aborted` for every statement after an error, which
+  means a test that deliberately triggers a `23505` and then wants to check that a *legitimate*
+  second row is still accepted will fail on the second half. The fix is a SAVEPOINT: Drizzle's
+  nested `db.transaction()` emits one, so `expectViolation()` in `src/test/db.ts` rolls back only
+  the failing statement and the outer transaction survives. Without this, half of what a schema test
+  is for is unexpressible.
+- **`ON DELETE RESTRICT` raises `23001`, not `23503`.** `restrict_violation` and
+  `foreign_key_violation` are different SQLSTATEs, and the difference is real: RESTRICT is checked
+  immediately and can never be deferred, while NO ACTION is checked at end-of-statement and could be
+  deferred by `SET CONSTRAINTS`. Assert the precise code when the immediacy is the guarantee you
+  care about.
+- **Drizzle names every schema column in an `INSERT`, so an unapplied migration breaks writes to
+  that table entirely — not just the new columns.** `20260806000001_job_costing.sql` had never been
+  run against Neon, and the effect was that *every* insert into `tenants`, `jobs`, `job_line_items`
+  and `catalog_items` failed with `42703 column "default_labor_cost_rate" does not exist`. Onboarding,
+  job creation, line items and the catalog were all broken against the live database while the code
+  looked fine. There is no partial-application mode: schema and migration must move together, and
+  "the migration is written" is not the same as "the migration is applied".
+
+## Event instrumentation across the domain routes (2026-08-07)
+
+- **`Omit<ReturnType<typeof getDb>, "$client">` is the only correct `db` type for anything a route
+  might call inside a transaction — and this repo has now got it wrong three times.**
+  `job-stages.service.ts` had it (QUO-02), `recalculateJobTotals` in `routes/jobs/index.ts` had it,
+  and both were found the same way: a handler that needed to become transactional couldn't, because
+  one helper in the middle refused a transaction handle. A Drizzle transaction has every query
+  method and no `$client`. Type new helpers this way from the start; the alternative is discovering
+  it at the moment you can least afford a refactor.
+- **Emit the event *inside* the caller's transaction, and emit it after the money.** Two separate
+  rules, both learned here. A queue row that commits apart from the domain write is either an
+  automation firing for work that rolled back, or a committed change whose automation silently
+  vanished. And a row written by `INSERT` starts at `0.00` — emitting `invoice.created` or
+  `quote.created` before the recalculation means a workflow gating on "over $2,000" never matches
+  anything, which reads as "the trigger is broken" rather than "the payload was early".
+- **One emitter per concept, not per route.** `booking.cancelled` is written by `PATCH`, `DELETE`
+  and `bulk-status-update`; `invoice.voided` by `/void`, `PATCH /:id/status` and the bulk path.
+  Each of those pairs has already diverged once in this codebase (JOB-22: the bulk job path sent no
+  completion email at all). A shared `emit*StatusEvents(transitions)` that filters `from === to`
+  itself makes the divergence unexpressible instead of findable.
+- **A no-op write must not emit.** Re-sending an invoice, re-saving a confirmed booking, re-adding
+  a tag that is already there, PATCHing a customer with identical values — all of these reach the
+  same handler as the real thing. `onConflictDoNothing().returning()` returning nothing, and a
+  `from !== to` filter, are what separate them. Without that, "when a tag is added" fires every time
+  someone opens the tag picker.
+- **`.returning()` on a DELETE is how you tell "removed" from "was not there".**
+  `DELETE /customers/:id/tags/:tagId` was idempotent by accident — it deleted unconditionally and
+  logged an activity either way. Idempotent responses are fine; an event that fires when nothing
+  changed is not.
+
+## Workflow engine (2026-08-08)
+
+- **Pauses have to be exceptions, not return values.** A wait node five frames
+  deep inside a loop body must suspend the whole run. As a discriminated return
+  every frame between it and the traverser has to check, and one missed check is
+  a "pause" that quietly carries on. As a throw, control flow reads top to
+  bottom and a missing handler is loud.
+- **Compare-and-set on every transition out of `running`.** `UPDATE … WHERE id =
+  ? AND status = 'running'`. A delay pause and a concurrent goal exit can both
+  believe they own the row; without the guard the later write wins silently and
+  the run is `waiting` or `completed` depending on which column you read.
+- **A unique-constraint violation can be the success path.** `23505` on the
+  execution table's `idempotency_key` means "this event was already handled" and
+  on `active_dedup_key` means "this subject is already mid-run" — both are
+  answers, not errors. That is the structural version of a query-then-insert
+  race, and it is why the indexes are partial.
+- **Resolve variables through a closed map, never by walking the context.**
+  Prototype-chain access then isn't reachable at all, and the `env`/`__proto__`
+  deny-list becomes defence in depth rather than the mechanism. The four
+  namespaces that *must* walk an object (`previous`, `vars`, `trigger`, `loop`)
+  walk **their own** object with `hasOwnProperty` checks — `in` and bare bracket
+  access both traverse the prototype, so `{{vars.toString}}` would resolve to a
+  function.
+- **Format by declaration, never by the value's shape.** The reference system
+  sniffed values and rendered a ten-digit Google Ads campaign id as
+  `(123) 456-7890`. `format: "phone"` lives on the variable, not in a heuristic.
+- **Declare what a node mutates and let the engine re-read it — including the
+  analytics cache.** The server invalidates that cache on an `onResponse` hook,
+  and an engine write has no request, so nothing fires for it. Without one line
+  in `refreshAfterNode`, a workflow that records a payment leaves the dashboard
+  wrong for ten minutes and nothing says why. It is the easiest thing in the
+  engine to forget and the hardest to notice.
+- **An "already running" at-most-once node should fail loudly, not re-send.** A
+  crash mid-send leaves a `running` log row, and the honest answer is "we don't
+  know whether the customer got that email". Re-sending to be safe is the wrong
+  kind of safe.
+- **Fail closed on an unknown ownership kind.** `assertOwnership` returns false
+  for a kind it has no checker for, so adding a new one refuses until somebody
+  writes the check. A permissive default would make the next `ownership: "…"`
+  silently unenforced.
+- **Hand-written migrations have no runner in this repo — apply them with
+  `postgres.js` `sql.unsafe(file).simple()`.** There is no `psql` on the dev
+  machine, and `pnpm db:migrate` is `drizzle-kit migrate`, which only applies
+  what is listed in `meta/_journal.json` — 32 of 42 files are not. So every
+  audit migration is applied by script or not at all. `.simple()` is the load-
+  bearing part: without it postgres.js uses the extended protocol, which allows
+  exactly **one** statement per call, and a migration file is many. Note the
+  trade-off — a multi-statement simple query is an *implicit transaction*, so
+  the whole file is all-or-nothing (good), but `ALTER TYPE … ADD VALUE` is only
+  legal in a transaction block on PG 12+ (Neon is 18.4, so fine) and the new
+  value cannot be used by a later statement in the same file.
+- **A deliberate constraint violation inside a transaction poisons every
+  assertion after it — wrap negative tests in a `SAVEPOINT`.** Postgres aborts
+  the *entire* transaction on any failed statement; catching the error in
+  JavaScript does not un-abort it. A verification script that checks "a bogus FK
+  is refused" and then keeps asserting is reading a dead transaction, and the
+  errors it reports afterwards are misleading rather than absent — this cost a
+  run where a bad `INSERT` was blamed on the FK it had nothing to do with. Use
+  `tx.savepoint(async sp => { … })` around the failing probe. Same reason
+  `withRollback()` exists, one level down.
+- **Verify a migration's *purpose*, not just its shape.** Column-and-index diffs
+  prove the DDL ran; they cannot prove `ON DELETE SET NULL` was written where
+  `CASCADE` was meant. Deleting the parent and asserting the child **survived**
+  is a two-line check that catches a clause which reads correctly and destroys
+  data. The structural pass and the behavioural pass find different bugs.
+- **The same predicate needs opposite defaults for the engine and the validator
+  — decide which caller you are writing for.** `assertOwnership` returns false
+  for an ownership kind it has no checker for, which is right at execution time
+  (an id you cannot verify must not be used) and wrong at publish time, where it
+  would tell the author "you do not own this customer" for the eight of eleven
+  kinds nobody has written a checker for yet — untrue, and unfixable from inside
+  the product. A shared helper with one fail-closed default silently makes the
+  permissive caller wrong. Export the *set of what is checkable* alongside the
+  checker so each caller picks its own default explicitly.
+- **A rule that must run in the browser and on the server belongs in the pure
+  package, whatever the design doc says.** wf-08 §8.7 placed the graph validator
+  in `services/workflow/graph/validate.ts` and also said the browser imports it —
+  which cannot both be true, because the browser cannot import from `apps/api`.
+  The resolution is to split by *purity*, not by layer: structural rules go in
+  `packages/workflow-nodes` (zod only, no Drizzle, no I/O), and only the rules
+  genuinely needing the database stay server-side and wrap it. Two validators
+  would disagree, and the one the user sees would be the wrong one.
+- **Two structurally identical interfaces in two packages type-check perfectly
+  and drift immediately.** `GraphIssue` was declared in both
+  `@hvac-saas/workflow-nodes` and `@hvac-saas/types`; assignment between them
+  worked, so nothing complained — while `code` was already a closed union in one
+  and a bare `string` in the other. Structural typing hides the duplication
+  instead of catching it. Pick the package lowest in the dependency graph as
+  canonical and leave a pointer comment in the other; a type-only re-export
+  erases at compile time if a real re-export is wanted.
+- **A comment claiming two functions cooperate is not the same as them
+  cooperating.** `isPropertyVisible` carried a doc comment saying it was "shared
+  by the config renderer and the validator so a hidden required field never
+  blocks a publish" — and `getMissingRequiredFields` never called it. Choosing
+  "Plain text" hides the HTML body field, so Publish would have been blocked
+  forever on a control that appears nowhere on screen. When a comment asserts a
+  relationship between two functions, grep for the call before trusting it.
+- **Two endpoints the client treats as interchangeable must actually be
+  interchangeable — and a comment asserting it does not make it so.** `POST
+  /publish` returns its problem list in a 422 body, but `api-fetch` nulls `data`
+  on any non-2xx, so the client re-reads that list from `GET /:id/validate`. The
+  action carried a comment saying the two "return exactly the same thing by
+  construction: both call the same validator". That was true when written and
+  stopped being true the moment a name check was added to the publish path
+  alone: publish refused an unnamed automation, the client re-read a list that
+  knew nothing about names, and the dialog rendered **"There are 0 things to fix
+  first"** — telling the user their automation was fine while refusing to
+  publish it. The fix is to put the rule in the shared validator so the claim is
+  structural, not aspirational. The tell was there in the comment: an invariant
+  worth writing down is one worth enforcing in code.
+- **Guard the impossible state anyway when the consequence is a lie.** Even with
+  the rule shared, the client now refuses to open the problem dialog on an empty
+  list and falls back to the server's own message. A dialog that says nothing is
+  wrong, while the action it is explaining was refused, is worse than a plain
+  error toast — it teaches the user the product is broken rather than that their
+  input is.

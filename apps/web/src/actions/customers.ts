@@ -38,6 +38,14 @@ export async function getCustomers(params?: {
   sortOrder?: string;
   showArchived?: boolean;
   tagId?: string;
+  /**
+   * `true` → only customers who have unsubscribed. Omitted → no opinion.
+   *
+   * Deliberately tri-state rather than a boolean defaulting to false: a
+   * customer list filtered to the reachable by default would quietly hide
+   * people, which is the opposite of what surfacing consent is for.
+   */
+  optedOut?: boolean;
 }) {
   try {
     const searchParams = new URLSearchParams();
@@ -48,6 +56,9 @@ export async function getCustomers(params?: {
     if (params?.sortOrder) searchParams.set("sortOrder", params.sortOrder);
     if (params?.showArchived) searchParams.set("showArchived", "true");
     if (params?.tagId) searchParams.set("tagId", params.tagId);
+    if (params?.optedOut !== undefined) {
+      searchParams.set("optedOut", params.optedOut ? "true" : "false");
+    }
 
     const qs = searchParams.toString();
     const res = await fetch(`${API_URL}/customers${qs ? `?${qs}` : ""}`, {

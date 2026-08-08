@@ -19,6 +19,7 @@ import {
   declineQuoteBody,
 } from "../../lib/schemas/public-quote.js";
 import { displayStatus } from "../../services/quotes/quotes.service.js";
+import { emitQuoteResponseEvent } from "../../services/quotes/quote-events.service.js";
 import { todayInTimezone } from "../../lib/timezone.js";
 
 /**
@@ -271,6 +272,27 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           updatedAt: new Date(),
         })
         .where(and(eq(quotes.id, quoteId), eq(quotes.tenantId, tenantId)));
+
+      // Inside the claim, deliberately. Only the request that won the lock
+      // reaches this line, so an accept racing a decline emits exactly one
+      // event — and it is the one that matches the status now on the row. Emit
+      // it from the route instead and both racers would emit, because both
+      // reach their own `if (!claim.ok)` only after this transaction commits.
+      //
+      // `actorUserId` is null: the customer is not a user of this CRM.
+      await emitQuoteResponseEvent(tx, {
+        tenantId,
+        actorUserId: null,
+        quoteId,
+        response: apply.status,
+        reason: apply.declineReason ?? null,
+        requestedDate: apply.scheduledDate ?? null,
+        requestedTime: apply.scheduledTime ?? null,
+        // Auto-conversion runs after the claim commits, so there is genuinely
+        // no job id yet. Reporting null is honest; a workflow that needs the
+        // job waits on `job.created` with `origin: "quote"`.
+        convertedToJobId: null,
+      });
 
       return { ok: true as const };
     });

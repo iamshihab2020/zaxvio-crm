@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { boundedText, idParam, paginationQuery } from "./common.js";
+import { booleanFlag, boundedText, idParam, paginationQuery } from "./common.js";
 
 // ── Params ────────────────────────────────────────────────────────────────────
 
@@ -104,6 +104,16 @@ export const customerListQuery = paginationQuery.extend({
   sortOrder: z.enum(["asc", "desc"]).default("desc"),
   /** Filter to customers carrying this tag — the reason tags exist (CUST-12). */
   tagId: z.string().uuid().optional(),
+  /**
+   * `?optedOut=true` — who can we no longer email.
+   *
+   * A tenant who is about to build a five-step nurture sequence needs to be able
+   * to answer that before they build it, not after a customer complains
+   * (DF-NOT-01 §6). `booleanFlag`, never `z.coerce.boolean()`: that is
+   * `Boolean(value)` and `Boolean("false")` is true, which is how
+   * `?showArchived=false` once returned archived-only (CUST-29).
+   */
+  optedOut: booleanFlag.optional(),
 });
 
 export const duplicateCheckQuery = z.object({

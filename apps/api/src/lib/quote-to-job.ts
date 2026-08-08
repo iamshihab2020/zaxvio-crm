@@ -17,6 +17,7 @@ import {
   getFirstStage,
   resolveStage,
 } from "../services/job-stages.service.js";
+import { emitJobCreatedEvent } from "../services/jobs/job-events.service.js";
 
 interface QuoteData {
   id: string;
@@ -222,6 +223,23 @@ export async function convertQuoteToJob(
       description: `Created from quote ${quote.quoteNumber}`,
       performedBy: options.performedBy ?? null,
       metadata: { quoteId: quote.id },
+    });
+
+    // `job.created`, from the same helper `POST /jobs` uses, so a job born from
+    // a quote produces the identical payload to one created by hand. This file
+    // is precisely why that is worth insisting on: it wrote `jobs.status` by
+    // hand and skipped `stage_id` for four days after the jobs audit converted
+    // every writer *inside* `routes/jobs` and never grepped outside it (QUO-02).
+    //
+    // `actorUserId` is null on the public accept path — a portal visitor is not
+    // a user, and recording "system" would make an automation's audit trail
+    // claim a person did it.
+    await emitJobCreatedEvent(tx, {
+      tenantId,
+      actorUserId: options.performedBy ?? null,
+      jobId: job.id,
+      origin: "quote",
+      originId: quote.id,
     });
 
     return { jobId: job.id, jobNumber: createdJob.jobNumber };

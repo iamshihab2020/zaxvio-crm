@@ -269,32 +269,102 @@ export async function createMessage(data: {
 }): Promise<MessageRow> {
   const db = getDb();
 
-  const [inserted] = await db
-    .insert(messages)
-    .values({
-      conversationId: data.conversationId,
-      tenantId: data.tenantId,
-      direction: data.direction,
-      channel: data.channel,
-      body: data.body,
-      subject: data.subject ?? null,
-      status: data.status ?? "sent",
-      externalId: data.externalId ?? null,
-      senderId: data.senderId ?? null,
-    })
-    .returning();
+  // The insert, the conversation bump and — for an inbound message — the
+  // workflow event, in one transaction. `message.received` is the trigger a
+  // "stop chasing them" automation waits on, so a reply that landed without its
+  // event would leave a customer being dunned after they had already answered.
+  const inserted = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(messages)
+      .values({
+        conversationId: data.conversationId,
+        tenantId: data.tenantId,
+        direction: data.direction,
+        channel: data.channel,
+        body: data.body,
+        subject: data.subject ?? null,
+        status: data.status ?? "sent",
+        externalId: data.externalId ?? null,
+        senderId: data.senderId ?? null,
+      })
+      .returning();
 
-  // Update conversation lastMessageAt + unreadCount (only for inbound)
-  await db
-    .update(conversations)
-    .set({
-      lastMessageAt: inserted.createdAt,
-      updatedAt: inserted.createdAt,
-      ...(data.direction === "inbound"
-        ? { unreadCount: sql`${conversations.unreadCount} + 1` }
-        : {}),
-    })
-    .where(eq(conversations.id, data.conversationId));
+    // Update conversation lastMessageAt + unreadCount (only for inbound).
+    // Tenant-scoped: this matched on the conversation id alone, and every other
+    // write in this service carries the predicate ([[security-rules]] §1).
+    await tx
+      .update(conversations)
+      .set({
+        lastMessageAt: row.createdAt,
+        updatedAt: row.createdAt,
+        ...(data.direction === "inbound"
+          ? { unreadCount: sql`${conversations.unreadCount} + 1` }
+          : {}),
+      })
+      .where(
+        and(
+          eq(conversations.tenantId, data.tenantId),
+          eq(conversations.id, data.conversationId),
+        ),
+      );
+
+    if (data.direction === "inbound") {
+      // Read the conversation's customer with a tenant predicate on **both**
+      // sides. This is the join the 2026-08-06 audit found unguarded three
+      // times in this very file, where an unchecked id leaked a name, email and
+      // phone number belonging to another tenant.
+      const [context] = await tx
+        .select({
+          customerId: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          email: customers.email,
+          phone: customers.phone,
+        })
+        .from(conversations)
+        .innerJoin(
+          customers,
+          and(
+            eq(conversations.customerId, customers.id),
+            eq(customers.tenantId, data.tenantId),
+          ),
+        )
+        .where(
+          and(
+            eq(conversations.tenantId, data.tenantId),
+            eq(conversations.id, data.conversationId),
+          ),
+        );
+
+      if (context) {
+        const { messageReceived } = await import(
+          "./workflow/events/producers/index.js"
+        );
+        await messageReceived(tx, {
+          tenantId: data.tenantId,
+          // Inbound means the customer wrote it. No user of this CRM acted.
+          actorUserId: null,
+          customer: {
+            id: context.customerId,
+            firstName: context.firstName,
+            lastName: context.lastName,
+            email: context.email,
+            phone: context.phone,
+          },
+          conversationId: data.conversationId,
+          message: {
+            id: row.id,
+            channel: data.channel,
+            subject: data.subject ?? null,
+            body: data.body,
+            receivedAt: row.createdAt,
+          },
+        });
+      }
+    }
+
+    return row;
+  });
 
   return {
     ...inserted,

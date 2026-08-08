@@ -120,12 +120,30 @@ export async function expireLapsedQuotes(
   tenantId: string,
   timezone: string,
 ): Promise<number> {
-  const rows = await db
-    .update(quotes)
-    .set({ status: "expired", updatedAt: new Date() })
-    .where(and(eq(quotes.tenantId, tenantId), expiredCondition(timezone)))
-    .returning({ id: quotes.id });
-  return rows.length;
+  // The flip and its events in one transaction. The `UPDATE` is itself the
+  // claim — a second sweep running concurrently matches nothing, because the
+  // rows it would have taken are no longer `sent` — and the producer carries a
+  // `dedupKey` besides, so a quote can be announced expired exactly once even
+  // if the two halves ever came apart.
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .update(quotes)
+      .set({ status: "expired", updatedAt: new Date() })
+      .where(and(eq(quotes.tenantId, tenantId), expiredCondition(timezone)))
+      .returning({ id: quotes.id });
+
+    if (rows.length > 0) {
+      // Imported lazily: `quote-events.service.ts` reaches the whole producer
+      // tree, and this module is pulled in by every quote read path.
+      const { emitQuoteExpiredEvents } = await import("./quote-events.service.js");
+      await emitQuoteExpiredEvents(tx, {
+        tenantId,
+        quoteIds: rows.map((r) => r.id),
+      });
+    }
+
+    return rows.length;
+  });
 }
 
 /**

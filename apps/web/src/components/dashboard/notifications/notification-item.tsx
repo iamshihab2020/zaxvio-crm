@@ -11,6 +11,8 @@ import {
   IconAlertTriangle,
   IconUsers,
   IconBell,
+  IconBolt,
+  IconMessage,
 } from "@tabler/icons-react";
 import { formatRelativeTime } from "@/lib/format";
 import { bookingLink } from "@/lib/entity-links";
@@ -24,6 +26,10 @@ const ICON_MAP: Record<string, React.ElementType> = {
   quote_declined: IconCircleX,
   invoice_overdue: IconAlertTriangle,
   team_member_joined: IconUsers,
+  message_received: IconMessage,
+  // One type for every automation notification. What it is *about* lives in the
+  // title, not in the type — see the enum comment in `schema/enums.ts`.
+  workflow_alert: IconBolt,
 };
 
 const ICON_COLOR_MAP: Record<string, string> = {
@@ -35,6 +41,8 @@ const ICON_COLOR_MAP: Record<string, string> = {
   quote_declined: "text-red-500 dark:text-red-400",
   invoice_overdue: "text-amber-500 dark:text-amber-400",
   team_member_joined: "text-blue-500 dark:text-blue-400",
+  message_received: "text-blue-500 dark:text-blue-400",
+  workflow_alert: "text-brand",
 };
 
 // Entities that have /[id] detail pages

@@ -645,6 +645,12 @@ List customers with search, filtering, and pagination.
 | `sortOrder` | string | `"desc"` | `asc`, `desc` |
 | `showArchived` | boolean | `false` | `true`/`false`/`1`/`0`. Omit for active only |
 | `tagId` | uuid | - | Only customers carrying this tag |
+| `optedOut` | boolean | - | `true` = only customers who have unsubscribed, `false` = only those who have not. **Omit for no filter** — the list is never silently narrowed to the reachable |
+
+Every row carries `emailOptOutAt` (`timestamptz` or `null`) and
+`emailOptOutSource` (`unsubscribe_link` / `manual` / `complaint` / `import`).
+A non-null `emailOptOutAt` means the customer will not receive marketing or
+reminder email; estimates, invoices and receipts are unaffected.
 
 **Response** `200 OK`
 
