@@ -191,7 +191,20 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       proof** — a pause surviving a deploy, version pinning across a publish, the DST boundary,
       the goal/delay race — and none has been run. **Internal alpha gate.**
 - [ ] **P7** CRM pickers, node breadth, and `services/jobs/` extraction ([[architecture|ARC-05]])
-- [ ] **P8** Observability, replay, run-from-node
+- [~] **P8** Observability, replay, run-from-node — **run history written, unrun.** Pulled forward
+      out of order because an audit found the thing the plan had not: `node_execution_logs` had a
+      writer on every node since P3 and **no reader anywhere outside a test**, and neither did
+      `workflow_executions`. An automation could be built, published, switched on and run with no
+      way for its owner to know it had done anything — and six commits landed on that before
+      anyone looked. Two endpoints, a service, a route at `/automations/[id]/runs` with the filter
+      and the open run in the URL, and a step timeline that leads on `error_hint`/`skip_reason`
+      rather than `error_message`, because the reader is the person who has to fix it.
+      `waiting` and `cancelled` each get their own treatment — a three-day pause is not a failure
+      and "stop chasing this paid invoice" is the automation working.
+      The audit was mechanical (hooks vs caller counts, tables vs touching files) and also found
+      three hooks with **0 callers**: `useWorkflowQuota`, `useWorkflowVersions`,
+      `useWorkflowValidation`. Two remain unconsumed.
+      Remaining: replay, run-from-node, the retention sweep, and a global activity view.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

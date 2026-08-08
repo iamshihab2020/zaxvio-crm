@@ -243,6 +243,11 @@ apps/api/
 |   |   |   |                     # POST /:id/runs (manual run, 10/min) and GET /quota, which
 |   |   |   |                     # surfaces usage BEFORE anything is refused.
 |   |   |   |                     # isActive is NOT a PATCH field — nothing published, no switch on
+|   |   |   +-- runs.ts           # Sibling plugin: GET /:id/runs, GET /:id/runs/:runId. The
+|   |   |   |                      # FIRST read paths node_execution_logs and workflow_executions
+|   |   |   |                      # have ever had — the engine wrote both from P3 and nothing
+|   |   |   |                      # outside a test could read either, so an automation could run
+|   |   |   |                      # with no way for its owner to know it had
 |   |   |   +-- graph.ts          # Sibling plugin, same /workflows prefix (the routes/jobs/
 |   |   |                         # costing.ts precedent — index.ts must not become the next
 |   |   |                         # 2,497-line file). PUT /:id/graph (whole-graph save, 409 on a
@@ -376,6 +381,14 @@ apps/api/
 |   |   |   |   +-- resume.ts         # 60s tick. `resume_at IS NOT NULL` is load-bearing: a goal wait
 |   |   |   |                         # is also `waiting`, and only a matching event may end one.
 |   |   |   |                         # clock_timestamp() not now(), which is fixed for the txn
+|   |   |   +-- runs/
+|   |   |   |   +-- runs.service.ts   # listRuns / getRunStats / getRun. Leads on error_hint and
+|   |   |   |                         # skip_reason, NOT error_message — the reader is the person
+|   |   |   |                         # who has to fix it. Stats counted in SQL over the whole
+|   |   |   |                         # history, because a tally from the current page would sit
+|   |   |   |                         # above a paginated list contradicting it. Nothing is
+|   |   |   |                         # re-derived: a second opinion about whether a run succeeded
+|   |   |   |                         # is the defect INV-01/02/03 spent a day removing
 |   |   |   +-- events/
 |   |   |       +-- emit.ts           # THE only producer of queue rows. Parses the payload before
 |   |   |       |                     # insert, asserts the subject against the registry, one row per
@@ -500,7 +513,7 @@ apps/api/
 | `/calendar-events` | requireTenant | CRUD for standalone calendar entries (occupy portal slots) | + |
 | `/public/booking/:slug` | None | Branding, availability, slots, submit, status. Rate-limited 60/5/10 per min | + |
 | `/public/unsubscribe/:token` | Token (HMAC) | GET who it is for · POST opt out · POST /one-click (RFC 8058). 30/10 per min | + |
-| `/workflows` | requireTenant | GET/POST /, GET/PATCH/DELETE /:id, POST /:id/active, POST /:id/runs (manual run, 10/min), GET /quota; **graph.ts**: PUT /:id/graph (409 on concurrent edit), POST /:id/publish (422 + full validation), GET /:id/validate, GET /:id/builder-context, POST /:id/nodes/:nodeId/preview, GET /:id/versions | + |
+| `/workflows` | requireTenant | GET/POST /, GET/PATCH/DELETE /:id, POST /:id/active, POST /:id/runs (manual run, 10/min), GET /quota; **graph.ts**: PUT /:id/graph (409 on concurrent edit), POST /:id/publish (422 + full validation), GET /:id/validate, GET /:id/builder-context, POST /:id/nodes/:nodeId/preview, GET /:id/versions, **runs.ts**: GET /:id/runs (comma-separated status set + whole-history stats), GET /:id/runs/:runId (run + every step in execution order) | + |
 | `/equipment` | requireTenant | CRUD + refrigerant logs sub-resource + history | + |
 | `/maintenance-contracts` | requireTenant | CRUD + expiring contracts | + |
 | `/calendar-events` | requireTenant | CRUD | + |
@@ -989,6 +1002,16 @@ apps/web/
         |   |       |                                # payload, or a background refetch would reset
         |   |       |                                # the canvas and discard the user's work
         |   |       +-- loading.tsx
+        |   |       +-- runs/
+        |   |           +-- page.tsx                 # Run history. Its OWN route, not a tab: a
+        |   |           |                            # failed run is the thing people send a link
+        |   |           |                            # to, and swapping the canvas for a table
+        |   |           |                            # underneath unsaved work invites the exact
+        |   |           |                            # accident the store's load guard prevents
+        |   |           +-- runs-page-client.tsx     # Filter AND open run both live in the URL.
+        |   |           |                            # Seeds the SSR payload onto the first-render
+        |   |           |                            # key only (JOB-05)
+        |   |           +-- loading.tsx
         |   |
         |   +-- customers/
         |   |   +-- page.tsx                         # Customer list

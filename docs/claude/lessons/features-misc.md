@@ -114,3 +114,41 @@
 - **A skipped send must not stamp its "already sent" marker.** E-09 sets `renewalReminderSentAt`
   after sending. Setting it when consent refused the send would record a send that never happened
   and suppress the real one if the customer resubscribes inside the contract's 30-day window.
+
+## Workflow automation — observability
+
+- **A table with one writer and no reader is a feature that does not exist.**
+  `node_execution_logs` was designed carefully — status, resolved parameters,
+  skip reason, duration, a plain-language error hint, a context snapshot on
+  failure — and written on every node from P3 onwards. Nothing outside a test
+  ever read a row of it, and neither did anything read `workflow_executions`.
+  Six commits of engine and builder landed on top of that before an audit
+  noticed. **Grep for a read path when you finish a write path**, in the same
+  session: the schema being good is exactly what makes this easy to miss, because
+  reviewing the code shows care everywhere and reveals nothing about reachability.
+- **The audit that found it was mechanical, not clever.** Listing every exported
+  hook and server action against its caller count, and every table against the
+  files that touch it, took two commands. That same sweep also found three hooks
+  with zero callers (`useWorkflowQuota`, `useWorkflowVersions`,
+  `useWorkflowValidation`) — the recurring shape here, after `useInvoice` and six
+  quote hooks. Run it *before* deciding what to build next, not after.
+- **Lead a failure page with `error_hint`, never `error_message`.** The person
+  opening a run is the person who has to fix the automation, and workflow
+  failures are the largest support load a feature like this generates. A stack
+  trace moves that load onto you; a sentence removes it. Keep the technical text
+  one disclosure away so an escalation still has something to paste.
+- **`waiting` is not a shade of success or of failure.** A durable pause is the
+  headline feature of the engine — a run can sit waiting for three days, entirely
+  healthy. Colouring it green claims it finished; colouring it amber claims
+  something is wrong. It needs its own word and its own colour, and so does
+  `cancelled`: a `logic.stop` set to "Stopped early" is the automation working,
+  which is why the failure notification deliberately skips it.
+- **Count stats in SQL, not from the page you fetched.** A tally derived from the
+  current twenty rows describes the current twenty rows, and renders directly
+  above a paginated list contradicting it. Same shape as REP-02 and DASH-07: two
+  numbers on one screen that cannot both be right.
+- **Poll only while there is something to watch.** A run list refetches every 10s
+  while any run is `running` or `waiting`, and stops otherwise — finished runs do
+  not change until somebody starts another. A permanent interval on an idle tab
+  is a cost with no reader; no interval at all means a durable pause that resumes
+  in the background never appears to.

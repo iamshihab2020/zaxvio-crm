@@ -675,10 +675,11 @@ Public booking confirmation/status page.
 `requireTenant` throughout. The tenant is **always** taken from the session and
 never from a body.
 
-Split across two plugins under one `/workflows` prefix: `routes/workflows/index.ts`
-holds the record CRUD, `routes/workflows/graph.ts` the builder's graph endpoints.
-The split is deliberate — `routes/jobs/index.ts` reached 2,497 lines one
-reasonable addition at a time ([[architecture|ARC-05]]).
+Split across three plugins under one `/workflows` prefix: `routes/workflows/index.ts`
+holds the record CRUD, `routes/workflows/graph.ts` the builder's graph endpoints,
+`routes/workflows/runs.ts` the run history. The split is deliberate —
+`routes/jobs/index.ts` reached 2,497 lines one reasonable addition at a time
+([[architecture|ARC-05]]).
 
 **The two verbs that are not the same thing.** `PUT /:id/graph` **saves** and
 changes nothing about what runs. `POST /:id/publish` **publishes** — snapshots
@@ -1870,3 +1871,106 @@ Mark all messages in a conversation as read.
 
 ---
 
+## Run history
+
+The engine has written a row per run and a row per node since P3. These are the
+first read paths either table has ever had — before them an automation could be
+built, published, switched on and run with no way for its owner to find out
+whether it had done anything.
+
+Both lead with the **plain-language** fields. `error_hint` and `skip_reason` are
+written for the person who has to fix the automation; `error_message` is the
+technical one and is carried alongside rather than instead.
+
+### `GET /workflows/:id/runs`
+
+One page of runs, newest first, plus whole-history counts.
+
+404s when the automation is not yours — checked before querying, so a foreign id
+cannot come back as "0 runs", which reads as "this has never run".
+
+**Query**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `page` | number | Default 1 |
+| `limit` | number | Default 20, max 100 |
+| `status` | string | **Comma-separated set** — `failed,cancelled`. 1–5 of `running`/`waiting`/`completed`/`failed`/`cancelled` |
+| `customerId` | uuid | "Which automations touched this customer" |
+
+**Response**
+
+```jsonc
+{
+  "runs": [{
+    "id": "uuid",
+    "status": "completed",          // running | waiting | completed | failed | cancelled
+    "source": "event",              // event | manual | test | webhook | schedule | sub | replay
+    "triggerEvent": "job.completed",
+    "startedAt": "2026-08-09T14:02:11.000Z",
+    "completedAt": "2026-08-09T14:02:12.400Z",
+    "resumeAt": null,               // set only while waiting on a delay
+    "errorHint": null,              // plain language, never a stack
+    "nodesExecuted": 4,
+    "contextTruncated": false,
+    "subjectType": "job",
+    "subjectId": "uuid",
+    "customerId": "uuid",
+    "customerName": "Maria Delgado", // null when there is no customer
+    "versionNumber": 3
+  }],
+  "pagination": { "page": 1, "limit": 20, "total": 61, "totalPages": 4 },
+  // Counted in SQL over the WHOLE history, not derived from this page — a tally
+  // from 20 rows would sit above a paginated list contradicting it.
+  "stats": {
+    "total": 61, "running": 0, "waiting": 2,
+    "completed": 57, "failed": 1, "cancelled": 1,
+    "lastRunAt": "2026-08-09T14:02:11.000Z"
+  }
+}
+```
+
+### `GET /workflows/:id/runs/:runId`
+
+One run and every step it took, in execution order.
+
+404 when the run does not exist **or** belongs to another tenant — one answer on
+purpose, so the response does not confirm which ids are real.
+
+**Response**
+
+```jsonc
+{
+  "run": {
+    // ...every field from the list, plus:
+    "workflowName": "Review request",
+    "versionId": "uuid",         // the PINNED version this run executes on
+    "triggerNodeId": "uuid",
+    "currentNodeId": "uuid",     // where a waiting run is paused
+    "parentExecutionId": null,   // set by "run from here"
+    "errorMessage": "…",         // technical; the UI leads with errorHint
+    "steps": [{
+      "id": "uuid",
+      "nodeId": "uuid",          // NO foreign key — a deleted node keeps its history
+      "nodeType": "email.send",
+      "nodeLabel": "Ask for a review",
+      "sequence": 3,             // execution order, which after a branch is not canvas order
+      "status": "skipped",       // running | completed | failed | waiting | skipped
+      "skipReason": "This customer unsubscribed on 12 July, so we didn't email them.",
+      "startedAt": "2026-08-09T14:02:12.100Z",
+      "completedAt": "2026-08-09T14:02:12.180Z",
+      "durationMs": 80,
+      "resolvedParams": { "subject": "How did we do, Maria?" }, // AFTER interpolation
+      "output": { "messageId": "…" },
+      "errorHint": null,
+      "errorMessage": null
+    }]
+  }
+}
+```
+
+`context_snapshot` is deliberately **not** returned. It is stored for failed
+nodes, it can be large, and a run page that ships a megabyte of context for a run
+nobody expands is a page nobody waits for.
+
+---

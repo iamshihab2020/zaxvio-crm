@@ -34,6 +34,7 @@ import publicQuoteRoutes from "./routes/public/quote.js";
 import publicUnsubscribeRoutes from "./routes/public/unsubscribe.js";
 import workflowRoutes from "./routes/workflows/index.js";
 import workflowGraphRoutes from "./routes/workflows/graph.js";
+import workflowRunRoutes from "./routes/workflows/runs.js";
 import bookingRoutes from "./routes/bookings/index.js";
 import calendarEventRoutes from "./routes/calendar-events/index.js";
 import equipmentRoutes from "./routes/equipment/index.js";
@@ -280,6 +281,7 @@ export async function buildServer() {
   await fastify.register(publicUnsubscribeRoutes, { prefix: "/public/unsubscribe" });
   await fastify.register(workflowRoutes, { prefix: "/workflows" });
   await fastify.register(workflowGraphRoutes, { prefix: "/workflows" });
+  await fastify.register(workflowRunRoutes, { prefix: "/workflows" });
   await fastify.register(bookingRoutes, { prefix: "/bookings" });
   await fastify.register(calendarEventRoutes, { prefix: "/calendar-events" });
   await fastify.register(equipmentRoutes, { prefix: "/equipment" });

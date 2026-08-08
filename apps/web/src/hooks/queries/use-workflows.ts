@@ -12,6 +12,8 @@ import {
   getBuilderContext,
   getWorkflow,
   getWorkflowQuota,
+  getWorkflowRun,
+  getWorkflowRuns,
   getWorkflows,
   getWorkflowVersions,
   publishWorkflow,
@@ -41,6 +43,59 @@ import {
  */
 
 // ── Queries ──────────────────────────────────────────────────
+
+export interface WorkflowRunsParams {
+  page?: number;
+  limit?: number;
+  status?: string;
+  customerId?: string;
+}
+
+/**
+ * Run history for one automation.
+ *
+ * `refetchInterval` is conditional on there being something to watch. A run
+ * that is `running` or `waiting` changes without anyone touching the page —
+ * that is the whole nature of a durable pause — so the list has to move on its
+ * own or it lies about a run that finished thirty seconds ago. Once nothing is
+ * in flight the polling stops, because a page of finished runs will not change
+ * until somebody starts another one, and a permanent 10-second poll on an idle
+ * tab is a cost with no reader.
+ */
+export function useWorkflowRuns(id: string, params: WorkflowRunsParams, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.workflows.runs(id, params),
+    queryFn: () => getWorkflowRuns(id, params),
+    enabled: !!id && enabled,
+    placeholderData: (prev) => prev,
+    // Short: the point of opening this page is to see what just happened.
+    staleTime: 5_000,
+    refetchInterval: (query) => {
+      const stats = query.state.data?.data?.stats;
+      if (!stats) return false;
+      return stats.running + stats.waiting > 0 ? 10_000 : false;
+    },
+  });
+}
+
+/**
+ * One run and its steps.
+ *
+ * Same conditional poll, decided by this run's own status rather than the
+ * list's — an open run mid-wait is exactly the thing somebody sits and watches.
+ */
+export function useWorkflowRun(id: string, runId: string | null) {
+  return useQuery({
+    queryKey: queryKeys.workflows.run(id, runId ?? ""),
+    queryFn: () => getWorkflowRun(id, runId!),
+    enabled: !!id && !!runId,
+    staleTime: 5_000,
+    refetchInterval: (query) => {
+      const status = query.state.data?.data?.run.status;
+      return status === "running" || status === "waiting" ? 10_000 : false;
+    },
+  });
+}
 
 export function useWorkflows(params: WorkflowListParams, seed?: object) {
   return useQuery({
@@ -292,7 +347,7 @@ export function useRunWorkflow() {
   return useMutation({
     mutationFn: ({ id, subject }: { id: string; subject?: { type: string; id: string } }) =>
       runWorkflow(id, subject ? { subject } : {}),
-    onSuccess: (res) => {
+    onSuccess: (res, { id }) => {
       if (res.error) {
         toast.error(res.error);
         return;
@@ -310,6 +365,10 @@ export function useRunWorkflow() {
         toast.success(`Ran ${res.data?.nodesExecuted ?? 0} steps`);
       }
       qc.invalidateQueries({ queryKey: queryKeys.workflows.quota() });
+      // The run that was just started is the one thing the history is now wrong
+      // about. `detail(id)` is the prefix the run keys nest under, so this
+      // clears the list, its stats and any open run in one call.
+      qc.invalidateQueries({ queryKey: queryKeys.workflows.detail(id) });
     },
     onError: () => toast.error("Failed to run this automation"),
   });

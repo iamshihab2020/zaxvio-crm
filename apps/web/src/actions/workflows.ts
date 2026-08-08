@@ -388,3 +388,93 @@ export async function runWorkflow(id: string, data: RunWorkflowInput = {}) {
     fallback: "Failed to run this automation",
   });
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Runs
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A run **as it arrives in the browser**.
+ *
+ * Timestamps are strings for the reason recorded at the top of this file: the
+ * boundary is JSON. Declaring that once here is what keeps `formatDateOnly` and
+ * every other date helper — all of which take strings — cast-free at the call
+ * site.
+ */
+export interface WorkflowRunSummary {
+  id: string;
+  status: "running" | "waiting" | "completed" | "failed" | "cancelled";
+  source: "event" | "manual" | "test" | "webhook" | "schedule" | "sub" | "replay";
+  triggerEvent: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  resumeAt: string | null;
+  errorHint: string | null;
+  nodesExecuted: number;
+  contextTruncated: boolean;
+  subjectType: string | null;
+  subjectId: string | null;
+  customerId: string | null;
+  customerName: string | null;
+  versionNumber: number | null;
+}
+
+export interface WorkflowRunStep {
+  id: string;
+  nodeId: string;
+  nodeType: string;
+  nodeLabel: string | null;
+  sequence: number;
+  status: "running" | "completed" | "failed" | "waiting" | "skipped";
+  skipReason: string | null;
+  startedAt: string;
+  completedAt: string | null;
+  durationMs: number | null;
+  resolvedParams: Record<string, unknown> | null;
+  output: Record<string, unknown> | null;
+  errorHint: string | null;
+  errorMessage: string | null;
+}
+
+export interface WorkflowRunDetail extends WorkflowRunSummary {
+  workflowId: string;
+  workflowName: string;
+  versionId: string;
+  triggerNodeId: string | null;
+  currentNodeId: string | null;
+  parentExecutionId: string | null;
+  errorMessage: string | null;
+  steps: WorkflowRunStep[];
+}
+
+export interface WorkflowRunStats {
+  total: number;
+  running: number;
+  waiting: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  lastRunAt: string | null;
+}
+
+export interface WorkflowRunsPage {
+  runs: WorkflowRunSummary[];
+  pagination: PaginationData;
+  stats: WorkflowRunStats;
+}
+
+export async function getWorkflowRuns(
+  id: string,
+  params: { page?: number; limit?: number; status?: string; customerId?: string } = {},
+): Promise<ApiResult<WorkflowRunsPage>> {
+  return apiGet<WorkflowRunsPage>(
+    `/workflows/${id}/runs${buildQuery(params)}`,
+    { fallback: "Failed to load run history" },
+  );
+}
+
+export async function getWorkflowRun(id: string, runId: string) {
+  return apiGet<{ run: WorkflowRunDetail }>(`/workflows/${id}/runs/${runId}`, {
+    fallback: "Failed to load this run",
+  });
+}

@@ -116,7 +116,7 @@ zero double-processing, a failing subscriber does not retry the other. Everythin
 | P5 Builder MVP | XL | 🟡 commits 1–3 of 4 written, unrun | 10 endpoints + validator + data layer + list page + canvas; 1 test file written, unrun |
 | P6 Control flow, delays, goals | L | 🟡 condition.if + delay.wait + working hours + logic.merge written, unrun | goals and the remaining logic nodes not started |
 | P7 Pickers, breadth, service extraction | XL | ⚪ not started | — |
-| P8 Observability & replay | L | ⚪ not started | — |
+| P8 Observability & replay | L | 🟡 run history read path written, unrun | replay, run-from-node, retention sweep not started |
 | P9 Webhooks, schedules, recurring | L | ⚪ not started | — |
 | P10 Hardening, templates, GA | L | ⚪ not started | — |
 
@@ -1003,6 +1003,59 @@ whole of its job.
 Housekeeping found two REPO_MAP gaps while writing this up: `packages/ui/` was
 still listed a week after ARC-14 deleted it, and `packages/workflow-nodes` — a
 whole package — had never been added.
+
+### Commit 11 — run history, the first read path (written, unrun)
+
+**Found by audit, not by the plan.** `node_execution_logs` has been written on
+every node since P3 — status, resolved parameters, skip reason, duration, a
+plain-language error hint, a context snapshot on failure — and **nothing outside
+a test had ever read a row of it.** Same for `workflow_executions`. So an
+automation could be built, published, switched on and run, and its owner had no
+way to find out whether it had done anything. Six commits of engine and builder
+landed on top of that before anyone noticed, which is the point worth keeping:
+the schema being *good* is exactly what made it easy to miss.
+
+This is P8's territory, taken early, because every P6 acceptance criterion is a
+runtime proof and there was no way to observe a run except by querying Neon.
+
+- `services/workflow/runs/runs.service.ts` — `listRuns` / `getRunStats` /
+  `getRun`. Nothing is re-derived: a second opinion about whether a run succeeded
+  is the defect INV-01/02/03 spent a day removing. `context_snapshot` is
+  deliberately **not** returned; it is stored for failed nodes, it can be large,
+  and a run page shipping a megabyte for a run nobody expands is a page nobody
+  waits for.
+- `routes/workflows/runs.ts` — a **third** sibling plugin under `/workflows`,
+  same reasoning as `graph.ts`. Ownership is checked *before* querying, because a
+  foreign id filtered to nothing returns "0 runs", which reads as "this has never
+  run" rather than "this is not yours".
+- `status` takes a **comma-separated set**, because the real question is "show me
+  everything that did not go cleanly" — failed *and* cancelled. One value per
+  request makes that three requests merged in the browser, which is how a page
+  ends up with a total that disagrees with its own rows.
+- Stats are counted in SQL over the **whole** history. A tally from the current
+  page renders directly above a paginated list contradicting it (REP-02, DASH-07).
+- `/automations/[id]/runs` is its **own route**, not a builder tab: a failed run
+  is the thing people send a link to, and swapping the canvas for a table
+  underneath unsaved work invites the exact accident the store's id-keyed load
+  guard exists to prevent. Filter and open run both live in the URL.
+- The list polls every 10s **only while something is running or waiting**, off the
+  stats it already fetched. A durable pause that resumes in the background would
+  otherwise never appear to; a permanent interval on an idle tab is a cost with
+  no reader.
+
+Two decisions the UI turns on, both about not flattening states into pass/fail:
+**`waiting` is neither.** A run can sit paused for three days in perfect health,
+so green claims it finished and amber claims something is wrong. It gets its own
+colour and its own word. **`cancelled` is not red** — a `logic.stop` set to
+"Stopped early" is the automation working, which is why the failure notification
+already skips it.
+
+The audit that found all this was mechanical: every exported hook and action
+against its caller count, every table against the files touching it. It also
+surfaced three hooks with **zero callers** — `useWorkflowQuota`,
+`useWorkflowVersions`, `useWorkflowValidation` — the recurring shape here after
+`useInvoice` and six quote hooks. Two are still unconsumed; the run work spends
+neither, so they stay on the list.
 
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 

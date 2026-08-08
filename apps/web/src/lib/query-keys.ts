@@ -168,6 +168,15 @@ export const queryKeys = {
     builderContext: (id: string) =>
       ["workflows", "detail", id, "builderContext"] as const,
     quota: () => ["workflows", "quota"] as const,
+    /**
+     * Nested under `detail` so invalidating one automation clears its runs too.
+     * A run list left cached after a manual Run is a page that says "never run"
+     * about the run you just started.
+     */
+    runs: (id: string, params: Record<string, unknown>) =>
+      ["workflows", "detail", id, "runs", params] as const,
+    run: (id: string, runId: string) =>
+      ["workflows", "detail", id, "runs", "detail", runId] as const,
   },
 
   // ── Dashboard ──────────────────────────────────────────────

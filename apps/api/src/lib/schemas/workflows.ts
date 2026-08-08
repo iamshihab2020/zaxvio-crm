@@ -194,3 +194,56 @@ export const publishWorkflowBody = z.object({
   note: boundedText(500).nullish(),
 });
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Runs
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const executionStatusSchema = z.enum([
+  "running",
+  "waiting",
+  "completed",
+  "failed",
+  "cancelled",
+]);
+
+export const executionSourceSchema = z.enum([
+  "event",
+  "manual",
+  "test",
+  "webhook",
+  "schedule",
+  "sub",
+  "replay",
+]);
+
+/**
+ * The run list.
+ *
+ * `status` accepts a comma-separated set rather than one value, because the
+ * question a person actually asks is "show me everything that did not go
+ * cleanly" — failed *and* cancelled *and* still waiting. One value per request
+ * would make that three requests merged in the browser, which is how a page
+ * ends up with a total that disagrees with its own rows.
+ */
+export const runListQuery = paginationQuery.extend({
+  status: z
+    .string()
+    .optional()
+    .transform((value) =>
+      value
+        ? value
+            .split(",")
+            .map((part) => part.trim())
+            .filter(Boolean)
+        : undefined,
+    )
+    .pipe(z.array(executionStatusSchema).min(1).max(5).optional()),
+  /** "Which automations touched this customer" — the index is already there. */
+  customerId: z.string().uuid().optional(),
+});
+
+export const runIdParam = z.object({
+  id: z.string().uuid(),
+  runId: z.string().uuid(),
+});

@@ -195,6 +195,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
         className="flex h-[calc(100dvh-3.5rem)] flex-col"
       >
         <BuilderToolbar
+          id={id}
           name={workflow.name}
           publishedVersion={activeVersion?.version ?? null}
           isActive={workflow.isActive}

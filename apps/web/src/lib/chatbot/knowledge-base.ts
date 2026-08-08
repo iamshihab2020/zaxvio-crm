@@ -110,6 +110,23 @@ const entries: KnowledgeEntry[] = [
       "**Only if** splits the automation in two. Steps on the **Yes** side run when the check passes, steps on the **No** side when it doesn't — never both.\n\n**What happens where the branches come back together:** a step with more than one arrow into it runs on the **first branch to reach it**, once. That's usually what you want — an Only if where both sides end in \"send the follow-up\" sends one follow-up, whichever way the check went. Every step on the canvas with more than one incoming arrow says which rule it follows, right under its name.\n\n**Wait for all branches** is the exception. Use it where two chains genuinely both run and the next step needs both finished.\n\n**Don't put it after an Only if.** It waits for every arrow into it, and one side of an Only if never runs — so it would wait forever and the automation would just stop, with nothing marked as failed. Publishing catches this and tells you which step to unhook.",
   },
   {
+    id: "automations-run-history",
+    category: "general",
+    keywords: [
+      "run history",
+      "automation log",
+      "did my automation run",
+      "automation history",
+      "why did it fail",
+      "automation failed",
+      "what did the automation do",
+      "automation runs",
+    ],
+    question: "How do I see whether my automation actually ran?",
+    answer:
+      "Open the automation and click the **clock icon** in the toolbar, or pick **Run history** from the ⋯ menu on the Automations list.\n\n**The list** shows every run, newest first: what happened, which customer it ran for, when it started, how many steps it took and how long it took. The four counts at the top cover the whole history, not just the page you're looking at.\n\n**Filter it** with the tabs — **Needs a look** is failed and stopped runs together, which is usually what you came for.\n\n**Click any run** to see every step in the order it ran, each with what happened to it. A step that was skipped says why in plain language — \"this customer unsubscribed on 12 July, so we didn't email them\". A step that failed says what to fix. Expand **Details** on a step to see what it actually tried to do after your variables were filled in — that's where a mail merge that came out blank becomes obvious.\n\n**Waiting isn't failed.** A run sitting on **Waiting** is paused at a Wait step and tells you when it carries on. It survives restarts, so leave it be.\n\n**Stopped isn't failed either.** That's a Stop step doing its job — \"this invoice is already paid, stop chasing it\".\n\nThe filter and the open run are both in the page address, so you can copy the link and send someone the exact run you're looking at.",
+  },
+  {
     id: "general-capabilities",
     category: "general",
     keywords: ["what can you do", "help", "capabilities", "features", "chatbot", "assistant"],

@@ -7,6 +7,7 @@ import {
   IconArrowBackUp,
   IconArrowForwardUp,
   IconAlertTriangle,
+  IconHistory,
   IconPlayerPlay,
 } from "@tabler/icons-react";
 import {
@@ -40,6 +41,8 @@ import { cn } from "@/lib/utils";
  */
 
 interface Props {
+  /** The automation's id — the Runs link is the only thing that needs it. */
+  id: string;
   name: string;
   publishedVersion: number | null;
   isActive: boolean;
@@ -58,6 +61,7 @@ interface Props {
 }
 
 export function BuilderToolbar({
+  id,
   name,
   publishedVersion,
   isActive,
@@ -228,10 +232,24 @@ export function BuilderToolbar({
           <TooltipContent>Redo (Ctrl+Shift+Z)</TooltipContent>
         </Tooltip>
 
+        {/* Sits immediately beside Run, because it is the other half of the
+            same action: pressing Run and having nowhere to see the result was
+            the state this feature shipped in until the run history existed. */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button asChild variant="ghost" size="icon" className="ml-1 h-8 w-8">
+              <Link href={`/automations/${id}/runs`} aria-label="Run history">
+                <IconHistory className="h-4 w-4" />
+              </Link>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Run history</TooltipContent>
+        </Tooltip>
+
         <Button
           variant="outline"
           size="sm"
-          className="ml-1 font-body"
+          className="font-body"
           disabled={!published || running}
           onClick={onRun}
         >

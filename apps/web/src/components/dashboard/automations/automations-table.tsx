@@ -3,6 +3,7 @@
 import Link from "next/link";
 import {
   IconDotsVertical,
+  IconHistory,
   IconArchive,
   IconPencil,
   IconBolt,
@@ -181,6 +182,14 @@ export function AutomationsTable({
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
+                      {/* First, because "did it work?" is asked far more often
+                          than "rename it". */}
+                      <DropdownMenuItem asChild>
+                        <Link href={`/automations/${workflow.id}/runs`}>
+                          <IconHistory className="mr-2 h-4 w-4" />
+                          Run history
+                        </Link>
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onRename(workflow)}>
                         <IconPencil className="mr-2 h-4 w-4" />
                         Rename
