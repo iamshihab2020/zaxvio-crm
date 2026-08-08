@@ -635,3 +635,13 @@ From [[bookings-calendar|the report]] — the front-end half.
   to "Saved", and if anything downstream then contradicts it the user concludes
   the save failed. Removing confirmation and leaving a downstream action to
   disagree is worse than the toast would have been.
+- **A node card that describes a step by its mode switch describes nothing.**
+  The automation builder derives each card's caption from the first configured
+  property, and `delay.wait` declares `mode` first and required — so every wait
+  read "for a length of time", which is exactly what the title "Wait" already
+  said. The fix is derivable rather than a per-node exception: a mode switch is
+  precisely a property that *other* properties key their `displayOptions` off,
+  so those are skipped on a first pass and used only as a fallback. Anything
+  that would need a `switch (nodeType)` in the builder has broken the property
+  the whole feature rests on — that adding a node is "write a definition, write
+  an executor".

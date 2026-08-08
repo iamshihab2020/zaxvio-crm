@@ -63,6 +63,31 @@ export default {
       displayOptions: { show: { mode: ["for"] } },
     },
     {
+      // Only offered for a relative wait. "Until 1 September at 6pm" is the
+      // author naming a moment, and quietly moving that to 8am the next morning
+      // would override an explicit instruction — whereas "in 3 days" says
+      // nothing about the hour, which is exactly where a 2am send comes from.
+      displayName: "Resume",
+      name: "resumeDuring",
+      type: "options",
+      default: "businessHours",
+      description:
+        "Working hours come from Settings → Scheduling, so a day you are closed is a day this does not resume.",
+      options: [
+        {
+          name: "during your working hours",
+          value: "businessHours",
+          description: "Holds until you open, rather than acting overnight.",
+        },
+        {
+          name: "as soon as the wait is up",
+          value: "anytime",
+          description: "Any hour, any day — right for internal steps.",
+        },
+      ],
+      displayOptions: { show: { mode: ["for"] } },
+    },
+    {
       displayName: "Date",
       name: "untilDate",
       type: "date",

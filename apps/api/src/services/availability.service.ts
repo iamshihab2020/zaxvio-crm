@@ -33,7 +33,15 @@ import {
 } from "@hvac-saas/database";
 import { getDayOfWeek } from "../lib/timezone.js";
 
-export type DbClient = ReturnType<typeof getDb>;
+/**
+ * `Omit<…, "$client">` on purpose: a Drizzle transaction has every query method
+ * but no `$client`, so the bare `ReturnType<typeof getDb>` silently makes a
+ * service uncallable from inside `db.transaction(...)`. That has now been the
+ * bug twice — `job-stages.service.ts` (QUO-02) and `recalculateJobTotals` — and
+ * both times it surfaced as a type error at the *call* site, which reads as
+ * "the caller is wrong" rather than "this signature is too narrow".
+ */
+export type DbClient = Omit<ReturnType<typeof getDb>, "$client">;
 
 export interface AvailabilityWindow {
   startTime: string; // HH:MM

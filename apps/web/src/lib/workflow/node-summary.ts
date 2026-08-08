@@ -38,7 +38,28 @@ export function summariseNode(
     ...def.properties.filter((p) => !p.required),
   ];
 
-  for (const property of ordered) {
+  // A mode switch is chrome, not content. `delay.wait` declares `mode` first and
+  // required, so a card would read "for a length of time" — true, and it tells
+  // you nothing the title "Wait" did not. Which properties are switches is
+  // already stated in the definition: they are the ones other properties key
+  // their `displayOptions` off. So it is derived, not a per-node exception, and
+  // a node added tomorrow gets the same treatment for free.
+  //
+  // Second pass, not a filter, because for some nodes the switch really is the
+  // most informative field. Losing the caption entirely is worse than a weak one.
+  const switches = discriminators(def);
+
+  return (
+    firstSummary(ordered.filter((p) => !switches.has(p.name)), parameters) ??
+    firstSummary(ordered.filter((p) => switches.has(p.name)), parameters)
+  );
+}
+
+function firstSummary(
+  properties: NodeProperty[],
+  parameters: Record<string, unknown>,
+): string | null {
+  for (const property of properties) {
     if (property.type === "notice") continue;
     // A hidden field is not describing this node's current configuration — the
     // HTML body of an email set to plain text is stale, not current.
@@ -47,8 +68,21 @@ export function summariseNode(
     const summary = describe(property, parameters[property.name]);
     if (summary) return summary;
   }
-
   return null;
+}
+
+/** Every property name some other property's visibility depends on. */
+function discriminators(def: NodeDefinition): Set<string> {
+  const names = new Set<string>();
+  for (const property of def.properties) {
+    for (const rule of [
+      property.displayOptions?.show,
+      property.displayOptions?.hide,
+    ]) {
+      if (rule) for (const name of Object.keys(rule)) names.add(name);
+    }
+  }
+  return names;
 }
 
 function describe(property: NodeProperty, value: unknown): string | null {
@@ -87,6 +121,15 @@ function describe(property: NodeProperty, value: unknown): string | null {
 
   if (Array.isArray(value)) {
     return value.length > 0 ? `${value.length} item${value.length === 1 ? "" : "s"}` : null;
+  }
+
+  // The one object-valued field type worth reading on a card, and the reason
+  // `delay.wait` had no caption at all: "3 days" *is* what that step does.
+  if (property.type === "duration") {
+    const { amount, unit } = value as { amount?: unknown; unit?: unknown };
+    const n = typeof amount === "number" ? amount : Number(amount);
+    if (!Number.isFinite(n) || n <= 0 || typeof unit !== "string") return null;
+    return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
   }
 
   // An id — a member, a pipeline, a stage. The id itself is meaningless on a

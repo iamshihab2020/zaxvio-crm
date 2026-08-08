@@ -164,7 +164,27 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       **F-5 done. F-6/F-7 deliberately not built**: every node has one output, so the branch
       selector and branch-delete prompt have nothing to disambiguate until P6's `condition.if`.
       Remaining: multi-select, the template gallery, variable pills, run viewer.
-- [ ] **P6** Control flow, durable delays, goals — **internal alpha gate**
+- [~] **P6** Control flow, durable delays, goals — **written, unrun.** `condition.if`, then
+      `delay.wait` + `engine/resume.ts` + a 60s resume worker: a pause is a database row, so a
+      three-day wait outlives every process that could hold a timer. A run resumes on the version
+      it **started** on, claimed by compare-and-set, restarting at the paused node's *successors*
+      so a wait does not wait again.
+      Then working hours, which is where the port's design was a **cautionary example** rather
+      than an inspiration: its quiet-hours guard *blocks* the send (`blocked_quiet_hours`), so the
+      customer never hears from you — and it is hardcoded 9pm–8am and opt-in per node, so out of
+      the box it sends at 3am. This **defers** instead, and reuses the tenant's existing
+      availability rather than the planned `tenants.quiet_hours_*` columns: a second definition of
+      "when are we open" is exactly the BOOK-10 defect. Days are calendar days (9am stays 9am
+      across a DST change); hours are real hours.
+      Found on the way: `availability.service.ts` typed its `DbClient` as the bare handle, so it
+      could not be called inside a transaction — third recurrence, after `job-stages.service.ts`
+      and `recalculateJobTotals`; a waiting node log recorded nothing about what it was waiting
+      for (the execution row's `resume_at` is overwritten by the next wait in the same run); and
+      the builder described every wait as "for a length of time", its mode switch.
+      Remaining: `logic.switch`, `split.branch`, `logic.merge`, `logic.goto`, `logic.loop`,
+      `goal.event` + `workflow_goal_listeners`. **Every P6 acceptance criterion is a runtime
+      proof** — a pause surviving a deploy, version pinning across a publish, the DST boundary,
+      the goal/delay race — and none has been run. **Internal alpha gate.**
 - [ ] **P7** CRM pickers, node breadth, and `services/jobs/` extraction ([[architecture|ARC-05]])
 - [ ] **P8** Observability, replay, run-from-node
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**

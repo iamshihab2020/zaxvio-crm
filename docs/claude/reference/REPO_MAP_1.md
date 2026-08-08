@@ -352,8 +352,30 @@ apps/api/
 |   |   |   |   +-- ownership.ts   # Execution-time FK re-checks. An unknown kind returns FALSE, so
 |   |   |   |   |                  # a new ownership kind fails closed until someone writes it
 |   |   |   |   +-- quotas.ts      # 25 concurrent / 2,000 rolling-24h. `waiting` runs count
+|   |   |   |   +-- resume.ts      # Picking a paused run back up. Claims with a compare-and-set on
+|   |   |   |   |                  # `waiting`; loads the version BY ID, never "the active one", so
+|   |   |   |   |                  # publishing v2 mid-pause cannot drop a run into a graph whose
+|   |   |   |   |                  # next node is gone; restarts at the paused node's SUCCESSORS so
+|   |   |   |   |                  # a wait does not wait again. Re-reads the subject rather than
+|   |   |   |   |                  # trusting the snapshot — acting on 3-day-old data is worse than
+|   |   |   |   |                  # stopping. Shares execute.ts's handleTerminal, because a resumed
+|   |   |   |   |                  # run can reach a SECOND delay.wait
+|   |   |   |   +-- working-hours.ts # Pushes a resume out of the small hours. DEFERS, never drops:
+|   |   |   |   |                  # the reference impl. returns `blocked_quiet_hours` and the
+|   |   |   |   |                  # customer simply never hears from you. Reads the tenant's real
+|   |   |   |   |                  # availability — no quiet-hours columns, because a second
+|   |   |   |   |                  # definition of "when are we open" is the BOOK-10 defect. No
+|   |   |   |   |                  # schedule at all resumes normally; 14-day horizon then gives up
+|   |   |   |   +-- zoned-time.ts  # zonedParts/zonedDate/zonedToUtc/addCalendarDays. Days are
+|   |   |   |   |                  # CALENDAR days (9am stays 9am across a DST change) but hours are
+|   |   |   |   |                  # real hours. Separate from lib/timezone.ts, which formats for
+|   |   |   |   |                  # display and never converts a local time back to an instant
 |   |   |   |   +-- executors/     # One function per node. No HTTP, no table writes, no
 |   |   |   |                      # interpolation — params arrive already resolved
+|   |   |   +-- workers/
+|   |   |   |   +-- resume.ts         # 60s tick. `resume_at IS NOT NULL` is load-bearing: a goal wait
+|   |   |   |                         # is also `waiting`, and only a matching event may end one.
+|   |   |   |                         # clock_timestamp() not now(), which is fixed for the txn
 |   |   |   +-- events/
 |   |   |       +-- emit.ts           # THE only producer of queue rows. Parses the payload before
 |   |   |       |                     # insert, asserts the subject against the registry, one row per

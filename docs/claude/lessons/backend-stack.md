@@ -370,3 +370,28 @@
   wrong, while the action it is explaining was refused, is worse than a plain
   error toast — it teaches the user the product is broken rather than that their
   input is.
+- **A service that types its `db` as `ReturnType<typeof getDb>` cannot be called
+  from inside a transaction.** A Drizzle transaction has every query method but
+  no `$client`, so the bare handle type excludes it. This has now been the bug
+  three times — `job-stages.service.ts` (QUO-02), `recalculateJobTotals`, and
+  `availability.service.ts` — and every time it surfaced as a type error at the
+  *call* site, which reads as "the caller is doing something wrong" rather than
+  "this signature is too narrow". Type every service `db` parameter as
+  `Omit<ReturnType<typeof getDb>, "$client">`. A full handle still satisfies it,
+  so widening never breaks an existing caller.
+- **When a feature needs "when is this business open", it already has an
+  answer.** `services/availability.service.ts` resolves the weekly schedule plus
+  date overrides and is what the booking portal, the calendar and dashboard
+  rescheduling all read. Adding `tenants.quiet_hours_*` columns for workflow
+  delays would have created a second definition of the same fact — the exact
+  three-way drift that service was written to remove (BOOK-10, BOOK-21), where a
+  contractor who closed 25 December had the portal refuse bookings while their
+  own calendar showed a normal working day. A public holiday should be entered
+  once.
+- **A guard that blocks is not the safe choice; a guard that defers is.** The
+  ported system's quiet-hours check returns `{ success: false, status:
+  "blocked_quiet_hours" }`, so a follow-up due at 2am is never sent at all. The
+  customer silently never hears from you, which is worse than hearing from you
+  an hour early — and it is invisible, because nothing failed. Push the work to
+  the next allowed moment instead. Same shape as the email opt-out gate, which
+  returns a *decision with a reason* rather than a boolean.

@@ -193,6 +193,17 @@ export async function executeNode(
     if (err instanceof DelayPause || err instanceof GoalWait) {
       await updateLog(db, logId, {
         status: "waiting",
+        // What it is waiting for, recorded now rather than derived later. The
+        // execution row carries `resume_at` but gets overwritten by the *next*
+        // wait in the same run, so without this the replay page cannot say what
+        // this particular step waited for.
+        output:
+          err instanceof DelayPause
+            ? {
+                resumeAt: err.resumeAt.toISOString(),
+                ...(err.note ? { note: err.note } : {}),
+              }
+            : { waitingFor: err.goalEvent },
         durationMs: Date.now() - startedAt,
       });
       throw err;

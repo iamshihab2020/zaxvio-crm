@@ -31,6 +31,13 @@ export class DelayPause extends WorkflowSignal {
      * re-evaluate the thing it was waiting on.
      */
     readonly reExecuteCurrentNode = false,
+    /**
+     * Why the resume time is not simply "now plus the duration" — a working
+     * hours deferral, today. Shown on the run's node log, so a tenant reading
+     * "waited 3 days" and seeing 3 days and 14 hours has the answer in front of
+     * them rather than filing a bug.
+     */
+    readonly note: string | null = null,
   ) {
     super(`Run paused until ${resumeAt.toISOString()}`);
   }

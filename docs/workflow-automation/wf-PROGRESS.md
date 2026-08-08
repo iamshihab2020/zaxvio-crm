@@ -114,7 +114,7 @@ zero double-processing, a failing subscriber does not retry the other. Everythin
 | P3 Engine core | XL | 🟡 written, unrun | 3 test files written, none run |
 | P4 Trigger matching & enrollment | M | 🟡 written, unrun | matrix test written |
 | P5 Builder MVP | XL | 🟡 commits 1–3 of 4 written, unrun | 10 endpoints + validator + data layer + list page + canvas; 1 test file written, unrun |
-| P6 Control flow, delays, goals | L | 🟡 condition.if + delay.wait written, unrun | goals and the remaining logic nodes not started |
+| P6 Control flow, delays, goals | L | 🟡 condition.if + delay.wait + working hours written, unrun | goals and the remaining logic nodes not started |
 | P7 Pickers, breadth, service extraction | XL | ⚪ not started | — |
 | P8 Observability & replay | L | ⚪ not started | — |
 | P9 Webhooks, schedules, recurring | L | ⚪ not started | — |
@@ -1015,6 +1015,64 @@ calendar.
 criterion is a runtime proof: a pause surviving a real deploy, version pinning
 across a publish, the DST boundary, the goal/delay race. None has been run.
 
+### Commit 9 — working hours on a wait (written, unrun)
+
+A relative wait says nothing about the hour it lands on, so "3 days after the job"
+routinely comes due at 2am — and then emails a customer. `nextWorkingMoment` pushes
+the resume to the next moment the business is open.
+
+**It defers, it never drops.** The system this was ported from does the opposite:
+`messagingExecutor` returns `{ success: false, status: "blocked_quiet_hours" }`, so
+the customer never hears from you at all. A follow-up that silently does not happen
+is worse than one that arrives an hour early. Two more things it gets wrong that
+are worth recording, because they were tempting: quiet hours are **hardcoded**
+9pm–8am (an emergency plumber's night *is* their working hours), and the guard is
+**opt-in per node** with `respectQuietHours` defaulting to false — so out of the box
+it sends at 3am.
+
+- **No new columns and no new settings page.** The tenant's real availability — the
+  same weekly schedule and date overrides the booking portal and the calendar read —
+  already answers "when are we open". P6's plan said "quiet-hours columns on
+  `tenants`"; that would have been a second definition of the same fact, which is
+  the exact defect `availability.service.ts` was written to remove (BOOK-10,
+  BOOK-21). A public holiday entered once is now honoured by bookings and follow-ups
+  alike.
+- **`for` mode only.** "Until 1 September at 6pm" is the author naming a moment, and
+  quietly moving that to 8am the next morning overrides an explicit instruction.
+  A relative duration says nothing about the hour, which is where a 2am send comes
+  from — so that is the only place the setting appears.
+- **Defaults to on.** The asymmetry decides it: waking at 3am to email someone
+  else's customer is a worse failure than an internal ping landing at 8am, and the
+  second is one visible toggle away.
+- **A 14-day horizon.** A tenant with no schedule at all is not "closed forever", it
+  is one who has never filled that page in — so an absent schedule resumes normally
+  rather than never. Past the horizon it gives up and resumes at the original time:
+  late is recoverable, never is not.
+- The deferral is written to the node log as a **sentence** ("Waited until Monday,
+  Aug 11 at 9:00 AM because the automation came due outside your working hours"), so
+  a tenant reading "waited 3 days" against 3 days and 14 hours has the answer rather
+  than a bug report.
+
+Three things found on the way, all pre-existing:
+
+- **`availability.service.ts` typed its `DbClient` as the bare handle**, so a
+  transaction did not satisfy it and the service could not be called from inside
+  one. Third recurrence — `job-stages.service.ts` (QUO-02) and `recalculateJobTotals`
+  were the first two. Widened to `Omit<…, "$client">`.
+- **A waiting node log recorded nothing about what it was waiting for.** The
+  execution row carries `resume_at`, but the *next* wait in the same run overwrites
+  it, so the replay page could never say what a given step waited for. Now on the log.
+- **`node-summary` described a node by its mode switch.** `delay.wait` declares
+  `mode` first and required, so the card read "for a length of time" — true, and
+  nothing the title "Wait" had not already said. Which properties are switches is
+  already stated in the definition (they are the ones other properties key
+  `displayOptions` off), so it is derived rather than a per-node exception, and it
+  falls back to the switch when nothing else describes the node. `duration` is now
+  rendered too; it had produced no caption at all.
+
+Zone arithmetic moved to `engine/zoned-time.ts` on the way in — `zonedToUtc` was
+about to have a third copy.
+
 ### Commit 7 — `condition.if`, the first half of P6 (written, unrun)
 
 **14 nodes.** The first branching node, and the first executor that returns a
@@ -1092,10 +1150,11 @@ the component, not after.
 
 - [ ] `condition.if` + bespoke panel · `logic.switch` · `split.branch` · `logic.merge` ·
       `logic.goto` · `logic.loop`
-- [ ] `delay.wait` + bespoke panel — relative · until-date · next business hour · quiet-hours safe
-- [ ] `workers/resume.ts`
+- [x] `delay.wait` — relative · until-date · working-hours safe *(written, unrun)*
+- [x] `workers/resume.ts` *(written, unrun)*
 - [ ] `goal.event` + `workflow_goal_listeners` + the goal subscriber
-- [ ] `…_workflow_goals.sql` + quiet-hours columns
+- [ ] `…_workflow_goals.sql` — **no quiet-hours columns**; the tenant's availability
+      already answers "when are we open" and a second copy is the BOOK-10 defect
 - [ ] Join badges · goto-after-split warning · delay-in-loop rejection
 
 **Verification**
