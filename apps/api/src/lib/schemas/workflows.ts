@@ -247,3 +247,22 @@ export const runIdParam = z.object({
   id: z.string().uuid(),
   runId: z.string().uuid(),
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Templates
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const createFromTemplateBody = z.object({
+  /**
+   * A template id from the shipped catalogue, not a graph.
+   *
+   * The client never sends the template's nodes. It could — it imports the same
+   * package — and that is exactly why it must not: a graph accepted from the
+   * browser is a graph the browser can change, and "install this template" would
+   * become "write me any automation you like, including one that emails every
+   * customer". The id is the whole payload; the server reads the rest.
+   */
+  templateId: z.string().min(1).max(80),
+  /** Optional rename before creating. Same bound as `createWorkflowBody`. */
+  name: boundedText(120).optional(),
+});

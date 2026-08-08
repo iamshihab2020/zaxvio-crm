@@ -23,3 +23,4 @@ export * from "./triggers/match.js";
 export * from "./graph/validate.js";
 export * from "./naming.js";
 export * from "./conditions.js";
+export * from "./templates/index.js";

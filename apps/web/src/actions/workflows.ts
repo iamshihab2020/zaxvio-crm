@@ -478,3 +478,20 @@ export async function getWorkflowRun(id: string, runId: string) {
     fallback: "Failed to load this run",
   });
 }
+
+/**
+ * Install a shipped template as a new draft automation.
+ *
+ * Sends the template **id**, never its graph — the browser imports the same
+ * catalogue and could send the nodes, which is exactly why it must not. A graph
+ * accepted from the client is a graph the client can change, and "install this
+ * template" would quietly become "write me any automation you like".
+ */
+export async function createWorkflowFromTemplate(input: {
+  templateId: string;
+  name?: string;
+}) {
+  return apiSend<{ id: string }>("/workflows/from-template", "POST", input, {
+    fallback: "Failed to create this automation",
+  });
+}

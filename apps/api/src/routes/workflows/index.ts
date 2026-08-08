@@ -28,12 +28,14 @@ import {
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { idParam } from "../../lib/schemas/common.js";
 import {
+  createFromTemplateBody,
   createWorkflowBody,
   runWorkflowBody,
   setWorkflowActiveBody,
   updateWorkflowBody,
   workflowListQuery,
 } from "../../lib/schemas/workflows.js";
+import { getTemplate } from "@hvac-saas/workflow-nodes";
 import type { WorkflowGraph } from "@hvac-saas/types";
 import { containsPattern } from "../../lib/search.js";
 import { execute } from "../../services/workflow/engine/execute.js";
@@ -43,6 +45,7 @@ import {
   loadWorkflowWithGraph,
 } from "../../services/workflow/graph/load.js";
 import { isDraftDirty } from "../../services/workflow/graph/publish.js";
+import { instantiateTemplate } from "../../services/workflow/templates/instantiate.js";
 
 /**
  * Running an automation is not free — it can send email — so this is tighter
@@ -228,6 +231,46 @@ const workflowRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .returning();
 
       return reply.status(201).send({ data: created });
+    },
+  );
+
+  /**
+   * POST /workflows/from-template
+   *
+   * Install one of the shipped templates as a new draft automation.
+   *
+   * The body carries a template **id**, never a graph. The client imports the
+   * same catalogue and could send the nodes — which is exactly why it must not:
+   * a graph accepted from the browser is a graph the browser can change, and
+   * "install this template" would quietly become "write me any automation you
+   * like, including one that emails every customer".
+   *
+   * Created off and unpublished, like every other automation.
+   */
+  fastify.post(
+    "/from-template",
+    { preHandler: [requireTenant], schema: { body: createFromTemplateBody } },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { templateId, name } = request.body;
+
+      const template = getTemplate(templateId);
+      if (!template) {
+        return reply.status(404).send({ message: "Template not found" });
+      }
+
+      const result = await instantiateTemplate({
+        tenantId,
+        template,
+        name,
+        createdByUserId: request.authUser.userId,
+      });
+
+      if (result.status === "invalid") {
+        return reply.status(422).send({ message: result.reason });
+      }
+
+      return reply.status(201).send({ data: { id: result.workflowId } });
     },
   );
 

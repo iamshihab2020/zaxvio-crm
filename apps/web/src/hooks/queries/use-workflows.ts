@@ -9,6 +9,7 @@ import { queryKeys } from "@/lib/query-keys";
 import {
   archiveWorkflow,
   createWorkflow,
+  createWorkflowFromTemplate,
   getBuilderContext,
   getWorkflow,
   getWorkflowQuota,
@@ -186,6 +187,30 @@ export function useCreateWorkflow() {
       qc.invalidateQueries({ queryKey: queryKeys.workflows.all });
     },
     onError: () => toast.error("Failed to create automation"),
+  });
+}
+
+/**
+ * Install a template.
+ *
+ * Same shape as `useCreateWorkflow` and, like it, **no success toast**: this
+ * navigates straight into the builder, and the builder appearing is the
+ * confirmation. A toast on top of a full page transition announces something the
+ * user is already looking at.
+ */
+export function useCreateWorkflowFromTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { templateId: string; name?: string }) =>
+      createWorkflowFromTemplate(input),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      qc.invalidateQueries({ queryKey: queryKeys.workflows.all });
+    },
+    onError: () => toast.error("Failed to create this automation"),
   });
 }
 

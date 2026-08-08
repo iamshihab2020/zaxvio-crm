@@ -1871,6 +1871,36 @@ Mark all messages in a conversation as read.
 
 ---
 
+### `POST /workflows/from-template`
+
+Install one of the shipped templates as a new **draft** automation.
+
+The body carries a template **id**, never a graph. The browser imports the same
+catalogue and could send the nodes — which is exactly why it must not: a graph
+accepted from the client is a graph the client can change, and "install this
+template" would quietly become "write me any automation you like, including one
+that emails every customer".
+
+Created **off and unpublished**, like every other automation. `templateKey` is
+recorded on the row so the gallery can say "already added".
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `templateId` | string | ✓ | An id from `WORKFLOW_TEMPLATES` |
+| `name` | string | | Rename before creating. Max 120 |
+
+**Responses**
+
+- `201` — `{ "data": { "id": "uuid" } }`
+- `404` — unknown template id
+- `422` — the template names a node this build does not have. A packaging
+  mistake, not a tenant error, and caught before anything is written so it
+  cannot leave a half-built automation behind.
+
+---
+
 ## Run history
 
 The engine has written a row per run and a row per node since P3. These are the

@@ -133,6 +133,22 @@ packages/workflow-nodes/
         +-- actions/          # customer.addNote · job.moveStage · job.assign
         +-- timing/           # delay.wait — durable pause, working-hours aware
         +-- logic/            # condition.if · logic.merge (the ONLY AND join) · logic.stop
+    +-- templates/
+        +-- types.ts          # A template is a DECLARATION, not code that builds a graph —
+        |                     # the gallery renders it, the server instantiates it and a test
+        |                     # checks it would publish. Nodes join by a local `key`, never a
+        |                     # uuid: node id is what an edge stores and a run log points at,
+        |                     # so two automations from one template must not share them.
+        |                     # `needsSetup` (a field to finish, ASSERTED against the graph) is
+        |                     # kept apart from `dependsOn` (a tenant setting, unassertable)
+        +-- layout.ts         # GRAPH_LAYOUT — the single definition of canvas pitch, imported
+        |                     # by build-node.ts too. Positions are DERIVED (BFS column, lane
+        |                     # from the parent + branchIndex), so a template is a graph and
+        |                     # not a drawing
+        +-- catalogue.ts      # 5 starter templates. No tenant-scoped ids anywhere, because a
+                              # template cannot know a pipeline or a teammate. Every {{path}}
+                              # is a declared variable, checked by a test — a typo mails a
+                              # customer a sentence with a hole in it
 ```
 
 ### `packages/email/` — React Email Templates

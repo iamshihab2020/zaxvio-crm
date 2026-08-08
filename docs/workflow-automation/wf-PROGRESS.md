@@ -1099,6 +1099,61 @@ bug, and it is now a fifth assertion.
 The sweep for `contract.expiring` and `equipment.warrantyExpiring` is the same
 shape and is not written; neither node is active, so the gate now holds them.
 
+### Commit 13 — five templates, and the gallery as the way in (written, unrun)
+
+The audit found nothing this round — the failure-notification path is wired
+(`notifyFailure` → `workflow_alert`), so the third instance of the silent-dead-
+feature class did not exist. That changed what was worth building: the gap is no
+longer capability, it is that a solo contractor opens a blank canvas with sixteen
+node types and closes the tab.
+
+Only possible now. The overdue trigger fires (commit 12), waits respect working
+hours (commit 9), and run history proves it worked (commit 11) — a template
+shipped before any of those would have been a demo.
+
+- `packages/workflow-nodes/src/templates/` — a template is a **declaration**, not
+  code that builds a graph, for the same reason node definitions are: the gallery
+  renders it, the server instantiates it, and a test checks it would publish. A
+  function returning nodes could only be run.
+- **Local keys, never uuids.** Node id is what an edge stores and what a run log
+  points at, so two automations from one template must not share them. Real ids
+  are minted per instantiation.
+- **Positions are derived** (BFS column, lane inherited from the parent plus
+  `branchIndex`), so a template is a graph rather than a drawing and an author
+  adding a step does not re-number coordinates. `GRAPH_LAYOUT` moved into the
+  shared package and `build-node.ts` now imports it — two copies of the pitch
+  would drift, and the symptom is a template that looks foreign beside a
+  hand-drawn automation.
+- **The endpoint takes an id, never a graph.** The browser imports the same
+  catalogue and could send the nodes, which is exactly why it must not: "install
+  this template" would become "write me any automation you like".
+- **Off and unpublished**, like everything else. Instantiating straight to live
+  would be the one place that rule stopped holding, and it would do it with
+  prewritten copy the tenant has not read.
+- Parameters go through `buildNodeConfig`, so a templated node carries the same
+  defaults as a dragged one. Writing them straight through leaves nodes missing
+  their own defaults, which surfaces much later as a required field that was
+  never empty on screen.
+
+**The test caught a design flaw before it shipped.** `needsSetup` was one field
+covering two different things: a required node field left empty (assertable
+against the graph) and a tenant *setting* the automation leans on
+(`{{tenant.googleReviewUrl}}` — on no step, publishes fine without it, sends a
+button that goes nowhere). Conflating them made the assertion unwritable. Split
+into `needsSetup` and `dependsOn`, and both are now honest.
+
+Six assertions hold the catalogue: unique ids, only active node types, only
+declared variable paths, no unconnected nodes, no two steps on one spot, and an
+icon the builder can render. Plus per-template: no structural validation errors,
+and `needsSetup` exactly matching the real missing fields.
+
+Templates: chase overdue invoices (3 triggers, escalating, ending in a
+notification because by two weeks it stops being something to automate), ask for
+a review, follow up an accepted quote (the first with a branch), new booking
+heads-up (deliberately does **not** email the customer — the portal already
+does, and a template whose first act duplicates a product email teaches the
+tenant that automations are noise), and welcome a new customer.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request

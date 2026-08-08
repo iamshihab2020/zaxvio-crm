@@ -8,6 +8,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
+import { TemplateGallery } from "@/components/dashboard/automations/template-gallery";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
@@ -23,6 +24,7 @@ import {
 import {
   useWorkflows,
   useCreateWorkflow,
+  useCreateWorkflowFromTemplate,
   useUpdateWorkflow,
   useSetWorkflowActive,
   useArchiveWorkflow,
@@ -58,6 +60,7 @@ export function AutomationsPageClient({
   const [page, setPage] = useState(1);
 
   const [nameDialogOpen, setNameDialogOpen] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const [renaming, setRenaming] = useState<AutomationRow | null>(null);
   const [archiving, setArchiving] = useState<AutomationRow | null>(null);
 
@@ -114,6 +117,7 @@ export function AutomationsPageClient({
 
   // ── Mutations ──────────────────────────────────────────────
   const createMutation = useCreateWorkflow();
+  const templateMutation = useCreateWorkflowFromTemplate();
   const updateMutation = useUpdateWorkflow();
   const activeMutation = useSetWorkflowActive();
   const archiveMutation = useArchiveWorkflow();
@@ -156,12 +160,42 @@ export function AutomationsPageClient({
    * token, which needs a row to exist. Dropping the dialog does not require
    * dropping that.
    */
+  /**
+   * "New automation" opens the gallery, it does not create anything.
+   *
+   * The blank canvas is the secondary path on purpose. A solo contractor faced
+   * with an empty grid and sixteen kinds of step does not build an automation —
+   * they close the tab. Starting from something that already works is what makes
+   * the difference between a feature and a demo, so it is the default, and
+   * "Start from blank" is one click away for anyone who wants it.
+   */
   function handleCreate() {
+    setGalleryOpen(true);
+  }
+
+  function handleStartBlank() {
     createMutation.mutate(
       { name: DEFAULT_WORKFLOW_NAME },
       {
         onSuccess: (res) => {
           if (res.error || !res.data) return;
+          setGalleryOpen(false);
+          router.push(`/automations/${res.data.id}`);
+        },
+      },
+    );
+  }
+
+  function handleUseTemplate(template: { id: string }) {
+    templateMutation.mutate(
+      { templateId: template.id },
+      {
+        onSuccess: (res) => {
+          if (res.error || !res.data) return;
+          setGalleryOpen(false);
+          // Straight into the builder, on the draft. The tenant reads what it
+          // will send BEFORE it can send anything — which is the whole reason
+          // installing a template does not publish or switch on.
           router.push(`/automations/${res.data.id}`);
         },
       },
@@ -218,7 +252,7 @@ export function AutomationsPageClient({
             // problem is the biggest adoption risk in the feature.
             description="Follow up after a completed job. Chase an overdue invoice. Remind a customer their service agreement is expiring."
             subtitle="An automation runs on its own when something happens in your business."
-            actionLabel="New automation"
+            actionLabel="Browse templates"
             onAction={handleCreate}
           />
         )}
@@ -254,18 +288,16 @@ export function AutomationsPageClient({
                       : "automations"}
                   </span>
                 )}
-                {/* Now that there is no dialog, this button IS the wait: it
-                    creates the record and navigates. Without a pending state
-                    the click looks like it did nothing for the length of a
-                    round trip, and the user clicks again. */}
+                {/* Opens the gallery, which is instant — so no pending state
+                    here any more. The wait moved to the gallery's own buttons,
+                    which are the things that now create a record. */}
                 <Button
                   onClick={handleCreate}
-                  disabled={createMutation.isPending}
                   size="sm"
                   className="bg-brand text-brand-foreground hover:bg-brand/90 font-body shrink-0"
                 >
                   <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                  {createMutation.isPending ? "Creating…" : "New automation"}
+                  New automation
                 </Button>
               </div>
             </div>
@@ -311,6 +343,20 @@ export function AutomationsPageClient({
               )}
           </div>
         )}
+
+        <TemplateGallery
+          open={galleryOpen}
+          onOpenChange={setGalleryOpen}
+          // Read off what the tenant already has, so a card can say "already
+          // added" rather than letting somebody install the same chase sequence
+          // three times without noticing.
+          installedTemplateKeys={workflows
+            .map((w) => w.templateKey)
+            .filter((key): key is string => Boolean(key))}
+          onUse={handleUseTemplate}
+          onStartBlank={handleStartBlank}
+          pending={templateMutation.isPending || createMutation.isPending}
+        />
 
         <AutomationNameDialog
           open={nameDialogOpen}

@@ -152,3 +152,21 @@
   not change until somebody starts another. A permanent interval on an idle tab
   is a cost with no reader; no interval at all means a durable pause that resumes
   in the background never appears to.
+- **The blank canvas is the adoption risk, not the missing node.** Sixteen node
+  types and an empty grid is a project, not a feature, for a solo contractor. The
+  gallery is now what "New automation" opens and the blank canvas is one click
+  further — the opposite of how a builder usually presents itself, and the right
+  way round for this audience. Judge a builder by whether somebody gets a working
+  automation before they get bored, not by how much it can express.
+- **A template must be assertable, so keep "unfinished" and "unconfigured"
+  apart.** `needsSetup` is a required field the tenant must fill, and a test
+  checks it against the graph's actual missing fields. `dependsOn` is a tenant
+  *setting* like the Google review URL — on no step, publishes fine without it,
+  and quietly sends a button that goes nowhere. Writing the review template's
+  gap as `needsSetup` made the assertion unwritable; splitting them made both
+  honest. The design flaw surfaced because the test was written alongside the
+  data rather than after it.
+- **Template nodes must go through `buildNodeConfig`, not straight into the
+  row.** Otherwise a templated node carries only the parameters the template
+  mentioned and none of its definition's own defaults — which surfaces much
+  later as a required field that was never empty on screen.

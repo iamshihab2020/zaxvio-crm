@@ -1,4 +1,8 @@
-import { buildNodeConfig, requireDefinition } from "@hvac-saas/workflow-nodes";
+import {
+  buildNodeConfig,
+  requireDefinition,
+  GRAPH_LAYOUT,
+} from "@hvac-saas/workflow-nodes";
 import type { GraphEdge, GraphNode } from "@hvac-saas/types";
 
 /**
@@ -78,7 +82,15 @@ export function buildEdge(options: BuildEdgeOptions): GraphEdge {
  * `y` clears the tile plus its two-line caption, so branches do not overlap
  * each other's text.
  */
-export const NODE_SPACING = { x: 210, y: 150 } as const;
+/**
+ * Re-exported, not declared.
+ *
+ * Templates lay themselves out with the same pitch, and they live in the shared
+ * package because the server instantiates them. Two copies of these numbers
+ * would drift the first time somebody widened the columns, and the symptom is a
+ * template that looks subtly foreign beside a hand-drawn automation.
+ */
+export const NODE_SPACING = { x: GRAPH_LAYOUT.x, y: GRAPH_LAYOUT.y } as const;
 
 /**
  * The height of a node's connectable box, which is **not** the height of the
@@ -92,7 +104,7 @@ export const NODE_SPACING = { x: 210, y: 150 } as const;
  * renders. Mirrors `TILE` in `automation-node.tsx`; kept beside the spacing it
  * is used with so the two cannot drift.
  */
-const BOX_HEIGHT = 92;
+const BOX_HEIGHT = GRAPH_LAYOUT.tile;
 
 /** The tile's size, for callers placing a node at a pointer. */
 export const NODE_TILE = BOX_HEIGHT;

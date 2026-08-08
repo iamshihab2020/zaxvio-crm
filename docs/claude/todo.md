@@ -215,6 +215,17 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       three hooks with **0 callers**: `useWorkflowQuota`, `useWorkflowVersions`,
       `useWorkflowValidation`. Two remain unconsumed.
       Remaining: replay, run-from-node, the retention sweep, and a global activity view.
+- [~] **Templates** (P10, pulled forward) — **5 shipped, written and unrun.** The audit found
+      nothing this round (the failure-notification path is wired), so the gap stopped being
+      capability and started being that a solo contractor opens a blank canvas with 16 node types
+      and closes the tab. **New automation** now opens a gallery; blank canvas is one click
+      further. Only possible now: overdue fires, waits respect working hours, run history proves
+      it worked. Templates are declarations with local keys (never uuids) and derived positions;
+      `GRAPH_LAYOUT` moved to the shared package so the builder and templates cannot drift. The
+      endpoint takes an **id, never a graph** — the browser has the same catalogue, which is
+      precisely why it must not send nodes. Created off and unpublished like everything else.
+      The test caught a design flaw pre-ship: `needsSetup` conflated "a required field is empty"
+      (assertable) with "a tenant setting is unset" (not) — now `needsSetup` + `dependsOn`.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

@@ -142,6 +142,33 @@ const entries: KnowledgeEntry[] = [
       "Yes. Build an automation starting with the **Invoice Overdue** trigger.\n\n**Set \"Days overdue\"** to the exact day you want it to run — it fires when the invoice is that many days past due, not every day after. So a chase sequence is three separate automations, or three triggers: one at **1** day, one at **7**, one at **14**, each with its own message.\n\nLeave the days field empty and it fires on the first day only.\n\n**\"Only invoices of at least\"** skips small balances, so you're not chasing someone for $12.\n\n**What counts as overdue:** past its due date and not settled. Part-paid invoices count — someone who paid half and stopped is exactly who you want to chase. Draft and voided invoices never do.\n\n**Timing:** checked hourly against your own timezone, so it fires shortly after the due date passes rather than at midnight somewhere else. It runs at most once per invoice per day, so you won't double-send.\n\nThis is separate from the built-in overdue reminder emails in Settings — turning those off doesn't affect your automations, and vice versa.",
   },
   {
+    id: "automations-templates",
+    category: "general",
+    keywords: [
+      "automation template",
+      "ready made automation",
+      "template gallery",
+      "where do i start automation",
+      "example automation",
+      "start from template",
+    ],
+    question: "I don't know where to start with automations",
+    answer:
+      "Start with a template. Click **New automation** on the Automations page and you'll get a list of ready-made ones you can use as they are:
+
+• **Chase overdue invoices** — three reminders, gentle at 1 day, firmer at 7, direct at 14. Anyone who pays stops hearing from it.
+• **Ask for a review after the job** — waits three working days after you mark a job complete, then asks.
+• **Follow up an accepted quote** — confirms it straight away and flags the big ones for a personal call.
+• **Know about new bookings** — a notification the moment somebody books through your website.
+• **Welcome a new customer** — a short hello, so the first email they get from you isn't an invoice.
+
+**Nothing sends when you add one.** It opens in the builder as a draft, switched off. Read what it will send, change any wording you like, then Publish and switch it on.
+
+Every step can be changed or removed, and you can add your own. If you'd rather build from scratch, **Start from blank** is at the bottom of the list.
+
+A template already added shows **Already added** — you can still add a second copy if you want two versions.",
+  },
+  {
     id: "general-capabilities",
     category: "general",
     keywords: ["what can you do", "help", "capabilities", "features", "chatbot", "assistant"],
