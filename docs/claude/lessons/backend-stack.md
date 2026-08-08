@@ -395,3 +395,28 @@
   an hour early — and it is invisible, because nothing failed. Push the work to
   the next allowed moment instead. Same shape as the email opt-out gate, which
   returns a *decision with a reason* rather than a boolean.
+- **A "ship gate" only gates what it asserts.** `ACTIVE_NODES` is documented as
+  the list that stops the palette offering a node which would fail at run time,
+  and four tests back it: every active node has a definition, an executor entry,
+  an executor module on disk, and no orphans in the other direction. All four
+  passed for `trigger.invoice.overdue`, which was in the palette, configurable,
+  publishable — and whose event **nothing anywhere raised**. A trigger node is
+  only as real as its event's producer. When a gate exists, write down what it
+  does *not* cover; the gap is where the next bug lives, and here it was the
+  difference between "this node can execute" and "this node can be reached".
+- **A metadata field nothing reads is a comment.** The event registry recorded
+  `phase: "P9"` for `invoice.overdue` — accurate, and it sat beside an active
+  node the whole time. Either enforce a declaration in a test or accept it is
+  prose; the dangerous middle is a field that looks authoritative and binds
+  nothing.
+- **Emit dedup belongs in the database, not the process.** `emitWorkflowEvent`
+  has always taken a `dedupKey` enforced by a unique index, and nothing had used
+  it. For an hourly sweep raising a once-per-day event, the alternative — a "done
+  today" flag in module scope — is wrong on a second instance, lost on every
+  deploy, and its failure mode is a customer receiving two chase emails.
+- **Don't reuse another feature's claim column as an event trigger.** The E-07
+  cron already sweeps overdue invoices and writes `last_overdue_reminder_at`, so
+  emitting `invoice.overdue` from it looked free. It would have coupled every
+  overdue automation to whether reminder *emails* were enabled — turn those off
+  and the automations stop, with nothing to indicate why. Two concerns, two
+  sweeps, one shared definition of "overdue".

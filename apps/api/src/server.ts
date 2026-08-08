@@ -325,8 +325,10 @@ async function start() {
     // is durable and comes back through stale recovery on the next boot.
     const { stopEventWorker } = await import("./services/workflow/events/worker.js");
     const { stopResumeWorker } = await import("./services/workflow/workers/resume.js");
+    const { stopSweepWorker } = await import("./services/workflow/workers/sweeps.js");
     stopEventWorker();
     stopResumeWorker();
+    stopSweepWorker();
     await server.close();
     await closeDb();
     process.exit(0);
@@ -380,6 +382,13 @@ async function start() {
   // boot picks the row up.
   const { startResumeWorker } = await import("./services/workflow/workers/resume.js");
   startResumeWorker();
+
+  // The sweep worker — the clock behind time-based triggers. A third timer
+  // rather than a branch inside the resume worker: that one wakes runs that are
+  // already waiting, this one decides whether a run should start at all, and a
+  // slow sweep must not delay a resume that is already due.
+  const { startSweepWorker } = await import("./services/workflow/workers/sweeps.js");
+  startSweepWorker();
 }
 
 start();

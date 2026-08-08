@@ -127,6 +127,21 @@ const entries: KnowledgeEntry[] = [
       "Open the automation and click the **clock icon** in the toolbar, or pick **Run history** from the ⋯ menu on the Automations list.\n\n**The list** shows every run, newest first: what happened, which customer it ran for, when it started, how many steps it took and how long it took. The four counts at the top cover the whole history, not just the page you're looking at.\n\n**Filter it** with the tabs — **Needs a look** is failed and stopped runs together, which is usually what you came for.\n\n**Click any run** to see every step in the order it ran, each with what happened to it. A step that was skipped says why in plain language — \"this customer unsubscribed on 12 July, so we didn't email them\". A step that failed says what to fix. Expand **Details** on a step to see what it actually tried to do after your variables were filled in — that's where a mail merge that came out blank becomes obvious.\n\n**Waiting isn't failed.** A run sitting on **Waiting** is paused at a Wait step and tells you when it carries on. It survives restarts, so leave it be.\n\n**Stopped isn't failed either.** That's a Stop step doing its job — \"this invoice is already paid, stop chasing it\".\n\nThe filter and the open run are both in the page address, so you can copy the link and send someone the exact run you're looking at.",
   },
   {
+    id: "automations-overdue-chasing",
+    category: "general",
+    keywords: [
+      "chase overdue invoice",
+      "invoice reminder automation",
+      "overdue automation",
+      "payment reminder",
+      "days overdue",
+      "chase sequence",
+    ],
+    question: "Can I automatically chase overdue invoices?",
+    answer:
+      "Yes. Build an automation starting with the **Invoice Overdue** trigger.\n\n**Set \"Days overdue\"** to the exact day you want it to run — it fires when the invoice is that many days past due, not every day after. So a chase sequence is three separate automations, or three triggers: one at **1** day, one at **7**, one at **14**, each with its own message.\n\nLeave the days field empty and it fires on the first day only.\n\n**\"Only invoices of at least\"** skips small balances, so you're not chasing someone for $12.\n\n**What counts as overdue:** past its due date and not settled. Part-paid invoices count — someone who paid half and stopped is exactly who you want to chase. Draft and voided invoices never do.\n\n**Timing:** checked hourly against your own timezone, so it fires shortly after the due date passes rather than at midnight somewhere else. It runs at most once per invoice per day, so you won't double-send.\n\nThis is separate from the built-in overdue reminder emails in Settings — turning those off doesn't affect your automations, and vice versa.",
+  },
+  {
     id: "general-capabilities",
     category: "general",
     keywords: ["what can you do", "help", "capabilities", "features", "chatbot", "assistant"],

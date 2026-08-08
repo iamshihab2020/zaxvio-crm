@@ -1057,6 +1057,48 @@ surfaced three hooks with **zero callers** — `useWorkflowQuota`,
 `useInvoice` and six quote hooks. Two are still unconsumed; the run work spends
 neither, so they stay on the list.
 
+### Commit 12 — the trigger that could never fire (written, unrun)
+
+**Found by audit, again, and worse than the last one.** `trigger.invoice.overdue`
+shipped into `ACTIVE_NODES` in P5 commit 5 with a definition, a payload schema,
+an executor and a place in the palette — and **nothing anywhere raised
+`invoice.overdue`.** A tenant could build "chase this seven days after it's due",
+publish it, switch it on, and it would never fire. Silently. Forever. Its own
+doc comment said "raised by the hourly sweep"; there was no sweep. The event
+registry recorded `phase: "P9"` the whole time and nothing read that field.
+
+Every one of the ship gate's four assertions passed, because they check that an
+active node has a definition and an executor — not that a **trigger** node's
+declared events can actually be raised. That is a hole exactly the size of this
+bug, and it is now a fifth assertion.
+
+- `services/workflow/sweeps/invoice-overdue.ts` + `workers/sweeps.ts` (hourly).
+- **Daily while overdue, not once on transition.** The node filters `daysOverdue`
+  with `equals` and its help text says to add one trigger per reminder — 1 day,
+  then 7, then 14. Firing once, when it first goes past due, would make every one
+  of those filters except `1` unreachable.
+- **Exactly once per invoice per tenant-day**, via the producer `dedupKey` that
+  `emit()` has always supported and nothing had used. The queue's unique index
+  enforces it, so it holds across restarts, overlapping ticks and two instances —
+  none of which an in-memory "done today" flag survives, and the cost of getting
+  it wrong is a customer receiving two chase emails.
+- **Hourly, not daily.** Tenants are in different timezones, so one daily tick
+  fires at the wrong local hour for everyone but the zone it was scheduled in.
+  The per-tenant-day dedup is what makes 24 ticks safe.
+- **Not coupled to E-07's claim**, though reusing `last_overdue_reminder_at` was
+  tempting. That column throttles *emails*; an automation firing off the back of
+  it would silently stop the day somebody turned reminder emails off.
+- Skips tenants with no subscribing active workflow (`trigger_types &&`, the same
+  question the trigger matcher asks), so a tenant who does not use this pays
+  nothing.
+- Overdue is INV-06's shared definition, `partially_paid` included, compared in
+  the **tenant's** timezone — on Neon the server is UTC, so a Chicago tenant would
+  otherwise see an invoice go overdue six hours early, and "overdue" is a word
+  customers get emailed about.
+
+The sweep for `contract.expiring` and `equipment.warrantyExpiring` is the same
+shape and is not written; neither node is active, so the gate now holds them.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request

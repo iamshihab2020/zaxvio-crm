@@ -263,3 +263,56 @@ export function invoiceVoided(db: EmitDb, args: InvoiceVoidedArgs) {
     },
   });
 }
+
+/**
+ * `invoice.overdue` — the one invoice event **no write produces**.
+ *
+ * Nothing happens to make an invoice overdue except time passing, so this has
+ * no call site inside a handler. It is raised by the daily sweep in
+ * `services/workflow/sweeps/invoice-overdue.ts`.
+ *
+ * `daysOverdue` is the count **on the day it fires**, and the sweep raises this
+ * once per invoice per day for as long as the invoice stays overdue. That is
+ * what the node's `equals` filter is built on: three copies of the trigger set
+ * to 1, 7 and 14 give a chase sequence, each firing on exactly its day. Firing
+ * only once, when the invoice first goes past due, would make every one of those
+ * filters except `1` unreachable.
+ */
+export interface InvoiceOverdueArgs extends ProducerContext {
+  invoice: InvoiceArgs;
+  customer: CustomerArgs;
+  daysOverdue: number;
+  /** Tenant-local date, so once-per-day is once per the tenant's day. */
+  dedupKey: string;
+}
+
+export function invoiceOverdue(db: EmitDb, args: InvoiceOverdueArgs) {
+  const b = invoiceBase(args.invoice, args.customer);
+  return emitWorkflowEvent(db, {
+    type: "invoice.overdue",
+    tenantId: args.tenantId,
+    subject: { type: "invoice", id: args.invoice.id },
+    actorUserId: args.actorUserId,
+    // Every field by name. No spread — enforced by a test, because a spread row
+    // is how the reference system shipped `pipeline_stage_id` to a consumer
+    // reading `stageId` and lost every stage filter for months.
+    payload: {
+      customerId: b.customerId,
+      customerFirstName: b.customerFirstName,
+      customerLastName: b.customerLastName,
+      customerEmail: b.customerEmail,
+      customerPhone: b.customerPhone,
+      invoiceId: b.invoiceId,
+      invoiceNumber: b.invoiceNumber,
+      status: b.status,
+      totalAmount: b.totalAmount,
+      amountPaid: b.amountPaid,
+      balanceDue: b.balanceDue,
+      issuedDate: b.issuedDate,
+      dueDate: b.dueDate,
+      jobId: b.jobId,
+      daysOverdue: args.daysOverdue,
+    },
+    dedupKey: args.dedupKey,
+  });
+}

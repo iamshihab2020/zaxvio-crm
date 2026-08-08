@@ -377,10 +377,24 @@ apps/api/
 |   |   |   |   |                  # display and never converts a local time back to an instant
 |   |   |   |   +-- executors/     # One function per node. No HTTP, no table writes, no
 |   |   |   |                      # interpolation — params arrive already resolved
+|   |   |   +-- sweeps/
+|   |   |   |   +-- invoice-overdue.ts # The clock behind `invoice.overdue` — the ONE invoice event
+|   |   |   |                         # no write produces, since nothing happens to make an invoice
+|   |   |   |                         # overdue except time passing. Once per invoice per TENANT day
+|   |   |   |                         # via the producer dedupKey, so 24 hourly ticks raise one
+|   |   |   |                         # event. Fires DAILY while overdue, not once on transition:
+|   |   |   |                         # the node filters daysOverdue with `equals`, so a 1/7/14-day
+|   |   |   |                         # chase needs the count each day. Skips tenants with no
+|   |   |   |                         # subscribing active workflow (trigger_types &&), and is
+|   |   |   |                         # deliberately NOT coupled to E-07's reminder throttle — that
+|   |   |   |                         # column throttles email, so automations would die with it
 |   |   |   +-- workers/
 |   |   |   |   +-- resume.ts         # 60s tick. `resume_at IS NOT NULL` is load-bearing: a goal wait
-|   |   |   |                         # is also `waiting`, and only a matching event may end one.
-|   |   |   |                         # clock_timestamp() not now(), which is fixed for the txn
+|   |   |   |   |                     # is also `waiting`, and only a matching event may end one.
+|   |   |   |   |                     # clock_timestamp() not now(), which is fixed for the txn
+|   |   |   |   +-- sweeps.ts         # Hourly. A third timer, not a branch in the resume worker:
+|   |   |   |                         # that one wakes runs already waiting, this decides whether a
+|   |   |   |                         # run should start, and a slow sweep must not delay a resume
 |   |   |   +-- runs/
 |   |   |   |   +-- runs.service.ts   # listRuns / getRunStats / getRun. Leads on error_hint and
 |   |   |   |                         # skip_reason, NOT error_message — the reader is the person

@@ -7,6 +7,7 @@ import {
   ACTIVE_NODES,
   allDefinitions,
   getDefinition,
+  isTriggerNode,
 } from "@hvac-saas/workflow-nodes";
 
 /**
@@ -37,6 +38,8 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const EXECUTOR_DIR = join(HERE, "..", "services", "workflow", "engine", "executors");
 const BARREL = join(EXECUTOR_DIR, "index.ts");
+const PRODUCER_DIR = join(HERE, "..", "services", "workflow", "events", "producers");
+const SWEEP_DIR = join(HERE, "..", "services", "workflow", "sweeps");
 
 /** Comments stripped first, so a node id mentioned in prose is not a mapping. */
 function barrelSource(): string {
@@ -93,7 +96,57 @@ describe("active nodes", () => {
     const missing = ACTIVE_NODES.filter((id) => !files.has(moduleNameFor(id)));
     expect(missing).toEqual([]);
   });
+
+  /**
+   * The hole the other four did not cover.
+   *
+   * `trigger.invoice.overdue` shipped active with a definition, a payload
+   * schema, an executor and a palette entry — and **nothing anywhere raised
+   * `invoice.overdue`**. Every assertion above passed. A tenant could build
+   * "chase this seven days after it's due", publish it, switch it on, and it
+   * would never fire, silently, forever.
+   *
+   * A trigger node is only as real as its event's producer, so that is what is
+   * asserted here. Source text rather than imports, for the reason at the top of
+   * this file: importing the producer barrel boots `lib/env.ts`, which calls
+   * `process.exit(1)` and takes the runner with it.
+   */
+  it("every event an active trigger declares can actually be raised", () => {
+    const emitted = emittedEventTypes();
+
+    const unraisable = ACTIVE_NODES.flatMap((id) => {
+      const def = getDefinition(id);
+      if (!def || !isTriggerNode(def)) return [];
+      return (def.triggerEvents ?? [])
+        // `manual.run` is raised by `POST /:id/runs`, not by a producer — the
+        // one event whose origin is a request.
+        .filter((event) => event !== "manual.run")
+        .filter((event) => !emitted.has(event))
+        .map((event) => `${id} declares ${event}`);
+    });
+
+    expect(unraisable).toEqual([]);
+  });
 });
+
+/** Every `type: "<event>"` passed to `emitWorkflowEvent`, across producers and sweeps. */
+function emittedEventTypes(): Set<string> {
+  const dirs = [PRODUCER_DIR, SWEEP_DIR];
+  const found = new Set<string>();
+
+  for (const dir of dirs) {
+    for (const file of readdirSync(dir)) {
+      if (!file.endsWith(".ts")) continue;
+      const source = readFileSync(join(dir, file), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      for (const match of source.matchAll(/type:\s*"([a-z][a-zA-Z0-9.]*)"/g)) {
+        found.add(match[1]);
+      }
+    }
+  }
+  return found;
+}
 
 describe("the executor barrel", () => {
   it("imports every module in the directory", () => {

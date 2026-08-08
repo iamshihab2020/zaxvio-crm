@@ -186,6 +186,16 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       branches converge would never fire under AND. Its failure mode is silence: a merge after an
       Only if waits forever for the branch that did not run, so `merge_never_completes` is an
       error, not a warning.
+      Then the `invoice.overdue` **sweep** — a second audit finding, worse than the first:
+      `trigger.invoice.overdue` had shipped *active* in P5 with a definition, payload schema,
+      executor and palette entry, and **nothing anywhere raised the event**. Build the automation,
+      publish it, switch it on, and it never fires — silently, forever. All four ship-gate
+      assertions passed, because none of them checks that a *trigger* node's declared events have
+      a producer; that is now a fifth. Hourly sweep, once per invoice per **tenant** day via the
+      `dedupKey` `emit()` has always supported and nothing had used. Fires daily while overdue
+      rather than once on transition, because the node filters `daysOverdue` with `equals` and a
+      1/7/14-day chase needs the count each day. Deliberately not coupled to E-07's reminder
+      throttle — that column throttles email, so automations would die with it.
       Remaining: `logic.switch`, `split.branch`, `logic.goto`, `logic.loop`,
       `goal.event` + `workflow_goal_listeners`. **Every P6 acceptance criterion is a runtime
       proof** — a pause surviving a deploy, version pinning across a publish, the DST boundary,

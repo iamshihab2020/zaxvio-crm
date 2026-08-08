@@ -117,8 +117,16 @@ export interface EventDefinition {
    * loading. `null` only for `schedule.*`, which is about nothing.
    */
   subject: SubjectType | null;
-  /** The phase whose producer makes this event real. */
-  phase: "P2" | "P3" | "P9";
+  /**
+   * The phase whose producer makes this event real.
+   *
+   * Not decoration: `invoice.overdue` sat here as `P9` while its **trigger node
+   * was already active in the palette**, so an automation could be built on an
+   * event nothing raised. This field said so the whole time and nothing read it.
+   * A test now asserts the real invariant — every event an active trigger
+   * declares has a producer — and this stays as documentation of intent.
+   */
+  phase: "P2" | "P3" | "P6" | "P9";
   payload: z.ZodType;
 }
 
@@ -381,7 +389,11 @@ export const WORKFLOW_EVENTS = {
     category: "invoice",
     origin: "derived",
     subject: "invoice",
-    phase: "P9",
+    // Raised by `services/workflow/sweeps/invoice-overdue.ts`, hourly, once per
+    // invoice per TENANT day. Daily rather than once-on-transition because the
+    // node filters `daysOverdue` with `equals` — a 1/7/14-day chase sequence
+    // needs the event every day, carrying that day's count.
+    phase: "P6",
     payload: invoiceOverduePayload,
   },
   "invoice.voided": {
