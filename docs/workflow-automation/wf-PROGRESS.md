@@ -14,82 +14,83 @@ Rules for this file:
 
 ---
 
-## ⏸ START HERE — session handoff, 2026-08-08
+## ⏸ START HERE — session handoff, 2026-08-09
 
-**Nothing is committed.** 77 files: 47 modified, 30 untracked, all on
-`security/close-native-admin-surface` — which is not a workflow branch, and the branch this work
-should probably move to before any of it lands.
+**Everything through commit 18 is committed** on `security/close-native-admin-surface` — a branch
+named for unrelated work, and the first thing worth fixing. `git log --oneline` from `d3b1eb0`
+forward is this feature.
 
-**Three phases of code are written and have never been compiled or executed.** P2's producer sweep,
-all of P3, all of P4. That is the single most important fact about the state of this work: the
-72 passing tests predate the sweep, and everything since is unverified.
-
-**Migrations are no longer a blocker** (2026-08-08). All four workflow-era migrations are applied
-and verified against Neon; the `42703` exposure on `customers` / `customer_notes` is closed. Step 1
-below is done. The remaining three steps — compile, test, walk P3 — are untouched.
+**Nothing has been compiled or executed since the migrations.** That is still the single most
+important fact here. Roughly 60 files across three workspaces, ~18 commits, zero `tsc` runs, zero
+test runs. Every phase from P2 onward is `[~]`.
 
 ### Do these four things first, in this order
 
-1. ~~**Apply the migrations.**~~ **DONE 2026-08-08 — both applied to Neon, 17/17 verified.**
-   - `20260807000003_customer_email_opt_out.sql` ✅
-   - `20260808000001_workflow_authorship.sql` ✅
+1. **`pnpm typecheck`.** Nothing else is worth doing until this passes. Five read-through review
+   passes caught real defects — two of them would not have compiled — but a compiler finds what
+   reading cannot. Likeliest failures, in order: the Drizzle column names in `engine/context.ts`
+   and `runs/runs.service.ts`; `satisfies NodeDefinition` on the newer definitions; the
+   `db.execute(sql\`…\`)` return shape in `workers/retention.ts` (`rowCount` vs `rows`).
 
-   `20260807000002_workflow_event_queue.sql` was **already applied** — the "three unapplied"
-   in [[todo]] was stale; the table was present before this session touched anything. Two, not three.
+2. **`pnpm test`.** Nine test files now, none run since P2. The three added this session are the
+   ones that matter, because each encodes a bug that actually shipped:
+   - `apps/api/src/test/workflow-node-wiring.test.ts` — the **trigger_types seam** (commit 18),
+     plus the trigger-has-a-producer gate (commit 12). Three of its assertions would have failed
+     before those commits.
+   - `apps/api/src/test/workflow-templates.test.ts` — variable paths, active node types,
+     `needsSetup` accuracy.
 
-   Applied with `postgres.js` `sql.unsafe(file).simple()`, because **there is no `psql` on this
-   machine and `db:migrate` skips every hand-written file** (32 of 42 are absent from
-   `meta/_journal.json`). That is the procedure for this repo until the journal is re-baselined.
+3. **Then prove one event-triggered run end to end.** This has *never* been done, and commit 18 is
+   the reason it could not have worked:
 
-   Verified the way P1 and P2's were: **idempotent ×4**, NOTICE-only on re-runs
-   (`42701` column exists, `42P07` relation exists, `42710` enum label exists), object set
-   byte-identical after each pass. 10/10 structural checks — both opt-out columns nullable,
-   `customer_notes.created_by` now NULLABLE, `created_by_workflow_id` present, both indexes
-   PARTIAL, exactly **one** FK (no duplicate from re-runs), `notification_type` at **11** values
-   not 14. Nothing lost: 0 columns, 0 indexes, row counts unchanged (15 customers, 6 notes).
+   ```
+   create → PUT /:id/graph (trigger.job.completed + customer.addNote) → POST /:id/publish
+   → confirm trigger_types is ["job.completed"]   ← EVENT name, not "trigger.job.completed"
+   → POST /:id/active → complete a real job → confirm a workflow_executions row appears
+   ```
 
-   Then 7/7 behavioural, all rolled back: a note with `created_by = NULL` inserts (the thing
-   `customer.addNote` could not do at all before); a bogus workflow id is refused `23503`;
-   deleting the workflow **SET NULLs the note rather than cascading it away**; `'workflow_alert'`
-   casts to `notification_type`; the opt-out pair round-trips.
+   Step 4 is the assertion that matters. If `trigger_types` contains `trigger.job.completed`,
+   something reverted commit 18.
 
-2. **`pnpm typecheck`.** ~40 new files across three workspaces, none compiled. The read-through
-   review below caught five real defects, but a compiler will find things reading cannot.
-   Likeliest failures: Drizzle column names in `engine/context.ts` (checked by hand against nine
-   tables, but not exhaustively), and the `satisfies NodeDefinition` on the five new node
-   definitions.
+4. **Then walk P6's "done when" list** ([[wf-12-phases|§P6]]) — every criterion there is a runtime
+   proof and none has been run: a pause surviving a real deploy, version pinning across a publish,
+   the DST boundary in the tenant's zone, the goal/delay race.
 
-3. **`pnpm test`.** Six new test files, none run:
-   - `packages/workflow-nodes/src/__tests__/variables.test.ts`
-   - `packages/workflow-nodes/src/__tests__/triggers.test.ts` ← the operator matrix
-   - `apps/api/src/test/workflow-interpolate.test.ts` ← highest value; every failure it guards
-     reaches a customer's inbox
-   - `apps/api/src/test/workflow-node-wiring.test.ts`
-   - plus P2's `workflow-producers.test.ts` and the three integration files, which passed before the
-     producer sweep and have not been re-run since.
+### What this session actually changed
 
-4. **Then walk P3's "done when" list** ([[wf-12-phases|§P3]]): a hand-inserted graph runs end to end;
-   an opted-out customer produces a `skipped` node log with a readable reason and the run still
-   completes; a tenant at quota is refused and told; an automation cannot touch another tenant's rows.
+Six audit → fix cycles. Every finding was the same shape — **a decision that looked settled**, with
+nothing on the other side of the seam:
 
-### The thing that blocks a real end-to-end test — **now partly unblocked**
+| # | Finding | Why it was invisible |
+|---|---|---|
+| 🔴 **18** | `trigger_types` held **event names**; the matcher queried **node ids**. Empty overlap for every trigger — **no event-triggered automation could ever fire** | Both sides internally consistent, both `string[]`, and `POST /:id/runs` bypasses the matcher, so every by-hand test passed |
+| 🔴 **17** | `email.send` hardcoded `purpose: "marketing"`, so the chase-overdue template skipped every unsubscribed customer — for money they owed | The run log said "this customer unsubscribed", which reads as correct |
+| 🔴 **12** | `trigger.invoice.overdue` was in the palette with **no producer anywhere** | All four ship-gate assertions passed; none checked that a trigger's events can be raised |
+| 🟠 **11** | `node_execution_logs` had a writer on every node and **no reader** outside a test | The schema was *good*, which is what made it easy to miss |
+| 🟠 **16** | No retention sweep. Four tables grew forever | Its constants, its index and the `ON DELETE restrict` that makes it work had all shipped |
+| 🟠 **14** | An over-quota **event-triggered** run left no trace anywhere | `refused()` returns before any execution row exists; the manual path has a user to tell |
 
-`workflow_versions.trigger_types` is populated by the **publish** path, and publish was **P5**.
-That path now exists (P5 commit 1, 2026-08-08): `POST /workflows` creates a record, `PUT /:id/graph`
-saves a graph, `POST /:id/publish` writes the version and its `trigger_types`, and `POST /:id/active`
-switches it on. So an automation can be built end to end over HTTP **without the builder UI** — which
-is what makes P3 and P4 testable at last.
+Built on top: working-hours-aware waits, `logic.merge`, run history, five templates + gallery,
+version restore, the retention sweep.
 
-It is written and unrun, so treat that as a plan rather than a fact. The sequence to prove it:
-create → save a two-node graph (`trigger.manual` + `customer.addNote`) → publish → confirm
-`trigger_types` is `["manual.run"]` → activate → `POST /:id/runs`.
+### The rule this session earned
+
+**When a component is declared in one place and consumed in another, grep for the consumer.**
+Six of six findings were a live-looking declaration with a missing or mismatched counterpart. The
+mechanical sweeps that found them cost two commands each:
+
+```
+# every exported hook / action against its caller count
+# every table against the files that read vs write it
+# every trigger's declared events against the producers that emit them
+```
+
+None of it needed cleverness. It needed asking "who consumes this?" once per seam.
 
 ### What is genuinely done and verified
 
-P0 (35/35), P1 (18/18 against Neon, migration idempotent ×4), and P2's **pipeline** (72/72). The
-outbox transport is proven: a rolled-back write leaves no queue row, two workers split 20 rows with
-zero double-processing, a failing subscriber does not retry the other. Everything after that is
-`[~]`.
+P0 (35/35), P1 (18/18 against Neon, migration idempotent ×4), P2's **pipeline** (72/72), and all
+four migrations applied and verified 17/17. Everything after that is `[~]` — written, unrun.
 
 ---
 
@@ -97,12 +98,12 @@ zero double-processing, a failing subscriber does not retry the other. Everythin
 
 | | |
 |---|---|
-| **Current phase** | P4 — written. **P3 and P4 are both unrun**: no compile, no tests. Migrations all applied ✅ |
+| **Current phase** | P6 mostly written + P8 pulled forward. **Nothing compiled or run since the migrations.** Migrations all applied ✅ |
 | **Started** | 2026-08-07 |
-| **Branch** | `security/close-native-admin-surface` (not yet branched — see note below) |
+| **Branch** | `security/close-native-admin-surface` — named for unrelated work; move it |
 | **Alpha gate** | after P6 |
 | **Beta gate** | after P9 |
-| **Last updated** | 2026-08-08 |
+| **Last updated** | 2026-08-09 |
 
 ### Phase board
 
