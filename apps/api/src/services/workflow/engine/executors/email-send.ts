@@ -47,12 +47,20 @@ const emailSend: Executor = async ({ db, ctx, params, node }) => {
       };
     }
 
-    // The gate. `marketing` because everything an automation sends is: the
-    // customer did not ask for it and it is not a document they are party to.
+    // The gate. The purpose comes from the step, not from here — this used to
+    // hardcode `marketing` on the reasoning that "everything an automation sends
+    // is", which is true of a review request and false of an overdue invoice.
+    // `email-consent.ts` is explicit that the exemption is an argument you pass;
+    // deciding it once for every automation in the product is what that rule
+    // exists to prevent.
+    //
+    // Anything other than the exact string falls back to `marketing`, so an old
+    // saved node with no `purpose` — every one that exists today — keeps the
+    // behaviour it had rather than silently gaining an exemption.
     const consent = await canEmailCustomer(db, {
       tenantId: ctx.tenantId,
       customerId: ctx.customer.id,
-      purpose: "marketing",
+      purpose: params.purpose === "transactional" ? "transactional" : "marketing",
     });
 
     if (!consent.allowed || !consent.email) {

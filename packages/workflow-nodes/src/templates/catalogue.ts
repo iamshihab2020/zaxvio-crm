@@ -34,6 +34,13 @@ import type { WorkflowTemplate } from "./types.js";
 /**
  * Chasing money, which is the reason a contractor tries automation at all.
  *
+ * Every email here is `purpose: "transactional"`, and that is not a convenience:
+ * an invoice the customer owes is the exact case `lib/email-consent.ts` names as
+ * exempt from an unsubscribe. Left on the default, this whole template would
+ * silently skip anyone who had ever opted out of marketing — the most valuable
+ * automation in the product, quietly not chasing the people most likely to need
+ * chasing.
+ *
  * Three triggers rather than one automation branching on a date: the overdue
  * trigger filters `daysOverdue` with `equals`, so this is what a chase sequence
  * looks like by design. Each has its own tone, escalating — the third names a
@@ -62,6 +69,7 @@ const chaseOverdueInvoices: WorkflowTemplate = {
       label: "Gentle nudge",
       parameters: {
         recipient: "customer",
+        purpose: "transactional",
         subject: "Invoice {{invoice.number}} from {{tenant.businessName}}",
         body:
           "Hi {{customer.firstName}},\n\n" +
@@ -86,6 +94,7 @@ const chaseOverdueInvoices: WorkflowTemplate = {
       label: "Firmer reminder",
       parameters: {
         recipient: "customer",
+        purpose: "transactional",
         subject: "Reminder: invoice {{invoice.number}} is a week overdue",
         body:
           "Hi {{customer.firstName}},\n\n" +
@@ -111,6 +120,7 @@ const chaseOverdueInvoices: WorkflowTemplate = {
       label: "Final notice",
       parameters: {
         recipient: "customer",
+        purpose: "transactional",
         subject: "Invoice {{invoice.number}} — please get in touch",
         body:
           "Hi {{customer.firstName}},\n\n" +
@@ -243,6 +253,7 @@ const followUpAcceptedQuote: WorkflowTemplate = {
       label: "Confirm and set expectations",
       parameters: {
         recipient: "customer",
+        purpose: "transactional",
         subject: "Thanks for accepting quote {{quote.number}}",
         body:
           "Hi {{customer.firstName}},\n\n" +

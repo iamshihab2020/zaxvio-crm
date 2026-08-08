@@ -226,6 +226,18 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       somebody set); `NOT EXISTS` not `NOT IN`; the live version protected separately from "most
       recent N", which commit 15's restore made necessary. The runs page now states the 90-day
       window, so absence does not read as "it never fired".
+- [~] **Email purpose on `email.send`** (2026-08-09) — **written, unrun.** Audit angle: the consent
+      gate, checked because templates had just made a three-email sequence one click. `email.send`
+      **hardcoded `purpose: "marketing"`** for every automation email — true of a review request,
+      false of an overdue invoice, and `email-consent.ts` says so itself. That module's rule is
+      that the exemption is *an argument you pass, never an omission*; a node with no way to pass
+      it made it one global decision, which is what the rule exists to prevent. The symptom was
+      silent: `chase-overdue-invoices` skipped **every customer who had ever unsubscribed** — for
+      money they owed — and the run log said "this customer unsubscribed", which reads as correct.
+      Now a required field defaulting to `marketing`, shown only for customer sends, with copy
+      carrying the legal distinction rather than reading as a bypass. Executor falls back to
+      `marketing` on anything but the exact string, so a junk value cannot gain an exemption.
+      Two chatbot entries claimed unsubscribing stops "anything an automation sends" — corrected.
 - [~] **Templates** (P10, pulled forward) — **5 shipped, written and unrun.** The audit found
       nothing this round (the failure-notification path is wired), so the gap stopped being
       capability and started being that a solo contractor opens a blank canvas with 16 node types

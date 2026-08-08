@@ -59,6 +59,46 @@ export default {
       displayOptions: { show: { recipient: ["member"] } },
     },
     {
+      /**
+       * Which kind of message this is — and therefore whether an unsubscribe
+       * applies to it.
+       *
+       * The executor used to hardcode `marketing` for every automation email,
+       * on the reasoning that "the customer did not ask for it and it is not a
+       * document they are party to". That is true of a review request and false
+       * of an overdue invoice, and `lib/email-consent.ts` says so directly: "an
+       * invoice you owe... none of those needs consent, and suppressing them
+       * would be worse for the recipient than sending them."
+       *
+       * That module's rule is that the exemption is **an argument you pass,
+       * never an omission**. A node with no way to pass it turned that into one
+       * global decision, which is the thing the rule exists to prevent — so it
+       * is a field, and it defaults to the safe answer.
+       */
+      displayName: "This message is",
+      name: "purpose",
+      type: "options",
+      required: true,
+      default: "marketing",
+      description:
+        "Unsubscribed customers still receive messages about work they asked for.",
+      options: [
+        {
+          name: "a marketing or follow-up message",
+          value: "marketing",
+          description:
+            "Review requests, offers, check-ins. Not sent to anyone who has unsubscribed.",
+        },
+        {
+          name: "about a transaction they are party to",
+          value: "transactional",
+          description:
+            "An invoice they owe, a quote they asked for, a receipt, an appointment they booked. Sent even if they have unsubscribed — so only choose it when that is genuinely what this is.",
+        },
+      ],
+      displayOptions: { show: { recipient: ["customer"] } },
+    },
+    {
       displayName: "Subject",
       name: "subject",
       type: "string",

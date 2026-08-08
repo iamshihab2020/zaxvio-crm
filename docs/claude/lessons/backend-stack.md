@@ -456,3 +456,24 @@
 - **`NOT IN (subquery)` is a trap when the subquery can yield NULL** — the
   predicate is never true for any row, so the statement silently deletes nothing.
   `NOT EXISTS` has no such behaviour and reads the same.
+- **A policy with two legitimate answers must not be decided once, in code.**
+  `email.send` hardcoded `purpose: "marketing"` for every automation email, with
+  a comment reasoning that "everything an automation sends is: the customer did
+  not ask for it and it is not a document they are party to". True of a review
+  request; false of an overdue invoice — and `lib/email-consent.ts` says so
+  itself: *"an invoice you owe... suppressing them would be worse for the
+  recipient than sending them."* That module's whole rule is that the exemption
+  is **an argument you pass, never an omission**, and a node with no way to pass
+  it converted that into one global decision — exactly what the rule exists to
+  prevent. The symptom was silent: the flagship chase-overdue template skipped
+  every customer who had ever unsubscribed from marketing, for money they owed.
+- **When a hardcoded value becomes a field, the fallback is the old value.**
+  `params.purpose === "transactional" ? "transactional" : "marketing"` rather
+  than `params.purpose ?? "marketing"` — a saved node with a junk value keeps the
+  stricter behaviour instead of accidentally gaining an exemption. Widening a
+  guard is the one direction where "unknown input" must not mean "new default".
+- **A knowledge-base entry is part of the contract.** Two entries told customers
+  that unsubscribing stops "anything an automation sends". The moment the code
+  stopped being true of that, the chatbot was confidently wrong about a legal
+  boundary — [[strict-rules]] §6 exists for exactly this, and it is not
+  housekeeping.

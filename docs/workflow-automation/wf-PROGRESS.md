@@ -1279,6 +1279,48 @@ automation that ran a long time ago will look empty here too — otherwise absen
 reads as "it never fired", which is the same mistake that made a 500 render as
 "no data available for this period" on `/reports`.
 
+### Commit 17 — the consent decision that was made once, for everyone (written, unrun)
+
+Audit angle: the email consent gate, checked because templates had just made it
+trivial to install a three-email sequence.
+
+`email.send` **hardcoded `purpose: "marketing"`** for every automation email, on
+the reasoning — written in the comment — that "everything an automation sends is:
+the customer did not ask for it and it is not a document they are party to".
+That is true of a review request and false of an overdue invoice, and
+`lib/email-consent.ts` says so directly: *"an invoice you owe... none of those
+needs consent, and suppressing them would be worse for the recipient than sending
+them."*
+
+Worse, that module's stated rule is that the exemption is **an argument you pass,
+never an omission** — "the next person adding a send has to state which kind it
+is". A node with no way to state it turned that into a single global decision,
+which is the precise thing the rule was written to prevent.
+
+The symptom was silent and expensive: `chase-overdue-invoices`, the flagship
+template shipped four commits ago, skipped **every customer who had ever
+unsubscribed from marketing** — for money they owed. The run log would even say
+"this customer unsubscribed, so we didn't email them", which reads as correct.
+
+- `purpose` is now a field on the node, `required`, defaulting to `marketing`,
+  and only shown when the recipient is the customer.
+- The option copy carries the legal distinction rather than reading as a
+  bypass: "about a transaction they are party to — an invoice they owe, a quote
+  they asked for, a receipt, an appointment they booked. Sent even if they have
+  unsubscribed, so only choose it when that is genuinely what this is."
+- The executor falls back to `marketing` on anything other than the exact string
+  `"transactional"`, not `?? "marketing"` — a saved node with a junk value keeps
+  the stricter behaviour rather than gaining an exemption by accident.
+- The chase template and the accepted-quote confirmation are marked
+  transactional; the review request and the welcome stay on the default.
+
+Two knowledge-base entries told customers that unsubscribing stops "anything an
+automation sends". Both corrected — the chatbot being confidently wrong about a
+legal boundary is why [[strict-rules|§6]] exists.
+
+Checked and clean while here: `idx_wf_queue_claim` on `(status, scheduled_at)`
+already covers the retention sweep's deletes, so that added no unindexed scan.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request
