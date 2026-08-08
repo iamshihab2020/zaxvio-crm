@@ -29,6 +29,8 @@ import notificationInternal from "./communication/notification-internal.js";
 
 // ── crm actions ─────────────────────────────────────────────────────────────
 import customerAddNote from "./actions/customer-add-note.js";
+import jobMoveStage from "./actions/job-move-stage.js";
+import jobAssign from "./actions/job-assign.js";
 
 // ── logic ───────────────────────────────────────────────────────────────────
 import logicStop from "./logic/stop.js";
@@ -44,5 +46,7 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   emailSend,
   notificationInternal,
   customerAddNote,
+  jobMoveStage,
+  jobAssign,
   logicStop,
 ];

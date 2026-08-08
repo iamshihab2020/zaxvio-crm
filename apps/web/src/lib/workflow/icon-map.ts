@@ -8,6 +8,8 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconQuestionMark,
+  IconArrowRight,
+  IconUser,
 } from "@tabler/icons-react";
 
 /**
@@ -38,9 +40,11 @@ const ICONS: Record<string, Icon> = {
   IconNote,
   IconPlayerPlay,
   IconPlayerStop,
+  IconArrowRight,
+  IconUser,
 };
 
-/** The 7 icons above cover every definition currently in the registry. */
+/** Every icon named by a definition currently in the registry. */
 export function resolveNodeIcon(name: string): Icon {
   return ICONS[name] ?? IconQuestionMark;
 }

@@ -26,6 +26,8 @@ export const ACTIVE_NODES: readonly string[] = [
   "email.send",
   "notification.internal",
   "customer.addNote",
+  "job.moveStage",
+  "job.assign",
   "logic.stop",
 ] as const;
 
@@ -52,5 +54,7 @@ export const RELEASED_NODE_IDS: readonly string[] = [
   "email.send",
   "notification.internal",
   "customer.addNote",
+  "job.moveStage",
+  "job.assign",
   "logic.stop",
 ] as const;

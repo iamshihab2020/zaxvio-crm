@@ -940,6 +940,40 @@ against guessed enum values (`booking_portal`) when the payload declares
 prevent, reintroduced by not reading the schema. Every filter path is now
 verified against its payload.
 
+### Commit 6 — CRM action nodes (written, unrun)
+
+**11 nodes → 13.** The first two that *change* the CRM rather than telling
+somebody about it — until now an automation could email, notify or write a note,
+which is a notification tool rather than an automation builder. It also gives
+`stageSelect` its first consumer; the picker had been built with nothing using it.
+
+| Node | Does | Checks |
+|---|---|---|
+| `job.moveStage` | moves the job to a pipeline stage | resolves through `job-stages.service.ts`; transition rules apply exactly as to a person dragging the card |
+| `job.assign` | puts the job in a teammate's name | `assertOrgMember` at publish **and** at execution |
+
+Both are `sideEffect: "idempotent"` — running either twice leaves the same
+state, so a resume after a crash can safely re-enter them.
+
+Three things they deliberately do not do:
+
+- **`job.moveStage` never writes `stage_id` and `status` on its own terms.** It
+  resolves through the stage service, which is the one place that decides what a
+  job may move to. Bypassing it is a mistake this repo has already paid for:
+  `lib/quote-to-job.ts` set `jobs.status` by hand and never `stage_id`, so for
+  four days every job created from a quote sat outside the stage model.
+- **It re-reads the job's current stage from the row**, not from the execution
+  context. The context was loaded when the run started, which on a resumed run
+  may be days earlier — a transition check against a stale lifecycle is not a
+  check.
+- **Already-in-that-stage is reported, not written.** A resumed run does not
+  record a move that did not happen.
+
+Caught while writing them: `displayOptions.show` matches against *listed values*,
+so `{ pipelineId: [] }` means "show when the value is one of none" — the stage
+field would have been hidden forever. The picker already disables itself and says
+"Pick a pipeline first", which is better than hiding it anyway.
+
 ### F-5 done; F-6 and F-7 deliberately deferred
 
 - [x] **F-5 drag-to-empty-space.** Releasing a wire over nothing opens the
