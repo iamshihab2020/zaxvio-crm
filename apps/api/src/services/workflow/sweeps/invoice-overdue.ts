@@ -153,7 +153,11 @@ export async function sweepOverdueInvoices(db: Db = getDb()): Promise<SweepResul
         WHERE w.tenant_id = i.tenant_id
           AND w.is_active = true
           AND w.archived_at IS NULL
-          AND v.trigger_types && ARRAY['trigger.invoice.overdue']
+          -- EVENT names, not node ids: `collectTriggerTypes` fills this column
+          -- from `def.triggerEvents`. Writing the node id here was the same
+          -- mistake the trigger matcher had made, and it would have made this
+          -- sweep silently emit nothing at all.
+          AND v.trigger_types && ARRAY['invoice.overdue']
       )
     ORDER BY i.due_date ASC
     LIMIT ${BATCH_LIMIT + 1}

@@ -88,7 +88,18 @@ export async function handleTriggerEvent(
   // on it — so this is the cheap early exit, before any query at all.
   if (!nodeTypes || nodeTypes.length === 0) return [];
 
-  const candidates = await findCandidateVersions(db, event.tenantId, nodeTypes);
+  // **The event type, not the node types.** `collectTriggerTypes` fills
+  // `trigger_types` from `def.triggerEvents` — event names like `job.completed`
+  // — while `LISTENERS_BY_EVENT` maps an event to the *node ids* that listen for
+  // it, `trigger.job.completed`. Passing `nodeTypes` here overlapped an array of
+  // event names against an array of node ids: two sets that share no member, so
+  // the query returned nothing for every event ever dispatched and **no
+  // event-triggered automation could fire at all**. Manual runs go straight to
+  // `execute()` and never touch this, which is why nothing surfaced it.
+  //
+  // `nodeTypes` is still right below, where it picks which trigger nodes inside
+  // a candidate to evaluate — node ids on both sides there.
+  const candidates = await findCandidateVersions(db, event.tenantId, [event.eventType]);
   if (candidates.length === 0) return [];
 
   const subject =
@@ -223,9 +234,10 @@ async function evaluateAndEnrol(
  * Published, active, unarchived versions whose graph contains a listening node.
  *
  * `trigger_types && ARRAY[...]` is the array-overlap operator — true when the
- * two share any member. Parameterised, never interpolated; the values come from
- * the node registry rather than from a request, but a raw-SQL array literal
- * built by string concatenation is a habit worth not having.
+ * two share any member. **Both sides are event names.** Parameterised, never
+ * interpolated; the values come from the node registry rather than from a
+ * request, but a raw-SQL array literal built by string concatenation is a habit
+ * worth not having.
  *
  * `activeVersionId` is matched rather than "the latest version": a run must
  * start on the version the tenant **published**, not on whatever was saved most
@@ -234,7 +246,14 @@ async function evaluateAndEnrol(
 async function findCandidateVersions(
   db: Db,
   tenantId: string,
-  nodeTypes: string[],
+  /**
+   * **Event names**, matching what `collectTriggerTypes` writes — not node ids.
+   *
+   * Named for what it holds. The parameter used to be `nodeTypes`, and the call
+   * site duly passed node ids: both sides were internally consistent, the types
+   * agreed (`string[]` either way), and the overlap was silently always empty.
+   */
+  eventTypes: string[],
 ): Promise<Candidate[]> {
   const rows = await db
     .select({
@@ -260,7 +279,7 @@ async function findCandidateVersions(
         // then paused must not fire.
         eq(workflows.isActive, true),
         isNull(workflows.archivedAt),
-        sql`${workflowVersions.triggerTypes} && ${nodeTypes}`,
+        sql`${workflowVersions.triggerTypes} && ${eventTypes}`,
       ),
     );
 

@@ -238,6 +238,18 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       carrying the legal distinction rather than reading as a bypass. Executor falls back to
       `marketing` on anything but the exact string, so a junk value cannot gain an exemption.
       Two chatbot entries claimed unsubscribing stops "anything an automation sends" — corrected.
+- [~] **The trigger matcher could never match** (2026-08-09) — **fixed, unrun. The largest defect
+      in the feature.** `trigger_types` is written by publish from `def.triggerEvents` (**event
+      names**, `job.completed`); the matcher queried it with `LISTENERS_BY_EVENT`, which yields
+      **node ids** (`trigger.job.completed`). Empty overlap for every trigger, so
+      `findCandidateVersions` returned nothing for every event ever dispatched — the whole event
+      taxonomy, 28 producers, the outbox, P4 matching, the overdue sweep and all five templates
+      were **dead for anything but a manual run**. Nothing caught it because both sides were
+      internally consistent, both are `string[]` (a denormalised column has no type across its
+      seam), the parameter was named `nodeTypes` so the call site read as correct, and
+      `POST /:id/runs` bypasses the matcher entirely — every by-hand test exercised the one path
+      that avoids the bug. Kept publish's vocabulary (nothing stored changes), renamed the
+      parameter `eventTypes`, and added three tests that would all have failed before.
 - [~] **Templates** (P10, pulled forward) — **5 shipped, written and unrun.** The audit found
       nothing this round (the failure-notification path is wired), so the gap stopped being
       capability and started being that a solo contractor opens a blank canvas with 16 node types

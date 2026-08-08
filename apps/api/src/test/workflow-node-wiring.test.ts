@@ -40,6 +40,7 @@ const EXECUTOR_DIR = join(HERE, "..", "services", "workflow", "engine", "executo
 const BARREL = join(EXECUTOR_DIR, "index.ts");
 const PRODUCER_DIR = join(HERE, "..", "services", "workflow", "events", "producers");
 const SWEEP_DIR = join(HERE, "..", "services", "workflow", "sweeps");
+const MATCHER = join(HERE, "..", "services", "workflow", "triggers", "index.ts");
 
 /** Comments stripped first, so a node id mentioned in prose is not a mapping. */
 function barrelSource(): string {
@@ -126,6 +127,85 @@ describe("active nodes", () => {
     });
 
     expect(unraisable).toEqual([]);
+  });
+});
+
+describe("the trigger_types seam", () => {
+  /**
+   * The bug this exists for, and why nothing else caught it.
+   *
+   * `collectTriggerTypes` fills `workflow_versions.trigger_types` from
+   * `def.triggerEvents` — **event names**, `job.completed`. The trigger matcher
+   * queried that column with `LISTENERS_BY_EVENT.get(...)`, which yields the
+   * **node ids** that listen for an event, `trigger.job.completed`. The overlap
+   * of those two sets is empty for every trigger in the catalogue, so
+   * `findCandidateVersions` returned nothing for every event ever dispatched and
+   * **no event-triggered automation could fire at all**.
+   *
+   * Both sides were internally consistent, both were `string[]`, and manual runs
+   * go straight to `execute()` without touching the matcher — so the feature
+   * looked alive from every angle anyone had tested.
+   *
+   * The invariant is one sentence: **what publish writes must be what the
+   * matcher queries.** Asserting the two are drawn from the same field is what
+   * makes that structural rather than remembered.
+   */
+  it("no trigger declares an event that is really a node id", () => {
+    // The contamination direction. `collectTriggerTypes` copies `triggerEvents`
+    // into the column verbatim, so a definition that listed its own node id
+    // there would put node ids in a column the matcher reads as event names —
+    // and it would look completely reasonable in the definition file.
+    const nodeIds = new Set(allDefinitions().map((d) => d.node));
+    const triggers = allDefinitions().filter(isTriggerNode);
+    expect(triggers.length).toBeGreaterThan(0);
+
+    const contaminated = triggers.flatMap((def) =>
+      (def.triggerEvents ?? [])
+        .filter((event) => nodeIds.has(event) || event.startsWith("trigger."))
+        .map((event) => `${def.node} declares ${event}`),
+    );
+    expect(contaminated).toEqual([]);
+  });
+
+  it("the matcher queries trigger_types with the event type, not node ids", () => {
+    // The query direction, and the exact regression. Source text rather than an
+    // import: `triggers/index.ts` reaches the database module, and this suite
+    // deliberately boots nothing (see the note at the top of this file).
+    //
+    // `LISTENERS_BY_EVENT` yields node ids and is still correct where it picks
+    // which trigger nodes inside a candidate to evaluate — it is only wrong as
+    // the argument to `findCandidateVersions`.
+    const source = readFileSync(MATCHER, "utf8");
+
+    const call = source.match(/findCandidateVersions\(\s*db,\s*event\.tenantId,\s*([^)]+)\)/);
+    expect(call, "findCandidateVersions call site not found").toBeTruthy();
+    expect(call![1].replace(/\s+/g, "")).toBe("[event.eventType]");
+  });
+
+  /**
+   * The other half: a sweep that queries `trigger_types` itself.
+   *
+   * `sweeps/invoice-overdue.ts` filters tenants by that column, and it made the
+   * same mistake — `ARRAY['trigger.invoice.overdue']` where the column holds
+   * `invoice.overdue`. It would have emitted nothing, silently.
+   */
+  it("no sweep queries trigger_types with a node id", () => {
+    const offenders: string[] = [];
+
+    for (const file of readdirSync(SWEEP_DIR)) {
+      if (!file.endsWith(".ts")) continue;
+      const source = readFileSync(join(SWEEP_DIR, file), "utf8");
+      if (!source.includes("trigger_types")) continue;
+
+      for (const match of source.matchAll(/trigger_types\s*&&\s*ARRAY\[([^\]]*)\]/g)) {
+        for (const raw of match[1].split(",")) {
+          const value = raw.trim().replace(/^'|'$/g, "");
+          if (value.startsWith("trigger.")) offenders.push(`${file}: ${value}`);
+        }
+      }
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
 

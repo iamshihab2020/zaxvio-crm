@@ -1321,6 +1321,46 @@ legal boundary is why [[strict-rules|§6]] exists.
 Checked and clean while here: `idx_wf_queue_claim` on `(status, scheduled_at)`
 already covers the retention sweep's deletes, so that added no unindexed scan.
 
+### Commit 18 — the trigger matcher could never match (written, unrun)
+
+**The largest defect found in this feature.** `workflow_versions.trigger_types`
+is filled by `collectTriggerTypes` from `def.triggerEvents` — **event names**,
+`job.completed`. The matcher queried that column with
+`LISTENERS_BY_EVENT.get(event.eventType)`, which yields the **node ids** that
+listen for an event, `trigger.job.completed`.
+
+The overlap of those two sets is empty for every trigger in the catalogue. So
+`findCandidateVersions` returned zero rows for every event ever dispatched, and
+**no event-triggered automation could fire at all** — the entire P2 event
+taxonomy, all 28 producers, the outbox, P4's declarative matching, commit 12's
+overdue sweep and all five templates, dead on arrival for anything but a manual
+run.
+
+Why nothing caught it:
+
+- Both sides were internally consistent and well-commented. Neither file is
+  wrong when read on its own.
+- Both are `string[]`. A denormalised column carries no type across its seam.
+- The parameter was named `nodeTypes`, so the call site passing node ids read as
+  obviously correct.
+- **`POST /:id/runs` goes straight to `execute()` and never touches the
+  matcher.** Every by-hand test of the engine exercised the one path that
+  bypasses the bug — which is what a "run it directly" affordance always does.
+
+Fixed by keeping publish's vocabulary — event names, so no stored data changes —
+and passing `[event.eventType]`. `LISTENERS_BY_EVENT` is still right where it
+picks *which* trigger nodes inside a candidate to evaluate; it was only wrong as
+the candidate query's argument. The parameter is now `eventTypes`, named for
+what it holds rather than for what the caller happened to have.
+
+Commit 12's sweep had guessed the same wrong convention
+(`ARRAY['trigger.invoice.overdue']`) and would have emitted nothing, silently.
+
+Three tests, because the type system cannot cover this seam: no trigger may
+declare an event that is really a node id, the matcher's call site must pass
+`[event.eventType]`, and no sweep may query `trigger_types` with a
+`trigger.`-prefixed literal. All three would have failed before this commit.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request

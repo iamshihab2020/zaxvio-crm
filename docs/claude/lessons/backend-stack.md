@@ -477,3 +477,23 @@
   stopped being true of that, the chatbot was confidently wrong about a legal
   boundary — [[strict-rules]] §6 exists for exactly this, and it is not
   housekeeping.
+- **Two sides of a denormalised column must be asserted, not remembered.**
+  `workflow_versions.trigger_types` is filled by publish from
+  `def.triggerEvents` — event names like `job.completed` — and was queried by
+  the trigger matcher with `LISTENERS_BY_EVENT.get(...)`, which yields the
+  **node ids** that listen for an event, `trigger.job.completed`. The overlap of
+  those two sets is empty for every trigger in the catalogue, so the candidate
+  query returned nothing for every event ever dispatched: **no event-triggered
+  automation could fire at all.** Both sides were internally consistent, both
+  typed `string[]`, both well-commented. The type system cannot help across a
+  denormalised column — the values are strings on both ends — so the round trip
+  needs a test.
+- **The thing that hid it was the escape hatch.** `POST /:id/runs` goes straight
+  to `execute()` and never touches the matcher, so every manual test of the
+  engine passed. When a feature has a "run it directly" path, that path is not
+  evidence the production path works — and it is usually the only one anyone
+  exercises by hand.
+- **Name a parameter for what it holds, not for what the caller happens to
+  have.** The parameter was `nodeTypes: string[]` and the call site dutifully
+  passed node ids. Renaming it `eventTypes` makes the mistake visible at the
+  call site instead of invisible at both ends.
