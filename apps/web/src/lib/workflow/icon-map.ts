@@ -10,6 +10,7 @@ import {
   IconQuestionMark,
   IconArrowRight,
   IconUser,
+  IconArrowsSplit,
 } from "@tabler/icons-react";
 
 /**
@@ -42,6 +43,7 @@ const ICONS: Record<string, Icon> = {
   IconPlayerStop,
   IconArrowRight,
   IconUser,
+  IconArrowsSplit,
 };
 
 /** Every icon named by a definition currently in the registry. */

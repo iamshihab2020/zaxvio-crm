@@ -190,6 +190,42 @@ function substitute(
   });
 }
 
+/**
+ * The **raw** value at a variable path — unformatted, unstringified.
+ *
+ * Interpolation renders values for a human: money becomes "$1,250.00", a date
+ * becomes "12 Aug". A comparison needs the number and the instant, or
+ * `greaterThan 500` would be comparing the string "$1,250.00" against 500 and
+ * quietly getting it wrong.
+ *
+ * Shares `VARIABLE_MAP`, the blocked-path check and the dynamic namespaces with
+ * `substitute` above, so a condition and an interpolation can never disagree
+ * about what a path means or which paths are reachable.
+ *
+ * `found: false` is distinct from `value: undefined` — a variable that exists
+ * and is genuinely empty is a different thing from one that was never declared,
+ * and only the second is a mistake worth reporting.
+ */
+export function resolveVariable(
+  path: string,
+  ctx: ExecutionContext,
+): { found: boolean; value: unknown } {
+  if (BLOCKED.test(path)) return { found: false, value: undefined };
+
+  const declared = VARIABLE_MAP.get(path);
+  if (declared) return { found: true, value: declared.resolve(ctx) };
+
+  const namespace = namespaceOf(path);
+  if ((DYNAMIC_NAMESPACES as readonly string[]).includes(namespace)) {
+    const value = resolveDynamic(path, namespace, ctx);
+    return value === undefined
+      ? { found: false, value: undefined }
+      : { found: true, value };
+  }
+
+  return { found: false, value: undefined };
+}
+
 function missing(path: string, field: string, ctx: ExecutionContext): Diagnostic {
   const suggestions = suggestVariables(path);
   const message =

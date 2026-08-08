@@ -67,6 +67,7 @@ export const NODE_PROPERTY_TYPES = [
   "time",
   "duration",
   "keyValue",
+  "conditions",
   "notice",
   // CRM pickers (P7)
   "customerSelect",

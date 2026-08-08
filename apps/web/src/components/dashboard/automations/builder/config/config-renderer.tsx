@@ -24,6 +24,7 @@ import {
   TextField,
   TimeField,
 } from "./fields";
+import { ConditionsField } from "./conditions-field";
 
 /**
  * A node's form, generated from its definition.
@@ -159,6 +160,8 @@ function Field({
       return <KeyValueField {...shared} />;
     case "notice":
       return <NoticeField {...shared} />;
+    case "conditions":
+      return <ConditionsField {...shared} />;
 
     // ── CRM pickers already referenced by shipped definitions ────────────────
     case "moneyInput":

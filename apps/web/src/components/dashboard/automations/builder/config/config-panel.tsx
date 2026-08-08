@@ -56,7 +56,7 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
   const setNodeParameter = useBuilderStore((s) => s.setNodeParameter);
   const renameNode = useBuilderStore((s) => s.renameNode);
   const toggleDisabled = useBuilderStore((s) => s.toggleNodeDisabled);
-  const deleteNode = useBuilderStore((s) => s.deleteNode);
+  const requestDeleteNode = useBuilderStore((s) => s.requestDeleteNode);
 
   const node = nodes.find((n) => n.id === selectedNodeId) ?? null;
   const definition = node ? getDefinition(node.nodeType) : undefined;
@@ -169,7 +169,7 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
             readOnly={readOnly}
             onClose={() => select(null)}
             onToggleDisabled={() => toggleDisabled(node.id)}
-            onDelete={() => deleteNode(node.id)}
+            onDelete={() => requestDeleteNode(node.id)}
             missingCount={
               getMissingRequiredFields(definition, node.nodeConfig.parameters ?? {}).length
             }

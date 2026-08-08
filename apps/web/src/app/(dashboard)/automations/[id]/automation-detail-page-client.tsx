@@ -8,6 +8,7 @@ import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { BuilderToolbar } from "@/components/dashboard/automations/builder/builder-toolbar";
 import { NodePalettePanel } from "@/components/dashboard/automations/builder/node-palette-panel";
 import { ConfigPanel } from "@/components/dashboard/automations/builder/config/config-panel";
+import { BranchDeleteDialog } from "@/components/dashboard/automations/builder/branch-delete-dialog";
 import { AutomationValidationDialog } from "@/components/dashboard/automations/automation-validation-dialog";
 import {
   useWorkflow,
@@ -247,6 +248,11 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
           </div>
           <ConfigPanel workflowId={id} />
         </div>
+
+        {/* X-4. Rendered once here rather than in the two places that delete —
+            the config panel's button and the canvas's Delete key both route
+            through the store, so neither can sever branches silently. */}
+        <BranchDeleteDialog />
 
         <AutomationValidationDialog
           validation={validation}

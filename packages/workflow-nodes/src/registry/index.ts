@@ -33,6 +33,7 @@ import jobMoveStage from "./actions/job-move-stage.js";
 import jobAssign from "./actions/job-assign.js";
 
 // ── logic ───────────────────────────────────────────────────────────────────
+import conditionIf from "./logic/condition-if.js";
 import logicStop from "./logic/stop.js";
 
 export const NODE_DEFINITIONS: NodeDefinition[] = [
@@ -48,5 +49,6 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   customerAddNote,
   jobMoveStage,
   jobAssign,
+  conditionIf,
   logicStop,
 ];

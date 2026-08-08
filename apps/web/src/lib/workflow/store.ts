@@ -90,6 +90,16 @@ export interface BuilderState {
    */
   pendingPosition: { x: number; y: number } | null;
 
+  /**
+   * A delete waiting on confirmation (X-4).
+   *
+   * UI state, held here rather than in a component because **two** places
+   * delete a step — the config panel's button and the canvas's Delete key — and
+   * a confirmation living in one of them would leave the other severing
+   * branches silently.
+   */
+  pendingDeleteNodeId: string | null;
+
   past: Snapshot[];
   future: Snapshot[];
   /** Set while a parameter edit is coalescing; not part of the graph. */
@@ -131,6 +141,18 @@ export interface BuilderState {
   renameNode: (nodeId: string, label: string) => void;
   setNodeParameter: (nodeId: string, field: string, value: unknown) => void;
   toggleNodeDisabled: (nodeId: string) => void;
+  /**
+   * Delete, asking first when the step is branching.
+   *
+   * `deleteNode` relinks only the simple case — one way in, one way out. A step
+   * with several outgoing branches has no single successor to promote, so its
+   * connections are dropped and everything downstream is orphaned. That is the
+   * right behaviour (guessing which branch to keep is worse) but it must not be
+   * silent.
+   */
+  requestDeleteNode: (nodeId: string) => void;
+  confirmPendingDelete: () => void;
+  cancelPendingDelete: () => void;
   deleteNode: (nodeId: string) => void;
 
   // ── edges ─────────────────────────────────────────────────────────────────
@@ -226,6 +248,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => {
     pendingSource: null,
     pendingEdgeId: null,
     pendingPosition: null,
+    pendingDeleteNodeId: null,
     past: [],
     future: [],
     lastEdit: null,
@@ -251,6 +274,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => {
         pendingSource: null,
         pendingEdgeId: null,
         pendingPosition: null,
+        pendingDeleteNodeId: null,
       }),
 
     markSaved: () => set({ dirty: false, lastEdit: null }),
@@ -499,6 +523,28 @@ export const useBuilderStore = create<BuilderState>((set, get) => {
         }),
         { coalesce: { nodeId, field, at: Date.now() } },
       ),
+
+    requestDeleteNode: (nodeId) => {
+      const state = get();
+      const branches = state.edges.filter((e) => e.sourceNodeId === nodeId).length;
+      // Only a genuine fork asks. One outgoing edge relinks cleanly and none
+      // severs nothing, so a prompt there is a click that teaches people to
+      // dismiss prompts without reading them.
+      if (branches > 1) {
+        set({ pendingDeleteNodeId: nodeId });
+        return;
+      }
+      state.deleteNode(nodeId);
+    },
+
+    confirmPendingDelete: () => {
+      const id = get().pendingDeleteNodeId;
+      if (!id) return;
+      get().deleteNode(id);
+      set({ pendingDeleteNodeId: null });
+    },
+
+    cancelPendingDelete: () => set({ pendingDeleteNodeId: null }),
 
     toggleNodeDisabled: (nodeId) =>
       commit((draft) => ({

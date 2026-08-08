@@ -974,6 +974,48 @@ so `{ pipelineId: [] }` means "show when the value is one of none" — the stage
 field would have been hidden forever. The picker already disables itself and says
 "Pick a pipeline first", which is better than hiding it anyway.
 
+### Commit 7 — `condition.if`, the first half of P6 (written, unrun)
+
+**14 nodes.** The first branching node, and the first executor that returns a
+`handle` other than `main`. Until now every automation was a straight line: you
+could filter at the trigger, but not decide anything once running.
+
+P6 was **split deliberately**. Its "done when" list is entirely runtime proofs —
+a pause surviving a real deploy, version pinning across a pause, a DST boundary —
+and none can be met without executing something. `condition.if` is the half that
+does not need any of that: pure graph logic, no clock, no worker, no durability.
+`delay.wait` and the resume worker wait until something has been run, because
+building them blind means debugging the worker, the engine and the outbox
+simultaneously when a pause fails to resume.
+
+- Comparison goes through the **shared** evaluator and the same closed
+  `FILTER_OPERATORS` set the trigger filters use. The system this was ported
+  from grew a second comparison for its IF node and the two disagreed about
+  blank values.
+- New `resolveVariable()` on the interpolator returns the **raw** value, sharing
+  `VARIABLE_MAP`, the blocked-path check and the dynamic namespaces with
+  `substitute`. Interpolation renders for a human — money becomes "$1,250.00" —
+  and `greaterThan 500` against that string is quietly wrong.
+- **Unresolvable fails its rule**, never passes, and is reported in the output so
+  the run log can name it. Same rule as the trigger matcher: the answer to an
+  unanswerable question is not "yes".
+- The rules field is an **array**, so an unconfigured node is genuinely blank and
+  Publish refuses it. An object would satisfy `isBlank` while holding no rules,
+  and a condition with nothing in it sends everything down one side.
+- The condition builder is a **field renderer, not a bespoke panel**. C-3 allows
+  one here; it turned out not to need one, so the rest of the node's form stays
+  generated from its definition.
+
+**F-7 built. F-6 does not apply to this design — dialog written and deleted.**
+Deleting a branching step now asks first, naming the branches that will be left
+disconnected, routed through the store so the config panel's button and the
+canvas's Delete key share one confirmation. But the branch *selector* has no
+ambiguous case here: every path already knows its handle — the `+` buttons are
+one per output, `onConnectEnd` carries `fromHandle.id`, and an edge carries its
+own `sourceHandle`. It was written, then found to have no caller, then removed.
+The check that catches that is "grep for the caller", and it should come before
+the component, not after.
+
 ### F-5 done; F-6 and F-7 deliberately deferred
 
 - [x] **F-5 drag-to-empty-space.** Releasing a wire over nothing opens the

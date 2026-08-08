@@ -69,7 +69,7 @@ function Canvas({ readOnly = false }: Props) {
   const select = useBuilderStore((s) => s.select);
   const moveNode = useBuilderStore((s) => s.moveNode);
   const connect = useBuilderStore((s) => s.connect);
-  const deleteNode = useBuilderStore((s) => s.deleteNode);
+  const requestDeleteNode = useBuilderStore((s) => s.requestDeleteNode);
   const deleteEdge = useBuilderStore((s) => s.deleteEdge);
   const undo = useBuilderStore((s) => s.undo);
   const redo = useBuilderStore((s) => s.redo);
@@ -269,13 +269,13 @@ function Canvas({ readOnly = false }: Props) {
 
       if (selectedNodeId) {
         event.preventDefault();
-        deleteNode(selectedNodeId);
+        requestDeleteNode(selectedNodeId);
       }
     }
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [readOnly, undo, redo, deleteNode, deleteEdge, selectedNodeId, edges]);
+  }, [readOnly, undo, redo, requestDeleteNode, deleteEdge, selectedNodeId, edges]);
 
   // ── derived canvas state ──────────────────────────────────────────────────
 

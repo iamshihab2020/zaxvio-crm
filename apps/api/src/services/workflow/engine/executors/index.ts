@@ -21,6 +21,7 @@ import notificationInternal from "./notification-internal.js";
 import customerAddNote from "./customer-add-note.js";
 import jobMoveStage from "./job-move-stage.js";
 import jobAssign from "./job-assign.js";
+import conditionIf from "./condition-if.js";
 import logicStop from "./logic-stop.js";
 
 export const EXECUTORS: Readonly<Record<string, Executor>> = {
@@ -36,6 +37,7 @@ export const EXECUTORS: Readonly<Record<string, Executor>> = {
   "customer.addNote": customerAddNote,
   "job.moveStage": jobMoveStage,
   "job.assign": jobAssign,
+  "condition.if": conditionIf,
   "logic.stop": logicStop,
 };
 
