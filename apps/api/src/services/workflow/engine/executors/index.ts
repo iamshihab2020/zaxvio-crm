@@ -22,6 +22,7 @@ import customerAddNote from "./customer-add-note.js";
 import jobMoveStage from "./job-move-stage.js";
 import jobAssign from "./job-assign.js";
 import conditionIf from "./condition-if.js";
+import logicMerge from "./logic-merge.js";
 import delayWait from "./delay-wait.js";
 import logicStop from "./logic-stop.js";
 
@@ -39,6 +40,7 @@ export const EXECUTORS: Readonly<Record<string, Executor>> = {
   "job.moveStage": jobMoveStage,
   "job.assign": jobAssign,
   "condition.if": conditionIf,
+  "logic.merge": logicMerge,
   "delay.wait": delayWait,
   "logic.stop": logicStop,
 };

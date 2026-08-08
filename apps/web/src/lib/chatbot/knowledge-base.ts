@@ -93,6 +93,23 @@ const entries: KnowledgeEntry[] = [
       "Add a **Wait** step. Everything below it happens later, not straight away — so \"three days after the job, ask for a review\" is one automation rather than something you have to remember.\n\n**Two ways to set it:**\n\n• **For a length of time** — minutes, hours, days or weeks, counted from the moment the automation reaches that step.\n• **Until a specific date** — a fixed point, with a time of day. Read in your business's timezone, not the customer's.\n\n**It won't wake up in the middle of the night.** A wait set in days will land at whatever hour the automation started, which is often 2am. By default the automation holds until your next working hours before carrying on — it's never cancelled, just moved. Working hours come from **Settings → Scheduling**, the same hours your booking page uses, so a day you're closed is a day it won't resume.\n\nSwitch that off per step with **Resume → as soon as the wait is up**. Useful for internal steps like notifying your team, where the hour doesn't matter.\n\nA \"wait until\" date is always honoured exactly as you set it — if you name a time, that's the time.\n\n**Waits survive restarts.** A three-day wait really does wait three days, and it finishes on the version of the automation it started on, even if you edit and republish while it's waiting.",
   },
   {
+    id: "automations-branches",
+    category: "general",
+    keywords: [
+      "automation branch",
+      "only if",
+      "split automation",
+      "wait for all branches",
+      "merge branches",
+      "automation stuck",
+      "automation stopped halfway",
+      "two paths",
+    ],
+    question: "How do branches work in an automation?",
+    answer:
+      "**Only if** splits the automation in two. Steps on the **Yes** side run when the check passes, steps on the **No** side when it doesn't — never both.\n\n**What happens where the branches come back together:** a step with more than one arrow into it runs on the **first branch to reach it**, once. That's usually what you want — an Only if where both sides end in \"send the follow-up\" sends one follow-up, whichever way the check went. Every step on the canvas with more than one incoming arrow says which rule it follows, right under its name.\n\n**Wait for all branches** is the exception. Use it where two chains genuinely both run and the next step needs both finished.\n\n**Don't put it after an Only if.** It waits for every arrow into it, and one side of an Only if never runs — so it would wait forever and the automation would just stop, with nothing marked as failed. Publishing catches this and tells you which step to unhook.",
+  },
+  {
     id: "general-capabilities",
     category: "general",
     keywords: ["what can you do", "help", "capabilities", "features", "chatbot", "assistant"],

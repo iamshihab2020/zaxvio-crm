@@ -97,6 +97,7 @@ export type GraphIssueCode =
   | "unowned_reference"
   | "unreachable_node"
   | "goto_after_split"
+  | "merge_never_completes"
   | "no_action"
   | "too_many_triggers"
   | "disabled_node_incomplete"
@@ -116,6 +117,7 @@ const NODE = {
   loop: "logic.loop",
   delay: "delay.wait",
   split: "split.branch",
+  merge: "logic.merge",
 } as const;
 
 const MAX_TRIGGERS = 3;
@@ -439,6 +441,32 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
     }
   }
 
+  // ── A merge that can never complete ──────────────────────────────────────
+  // `logic.merge` is the one node with AND semantics: it waits for EVERY
+  // incoming edge. Feed it both sides of an Only if and it waits forever for the
+  // branch that did not run — the automation stops with no error and no failed
+  // step, which is the worst way for something to fail. An error, not a warning:
+  // there is no version of this that works.
+  for (const merge of nodeById.values()) {
+    if (merge.nodeType !== NODE.merge) continue;
+
+    const feeders = incoming.get(merge.id) ?? [];
+    if (feeders.length < 2) continue;
+
+    const clash = exclusiveBranchClash(feeders, outgoing, nodeById);
+    if (clash) {
+      push({
+        severity: "error",
+        code: "merge_never_completes",
+        message:
+          `"${labelOf(merge)}" waits for every branch above it, but two of them ` +
+          `come from different sides of "${clash}" — only one of those ever runs, ` +
+          `so this step would wait forever. Connect just one side, or remove it.`,
+        nodeId: merge.id,
+      });
+    }
+  }
+
   for (const loop of nodeById.values()) {
     if (loop.nodeType !== NODE.loop) continue;
     // The loop body is whatever hangs off the "loop" handle.
@@ -542,6 +570,84 @@ function walkFrom(
     for (const edge of outgoing.get(id) ?? []) queue.push(edge.targetNodeId);
   }
   return out;
+}
+
+/**
+ * Do two of these edges come from mutually exclusive sides of one branch?
+ *
+ * Returns the branching node's label if so. The test is per branching node:
+ * take the set of nodes reachable from each of its outputs, subtract everything
+ * reachable from more than one — a node both sides can reach always runs, so it
+ * cannot cause a hang — and see whether two different feeders land in two
+ * different remainders.
+ *
+ * The direct case is checked first and separately: two edges leaving the same
+ * node by different handles are exclusive with no reachability analysis at all,
+ * and that is also the shape somebody draws by hand.
+ */
+function exclusiveBranchClash(
+  feeders: ValidatableEdge[],
+  outgoing: Map<string, ValidatableEdge[]>,
+  nodeById: Map<string, ValidatableNode>,
+): string | null {
+  const label = (id: string) => {
+    const node = nodeById.get(id);
+    return node ? labelOf(node) : "a branching step";
+  };
+
+  // Direct: both wires leave the same step by different outputs.
+  const handlesBySource = new Map<string, Set<string>>();
+  for (const edge of feeders) {
+    const set = handlesBySource.get(edge.sourceNodeId) ?? new Set<string>();
+    set.add(edge.sourceHandle || "main");
+    handlesBySource.set(edge.sourceNodeId, set);
+  }
+  for (const [sourceId, handles] of handlesBySource) {
+    if (handles.size > 1) return label(sourceId);
+  }
+
+  // Indirect: the feeders sit somewhere downstream of one branching node.
+  for (const [branchId, edges] of outgoing) {
+    const byHandle = new Map<string, ValidatableEdge[]>();
+    for (const edge of edges) pushInto(byHandle, edge.sourceHandle || "main", edge);
+    if (byHandle.size < 2) continue;
+
+    const reachByHandle = new Map<string, Set<string>>();
+    for (const [handle, handleEdges] of byHandle) {
+      const reached = new Set<string>();
+      for (const edge of handleEdges) {
+        // Seeded with the branch itself so a cycle back through it terminates.
+        for (const id of walkFrom(edge.targetNodeId, outgoing, new Set([branchId]))) {
+          reached.add(id);
+        }
+      }
+      reachByHandle.set(handle, reached);
+    }
+
+    // A node more than one side can reach always runs, whichever way the branch
+    // goes, so it is not what makes a merge hang.
+    const shared = new Set<string>();
+    const handles = [...reachByHandle.keys()];
+    for (let i = 0; i < handles.length; i += 1) {
+      for (let j = i + 1; j < handles.length; j += 1) {
+        for (const id of reachByHandle.get(handles[i])!) {
+          if (reachByHandle.get(handles[j])!.has(id)) shared.add(id);
+        }
+      }
+    }
+
+    const handleOfFeeder = new Map<string, string>();
+    for (const edge of feeders) {
+      for (const [handle, reached] of reachByHandle) {
+        if (reached.has(edge.sourceNodeId) && !shared.has(edge.sourceNodeId)) {
+          handleOfFeeder.set(edge.id, handle);
+        }
+      }
+    }
+    if (new Set(handleOfFeeder.values()).size > 1) return label(branchId);
+  }
+
+  return null;
 }
 
 function pushInto<K, V>(map: Map<K, V[]>, key: K, value: V): void {

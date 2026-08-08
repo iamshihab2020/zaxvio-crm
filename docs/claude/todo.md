@@ -181,7 +181,12 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       and `recalculateJobTotals`; a waiting node log recorded nothing about what it was waiting
       for (the execution row's `resume_at` is overwritten by the next wait in the same run); and
       the builder described every wait as "for a length of time", its mode switch.
-      Remaining: `logic.switch`, `split.branch`, `logic.merge`, `logic.goto`, `logic.loop`,
+      Then `logic.merge` — the **only** AND join, and until it existed the traverser's
+      readiness bookkeeping was unreachable code. OR stays the default, because an if/else whose
+      branches converge would never fire under AND. Its failure mode is silence: a merge after an
+      Only if waits forever for the branch that did not run, so `merge_never_completes` is an
+      error, not a warning.
+      Remaining: `logic.switch`, `split.branch`, `logic.goto`, `logic.loop`,
       `goal.event` + `workflow_goal_listeners`. **Every P6 acceptance criterion is a runtime
       proof** — a pause surviving a deploy, version pinning across a publish, the DST boundary,
       the goal/delay race — and none has been run. **Internal alpha gate.**

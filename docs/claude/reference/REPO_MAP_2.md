@@ -86,14 +86,53 @@ packages/types/
     +-- admin.ts              # AdminAuditLog, AdminImpersonationSession, PlatformEvent
 ```
 
-### `packages/ui/` — Shared UI Component Library
+### `packages/workflow-nodes/` — The automation node contract
+
+Deliberately a **data** package: plain objects and pure functions, no React and
+no Drizzle, because the API and the browser both import it. A node definition is
+one declaration consumed three ways — the builder renders its form from
+`properties[]`, the engine dispatches on `node`, and the validator reads the
+same fields to block a bad publish. That is why adding a node is "write a
+definition, write an executor" rather than touching six files.
 
 ```
-packages/ui/
-+-- package.json              # @hvac-saas/ui
-+-- tsconfig.json
+packages/workflow-nodes/
++-- package.json              # @hvac-saas/workflow-nodes
 +-- src/
-    ~ index.ts                # Placeholder (export {})
+    +-- node-definition.ts    # THE contract. `node` is a permanent public API — every
+    |                         # saved automation stores the string, so a rename orphans
+    |                         # somebody's work. Output `id` and `label` are SEPARATE:
+    |                         # the reference impl. put the label in `sourceHandle`, so
+    |                         # renaming "Found" to "Match" broke routing everywhere
+    +-- active-nodes.ts       # The ship gate. A definition may land before its executor;
+    |                         # this list is what stops the palette offering a node that
+    |                         # would fail at run time. RELEASED_NODE_IDS only ever grows
+    +-- execution-context.ts  # What a node can read. The customer resolves for EVERY
+    |                         # subject type, and nothing in it is a Date — the context
+    |                         # round-trips through jsonb across a delay
+    +-- conditions.ts         # 22 operators in ONE closed set, shared by trigger filters
+    |                         # and condition.if. An unresolvable variable FAILS its rule;
+    |                         # `isUnset` is load-bearing because the builder persists
+    |                         # every property, so an unconfigured filter is
+    |                         # present-but-empty, and 0/false are values
+    +-- naming.ts             # DEFAULT_WORKFLOW_NAME + isNamedWorkflow
+    +-- graph/
+    |   +-- validate.ts       # Every structural publish rule, PURE so the browser runs
+    |                         # the same code the server does. 19 issue codes in a closed
+    |                         # union. Tenant ownership is the one rule that cannot be
+    |                         # pure and lives in services/workflow/graph/ instead
+    +-- registry/
+        +-- index.ts          # EXPLICIT STATIC IMPORTS ONLY — never a glob. The reference
+        |                     # impl. records an OOM in Next's "Collecting page data" from
+        |                     # exactly that. A test walks the directory and fails if a
+        |                     # file here is not imported, so the rule is enforced without
+        |                     # using the thing it forbids
+        +-- triggers/         # manual · job.completed · invoice.paid · invoice.overdue ·
+        |                     # quote.accepted · booking.created · customer.created
+        +-- communication/    # email.send · notification.internal
+        +-- actions/          # customer.addNote · job.moveStage · job.assign
+        +-- timing/           # delay.wait — durable pause, working-hours aware
+        +-- logic/            # condition.if · logic.merge (the ONLY AND join) · logic.stop
 ```
 
 ### `packages/email/` — React Email Templates
@@ -121,6 +160,9 @@ packages/email/
         +-- e13-quote.tsx
         +-- e14-booking-cancelled.tsx        # To customer on cancel (added 2026-07-27 — the
         |                                    # customer was told when booked, never when cancelled)
+        +-- e15-notification.tsx             # Generic notification alert. Written in P0 with
+        |                                    # the fix for `sendNotificationAlertEmail`,
+        |                                    # which was imported from nowhere
         +-- team-invitation.tsx
 ```
 

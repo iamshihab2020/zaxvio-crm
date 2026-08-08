@@ -34,6 +34,7 @@ import jobAssign from "./actions/job-assign.js";
 
 // ── logic ───────────────────────────────────────────────────────────────────
 import conditionIf from "./logic/condition-if.js";
+import logicMerge from "./logic/merge.js";
 import delayWait from "./timing/delay-wait.js";
 import logicStop from "./logic/stop.js";
 
@@ -52,5 +53,6 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   jobAssign,
   conditionIf,
   delayWait,
+  logicMerge,
   logicStop,
 ];

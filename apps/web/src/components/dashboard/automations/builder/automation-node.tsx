@@ -78,6 +78,10 @@ function AutomationNodeComponent({ data, selected }: NodeProps<AutomationFlowNod
   const Icon = resolveNodeIcon(def?.icon ?? "");
   const color = def ? resolveNodeColor(def) : "hsl(var(--muted-foreground))";
   const isTrigger = def?.category === "trigger";
+  // The one node in the catalogue with AND semantics — see the traverser's
+  // `isReady`. Read off the definition rather than a flag on the data, so the
+  // canvas and the engine cannot disagree about which node joins.
+  const isJoin = def?.node === "logic.merge";
   const outputs = def?.outputs ?? [];
   const incomplete = data.missingFields.length > 0 && !data.disabled;
 
@@ -256,10 +260,14 @@ function AutomationNodeComponent({ data, selected }: NodeProps<AutomationFlowNod
 
         {/* N-8: semantics you cannot see are semantics you get wrong. A step
             with several inputs runs on the FIRST branch to reach it, which is
-            the opposite of what most people assume. */}
+            the opposite of what most people assume — except on the one node
+            whose whole purpose is to wait for all of them. Stating it on both
+            is what makes the difference visible; a line that appeared only on
+            the unusual case would read as decoration on the node it is on and
+            leave the common case silently misunderstood. */}
         {data.incomingCount > 1 && (
           <p className="mt-0.5 text-center text-[10px] leading-tight text-muted-foreground font-body">
-            Runs on the first branch to arrive
+            {isJoin ? "Waits for every branch" : "Runs on the first branch to arrive"}
           </p>
         )}
       </div>

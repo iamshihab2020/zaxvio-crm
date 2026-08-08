@@ -11,6 +11,7 @@ import {
   IconArrowRight,
   IconUser,
   IconArrowsSplit,
+  IconArrowMerge,
   IconClock,
 } from "@tabler/icons-react";
 
@@ -45,6 +46,7 @@ const ICONS: Record<string, Icon> = {
   IconArrowRight,
   IconUser,
   IconArrowsSplit,
+  IconArrowMerge,
   IconClock,
 };
 

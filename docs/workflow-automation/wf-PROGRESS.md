@@ -114,7 +114,7 @@ zero double-processing, a failing subscriber does not retry the other. Everythin
 | P3 Engine core | XL | 🟡 written, unrun | 3 test files written, none run |
 | P4 Trigger matching & enrollment | M | 🟡 written, unrun | matrix test written |
 | P5 Builder MVP | XL | 🟡 commits 1–3 of 4 written, unrun | 10 endpoints + validator + data layer + list page + canvas; 1 test file written, unrun |
-| P6 Control flow, delays, goals | L | 🟡 condition.if + delay.wait + working hours written, unrun | goals and the remaining logic nodes not started |
+| P6 Control flow, delays, goals | L | 🟡 condition.if + delay.wait + working hours + logic.merge written, unrun | goals and the remaining logic nodes not started |
 | P7 Pickers, breadth, service extraction | XL | ⚪ not started | — |
 | P8 Observability & replay | L | ⚪ not started | — |
 | P9 Webhooks, schedules, recurring | L | ⚪ not started | — |
@@ -974,6 +974,36 @@ so `{ pipelineId: [] }` means "show when the value is one of none" — the stage
 field would have been hidden forever. The picker already disables itself and says
 "Pick a pipeline first", which is better than hiding it anyway.
 
+### Commit 10 — `logic.merge`, the only AND join (written, unrun)
+
+**16 nodes.** The traverser has carried the readiness bookkeeping since P3 —
+`isReady` returns false for `logic.merge` until every incoming edge is satisfied —
+and until now no node in the registry had that id, so those semantics were
+**unreachable code**. This is the node, and it does nothing: being reached is the
+whole of its job.
+
+- **OR stays the default**, and that is the interesting half. The common shape is
+  an if/else whose two branches both feed one "send the follow-up" step; under AND
+  that step would never fire, because only one branch ever ran. So OR is right for
+  the common case and this node exists for the uncommon one.
+- **The failure mode is silence.** Put a merge after an Only if and it waits
+  forever for the branch that did not run — no error, no failed step, the run just
+  stops. New `merge_never_completes`, an **error** rather than a warning: there is
+  no version of that graph which works. It tests the direct case first (two wires
+  leaving one step by different outputs) and then reachability, subtracting nodes
+  that more than one side can reach — a node both branches reach always runs, so it
+  cannot be what hangs the merge.
+- **D-05's badge was written and half-true.** The canvas already said "Runs on the
+  first branch to arrive" on any node with several inputs; on a merge that is
+  exactly backwards. It now reads "Waits for every branch" there, off the
+  definition rather than a flag, so the canvas and the engine cannot disagree.
+  Both lines stay: a label that appeared only on the unusual node would read as
+  decoration and leave the common case silently misunderstood.
+
+Housekeeping found two REPO_MAP gaps while writing this up: `packages/ui/` was
+still listed a week after ARC-14 deleted it, and `packages/workflow-nodes` — a
+whole package — had never been added.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request
@@ -1148,8 +1178,8 @@ the component, not after.
 
 ## P6 — Control flow, delays, goals  ← alpha gate
 
-- [ ] `condition.if` + bespoke panel · `logic.switch` · `split.branch` · `logic.merge` ·
-      `logic.goto` · `logic.loop`
+- [~] `condition.if` *(written, unrun)* · `logic.merge` *(written, unrun)* · `logic.switch` ·
+      `split.branch` · `logic.goto` · `logic.loop`
 - [x] `delay.wait` — relative · until-date · working-hours safe *(written, unrun)*
 - [x] `workers/resume.ts` *(written, unrun)*
 - [ ] `goal.event` + `workflow_goal_listeners` + the goal subscriber
