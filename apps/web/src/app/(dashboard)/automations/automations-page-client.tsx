@@ -9,6 +9,7 @@ import { SearchInput } from "@/components/reusable/search-input";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TemplateGallery } from "@/components/dashboard/automations/template-gallery";
+import { QuotaNotice } from "@/components/dashboard/automations/quota-notice";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
 import { Pagination } from "@/components/reusable/pagination";
@@ -242,6 +243,12 @@ export function AutomationsPageClient({
             isRetrying={workflowsQuery.isFetching}
           />
         )}
+
+        {/* Renders nothing below 80% of either limit. Above it, this is the
+            only warning a tenant gets before event-triggered runs start being
+            refused — and a refusal happens before any execution row exists, so
+            it would otherwise leave no trace on the page below. */}
+        <QuotaNotice />
 
         {showEmptyState && (
           <EmptyState

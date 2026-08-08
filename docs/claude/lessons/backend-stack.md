@@ -420,3 +420,21 @@
   overdue automation to whether reminder *emails* were enabled — turn those off
   and the automations stop, with nothing to indicate why. Two concerns, two
   sweeps, one shared definition of "overdue".
+- **"Refuses loudly" is only true if somebody is listening.** `execute()` rejected
+  an over-quota run before writing anything and returned a clear message — which
+  the route hands to whoever pressed Run. For an **event-triggered** run there is
+  no route and no person: the refusal happened before any `workflow_executions`
+  row existed, so it appeared in no run history, no notification and no toast.
+  The tenant's automations would simply stop. When an early-return guard fires
+  before the record that makes something visible, check every caller — one of
+  them has no user attached.
+- **Throttle a per-event notification by the thing that caused it, not the event.**
+  A tenant over their daily cap refuses every event for the rest of the day; one
+  notification per refusal turns one problem into a thousand. Key it on
+  `(limit kind, day)` — the same shape as the failure notification's per-run key
+  and the overdue sweep's per-invoice-per-day key.
+- **`deliverNotification` and `dispatchNotification` are not interchangeable.**
+  The fire-and-forget one is right on an error path, where a failing notification
+  must not turn one failure into two. It is wrong when the notification is the
+  *only* signal the user will get — dropping it on the floor puts you back where
+  you started.

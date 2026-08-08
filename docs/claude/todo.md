@@ -226,6 +226,20 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       precisely why it must not send nodes. Created off and unpublished like everything else.
       The test caught a design flaw pre-ship: `needsSetup` conflated "a required field is empty"
       (assertable) with "a tenant setting is unset" (not) — now `needsSetup` + `dependsOn`.
+- [~] **Review pass** (2026-08-09) — read the last five commits as a reviewer rather than an
+      author. **Two would not have compiled**: `RunStatusBadge` typed its lookup off
+      `typeof RUN_STYLES` while both maps were `as const`, so `skipped` matched no literal in the
+      run union; `runs.service.ts` cast a Zod-validated value back into the type it already had.
+      **One grew without bound**: the overdue sweep had no horizon, so an invoice written off two
+      years ago raised an event every day forever, matching no trigger — capped at 180 days, plus
+      `::int` on the parameter because `date - integer` and `date - date` are both real operators.
+      **And a fourth found by following the thread**: `execute()` refuses an over-quota run before
+      writing anything, and the route surfaces that to whoever pressed Run — but an event-triggered
+      run has no route and no watcher, and the refusal precedes any execution row. It appeared in
+      no run history, no notification, no toast. Same class as the last two audits, one layer in.
+      Now raises a `workflow_alert` throttled per limit-kind per day, and `QuotaNotice` spends
+      `useWorkflowQuota` (silent below 80%). `useWorkflowVersions` still has no consumer — version
+      history is read-only until there is a restore endpoint (P8).
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

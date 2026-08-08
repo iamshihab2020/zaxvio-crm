@@ -1154,6 +1154,50 @@ heads-up (deliberately does **not** email the customer — the portal already
 does, and a template whose first act duplicates a product email teaches the
 tenant that automations are noise), and welcome a new customer.
 
+### Commit 14 — review pass: three defects in my own code (written, unrun)
+
+A read of the last five commits as a reviewer rather than an author.
+
+**Two would not have compiled.** `RunStatusBadge` typed its lookup off
+`typeof RUN_STYLES` while both maps were `as const`, so every `label` was a
+literal type and `skipped` — a state only a step has — was assignable to nothing
+in the run union. One declared `BadgeStyle` both maps satisfy. And
+`runs.service.ts` asserted `status as ("running" | ...)[]` on a value
+`runListQuery` had already validated against that exact Zod enum: a cast back
+into the type it already had, which is the kind that keeps compiling long after
+the enum behind it changed. Typed the parameter instead.
+
+**One would have grown without bound.** The `invoice.overdue` sweep had no
+horizon, so an invoice written off two years ago still produced a queue row every
+day, forever, matching no trigger — the shipped chase template filters on 1, 7
+and 14. Capped at 180 days. Also `::int` on the horizon parameter, because
+Postgres has both `date - integer -> date` and `date - date -> integer` and a
+bound parameter arrives untyped.
+
+**Then a fourth, found by following the thread.** `execute()` refuses an
+over-quota run *before writing anything* and returns a clear message — and the
+route hands that to whoever pressed Run. But an **event-triggered** run has no
+route and no person watching, and the refusal happens before any
+`workflow_executions` row exists. So it appeared in no run history, no
+notification and no toast: the tenant's automations would silently stop, and the
+only symptom would be customers not being chased. This is the same class as the
+last two audits found, one layer further in.
+
+Event-sourced refusals now raise a `workflow_alert`, throttled to one per limit
+kind per UTC day — a tenant over their daily cap refuses every event for the rest
+of the day, and one notification per refusal turns one problem into a thousand.
+`deliverNotification` **awaited**, not the fire-and-forget `dispatchNotification`
+the failure path uses: that one is right on an error path, and wrong when the
+notification is the only signal the user will get.
+
+And the other half — `QuotaNotice` on the automations page finally spends
+`useWorkflowQuota`, one of the two orphan hooks the run-history audit flagged.
+Silent below 80% of either limit, because a permanent "3 of 2000" bar teaches
+people to ignore the space it occupies.
+
+**Still open from that audit:** `useWorkflowVersions` has no consumer. Version
+history is read-only until there is a restore endpoint, which is P8.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request

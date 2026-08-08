@@ -26,7 +26,24 @@ import { cn } from "@/lib/utils";
  * would put it straight back in front of the user as a problem.
  */
 
-const RUN_STYLES = {
+/**
+ * Declared, not inferred.
+ *
+ * The two maps were `as const` and the lookup was typed off `typeof RUN_STYLES`,
+ * which does not compile: `as const` makes every `label` a literal type, so
+ * `skipped` — a state only a step has — is assignable to nothing in the run
+ * union. One named shape both maps satisfy is the fix, and it is also what lets
+ * `spin` be optional rather than present-on-one-member.
+ */
+interface BadgeStyle {
+  label: string;
+  icon: typeof IconMinus;
+  className: string;
+  /** Only the in-flight states. */
+  spin?: boolean;
+}
+
+const RUN_STYLES: Record<string, BadgeStyle> = {
   running: {
     label: "Running",
     icon: IconLoader2,
@@ -55,9 +72,9 @@ const RUN_STYLES = {
     icon: IconBan,
     className: "border-border bg-muted text-muted-foreground",
   },
-} as const;
+};
 
-const STEP_STYLES = {
+const STEP_STYLES: Record<string, BadgeStyle> = {
   running: RUN_STYLES.running,
   completed: RUN_STYLES.completed,
   failed: RUN_STYLES.failed,
@@ -67,13 +84,13 @@ const STEP_STYLES = {
     icon: IconPlayerSkipForward,
     className: "border-border bg-muted text-muted-foreground",
   },
-} as const;
+};
 
-const UNKNOWN = {
+const UNKNOWN: BadgeStyle = {
   label: "Unknown",
   icon: IconMinus,
   className: "border-border bg-muted text-muted-foreground",
-} as const;
+};
 
 interface Props {
   status: string;
@@ -83,11 +100,8 @@ interface Props {
 }
 
 export function RunStatusBadge({ status, kind = "run", className }: Props) {
-  const table: Record<string, (typeof RUN_STYLES)[keyof typeof RUN_STYLES] | typeof UNKNOWN> =
-    kind === "step" ? STEP_STYLES : RUN_STYLES;
-  const style = table[status] ?? UNKNOWN;
+  const style = (kind === "step" ? STEP_STYLES : RUN_STYLES)[status] ?? UNKNOWN;
   const Icon = style.icon;
-  const spin = "spin" in style && style.spin;
 
   return (
     <span
@@ -99,7 +113,7 @@ export function RunStatusBadge({ status, kind = "run", className }: Props) {
       )}
     >
       <Icon
-        className={cn("h-3.5 w-3.5 shrink-0", spin && "motion-safe:animate-spin")}
+        className={cn("h-3.5 w-3.5 shrink-0", style.spin && "motion-safe:animate-spin")}
       />
       {style.label}
     </span>

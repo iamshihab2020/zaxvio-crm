@@ -53,6 +53,23 @@ type Db = Omit<ReturnType<typeof getDb>, "$client">;
  */
 const BATCH_LIMIT = 500;
 
+/**
+ * Stop raising the event past this many days overdue.
+ *
+ * Without it the sweep is **unbounded**: an invoice that went bad two years ago
+ * still produces a queue row every single day, forever, matching no trigger —
+ * the shipped chase template filters on 1, 7 and 14. The rows are dutifully
+ * enqueued, processed, matched against nothing and completed, and the table
+ * grows for as long as the invoice sits there.
+ *
+ * Six months is well past the point where an automation is the right answer. An
+ * invoice this old is a write-off or a legal matter, and a tenant who wants to
+ * chase at day 200 can still do it — the trigger fires, this is only the sweep's
+ * horizon — by writing off the invoice or voiding it, which is what they should
+ * be doing anyway.
+ */
+const MAX_DAYS_OVERDUE = 180;
+
 /** Validated per [[api-rules]] §4 — a raw row is schema drift waiting to happen. */
 const overdueRow = z.object({
   invoice_id: z.string().uuid(),
@@ -118,6 +135,12 @@ export async function sweepOverdueInvoices(db: Db = getDb()): Promise<SweepResul
       -- is UTC, so a Chicago tenant would see an invoice go overdue six hours
       -- early — and "overdue" is a word customers get emailed about.
       AND i.due_date < (now() AT TIME ZONE t.timezone)::date
+      -- The horizon. See MAX_DAYS_OVERDUE — without this the sweep raises an
+      -- event a day, forever, for every invoice that was ever written off.
+      -- `::int` is load-bearing: Postgres has both `date - integer -> date` and
+      -- `date - date -> integer`, and a bound parameter arrives untyped, so the
+      -- operator would be ambiguous without it.
+      AND i.due_date >= (now() AT TIME ZONE t.timezone)::date - ${MAX_DAYS_OVERDUE}::int
       -- Only where somebody is listening. `trigger_types` is written by the
       -- PUBLISH path and is what makes an automation reachable at all, so this
       -- is the same question the trigger matcher asks. Without it every tenant

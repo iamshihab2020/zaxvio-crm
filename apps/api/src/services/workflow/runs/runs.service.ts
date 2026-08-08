@@ -43,12 +43,28 @@ import {
 
 type Db = Omit<ReturnType<typeof getDb>, "$client">;
 
+/**
+ * The five run states, named once.
+ *
+ * Typed here rather than asserted at the query. `runListQuery` already validates
+ * against a Zod enum, so the value arriving is one of these — writing
+ * `status as ("running" | ...)[]` at the call site was casting a value back into
+ * the type it already had, which is the kind of assertion that keeps compiling
+ * long after the enum behind it has changed.
+ */
+export type ExecutionStatus =
+  | "running"
+  | "waiting"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
 export interface RunListParams {
   tenantId: string;
   workflowId: string;
   page: number;
   limit: number;
-  status?: string[];
+  status?: ExecutionStatus[];
   customerId?: string;
 }
 
@@ -66,12 +82,7 @@ export async function listRuns(db: Db, params: RunListParams) {
   const where = and(
     eq(workflowExecutions.tenantId, tenantId),
     eq(workflowExecutions.workflowId, workflowId),
-    params.status?.length
-      ? inArray(
-          workflowExecutions.status,
-          params.status as ("running" | "waiting" | "completed" | "failed" | "cancelled")[],
-        )
-      : undefined,
+    params.status?.length ? inArray(workflowExecutions.status, params.status) : undefined,
     params.customerId ? eq(workflowExecutions.customerId, params.customerId) : undefined,
   );
 

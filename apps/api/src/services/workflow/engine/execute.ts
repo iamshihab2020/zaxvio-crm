@@ -114,6 +114,17 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
     await assertWithinQuota(db, tenantId);
   } catch (err) {
     if (err instanceof QuotaExceeded) {
+      // "Refuses loudly" was only true for a manual run, where the route hands
+      // this message straight back to the person who pressed the button.
+      //
+      // An event-triggered run has nobody watching, and this refusal happens
+      // **before any execution row is written** — so it left no trace anywhere
+      // the tenant could look. Not in the run history, not in the bell, not in
+      // a toast. Their automations would simply stop, silently, and the only
+      // symptom would be customers not being chased.
+      if (params.source !== "manual") {
+        await notifyQuotaRefused(db, tenantId, err);
+      }
       return refused(err.message);
     }
     throw err;
@@ -384,6 +395,45 @@ async function pause(
         eq(workflowExecutions.status, "running"),
       ),
     );
+}
+
+/**
+ * Tell the tenant their automations have stopped because of a limit.
+ *
+ * Tenant-level rather than named after one workflow, because the limit is
+ * tenant-wide: every automation is affected, and naming whichever one happened
+ * to be refused first would send somebody to debug a workflow that is fine.
+ *
+ * **Throttled to one per limit per UTC day.** A tenant over their daily cap
+ * refuses every event for the rest of the day, and a notification per refusal
+ * would turn one problem into a thousand — the same reasoning as the failure
+ * notification's per-run key. UTC rather than the tenant's day on purpose: it
+ * costs one query to resolve their zone, and for a throttle the boundary being
+ * a few hours off is not worth it.
+ *
+ * `deliverNotification`, **awaited** — not the fire-and-forget
+ * `dispatchNotification` the failure path uses. That one is right there because
+ * a failing notification must not turn one failure into two, and it is already
+ * on the error path. This is not: it is the *only* signal the tenant will get,
+ * and dropping it on the floor because the worker moved on would put us back
+ * where this started. Its own try/catch is internal, so it cannot throw here.
+ */
+async function notifyQuotaRefused(
+  db: ExecutorDb,
+  tenantId: string,
+  err: QuotaExceeded,
+): Promise<void> {
+  const { deliverNotification } = await import("../../../lib/notifications.js");
+  const today = new Date().toISOString().slice(0, 10);
+
+  await deliverNotification(db, {
+    tenantId,
+    type: "workflow_alert",
+    title: "Your automations have paused",
+    description: `${err.message} They will start running again once you are back under the limit.`,
+    actorId: null,
+    dedupKey: `wf-quota:${err.quota}:${today}`,
+  });
 }
 
 /**
