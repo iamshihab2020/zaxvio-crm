@@ -438,3 +438,21 @@
   must not turn one failure into two. It is wrong when the notification is the
   *only* signal the user will get — dropping it on the floor puts you back where
   you started.
+- **An index whose comment names a query nobody wrote is a to-do, not an index.**
+  `idx_node_logs_started` carried the comment "the retention sweep",
+  `RETENTION` had sat in `limits.ts` since P0, and
+  `workflow_executions.workflow_version_id` was `ON DELETE restrict` *specifically*
+  so the sweep's version check would be enforced rather than polite. All of that
+  shipped; the sweep did not, and four tables grew forever. When a schema comment
+  describes a component, grep for it — the surrounding design is already relying
+  on it existing.
+- **Retention order follows the foreign keys.** Executions must be pruned before
+  versions, because `ON DELETE restrict` means a version cannot go while a run
+  points at it. The other order does not error loudly — it just deletes nothing,
+  every time, forever.
+- **Never prune a non-terminal row on age alone.** A `waiting` run older than the
+  retention window is a three-month delay somebody deliberately set. Deleting it
+  cancels their automation as a side effect, with nothing anywhere saying why.
+- **`NOT IN (subquery)` is a trap when the subquery can yield NULL** — the
+  predicate is never true for any row, so the statement silently deletes nothing.
+  `NOT EXISTS` has no such behaviour and reads the same.

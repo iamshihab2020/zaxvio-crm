@@ -12,6 +12,7 @@ import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { RunListTable } from "@/components/dashboard/automations/runs/run-list-table";
 import { RunDetailSheet } from "@/components/dashboard/automations/runs/run-detail-sheet";
 import { RunStatsRow } from "@/components/dashboard/automations/runs/run-stats-row";
+import { RETENTION } from "@hvac-saas/workflow-nodes";
 import { useWorkflowRuns } from "@/hooks/queries";
 import type { WorkflowRunsPage } from "@/actions/workflows";
 
@@ -170,6 +171,7 @@ export function AutomationRunsPageClient({
               entityName="run"
             />
           )}
+          <RetentionNote />
         </>
       ) : null}
 
@@ -209,7 +211,7 @@ function EmptyRuns({
       <p className="mx-auto mt-1 max-w-sm text-sm text-muted-foreground font-body">
         {filtered
           ? "Try another filter to see the rest of the history."
-          : "Publish it and switch it on, or press Run in the builder to try it on one record."}
+          : `Publish it and switch it on, or press Run in the builder to try it on one record. Runs older than ${RETENTION.NODE_LOG_DAYS} days are removed, so an automation that ran a long time ago will look empty here too.`}
       </p>
       <div className="mt-4">
         {filtered ? (
@@ -223,5 +225,21 @@ function EmptyRuns({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Say the retention window out loud.
+ *
+ * Runs are pruned after 90 days. Without this line, somebody looking for a run
+ * from four months ago finds nothing and concludes the automation never fired —
+ * which is the same "absence read as an answer" mistake that made a 500 render
+ * as "no data available for this period" on /reports.
+ */
+function RetentionNote() {
+  return (
+    <p className="text-xs text-muted-foreground font-body">
+      Runs are kept for {RETENTION.NODE_LOG_DAYS} days, then removed.
+    </p>
   );
 }

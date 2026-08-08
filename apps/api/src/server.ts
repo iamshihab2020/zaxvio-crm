@@ -326,9 +326,11 @@ async function start() {
     const { stopEventWorker } = await import("./services/workflow/events/worker.js");
     const { stopResumeWorker } = await import("./services/workflow/workers/resume.js");
     const { stopSweepWorker } = await import("./services/workflow/workers/sweeps.js");
+    const { stopRetentionWorker } = await import("./services/workflow/workers/retention.js");
     stopEventWorker();
     stopResumeWorker();
     stopSweepWorker();
+    stopRetentionWorker();
     await server.close();
     await closeDb();
     process.exit(0);
@@ -389,6 +391,14 @@ async function start() {
   // slow sweep must not delay a resume that is already due.
   const { startSweepWorker } = await import("./services/workflow/workers/sweeps.js");
   startSweepWorker();
+
+  // Retention. Its constants, its index and the `ON DELETE restrict` that makes
+  // its version check load-bearing all shipped on day one; the sweep itself
+  // never did, so four tables grew forever.
+  const { startRetentionWorker } = await import(
+    "./services/workflow/workers/retention.js"
+  );
+  startRetentionWorker();
 }
 
 start();

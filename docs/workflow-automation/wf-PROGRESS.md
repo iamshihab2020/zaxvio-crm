@@ -1234,6 +1234,51 @@ every sheet close — the first thing written — would have reinstated the exac
 the guard exists to prevent, for anybody who opened the sheet, looked, and closed
 it again.
 
+### Commit 16 — the retention sweep the schema already assumed (written, unrun)
+
+Audit angle this round: data lifecycle. **No retention sweep existed.** Four
+tables grew forever — and everything it needed had shipped on day one:
+
+- `RETENTION` in `limits.ts` since P0, with all five windows.
+- `idx_node_logs_started`, carrying the comment "the retention sweep".
+- `workflow_executions.workflow_version_id` as `ON DELETE restrict`, documented
+  as being that way *specifically* so "the retention sweep checks for
+  non-terminal runs before deleting a version, and this constraint is what makes
+  that check load-bearing rather than polite".
+- D-19 and wf-03 both stating the policy: 90 days for node logs, 7 for completed
+  queue rows, 30 for dead letters, keep 10 versions.
+
+Only the worker was missing, which made all of the above a to-do list wearing a
+design's clothes. And commit 12's `invoice.overdue` sweep had just started adding
+two queue rows per overdue invoice per day on top — roughly 15,000 rows a year
+for a tenant with twenty unpaid invoices, none of which anything would ever read.
+
+Four things it gets right that are easy to get wrong:
+
+- **Order follows the foreign keys.** Executions before versions: a version
+  cannot be deleted while a run points at it, so pruning runs is what *makes*
+  versions prunable. The other order does not error — it deletes nothing, every
+  time, forever.
+- **Terminal runs only.** A `waiting` run older than 90 days is a three-month
+  delay somebody deliberately set. Age-based deletion would cancel their
+  automation as a side effect with nothing saying why.
+- **`NOT EXISTS`, never `NOT IN`.** A `NOT IN` against a subquery that yields a
+  NULL is never true for any row, so the statement silently deletes nothing.
+- **A live version is protected separately from "the most recent N".**
+  `active_version_id` is not always the highest number — restoring an old version
+  and publishing it makes that one live, which commit 15 just made possible.
+
+Raw SQL throughout, which is [[api-rules|§3]]'s documented case: bulk
+`DELETE … WHERE id IN (SELECT … LIMIT n)` and a `row_number()` window. The query
+builder was tried first and produced a duplicated predicate plus a derived table
+stitched from `sql` fragments — harder to read than the SQL it was hiding.
+
+Then the consequence, surfaced rather than left implicit: **run history now
+disappears at 90 days.** The runs page says so, and its empty state says an
+automation that ran a long time ago will look empty here too — otherwise absence
+reads as "it never fired", which is the same mistake that made a 500 render as
+"no data available for this period" on `/reports`.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request

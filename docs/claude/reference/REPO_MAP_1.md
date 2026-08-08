@@ -401,8 +401,16 @@ apps/api/
 |   |   |   |   |                     # is also `waiting`, and only a matching event may end one.
 |   |   |   |   |                     # clock_timestamp() not now(), which is fixed for the txn
 |   |   |   |   +-- sweeps.ts         # Hourly. A third timer, not a branch in the resume worker:
-|   |   |   |                         # that one wakes runs already waiting, this decides whether a
-|   |   |   |                         # run should start, and a slow sweep must not delay a resume
+|   |   |   |   |                     # that one wakes runs already waiting, this decides whether a
+|   |   |   |   |                     # run should start, and a slow sweep must not delay a resume
+|   |   |   |   +-- retention.ts      # Daily prune (D-19). Its constants, its index and the
+|   |   |   |                         # ON DELETE restrict that makes its version check load-bearing
+|   |   |   |                         # all shipped on day one; the sweep never did, so 4 tables grew
+|   |   |   |                         # forever. ORDER MATTERS: executions first, versions last — a
+|   |   |   |                         # version cannot be deleted while a run references it, so
+|   |   |   |                         # pruning runs is what makes versions prunable. Terminal runs
+|   |   |   |                         # only: a `waiting` run at 90 days is a delay somebody set, and
+|   |   |   |                         # deleting it cancels their automation by side effect
 |   |   |   +-- runs/
 |   |   |   |   +-- runs.service.ts   # listRuns / getRunStats / getRun. Leads on error_hint and
 |   |   |   |                         # skip_reason, NOT error_message — the reader is the person

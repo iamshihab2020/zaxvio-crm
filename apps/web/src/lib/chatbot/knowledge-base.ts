@@ -198,6 +198,27 @@ Publishing a restored version creates a **new** version rather than rewriting th
 Runs already in progress finish on the version they started with — restoring never disturbs them.",
   },
   {
+    id: "automations-history-retention",
+    category: "general",
+    keywords: [
+      "how long is run history kept",
+      "old runs missing",
+      "automation history disappeared",
+      "run history gone",
+      "automation records deleted",
+    ],
+    question: "How long is automation run history kept?",
+    answer:
+      "**90 days.** After that, finished runs are removed to keep things fast — so an automation that last ran months ago will show an empty history even though it worked.
+
+**What is never removed on age:**
+
+• **Runs still waiting.** A three-month Wait step is a run in progress, not old history, and it carries on as normal.
+• **The version that's live**, and your ten most recent versions, so you can always go back.
+
+Anything an automation actually *did* stays where it belongs — a note added to a customer, an email that was sent, a job that was moved. Only the log of the run itself is cleaned up.",
+  },
+  {
     id: "general-capabilities",
     category: "general",
     keywords: ["what can you do", "help", "capabilities", "features", "chatbot", "assistant"],

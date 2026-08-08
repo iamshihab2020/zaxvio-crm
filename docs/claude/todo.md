@@ -214,7 +214,18 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       The audit was mechanical (hooks vs caller counts, tables vs touching files) and also found
       three hooks with **0 callers**: `useWorkflowQuota`, `useWorkflowVersions`,
       `useWorkflowValidation`. Two remain unconsumed.
-      Remaining: replay, run-from-node, the retention sweep, and a global activity view.
+      Remaining: replay, run-from-node, and a global activity view.
+- [~] **Retention sweep** (2026-08-09) — **written, unrun.** Audit angle: data lifecycle. There was
+      none, and four tables grew forever. Everything it needed had shipped on day one — `RETENTION`
+      in `limits.ts`, `idx_node_logs_started` commented "the retention sweep", and the
+      `ON DELETE restrict` documented as existing *so that* the sweep's version check would be
+      enforced. Only the worker was missing, which made all of that a to-do list in a design's
+      clothes; and the `invoice.overdue` sweep had just started adding ~15k queue rows a year for
+      a tenant with twenty unpaid invoices. Order follows the FKs (executions before versions, or
+      it deletes nothing forever); terminal runs only (a `waiting` run at 90 days is a delay
+      somebody set); `NOT EXISTS` not `NOT IN`; the live version protected separately from "most
+      recent N", which commit 15's restore made necessary. The runs page now states the 90-day
+      window, so absence does not read as "it never fired".
 - [~] **Templates** (P10, pulled forward) — **5 shipped, written and unrun.** The audit found
       nothing this round (the failure-notification path is wired), so the gap stopped being
       capability and started being that a solo contractor opens a blank canvas with 16 node types
