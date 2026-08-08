@@ -255,7 +255,7 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
 // Terminal handling
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function handleTerminal(
+export async function handleTerminal(
   db: ExecutorDb,
   executionId: string,
   ctx: ExecutionContext,

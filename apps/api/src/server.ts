@@ -322,7 +322,9 @@ async function start() {
     // holding a connection that is about to disappear. Anything already claimed
     // is durable and comes back through stale recovery on the next boot.
     const { stopEventWorker } = await import("./services/workflow/events/worker.js");
+    const { stopResumeWorker } = await import("./services/workflow/workers/resume.js");
     stopEventWorker();
+    stopResumeWorker();
     await server.close();
     await closeDb();
     process.exit(0);
@@ -368,6 +370,14 @@ async function start() {
   });
 
   startEventWorker();
+
+  // The resume worker. Separate from the outbox on purpose: one carries events
+  // to automations, the other wakes automations that are waiting on a clock,
+  // and neither should be able to stall the other. A paused run is a database
+  // row, so nothing is lost if this never starts on a given instance — the next
+  // boot picks the row up.
+  const { startResumeWorker } = await import("./services/workflow/workers/resume.js");
+  startResumeWorker();
 }
 
 start();

@@ -114,7 +114,7 @@ zero double-processing, a failing subscriber does not retry the other. Everythin
 | P3 Engine core | XL | 🟡 written, unrun | 3 test files written, none run |
 | P4 Trigger matching & enrollment | M | 🟡 written, unrun | matrix test written |
 | P5 Builder MVP | XL | 🟡 commits 1–3 of 4 written, unrun | 10 endpoints + validator + data layer + list page + canvas; 1 test file written, unrun |
-| P6 Control flow, delays, goals | L | ⚪ not started | — |
+| P6 Control flow, delays, goals | L | 🟡 condition.if + delay.wait written, unrun | goals and the remaining logic nodes not started |
 | P7 Pickers, breadth, service extraction | XL | ⚪ not started | — |
 | P8 Observability & replay | L | ⚪ not started | — |
 | P9 Webhooks, schedules, recurring | L | ⚪ not started | — |
@@ -973,6 +973,47 @@ Caught while writing them: `displayOptions.show` matches against *listed values*
 so `{ pipelineId: [] }` means "show when the value is one of none" — the stage
 field would have been hidden forever. The picker already disables itself and says
 "Pick a pipeline first", which is better than hiding it anyway.
+
+### Commit 8 — `delay.wait` and the resume worker (written, unrun)
+
+**15 nodes**, and the first durable pause. This is the node the E-12 review-request
+cron exists as a workaround for: "three days after the job, ask for a review" had
+no other way to be expressed.
+
+Most of the machinery was already there from P3 and P1 — `DelayPause`,
+`serialiseContext`/`restoreContext`, and the `resume_at` / `waiting_context` /
+`current_node_id` columns with their partial index. What was missing was the node
+itself and **anything that reads those rows back**.
+
+- `engine/resume.ts` — claims with a compare-and-set on `status = 'waiting'`,
+  loads the **pinned** version by id, rebuilds the context, and restarts at the
+  paused node's **successors** so a wait does not wait again.
+- `workers/resume.ts` — ticks every 60s, oldest first, sequential. Wired at the
+  composition root beside the outbox worker and stopped on shutdown.
+- `handleTerminal` is now **shared** rather than copied. That is correctness, not
+  tidiness: a resumed run can reach a *second* `delay.wait`, and it has to pause
+  exactly as a first-pass run does.
+
+Three things the worker gets right that are easy to get wrong:
+
+- **`resume_at IS NOT NULL`** in the due query. A goal wait is also `waiting` but
+  has a null `resume_at`, and only a matching event may end one — without the
+  predicate the clock would wake runs waiting on something that has not happened.
+- **`clock_timestamp()`, not `now()`.** `now()` is fixed for the transaction, so
+  a long tick keeps comparing against a stale clock. Same choice the outbox made.
+- **An automation archived mid-wait does not wake up.** "I archived it and it
+  still emailed my customer three days later" is not a defensible answer.
+
+**Days are calendar days, not 24-hour blocks.** "Wait 3 days" means the same time
+of day, three days later; `3 × 86400000` gives that only when no clock change
+falls in between, so across a DST boundary a 9am follow-up arrives at 8 or 10.
+Minutes and hours are the opposite — an hour is an hour — so the two are computed
+differently on purpose: small units in real time, large units on the tenant's
+calendar.
+
+**Still unproven, and this is the phase where that matters.** Every P6 acceptance
+criterion is a runtime proof: a pause surviving a real deploy, version pinning
+across a publish, the DST boundary, the goal/delay race. None has been run.
 
 ### Commit 7 — `condition.if`, the first half of P6 (written, unrun)
 

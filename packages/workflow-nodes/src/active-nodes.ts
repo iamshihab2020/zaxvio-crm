@@ -29,6 +29,7 @@ export const ACTIVE_NODES: readonly string[] = [
   "job.moveStage",
   "job.assign",
   "condition.if",
+  "delay.wait",
   "logic.stop",
 ] as const;
 
@@ -58,5 +59,6 @@ export const RELEASED_NODE_IDS: readonly string[] = [
   "job.moveStage",
   "job.assign",
   "condition.if",
+  "delay.wait",
   "logic.stop",
 ] as const;

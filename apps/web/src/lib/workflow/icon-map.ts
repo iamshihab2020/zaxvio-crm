@@ -11,6 +11,7 @@ import {
   IconArrowRight,
   IconUser,
   IconArrowsSplit,
+  IconClock,
 } from "@tabler/icons-react";
 
 /**
@@ -44,6 +45,7 @@ const ICONS: Record<string, Icon> = {
   IconArrowRight,
   IconUser,
   IconArrowsSplit,
+  IconClock,
 };
 
 /** Every icon named by a definition currently in the registry. */
