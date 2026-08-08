@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
+import { useWorkflows } from "@/hooks/queries";
 import { resolveNodeIcon } from "@/lib/workflow/icon-map";
 import { cn } from "@/lib/utils";
 
@@ -52,11 +53,23 @@ const CATEGORY_LABELS: Record<TemplateCategory | "all", string> = {
   "staying-on-top": "Staying on top",
 };
 
+/**
+ * How many automations to look through for "already added".
+ *
+ * The gallery asks its own question rather than being handed the page the list
+ * happened to be showing — that page is filtered and paginated, so searching
+ * "review" and then opening this would have reported almost every template as
+ * not installed. Same defect as a stats row computed from twenty rows.
+ *
+ * Bounded, and honestly so: a tenant with more than 100 automations may see a
+ * template reported as new when they have it. That is a missing badge, not a
+ * wrong one, and 100 is far past where this audience lands.
+ */
+const SCAN_LIMIT = 100;
+
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Ids the tenant already installed, so a card can say so. */
-  installedTemplateKeys: string[];
   onUse: (template: WorkflowTemplate) => void;
   onStartBlank: () => void;
   pending: boolean;
@@ -65,12 +78,16 @@ interface Props {
 export function TemplateGallery({
   open,
   onOpenChange,
-  installedTemplateKeys,
   onUse,
   onStartBlank,
   pending,
 }: Props) {
   const [category, setCategory] = useState<string>("all");
+
+  // Mounted only while open (see the call site), so this fires when the gallery
+  // is opened rather than on every visit to the automations page. TanStack
+  // caches it, so a second open is instant.
+  const installedQuery = useWorkflows({ page: 1, limit: SCAN_LIMIT });
 
   // Only the shelves that have something on them. A tab that filters to an
   // empty list is a dead end the user has to back out of.
@@ -88,7 +105,11 @@ export function TemplateGallery({
     (template) => category === "all" || template.category === category,
   );
 
-  const installed = new Set(installedTemplateKeys);
+  const installed = new Set(
+    (installedQuery.data?.data ?? [])
+      .map((workflow) => workflow.templateKey)
+      .filter((key): key is string => Boolean(key)),
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

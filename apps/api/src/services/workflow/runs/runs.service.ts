@@ -116,7 +116,16 @@ export async function listRuns(db: Db, params: RunListParams) {
       )
       .leftJoin(
         workflowVersions,
-        eq(workflowVersions.id, workflowExecutions.workflowVersionId),
+        // Tenant predicate even though the FK chain already guarantees it: the
+        // execution row is tenant-filtered and `workflow_version_id` points out
+        // of it. [[security-rules]] §1 is written as "every SELECT", without an
+        // exemption for joins you can reason your way out of — and the three
+        // ownership gaps the security audit found were all places somebody had
+        // reasoned their way out of one.
+        and(
+          eq(workflowVersions.id, workflowExecutions.workflowVersionId),
+          eq(workflowVersions.tenantId, tenantId),
+        ),
       )
       .where(where)
       .orderBy(desc(workflowExecutions.startedAt))
@@ -227,7 +236,10 @@ export async function getRun(
     )
     .leftJoin(
       workflowVersions,
-      eq(workflowVersions.id, workflowExecutions.workflowVersionId),
+      and(
+        eq(workflowVersions.id, workflowExecutions.workflowVersionId),
+        eq(workflowVersions.tenantId, tenantId),
+      ),
     )
     .where(
       and(

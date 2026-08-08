@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { IconArrowLeft, IconHistory } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
@@ -57,7 +57,6 @@ export function AutomationRunsPageClient({
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
 
   const [page, setPage] = useState(1);
   const [status, setStatus] = useState(initialStatus);
@@ -79,38 +78,46 @@ export function AutomationRunsPageClient({
     ? "Couldn't reach the server."
     : (query.data?.error ?? (data ? null : isFirstRequest ? initialError : null));
 
-  /** Keep the URL in step without a navigation — this is a filter, not a page. */
+  /**
+   * Keep the URL in step without a navigation — this is a filter, not a page.
+   *
+   * Built from the **next state**, never by reading the current URL back.
+   * `router.replace` is not synchronous, so a `useSearchParams()` round trip
+   * means two quick changes — open a run, then switch filter — can both read the
+   * same stale query string and the second silently drops the first. The two
+   * values are already held in state here; the URL is an output of that state,
+   * not a second source of it.
+   */
   const writeUrl = useCallback(
-    (next: { run?: string | null; status?: string }) => {
-      const search = new URLSearchParams(searchParams.toString());
-      if ("run" in next) {
-        if (next.run) search.set("run", next.run);
-        else search.delete("run");
-      }
-      if (next.status !== undefined) {
-        if (next.status && next.status !== "all") search.set("status", next.status);
-        else search.delete("status");
-      }
+    (next: { run: string | null; status: string }) => {
+      const search = new URLSearchParams();
+      if (next.status && next.status !== "all") search.set("status", next.status);
+      if (next.run) search.set("run", next.run);
       const qs = search.toString();
       router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
     },
-    [pathname, router, searchParams],
+    [pathname, router],
   );
 
   function openRun(runId: string) {
     setOpenRunId(runId);
-    writeUrl({ run: runId });
+    writeUrl({ run: runId, status });
   }
 
   function closeRun() {
     setOpenRunId(null);
-    writeUrl({ run: null });
+    writeUrl({ run: null, status });
   }
 
   function changeStatus(next: string) {
     setStatus(next);
     setPage(1);
-    writeUrl({ status: next });
+    // The open run is deliberately dropped: a run that failed under the old
+    // filter may not be in the new list at all, and leaving its sheet open over
+    // a list that no longer contains it is a state nobody can get out of except
+    // by guessing.
+    setOpenRunId(null);
+    writeUrl({ run: null, status: next });
   }
 
   return (

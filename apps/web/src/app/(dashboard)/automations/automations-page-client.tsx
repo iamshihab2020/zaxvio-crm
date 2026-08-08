@@ -351,19 +351,20 @@ export function AutomationsPageClient({
           </div>
         )}
 
-        <TemplateGallery
-          open={galleryOpen}
-          onOpenChange={setGalleryOpen}
-          // Read off what the tenant already has, so a card can say "already
-          // added" rather than letting somebody install the same chase sequence
-          // three times without noticing.
-          installedTemplateKeys={workflows
-            .map((w) => w.templateKey)
-            .filter((key): key is string => Boolean(key))}
-          onUse={handleUseTemplate}
-          onStartBlank={handleStartBlank}
-          pending={templateMutation.isPending || createMutation.isPending}
-        />
+        {/* Mounted only while open, so its "already added" lookup costs nothing
+            on an ordinary visit. It asks that question itself rather than being
+            handed `workflows` — that array is whatever the current search and
+            filter left, so a tenant who had searched would have been told they
+            do not have templates they do. */}
+        {galleryOpen && (
+          <TemplateGallery
+            open
+            onOpenChange={setGalleryOpen}
+            onUse={handleUseTemplate}
+            onStartBlank={handleStartBlank}
+            pending={templateMutation.isPending || createMutation.isPending}
+          />
+        )}
 
         <AutomationNameDialog
           open={nameDialogOpen}

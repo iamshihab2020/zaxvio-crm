@@ -645,3 +645,16 @@ From [[bookings-calendar|the report]] — the front-end half.
   that would need a `switch (nodeType)` in the builder has broken the property
   the whole feature rests on — that adding a node is "write a definition, write
   an executor".
+- **Build a URL from state, never by reading the current URL back.**
+  `router.replace` is not synchronous, so a `useSearchParams()` round trip means
+  two quick changes — open a detail sheet, then switch a filter — can both read
+  the same stale query string and the second silently drops the first. If the
+  values are already in component state, the URL is an *output* of that state,
+  not a second source of it.
+- **A dialog handed the list page's rows is reading a filtered, paginated
+  answer.** The template gallery was passed `workflows` to decide which
+  templates were already installed — that array is whatever the current search
+  and status filter left, so a tenant who had searched would be told they do not
+  have templates they do. Let the dialog ask its own bounded question and mount
+  it only while open. Same defect class as a stats row computed from the twenty
+  rows on screen.
