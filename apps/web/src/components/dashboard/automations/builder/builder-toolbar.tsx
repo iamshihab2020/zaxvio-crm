@@ -9,6 +9,7 @@ import {
   IconAlertTriangle,
   IconHistory,
   IconPlayerPlay,
+  IconVersions,
 } from "@tabler/icons-react";
 import {
   DEFAULT_WORKFLOW_NAME,
@@ -52,6 +53,7 @@ interface Props {
   onPublish: () => void;
   onToggleActive: (next: boolean) => void;
   onRun: () => void;
+  onOpenVersions: () => void;
   /** Called on blur/Enter, and only when the name actually changed. */
   onRename: (name: string) => void;
   saving: boolean;
@@ -70,6 +72,7 @@ export function BuilderToolbar({
   onPublish,
   onToggleActive,
   onRun,
+  onOpenVersions,
   onRename,
   saving,
   publishing,
@@ -244,6 +247,29 @@ export function BuilderToolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent>Run history</TooltipContent>
+        </Tooltip>
+
+        {/* Next to it, because both answer "what happened" — one about what the
+            automation did, one about what it was. Disabled until there is a
+            published version, since history of nothing is an empty sheet. */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="inline-flex">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                disabled={!published}
+                onClick={onOpenVersions}
+                aria-label="Version history"
+              >
+                <IconVersions className="h-4 w-4" />
+              </Button>
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            {published ? "Version history" : "Publish once to start a history"}
+          </TooltipContent>
         </Tooltip>
 
         <Button

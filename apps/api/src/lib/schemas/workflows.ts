@@ -266,3 +266,19 @@ export const createFromTemplateBody = z.object({
   /** Optional rename before creating. Same bound as `createWorkflowBody`. */
   name: boundedText(120).optional(),
 });
+
+export const versionParam = z.object({
+  id: z.string().uuid(),
+  versionId: z.string().uuid(),
+});
+
+/**
+ * Restore is a **save**, so it carries the same concurrency token.
+ *
+ * Without it, restoring would be the one write that could silently clobber a
+ * colleague's edit — and the thing lost would not be a field, it would be their
+ * whole automation.
+ */
+export const restoreVersionBody = z.object({
+  expectedUpdatedAt: z.string().datetime(),
+});

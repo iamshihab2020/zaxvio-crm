@@ -18,6 +18,7 @@ import {
   getWorkflows,
   getWorkflowVersions,
   publishWorkflow,
+  restoreWorkflowVersion,
   runWorkflow,
   saveWorkflowGraph,
   setWorkflowActive,
@@ -396,6 +397,43 @@ export function useRunWorkflow() {
       qc.invalidateQueries({ queryKey: queryKeys.workflows.detail(id) });
     },
     onError: () => toast.error("Failed to run this automation"),
+  });
+}
+
+/**
+ * Restore an earlier version onto the draft.
+ *
+ * Invalidates `detail(id)` — which is the prefix versions and runs nest under —
+ * because the draft the builder is holding is now stale by definition. The
+ * builder reloads the graph from that query, so anything less would leave the
+ * canvas showing what the user was trying to replace.
+ */
+export function useRestoreWorkflowVersion() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      versionId,
+      expectedUpdatedAt,
+    }: {
+      id: string;
+      versionId: string;
+      expectedUpdatedAt: string;
+    }) => restoreWorkflowVersion(id, versionId, expectedUpdatedAt),
+    onSuccess: (res, { id }) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      // Named, and it names what still has to happen. "Restored" alone reads as
+      // "we put it back live", which is exactly what this does not do.
+      toast.success(`Version ${res.data?.restoredVersion} is back on your canvas`, {
+        description: "Check it over, then press Publish to make it live.",
+      });
+      qc.invalidateQueries({ queryKey: queryKeys.workflows.detail(id) });
+      qc.invalidateQueries({ queryKey: queryKeys.workflows.all });
+    },
+    onError: () => toast.error("Failed to restore that version"),
   });
 }
 

@@ -495,3 +495,24 @@ export async function createWorkflowFromTemplate(input: {
     fallback: "Failed to create this automation",
   });
 }
+
+/**
+ * Copy an earlier version back over the draft.
+ *
+ * Carries the same concurrency token as a save, because that is what it is —
+ * without it, restore would be the one write that could silently clobber a
+ * colleague's edit, and what is lost would be their whole automation.
+ */
+export async function restoreWorkflowVersion(
+  id: string,
+  versionId: string,
+  expectedUpdatedAt: string,
+) {
+  return apiSend<{
+    restoredVersion: number;
+    updatedAt: string;
+    graph: WorkflowGraph;
+  }>(`/workflows/${id}/versions/${versionId}/restore`, "POST", { expectedUpdatedAt }, {
+    fallback: "Failed to restore that version",
+  });
+}

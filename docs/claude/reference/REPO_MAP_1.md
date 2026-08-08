@@ -451,6 +451,13 @@ apps/api/
 |   |   |       |                     # step is its config, and that is visible with no side effects.
 |   |   |       |                     # Reuses the engine's resolveTimezone so a preview cannot
 |   |   |       |                     # format a date differently from the run it previews
+|   |   |       +-- restore.ts        # An earlier version back onto the DRAFT — never straight to
+|   |   |       |                     # live. Pointing active_version_id at the old snapshot would
+|   |   |       |                     # leave the builder showing one graph while the engine ran
+|   |   |       |                     # another, so the next Save would publish the breakage back.
+|   |   |       |                     # Node ids are KEPT, so a restored step keeps its run history.
+|   |   |       |                     # Goes through saveGraph, so it takes the same lock, token
+|   |   |       |                     # check and size cap as any other save
 |   |   |       +-- validate.ts       # ONLY the impure rule: does this config point at a row this
 |   |   |                             # tenant owns. Deduped by (kind,id), and it SKIPS kinds with no
 |   |   |                             # checker — assertOwnership fails closed, which is right for
@@ -535,7 +542,7 @@ apps/api/
 | `/calendar-events` | requireTenant | CRUD for standalone calendar entries (occupy portal slots) | + |
 | `/public/booking/:slug` | None | Branding, availability, slots, submit, status. Rate-limited 60/5/10 per min | + |
 | `/public/unsubscribe/:token` | Token (HMAC) | GET who it is for · POST opt out · POST /one-click (RFC 8058). 30/10 per min | + |
-| `/workflows` | requireTenant | GET/POST /, GET/PATCH/DELETE /:id, POST /:id/active, POST /:id/runs (manual run, 10/min), POST /from-template (id only, never a graph), GET /quota; **graph.ts**: PUT /:id/graph (409 on concurrent edit), POST /:id/publish (422 + full validation), GET /:id/validate, GET /:id/builder-context, POST /:id/nodes/:nodeId/preview, GET /:id/versions, **runs.ts**: GET /:id/runs (comma-separated status set + whole-history stats), GET /:id/runs/:runId (run + every step in execution order) | + |
+| `/workflows` | requireTenant | GET/POST /, GET/PATCH/DELETE /:id, POST /:id/active, POST /:id/runs (manual run, 10/min), POST /from-template (id only, never a graph), GET /quota; **graph.ts**: PUT /:id/graph (409 on concurrent edit), POST /:id/publish (422 + full validation), GET /:id/validate, GET /:id/builder-context, POST /:id/nodes/:nodeId/preview, GET /:id/versions, POST /:id/versions/:versionId/restore (409 on concurrent edit), **runs.ts**: GET /:id/runs (comma-separated status set + whole-history stats), GET /:id/runs/:runId (run + every step in execution order) | + |
 | `/equipment` | requireTenant | CRUD + refrigerant logs sub-resource + history | + |
 | `/maintenance-contracts` | requireTenant | CRUD + expiring contracts | + |
 | `/calendar-events` | requireTenant | CRUD | + |

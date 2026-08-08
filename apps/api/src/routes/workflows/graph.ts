@@ -20,7 +20,9 @@ import {
   nodeParam,
   previewNodeBody,
   publishWorkflowBody,
+  restoreVersionBody,
   saveGraphBody,
+  versionParam,
 } from "../../lib/schemas/workflows.js";
 import { loadWorkflowWithGraph, loadActiveVersion } from "../../services/workflow/graph/load.js";
 import { loadBuilderContext } from "../../services/workflow/graph/builder-context.js";
@@ -28,6 +30,7 @@ import { previewNode } from "../../services/workflow/graph/preview.js";
 import { saveGraph } from "../../services/workflow/graph/persist.js";
 import { publishWorkflow } from "../../services/workflow/graph/publish.js";
 import { validateGraphForTenant } from "../../services/workflow/graph/validate.js";
+import { restoreVersion } from "../../services/workflow/graph/restore.js";
 
 const workflowGraphRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -223,6 +226,71 @@ const workflowGraphRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       return reply.send({
         data: { parameters: result.parameters, diagnostics: result.diagnostics },
+      });
+    },
+  );
+
+  /**
+   * POST /workflows/:id/versions/:versionId/restore
+   *
+   * Copy an earlier snapshot back over the **draft**.
+   *
+   * Deliberately does not activate it. Pointing `active_version_id` at the old
+   * version would be one column and instant — and it would leave the builder
+   * showing one graph while the engine ran another, so the next Save would
+   * quietly publish the breakage back. It would also put a version live without
+   * anybody looking at it, which is the rule this feature holds everywhere else.
+   *
+   * The tenant gets the old automation on the canvas, checks it, and presses
+   * Publish — which mints a new version. "v5, restored from v2" is true; making
+   * v2 current again silently is not.
+   */
+  fastify.post(
+    "/:id/versions/:versionId/restore",
+    {
+      preHandler: [requireTenant],
+      schema: { params: versionParam, body: restoreVersionBody },
+    },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const { id, versionId } = request.params;
+
+      const result = await restoreVersion({
+        db: getDb(),
+        tenantId,
+        workflowId: id,
+        versionId,
+        expectedUpdatedAt: new Date(request.body.expectedUpdatedAt),
+      });
+
+      if (result.status === "not_found") {
+        return reply.status(404).send({ message: "That version no longer exists" });
+      }
+      if (result.status === "empty") {
+        return reply.status(422).send({
+          message:
+            "That version has no steps in it, so restoring it would leave you with an empty automation.",
+        });
+      }
+      if (result.status === "conflict") {
+        return reply.status(409).send({
+          message:
+            "Somebody else saved this automation while you were looking at it. Reload before restoring.",
+          currentUpdatedAt: result.currentUpdatedAt,
+        });
+      }
+      if (result.status === "too_large") {
+        return reply.status(413).send({
+          message: `That version is too large to restore (${result.received} of ${result.limit}).`,
+        });
+      }
+
+      return reply.send({
+        data: {
+          restoredVersion: result.restoredVersion,
+          updatedAt: result.updatedAt,
+          graph: result.graph,
+        },
       });
     },
   );

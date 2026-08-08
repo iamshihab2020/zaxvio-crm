@@ -238,8 +238,18 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       run has no route and no watcher, and the refusal precedes any execution row. It appeared in
       no run history, no notification, no toast. Same class as the last two audits, one layer in.
       Now raises a `workflow_alert` throttled per limit-kind per day, and `QuotaNotice` spends
-      `useWorkflowQuota` (silent below 80%). `useWorkflowVersions` still has no consumer — version
-      history is read-only until there is a restore endpoint (P8).
+      `useWorkflowQuota` (silent below 80%).
+- [~] **Version restore** (2026-08-09) — **written, unrun.** The last of the three orphan hooks.
+      `GET /:id/versions` and `useWorkflowVersions` had existed since P5 with no consumer, because
+      a list of versions with no way to use one is a museum. Restore writes the **draft**, never
+      `active_version_id`: pointing that at the old snapshot would leave the builder showing one
+      graph while the engine ran another, so the next Save would publish the breakage back — and
+      it would put a version live with nobody looking at it. Node ids are kept, so a restored step
+      keeps its run history. Goes through `saveGraph` for the same lock, token and size cap.
+      Found while wiring it: the builder's load-once-per-id guard — which stops a background
+      refetch discarding the user's work — **also swallowed the restore**. Fixed with a callback
+      fired only on the actual write; clearing the marker on every close would have reinstated the
+      bug the guard exists to prevent.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

@@ -9,6 +9,7 @@ import { BuilderToolbar } from "@/components/dashboard/automations/builder/build
 import { NodePalettePanel } from "@/components/dashboard/automations/builder/node-palette-panel";
 import { ConfigPanel } from "@/components/dashboard/automations/builder/config/config-panel";
 import { BranchDeleteDialog } from "@/components/dashboard/automations/builder/branch-delete-dialog";
+import { VersionHistorySheet } from "@/components/dashboard/automations/builder/version-history-sheet";
 import { AutomationValidationDialog } from "@/components/dashboard/automations/automation-validation-dialog";
 import {
   useWorkflow,
@@ -54,6 +55,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
   const runMutation = useRunWorkflow();
 
   const [validation, setValidation] = useState<WorkflowValidation | null>(null);
+  const [versionsOpen, setVersionsOpen] = useState(false);
 
   const detail = query.data?.data ?? initialDetail;
   const loadError = query.isError
@@ -204,6 +206,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
           onPublish={() => void handlePublish()}
           onToggleActive={(next) => activeMutation.mutate({ id, isActive: next })}
           onRun={() => runMutation.mutate({ id })}
+          onOpenVersions={() => setVersionsOpen(true)}
           onRename={(next) => updateMutation.mutate({ id, data: { name: next } })}
           saving={saveMutation.isPending}
           // Publish now saves first, so the button has to stay busy for both
@@ -254,6 +257,25 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
             the config panel's button and the canvas's Delete key both route
             through the store, so neither can sever branches silently. */}
         <BranchDeleteDialog />
+
+        <VersionHistorySheet
+          workflowId={id}
+          open={versionsOpen}
+          onOpenChange={setVersionsOpen}
+          expectedUpdatedAt={tokenRef.current}
+          // Restoring wrote a new draft, and the store will not pick it up on
+          // its own: `load` is keyed on workflow id and this is the same
+          // workflow, so the guard that stops a background refetch discarding
+          // the user's work would also stop the restore appearing. Clearing the
+          // marker lets the next payload through.
+          //
+          // Fired ONLY on an actual restore. Doing it on every close would mean
+          // somebody who opened the sheet, looked and closed it lost whatever
+          // they had drawn since — the guard exists to prevent exactly that.
+          onRestored={() => {
+            loadedFor.current = null;
+          }}
+        />
 
         <AutomationValidationDialog
           validation={validation}

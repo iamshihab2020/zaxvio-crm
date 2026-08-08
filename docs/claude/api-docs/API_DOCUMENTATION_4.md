@@ -1901,6 +1901,42 @@ recorded on the row so the gallery can say "already added".
 
 ---
 
+### `POST /workflows/:id/versions/:versionId/restore`
+
+Copy an earlier snapshot back over the **draft**.
+
+**It does not activate the version.** Pointing `active_version_id` at the old
+snapshot would be one column and instant, and it is wrong twice over: the draft
+would still hold the broken graph, so the builder would show one thing while the
+engine ran another and the next Save would quietly publish the breakage back —
+and it would put a version live without anybody looking at it, which is the rule
+this feature holds everywhere else. The tenant reviews the restored graph and
+presses Publish, which mints a **new** version. "v5, restored from v2" is a true
+record; silently making v2 current again is not.
+
+Node ids are preserved rather than re-minted: edges inside the snapshot already
+reference them, and `node_execution_logs.node_id` carries no FK precisely so a
+restored step keeps the run history it had the first time.
+
+Goes through the ordinary save path, so it takes the row lock, checks the
+concurrency token and enforces the size cap.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `expectedUpdatedAt` | ISO datetime | ✓ | The token the client last saw |
+
+**Responses**
+
+- `200` — `{ "data": { "restoredVersion": 2, "updatedAt": "...", "graph": {...} } }`
+- `404` — no such version for this workflow and tenant
+- `409` — somebody else saved in between; reload before restoring
+- `413` — the snapshot exceeds the graph size cap
+- `422` — the version has no steps, so restoring it would leave an empty automation
+
+---
+
 ## Run history
 
 The engine has written a row per run and a row per node since P3. These are the

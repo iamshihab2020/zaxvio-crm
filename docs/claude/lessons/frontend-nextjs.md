@@ -658,3 +658,11 @@ From [[bookings-calendar|the report]] — the front-end half.
   have templates they do. Let the dialog ask its own bounded question and mount
   it only while open. Same defect class as a stats row computed from the twenty
   rows on screen.
+- **A guard that protects the user's work will also block your write.** The
+  builder loads the graph into its store **once per workflow id**, so a
+  background refetch cannot reset the canvas and discard what somebody drew.
+  That same guard silently swallowed the version restore: the new draft landed
+  in the database and the canvas kept showing the graph the user was replacing.
+  The fix is a callback fired **only on the actual write** — clearing the marker
+  on every sheet close would have restored the bug the guard exists to prevent,
+  for anybody who opened it, looked, and closed it again.

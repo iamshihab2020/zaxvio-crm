@@ -1198,6 +1198,42 @@ people to ignore the space it occupies.
 **Still open from that audit:** `useWorkflowVersions` has no consumer. Version
 history is read-only until there is a restore endpoint, which is P8.
 
+### Commit 15 — version restore, and the last orphan hook (written, unrun)
+
+`GET /:id/versions` and `useWorkflowVersions` had both existed since P5 and
+neither had a consumer — the run-history audit found the hook with zero callers.
+The reason was not laziness: **a list of versions with no way to use one is a
+museum**. This is the endpoint that makes it worth opening, and the last of the
+three orphans that audit named.
+
+**Restore writes the draft; it does not activate.** Pointing `active_version_id`
+at the old snapshot is one column and instant, and wrong twice: the draft would
+still hold the broken graph, so the builder would show one thing while the engine
+ran another and the next Save would quietly publish the breakage back — and it
+would put a version live without anybody looking at it, which is the rule this
+feature holds everywhere else. Publishing a restored graph mints a **new**
+version, so "v5, restored from v2" is a true record of what was live and when.
+
+- **Node ids are kept**, not re-minted. Edges inside the snapshot reference them,
+  and `node_execution_logs.node_id` carries no FK precisely so history survives —
+  a restored step keeps the run history it had the first time.
+- Goes through `saveGraph`, so it takes the same row lock, concurrency token and
+  size cap. A second write path skipping any of those is how "two saves both read
+  the same token and both proceed" comes back, and losing an automation to a
+  restore nobody expected is the worst version of it.
+- An empty snapshot is refused with a reason rather than restored, because a
+  blank canvas plus a Publish button that will not work looks like the restore
+  deleted their work.
+
+**The bug worth recording.** The builder loads the graph into its store *once per
+workflow id* — the guard that stops a background refetch discarding what somebody
+drew. That same guard swallowed the restore: the new draft landed in the database
+and the canvas kept showing the graph the user was replacing. Fixed with an
+`onRestored` callback fired **only on the actual write**; clearing the marker on
+every sheet close — the first thing written — would have reinstated the exact bug
+the guard exists to prevent, for anybody who opened the sheet, looked, and closed
+it again.
+
 ### Commit 8 — `delay.wait` and the resume worker (written, unrun)
 
 **15 nodes**, and the first durable pause. This is the node the E-12 review-request

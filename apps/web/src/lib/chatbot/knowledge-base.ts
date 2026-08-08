@@ -169,6 +169,35 @@ Every step can be changed or removed, and you can add your own. If you'd rather 
 A template already added shows **Already added** — you can still add a second copy if you want two versions.",
   },
   {
+    id: "automations-version-history",
+    category: "general",
+    keywords: [
+      "undo automation",
+      "automation version",
+      "revert automation",
+      "restore automation",
+      "i broke my automation",
+      "previous version",
+      "version history",
+    ],
+    question: "I changed an automation and broke it — can I go back?",
+    answer:
+      "Yes. Open the automation and click the **versions icon** in the toolbar, next to the run history clock.
+
+Every time you publish, a version is saved. The one currently running is marked **Live** — note that isn't always the highest number, since restoring an older one and publishing it makes that the live one.
+
+Click **Restore** on any version and it comes back onto your canvas.
+
+**Two things to know:**
+
+• **Restoring doesn't change what's running.** It puts the old version on your canvas so you can look at it. Press **Publish** when you're happy, and that's when it goes live.
+• **It replaces what's on your canvas now**, saved or not. You'll be asked to confirm first.
+
+Publishing a restored version creates a **new** version rather than rewriting the old one, so the history stays a true record of what was live and when.
+
+Runs already in progress finish on the version they started with — restoring never disturbs them.",
+  },
+  {
     id: "general-capabilities",
     category: "general",
     keywords: ["what can you do", "help", "capabilities", "features", "chatbot", "assistant"],
