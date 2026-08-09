@@ -168,8 +168,8 @@ describe("the validator catches what only a path-valued field can get wrong", ()
   };
 
   it("rejects a path that is not a declared variable", () => {
-    const issues = validateGraph(graphWith({ ...base, dateField: "booking.dat" }));
-    const issue = issues.find((i) => i.code === "unknown_variable");
+    const { errors } = validateGraph(graphWith({ ...base, dateField: "booking.dat" }));
+    const issue = errors.find((i) => i.code === "unknown_variable");
     expect(issue).toBeDefined();
     // The suggestion is the whole point — a typo'd path is otherwise a wait
     // that never fires and no way to see why.
@@ -178,20 +178,20 @@ describe("the validator catches what only a path-valued field can get wrong", ()
 
   it("rejects a date the trigger above it does not provide", () => {
     // Well-formed, real, and unreachable: a booking trigger carries no invoice.
-    const issues = validateGraph(graphWith({ ...base, dateField: "invoice.dueDate" }));
-    expect(issues.some((i) => i.code === "unknown_variable")).toBe(true);
+    const { errors } = validateGraph(graphWith({ ...base, dateField: "invoice.dueDate" }));
+    expect(errors.some((i) => i.code === "unknown_variable")).toBe(true);
   });
 
   it("rejects a time-of-day where a date is required", () => {
     // `booking.startTime` is provided by this exact trigger and is still wrong:
     // it names an hour with no day attached, so there is no moment to wait for.
-    const issues = validateGraph(graphWith({ ...base, dateField: "booking.startTime" }));
-    expect(issues.some((i) => i.code === "unknown_variable")).toBe(true);
+    const { errors } = validateGraph(graphWith({ ...base, dateField: "booking.startTime" }));
+    expect(errors.some((i) => i.code === "unknown_variable")).toBe(true);
   });
 
   it("accepts a date the trigger really provides", () => {
-    const issues = validateGraph(graphWith({ ...base, dateField: "booking.date" }));
-    expect(issues.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
+    const { errors } = validateGraph(graphWith({ ...base, dateField: "booking.date" }));
+    expect(errors.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
   });
 
   // The same rule, on the field type that has been shipping since P6 with
@@ -199,34 +199,34 @@ describe("the validator catches what only a path-valued field can get wrong", ()
   // run time — it is a comparison that cannot be answered, and those go down
   // "No" by design, so the Yes branch silently never runs.
   it("rejects a condition rule naming a variable that does not exist", () => {
-    const issues = validateGraph(
+    const { errors } = validateGraph(
       graphWithRule({ variable: "booking.stauts", operator: "equals", value: "confirmed" }),
     );
-    const issue = issues.find((i) => i.code === "unknown_variable");
+    const issue = errors.find((i) => i.code === "unknown_variable");
     expect(issue).toBeDefined();
     expect(issue?.message).toContain("booking.status");
   });
 
   it("rejects a condition rule the trigger cannot provide", () => {
-    const issues = validateGraph(
+    const { errors } = validateGraph(
       graphWithRule({ variable: "invoice.balanceDue", operator: "greaterThan", value: 0 }),
     );
-    expect(issues.some((i) => i.code === "unknown_variable")).toBe(true);
+    expect(errors.some((i) => i.code === "unknown_variable")).toBe(true);
   });
 
   it("accepts a condition rule on any type, not only dates", () => {
-    const issues = validateGraph(
+    const { errors } = validateGraph(
       graphWithRule({ variable: "booking.status", operator: "equals", value: "confirmed" }),
     );
-    expect(issues.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
+    expect(errors.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
   });
 
   it("says nothing about a rule row that has not been filled in yet", () => {
     // Adding a rule and not yet choosing a variable is a normal intermediate
     // state. Reporting it here would put two errors on one mistake, since
     // `missing_required_field` already covers a wholly empty field.
-    const issues = validateGraph(graphWithRule({ variable: "", operator: "equals" }));
-    expect(issues.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
+    const { errors } = validateGraph(graphWithRule({ variable: "", operator: "equals" }));
+    expect(errors.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
   });
 });
 

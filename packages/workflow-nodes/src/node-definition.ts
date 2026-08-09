@@ -212,8 +212,24 @@ export interface NodePropertyTypeOptions {
 /** Conditional rendering, lifted from n8n. Without it an 8-property email node
  *  is an unusable wall of inputs. */
 export interface NodeDisplayOptions {
-  show?: Record<string, (string | number | boolean)[]>;
-  hide?: Record<string, (string | number | boolean)[]>;
+  /**
+   * `| undefined` is load-bearing, not slack.
+   *
+   * TypeScript infers one union type across a `properties` array, and it
+   * normalises that union by giving every member every key — so the moment two
+   * properties in the same node have *different* `show` keys (`{ mode }` next
+   * to `{ mode, offsetDirection }`), the first is inferred as
+   * `{ mode: string[]; offsetDirection?: undefined }`. Against a value type of
+   * `(string | number | boolean)[]` that is an error, and the message points at
+   * the index signature rather than at the real cause, which is two sibling
+   * fields disagreeing about which keys exist.
+   *
+   * Admitting `undefined` here is also just true: `Object.entries` on a
+   * normalised union yields those keys, so the reader below has to handle them
+   * whether or not the type says so.
+   */
+  show?: Record<string, (string | number | boolean)[] | undefined>;
+  hide?: Record<string, (string | number | boolean)[] | undefined>;
 }
 
 /**
@@ -399,13 +415,19 @@ export function isPropertyVisible(
   const opts = property.displayOptions;
   if (!opts) return true;
 
+  // A key present with no values is a key this property does not constrain —
+  // see `NodeDisplayOptions`. Skipping is the only safe reading: treating it as
+  // "show nothing" would hide every field whose sibling happens to declare an
+  // extra condition.
   if (opts.hide) {
     for (const [key, values] of Object.entries(opts.hide)) {
+      if (!values) continue;
       if (values.includes(parameters[key] as string | number | boolean)) return false;
     }
   }
   if (opts.show) {
     for (const [key, values] of Object.entries(opts.show)) {
+      if (!values) continue;
       if (!values.includes(parameters[key] as string | number | boolean)) return false;
     }
   }
