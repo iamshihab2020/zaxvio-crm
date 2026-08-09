@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { getDefinition } from "@hvac-saas/workflow-nodes";
+import { getDefinition, outputsFor } from "@hvac-saas/workflow-nodes";
 import type { GraphEdge, GraphNode, WorkflowGraph } from "@hvac-saas/types";
 import {
   buildEdge,
@@ -376,7 +376,15 @@ export const useBuilderStore = create<BuilderState>((set, get) => {
       // and deliberately clears instead: guessing which branch the user meant is
       // worse than making them click the branch they want.
       const added = get().nodes.find((n) => n.id === addedId);
-      const outputs = added ? (getDefinition(added.nodeType)?.outputs ?? []) : [];
+      const addedDef = added ? getDefinition(added.nodeType) : undefined;
+      // Resolved against the new node's own parameters. A Do-several-things is
+      // created with its default branch count, so it must read as branching
+      // here — chaining off "the first output" would silently wire the next
+      // pick to Branch 1 and leave the rest dangling.
+      const outputs =
+        added && addedDef
+          ? outputsFor(addedDef, added.nodeConfig.parameters ?? {})
+          : [];
       const chainable = outputs.length === 1;
 
       set({
@@ -407,7 +415,7 @@ export const useBuilderStore = create<BuilderState>((set, get) => {
 
       // A single output continues the row; several fan vertically. Both align
       // the new step's centre with its parent's, so the connection is level.
-      const outputs = def?.outputs ?? [];
+      const outputs = def ? outputsFor(def, parent?.nodeConfig.parameters ?? {}) : [];
       const index = Math.max(0, outputs.findIndex((o) => o.id === sourceHandle));
       const position = parent
         ? outputs.length > 1

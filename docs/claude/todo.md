@@ -444,6 +444,32 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       The parked row said *what query* failed and never *why*. Record `cause.code`/`cause.message`.
 - [ ] Follow-up: a `failed` outbox row is invisible — the automation just never runs, which looks
       exactly like "nothing matched". P8's diagnostics should treat it as a first-class alert.
+- [x] **P6 — `split.branch`, and the dynamic-outputs contract** (2026-08-09) — **10/10 proven by a
+      real run against Neon, plus 10/10 on the validator.** The fan-out, and with it the first shape
+      `logic.merge` can actually be used in: a merge is an AND-join, and until now nothing in the
+      catalogue could make two branches both run, so its readiness bookkeeping had been unreachable
+      code since P3. Proven end to end — Manual → Do several things → two notes → Wait for all →
+      one note: 6 steps, both branches ran, the merge ran **once** and **after** both, three notes
+      really written, everything torn down afterwards.
+      **The contract change:** outputs can now depend on configuration. `dynamicOutputs` on the
+      definition, `outputMode: "exclusive" | "all"`, and `outputsFor(def, parameters)` as the only
+      way to ask — `def.outputs` is static and reads as *zero* for a node that declares none.
+      Six callers were reading it directly and each would have failed differently (no handles, no
+      branch labels, no dead-branch error, the palette wiring the next pick to Branch 1 and
+      dangling the rest). A scanner over both packages enforces it now; `getOutputs` had **zero
+      callers** and was deleted rather than kept as a second answer.
+      Executors gained `handles` beside `handle`, deliberately not merged into one field: a
+      `condition.if` that returned two branches is a bug, and keeping the shapes separate makes it
+      unwriteable. Normalised to a list at `executeNode`, so the traverser has one thing to trust.
+      **Found by running it:** `merge_never_completes` decided "branching" by counting outputs, so
+      it treated a fan-out's branches as mutually exclusive and **refused to publish the only shape
+      a merge is for**. That is why `outputMode` is a declaration rather than an inference — the
+      engine already knew the difference while the validator was guessing.
+- [ ] **P6 remaining** — `logic.switch`, `logic.goto`, `logic.loop`, `goal.event` +
+      `workflow_goal_listeners`. All four need UI that does not exist yet: a variable-path field
+      (switch, loop), a node picker (goto) and a route table. `goal.event` also needs a migration.
+      The validator's rules for `goto_after_split`, `goto_target_missing` and `delay_in_loop` are
+      already written and waiting.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

@@ -33,10 +33,25 @@ import { assertOwnership } from "./ownership.js";
 import { DelayPause, GoalWait, NodeFailure, WorkflowSignal } from "./errors.js";
 
 export interface ExecuteNodeResult {
-  handle: string;
+  /**
+   * Every output the run leaves by — one for almost every node, several for a
+   * fan-out, none for a branch that ends here.
+   *
+   * Normalised to a list at this boundary rather than leaving the traverser to
+   * check `handles ?? [handle]`: two fields that mean the same thing are two
+   * fields that can disagree, and the walk is the last place that should be
+   * deciding which one it trusts.
+   */
+  handles: string[];
   output: Record<string, unknown>;
   skipped: boolean;
   diagnostics: Diagnostic[];
+}
+
+/** `handles` when given, else the single handle, else `main`. */
+function handlesOf(result: { handle?: string; handles?: string[] }): string[] {
+  if (result.handles) return result.handles;
+  return [result.handle ?? "main"];
 }
 
 export interface ExecuteNodeParams {
@@ -72,7 +87,7 @@ export async function executeNode(
       skipReason: "This step is switched off",
       durationMs: 0,
     });
-    return { handle: "main", output: {}, skipped: true, diagnostics: [] };
+    return { handles: ["main"], output: {}, skipped: true, diagnostics: [] };
   }
 
   // ── at-most-once re-entry guard ───────────────────────────────────────────
@@ -163,7 +178,7 @@ export async function executeNode(
         durationMs: Date.now() - startedAt,
       });
       return {
-        handle: result.handle ?? "main",
+        handles: handlesOf(result),
         output: result.output ?? {},
         skipped: true,
         diagnostics,
@@ -182,7 +197,7 @@ export async function executeNode(
     await refreshAfterNode(db, ctx, definition.mutates);
 
     return {
-      handle: result.handle ?? "main",
+      handles: handlesOf(result),
       output: result.output ?? {},
       skipped: false,
       diagnostics,

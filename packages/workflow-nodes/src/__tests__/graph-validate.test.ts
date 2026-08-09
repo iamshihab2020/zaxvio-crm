@@ -268,3 +268,95 @@ describe("getMissingRequiredFields respects displayOptions", () => {
     expect(getMissingRequiredFields(numeric, {})).toEqual(["min"]);
   });
 });
+
+describe("fan-out, and the merge rule that nearly banned it", () => {
+  /** Manual ─▶ split ─┬─▶ note ─┐ */
+  /**                  └─▶ note ─┴─▶ merge ─▶ note */
+  function fanOutIntoMerge(branchCount = 2) {
+    const trigger = node("trigger.manual", { parameters: { subjectType: "customer" } });
+    const split = node("split.branch", { parameters: { branchCount } });
+    const branches = Array.from({ length: branchCount }, (_u, i) =>
+      node("customer.addNote", { parameters: { content: `Branch ${i + 1}` } }),
+    );
+    const merge = node("logic.merge");
+    const after = node("customer.addNote", { parameters: { content: "After" } });
+
+    return graph(
+      [trigger, split, ...branches, merge, after],
+      [
+        edge(trigger, split),
+        ...branches.map((b, i) => edge(split, b, `branch${i + 1}`)),
+        ...branches.map((b) => edge(b, merge)),
+        edge(merge, after),
+      ],
+    );
+  }
+
+  it("publishes a merge fed by a split", () => {
+    // The regression that mattered. `merge_never_completes` looked for two
+    // feeders leaving one node by different handles — true of an Only if, where
+    // one side never runs, and equally true of a fan-out, where both always do.
+    // So the first fan-out anyone drew could not be published, and the rule
+    // banned the only shape a merge exists for.
+    const result = validateGraph(fanOutIntoMerge());
+    expect(codes(result.errors)).not.toContain("merge_never_completes");
+    expect(result.errors).toEqual([]);
+  });
+
+  it("publishes a three-way fan-out into a merge", () => {
+    const result = validateGraph(fanOutIntoMerge(3));
+    expect(result.errors).toEqual([]);
+  });
+
+  it("still refuses a merge fed by both sides of an Only if", () => {
+    // The rule has to keep working. This shape really does hang: only one side
+    // of a condition runs, and a merge waits for every incoming edge.
+    const trigger = node("trigger.manual", { parameters: { subjectType: "customer" } });
+    const iff = node("condition.if", {
+      parameters: {
+        combinator: "and",
+        rules: [{ path: "customer.email", operator: "isNotEmpty", value: "" }],
+      },
+    });
+    const yes = node("customer.addNote", { parameters: { content: "Yes" } });
+    const no = node("customer.addNote", { parameters: { content: "No" } });
+    const merge = node("logic.merge");
+    const after = node("customer.addNote", { parameters: { content: "After" } });
+
+    const result = validateGraph(
+      graph(
+        [trigger, iff, yes, no, merge, after],
+        [
+          edge(trigger, iff),
+          edge(iff, yes, "true"),
+          edge(iff, no, "false"),
+          edge(yes, merge),
+          edge(no, merge),
+          edge(merge, after),
+        ],
+      ),
+    );
+    expect(codes(result.errors)).toContain("merge_never_completes");
+  });
+
+  it("flags a branch left dangling, using the outputs the config produces", () => {
+    // `unconnected_branch_output` reads `outputsFor`, so a Do-several-things
+    // configured for three branches must report the third as dead even though
+    // the definition declares no outputs at all.
+    const trigger = node("trigger.manual", { parameters: { subjectType: "customer" } });
+    const split = node("split.branch", { parameters: { branchCount: 3 } });
+    const a = node("customer.addNote", { parameters: { content: "A" } });
+    const b = node("customer.addNote", { parameters: { content: "B" } });
+
+    const result = validateGraph(
+      graph(
+        [trigger, split, a, b],
+        [edge(trigger, split), edge(split, a, "branch1"), edge(split, b, "branch2")],
+      ),
+    );
+
+    const dead = result.errors.filter((i) => i.code === "unconnected_branch_output");
+    expect(dead).toHaveLength(1);
+    expect(dead[0].field).toBe("branch3");
+  });
+});

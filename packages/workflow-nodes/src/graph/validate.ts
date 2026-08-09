@@ -21,7 +21,7 @@
  */
 
 import { EXECUTION_LIMITS } from "../limits.js";
-import { getDefinition, isActive } from "../catalog.js";
+import { getDefinition, isActive, outputsFor } from "../catalog.js";
 import { getEventDefinition } from "../events/registry.js";
 import { VARIABLE_MAP, suggestVariables } from "../variables/index.js";
 import {
@@ -313,11 +313,15 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
     // a single-output step with nothing after it is just the end of the chain,
     // which is normal and must not be flagged. A branch with a dead end is not:
     // the author chose to split and left one side going nowhere.
-    if (def.outputs.length > 1) {
+    // `outputsFor`, not `def.outputs` — a Do-several-things declares no fixed
+    // outputs at all and gets them from its own configuration, so reading the
+    // static field here would see zero branches and never flag a dead one.
+    const outputs = outputsFor(def, parameters);
+    if (outputs.length > 1) {
       const connected = new Set(
         (outgoing.get(node.id) ?? []).map((e) => e.sourceHandle),
       );
-      for (const output of def.outputs) {
+      for (const output of outputs) {
         if (!connected.has(output.id)) {
           push({
             severity: "error",
@@ -707,6 +711,20 @@ function exclusiveBranchClash(
     return node ? labelOf(node) : "a branching step";
   };
 
+  /**
+   * Does this node pick ONE output, or leave by all of them?
+   *
+   * A fan-out's branches all run, so two of them meeting at a merge is exactly
+   * what a merge is for — not a deadlock. Read off the definition rather than
+   * inferred from the output count, because those are different facts and
+   * guessing rejected the only publishable merge there is.
+   */
+  const isExclusive = (nodeId: string) => {
+    const node = nodeById.get(nodeId);
+    const def = node ? getDefinition(node.nodeType) : undefined;
+    return (def?.outputMode ?? "exclusive") === "exclusive";
+  };
+
   // Direct: both wires leave the same step by different outputs.
   const handlesBySource = new Map<string, Set<string>>();
   for (const edge of feeders) {
@@ -715,11 +733,12 @@ function exclusiveBranchClash(
     handlesBySource.set(edge.sourceNodeId, set);
   }
   for (const [sourceId, handles] of handlesBySource) {
-    if (handles.size > 1) return label(sourceId);
+    if (handles.size > 1 && isExclusive(sourceId)) return label(sourceId);
   }
 
   // Indirect: the feeders sit somewhere downstream of one branching node.
   for (const [branchId, edges] of outgoing) {
+    if (!isExclusive(branchId)) continue;
     const byHandle = new Map<string, ValidatableEdge[]>();
     for (const edge of edges) pushInto(byHandle, edge.sourceHandle || "main", edge);
     if (byHandle.size < 2) continue;

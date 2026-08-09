@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -16,7 +16,12 @@ import {
   getMissingRequiredFields,
 } from "../node-definition.js";
 import { SUBCATEGORIES } from "../categories.js";
-import { buildNodeConfig, getDefinition, requireDefinition } from "../catalog.js";
+import {
+  buildNodeConfig,
+  getDefinition,
+  outputsFor,
+  requireDefinition,
+} from "../catalog.js";
 
 /**
  * Registry invariants — docs/workflow-automation/wf-04-node-catalog.md §4.3.
@@ -77,12 +82,48 @@ describe("definitions", () => {
   it("give every output a stable id and a separate label", () => {
     // An edge stores the id. If the id were the label, renaming "Found" to
     // "Match" would break routing on every saved automation.
+    //
+    // Checked through `outputsFor` against the node's OWN DEFAULTS, not
+    // `def.outputs`: a node with dynamic outputs declares none statically, so
+    // reading the field would test an empty array and pass vacuously — which
+    // is exactly how a badly-formed branch handle would reach the canvas.
     for (const def of NODE_DEFINITIONS) {
-      const ids = def.outputs.map((o) => o.id);
+      const outputs = outputsFor(def, buildNodeConfig(def).parameters);
+      const ids = outputs.map((o) => o.id);
       expect(new Set(ids).size, `${def.node} has duplicate output ids`).toBe(ids.length);
-      for (const out of def.outputs) {
+      for (const out of outputs) {
         expect(out.id, `${def.node} output id`).toMatch(/^[a-z][a-z0-9_]*$/);
         expect(out.label.length, `${def.node} output ${out.id} needs a label`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("resolve dynamic outputs for junk parameters rather than throwing", () => {
+    // `dynamicOutputs` runs on every render in the builder, including while the
+    // author is mid-keystroke and the field holds "" or "abc". Throwing there
+    // would blank the canvas; returning nothing would drop the handles and take
+    // the edges attached to them with it.
+    const junk: Array<Record<string, unknown>> = [
+      {},
+      { branchCount: "" },
+      { branchCount: "abc" },
+      { branchCount: 0 },
+      { branchCount: -3 },
+      { branchCount: 999 },
+      { branchCount: 2.7 },
+      { branchCount: null },
+    ];
+    for (const def of NODE_DEFINITIONS) {
+      if (!def.dynamicOutputs) continue;
+      for (const parameters of junk) {
+        const outputs = outputsFor(def, parameters);
+        expect(
+          outputs.length,
+          `${def.node} produced no outputs for ${JSON.stringify(parameters)}`,
+        ).toBeGreaterThan(0);
+        for (const out of outputs) {
+          expect(out.id, `${def.node} output id`).toMatch(/^[a-z][a-z0-9_]*$/);
+        }
       }
     }
   });
@@ -256,6 +297,47 @@ describe("the barrel", () => {
     const missing = modules.filter((m) => !barrel.includes(`./${m}.js`));
     expect(missing, "registry modules not imported by index.ts").toEqual([]);
     expect(NODE_DEFINITIONS.length).toBe(modules.length);
+  });
+
+  it("has nobody reading `def.outputs` except `outputsFor`", () => {
+    // The whole point of the dynamic-outputs contract. A caller that reads the
+    // static field sees a Do-several-things with ZERO outputs and a Switch with
+    // one, then disagrees with the two callers that did it properly — the
+    // canvas draws no handles, the validator flags no dead branch, the
+    // traverser routes nothing. Every bug in this feature so far has been two
+    // sides of a seam disagreeing while both type-checked, so this is a
+    // scanner rather than a convention.
+    const PACKAGE_SRC = join(REGISTRY_DIR, "..");
+    // The web builder is where these consumers actually live, so scanning only
+    // this package would miss the canvas, the node and the store — the three
+    // that were wrong. Skipped rather than failed when absent, so the package
+    // stays testable on its own.
+    const WEB_SRC = join(PACKAGE_SRC, "..", "..", "..", "apps", "web", "src");
+    const roots = [PACKAGE_SRC, WEB_SRC].filter((dir) => existsSync(dir));
+
+    // `catalog.ts` is where `outputsFor` reads it, which is the point.
+    const allowed = new Set(["catalog.ts"]);
+
+    const offenders: string[] = [];
+    for (const root of roots) {
+      for (const file of walk(root)) {
+        if (!/\.(ts|tsx)$/.test(file) || /\.test\.tsx?$/.test(file)) continue;
+        const name = relative(root, file).split(sep).join("/");
+        if (allowed.has(name)) continue;
+        // Comments stripped first: several of these files *explain* why they
+        // call `outputsFor` instead, and a test that fails on its own
+        // documentation is a test nobody keeps.
+        const code = readFileSync(file, "utf8")
+          .replace(/\/\*[\s\S]*?\*\//g, "")
+          .replace(/^\s*\/\/.*$/gm, "");
+        // Any identifier ending in `def`/`Def`/`definition`, so the real
+        // offender `sourceDef.outputs` is caught too. A registry module
+        // *declaring* `outputs:` is not a read and does not match.
+        if (/\w*[Dd]ef(inition)?\??\.outputs/.test(code)) offenders.push(name);
+      }
+    }
+
+    expect(offenders, "read outputsFor(def, parameters) instead").toEqual([]);
   });
 
   it("contains no glob or dynamic import", () => {

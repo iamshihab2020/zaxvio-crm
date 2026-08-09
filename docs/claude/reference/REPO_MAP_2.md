@@ -110,6 +110,11 @@ packages/workflow-nodes/
     +-- execution-context.ts  # What a node can read. The customer resolves for EVERY
     |                         # subject type, and nothing in it is a Date — the context
     |                         # round-trips through jsonb across a delay
+    +-- branches.ts           # Handle ids for a node whose outputs come from its own
+    |                         # config. Shared because a dynamic-output node is described
+    |                         # in three voices that must agree — the definition draws the
+    |                         # handles, the executor names the ones it leaves by, the
+    |                         # validator checks none dangles. Computed once, imported thrice
     +-- conditions.ts         # 22 operators in ONE closed set, shared by trigger filters
     |                         # and condition.if. An unresolvable variable FAILS its rule;
     |                         # `isUnset` is load-bearing because the builder persists
@@ -140,7 +145,12 @@ packages/workflow-nodes/
         |                     # RECORD carries (`untilField`). The third stores a variable
         |                     # PATH, not a `{{token}}`: interpolation renders variables for
         |                     # people, so a token would arrive as "Aug 12, 2026"
-        +-- logic/            # condition.if · logic.merge (the ONLY AND join) · logic.stop
+        +-- logic/            # condition.if · logic.merge (the ONLY AND join) · logic.stop ·
+        |                     # split.branch (the ONLY fan-out). `outputMode: "all"` is what
+        |                     # separates it from every other branching node — the validator
+        |                     # would otherwise treat its branches as mutually exclusive and
+        |                     # refuse to publish a merge underneath, banning the only shape
+        |                     # a merge exists for
     +-- templates/
         +-- types.ts          # A template is a DECLARATION, not code that builds a graph —
         |                     # the gallery renders it, the server instantiates it and a test

@@ -22,6 +22,7 @@ import {
   CATEGORIES,
   getDefinition,
   getMissingRequiredFields,
+  outputsFor,
   resolveNodeColor,
 } from "@hvac-saas/workflow-nodes";
 import { useBuilderStore } from "@/lib/workflow/store";
@@ -114,6 +115,9 @@ function Canvas({ readOnly = false }: Props) {
           summary: def
             ? summariseNode(def, node.nodeConfig.parameters ?? {})
             : null,
+          // Resolved here, from this node's own parameters — a Do-several-things
+          // declares no fixed outputs and gets one per configured branch.
+          outputs: def ? outputsFor(def, node.nodeConfig.parameters ?? {}) : [],
           connectedHandles: handles.get(node.id) ?? [],
           incomingCount: incoming.get(node.id) ?? 0,
           onAddFromHandle: (handleId: string) => openForAction(node.id, handleId),
@@ -125,10 +129,15 @@ function Canvas({ readOnly = false }: Props) {
       // The branch name rides on the wire, so it is resolved here rather than
       // in the node. Only for steps that actually branch — labelling the single
       // output of every step "Then" is noise on every connection in the graph.
-      const sourceDef = getDefinition(
-        storeNodes.find((n) => n.id === edge.sourceNodeId)?.nodeType ?? "",
-      );
-      const branching = (sourceDef?.outputs.length ?? 0) > 1;
+      const sourceNode = storeNodes.find((n) => n.id === edge.sourceNodeId);
+      const sourceDef = getDefinition(sourceNode?.nodeType ?? "");
+      // `outputsFor`, never `def.outputs`: a Do-several-things has no fixed
+      // outputs, so the static field would say "not branching" and every
+      // branch on the canvas would lose its label.
+      const sourceOutputs = sourceDef
+        ? outputsFor(sourceDef, sourceNode?.nodeConfig.parameters ?? {})
+        : [];
+      const branching = sourceOutputs.length > 1;
 
       return {
         id: edge.id,
@@ -140,7 +149,7 @@ function Canvas({ readOnly = false }: Props) {
           onInsert: openForEdgeInsert,
           onDelete: deleteEdge,
           branchLabel: branching
-            ? (sourceDef?.outputs.find((o) => o.id === edge.sourceHandle)?.label ?? null)
+            ? (sourceOutputs.find((o) => o.id === edge.sourceHandle)?.label ?? null)
             : null,
         },
       };

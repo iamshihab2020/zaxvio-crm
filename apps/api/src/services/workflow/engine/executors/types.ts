@@ -42,6 +42,19 @@ export interface ExecutorOutput {
    * routing on every saved automation (D-07).
    */
   handle?: string;
+  /**
+   * Leave by **several** outputs at once — the fan-out that `split.branch` is.
+   *
+   * Separate from `handle` rather than making that field a list, because the
+   * two mean different things and conflating them hides a bug: a `condition.if`
+   * that returned both branches is broken, while a Do-several-things that
+   * returns one is just a split with one branch. Every other executor keeps
+   * returning a single handle and cannot accidentally fan out.
+   *
+   * An empty array means the run stops here, which is how a Switch with no
+   * matching route and no fallback ends its branch.
+   */
+  handles?: string[];
   /** Recorded on the node log and readable downstream as `{{previous.…}}`. */
   output?: Record<string, unknown>;
   /**

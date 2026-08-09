@@ -625,3 +625,31 @@
   key derived from the **queue row id**, which is stable across retries, so
   attempt 2 returns `duplicate` and the row completes. Worth knowing before
   anyone "fixes" the re-throw or changes what the key is derived from.
+- **"Has several outputs" and "only one of them runs" are different facts, and
+  inferring the second from the first bans the fan-out.** `merge_never_completes`
+  looks for a merge fed by two branches of the same node — correct for an Only
+  if, where one side never runs and the merge waits forever. It decided
+  "branching" by counting outputs, so the first `split.branch` ever drawn could
+  not be published: the rule rejected **the only shape a merge exists for**.
+  Fixed by declaring `outputMode: "exclusive" | "all"` on the definition, which
+  is information the engine already had (`handle` vs `handles`) while the
+  validator was guessing. When two parts of a system need the same fact, one of
+  them declares it and the other reads it — deriving it independently is how
+  they end up disagreeing while both look right.
+- **A node whose outputs depend on its configuration must be asked, not read.**
+  `def.outputs` is static, so a Do-several-things (which declares none and gets
+  one handle per configured branch) reads as having *zero* outputs. Six callers
+  read the field directly — the canvas, the node, the store twice, the
+  branch-delete dialog, the validator — and each would have failed differently:
+  no handles drawn, no branch labels, no dead-branch error, the palette
+  chain-wiring the next step to Branch 1 and dangling the rest. Now
+  `outputsFor(def, parameters)` is the only reader, enforced by a scanner over
+  both packages rather than by convention, because every bug in this feature so
+  far has been two sides of a seam disagreeing while both type-checked.
+- **`dynamicOutputs` runs on every keystroke, so it must be total.** It is
+  called during render while the author is still typing into the field that
+  drives it — `""`, `"abc"`, `0`, `-3`, `999`. Throwing blanks the canvas;
+  returning `[]` unmounts the handles and takes the edges attached to them with
+  it. Clamp and return something for every input, and test it with junk
+  explicitly: the correct-input test passes vacuously for a node that declares
+  no static outputs.

@@ -3,7 +3,7 @@
 import { memo } from "react";
 import { Handle, Position, type NodeProps, type Node } from "@xyflow/react";
 import { IconAlertTriangle, IconBolt, IconPlus } from "@tabler/icons-react";
-import { getDefinition, resolveNodeColor } from "@hvac-saas/workflow-nodes";
+import { getDefinition, resolveNodeColor, type NodeOutput } from "@hvac-saas/workflow-nodes";
 import { resolveNodeIcon } from "@/lib/workflow/icon-map";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +43,15 @@ export type AutomationNodeData = {
    * so no node needs code here.
    */
   summary: string | null;
+  /**
+   * The step's outputs, already resolved.
+   *
+   * Derived in the canvas rather than here for the same reason as `summary`:
+   * a Do-several-things' outputs come from its *parameters*, and putting the
+   * parameters in `data` would make the memo comparator serialise every node's
+   * config on every store change. The canvas already holds both halves.
+   */
+  outputs: NodeOutput[];
   /** Output handle ids that already have an edge, so `+` shows on the rest. */
   connectedHandles: string[];
   /** More than one means a join, which the node has to explain (N-8). */
@@ -82,7 +91,7 @@ function AutomationNodeComponent({ data, selected }: NodeProps<AutomationFlowNod
   // `isReady`. Read off the definition rather than a flag on the data, so the
   // canvas and the engine cannot disagree about which node joins.
   const isJoin = def?.node === "logic.merge";
-  const outputs = def?.outputs ?? [];
+  const outputs = data.outputs;
   const incomplete = data.missingFields.length > 0 && !data.disabled;
 
   /**
@@ -291,6 +300,11 @@ export const AutomationNode = memo(AutomationNodeComponent, (prev, next) => {
     prev.data.summary === next.data.summary &&
     prev.data.incomingCount === next.data.incomingCount &&
     prev.data.missingFields.join("|") === next.data.missingFields.join("|") &&
+    // Joined rather than compared by reference: the canvas rebuilds this array
+    // on every store change, so identity always differs and the node would
+    // re-render constantly. Adding a branch changes the string; nothing else does.
+    prev.data.outputs.map((o) => `${o.id}:${o.label}`).join("|") ===
+      next.data.outputs.map((o) => `${o.id}:${o.label}`).join("|") &&
     prev.data.connectedHandles.join("|") === next.data.connectedHandles.join("|")
   );
 });

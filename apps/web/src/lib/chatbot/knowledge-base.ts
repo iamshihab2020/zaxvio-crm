@@ -138,10 +138,13 @@ const entries: KnowledgeEntry[] = [
       "automation stuck",
       "automation stopped halfway",
       "two paths",
+      "do several things",
+      "run both branches",
+      "fan out",
     ],
     question: "How do branches work in an automation?",
     answer:
-      "**Only if** splits the automation in two. Steps on the **Yes** side run when the check passes, steps on the **No** side when it doesn't — never both.\n\n**What happens where the branches come back together:** a step with more than one arrow into it runs on the **first branch to reach it**, once. That's usually what you want — an Only if where both sides end in \"send the follow-up\" sends one follow-up, whichever way the check went. Every step on the canvas with more than one incoming arrow says which rule it follows, right under its name.\n\n**Wait for all branches** is the exception. Use it where two chains genuinely both run and the next step needs both finished.\n\n**Don't put it after an Only if.** It waits for every arrow into it, and one side of an Only if never runs — so it would wait forever and the automation would just stop, with nothing marked as failed. Publishing catches this and tells you which step to unhook.",
+      "There are two ways to branch, and they are opposites.\n\n**Only if** picks **one** side. Steps on the **Yes** side run when the check passes, steps on the **No** side when it doesn't — never both.\n\n**Do several things** runs **every** branch. Use it when finishing a job needs two unrelated things to happen — tell the customer *and* raise the invoice — rather than one or the other. Choose how many branches you want, up to five; each one runs in turn.\n\n**Where branches come back together:** a step with more than one arrow into it runs on the **first branch to reach it**, once. That's usually what you want — an Only if where both sides end in \"send the follow-up\" sends one follow-up, whichever way the check went. Every step with more than one incoming arrow says which rule it follows, right under its name.\n\n**Wait for all branches** is the exception: it waits for every arrow into it. Put it under a Do several things when the next step needs all the branches finished.\n\n**Don't put it after an Only if.** One side of an Only if never runs, so it would wait forever and the automation would stop with nothing marked as failed. Publishing catches this and tells you which step to unhook.",
   },
   {
     id: "automations-run-history",

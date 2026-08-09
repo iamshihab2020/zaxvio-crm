@@ -28,6 +28,7 @@ import jobMoveStage from "./job-move-stage.js";
 import jobAssign from "./job-assign.js";
 import conditionIf from "./condition-if.js";
 import logicMerge from "./logic-merge.js";
+import splitBranch from "./split-branch.js";
 import delayWait from "./delay-wait.js";
 import logicStop from "./logic-stop.js";
 
@@ -51,6 +52,7 @@ export const EXECUTORS: Readonly<Record<string, Executor>> = {
   "job.assign": jobAssign,
   "condition.if": conditionIf,
   "logic.merge": logicMerge,
+  "split.branch": splitBranch,
   "delay.wait": delayWait,
   "logic.stop": logicStop,
 };

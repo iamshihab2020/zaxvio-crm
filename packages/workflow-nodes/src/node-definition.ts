@@ -334,7 +334,52 @@ export interface NodeDefinition {
   color?: string;
 
   inputs: NodeInput[];
+  /**
+   * The **fixed** outputs. For nodes whose outputs depend on how they are
+   * configured, this is the part that never changes — `logic.switch`'s
+   * "Anything else", `logic.loop`'s "For each" and "Done" — and
+   * `dynamicOutputs` supplies the rest.
+   *
+   * Read it through `outputsFor(def, parameters)`, never directly: a caller
+   * that reads this field sees a Switch with one output no matter how many
+   * routes the author added.
+   */
   outputs: NodeOutput[];
+
+  /**
+   * Outputs derived from the node's own configuration, prepended to `outputs`.
+   *
+   * A Switch has one output per route and a Do-several-things has one per
+   * branch, so neither can be written down in advance. This stays on the
+   * definition — rather than becoming a `case` in the builder and a second
+   * `case` in the engine — because that is the same rule the whole catalogue
+   * runs on: the definition is the only thing that knows what a node is, and
+   * anything the builder, validator and traverser all need must come from one
+   * declaration or the three will disagree.
+   *
+   * Must be **pure and total**: it runs in the browser on every render and in
+   * the engine on every traversal, and it is handed whatever is stored on the
+   * node — including a half-filled collection the author is still typing into.
+   * Return `[]` rather than throwing.
+   */
+  dynamicOutputs?: (parameters: Record<string, unknown>) => NodeOutput[];
+
+  /**
+   * With several outputs, does the run leave by **one** of them or by **all**?
+   *
+   * Defaults to `exclusive`, which is right for every branching node but the
+   * fan-out: an Only if picks a side, a Switch picks a route.
+   *
+   * This has to be declared rather than inferred from the output count, and the
+   * validator is why. `merge_never_completes` looks for a merge fed by two
+   * branches of the same node — correct for an Only if, where one side never
+   * runs and the merge would wait forever. Applied to a fan-out it rejects the
+   * **only shape a merge is for**, so the first fan-out written could not be
+   * published. "Has more than one output" and "only one of them runs" are
+   * different facts, and the engine already knew the difference (`handle` vs
+   * `handles`) while the validator was guessing at it.
+   */
+  outputMode?: "exclusive" | "all";
 
   properties: NodeProperty[];
 

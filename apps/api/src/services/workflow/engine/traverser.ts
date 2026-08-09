@@ -107,11 +107,17 @@ export async function traverse(params: TraverseParams): Promise<TraverseResult> 
     // there is one store rather than two that can disagree.
     ctx.nodeOutputs[node.id] = result.output;
 
+    const left = new Set(result.handles);
+
     for (const edge of outgoing.get(node.id) ?? []) {
       // `source_handle` is a **stable id**, and an executor that returns no
       // handle is treated as `main`. Comparing against the display label is
       // what makes renaming an output break every saved automation (D-07).
-      if ((edge.sourceHandle || "main") !== result.handle) continue;
+      //
+      // A set rather than an equality check because a fan-out leaves by several
+      // outputs at once. For every other node this is a one-element set and
+      // behaves exactly as it did.
+      if (!left.has(edge.sourceHandle || "main")) continue;
 
       const marks = satisfied.get(edge.targetNodeId) ?? new Set<string>();
       marks.add(edge.id);

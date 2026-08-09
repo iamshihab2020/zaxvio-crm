@@ -1,6 +1,6 @@
 "use client";
 
-import { getDefinition } from "@hvac-saas/workflow-nodes";
+import { getDefinition, outputsFor } from "@hvac-saas/workflow-nodes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +38,10 @@ export function BranchDeleteDialog() {
 
   const node = nodeId ? nodes.find((n) => n.id === nodeId) : null;
   const definition = node ? getDefinition(node.nodeType) : undefined;
+  const branchOutputs =
+    node && definition
+      ? outputsFor(definition, node.nodeConfig.parameters ?? {})
+      : [];
 
   // Named rather than counted. "Yes and No will be disconnected" is something a
   // person can picture; "2 branches will be disconnected" is arithmetic.
@@ -46,7 +50,7 @@ export function BranchDeleteDialog() {
         .filter((e) => e.sourceNodeId === node.id)
         .map(
           (e) =>
-            definition?.outputs.find((o) => o.id === e.sourceHandle)?.label ??
+            branchOutputs.find((o) => o.id === e.sourceHandle)?.label ??
             e.sourceHandle,
         )
     : [];

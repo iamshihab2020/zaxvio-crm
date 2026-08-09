@@ -232,10 +232,34 @@ export function buildNodeConfig(
   };
 }
 
-/** Outputs, with `main` implied for a node that declares none but is not terminal. */
-export function getOutputs(def: NodeDefinition): NodeOutput[] {
-  return def.outputs;
+/**
+ * **The** way to ask what outputs a node has. Never read `def.outputs`.
+ *
+ * A Switch's outputs are its routes and a Do-several-things' are its branches,
+ * so the answer depends on the node's own parameters — which is why this takes
+ * them. Callers that skip it (the canvas deciding whether to draw branch
+ * labels, the validator checking for a dead branch, the traverser routing an
+ * edge) would each see a single "Then" and quietly disagree with the other two.
+ *
+ * Duplicate ids are dropped, keeping the first. Two routes configured with the
+ * same value would otherwise produce two handles with one id, and an edge
+ * stores only the id — so the second would be unreachable, silently.
+ */
+export function outputsFor(
+  def: NodeDefinition,
+  parameters?: Record<string, unknown>,
+): NodeOutput[] {
+  const dynamic = def.dynamicOutputs?.(parameters ?? {}) ?? [];
+  const seen = new Set<string>();
+  const all: NodeOutput[] = [];
+  for (const output of [...dynamic, ...def.outputs]) {
+    if (seen.has(output.id)) continue;
+    seen.add(output.id);
+    all.push(output);
+  }
+  return all;
 }
+
 
 export function getProperty(
   def: NodeDefinition,
