@@ -128,7 +128,7 @@ export async function sweepOverdueInvoices(db: Db = getDb()): Promise<SweepResul
       AND i.due_date IS NOT NULL
       -- INV-06's shared definition of overdue. The cron's old copy restricted to
       -- ('sent','overdue'), so a customer who paid half and stopped showed as
-      -- overdue everywhere in the UI and was never chased. `partially_paid`
+      -- overdue everywhere in the UI and was never chased. "partially_paid"
       -- belongs here for the same reason.
       AND i.status IN ('sent', 'partially_paid', 'overdue')
       -- Compared in the TENANT's timezone, not the server's. On Neon the server
@@ -137,11 +137,11 @@ export async function sweepOverdueInvoices(db: Db = getDb()): Promise<SweepResul
       AND i.due_date < (now() AT TIME ZONE t.timezone)::date
       -- The horizon. See MAX_DAYS_OVERDUE — without this the sweep raises an
       -- event a day, forever, for every invoice that was ever written off.
-      -- `::int` is load-bearing: Postgres has both `date - integer -> date` and
-      -- `date - date -> integer`, and a bound parameter arrives untyped, so the
+      -- "::int" is load-bearing: Postgres has both "date - integer -> date" and
+      -- "date - date -> integer", and a bound parameter arrives untyped, so the
       -- operator would be ambiguous without it.
       AND i.due_date >= (now() AT TIME ZONE t.timezone)::date - ${MAX_DAYS_OVERDUE}::int
-      -- Only where somebody is listening. `trigger_types` is written by the
+      -- Only where somebody is listening. "trigger_types" is written by the
       -- PUBLISH path and is what makes an automation reachable at all, so this
       -- is the same question the trigger matcher asks. Without it every tenant
       -- pays a queue row per overdue invoice per day for a feature they do not
@@ -153,8 +153,8 @@ export async function sweepOverdueInvoices(db: Db = getDb()): Promise<SweepResul
         WHERE w.tenant_id = i.tenant_id
           AND w.is_active = true
           AND w.archived_at IS NULL
-          -- EVENT names, not node ids: `collectTriggerTypes` fills this column
-          -- from `def.triggerEvents`. Writing the node id here was the same
+          -- EVENT names, not node ids: "collectTriggerTypes" fills this column
+          -- from "def.triggerEvents". Writing the node id here was the same
           -- mistake the trigger matcher had made, and it would have made this
           -- sweep silently emit nothing at all.
           AND v.trigger_types && ARRAY['invoice.overdue']
