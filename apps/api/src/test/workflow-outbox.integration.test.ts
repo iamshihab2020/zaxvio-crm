@@ -60,7 +60,7 @@ describe("emit — the transactional guarantee", () => {
         type: "customer.created",
         tenantId: tenant.tenantId,
         subject: { type: "customer", id: customer.id },
-        actorUserId: tenant.userId,
+        actorUserId: tenant.ownerUserId,
         payload: buildEventFixture("customer.created", { customerId: customer.id }),
       });
 

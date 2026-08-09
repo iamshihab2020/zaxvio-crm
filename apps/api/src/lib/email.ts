@@ -306,11 +306,17 @@ export async function sendPaymentReceiptEmail(data: {
  *  E-12: the unsubscribe URL is required, not optional. */
 export async function sendContractRenewalEmail(data: {
   to: string;
-  props: ContractRenewalEmailProps;
+  /** `unsubscribeUrl` is supplied beside this, not inside it — see below. */
+  props: Omit<ContractRenewalEmailProps, "unsubscribeUrl">;
   unsubscribeUrl: string;
 }): Promise<EmailOutcome> {
   const { renderContractRenewalEmail } = await import("@hvac-saas/email");
-  const html = await renderContractRenewalEmail(data.props);
+  // Same as E-12: the footer link and the List-Unsubscribe header are the same
+  // URL, so it is supplied once and used twice here.
+  const html = await renderContractRenewalEmail({
+    ...data.props,
+    unsubscribeUrl: data.unsubscribeUrl,
+  });
   return sendEmail({
     to: data.to,
     subject: sanitizeSubject(`Maintenance Contract Expiring — ${data.props.businessName}`),
@@ -363,11 +369,19 @@ export async function sendWelcomePaidEmail(data: {
  */
 export async function sendReviewRequestEmail(data: {
   to: string;
-  props: ReviewRequestEmailProps;
+  /** `unsubscribeUrl` is supplied beside this, not inside it — see below. */
+  props: Omit<ReviewRequestEmailProps, "unsubscribeUrl">;
   unsubscribeUrl: string;
 }): Promise<EmailOutcome> {
   const { renderReviewRequestEmail } = await import("@hvac-saas/email");
-  const html = await renderReviewRequestEmail(data.props);
+  // Merged in rather than asked of the caller. The wrapper already has the URL
+  // — it hands it to `sendEmail` for the List-Unsubscribe header two lines
+  // below — and requiring every call site to pass the same value twice is how
+  // one of them ends up passing only one of the two.
+  const html = await renderReviewRequestEmail({
+    ...data.props,
+    unsubscribeUrl: data.unsubscribeUrl,
+  });
   return sendEmail({
     to: data.to,
     subject: sanitizeSubject(`How did we do? — ${data.props.businessName}`),

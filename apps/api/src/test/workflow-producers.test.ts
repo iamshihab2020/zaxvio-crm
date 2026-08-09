@@ -201,16 +201,23 @@ describe("changedFields", () => {
   it("does not report a numeric string that became a number", () => {
     // `numeric` arrives as a string and a form may send a number for the same
     // column. `"100.00"` → 100 is not an edit anybody made.
-    const before = { totalAmount: "100" };
+    //
+    // Annotated, because `changedFields<T>` infers `T` from `before` and would
+    // otherwise pin `totalAmount` to `string` — making the very mismatch this
+    // test exists to exercise unrepresentable. A real row is
+    // `Record<string, unknown>`, which is what the producers actually pass.
+    const before: Record<string, unknown> = { totalAmount: "100" };
     expect(changedFields(before, { totalAmount: 100 })).toEqual([]);
   });
 
   it("reports a change to or from null", () => {
-    const before = { assigneeId: null };
+    const before: Record<string, unknown> = { assigneeId: null };
     expect(changedFields(before, { assigneeId: "usr_1" })).toEqual(["assigneeId"]);
-    expect(changedFields({ assigneeId: "usr_1" }, { assigneeId: null })).toEqual([
-      "assigneeId",
-    ]);
+    expect(
+      changedFields({ assigneeId: "usr_1" } as Record<string, unknown>, {
+        assigneeId: null,
+      }),
+    ).toEqual(["assigneeId"]);
   });
 
   it("compares dates by value", () => {

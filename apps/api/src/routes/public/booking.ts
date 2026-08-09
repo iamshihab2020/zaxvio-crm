@@ -385,11 +385,13 @@ const publicBookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
               tenantId: tenant.id,
               actorUserId: null,
               bookingId: inserted[0].id,
-              // `body.source` also feeds `bookings.source`, which is free text
-              // and accepts anything. The event's `source` is a closed set, so
-              // anything that is not a recognised channel is reported as the
-              // portal it in fact came through.
-              source: body.source === "api" ? "api" : "portal",
+              // Always `portal`, and it cannot be otherwise: this route *is*
+              // the public portal. `body.source` distinguishes portal/embed/
+              // widget, which are three ways of reaching the same unauthenticated
+              // form; the event's set is portal/dashboard/api, which is about who
+              // entered the booking. The two vocabularies do not overlap beyond
+              // this, so mapping them was a comparison that could never be true.
+              source: "portal",
             });
           }
 

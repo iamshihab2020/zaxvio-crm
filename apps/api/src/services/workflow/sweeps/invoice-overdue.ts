@@ -102,7 +102,10 @@ export interface SweepResult {
 }
 
 export async function sweepOverdueInvoices(db: Db = getDb()): Promise<SweepResult> {
-  const { rows: raw } = await db.execute(sql`
+  // `db.execute` resolves to the row array itself, not a `{ rows }` wrapper —
+  // the driver wrappers differ and `retention.ts` reads both defensively for
+  // DELETE counts. For a SELECT the array is the result.
+  const raw = await db.execute(sql`
     SELECT
       i.id                AS invoice_id,
       i.tenant_id         AS tenant_id,
