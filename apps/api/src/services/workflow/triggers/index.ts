@@ -255,6 +255,11 @@ async function findCandidateVersions(
    */
   eventTypes: string[],
 ): Promise<Candidate[]> {
+  // `ARRAY[]` with no elements is legal once cast, and an empty overlap is
+  // correctly false — but there is no reason to ask the database a question
+  // whose answer is already known.
+  if (eventTypes.length === 0) return [];
+
   const rows = await db
     .select({
       workflowId: workflows.id,
@@ -279,7 +284,26 @@ async function findCandidateVersions(
         // then paused must not fire.
         eq(workflows.isActive, true),
         isNull(workflows.archivedAt),
-        sql`${workflowVersions.triggerTypes} && ${eventTypes}`,
+        // `ARRAY[$1, $2, …]::text[]`, built server-side — **not** `&& ${eventTypes}`.
+        //
+        // Interpolating a JS array into a `sql` template binds it as a single
+        // scalar parameter, so Postgres received the string `job.created` where
+        // it expected an array literal and raised `22P02 malformed array
+        // literal`. Every dispatched event therefore threw, five times, and
+        // dead-lettered — which is *louder* than the empty-overlap bug this
+        // replaced but just as total: still no automation could ever fire.
+        //
+        // Casting does not fix it. `${eventTypes}::text[]` fails identically,
+        // because the parameter value is already malformed by the time the cast
+        // is applied — the cast changes the target type, not the literal.
+        //
+        // `= ANY(...)` also works and reads better, but only for a single value;
+        // this stays plural because the signature is, and `&&` is the form that
+        // can use a GIN index on `trigger_types` — the hottest read here.
+        sql`${workflowVersions.triggerTypes} && ARRAY[${sql.join(
+          eventTypes.map((eventType) => sql`${eventType}`),
+          sql`, `,
+        )}]::text[]`,
       ),
     );
 

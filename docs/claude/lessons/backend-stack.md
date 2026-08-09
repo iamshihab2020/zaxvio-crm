@@ -588,3 +588,40 @@
   when the port was already free. The kill itself does work on Windows (verified:
   a live server on 4000 went from `200` to dead). Treat the line as "kill-port
   ran", never as "something was listening".
+- **Interpolating a JS array into a Drizzle `sql` template binds it as one
+  scalar, not as an array.** `sql\`${col} && ${eventTypes}\`` sent the string
+  `job.created` where Postgres expected an array literal and raised
+  `22P02 malformed array literal`. Build the array server-side instead:
+  `` sql`${col} && ARRAY[${sql.join(values.map((v) => sql`${v}`), sql`, `)}]::text[]` ``.
+  **Casting does not rescue it** — `${eventTypes}::text[]` fails identically,
+  because the parameter's *value* is already malformed by the time the cast
+  applies; the cast changes the target type, not the literal. `= ANY(${col})`
+  also works and reads better, but only for a single value, and it gives up the
+  `&&` form that a GIN index can serve.
+  The reason this is worth a lesson rather than a footnote: it type-checked
+  perfectly (`string[]` is what the function wanted), it was invisible to five
+  read-through review passes, and **a one-element array prints identically to a
+  scalar in the driver's error output** — `params: …,job.created` — so the
+  evidence itself looked ambiguous. Only executing the query says which it was.
+- **A dead-lettered outbox row is a bug report nobody opened.** The trigger
+  matcher threw `22P02` on every dispatched event; the outbox dutifully retried
+  five times and parked the row as `failed` with the full query in `last_error`.
+  That row sat in the live database for a day. Nothing surfaced it, because a
+  failing *subscriber* is invisible from the UI — the automation simply never
+  ran, which is indistinguishable from "no automation matched". Whatever reads
+  the queue in P8's diagnostics should treat `status = 'failed'` as a
+  first-class alert, not a table nobody queries.
+- **`last_error` stores the message, not the cause.** Drizzle's
+  `DrizzleQueryError.message` is the SQL plus its parameters; the actual
+  `PostgresError` (with the code and the human-readable reason) hangs off
+  `.cause`, and persisting only `error.message` threw that away. The stored row
+  said *what query* failed and never *why*. Recording `cause.code` and
+  `cause.message` alongside would have made this a five-minute diagnosis.
+- **Node failures are recorded, then re-thrown — and that is safe here only
+  because enrolment is idempotent.** `execute()` re-throws after writing the
+  failed execution row and notifying (invariant 5, so a parent sub-automation
+  can catch), so the error reaches the outbox worker and the row retries. It
+  does *not* re-run the automation: `resolveEnrolment` pre-checks an idempotency
+  key derived from the **queue row id**, which is stable across retries, so
+  attempt 2 returns `duplicate` and the row completes. Worth knowing before
+  anyone "fixes" the re-throw or changes what the key is derived from.

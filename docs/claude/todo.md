@@ -412,6 +412,38 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       Measured while bisecting: **44 env vars under turbo, 95 under `pnpm`** — turbo strips
       everything a task does not declare, and only `build` declares any. Not the cause here, but it
       is why the backlog item about `env` keys in `turbo.json` is worth closing.
+- [x] **The first event-triggered run — and the second half of the matcher bug**
+      (2026-08-09) — **15/15 proven by execution against Neon.** The proof the whole feature
+      rested on and had never been done: `saveGraph` → `publishWorkflow` → activate → complete a
+      real job through `emitStageChangeEvents` → outbox → the running API's worker →
+      `handleTriggerEvent` → `execute()` → a `workflow_executions` row, two `node_execution_logs`,
+      and a real note on the customer authored by the workflow (`created_by` NULL,
+      `created_by_workflow_id` set). `trigger_types` is `["job.completed"]` — **event names** — and
+      the queue row completed on attempt 1. Everything created was torn down; the job was restored
+      and the row counts match what was there before.
+      **Setting it up found the bug first, in live data.** A `workflow_trigger` queue row was
+      sitting `failed` after 5 attempts: `22P02 malformed array literal: "quote.accepted"`.
+      Yesterday's fix corrected the matcher's *vocabulary* (node ids → event names) but the
+      predicate interpolated the JS array straight into the template —
+      `` sql`${col} && ${eventTypes}` `` — which binds an array as **one scalar**. So the query
+      threw on every dispatched event. Necessary but not sufficient: the feature was still totally
+      dead, just loudly instead of silently. Now `ARRAY[$1, …]::text[]` built with `sql.join`;
+      **a `::text[]` cast does not fix it**, because the value is already malformed before the cast
+      applies. Kept `&&` over `= ANY()` — plural signature, and GIN-able.
+      Swept the class repo-wide: **one site, no others.** New
+      `workflow-trigger-match.integration.test.ts` — 6 real-database cases (does not throw,
+      multi-element arrays, event-names match, node-ids do **not**, no cross-tenant, switched-off
+      ignored) plus the unit assertion tying `collectTriggerTypes`'s output to what the matcher
+      queries. All 8 verified green against Neon under `withRollback`; vitest itself not yet run.
+      Not a defect, recorded so nobody "fixes" it: a node failure re-throws out of `execute()` by
+      invariant 5, so the outbox retries — but `resolveEnrolment` keys idempotency on the **queue
+      row id**, which is stable across retries, so attempt 2 returns `duplicate` and completes. The
+      automation is never run twice.
+- [ ] Follow-up: `workflow_event_queue.last_error` stores `DrizzleQueryError.message` (the SQL and
+      its params) and drops `.cause` — the `PostgresError` carrying the code and the actual reason.
+      The parked row said *what query* failed and never *why*. Record `cause.code`/`cause.message`.
+- [ ] Follow-up: a `failed` outbox row is invisible — the automation just never runs, which looks
+      exactly like "nothing matched". P8's diagnostics should treat it as a first-class alert.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 
