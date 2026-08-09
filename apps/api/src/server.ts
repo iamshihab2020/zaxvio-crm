@@ -46,6 +46,7 @@ import conversationRoutes from "./routes/conversations/index.js";
 import eventRoutes from "./routes/events/index.js";
 import { analyticsCache } from "./services/analytics/cache.js";
 import { MB } from "./lib/upload-limits.js";
+import { registerErrorHandler } from "./lib/error-handler.js";
 
 export async function buildServer() {
   const isDev = process.env.NODE_ENV !== "production";
@@ -142,6 +143,15 @@ export async function buildServer() {
       routePrefix: "/docs",
     });
   }
+
+  // --- Error handling ---
+  //
+  // The rules and the reasoning live in `lib/error-handler.ts`. The short
+  // version: 4xx messages are written for the reader and pass through; 5xx is
+  // replaced with a reference id, and the real error is logged WITH its
+  // `cause`, which is where a query error keeps the half that explains
+  // anything.
+  registerErrorHandler(fastify);
 
   // --- Better Auth handler ---
   // Use auth.handler() with a reconstructed Fetch Request instead of toNodeHandler,

@@ -702,3 +702,13 @@
   goal node, re-parked, and could only ever be freed by the 30-day reaper. Every
   compare-and-set has a loser, and the loser must leave the world exactly as it
   found it. Found only by racing the two, which is why the P6 gate asks for it.
+- **Fastify's default error handler sends `error.message` to the client, and
+  this repo had no replacement.** That is fine while every thrown error is one
+  you wrote. It stops being fine the moment an ORM throws: a
+  `DrizzleQueryError`'s message is the SQL plus its bound parameters, so a
+  customer opening a job's Costs tab was shown a LATERAL join, three table names
+  and a tenant uuid. The fix is a global handler that passes 4xx through — those
+  messages are deliberately written for the reader — and replaces 5xx with a
+  reference id while logging the real error, including `.cause`. Worth checking
+  on any Fastify service: the absence of `setErrorHandler` is silent, and looks
+  exactly like not needing one.

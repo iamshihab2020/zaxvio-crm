@@ -523,10 +523,20 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       `ANY(...)`, so it reported the class clean. Fixed with `ARRAY[...]::uuid[]` via `sql.join`,
       verified 4/4 through the real service (one job, three jobs, none, plus the shared
       configuration query), and the scan now looks for any JS array reaching a `sql` template.
-- [ ] Follow-up: the Costs tab rendered Drizzle's raw SQL to the user. `DrizzleQueryError.message`
-      is the statement plus its parameters, and the UI shows it verbatim — database internals in
-      front of a customer, and useless to them. Same root as the `last_error` follow-up: the
-      readable half is on `.cause`.
+- [x] **The API had no error handler at all** (2026-08-10) — found by looking at *why* the Costs
+      tab showed SQL. There was no `setErrorHandler` anywhere, so Fastify's default serialised
+      `error.message` to the client on **every route** — and for a `DrizzleQueryError` that message
+      is the statement plus its bound parameters. A customer was shown a LATERAL join, three table
+      names and a tenant uuid.
+      New `lib/error-handler.ts`: 4xx passes through untouched (those messages are written for the
+      reader — which field is invalid, "this quote has already been accepted"), 5xx is replaced
+      with an 8-character reference, and the real error is logged **with its `cause`** — the
+      Postgres code and text, which is the half `last_error` also throws away.
+      Extracted rather than inlined because `server.ts` calls `start()` at module scope: importing
+      it to test the handler binds port 4000, and a module that cannot be imported without side
+      effects cannot be tested. New `test/error-handler.test.ts`, 7/7 verified by execution,
+      including that every branch still puts its text in `message` — the key `api-fetch.ts` reads,
+      and if it moved every error in the product would silently become "Something went wrong".
 - [ ] Follow-up: goal filters. The column and the shape exist; the evaluator does not. Needs a
       payload-path resolver distinct from the context-path one `condition.if` uses.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
