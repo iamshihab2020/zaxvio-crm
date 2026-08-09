@@ -41,6 +41,7 @@ import jobAssign from "./actions/job-assign.js";
 import conditionIf from "./logic/condition-if.js";
 import logicMerge from "./logic/merge.js";
 import splitBranch from "./logic/split-branch.js";
+import goalEvent from "./logic/goal-event.js";
 import delayWait from "./timing/delay-wait.js";
 import logicStop from "./logic/stop.js";
 
@@ -66,5 +67,6 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   delayWait,
   logicMerge,
   splitBranch,
+  goalEvent,
   logicStop,
 ];

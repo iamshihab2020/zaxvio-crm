@@ -29,6 +29,7 @@ import jobAssign from "./job-assign.js";
 import conditionIf from "./condition-if.js";
 import logicMerge from "./logic-merge.js";
 import splitBranch from "./split-branch.js";
+import goalEvent from "./goal-event.js";
 import delayWait from "./delay-wait.js";
 import logicStop from "./logic-stop.js";
 
@@ -53,6 +54,7 @@ export const EXECUTORS: Readonly<Record<string, Executor>> = {
   "condition.if": conditionIf,
   "logic.merge": logicMerge,
   "split.branch": splitBranch,
+  "goal.event": goalEvent,
   "delay.wait": delayWait,
   "logic.stop": logicStop,
 };

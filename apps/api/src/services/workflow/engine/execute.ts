@@ -44,6 +44,7 @@ import {
 } from "@hvac-saas/workflow-nodes";
 import type { WorkflowGraph } from "@hvac-saas/types";
 import { loadExecutionContext, serialiseContext } from "./context.js";
+import { deactivateListeners, registerGoals } from "../goals/index.js";
 import { traverse } from "./traverser.js";
 import { assertWithinQuota } from "./quotas.js";
 import {
@@ -216,7 +217,7 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
     });
   } catch (err) {
     if (err instanceof SubjectGone) {
-      await settle(db, executionId, "cancelled", err.message, err.message);
+      await settle(db, executionId, "cancelled", err.message, err.message, undefined, ctx.tenantId);
       return {
         executionId,
         status: "cancelled",
@@ -238,9 +239,14 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
       .where(eq(workflowExecutions.id, executionId));
   }
 
-  // 7 · Goal listeners. A no-op in P3 — there is no listener table until P6.
-  //     The step keeps its place in the order so its arrival is an insert, not
-  //     a reshuffle.
+  // 7 · Goal listeners, BEFORE traversal.
+  //
+  //     The ordering is the feature. A goal has to be watching while the chase
+  //     runs — "stop the moment they accept" is worthless if the watch only
+  //     starts once the chain reaches the goal node, which is after the last
+  //     email. Registering here means the run can be ended from the outside at
+  //     any point, including while it sits in a three-day delay.
+  await registerGoals(db, ctx, graph);
 
   // 8 · Traverse, under the wall clock.
   try {
@@ -249,7 +255,7 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
       EXECUTION_LIMITS.MAX_EXECUTION_MS,
     );
 
-    await settle(db, executionId, "completed", null, null, result.nodesExecuted);
+    await settle(db, executionId, "completed", null, null, result.nodesExecuted, ctx.tenantId);
     return {
       executionId,
       status: "completed",
@@ -309,7 +315,7 @@ export async function handleTerminal(
   }
 
   if (err instanceof WorkflowStopped) {
-    await settle(db, executionId, err.stopType, null, err.reason);
+    await settle(db, executionId, err.stopType, null, err.reason, undefined, ctx.tenantId);
     return {
       executionId,
       status: err.stopType,
@@ -320,12 +326,12 @@ export async function handleTerminal(
   }
 
   if (err instanceof SubjectGone) {
-    await settle(db, executionId, "cancelled", err.message, err.message);
+    await settle(db, executionId, "cancelled", err.message, err.message, undefined, ctx.tenantId);
     return { executionId, status: "cancelled", reason: err.message, nodesExecuted: 0, diagnostics: [] };
   }
 
   if (err instanceof WorkflowTimeout || err instanceof WorkflowLimitExceeded) {
-    await settle(db, executionId, "failed", err.message, err.message);
+    await settle(db, executionId, "failed", err.message, err.message, undefined, ctx.tenantId);
     await notifyFailure(ctx, err.message);
     return { executionId, status: "failed", reason: err.message, nodesExecuted: 0, diagnostics: [] };
   }
@@ -334,7 +340,7 @@ export async function handleTerminal(
   const hint =
     (err as { hint?: string }).hint ??
     "This automation stopped because a step failed. Open the run to see which one.";
-  await settle(db, executionId, "failed", message, hint);
+  await settle(db, executionId, "failed", message, hint, undefined, ctx.tenantId);
   await notifyFailure(ctx, hint);
 
   // Re-thrown on purpose (invariant 5): a parent sub-automation has to be able
@@ -352,6 +358,7 @@ async function settle(
   errorMessage: string | null,
   errorHint: string | null,
   nodesExecuted?: number,
+  tenantId?: string,
 ): Promise<void> {
   await db
     .update(workflowExecutions)
@@ -368,6 +375,16 @@ async function settle(
         eq(workflowExecutions.status, "running"),
       ),
     );
+
+  // Every terminal transition stands the run's goal watches down. A listener
+  // that outlives its run is a watch that can never usefully fire, and it would
+  // still be read on every dispatched event — the partial index is only small
+  // because inactive rows drop out of it.
+  //
+  // Unconditional rather than guarded on "does this run have goals": one
+  // indexed UPDATE that usually matches nothing is cheaper than remembering to
+  // call it, and forgetting is what leaves the watch behind.
+  if (tenantId) await deactivateListeners(db, tenantId, executionId);
 }
 
 async function pause(

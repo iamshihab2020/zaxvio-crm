@@ -358,13 +358,28 @@ async function start() {
   // Subscribers are **registered here**, at the composition root, rather than
   // imported by the worker — that is what keeps `worker.ts` free of any
   // dependency on the engine, so the transport can be tested without booting
-  // the thing it carries. `goal_listener` has no handler until P6, and an
-  // unregistered subscriber completes its row rather than dead-lettering it.
+  // the thing it carries. Both subscribers are registered below; an
+  // unregistered one completes its row rather than dead-lettering it, which is
+  // how `goal_listener` behaved from P2 until its handler landed.
   const { startEventWorker, registerSubscriber } = await import(
     "./services/workflow/events/worker.js"
   );
   const { handleTriggerEvent } = await import("./services/workflow/triggers/index.js");
   const { getDb: getWorkflowDb } = await import("@hvac-saas/database");
+
+  const { handleGoalEvent } = await import("./services/workflow/goals/index.js");
+
+  // The other half of the outbox. `goal_listener` rows have been enqueued
+  // beside every `workflow_trigger` row since P2 and completed with nothing
+  // behind them — deliberately, so the transport could be proved on its own.
+  // This is the handler they were waiting for.
+  //
+  // A separate subscriber rather than a branch inside the trigger handler: one
+  // starts runs and the other ends them, they fail independently, and a slow
+  // goal lookup must not delay an automation firing.
+  registerSubscriber("goal_listener", async (event) => {
+    await handleGoalEvent(getWorkflowDb(), event);
+  });
 
   registerSubscriber("workflow_trigger", async (event) => {
     // Business outcomes — no filter matched, the subject was deleted, this

@@ -112,6 +112,16 @@ export const RETENTION = {
   /** Keep the active version, the N most recent, and any version with a
    *  non-terminal run. */
   KEEP_RECENT_VERSIONS: 10,
+  /**
+   * How long a run may sit waiting on a goal that never happens.
+   *
+   * Without a ceiling, one goal nobody ever meets strands its run — and its
+   * subject — permanently: `resume_at` is NULL for a goal wait, so the resume
+   * worker never touches it and nothing else would. Cancelled rather than
+   * completed, because "we gave up waiting" is not the same as "the goal was
+   * met", and the run history has to be able to tell them apart.
+   */
+  GOAL_WAIT_DAYS: 30,
 } as const;
 
 export function backoffMs(attempts: number): number {

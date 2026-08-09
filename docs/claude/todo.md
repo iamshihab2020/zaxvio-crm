@@ -465,11 +465,37 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       it treated a fan-out's branches as mutually exclusive and **refused to publish the only shape
       a merge is for**. That is why `outputMode` is a declaration rather than an inference — the
       engine already knew the difference while the validator was guessing.
-- [ ] **P6 remaining** — `logic.switch`, `logic.goto`, `logic.loop`, `goal.event` +
-      `workflow_goal_listeners`. All four need UI that does not exist yet: a variable-path field
-      (switch, loop), a node picker (goto) and a route table. `goal.event` also needs a migration.
+- [x] **P6 — `goal.event`, and the migration applied** (2026-08-09) — **13/13 on a real run, 8/8 on
+      the schema.** The node a chase sequence is unsafe without: "stop chasing once they pay".
+      Proven end to end — a two-step chase parks in a 3-day wait, `invoice.paid` is dispatched, the
+      run **completes**, the watch is marked `met`, and **the second chase never goes out**. A
+      repeat of the same event finds no active watch.
+      `20260809000001_workflow_goal_listeners.sql` **applied to Neon** and verified: idempotent
+      across 4 runs with the object set byte-identical, 12 columns, 5 indexes (3 partial), 3 FKs,
+      and 8/8 behavioural in rolled-back transactions — a duplicate active watch is refused
+      `23505`, re-registering after deactivation is allowed (the index is partial, which is what
+      makes a resume safe), a bogus status is refused `23514`, a watch on a non-existent run is
+      refused `23503`, deleting the run cascades its watches away, and `EXPLAIN` confirms the hot
+      lookup uses `idx_goal_listeners_match` rather than scanning.
+      Also: the `goal_listener` subscriber — enqueued beside every `workflow_trigger` row since P2
+      and completed with **nothing behind it** — finally has a handler; every terminal transition
+      stands the run's watches down; and the 30-day reaper landed in the retention sweep, because
+      a goal wait has `resume_at` NULL and *nothing else in the system would ever touch it again*.
+      **Caught mid-build, by writing the proof rather than by a test:** the first version
+      registered the watch in the *executor*, so it went live after the last email — useless. The
+      spec says step 7, before traversal. Registration is now a graph scan at run start; reaching
+      the node parks the run. Also caught: a dangling goal is genuinely an `orphan_node` and the
+      validator was right — the node has an input and no outputs, so it belongs at the end of a
+      chain.
+      Shipped **without** the optional goal-filter field: it would have to evaluate against the
+      event *payload* while `condition.if` rules hold variable *paths*, and a control that silently
+      does nothing is the exact defect this project keeps finding.
+- [ ] **P6 remaining** — `logic.switch`, `logic.goto`, `logic.loop`. All three need UI that does
+      not exist yet: a variable-path field (switch, loop), a node picker (goto) and a route table.
       The validator's rules for `goto_after_split`, `goto_target_missing` and `delay_in_loop` are
       already written and waiting.
+- [ ] Follow-up: goal filters. The column and the shape exist; the evaluator does not. Needs a
+      payload-path resolver distinct from the context-path one `condition.if` uses.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

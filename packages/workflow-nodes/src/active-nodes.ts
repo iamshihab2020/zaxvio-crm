@@ -37,6 +37,7 @@ export const ACTIVE_NODES: readonly string[] = [
   "delay.wait",
   "logic.merge",
   "split.branch",
+  "goal.event",
   "logic.stop",
 ] as const;
 
@@ -74,5 +75,6 @@ export const RELEASED_NODE_IDS: readonly string[] = [
   "delay.wait",
   "logic.merge",
   "split.branch",
+  "goal.event",
   "logic.stop",
 ] as const;

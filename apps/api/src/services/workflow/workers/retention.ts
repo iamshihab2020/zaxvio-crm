@@ -61,6 +61,8 @@ let firstTimer: NodeJS.Timeout | null = null;
 let running = false;
 
 export interface RetentionResult {
+  /** Runs given up on because their goal never happened. */
+  goalsExpired: number;
   executions: number;
   queueCompleted: number;
   queueFailed: number;
@@ -70,12 +72,65 @@ export interface RetentionResult {
 
 export async function runRetentionTick(db: Db = getDb()): Promise<RetentionResult> {
   const result: RetentionResult = {
+    goalsExpired: 0,
     executions: 0,
     queueCompleted: 0,
     queueFailed: 0,
     versions: 0,
     orphanLogs: 0,
   };
+
+  /**
+   * 0 · Runs waiting on a goal that never happened.
+   *
+   * This runs FIRST, and it is the only step here that ends a run rather than
+   * deleting one. A goal wait pauses with `resume_at` NULL — that is what stops
+   * the resume worker waking it on a clock — so nothing else in the system will
+   * ever touch it again. Without this, one goal nobody meets strands its run,
+   * and its subject, permanently. Same argument wf-09 §9.4 makes for approvals.
+   *
+   * **`cancelled`, not `completed`.** "We gave up waiting" and "the goal was
+   * met" are different outcomes and the run history has to tell them apart —
+   * completing it would report the chase as having succeeded.
+   *
+   * Compare-and-set on `status = 'waiting'`, like every other terminal
+   * transition, so a run that met its goal in the same instant is not undone.
+   */
+  await step(result, "goalsExpired", async () => {
+    const expired = await db.execute(sql`
+      UPDATE workflow_executions e
+         SET status = 'cancelled',
+             completed_at = clock_timestamp(),
+             resume_at = NULL,
+             error_hint = 'This automation was waiting for something that did not happen within '
+                          || ${RETENTION.GOAL_WAIT_DAYS}::text || ' days, so it stopped waiting.'
+       WHERE e.status = 'waiting'
+         AND e.id IN (
+           SELECT l.execution_id FROM workflow_goal_listeners l
+           WHERE l.status = 'active'
+             AND l.created_at < clock_timestamp() - make_interval(days => ${RETENTION.GOAL_WAIT_DAYS}::int)
+           LIMIT ${BATCH_LIMIT}
+         )
+      RETURNING e.id
+    `);
+
+    const ids = Array.from(expired) as Array<{ id: string }>;
+
+    // Stand the watches down for the runs actually ended. Scoped to those ids
+    // rather than "every old listener": a listener whose run resumed and
+    // finished on its own is already inactive, and one whose run is still
+    // legitimately waiting on a DIFFERENT, newer goal must stay active.
+    if (ids.length > 0) {
+      await db.execute(sql`
+        UPDATE workflow_goal_listeners
+           SET status = 'inactive'
+         WHERE status = 'active'
+           AND execution_id IN (${sql.join(ids.map((r) => sql`${r.id}`), sql`, `)})
+      `);
+    }
+
+    return ids.length;
+  });
 
   /**
    * 1 · Finished runs past the window.
@@ -271,6 +326,15 @@ function tick(): Promise<void> {
         console.log(
           `[workflow] Retention: ${result.executions} runs, ${result.queueCompleted} queue rows, ` +
             `${result.queueFailed} dead letters, ${result.versions} versions`,
+        );
+      }
+      // Reported separately from the deletion counts: this one ENDED runs
+      // rather than tidying finished ones, and a tenant whose automations keep
+      // timing out on a goal wants that visible rather than folded into a
+      // housekeeping total.
+      if (result.goalsExpired > 0) {
+        console.log(
+          `[workflow] Retention gave up on ${result.goalsExpired} run(s) still waiting for a goal after ${RETENTION.GOAL_WAIT_DAYS} days`,
         );
       }
       if (result.orphanLogs > 0) {

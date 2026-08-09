@@ -221,3 +221,100 @@ export const nodeExecutionLogs = pgTable(
     ),
   ],
 );
+
+/**
+ * Live "stop this run when X happens" watches.
+ *
+ * A goal is the inverse of a trigger: a trigger asks whether a dispatched event
+ * should **start** a run, a goal asks whether it should **end** one already in
+ * flight. Both read the same event and both evaluate their conditions with the
+ * same filter engine, which is why a goal costs a table and one indexed lookup
+ * rather than a second matching implementation.
+ *
+ * The row is what makes it durable — a three-day chase outlives any process
+ * that could hold the watch in memory, and the system this was ported from
+ * keeps its equivalent in a module-level Map, so "once only" there means "once
+ * per replica per uptime window".
+ *
+ * The goal node has **no outputs** (D-04). When the goal fires the run
+ * completes from wherever it had reached; it does not jump to a branch. The
+ * reference implementation gives its goal node a downstream branch that is
+ * silently dead, which is worse than either behaviour.
+ */
+export const workflowGoalListeners = pgTable(
+  "workflow_goal_listeners",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id, { onDelete: "cascade" }),
+    workflowId: uuid("workflow_id")
+      .notNull()
+      .references(() => workflows.id, { onDelete: "cascade" }),
+
+    /**
+     * CASCADE, unlike almost everything else pointing at a run.
+     *
+     * A listener is not a record of something that happened — it is a live
+     * watch, meaningless without the run it would end. Retention deletes
+     * terminal executions, and a listener outliving its execution would be a
+     * watch that can never fire.
+     */
+    executionId: uuid("execution_id")
+      .notNull()
+      .references(() => workflowExecutions.id, { onDelete: "cascade" }),
+
+    /**
+     * The goal node inside the version's graph snapshot.
+     *
+     * Deliberately NOT a foreign key: `workflow_nodes` holds the **draft**, and
+     * a run is pinned to a published version whose nodes live in the snapshot.
+     * An FK would break the moment the author deleted the step from their
+     * draft, while the run legitimately continues on the old version.
+     */
+    nodeId: uuid("node_id").notNull(),
+
+    subjectType: workflowSubjectTypeEnum("subject_type").notNull(),
+    subjectId: uuid("subject_id").notNull(),
+
+    /**
+     * An **event** name (`booking.created`), never a node id
+     * (`trigger.booking.created`). That distinction has already caused two
+     * separate outages in this feature — first matching nothing silently, then
+     * throwing `22P02` — so it is stated here, in the migration and in the
+     * column comment.
+     */
+    goalEvent: text("goal_event").notNull(),
+
+    /** Extra conditions, evaluated by the same matcher as trigger filters. */
+    goalFilter: jsonb("goal_filter").notNull().default(sql`'{}'::jsonb`),
+
+    /** active = watching · met = fired and ended the run · inactive = run ended otherwise. */
+    status: text("status").notNull().default("active"),
+    metAt: timestamp("met_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    /**
+     * THE lookup, on every dispatched event any goal watches for.
+     *
+     * `.where(...)` is not decoration: the migration creates these PARTIAL on
+     * `status = 'active'`, and an index declared here without the predicate is
+     * a different index. Schema drift that only shows up as a slow query is
+     * the hardest kind to notice.
+     */
+    index("idx_goal_listeners_match")
+      .on(table.tenantId, table.subjectType, table.subjectId, table.goalEvent)
+      .where(sql`status = 'active'`),
+    /** Deactivating every listener for a run, on each terminal transition. */
+    index("idx_goal_listeners_execution").on(table.executionId, table.status),
+    /** The 30-day reaper's scan. */
+    index("idx_goal_listeners_reaper")
+      .on(table.createdAt)
+      .where(sql`status = 'active'`),
+    /** One live watch per (run, node) — a double registration is unrepresentable. */
+    uniqueIndex("idx_goal_listeners_one_per_node")
+      .on(table.executionId, table.nodeId)
+      .where(sql`status = 'active'`),
+  ],
+);

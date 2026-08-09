@@ -653,3 +653,36 @@
   it. Clamp and return something for every input, and test it with junk
   explicitly: the correct-input test passes vacuously for a node that declares
   no static outputs.
+- **A goal has to be registered at run start, not when the chain reaches it.**
+  `goal.event` is "stop chasing them once they book". The obvious
+  implementation — the executor writes the listener row when the node runs —
+  puts the watch live *after the last email*, which is exactly when it has
+  stopped being useful. The engine spec says so in one line ("step 8: scan the
+  graph for `goal.event` nodes, insert listener rows", before traversal) and it
+  is easy to skim past. Registration is a **graph scan at run start**; reaching
+  the node is a separate, also-meaningful event — it has no outputs, so there is
+  nothing left to do but wait, and the run parks with `resume_at` NULL.
+  The tell that the first version was wrong was not a failing test. It was
+  writing the proof and noticing the automation under test could not express the
+  thing the node exists for.
+- **`resume_at` NULL is what separates a goal wait from a delay.** Both are
+  `status = 'waiting'`. The resume worker polls `resume_at`, so a goal wait with
+  a timestamp would be woken on a clock and carry on past the goal — the
+  opposite of what the author asked for. The cost of NULL is that *nothing* will
+  ever touch that run again, which is why the 30-day reaper is not optional: one
+  goal nobody meets strands its run and its subject permanently. Cancelled, not
+  completed — "we gave up waiting" and "the goal was met" have to be
+  distinguishable in the run history.
+- **Catching a constraint violation inside a transaction poisons it.** A probe
+  asserting "a duplicate is refused" and then continuing to assert other things
+  in the same transaction reports the *schema* as broken when the fault is the
+  probe's control flow: after any failed statement Postgres refuses everything
+  until rollback. One transaction per case. This cost a wrong conclusion about a
+  partial unique index that turned out to be correct.
+- **Scope is a decision a goal cannot make for the author.** "Stop when *this
+  invoice* is paid" and "stop when they book *anything*" are both real, and each
+  is wrong as a universal rule — customer-scoping lets an unrelated invoice end
+  the chase, record-scoping cannot express the booking case at all because the
+  booking is a different row than the quote. So it is a field, defaulting to the
+  narrower option: a goal that fails to fire is visible in run history, while one
+  that fires too eagerly looks exactly like success.
