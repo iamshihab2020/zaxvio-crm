@@ -20,19 +20,30 @@ Rules for this file:
 named for unrelated work, and the first thing worth fixing. `git log --oneline` from `d3b1eb0`
 forward is this feature.
 
-**Nothing has been compiled or executed since the migrations.** That is still the single most
-important fact here. Roughly 60 files across three workspaces, ~18 commits, zero `tsc` runs, zero
-test runs. Every phase from P2 onward is `[~]`.
+**It compiles.** `pnpm typecheck` is green across all seven packages as of 2026-08-09 — the first
+clean run since this feature started, after four rounds of fixes. Roughly 60 files, ~26 commits,
+three workspaces.
+
+**It has still never been executed.** Zero test runs, and no automation has ever been triggered by
+an event. Every phase from P2 onward stays `[~]` until that changes: compiling proves the shapes
+agree, not that the thing works.
 
 ### Do these four things first, in this order
 
-1. **`pnpm typecheck`.** Nothing else is worth doing until this passes. Five read-through review
-   passes caught real defects — two of them would not have compiled — but a compiler finds what
-   reading cannot. Likeliest failures, in order: the Drizzle column names in `engine/context.ts`
-   and `runs/runs.service.ts`; `satisfies NodeDefinition` on the newer definitions; the
-   `db.execute(sql\`…\`)` return shape in `workers/retention.ts` (`rowCount` vs `rows`).
+1. ~~**`pnpm typecheck`**~~ — **done, green 2026-08-09.** Four rounds, and each round failed for a
+   different reason, none of which reading had caught:
 
-2. **`pnpm test`.** Nine test files now, none run since P2. The three added this session are the
+   | Round | Cause | Why review missed it |
+   |---|---|---|
+   | boot | a backtick inside a `--` comment closed its own `` sql`…` `` template | the comment reads correctly; esbuild blames the first word past the break |
+   | 1 | `displayOptions.show` — TS normalises a union across a `properties` array, so sibling fields with different keys get `key?: undefined` | the declaration is right; the inference is what fails |
+   | 2 | ten knowledge-base answers held real newlines instead of `\n` | ~900 errors from one literal, none near it. Nine predate this feature |
+   | 3 | `unsubscribeUrl` required by E-12/E-09 props, never passed by the crons | **a real compliance defect** — those two emails rendered with no unsubscribe link |
+   | 4 | `previewWorkflowNode` never imported; `WorkflowRunsParams` an `interface`, so no index signature | one missing line; one rule the repo had already documented twice |
+
+   The through-line: every single one was invisible to reading because the *content* was correct.
+
+2. **`pnpm test` — this is now the gate.** Fourteen test files, none run since P2. The three added this session are the
    ones that matter, because each encodes a bug that actually shipped:
    - `apps/api/src/test/workflow-node-wiring.test.ts` — the **trigger_types seam** (commit 18),
      plus the trigger-has-a-producer gate (commit 12). Three of its assertions would have failed
@@ -98,7 +109,7 @@ four migrations applied and verified 17/17. Everything after that is `[~]` — w
 
 | | |
 |---|---|
-| **Current phase** | P6 mostly written + P8 pulled forward. **Nothing compiled or run since the migrations.** Migrations all applied ✅ |
+| **Current phase** | P6 mostly written + P8 pulled forward. **Typecheck green ✅ — never executed.** Migrations all applied ✅ |
 | **Started** | 2026-08-07 |
 | **Branch** | `security/close-native-admin-surface` — named for unrelated work; move it |
 | **Alpha gate** | after P6 |

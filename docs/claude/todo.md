@@ -379,6 +379,21 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       `multiOptions` over the closed enum instead. Two more found in the executors: `JobContext`
       has no `assigneeId` at all (the id is on `ctx.assignee`) and its lifecycle field is
       `stageLifecycle`.
+- [x] **`pnpm typecheck` green across all 7 packages** (2026-08-09) — the first clean compile since
+      this feature started, ~26 commits and ~60 files in. Four rounds, each failing for a different
+      reason and none of them caught by five read-through review passes: a **backtick inside a SQL
+      comment** closing its own template literal (the API had not booted since the overdue sweep
+      landed); `displayOptions.show` breaking because TypeScript normalises one union across a
+      `properties` array, so sibling fields with different keys get `key?: undefined`; **ten
+      knowledge-base answers holding real newlines** instead of `\n`, producing ~900 errors from one
+      literal (nine of the ten predate this feature); `unsubscribeUrl` required by the E-12/E-09
+      props and never passed by the crons — **a real compliance defect**, since those two
+      non-transactional emails rendered with no unsubscribe link while the List-Unsubscribe header
+      still went out; and finally a never-imported `previewWorkflowNode` plus `WorkflowRunsParams`
+      declared as an `interface`, which gets no implicit index signature.
+      Every one was invisible to reading because the **content** was correct in each case. Each now
+      has a scanner or a lesson. **Compiling is not working** — nothing here has been executed, and
+      `pnpm test` is the next gate.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 
