@@ -47,6 +47,11 @@ export interface CatalogItemFormData {
   name: string;
   itemType: string;
   unitPrice: number;
+  /**
+   * What the item costs you. `null` means nobody has costed it — kept distinct
+   * from 0, because a zero cost reads as pure margin on every job that uses it.
+   */
+  unitCost: number | null;
   unit: string;
   category: string;
   description: string;
@@ -56,6 +61,7 @@ const emptyForm: CatalogItemFormData = {
   name: "",
   itemType: "labor",
   unitPrice: 0,
+  unitCost: null,
   unit: "each",
   category: "",
   description: "",
@@ -99,6 +105,9 @@ export function CatalogItemDialog({
         name: item.name,
         itemType: item.itemType,
         unitPrice: Number(item.unitPrice),
+        unitCost: item.unitCost === null || item.unitCost === undefined
+          ? null
+          : Number(item.unitCost),
         unit: item.unit ?? "each",
         category: item.category ?? "",
         description: item.description ?? "",
@@ -117,6 +126,8 @@ export function CatalogItemDialog({
     if (!form.itemType) newErrors.itemType = "Item type is required";
     if (isNaN(form.unitPrice) || form.unitPrice < 0)
       newErrors.unitPrice = "Must be a non-negative number";
+    if (form.unitCost !== null && (isNaN(form.unitCost) || form.unitCost < 0))
+      newErrors.unitCost = "Must be a non-negative number";
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -126,7 +137,10 @@ export function CatalogItemDialog({
     onSave(form);
   }
 
-  function updateField(field: keyof CatalogItemFormData, value: string | number) {
+  function updateField(
+    field: keyof CatalogItemFormData,
+    value: string | number | null,
+  ) {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -233,6 +247,42 @@ export function CatalogItemDialog({
                 <p className="text-sm text-destructive">{errors.unitPrice}</p>
               )}
             </div>
+          </div>
+
+          {/* Your cost. Optional, and blank stays blank — an item nobody has
+              costed must not silently report a 100% margin on every job. */}
+          <div className="space-y-2">
+            <Label htmlFor="unitCost" className="font-body">
+              Your cost
+            </Label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                $
+              </span>
+              <Input
+                id="unitCost"
+                type="number"
+                step="0.01"
+                min="0"
+                value={form.unitCost ?? ""}
+                onChange={(e) =>
+                  updateField(
+                    "unitCost",
+                    e.target.value === "" ? null : parseFloat(e.target.value),
+                  )
+                }
+                className="pl-7 tnum"
+                placeholder="Leave blank if you don't track it"
+              />
+            </div>
+            {errors.unitCost ? (
+              <p className="text-sm text-destructive">{errors.unitCost}</p>
+            ) : (
+              <p className="font-body text-xs text-muted-foreground">
+                What you pay for this. Fills in automatically when the item is
+                added to a job, and drives the profitability report.
+              </p>
+            )}
           </div>
 
           {/* Row 3: Unit + Category */}

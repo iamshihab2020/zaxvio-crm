@@ -16,6 +16,7 @@ import type {
   QuoteEmailProps,
   TeamInvitationEmailProps,
   BookingCancelledEmailProps,
+  NotificationEmailProps,
 } from "@hvac-saas/email";
 
 /** Strip CRLF/tab from email subject to prevent header injection */
@@ -44,15 +45,44 @@ interface SendEmailOptions {
   attachments?: Array<{ filename: string; content: Buffer }>;
   /** Tag for dev-mode logging */
   tag: string;
+  /**
+   * The one-click unsubscribe URL for this recipient, when the message is
+   * non-transactional.
+   *
+   * Passing it writes both `List-Unsubscribe` and `List-Unsubscribe-Post`.
+   * Gmail and Yahoo require the pair of bulk senders, and this deployment sends
+   * every tenant's mail from **one shared domain**, so a missing header is a
+   * deliverability problem for every tenant rather than for the one whose email
+   * it was — complaints score against the domain, not the sender.
+   *
+   * Transactional mail deliberately omits it: a receipt is not something a
+   * recipient can decline, and offering to unsubscribe from one invites them to
+   * try and then be surprised when the next invoice arrives anyway.
+   */
+  unsubscribeUrl?: string | null;
 }
 
-export async function sendEmail(options: SendEmailOptions): Promise<void> {
+/**
+ * What actually happened. Existing callers ignore it — adding a return value is
+ * backward compatible — but anything that *records* a delivery must not report
+ * `sent` when this returned `skipped` or `failed`.
+ *
+ * `skipped` is a configuration state (no API key, no verified sender), not a
+ * failure: it is the normal state in development and it should not fill an
+ * error log or a deliveries table with red.
+ */
+export type EmailOutcome =
+  | { status: "sent" }
+  | { status: "skipped"; reason: string }
+  | { status: "failed"; reason: string };
+
+export async function sendEmail(options: SendEmailOptions): Promise<EmailOutcome> {
   const client = getResend();
   if (!client) {
     console.warn(
       `[email:${options.tag}] RESEND_API_KEY not configured — skipping email to ${options.to}`
     );
-    return;
+    return { status: "skipped", reason: "Email sending is not configured" };
   }
 
   // env.ts guarantees a sender whenever RESEND_API_KEY is set; this narrows the type.
@@ -61,11 +91,11 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
     console.warn(
       `[email:${options.tag}] RESEND_FROM_EMAIL not configured — skipping email to ${options.to}`
     );
-    return;
+    return { status: "skipped", reason: "No sender address is configured" };
   }
 
   try {
-    await client.emails.send({
+    const result = await client.emails.send({
       from,
       to: options.to,
       subject: options.subject,
@@ -74,9 +104,41 @@ export async function sendEmail(options: SendEmailOptions): Promise<void> {
         filename: a.filename,
         content: a.content,
       })),
+      // Resend passes custom headers straight through to the message.
+      //
+      // `List-Unsubscribe-Post` is what turns the header from "mailto or a link
+      // somewhere" into the one-click control Gmail renders beside the sender
+      // name — RFC 8058. Both must be present; a `List-Unsubscribe` on its own
+      // does not satisfy the bulk-sender requirement.
+      ...(options.unsubscribeUrl
+        ? {
+            headers: {
+              "List-Unsubscribe": `<${options.unsubscribeUrl}/one-click>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }
+        : {}),
     });
+
+    // Resend reports a rejected send in the response body rather than by
+    // throwing — an unverified sending domain comes back as a 403 *payload*, so
+    // a bare try/catch would call that a success. This is the single most likely
+    // failure in this deployment: the account has no verified domain yet.
+    if (result.error) {
+      console.error(
+        `[email:${options.tag}] Resend refused the send to ${options.to}:`,
+        result.error,
+      );
+      return { status: "failed", reason: result.error.message };
+    }
+
+    return { status: "sent" };
   } catch (error) {
     console.error(`[email:${options.tag}] Failed to send to ${options.to}:`, error);
+    return {
+      status: "failed",
+      reason: error instanceof Error ? error.message : "Unknown email error",
+    };
   }
 }
 
@@ -240,17 +302,27 @@ export async function sendPaymentReceiptEmail(data: {
 
 // ── E-09: Contract Renewal Reminder (to customer) ──
 
+/** E-09 is a sales message about a contract nobody has renewed. Same rule as
+ *  E-12: the unsubscribe URL is required, not optional. */
 export async function sendContractRenewalEmail(data: {
   to: string;
-  props: ContractRenewalEmailProps;
-}): Promise<void> {
+  /** `unsubscribeUrl` is supplied beside this, not inside it — see below. */
+  props: Omit<ContractRenewalEmailProps, "unsubscribeUrl">;
+  unsubscribeUrl: string;
+}): Promise<EmailOutcome> {
   const { renderContractRenewalEmail } = await import("@hvac-saas/email");
-  const html = await renderContractRenewalEmail(data.props);
-  await sendEmail({
+  // Same as E-12: the footer link and the List-Unsubscribe header are the same
+  // URL, so it is supplied once and used twice here.
+  const html = await renderContractRenewalEmail({
+    ...data.props,
+    unsubscribeUrl: data.unsubscribeUrl,
+  });
+  return sendEmail({
     to: data.to,
     subject: sanitizeSubject(`Maintenance Contract Expiring — ${data.props.businessName}`),
     html,
     tag: "E-09:contract-renewal",
+    unsubscribeUrl: data.unsubscribeUrl,
   });
 }
 
@@ -288,17 +360,34 @@ export async function sendWelcomePaidEmail(data: {
 
 // ── E-12: Review Request (to customer, 2h after invoice paid) ──
 
+/**
+ * E-12 is **not transactional** — nobody asks to be asked for a review — so
+ * `unsubscribeUrl` is required rather than optional. A caller who has not
+ * decided whether this recipient consented cannot type this call, which is the
+ * point: DF-NOT-01 §4 asks for the exemption to be explicit in code, and the
+ * mirror of that is that the *non*-exempt sends make the consent visible too.
+ */
 export async function sendReviewRequestEmail(data: {
   to: string;
-  props: ReviewRequestEmailProps;
-}): Promise<void> {
+  /** `unsubscribeUrl` is supplied beside this, not inside it — see below. */
+  props: Omit<ReviewRequestEmailProps, "unsubscribeUrl">;
+  unsubscribeUrl: string;
+}): Promise<EmailOutcome> {
   const { renderReviewRequestEmail } = await import("@hvac-saas/email");
-  const html = await renderReviewRequestEmail(data.props);
-  await sendEmail({
+  // Merged in rather than asked of the caller. The wrapper already has the URL
+  // — it hands it to `sendEmail` for the List-Unsubscribe header two lines
+  // below — and requiring every call site to pass the same value twice is how
+  // one of them ends up passing only one of the two.
+  const html = await renderReviewRequestEmail({
+    ...data.props,
+    unsubscribeUrl: data.unsubscribeUrl,
+  });
+  return sendEmail({
     to: data.to,
     subject: sanitizeSubject(`How did we do? — ${data.props.businessName}`),
     html,
     tag: "E-12:review-request",
+    unsubscribeUrl: data.unsubscribeUrl,
   });
 }
 
@@ -317,6 +406,40 @@ export async function sendQuoteEmail(data: {
     html,
     attachments: data.pdf ? [{ filename: data.pdf.filename, content: data.pdf.buffer }] : undefined,
     tag: "E-13:quote",
+  });
+}
+
+// ── E-15: Generic notification ──
+
+/**
+ * The catch-all transactional email: in-app notifications that the recipient
+ * wants by email, and every automation "send email" step.
+ *
+ * This function existing is the fix for a live bug. `lib/notifications.ts` used
+ * to feature-detect it — `if ("sendNotificationAlertEmail" in email)` — against
+ * this module, and it was exported from nowhere, so the `default` branch of its
+ * switch (every notification type except `booking_received`) fell through to a
+ * `console.log` while `notification_deliveries` recorded `status: 'sent'`. The
+ * lesson, written down in lessons/features-misc.md: never feature-detect code
+ * you own. An import would have failed the build the day it was written.
+ *
+ * The subject is the title. It is sanitised here rather than at the call site,
+ * because a title interpolated from a customer's name is exactly the header
+ * injection vector security-rules §6 exists for.
+ */
+export async function sendNotificationAlertEmail(data: {
+  to: string;
+  props: NotificationEmailProps;
+  /** Overrides the subject when the title alone reads oddly in an inbox. */
+  subject?: string;
+}): Promise<EmailOutcome> {
+  const { renderNotificationEmail } = await import("@hvac-saas/email");
+  const html = await renderNotificationEmail(data.props);
+  return sendEmail({
+    to: data.to,
+    subject: sanitizeSubject(data.subject ?? data.props.title),
+    html,
+    tag: "E-15:notification",
   });
 }
 

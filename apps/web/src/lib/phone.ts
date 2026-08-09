@@ -18,6 +18,21 @@
  * `schemas/customers.ts` so it holds regardless of caller.
  */
 
+/**
+ * **`formatPhoneDisplay` now lives in `@hvac-saas/workflow-nodes/format`** and is
+ * re-exported here so no component import had to change.
+ *
+ * It moved because the workflow engine renders `{{customer.phone}}` in
+ * `apps/api`, and an app cannot import from another app — leaving it here would
+ * have meant a fifth copy in the exact place a fifth copy is least affordable,
+ * since the picker's sample value is a promise about what the email will say.
+ *
+ * What stays here is the input half: `normalizePhone` and `formatPhoneInput`
+ * exist to serve a keystroke in a browser and have no business in a server-side
+ * template renderer.
+ */
+export { formatPhoneDisplay } from "@hvac-saas/workflow-nodes";
+
 /** Digits (and a leading `+`) only — what gets stored. Lossless. */
 export function normalizePhone(value: string): string {
   const trimmed = value.trim();
@@ -26,31 +41,6 @@ export function normalizePhone(value: string): string {
   const digits = trimmed.replace(/\D/g, "");
   if (digits.length === 0) return "";
   return `${hasPlus ? "+" : ""}${digits}`;
-}
-
-/**
- * Pretty-print for display.
- *
- * Applies NANP grouping only when the number unambiguously is one (10 digits, or
- * 11 starting with 1, and no `+` prefix on a longer international number).
- * Everything else is returned as the user entered it — which is the correct
- * behaviour for a platform that is not US-only, and beats formatting a UK number
- * into an American shape.
- */
-export function formatPhoneDisplay(phone: string | null | undefined): string {
-  if (!phone) return "";
-  const value = phone.trim();
-  const digits = value.replace(/\D/g, "");
-
-  if (!value.startsWith("+")) {
-    if (digits.length === 10) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    }
-    if (digits.length === 11 && digits.startsWith("1")) {
-      return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-    }
-  }
-  return value;
 }
 
 /**

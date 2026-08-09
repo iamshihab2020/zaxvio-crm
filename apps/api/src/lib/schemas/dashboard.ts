@@ -23,6 +23,7 @@ export const reportSectionEnum = z.enum([
   "customers",
   "quotes-invoices",
   "bookings",
+  "profitability",
 ]);
 
 /**

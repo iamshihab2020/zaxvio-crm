@@ -1,7 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
-import { getTenant, updateTenant } from "@/actions/tenants";
+import {
+  getTenant,
+  updateTenant,
+  getMemberRates,
+  setMemberRate,
+  clearMemberRate,
+} from "@/actions/tenants";
 
 // ── Queries ──────────────────────────────────────────────────
 
@@ -10,6 +16,21 @@ export function useTenantSettings() {
     queryKey: queryKeys.tenant.settings(),
     queryFn: () => getTenant(),
     staleTime: 5 * 60_000, // tenant settings rarely change
+  });
+}
+
+/**
+ * Every member of the business with their effective hourly cost.
+ *
+ * Owner/admin only on the API, because a rate is what the business pays a
+ * person. A `403` here is the correct answer for a member, not a bug.
+ */
+export function useMemberRates(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.tenant.memberRates(),
+    queryFn: () => getMemberRates(),
+    enabled,
+    staleTime: 5 * 60_000,
   });
 }
 
@@ -28,6 +49,39 @@ export function useUpdateTenant() {
       qc.invalidateQueries({ queryKey: queryKeys.tenant.all });
     },
     onError: () => toast.error("Failed to save settings"),
+  });
+}
+
+export function useSetMemberRate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { userId: string; hourlyCostRate: string }) =>
+      setMemberRate(vars.userId, vars.hourlyCostRate),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Cost rate saved");
+      qc.invalidateQueries({ queryKey: queryKeys.tenant.memberRates() });
+    },
+    onError: () => toast.error("Failed to save the rate"),
+  });
+}
+
+export function useClearMemberRate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) => clearMemberRate(userId),
+    onSuccess: (res) => {
+      if (res.error) {
+        toast.error(res.error);
+        return;
+      }
+      toast.success("Back to the default rate");
+      qc.invalidateQueries({ queryKey: queryKeys.tenant.memberRates() });
+    },
+    onError: () => toast.error("Failed to clear the rate"),
   });
 }
 

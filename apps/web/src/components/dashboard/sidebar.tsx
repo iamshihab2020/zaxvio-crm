@@ -23,6 +23,7 @@ import {
   IconChevronDown,
   IconChartBar,
   IconMessageCircle,
+  IconRobot,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import {
@@ -69,6 +70,13 @@ const navGroups: NavGroup[] = [
       { href: "/quotes", label: "Quotes", icon: IconFileDescription },
       { href: "/invoices", label: "Invoices", icon: IconReceipt },
       { href: "/service-agreements", label: "Agreements", icon: IconFileCheck },
+    ],
+  },
+  {
+    label: "Automate",
+    defaultOpen: true,
+    items: [
+      { href: "/automations", label: "Automations", icon: IconRobot },
     ],
   },
   {

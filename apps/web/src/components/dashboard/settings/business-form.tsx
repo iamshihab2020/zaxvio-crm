@@ -21,6 +21,7 @@ interface BusinessFormProps {
     state: string | null;
     zipCode: string | null;
     defaultTaxRate: string | null;
+    defaultLaborCostRate: string | null;
     googleReviewUrl: string | null;
     logoUrl: string | null;
   };
@@ -104,6 +105,10 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
     defaultTaxRate: tenant.defaultTaxRate
       ? (parseFloat(tenant.defaultTaxRate) * 100).toString()
       : "0",
+    // Empty string, never "0": an unset rate must stay unset. A zero here would
+    // tell job costing that labour is free, which is the one answer it must
+    // never invent on the user's behalf.
+    defaultLaborCostRate: tenant.defaultLaborCostRate ?? "",
     googleReviewUrl: tenant.googleReviewUrl ?? "",
   });
   const [saving, setSaving] = useState(false);
@@ -126,6 +131,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
     form.state !== (tenant.state ?? "") ||
     form.zipCode !== (tenant.zipCode ?? "") ||
     form.defaultTaxRate !== initialTaxRate ||
+    form.defaultLaborCostRate !== (tenant.defaultLaborCostRate ?? "") ||
     form.googleReviewUrl !== (tenant.googleReviewUrl ?? "");
 
   function updateField(field: keyof typeof form, value: string) {
@@ -151,6 +157,17 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
     // Convert percentage to decimal for storage (e.g., 8.25 -> 0.0825)
     const taxDecimal = (taxNum / 100).toString();
 
+    const rateInput = form.defaultLaborCostRate.trim();
+    const laborRate = rateInput === "" ? null : parseFloat(rateInput);
+    if (laborRate !== null && (isNaN(laborRate) || laborRate < 0)) {
+      setMessage({
+        type: "error",
+        text: "Labour cost rate must be a number, or blank if you don't track it.",
+      });
+      setSaving(false);
+      return;
+    }
+
     const result = await updateTenant({
       businessName: form.businessName,
       ownerName: form.ownerName,
@@ -161,6 +178,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
       state: form.state || undefined,
       zipCode: form.zipCode || undefined,
       defaultTaxRate: taxDecimal,
+      defaultLaborCostRate: laborRate,
       googleReviewUrl: form.googleReviewUrl || undefined,
     });
 
@@ -366,6 +384,26 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
             />
             <p className="text-xs text-muted-foreground">
               Applied automatically to new jobs. e.g. 8.25 for 8.25%
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="defaultLaborCostRate" className="font-body">
+              Labour Cost Rate ($/hr)
+            </Label>
+            <Input
+              id="defaultLaborCostRate"
+              inputMode="decimal"
+              value={form.defaultLaborCostRate}
+              onChange={(e) =>
+                updateField("defaultLaborCostRate", e.target.value)
+              }
+              placeholder="Leave blank if you don't track it"
+              className="tnum"
+            />
+            <p className="text-xs text-muted-foreground">
+              What an hour of work costs you — wages plus overhead, not what you
+              charge. Used to cost the hours on a job. Override it per person
+              under Team.
             </p>
           </div>
           <div className="space-y-2">

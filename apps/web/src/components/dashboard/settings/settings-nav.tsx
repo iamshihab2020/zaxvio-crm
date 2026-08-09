@@ -15,7 +15,6 @@ import {
   IconShare,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { useOrgRole } from "@/hooks/use-org-role";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -76,10 +75,25 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-export function SettingsNav() {
+interface SettingsNavProps {
+  /**
+   * Organization membership role — `owner` | `admin` | `member` — resolved by
+   * the settings layout on the server. It arrives as a prop rather than from a
+   * hook on purpose: this used to be `useOrgRole()`, a bare useEffect fetch, so
+   * `orgRole` was null through the server render and the whole first paint.
+   * Business and Billing are gated on it, which meant every reload rendered a
+   * nav missing two items and then reflowed once the round trip finished.
+   *
+   * `null` means no elevated access. It is never "not known yet" — the server
+   * has already resolved it by the time this renders — so there is nothing to
+   * show a skeleton for.
+   */
+  orgRole: string | null;
+}
+
+export function SettingsNav({ orgRole }: SettingsNavProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { role: orgRole, isLoading: roleLoading } = useOrgRole();
 
   // Filter nav groups based on user's org role
   const filteredGroups = navGroups

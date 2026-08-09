@@ -643,6 +643,7 @@ Add a line item to a job.
 | `description` | string | Yes | Line item description |
 | `quantity` | number | Yes | Quantity |
 | `unitPrice` | string | Yes | Unit price |
+| `unitCost` | string \| null | No | What the line costs you. Omit to inherit the linked catalog item's `unitCost`; send `null` to clear it. Left unset the line is **uncosted**, which the margin reports as a gap rather than as zero cost |
 | `itemType` | string | Yes | See [Item Types](#enums--constants) |
 | `catalogItemId` | uuid | No | Link to catalog item |
 | `sortOrder` | integer | No | Display order |
@@ -659,7 +660,9 @@ Add a line item to a job.
     "description": "Capacitor - 45/5 MFD",
     "quantity": "1.00",
     "unitPrice": "45.00",
+    "unitCost": "28.40",
     "total": "45.00",
+    "costTotal": "28.40",
     "sortOrder": 2,
     "createdAt": "2026-03-28T15:00:00.000Z"
   }
@@ -864,6 +867,154 @@ Get the activity timeline for a job.
   }
 }
 ```
+
+---
+
+## Job Costing
+
+What a job cost, and what it made. Every figure here is **derived on read** —
+nothing is stored — for the same reason invoice status is derived from its
+payment rows: a number computed from its inputs cannot drift from them, and a
+margin has strictly more inputs than an invoice status does.
+
+The rule the whole surface rests on: **an unknown cost makes a total incomplete,
+not lower.** A line item with no `unitCost` contributes nothing to the sum,
+which is arithmetically identical to contributing zero — and that is exactly the
+danger, because zero cost reads as pure profit. So every summary carries a
+`coverage` object saying what is missing, and no client may present a margin as
+fact without checking `coverage.complete` first.
+
+Every mutating handler runs `loadEditableJob` first, so an archived job or
+another tenant's job is refused before anything is written.
+
+### `GET /jobs/:id/costs`
+
+**Auth:** `requireTenant`
+
+The derived cost/margin rollup for one job.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "jobId": "job_001",
+    "lineItemCost": "312.40",
+    "expenseCost": "84.00",
+    "laborCost": "210.00",
+    "totalCost": "606.40",
+    "actualHours": "3.50",
+    "laborCostRate": "60.00",
+    "revenue": "980.00",
+    "revenueBasis": "invoiced",
+    "margin": "373.60",
+    "marginPct": 0.3812,
+    "coverage": {
+      "costedLineItems": 4,
+      "lineItems": 4,
+      "laborCosted": true,
+      "complete": true,
+      "gaps": []
+    }
+  }
+}
+```
+
+| Field | Notes |
+|-------|-------|
+| `revenueBasis` | `invoiced` when the job has at least one non-draft, non-void, non-archived invoice — that is the document the customer received. `estimated` falls back to the job's own `totalAmount` |
+| `marginPct` | 0–1 fraction, or **`null`** when revenue is 0. A percentage of nothing is undefined, not 0% |
+| `coverage.gaps` | Human-readable reasons the figure is provisional, e.g. `"2 of 5 line items have no cost set"`. Empty when `complete` |
+
+| Status | When |
+|--------|------|
+| `404` | The job is not this tenant's |
+
+### `GET /jobs/:id/expenses`
+
+**Auth:** `requireTenant`
+
+Costs on the job that no line item accounts for. Newest `incurredOn` first.
+
+**Response** `200 OK` — an array of expense rows (shape as in `POST` below).
+
+### `POST /jobs/:id/expenses`
+
+**Auth:** `requireTenant`
+
+**Request Body:**
+
+```json
+{
+  "category": "subcontractor",
+  "description": "Crane hire",
+  "amount": "450.00",
+  "incurredOn": "2026-08-04",
+  "vendor": "Halton Lifting"
+}
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `category` | enum | No | `material` · `subcontractor` · `permit` · `fuel` · `equipment_rental` · `other`. Defaults to `material` |
+| `description` | string(1..500) | Yes | What the cost was for |
+| `amount` | string | Yes | `^\d{1,8}(\.\d{1,2})?$` — a string, because the column is `numeric(10,2)` and a float would round-trip through IEEE 754 on the way in |
+| `incurredOn` | string | Yes | `YYYY-MM-DD`, validated by `isoDate` — Postgres magic values like `infinity` are refused, since this reaches a `::date` cast in the report's window filter |
+| `vendor` | string(1..200) | No | Supplier |
+
+**Response** `201 Created` — the created row. Also writes an `expense.added` job activity.
+
+| Status | When |
+|--------|------|
+| `400` | Zod validation, or the job is archived |
+| `404` | The job is not this tenant's |
+
+### `PATCH /jobs/:id/expenses/:expenseId`
+
+**Auth:** `requireTenant`
+
+Every field of `POST` is optional. `vendor` is nullable so it can be cleared.
+
+Matched on `tenantId AND jobId AND expenseId` — never the expense id alone.
+
+| Status | When |
+|--------|------|
+| `404` | No such expense on that job for this tenant |
+
+### `DELETE /jobs/:id/expenses/:expenseId`
+
+**Auth:** `requireTenant`
+
+**Response** `200 OK` — `{ "data": { "id": "exp_001" } }`. Writes an
+`expense.deleted` job activity.
+
+### `PATCH /jobs/:id/labor`
+
+**Auth:** `requireTenant`
+
+Record the hours actually worked, and snapshot what they cost.
+
+Hours worked are not the hours billed. A job quoted at a 3-hour flat rate that
+took 5 reads as healthy margin if you only look at line items — which is the
+failure that makes a costing tool worse than none, because it tells you you are
+winning while you lose.
+
+**Request Body:**
+
+```json
+{ "actualHours": "3.50" }
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `actualHours` | string \| null | Yes | `^\d{1,4}(\.\d{1,2})?$`. **`null` clears the hours — and the stored rate with them**, so the job goes back to reporting labour as unknown rather than as configured-and-free |
+| `laborCostRate` | string \| null | No | Omit and the server resolves it from the **assignee's** `tenant_member_rates` row, then `tenants.defaultLaborCostRate`, then `null`. The cost of a job is the cost of whoever worked it, not of whoever typed the hours |
+
+The rate is **snapshotted onto the job**, not joined at read time, so giving
+somebody a raise does not retroactively rewrite last year's margins.
+
+**Response** `200 OK` — `{ "data": { "id", "actualHours", "laborCostRate" } }`.
+Writes a `labor.updated` job activity.
 
 ---
 

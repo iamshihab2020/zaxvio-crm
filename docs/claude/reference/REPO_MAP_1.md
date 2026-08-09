@@ -37,6 +37,25 @@ zaxvio-crm/
 |   +-- lessons.md            # Non-obvious insights and patterns
 |   +-- materials/
 |   |   +-- frontend_materials.md
+|   +-- workflow-automation-port/       # Audit of SiloCRM's workflow engine (reference impl.)
+|   |   +-- README.md · 00..11 · PRD.md · node-catalog.tsv
+|   +-- workflow-automation/            # THE PLAN for Zaxvio's automation feature
+|   |   +-- README.md                   # Index, the five load-bearing ideas, reading order
+|   |   +-- wf-00-decisions.md          # 27 settled decisions with reasoning
+|   |   +-- wf-01-gap-analysis.md       # SiloCRM guide vs this codebase; 5 findings in §8
+|   |   +-- wf-02-architecture.md       # Layers, packages, runtime paths, no-second-writer rule
+|   |   +-- wf-03-data-model.md         # 11 tables, every index, migration discipline
+|   |   +-- wf-04-node-catalog.md       # Node contract + all 62 node types
+|   |   +-- wf-05-execution-engine.md   # Traversal, context, pauses, goals, invariants
+|   |   +-- wf-06-triggers-and-events.md# Typed taxonomy, outbox, declarative filters
+|   |   +-- wf-07-variables.md          # One VariableDef[] generating picker + resolver + docs
+|   |   +-- wf-08-builder-frontend.md   # React Flow builder rules for this stack
+|   |   +-- wf-09-api-surface.md        # 26 endpoints, actions, query keys
+|   |   +-- wf-10-security.md           # Threat model with no RLS, no Redis, one instance
+|   |   +-- wf-11-testing.md            # The harness that does not exist yet
+|   |   +-- wf-12-phases.md             # 11 phases, P0..P10
+|   |   +-- wf-PRD.md                   # Product requirements, all [DECIDE]s resolved
+|   |   +-- wf-PROGRESS.md              # Living tracker — built vs verified
 |   +-- project_docs/
 |       +-- HVAC_SaaS_Phase1_PRD_v2.md                          # PRD (source of truth)
 |       +-- HVAC_SaaS_System_Diagrams_and_Unified_Auth.md       # Architecture diagrams
@@ -119,7 +138,12 @@ apps/api/
 |   |   |                         # countLinkedInvoices(), sendJobCompletionEmailFor() — the side
 |   |   |                         # effects single and bulk job endpoints must share
 |   |   +-- job-guards.ts         # loadEditableJob()/assertEditable() (archived-job guard, was on
-|   |   |                         # 4 of 14 mutating handlers) + findForeignRef()/ownsX() tenant checks
+|   |   |                         # 4 of 14 mutating handlers). Re-exports the ownsX() family from
+|   |   |                         # tenant-guards.ts, where it now lives
+|   |   +-- tenant-guards.ts      # ownsCustomer/Equipment/Booking/CatalogItem + findForeignRef() —
+|   |   |                         # "does this id belong to the caller's tenant?" for every FK that
+|   |   |                         # arrives in a request body. Lived in job-guards, so conversations,
+|   |   |                         # checklists and calendar-events each wrote one unchecked (2026-08-06)
 |   |   +-- upload-limits.ts      # UPLOAD_LIMITS + bodyLimitFor() so the number a handler enforces
 |   |   |                         # and the number Fastify enforces cannot drift; MIME allowlist
 |   |   +-- invoice-guards.ts     # loadEditableInvoice()/assertPayable()/assertDraft() + the FK
@@ -132,6 +156,12 @@ apps/api/
 |   |   +-- plan-prices.ts        # PLAN_PRICES map, getPlanPrice() for MRR calculations
 |   |   +-- platform-events.ts    # emitPlatformEvent() — fire-and-forget activity tracking
 |   |   +-- notifications.ts      # dispatchNotification() — multi-channel dispatch (in-app, email, SMS stub, voice stub)
+|   |   +-- email-consent.ts      # THE gate. canEmailCustomer() returns a DECISION — allowed, a
+|   |   |                         # readable reason, the address — not a boolean, because the reason
+|   |   |                         # is what a run log has to show. `purpose` is required, so the
+|   |   |                         # transactional exemption is a statement rather than an omission.
+|   |   |                         # Token is HMAC-derived under BETTER_AUTH_SECRET, never stored, and
+|   |   |                         # covers the tenant id so it cannot cross a boundary (DF-NOT-01)
 |   |   +-- storage.ts            # Cloudflare R2 (S3-compatible): uploadFile/downloadFile/deleteFiles/getPublicUrl
 |   |   +-- event-bus.ts          # In-process pub/sub backing the SSE stream (replaced Supabase Realtime)
 |   |   +-- search.ts             # escapeLike()/containsPattern() — LIKE metacharacters are operators,
@@ -144,6 +174,10 @@ apps/api/
 |   |   |   +-- calendar-events.ts # + colour enum, endTime-after-startTime refinement
 |   |   |   +-- availability.ts    # weekly schedule + overrides + slotCapacity
 |   |   |   +-- public-booking.ts  # The hardened public submit body
+|   |   |   +-- job-costing.ts     # Expense CRUD bodies, PATCH /jobs/:id/labor, member cost rates.
+|   |   |   |                      # Money and hours are strings matched against a regex, never
+|   |   |   |                      # z.number() — a float round-trip on the way to numeric(10,2) is
+|   |   |   |                      # how a cost ends up a cent off the sum it came from
 |   |   |   ~ ...one file per remaining domain
 |   |   +-- db/
 |   |   |   +-- tenant-scope.ts    # tenantFilter() helper for app-level tenant isolation
@@ -185,18 +219,45 @@ apps/api/
 |   |   |                         # the transitions and the PDF all live in services/invoices/
 |   |   +-- jobs/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, checklist, photos, activities
+|   |   |   +-- costing.ts        # 6 endpoints under the same /jobs prefix: GET /:id/costs (the derived
+|   |   |                         # margin), expenses CRUD, PATCH /:id/labor. A sibling plugin rather
+|   |   |                         # than more lines in index.ts, which is already 2,497 (ARC-05)
 |   |   +-- pipelines/
 |   |   |   +-- index.ts          # CRUD /pipelines (list, create, update, delete)
 |   |   +-- pipeline-stages/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /pipeline-stages + /reorder
 |   |   +-- public/
 |   |   |   +-- booking.ts        # Public booking portal API (no auth): branding, availability, slots, submit
+|   |   |   +-- unsubscribe.ts    # GET reads / POST acts / POST /one-click is RFC 8058. A GET that
+|   |   |                         # unsubscribed would unsubscribe every link scanner Gmail and
+|   |   |                         # Outlook run, so the split IS the design. Registers its own
+|   |   |                         # form-urlencoded parser — one-click clients post that content
+|   |   |                         # type and this server has no form-body plugin (DF-NOT-01)
 |   |   +-- quotes/
 |   |   |   +-- index.ts          # 13 endpoints: CRUD, line items, PDF, send, accept, convert-to-job
 |   |   +-- tags/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /tags (tenant-level reusable tags)
+|   |   +-- workflows/
+|   |   |   +-- index.ts          # The automation record: list · create · get (record + draft graph
+|   |   |   |                     # + isDirty) · patch · archive · POST /:id/active. Plus P3's
+|   |   |   |                     # POST /:id/runs (manual run, 10/min) and GET /quota, which
+|   |   |   |                     # surfaces usage BEFORE anything is refused.
+|   |   |   |                     # isActive is NOT a PATCH field — nothing published, no switch on
+|   |   |   +-- runs.ts           # Sibling plugin: GET /:id/runs, GET /:id/runs/:runId. The
+|   |   |   |                      # FIRST read paths node_execution_logs and workflow_executions
+|   |   |   |                      # have ever had — the engine wrote both from P3 and nothing
+|   |   |   |                      # outside a test could read either, so an automation could run
+|   |   |   |                      # with no way for its owner to know it had
+|   |   |   +-- graph.ts          # Sibling plugin, same /workflows prefix (the routes/jobs/
+|   |   |                         # costing.ts precedent — index.ts must not become the next
+|   |   |                         # 2,497-line file). PUT /:id/graph (whole-graph save, 409 on a
+|   |   |                         # concurrent edit, never a silent clobber) · POST /:id/publish
+|   |   |                         # (writes trigger_types — the column the matcher reads) ·
+|   |   |                         # GET /:id/validate · GET /:id/versions
 |   |   +-- tenants/
 |   |   |   +-- index.ts          # GET/PATCH /tenants/current, POST /tenants/initialize (+availability seeding)
+|   |   |   +-- member-rates.ts   # GET/PUT/DELETE /tenants/member-rates — per-person hourly cost.
+|   |   |                         # requireOrgRole(owner|admin) throughout: a rate is payroll data
 |   |   +-- calendar-events/
 |   |   |   +-- index.ts          # GET/POST/PATCH/DELETE /calendar-events
 |   |   +-- equipment/
@@ -210,7 +271,7 @@ apps/api/
 |   |   +-- events/
 |   |   |   +-- index.ts          # GET /events — SSE stream (text/event-stream), tenant-scoped; ?tenantId= admin-only
 |   |   +-- reports/
-|   |   |   +-- index.ts          # GET /reports/stats?section=&from=&to=&granularity= — one endpoint, 5 sections
+|   |   |   +-- index.ts          # GET /reports/stats?section=&from=&to=&granularity= — one endpoint, 6 sections
 |   |   +-- admin/                 # Super admin API routes (prefix: /admin)
 |   |   |   +-- index.ts          # Master plugin, registers sub-routes
 |   |   |   +-- tenants.ts        # 8 endpoints: list, detail, deactivate, activate, extend-trial, override-sub, edit, delete
@@ -240,17 +301,198 @@ apps/api/
 |   |   |   |                         # deletePayment() in one transaction with the row locked,
 |   |   |   |                         # copyJobLineItems(), findActiveInvoiceForJob()
 |   |   |   +-- pdf.service.ts        # loadPdfBundle/renderInvoicePdf/storeInvoicePdf +
-|   |   |                             # contentDisposition() (header injection, security-rules §6)
+|   |   |   |                         # contentDisposition() (header injection, security-rules §6)
+|   |   |   +-- invoice-events.service.ts # All 6 invoice.* workflow events. invoice.paid fires from
+|   |   |                             # recalculateInvoice(), the one place the DERIVED status is
+|   |   |                             # written, so it cannot announce an invoice that still owes
+|   |   |                             # money; emitInvoiceStatusEvents() is shared by /send, /void,
+|   |   |                             # PATCH /:id/status and the bulk path (the JOB-22 shape)
 |   |   +-- quotes/
 |   |   |   +-- quotes.service.ts     # recalculateQuoteTotals() — sums the STORED per-row total, so
-|   |   |                             # the subtotal equals the lines the customer sees, and round2()
-|   |   |                             # at each step like invoices; expiredCondition()/displayStatus()
-|   |   |                             # (derived in tenant tz — reads no longer UPDATE on GET),
-|   |   |                             # getQuoteStats() with the archived filter the cards lacked
+|   |   |   |                         # the subtotal equals the lines the customer sees, and round2()
+|   |   |   |                         # at each step like invoices; expiredCondition()/displayStatus()
+|   |   |   |                         # (derived in tenant tz — reads no longer UPDATE on GET),
+|   |   |   |                         # getQuoteStats() with the archived filter the cards lacked
+|   |   |   +-- quote-events.service.ts # All 5 quote.* events. quote.sent emits only after the token
+|   |   |                             # and PDF exist (QUO-01); accept/decline emit from INSIDE the
+|   |   |                             # public route's SELECT … FOR UPDATE, so a race emits once
 |   |   +-- job-stages.service.ts     # THE stage resolver: resolveStage/matchStage by id-or-name,
 |   |   |                             # canTransition() keyed on stage.lifecycle (not on status),
 |   |   |                             # stageUpdate() -> {stageId,status,completedAt}. One place a
 |   |   |                             # job changes column; makes custom stages reachable
+|   |   +-- jobs/
+|   |   |   +-- stage-events.service.ts # job.stage_changed + job.completed/cancelled, from ONE
+|   |   |   |                         # implementation called by both the single and the bulk status
+|   |   |   |                         # path. Two completed stages in a row is not a re-completion
+|   |   |   +-- job-events.service.ts # job.created/updated/assigned/scheduled. loadJobEventContext()
+|   |   |                             # reads job+customer+stage after the write, so the API, a quote
+|   |   |                             # conversion and a booking conversion emit identical payloads
+|   |   +-- customers/
+|   |   |   +-- customer-events.service.ts # All 4 customer.* events. A customer is created in four
+|   |   |                             # places and only one is in routes/customers — that is the
+|   |   |                             # whole argument for reading the row here instead
+|   |   +-- bookings/
+|   |   |   +-- booking-events.service.ts # All 5 booking.* events. The only subject that may have no
+|   |   |                             # customer row, so contact details come off the booking itself;
+|   |   |                             # emitBookingStatusEvents() is shared by PATCH, DELETE, bulk
+|   |   |                             # and convert, and filters no-op transitions
+|   |   +-- workflow/
+|   |   |   +-- engine/
+|   |   |   |   +-- execute.ts     # The run lifecycle. EVERY transition out of `running` is a
+|   |   |   |   |                  # compare-and-set, so a delay pause and a goal exit cannot both
+|   |   |   |   |                  # believe they own the row. One terminal branch per error class;
+|   |   |   |   |                  # a 23505 means "already enrolled", not a failure
+|   |   |   |   +-- traverser.ts   # BFS. OR joins by default, AND only into logic.merge — an
+|   |   |   |   |                  # if/else whose branches converge would NEVER fire under AND
+|   |   |   |   +-- node-executor.ts # disabled → at-most-once guard → ONE interpolation pass →
+|   |   |   |   |                  # ownership re-check → `running` log row → dispatch
+|   |   |   |   +-- context.ts     # loadExecutionContext/refreshAfterNode/serialise/restore. The
+|   |   |   |   |                  # customer resolves for EVERY subject type; nothing is a Date,
+|   |   |   |   |                  # because the context round-trips through jsonb on a delay
+|   |   |   |   +-- interpolate.ts # {{token}} resolution through a CLOSED map, so prototype access
+|   |   |   |   |                  # is unreachable by construction. Format by declaration, never
+|   |   |   |   |                  # by value shape. An unknown path is a diagnostic, not silence
+|   |   |   |   +-- errors.ts      # DelayPause · GoalWait · WorkflowStopped · SubjectGone ·
+|   |   |   |   |                  # WorkflowTimeout. Pauses are exceptions, not return values
+|   |   |   |   +-- ownership.ts   # Execution-time FK re-checks. An unknown kind returns FALSE, so
+|   |   |   |   |                  # a new ownership kind fails closed until someone writes it
+|   |   |   |   +-- quotas.ts      # 25 concurrent / 2,000 rolling-24h. `waiting` runs count
+|   |   |   |   +-- resume.ts      # Picking a paused run back up. Claims with a compare-and-set on
+|   |   |   |   |                  # `waiting`; loads the version BY ID, never "the active one", so
+|   |   |   |   |                  # publishing v2 mid-pause cannot drop a run into a graph whose
+|   |   |   |   |                  # next node is gone; restarts at the paused node's SUCCESSORS so
+|   |   |   |   |                  # a wait does not wait again. Re-reads the subject rather than
+|   |   |   |   |                  # trusting the snapshot — acting on 3-day-old data is worse than
+|   |   |   |   |                  # stopping. Shares execute.ts's handleTerminal, because a resumed
+|   |   |   |   |                  # run can reach a SECOND delay.wait
+|   |   |   |   +-- working-hours.ts # Pushes a resume out of the small hours. DEFERS, never drops:
+|   |   |   |   |                  # the reference impl. returns `blocked_quiet_hours` and the
+|   |   |   |   |                  # customer simply never hears from you. Reads the tenant's real
+|   |   |   |   |                  # availability — no quiet-hours columns, because a second
+|   |   |   |   |                  # definition of "when are we open" is the BOOK-10 defect. No
+|   |   |   |   |                  # schedule at all resumes normally; 14-day horizon then gives up
+|   |   |   |   +-- zoned-time.ts  # zonedParts/zonedDate/zonedToUtc/addCalendarDays. Days are
+|   |   |   |   |                  # CALENDAR days (9am stays 9am across a DST change) but hours are
+|   |   |   |   |                  # real hours. Separate from lib/timezone.ts, which formats for
+|   |   |   |   |                  # display and never converts a local time back to an instant
+|   |   |   |   +-- executors/     # One function per node. No HTTP, no table writes, no
+|   |   |   |                      # interpolation — params arrive already resolved
+|   |   |   +-- templates/
+|   |   |   |   +-- instantiate.ts    # Template -> workflow + nodes + edges, ONE transaction: a
+|   |   |   |                         # half-written graph is an automation the tenant did not ask
+|   |   |   |                         # for and looks like one they abandoned. Never publishes and
+|   |   |   |                         # never switches on. Runs parameters through buildNodeConfig
+|   |   |   |                         # so a templated node carries the same defaults as a dragged
+|   |   |   |                         # one — writing them straight through leaves nodes missing
+|   |   |   |                         # their own defaults, which surfaces much later
+|   |   |   +-- sweeps/
+|   |   |   |   +-- invoice-overdue.ts # The clock behind `invoice.overdue` — the ONE invoice event
+|   |   |   |                         # no write produces, since nothing happens to make an invoice
+|   |   |   |                         # overdue except time passing. Once per invoice per TENANT day
+|   |   |   |                         # via the producer dedupKey, so 24 hourly ticks raise one
+|   |   |   |                         # event. Fires DAILY while overdue, not once on transition:
+|   |   |   |                         # the node filters daysOverdue with `equals`, so a 1/7/14-day
+|   |   |   |                         # chase needs the count each day. Skips tenants with no
+|   |   |   |                         # subscribing active workflow (trigger_types &&), and is
+|   |   |   |                         # deliberately NOT coupled to E-07's reminder throttle — that
+|   |   |   |                         # column throttles email, so automations would die with it
+|   |   |   +-- workers/
+|   |   |   |   +-- resume.ts         # 60s tick. `resume_at IS NOT NULL` is load-bearing: a goal wait
+|   |   |   |   |                     # is also `waiting`, and only a matching event may end one.
+|   |   |   |   |                     # clock_timestamp() not now(), which is fixed for the txn
+|   |   |   |   +-- sweeps.ts         # Hourly. A third timer, not a branch in the resume worker:
+|   |   |   |   |                     # that one wakes runs already waiting, this decides whether a
+|   |   |   |   |                     # run should start, and a slow sweep must not delay a resume
+|   |   |   |   +-- retention.ts      # Daily prune (D-19). Its constants, its index and the
+|   |   |   |                         # ON DELETE restrict that makes its version check load-bearing
+|   |   |   |                         # all shipped on day one; the sweep never did, so 4 tables grew
+|   |   |   |                         # forever. ORDER MATTERS: executions first, versions last — a
+|   |   |   |                         # version cannot be deleted while a run references it, so
+|   |   |   |                         # pruning runs is what makes versions prunable. Terminal runs
+|   |   |   |                         # only: a `waiting` run at 90 days is a delay somebody set, and
+|   |   |   |                         # deleting it cancels their automation by side effect
+|   |   |   +-- runs/
+|   |   |   |   +-- runs.service.ts   # listRuns / getRunStats / getRun. Leads on error_hint and
+|   |   |   |                         # skip_reason, NOT error_message — the reader is the person
+|   |   |   |                         # who has to fix it. Stats counted in SQL over the whole
+|   |   |   |                         # history, because a tally from the current page would sit
+|   |   |   |                         # above a paginated list contradicting it. Nothing is
+|   |   |   |                         # re-derived: a second opinion about whether a run succeeded
+|   |   |   |                         # is the defect INV-01/02/03 spent a day removing
+|   |   |   +-- events/
+|   |   |       +-- emit.ts           # THE only producer of queue rows. Parses the payload before
+|   |   |       |                     # insert, asserts the subject against the registry, one row per
+|   |   |       |                     # subscriber, onConflictDoNothing for dedup, rethrows so the
+|   |   |       |                     # domain write rolls back with it
+|   |   |       +-- bus.ts            # In-process nudge so the worker wakes without waiting on the
+|   |   |       |                     # poll floor. Never throws, never awaited
+|   |   |       +-- worker.ts         # Claim (UPDATE … FOR UPDATE SKIP LOCKED, clock_timestamp() not
+|   |   |       |                     # now()), backoff, dead-letter, stale recovery, drain loop
+|   |   |       +-- producers/        # One producer per event, EVERY payload field written by name.
+|   |   |                             # No spreads — enforced by a test, because a spread row is how
+|   |   |                             # the reference system shipped pipeline_stage_id to a consumer
+|   |   |                             # reading stageId and lost every stage filter for months
+|   |   |   +-- graph/                # What the builder saves and publishes (P5)
+|   |   |       +-- load.ts           # The DRAFT graph (workflow_nodes + workflow_edges). The engine
+|   |   |       |                     # never reads these — it reads the published snapshot, which is
+|   |   |       |                     # what lets someone edit an automation a paused run is inside.
+|   |   |       |                     # loadActiveVersion reads active_version_id, NOT max(version):
+|   |   |       |                     # they differ the moment an older version is restored
+|   |   |       +-- persist.ts        # Whole-graph PUT: lock the row, compare expectedUpdatedAt,
+|   |   |       |                     # delete-then-insert, return the new token. The lock is what
+|   |   |       |                     # makes the check and the write one step — without it two
+|   |   |       |                     # saves both read the same token and both proceed, and what is
+|   |   |       |                     # lost is not a field but somebody's whole automation
+|   |   |       +-- publish.ts        # Snapshot -> version+1 -> active_version_id, one locked
+|   |   |       |                     # transaction. collectTriggerTypes() recomputes from the
+|   |   |       |                     # snapshot every time (a deleted trigger must stop matching on
+|   |   |       |                     # publish) and excludes DISABLED triggers, or the toggle lies.
+|   |   |       |                     # isDraftDirty compares behaviour, NOT layout — positions
+|   |   |       |                     # excluded, keys and row order normalised
+|   |   |       +-- builder-context.ts # Members, pipelines and stages in ONE request. Selecting a
+|   |   |       |                     # node would otherwise fire a server action per picker,
+|   |   |       |                     # sequentially, every time. Bounded lists only — anything that
+|   |   |       |                     # grows without limit is a searchable picker instead
+|   |   |       +-- preview.ts        # "Test this step" — RESOLVES the settings, does not run them.
+|   |   |       |                     # Half the catalogue is at-most-once, so a test that executed
+|   |   |       |                     # email.send would mail a real customer. What goes wrong with a
+|   |   |       |                     # step is its config, and that is visible with no side effects.
+|   |   |       |                     # Reuses the engine's resolveTimezone so a preview cannot
+|   |   |       |                     # format a date differently from the run it previews
+|   |   |       +-- restore.ts        # An earlier version back onto the DRAFT — never straight to
+|   |   |       |                     # live. Pointing active_version_id at the old snapshot would
+|   |   |       |                     # leave the builder showing one graph while the engine ran
+|   |   |       |                     # another, so the next Save would publish the breakage back.
+|   |   |       |                     # Node ids are KEPT, so a restored step keeps its run history.
+|   |   |       |                     # Goes through saveGraph, so it takes the same lock, token
+|   |   |       |                     # check and size cap as any other save
+|   |   |       +-- validate.ts       # ONLY the impure rule: does this config point at a row this
+|   |   |                             # tenant owns. Deduped by (kind,id), and it SKIPS kinds with no
+|   |   |                             # checker — assertOwnership fails closed, which is right for
+|   |   |                             # the engine and would tell an author "you do not own this
+|   |   |                             # customer" for 8 of 11 kinds here. Structural rules are in
+|   |   |                             # packages/workflow-nodes, because the browser runs them too
+|   |   +-- costing/
+|   |   |   +-- money.ts              # Integer-cent arithmetic. A margin is a DIFFERENCE of two sums,
+|   |   |   |                         # so float error there is doubled; marginPct() returns null on
+|   |   |   |                         # zero revenue, because a percentage of nothing is undefined
+|   |   |   +-- costing.service.ts    # summarise(): THE definition of a job's margin — which costs
+|   |   |   |                         # count, which revenue basis wins (invoiced, else the job total),
+|   |   |   |                         # and when the figure is too incomplete to state. Never stored
+|   |   |   +-- profitability.service.ts # The /reports profitability section. Rolls up in TS over
+|   |   |   |                         # per-job rows rather than SQL GROUP BY, so the report cannot
+|   |   |   |                         # form a second opinion about margin. Incomplete jobs are
+|   |   |   |                         # EXCLUDED from the money and counted, never summed with the
+|   |   |   |                         # missing half read as zero
+|   |   |   +-- rates.ts              # resolveLaborCostRate(): member override -> tenant default ->
+|   |   |   |                         # null. Never 0 — unknown labour must stay unknown, not free
+|   |   |   +-- schemas.ts            # Zod row shapes for the raw SQL (api-rules §4)
+|   |   |   +-- queries/
+|   |   |       +-- job-costs.ts      # COST_INPUT_COLUMNS/LATERALS, shared with profitability. Three
+|   |   |       |                     # correlated LATERALs, not joins: joining line items AND expenses
+|   |   |       |                     # to jobs multiplies the two sets and the wrong total looks fine
+|   |   |       +-- profitability.ts  # Completed jobs in the window (by completed_at in tenant tz)
+|   |   |                             # with their four grouping dimensions
 |   |   +-- conversations.service.ts
 |   |   +-- notifications.service.ts
 |   |   +-- analytics/
@@ -268,6 +510,10 @@ apps/api/
 |   |           +-- quotes-invoices.ts
 |   |           +-- bookings.ts
 |   |           +-- dashboard-only.ts
+|   +-- test/                     # Vitest. setup.ts loads the root .env WITHOUT lib/env.ts, which
+|   |                             # calls process.exit(1) and would kill the runner with no output.
+|   |                             # db.ts = withRollback()/withCleanup(); factories/ build a tenant
+|   |                             # (org + user + member), customer, pipeline, job
 |   +-- jobs/
 |   |   ~ .gitkeep                # Planned: background cron runners
 |   +-- scripts/
@@ -303,6 +549,8 @@ apps/api/
 | `/bookings` | requireTenant | CRUD, /stats, /:id/activities, convert-to-job, 4 bulk ops | + |
 | `/calendar-events` | requireTenant | CRUD for standalone calendar entries (occupy portal slots) | + |
 | `/public/booking/:slug` | None | Branding, availability, slots, submit, status. Rate-limited 60/5/10 per min | + |
+| `/public/unsubscribe/:token` | Token (HMAC) | GET who it is for · POST opt out · POST /one-click (RFC 8058). 30/10 per min | + |
+| `/workflows` | requireTenant | GET/POST /, GET/PATCH/DELETE /:id, POST /:id/active, POST /:id/runs (manual run, 10/min), POST /from-template (id only, never a graph), GET /quota; **graph.ts**: PUT /:id/graph (409 on concurrent edit), POST /:id/publish (422 + full validation), GET /:id/validate, GET /:id/builder-context, POST /:id/nodes/:nodeId/preview, GET /:id/versions, POST /:id/versions/:versionId/restore (409 on concurrent edit), **runs.ts**: GET /:id/runs (comma-separated status set + whole-history stats), GET /:id/runs/:runId (run + every step in execution order) | + |
 | `/equipment` | requireTenant | CRUD + refrigerant logs sub-resource + history | + |
 | `/maintenance-contracts` | requireTenant | CRUD + expiring contracts | + |
 | `/calendar-events` | requireTenant | CRUD | + |
@@ -352,6 +600,11 @@ apps/web/
     |   +-- reports.ts            # getReportStats -> ReportSectionResponse (union discriminated on `section`)
     |   +-- tags.ts
     |   +-- tenants.ts
+    |   +-- workflows.ts          # 12 automation actions, on `api-fetch` from line 1 (ADR-002).
+    |                             # Declares `WorkflowListItem` — the WIRE shape, not the Drizzle
+    |                             # row: `Workflow` types every timestamp as a Date and nothing
+    |                             # crossing a server action is a Date, because the boundary is
+    |                             # JSON. One honest declaration removes a cast from every consumer
     |
     +-- hooks/
     |   +-- use-view-preference.ts   # Persist Kanban/Table view toggle
@@ -366,6 +619,9 @@ apps/web/
     |       +-- index.ts                       # Barrel export for all query hooks
     |       +-- use-customers.ts               # Customer queries & mutations
     |       +-- use-jobs.ts                    # Job queries & mutations
+    |       +-- use-job-costing.ts             # Cost summary, expenses CRUD, hours. Every mutation
+    |       |                                  # invalidates the whole job-detail subtree — the margin
+    |       |                                  # is derived from line items, expenses AND hours
     |       +-- use-invoices.ts                # Invoice queries & mutations
     |       +-- use-quotes.ts                  # Quote queries & mutations
     |       +-- use-bookings.ts                # Booking queries & mutations
@@ -381,14 +637,34 @@ apps/web/
     |       +-- use-tenant.ts                  # Tenant settings query & mutation
     |       +-- use-tags.ts                    # Tag queries & mutations
     |       +-- use-conversations.ts           # Conversation queries & mutations
+    |       +-- use-workflows.ts               # Automation queries & mutations. Save is the one
+    |       |                                  # mutation with NO success toast — a builder saves
+    |       |                                  # constantly, and a toast per save trains the user to
+    |       |                                  # ignore toasts including the 409. Publish returns a
+    |       |                                  # THREE-state outcome: a refused publish is the
+    |       |                                  # product working, so its problems go to a dialog
     |       +-- use-admin.ts                   # Admin panel queries & mutations
     |
     +-- lib/
+    |   +-- workflow/
+    |   |   +-- store.ts            # The builder's Zustand store. NOTHING mutates React Flow state
+    |   |   |                       # directly — every change comes through an action here, which is
+    |   |   |                       # what makes undo/redo, shortcuts and insert-on-edge one code
+    |   |   |                       # path. Position during a drag is the one exception: React Flow
+    |   |   |                       # owns those frames and the store is written on drag STOP, or
+    |   |   |                       # history gets an entry per pixel. Parameter edits coalesce on
+    |   |   |                       # (nodeId, field) within 600ms, or Ctrl+Z is a character eraser
+    |   |   +-- build-node.ts       # The ONE node constructor. Palette, insert-on-edge, paste and
+    |   |   |                       # template install all route through it, so a node made one way
+    |   |   |                       # is byte-identical to a node made another
+    |   |   +-- icon-map.ts         # Curated icon name -> component. NEVER `import * as Icons` —
+    |   |                           # that OOMs the Next build during "Collecting page data", and a
+    |   |                           # hosted build is the worst place to find it
     |   +-- jobs-pipeline-preference.ts # Remembered Jobs pipeline; shared by the page and the sidebar
     |   +-- env.ts                   # Zod-validated web env (getClientEnv/getServerEnv/validateEnv), run at boot
     |   +-- storage-url.ts           # Build public R2 URLs for job attachments
     |   +-- auth-client.ts           # Better Auth React client (signIn, signUp, signOut, useSession)
-    |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR)
+    |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR) + getServerOrgRole()
     |   +-- event-stream.ts          # Shared SSE connection to /events (replaced Supabase Realtime); openTenantStream() for admins
     |   +-- format.ts                # formatCurrency(), formatMoney() (thousands separators — the
     |   |                            # invoice table and PDF each printed `$1234.50`), formatDateOnly()
@@ -404,6 +680,10 @@ apps/web/
     |   |                            # form never carries. /quotes had it inline, /customers/[id] had
     |   |                            # nothing and did not compile
     |   +-- url-filters.ts           # Allow-listed ?status= reader for list-page deep links
+    |   +-- safe-redirect.ts         # safeRedirectPath() — ?callbackUrl= went from the query string
+    |   |                            # into window.location.replace(). middleware only ever writes a
+    |   |                            # pathname, but /login is public and the value is read back raw.
+    |   |                            # Rejects absolute URLs and both host forms, `//x` and `/\x`
     |   +-- entity-links.ts          # jobLink()/bookingLink()/invoiceLink()/quoteLink() — the ONE
     |   |                            # place a detail deep-link param name is spelled. Emitting
     |   |                            # ?job= at a page reading ?jobId= has now been a bug 3 times
@@ -551,7 +831,14 @@ apps/web/
     |   |   |   +-- job-detail-activities.tsx
     |   |   |   +-- job-detail-checklist.tsx
     |   |   |   +-- job-detail-info.tsx
-    |   |   |   +-- job-detail-line-items.tsx
+    |   |   |   +-- job-detail-costs.tsx        # The Costs tab: margin headline, hours + snapshotted
+    |   |   |   |                                # rate, expenses CRUD. Says "provisional" and lists the
+    |   |   |   |                                # gaps rather than printing a number it can't back up
+    |   |   |   +-- job-cost-stack.tsx          # One bar: cost segments, a rule at what was billed, and
+    |   |   |   |                                # a HATCHED margin when the cost side is incomplete —
+    |   |   |   |                                # that remainder is profit *or* an unentered cost
+    |   |   |   +-- job-detail-line-items.tsx   # Cost sits under the price; "no cost" is stated, since
+    |   |   |   |                                # a blank cell reads as zero and zero reads as profit
     |   |   |   +-- job-detail-page-header.tsx
     |   |   |   +-- job-detail-photos.tsx
     |   |   |   +-- job-detail-sheet.tsx
@@ -637,6 +924,9 @@ apps/web/
     |   |   |   +-- customers-tab.tsx            # New-customer trend, active/inactive, repeat/one-time
     |   |   |   +-- quotes-invoices-tab.tsx      # Quote funnel, invoice status, aging, overdue trend
     |   |   |   +-- bookings-tab.tsx             # Volume, service type, day of week, conversion
+    |   |   |   +-- profitability-tab.tsx        # Margin by job / service type / customer / assignee.
+    |   |   |   |                                # Names the jobs left out and why; a "set up costing"
+    |   |   |   |                                # empty state rather than a confident 100% margin
     |   |   |   +-- report-chart-card.tsx        # Card + error boundary + optional sr-only data table
     |   |   |   +-- report-data-table.tsx        # Generic table; rowKey + optional rowHref drill-through
     |   |   |   +-- report-kpi-row.tsx           # KPI cards; "New" badge for a zero baseline
@@ -733,6 +1023,33 @@ apps/web/
         |   |   +-- page.tsx                         # KPI Dashboard
         |   |   +-- dashboard-page-client.tsx        # Client component
         |   |
+        |   +-- automations/
+        |   |   +-- page.tsx                         # Automations list. SSR payload seeded via
+        |   |   |                                    # `seeded()` on the first-render key only
+        |   |   +-- automations-page-client.tsx      # Has an isError branch — new pages do not join
+        |   |   |                                    # the 17 list pages that still lack one
+        |   |   +-- loading.tsx                      # Present from commit 1: without it the nav
+        |   |   |                                    # leaves the old page up and the old item lit
+        |   |   +-- [id]/
+        |   |       +-- page.tsx                     # The builder. Fetches the graph server-side so
+        |   |       |                                # the toolbar has the real name/state in the
+        |   |       |                                # first paint; the canvas is ssr:false below it
+        |   |       +-- automation-detail-page-client.tsx # Builder shell. Loads the graph into the
+        |   |       |                                # store ONCE per id — keyed on id, not on the
+        |   |       |                                # payload, or a background refetch would reset
+        |   |       |                                # the canvas and discard the user's work
+        |   |       +-- loading.tsx
+        |   |       +-- runs/
+        |   |           +-- page.tsx                 # Run history. Its OWN route, not a tab: a
+        |   |           |                            # failed run is the thing people send a link
+        |   |           |                            # to, and swapping the canvas for a table
+        |   |           |                            # underneath unsaved work invites the exact
+        |   |           |                            # accident the store's load guard prevents
+        |   |           +-- runs-page-client.tsx     # Filter AND open run both live in the URL.
+        |   |           |                            # Seeds the SSR payload onto the first-render
+        |   |           |                            # key only (JOB-05)
+        |   |           +-- loading.tsx
+        |   |
         |   +-- customers/
         |   |   +-- page.tsx                         # Customer list
         |   |   +-- customers-page-client.tsx
@@ -799,7 +1116,8 @@ apps/web/
         |   |   +-- schedule-page-client.tsx
         |   |
         |   +-- settings/
-        |       +-- layout.tsx                       # Settings shell with tab navigation
+        |       +-- layout.tsx                       # Settings shell — resolves the org role server-side, passes it to SettingsNav
+        |       +-- loading.tsx                      # Suspense boundary for the segment (6 of 12 pages await a server action)
         |       +-- page.tsx                         # Redirects to /settings/profile
         |       +-- profile/
         |       |   +-- page.tsx

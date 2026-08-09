@@ -59,3 +59,114 @@
   (`unitPrice ?? catalogItem.unitPrice`). Users read the prefill as fixed. `CatalogPriceHint` now
   prints the list price and the difference, so charging $50 against a $149 catalog item is visible
   rather than silent.
+
+## Notifications & the workflow-automation audit (2026-08-07)
+
+- **`sendNotificationAlertEmail` does not exist, and the code guards for it at runtime instead of
+  importing it.** `lib/notifications.ts:293` reads `if ("sendNotificationAlertEmail" in email) { … }
+  else { console.log(…) }`. It is exported from nowhere — `lib/email.ts` has 16 send functions and
+  `packages/email` has 15 templates, none generic. So the `default` branch of that switch, which is
+  **every notification type except `booking_received`**, logs to the server and returns. Meanwhile
+  step 9 writes a `notification_deliveries` row with `status: 'sent'` regardless, so the audit trail
+  says the email went out. The lesson is not "we forgot a template" — it is that a **runtime
+  capability check on your own module** turns a compile error into silent nothing. If the import
+  would have failed the build, this would have been caught the day it was written. Never
+  feature-detect code you own.
+- **A delivery log that records intent rather than outcome is worse than no log**, because it is the
+  thing you check when a customer says they never got the email.
+- **`pnpm test` runs a tool that is not installed.** The script has said `vitest run` since the repo
+  was set up; vitest is in no `package.json` and there are zero `*.test.ts` files. A script that
+  cannot run reads as coverage that does not exist. Either wire it up or delete it.
+- **Automation makes every missing guardrail load-bearing.** The product has no customer email
+  opt-out, no suppression list and no quiet hours — survivable only because every send today follows
+  a human clicking a button. The audit for [[workflow-automation/README|workflow automation]] surfaced
+  it: the moment a machine can send on a schedule, "a human decided to" stops being the control.
+  Look for guardrails that are really just low volume in disguise before automating a path.
+
+## Email consent and unsubscribe (2026-08-07)
+
+- **A `GET` must never unsubscribe anyone.** Gmail, Outlook and every corporate link scanner fetch
+  URLs in messages in the background, looking for malware. A one-URL unsubscribe that acts on `GET`
+  therefore opts out people who never clicked, and they do not find out for weeks. Split it: `GET`
+  reads and renders a confirmation, `POST` acts. RFC 8058 one-click is a third endpoint, and it is
+  a `POST` for exactly this reason.
+- **RFC 8058 clients post `application/x-www-form-urlencoded`, and this server has no form-body
+  parser.** Without `addContentTypeParser` on the one-click route, every mail provider gets `415`
+  and the Gmail unsubscribe control silently never works. Register it **inside** the route plugin —
+  Fastify encapsulates it there, so the rest of the API does not quietly start accepting form posts.
+- **`List-Unsubscribe` alone does not satisfy the bulk-sender rule.** Gmail and Yahoo require
+  `List-Unsubscribe-Post: List-Unsubscribe=One-Click` alongside it. One without the other is the
+  same as neither.
+- **Derive the unsubscribe token, don't store it.** HMAC of the id under a secret the app already
+  has means no column, no backfill, nothing extra in a table dump, and secret rotation invalidates
+  every outstanding link at once. Put the **tenant id inside the signature** so a token cannot be
+  replayed across a tenant boundary.
+- **A consent check should return a decision, not a boolean.** `{allowed, reason, email}` — the
+  caller needs the address anyway, and the *reason* is what goes into a run log or a delivery row.
+  A bare `false` forces every caller to invent an explanation, which is how "email failed" ends up
+  covering four unrelated situations.
+- **Make the exemption an argument, never an omission.** `purpose: "marketing" | "transactional"`
+  as a required parameter means the next person adding a send has to state which kind it is. If
+  transactional were the default, forgetting would be indistinguishable from deciding.
+- **Put the footer link on the shared email layout, not in each template.** E-15 had rolled its
+  own; fifteen templates each remembering is how this codebase ended up with four phone formatters
+  and three definitions of "overdue".
+- **A skipped send must not stamp its "already sent" marker.** E-09 sets `renewalReminderSentAt`
+  after sending. Setting it when consent refused the send would record a send that never happened
+  and suppress the real one if the customer resubscribes inside the contract's 30-day window.
+
+## Workflow automation — observability
+
+- **A table with one writer and no reader is a feature that does not exist.**
+  `node_execution_logs` was designed carefully — status, resolved parameters,
+  skip reason, duration, a plain-language error hint, a context snapshot on
+  failure — and written on every node from P3 onwards. Nothing outside a test
+  ever read a row of it, and neither did anything read `workflow_executions`.
+  Six commits of engine and builder landed on top of that before an audit
+  noticed. **Grep for a read path when you finish a write path**, in the same
+  session: the schema being good is exactly what makes this easy to miss, because
+  reviewing the code shows care everywhere and reveals nothing about reachability.
+- **The audit that found it was mechanical, not clever.** Listing every exported
+  hook and server action against its caller count, and every table against the
+  files that touch it, took two commands. That same sweep also found three hooks
+  with zero callers (`useWorkflowQuota`, `useWorkflowVersions`,
+  `useWorkflowValidation`) — the recurring shape here, after `useInvoice` and six
+  quote hooks. Run it *before* deciding what to build next, not after.
+- **Lead a failure page with `error_hint`, never `error_message`.** The person
+  opening a run is the person who has to fix the automation, and workflow
+  failures are the largest support load a feature like this generates. A stack
+  trace moves that load onto you; a sentence removes it. Keep the technical text
+  one disclosure away so an escalation still has something to paste.
+- **`waiting` is not a shade of success or of failure.** A durable pause is the
+  headline feature of the engine — a run can sit waiting for three days, entirely
+  healthy. Colouring it green claims it finished; colouring it amber claims
+  something is wrong. It needs its own word and its own colour, and so does
+  `cancelled`: a `logic.stop` set to "Stopped early" is the automation working,
+  which is why the failure notification deliberately skips it.
+- **Count stats in SQL, not from the page you fetched.** A tally derived from the
+  current twenty rows describes the current twenty rows, and renders directly
+  above a paginated list contradicting it. Same shape as REP-02 and DASH-07: two
+  numbers on one screen that cannot both be right.
+- **Poll only while there is something to watch.** A run list refetches every 10s
+  while any run is `running` or `waiting`, and stops otherwise — finished runs do
+  not change until somebody starts another. A permanent interval on an idle tab
+  is a cost with no reader; no interval at all means a durable pause that resumes
+  in the background never appears to.
+- **The blank canvas is the adoption risk, not the missing node.** Sixteen node
+  types and an empty grid is a project, not a feature, for a solo contractor. The
+  gallery is now what "New automation" opens and the blank canvas is one click
+  further — the opposite of how a builder usually presents itself, and the right
+  way round for this audience. Judge a builder by whether somebody gets a working
+  automation before they get bored, not by how much it can express.
+- **A template must be assertable, so keep "unfinished" and "unconfigured"
+  apart.** `needsSetup` is a required field the tenant must fill, and a test
+  checks it against the graph's actual missing fields. `dependsOn` is a tenant
+  *setting* like the Google review URL — on no step, publishes fine without it,
+  and quietly sends a button that goes nowhere. Writing the review template's
+  gap as `needsSetup` made the assertion unwritable; splitting them made both
+  honest. The design flaw surfaced because the test was written alongside the
+  data rather than after it.
+- **Template nodes must go through `buildNodeConfig`, not straight into the
+  row.** Otherwise a templated node carries only the parameters the template
+  mentioned and none of its definition's own defaults — which surfaces much
+  later as a required field that was never empty on screen.

@@ -43,6 +43,11 @@ import {
   bulkQuoteStatusBody,
 } from "../../lib/schemas/quotes.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
+import {
+  emitQuoteCreatedEvent,
+  emitQuoteResponseEvent,
+  emitQuoteSentEvent,
+} from "../../services/quotes/quote-events.service.js";
 import { containsPattern } from "../../lib/search.js";
 import { resolveLineItemDescription } from "../../lib/line-items.js";
 import {
@@ -411,6 +416,15 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           description: `Quote ${quote.quoteNumber} created`,
           performedBy: request.authUser.userId,
           metadata: { lineItemCount: body.lineItems?.length ?? 0 },
+        });
+
+        // After `recalculateQuoteTotals`, so the payload carries real money
+        // rather than the zeroes the row was inserted with — a workflow gating
+        // on "quotes over $5,000" would otherwise never match anything.
+        await emitQuoteCreatedEvent(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          quoteId: quote.id,
         });
 
         // Re-read so the response carries the recalculated totals rather than
@@ -904,28 +918,46 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // Generate access token for public quote acceptance
       const accessToken = crypto.randomUUID();
 
-      // Update quote
-      await db
-        .update(quotes)
-        .set({
-          pdfStoragePath: storagePath,
-          status: "sent",
-          accessToken,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)));
+      // Update quote. In a transaction with its activity row and its event —
+      // and, critically, *after* the PDF upload and the token above, so
+      // `quote.sent` can never announce a quote the portal cannot open (QUO-01).
+      const updated = await db.transaction(async (tx) => {
+        await tx
+          .update(quotes)
+          .set({
+            pdfStoragePath: storagePath,
+            status: "sent",
+            accessToken,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)));
 
-      const [updated] = await db
-        .select()
-        .from(quotes)
-        .where(eq(quotes.id, id));
+        await logQuoteActivity(tx, {
+          tenantId,
+          quoteId: id,
+          type: "quote.sent",
+          description: "Quote sent",
+          performedBy: request.authUser.userId,
+        });
 
-      await logQuoteActivity(db, {
-        tenantId,
-        quoteId: id,
-        type: "quote.sent",
-        description: "Quote sent",
-        performedBy: request.authUser.userId,
+        await emitQuoteSentEvent(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          quoteId: id,
+          // The same condition that decides whether the email carries a portal
+          // link. QUO-04 found this setting enforced in exactly one place —
+          // building that link — so a workflow must be told whether responding
+          // is actually possible rather than assuming it from `status: sent`.
+          onlineAcceptanceEnabled: tenant?.quoteOnlineAcceptanceEnabled !== false,
+        });
+
+        // Tenant-scoped, unlike the read this replaces — it matched on the
+        // quote id alone ([[security-rules]] §1).
+        const [row] = await tx
+          .select()
+          .from(quotes)
+          .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)));
+        return row;
       });
 
       // E-13: Send quote email with PDF attachment (fire-and-forget)
@@ -1096,21 +1128,41 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .send({ message: transitionRefusal(q.status, "accepted") });
       }
 
-      const [updated] = await db
-        .update(quotes)
-        .set({
-          status: "accepted",
-          updatedAt: new Date(),
-        })
-        .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
-        .returning();
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(quotes)
+          .set({
+            status: "accepted",
+            updatedAt: new Date(),
+          })
+          .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
+          .returning();
 
-      await logQuoteActivity(db, {
-        tenantId,
-        quoteId: id,
-        type: "quote.accepted",
-        description: "Quote accepted",
-        performedBy: request.authUser.userId,
+        await logQuoteActivity(tx, {
+          tenantId,
+          quoteId: id,
+          type: "quote.accepted",
+          description: "Quote accepted",
+          performedBy: request.authUser.userId,
+        });
+
+        // The same event the public portal emits from inside its claim. One
+        // shape whether a customer clicked Accept or staff marked it accepted
+        // on the phone — the workflow does not care which, and should not have
+        // to know two payloads to find out.
+        await emitQuoteResponseEvent(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          quoteId: id,
+          response: "accepted",
+          // Staff acceptance carries no customer-requested slot; the portal is
+          // the only surface that collects one.
+          requestedDate: null,
+          requestedTime: null,
+          convertedToJobId: row?.convertedToJobId ?? null,
+        });
+
+        return row;
       });
 
       dispatchNotification({
@@ -1152,21 +1204,36 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .send({ message: transitionRefusal(q.status, "declined") });
       }
 
-      const [updated] = await db
-        .update(quotes)
-        .set({
-          status: "declined",
-          updatedAt: new Date(),
-        })
-        .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
-        .returning();
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(quotes)
+          .set({
+            status: "declined",
+            updatedAt: new Date(),
+          })
+          .where(and(eq(quotes.id, id), eq(quotes.tenantId, tenantId)))
+          .returning();
 
-      await logQuoteActivity(db, {
-        tenantId,
-        quoteId: id,
-        type: "quote.declined",
-        description: "Quote declined",
-        performedBy: request.authUser.userId,
+        await logQuoteActivity(tx, {
+          tenantId,
+          quoteId: id,
+          type: "quote.declined",
+          description: "Quote declined",
+          performedBy: request.authUser.userId,
+        });
+
+        await emitQuoteResponseEvent(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          quoteId: id,
+          response: "declined",
+          // Staff decline has no reason field on this endpoint. The portal's
+          // does, and both feed the same payload key, so a "why did we lose
+          // this" report reads one place.
+          reason: row?.declineReason ?? null,
+        });
+
+        return row;
       });
 
       dispatchNotification({

@@ -12,18 +12,8 @@
  * at the top of a handler, one import, no way to half-apply it.
  */
 
-import {
-  getDb,
-  jobs,
-  customers,
-  equipment,
-  bookings,
-  catalogItems,
-  and,
-  eq,
-} from "@hvac-saas/database";
-
-type Db = Omit<ReturnType<typeof getDb>, "$client">;
+import { jobs, and, eq } from "@hvac-saas/database";
+import type { Db } from "./tenant-guards.js";
 
 export interface GuardedJob {
   id: string;
@@ -94,56 +84,19 @@ export function assertEditable(
  *
  * Four FKs were written straight from the request body with no check —
  * `bookingId`, `equipmentId`, `catalogItemId` and a document's `customerId`.
- * Not a read leak, since every later query filters by its own `tenantId`, but a
- * row pointing at another tenant's record could be *written*, which is an
- * integrity hole and a support ticket nobody can explain. `POST /line-items`
- * was the clearest: `if (catalogItem)` fell through when the item belonged to
- * someone else and stored the id anyway.
+ * `POST /line-items` was the clearest: `if (catalogItem)` fell through when the
+ * item belonged to someone else and stored the id anyway.
+ *
+ * These now live in `tenant-guards.ts` and are re-exported here so the existing
+ * `job-guards` imports keep working. They were never job-specific, and keeping
+ * them in this file is why conversations, checklists and calendar events each
+ * wrote a client-supplied FK with no check at all — importing "job guards" into
+ * the calendar reads like a mistake, so nobody did.
  */
-async function owns(
-  db: Db,
-  tenantId: string,
-  id: string,
-  table: typeof customers | typeof equipment | typeof bookings | typeof catalogItems,
-): Promise<boolean> {
-  const [row] = await db
-    .select({ id: table.id })
-    .from(table)
-    .where(and(eq(table.tenantId, tenantId), eq(table.id, id)));
-  return Boolean(row);
-}
-
-export const ownsCustomer = (db: Db, tenantId: string, id: string) =>
-  owns(db, tenantId, id, customers);
-export const ownsEquipment = (db: Db, tenantId: string, id: string) =>
-  owns(db, tenantId, id, equipment);
-export const ownsBooking = (db: Db, tenantId: string, id: string) =>
-  owns(db, tenantId, id, bookings);
-export const ownsCatalogItem = (db: Db, tenantId: string, id: string) =>
-  owns(db, tenantId, id, catalogItems);
-
-/**
- * Validate every optional FK on a request in one pass. Returns the first
- * offending field name, or null when all supplied ids belong to the tenant.
- */
-export async function findForeignRef(
-  db: Db,
-  tenantId: string,
-  refs: {
-    customerId?: string | null;
-    equipmentId?: string | null;
-    bookingId?: string | null;
-    catalogItemId?: string | null;
-  },
-): Promise<string | null> {
-  const checks: [string, Promise<boolean>][] = [];
-  if (refs.customerId) checks.push(["Customer", ownsCustomer(db, tenantId, refs.customerId)]);
-  if (refs.equipmentId) checks.push(["Asset", ownsEquipment(db, tenantId, refs.equipmentId)]);
-  if (refs.bookingId) checks.push(["Booking", ownsBooking(db, tenantId, refs.bookingId)]);
-  if (refs.catalogItemId)
-    checks.push(["Catalog item", ownsCatalogItem(db, tenantId, refs.catalogItemId)]);
-
-  const results = await Promise.all(checks.map(([, p]) => p));
-  const bad = results.findIndex((ok) => !ok);
-  return bad === -1 ? null : checks[bad][0];
-}
+export {
+  ownsCustomer,
+  ownsEquipment,
+  ownsBooking,
+  ownsCatalogItem,
+  findForeignRef,
+} from "./tenant-guards.js";

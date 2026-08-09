@@ -8,6 +8,560 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Workflow Automation — P0–P4 written, P2–P4 UNVERIFIED (paused 2026-08-08)
+
+> **▶ Resuming? Read the `⏸ START HERE` block at the top of [[wf-PROGRESS]] first.** It has the
+> four things to do in order; **step 1 is now done**. The short version: **nothing is committed**
+> (77 files on `security/close-native-admin-surface`), **all four migrations are applied and
+> verified** (2026-08-08 — the `42703` exposure on `customers` / `customer_notes` is closed), and
+> **three phases of code have never been compiled or executed**. Next up: `pnpm typecheck`, then
+> `pnpm test`, then walk P3's "done when" list. Do not build P5 on top of that without deciding
+> deliberately to.
+
+An n8n-style automation builder native to Zaxvio's data model. Full plan in
+[[workflow-automation/README|docs/workflow-automation/]] — 16 documents: decisions, gap analysis,
+architecture, data model, node catalog, engine, triggers, variables, builder, API, security,
+testing, an 11-phase plan and a living progress tracker ([[wf-PROGRESS]]).
+
+Ported from [[workflow-automation-port/README|the SiloCRM audit]], but the code transfers not at
+all: different ORM, timestamps, tenancy model, infrastructure and domain. Seven corrected designs
+(typed events, declarative filters, one variable declaration, versioning, interpolate-once, stable
+handles, per-subscriber outbox) each close a documented defect in the source system.
+
+**Blocking findings from the audit** (all in [[wf-01-gap-analysis|§8]]; write-ups now live in
+[[deferred-fixes/notifications|deferred-fixes/notifications.md]]):
+- [x] 🔴 `lib/notifications.ts:293` called `sendNotificationAlertEmail`, exported from nowhere. Every
+      notification type except `booking_received` fell through to `console.log` while
+      `notification_deliveries` recorded `status: 'sent'`. **Fixed in P0** — E-15 template written,
+      direct destructured import, delivery rows now record the real outcome (DF-NOT-03, DF-NOT-05).
+- [x] 🔴 `sendEmail()` reported success for refused sends — Resend returns rejections in
+      `result.error`, it does not throw, so the 403 from this account's unverified domain read as a
+      send. **Fixed in P0**, three-state `EmailOutcome` (DF-NOT-04). Found while fixing the above.
+- [x] 🔴 **No customer email opt-out exists anywhere.** **Fixed in P3 step 1** — all six points of
+      [[deferred-fixes/notifications|DF-NOT-01]]. `email_opt_out_at` + `email_opt_out_source`
+      (migration written, **not applied**), a token derived by HMAC under the existing
+      `BETTER_AUTH_SECRET` so no new env var, `GET`/`POST`/`one-click` public routes, one
+      `canEmailCustomer()` gate returning a *decision* with a readable reason, `purpose` as a
+      required argument so the transactional exemption cannot be an omission, `List-Unsubscribe`
+      + `-Post` headers, the footer link on the **shared layout** rather than per template, and
+      both crons swept. Surfaced as a badge on the customer header and an Unsubscribed tab on
+      `/customers`.
+- [ ] 🟠 **No email has ever been delivered** — zero verified Resend domains, so all 15 templates
+      and both crons are unexercised, E-15 included ([[deferred-fixes/notifications|DF-NOT-02]]).
+      Not a code defect; the reason it stayed invisible was, and that is fixed.
+- [x] 🔴 `pnpm test` ran `vitest run` with vitest in no package.json and 0 test files.
+      **Fixed in P0** — vitest in 3 workspaces, unit + integration configs, 53 tests passing.
+
+- [x] **P0** Foundations: vitest harness, `packages/workflow-nodes`, E-15 email — 35/35 tests
+- [x] **P1** Schema + idempotent migration (7 tables, 4 enums, versioning from day one) — 18/18
+- [~] **P2** Typed event taxonomy + transactional outbox + **all 28 producer sites** — **72/72 on
+      the pipeline, verified against Neon**; the instrumentation sweep that followed is written and
+      **unrun**. 36 payload schemas, `workflow_event_queue` (migration applied, idempotent ×4),
+      emit/bus/worker, 28 producers, worker in `server.ts`.
+      All four phase criteria proven by execution: rolled-back write leaves no row; two workers
+      split 20 rows with zero double-processing; a failing subscriber does not retry the other;
+      every producer output parses.
+      Instrumentation: six event services (jobs ×2, customers, bookings, quotes, invoices) plus two
+      single-writer sites (equipment, `createMessage`). Ten handlers gained a transaction they did
+      not have — an event that commits apart from its domain write is an automation permanently
+      un-fired. Found on the way: `recalculateJobTotals` typed its `db` as the bare handle, so it
+      could not be called inside a transaction (the QUO-02 defect again); four reads matched a
+      record id with no tenant predicate; the tag-delete could not tell a real removal from a
+      no-op. Full table in [[wf-PROGRESS]].
+- [~] **P3** Engine core + 7 nodes + opt-out gate + quotas — **written end to end, entirely unrun.**
+      DF-NOT-01 closed (gate, derived HMAC token, 3 public routes, headers, both crons swept, UI).
+      Five prerequisites the plan had not spotted, all fixed: nullable `customer_notes.created_by`
+      + `created_by_workflow_id`; a `workflow_alert` notification type; an awaitable
+      `deliverNotification()` that takes the caller's transaction; and `formatPhoneDisplay` moved
+      into `packages/workflow-nodes` with the first timezone-abbreviation formatters this repo has
+      had. Then ~90 declared variables, six engine modules plus ownership/quotas/executors, seven
+      nodes, and `POST /workflows/:id/runs`.
+      **Nothing compiled, nothing executed.** Migrations are no longer a blocker — see below.
+- [x] **Migrations applied** (2026-08-08). `20260807000003_customer_email_opt_out.sql` and
+      `20260808000001_workflow_authorship.sql` applied to Neon; `20260807000002_workflow_event_queue`
+      turned out to be **already applied**, so it was two files, not the three recorded here.
+      The `42703` exposure is closed: reads of `customers` and writes to `customer_notes` work.
+      **Verified 17/17** — idempotent ×4 with the object set byte-identical after each pass and
+      NOTICE-only re-runs; 10/10 structural (both indexes PARTIAL, exactly one FK, `notification_type`
+      at 11 values not 14, 0 columns and 0 indexes lost, row counts unchanged); 7/7 behavioural and
+      rolled back (a note with `created_by = NULL` inserts — which `customer.addNote` could not do
+      at all before; a bogus workflow id is refused `23503`; deleting the workflow **SET NULLs the
+      note instead of cascading it away**).
+      No `psql` on this machine and `db:migrate` skips hand-written files, so these were applied via
+      `postgres.js` `sql.unsafe(file).simple()`. See [[backend-stack]].
+- [~] **P4** Declarative trigger matching + enrollment dedup — **written, unrun.** 22 operators in
+      one closed set; `isUnset` is the load-bearing function (the builder persists every property,
+      so an unconfigured filter is present-but-empty, and `0`/`false` are values); an unanswerable
+      comparison returns **false**, never true. The enrolment refresh branch **calls the loader**
+      rather than rebuilding the context shape by hand — B-12 is ~180 lines of the alternative.
+      Worker wired at the composition root, so `worker.ts` still knows nothing about the engine.
+      Trigger evaluation *records* deliberately deferred to P8, which is where the page that reads
+      them lands; the return value is the seam.
+- [~] **P5** Builder MVP — **commit 1 of 4 (the API backbone) written, unrun.** Server first,
+      because the builder has nothing to save into until it exists and because this is the commit
+      that unblocks the rest: `trigger_types` is written by the **publish** path, so until now no
+      automation could be reachable by the trigger matcher at all. An automation can now be built
+      end to end over HTTP with no UI — create → save graph → publish → activate → run.
+      One shared validator (`packages/workflow-nodes/src/graph/validate.ts`, pure — no DB, no
+      Drizzle, so the browser can import it) with 17 issue codes, plus the one rule that cannot be
+      pure (tenant ownership) in `services/workflow/graph/`. 10 endpoints across two sibling
+      plugins, so `routes/workflows/index.ts` does not become the next 2,497-line file.
+      Three defects found on the way: `getMissingRequiredFields` ignored `displayOptions`, so a
+      hidden required field would have blocked Publish forever on a control appearing nowhere on
+      screen; `assertOwnership` fails closed, which is right for the engine and wrong for the
+      validator, where 8 of 11 kinds have no checker and would have reported "you do not own this
+      customer" on every automation with a customer picker; and `GraphIssue` was declared in two
+      packages with `code` typed as a closed union in one and a bare `string` in the other.
+      **Commit 2 (data layer + list page) also written, unrun.** Taken before the canvas because it
+      needs **no new dependencies** — the three consecutive `main` build failures all traced to a
+      lockfile changed without being regenerated, so the commit that adds `@xyflow/react` and
+      `zustand` should do nothing else. 12 actions on `api-fetch`, `use-workflows.ts`, query keys,
+      the `/automations` list (with an `isError` branch, so a new page does not join the 17 that
+      lack one), a `loading.tsx` from the start, an **Automate** sidebar group, and a placeholder
+      detail route so create → redirect does not 404.
+      The find worth keeping: **`Workflow` is the wrong type for anything crossing a server
+      action.** Drizzle types every timestamp as a `Date`; the boundary is JSON, so they arrive as
+      strings. New `WorkflowListItem` declares the wire shape once and removed a cast from every
+      consumer — including an `as unknown as` that would have broken strict-rules §4.
+      **Commit 3 (canvas + store) also written, unrun.** `@xyflow/react` 12.11.2 and `zustand`
+      5.0.14 installed, lockfile regenerated. `lib/workflow/{store,build-node,icon-map}.ts` plus
+      `components/dashboard/automations/builder/` — canvas, node, edge, palette sheet, toolbar. The
+      detail route is now the real builder. Insert-on-edge, `+` on unconnected outputs,
+      relink-on-delete, undo/redo including parameter changes, branch labels, join badge, and
+      publish errors that select their node.
+      React Flow is a **view over the store**, with one exception: drag position is local and
+      committed on drag *stop*, because a history entry per frame makes Ctrl+Z undo the animation
+      rather than the move. `deleteKeyCode` is off so deletion goes through the store and gets its
+      relink — which then means the canvas must handle edge deletion too, or connections become
+      undeletable. The store loads keyed on **workflow id, not payload**: a background refetch
+      would otherwise reset the canvas and silently discard the user's work.
+      **Commit 4 (config panel) also written, unrun.** `GET /:id/builder-context` (members,
+      pipelines, stages in one request), a field wrapper, all 11 P5 field types plus the four CRM
+      pickers the shipped definitions already reference, the definition→form renderer honouring
+      `displayOptions`, and the panel itself. **The loop now closes**: a step can be configured, so
+      publish stops refusing. Plus a motion pass — one vocabulary in `globals.css`, all of it off
+      under `prefers-reduced-motion`.
+      Rebuilt the canvas against SiloCRM's node components after a screenshot showed it was wrong:
+      **flow is now left→right**, a trigger is a 92px rounded-left square and an action a wide card,
+      and the tinted icon tile came back. Two real bugs it exposed: every node printed its name
+      twice (`label` defaults to `displayName`), and picking twice from the palette produced
+      **disconnected nodes** — the open panel cleared `pendingSource`, so only the first pick wired
+      up. Picks now chain off the previous step.
+      **Commit 5 (step preview + node breadth) also written, unrun.** "Test this step" **resolves
+      the settings, it does not run them** — half the catalogue is `at-most-once`, so a test that
+      executed `email.send` would mail a real customer, and what actually goes wrong with a step is
+      its config. `POST /:id/nodes/:nodeId/preview` returns resolved values plus the interpolator's
+      diagnostics with "did you mean" suggestions. Plus `GET /:id/builder-context` (members,
+      pipelines, stages in one request), a variable picker on every text field (trigger-scoped, via
+      the same `subjectsProvidedBy` the validator uses), and a resizable config panel whose width
+      persists.
+      **7 nodes → 11**: `trigger.invoice.overdue`, `trigger.quote.accepted`,
+      `trigger.booking.created`, `trigger.customer.created`. Cheap because the event taxonomy
+      already carries all 30 payloads. Caught mid-build: the `customer.created` source filter was
+      written against a **guessed** enum (`booking_portal` vs the schema's `booking`) — a filter
+      whose options miss the payload's enum matches nothing, silently, which is the exact failure
+      the declarative design exists to prevent.
+      **F-5 done. F-6/F-7 deliberately not built**: every node has one output, so the branch
+      selector and branch-delete prompt have nothing to disambiguate until P6's `condition.if`.
+      Remaining: multi-select, the template gallery, variable pills, run viewer.
+- [~] **P6** Control flow, durable delays, goals — **written, unrun.** `condition.if`, then
+      `delay.wait` + `engine/resume.ts` + a 60s resume worker: a pause is a database row, so a
+      three-day wait outlives every process that could hold a timer. A run resumes on the version
+      it **started** on, claimed by compare-and-set, restarting at the paused node's *successors*
+      so a wait does not wait again.
+      Then working hours, which is where the port's design was a **cautionary example** rather
+      than an inspiration: its quiet-hours guard *blocks* the send (`blocked_quiet_hours`), so the
+      customer never hears from you — and it is hardcoded 9pm–8am and opt-in per node, so out of
+      the box it sends at 3am. This **defers** instead, and reuses the tenant's existing
+      availability rather than the planned `tenants.quiet_hours_*` columns: a second definition of
+      "when are we open" is exactly the BOOK-10 defect. Days are calendar days (9am stays 9am
+      across a DST change); hours are real hours.
+      Found on the way: `availability.service.ts` typed its `DbClient` as the bare handle, so it
+      could not be called inside a transaction — third recurrence, after `job-stages.service.ts`
+      and `recalculateJobTotals`; a waiting node log recorded nothing about what it was waiting
+      for (the execution row's `resume_at` is overwritten by the next wait in the same run); and
+      the builder described every wait as "for a length of time", its mode switch.
+      Then `logic.merge` — the **only** AND join, and until it existed the traverser's
+      readiness bookkeeping was unreachable code. OR stays the default, because an if/else whose
+      branches converge would never fire under AND. Its failure mode is silence: a merge after an
+      Only if waits forever for the branch that did not run, so `merge_never_completes` is an
+      error, not a warning.
+      Then the `invoice.overdue` **sweep** — a second audit finding, worse than the first:
+      `trigger.invoice.overdue` had shipped *active* in P5 with a definition, payload schema,
+      executor and palette entry, and **nothing anywhere raised the event**. Build the automation,
+      publish it, switch it on, and it never fires — silently, forever. All four ship-gate
+      assertions passed, because none of them checks that a *trigger* node's declared events have
+      a producer; that is now a fifth. Hourly sweep, once per invoice per **tenant** day via the
+      `dedupKey` `emit()` has always supported and nothing had used. Fires daily while overdue
+      rather than once on transition, because the node filters `daysOverdue` with `equals` and a
+      1/7/14-day chase needs the count each day. Deliberately not coupled to E-07's reminder
+      throttle — that column throttles email, so automations would die with it.
+      Remaining: `logic.switch`, `split.branch`, `logic.goto`, `logic.loop`,
+      `goal.event` + `workflow_goal_listeners`. **Every P6 acceptance criterion is a runtime
+      proof** — a pause surviving a deploy, version pinning across a publish, the DST boundary,
+      the goal/delay race — and none has been run. **Internal alpha gate.**
+- [ ] **P7** CRM pickers, node breadth, and `services/jobs/` extraction ([[architecture|ARC-05]])
+- [~] **P8** Observability, replay, run-from-node — **run history written, unrun.** Pulled forward
+      out of order because an audit found the thing the plan had not: `node_execution_logs` had a
+      writer on every node since P3 and **no reader anywhere outside a test**, and neither did
+      `workflow_executions`. An automation could be built, published, switched on and run with no
+      way for its owner to know it had done anything — and six commits landed on that before
+      anyone looked. Two endpoints, a service, a route at `/automations/[id]/runs` with the filter
+      and the open run in the URL, and a step timeline that leads on `error_hint`/`skip_reason`
+      rather than `error_message`, because the reader is the person who has to fix it.
+      `waiting` and `cancelled` each get their own treatment — a three-day pause is not a failure
+      and "stop chasing this paid invoice" is the automation working.
+      The audit was mechanical (hooks vs caller counts, tables vs touching files) and also found
+      three hooks with **0 callers**: `useWorkflowQuota`, `useWorkflowVersions`,
+      `useWorkflowValidation`. Two remain unconsumed.
+      Remaining: replay, run-from-node, and a global activity view.
+- [~] **Retention sweep** (2026-08-09) — **written, unrun.** Audit angle: data lifecycle. There was
+      none, and four tables grew forever. Everything it needed had shipped on day one — `RETENTION`
+      in `limits.ts`, `idx_node_logs_started` commented "the retention sweep", and the
+      `ON DELETE restrict` documented as existing *so that* the sweep's version check would be
+      enforced. Only the worker was missing, which made all of that a to-do list in a design's
+      clothes; and the `invoice.overdue` sweep had just started adding ~15k queue rows a year for
+      a tenant with twenty unpaid invoices. Order follows the FKs (executions before versions, or
+      it deletes nothing forever); terminal runs only (a `waiting` run at 90 days is a delay
+      somebody set); `NOT EXISTS` not `NOT IN`; the live version protected separately from "most
+      recent N", which commit 15's restore made necessary. The runs page now states the 90-day
+      window, so absence does not read as "it never fired".
+- [~] **Email purpose on `email.send`** (2026-08-09) — **written, unrun.** Audit angle: the consent
+      gate, checked because templates had just made a three-email sequence one click. `email.send`
+      **hardcoded `purpose: "marketing"`** for every automation email — true of a review request,
+      false of an overdue invoice, and `email-consent.ts` says so itself. That module's rule is
+      that the exemption is *an argument you pass, never an omission*; a node with no way to pass
+      it made it one global decision, which is what the rule exists to prevent. The symptom was
+      silent: `chase-overdue-invoices` skipped **every customer who had ever unsubscribed** — for
+      money they owed — and the run log said "this customer unsubscribed", which reads as correct.
+      Now a required field defaulting to `marketing`, shown only for customer sends, with copy
+      carrying the legal distinction rather than reading as a bypass. Executor falls back to
+      `marketing` on anything but the exact string, so a junk value cannot gain an exemption.
+      Two chatbot entries claimed unsubscribing stops "anything an automation sends" — corrected.
+- [~] **The trigger matcher could never match** (2026-08-09) — **fixed, unrun. The largest defect
+      in the feature.** `trigger_types` is written by publish from `def.triggerEvents` (**event
+      names**, `job.completed`); the matcher queried it with `LISTENERS_BY_EVENT`, which yields
+      **node ids** (`trigger.job.completed`). Empty overlap for every trigger, so
+      `findCandidateVersions` returned nothing for every event ever dispatched — the whole event
+      taxonomy, 28 producers, the outbox, P4 matching, the overdue sweep and all five templates
+      were **dead for anything but a manual run**. Nothing caught it because both sides were
+      internally consistent, both are `string[]` (a denormalised column has no type across its
+      seam), the parameter was named `nodeTypes` so the call site read as correct, and
+      `POST /:id/runs` bypasses the matcher entirely — every by-hand test exercised the one path
+      that avoids the bug. Kept publish's vocabulary (nothing stored changes), renamed the
+      parameter `eventTypes`, and added three tests that would all have failed before.
+- [~] **Templates** (P10, pulled forward) — **5 shipped, written and unrun.** The audit found
+      nothing this round (the failure-notification path is wired), so the gap stopped being
+      capability and started being that a solo contractor opens a blank canvas with 16 node types
+      and closes the tab. **New automation** now opens a gallery; blank canvas is one click
+      further. Only possible now: overdue fires, waits respect working hours, run history proves
+      it worked. Templates are declarations with local keys (never uuids) and derived positions;
+      `GRAPH_LAYOUT` moved to the shared package so the builder and templates cannot drift. The
+      endpoint takes an **id, never a graph** — the browser has the same catalogue, which is
+      precisely why it must not send nodes. Created off and unpublished like everything else.
+      The test caught a design flaw pre-ship: `needsSetup` conflated "a required field is empty"
+      (assertable) with "a tenant setting is unset" (not) — now `needsSetup` + `dependsOn`.
+- [~] **Review pass** (2026-08-09) — read the last five commits as a reviewer rather than an
+      author. **Two would not have compiled**: `RunStatusBadge` typed its lookup off
+      `typeof RUN_STYLES` while both maps were `as const`, so `skipped` matched no literal in the
+      run union; `runs.service.ts` cast a Zod-validated value back into the type it already had.
+      **One grew without bound**: the overdue sweep had no horizon, so an invoice written off two
+      years ago raised an event every day forever, matching no trigger — capped at 180 days, plus
+      `::int` on the parameter because `date - integer` and `date - date` are both real operators.
+      **And a fourth found by following the thread**: `execute()` refuses an over-quota run before
+      writing anything, and the route surfaces that to whoever pressed Run — but an event-triggered
+      run has no route and no watcher, and the refusal precedes any execution row. It appeared in
+      no run history, no notification, no toast. Same class as the last two audits, one layer in.
+      Now raises a `workflow_alert` throttled per limit-kind per day, and `QuotaNotice` spends
+      `useWorkflowQuota` (silent below 80%).
+- [~] **Version restore** (2026-08-09) — **written, unrun.** The last of the three orphan hooks.
+      `GET /:id/versions` and `useWorkflowVersions` had existed since P5 with no consumer, because
+      a list of versions with no way to use one is a museum. Restore writes the **draft**, never
+      `active_version_id`: pointing that at the old snapshot would leave the builder showing one
+      graph while the engine ran another, so the next Save would publish the breakage back — and
+      it would put a version live with nobody looking at it. Node ids are kept, so a restored step
+      keeps its run history. Goes through `saveGraph` for the same lock, token and size cap.
+      Found while wiring it: the builder's load-once-per-id guard — which stops a background
+      refetch discarding the user's work — **also swallowed the restore**. Fixed with a callback
+      fired only on the actual write; clearing the marker on every close would have reinstated the
+      bug the guard exists to prevent.
+- [x] **A SQL comment closed its own template** (2026-08-09) — **found by running it.**
+      `pnpm dev` died at boot: esbuild could not parse `sweeps/invoice-overdue.ts`, so the API
+      had not started since the overdue sweep landed. Seven `--` comments quoted identifiers in
+      backticks — the house style used in every JSDoc block two lines above — and inside
+      `` sql`…` `` a backtick is the end of the string, not punctuation. The reported error
+      (`Expected ")" but found "partially_paid"`) points at the first word after the break, not
+      the cause. Swept the class with a scanner over every `` sql`…` `` in `apps/api/src`: one
+      file, seven comments, nothing else. **First execution of any of this code.**
+- [~] **Wait until a date on the record** (2026-08-09) — **written, unrun.** The appointment
+      reminder — the automation every service business asks for first — could not be built.
+      `delay.wait` had two modes and neither reaches it: a relative wait counts from when the
+      *booking was made*, which is anywhere from ten minutes to three months out, and a typed
+      date is the same day for every customer. Same hole under "chase before the quote expires",
+      "warn before the warranty ends", "raise the job before the contract visit is due" — every
+      one a date this system already carries and could not wait for.
+      New `untilField` mode + a `dateVariable` property type. **It stores a variable path, not a
+      `{{token}}`**, because interpolation renders variables *for people*: `{{booking.date}}`
+      resolves to "Aug 12, 2026", and reading a date back out of a localised display string is
+      the exact "guess the format from the value's shape" mistake `interpolate.ts` refuses to
+      make. A bare path passes through untouched and the executor resolves it raw.
+      Every anchor is flattened to a **calendar day** plus a chosen hour, even one arriving as a
+      full timestamp — one rule with no branches, and it matches how the wait is described out
+      loud ("the morning before") rather than landing at 03:47 because that is when the row was
+      written. `ifPassed` is a field, not a rule: a booking taken for tomorrow makes "the day
+      before" already gone, and carrying on would email "we are visiting tomorrow" to someone
+      expecting an engineer in two hours. Defaults to stopping; the run log says why.
+      The validator gained `unknown_variable` — a path can be well-formed, save, publish, and
+      resolve to nothing because the trigger never provided that subject. Three checks: the path
+      exists (with "did you mean"), it is a date rather than a time-of-day, and the trigger above
+      it actually provides it. Plus the sweep that found the one real gap: `node-summary.ts`
+      would have printed `booking.date` raw on the canvas card, and unlike a member or stage id
+      that one resolves without the builder context.
+      Sixth template — **Remind customers before their appointment** — which is the proof the
+      whole path works and the thing a contractor actually installs.
+      Found while wiring it: `working-hours.ts` had a private `shiftDate` about to become the
+      second copy; it is now `shiftCalendarDate` in `zoned-time.ts`.
+- [~] **Every Stop step ignored its only setting** (2026-08-09) — **fixed, unrun.** Found by
+      sweeping the definition↔executor seam while wiring the reminder template's No branch.
+      `logic.stop` declares its field as `outcome`; the executor read `params.stopType`, the name
+      the `WorkflowStopped` **signal** uses. `params` is `Record<string, unknown>`, so it compiled,
+      returned `undefined` forever, and the executor's own `?? "completed"` fallback absorbed it —
+      a fallback whose comment rationalises it as a corrupt-config guard, which is what made it
+      invisible. So every Stop ended the run as **completed**, including one explicitly set to
+      "Failed": no failure notification has ever fired from a Stop step. Fixed in the executor,
+      not the definition — the field name is what is persisted, so renaming the declaration would
+      orphan the value in every saved automation. New test parses `name:` out of all 16
+      definitions and `params.X` out of all 16 executors and diffs them; it found exactly this one.
+- [~] **The reminder template could send for a cancelled booking** (2026-08-09) — **fixed, unrun.**
+      Caught reviewing the template shipped an hour earlier. A Wait's resume time is fixed when the
+      run *reaches* it, so a booking cancelled or moved to next month during the pause still wakes
+      the run — and `restoreContext` re-reads the record, so the email would have said "we are
+      visiting tomorrow" above a date three weeks out. Now an Only-if between the wait and the
+      send: status not in cancelled/completed, **and** `booking.date` within the next 2 days (two,
+      not one — a date carries no time of day, so one leaves no room for the tenant's UTC offset).
+      The No branch ends in a Stop marked "Stopped early", which is both honest in the run history
+      and required: a two-output node with a dead side will not publish.
+- [~] **Review pass on the wait work** (2026-08-09) — read the last two commits as a reviewer.
+      **One would not have compiled**: the `dateVariable` rule was added to the validator's
+      *second* per-node loop, which binds `def` but not `parameters` — that only exists in the
+      first loop. **One had the wrong error class**: the >1-year horizon threw `NodeFailure`,
+      which emails the tenant a failure notification, for input that is ordinary data (a warranty
+      ten years out, a service agreement booked for next spring) — and the same file's docblock
+      advertises the annual-maintenance case that would have tripped it. Now a `cancelled` stop
+      with the reason in run history, matching the rule the engine already follows: config
+      problems fail loudly, expected outcomes do not cry wolf.
+      **And one found by following the thread, bigger than either**: `condition.if` rules store
+      bare variable paths with the identical failure mode, and **nothing has validated them since
+      P6**. `ResolveVariable` returns `{found: false}` for a typo, the evaluator correctly sends an
+      unanswerable comparison down **No**, and so `booking.stauts` publishes, runs, and silently
+      takes the No branch forever — no throw, no log, a completed run. The rule is now one shared
+      `checkVariablePath` covering both field types rather than the same check written twice.
+      Also: the new test's edge literals used `source`/`target` where the validator's shape is
+      `sourceNodeId`/`targetNodeId`, so it would not have compiled either; and it walked a
+      hardcoded node list, now `NODE_DEFINITIONS`.
+- [~] **Trigger breadth: 7 → 12** (2026-08-09) — **written, unrun.** Audit angle: the same
+      declared-with-no-consumer sweep, pointed at the event taxonomy. **22 events had a producer
+      emitting them on every relevant write and zero trigger nodes listening** — the largest such
+      gap left in the feature. Added the five a solo contractor actually reaches for:
+      `job.created`, `job.stage_changed`, `job.assigned`, `quote.sent`, `booking.cancelled`.
+      `job.stage_changed` is the one a CRM exists to have — "when a job reaches In Progress, tell
+      the customer" — and it filters on **lifecycle, not stage name or id**, so renaming a column
+      cannot silently stop it. It also offers the bulk opt-out the payload was carrying `bulk` for
+      all along, defaulted to *include* per the schema author's stated intent.
+      `quote.sent` is the bigger revenue unlock: `quote.accepted` was the only quote trigger, and
+      by definition it never fires for the quotes that need chasing. Seventh template —
+      **Chase a quote nobody answered** — three days, only if `status` is still exactly `sent`
+      (a lapsed quote wants a fresh price, not a nudge about one that is off the table).
+      Two guesses caught by checking rather than assuming, which is now the third time:
+      `jobPrioritySchema` is `standard|urgent|emergency`, so a filter offering "Low"/"High" would
+      have matched nothing silently; and `serviceTypeSelect` is a declared property type with **no
+      case in the config renderer**, so it draws "this kind of field isn't available yet" — used
+      `multiOptions` over the closed enum instead. Two more found in the executors: `JobContext`
+      has no `assigneeId` at all (the id is on `ctx.assignee`) and its lifecycle field is
+      `stageLifecycle`.
+- [x] **`pnpm typecheck` green across all 7 packages** (2026-08-09) — the first clean compile since
+      this feature started, ~26 commits and ~60 files in. Four rounds, each failing for a different
+      reason and none of them caught by five read-through review passes: a **backtick inside a SQL
+      comment** closing its own template literal (the API had not booted since the overdue sweep
+      landed); `displayOptions.show` breaking because TypeScript normalises one union across a
+      `properties` array, so sibling fields with different keys get `key?: undefined`; **ten
+      knowledge-base answers holding real newlines** instead of `\n`, producing ~900 errors from one
+      literal (nine of the ten predate this feature); `unsubscribeUrl` required by the E-12/E-09
+      props and never passed by the crons — **a real compliance defect**, since those two
+      non-transactional emails rendered with no unsubscribe link while the List-Unsubscribe header
+      still went out; and finally a never-imported `previewWorkflowNode` plus `WorkflowRunsParams`
+      declared as an `interface`, which gets no implicit index signature.
+      Every one was invisible to reading because the **content** was correct in each case. Each now
+      has a scanner or a lesson. **Compiling is not working** — nothing here has been executed, and
+      `pnpm test` is the next gate.
+- [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
+- [ ] **P10** Hardening, 10 templates, GA housekeeping
+
+### Job Costing & Profitability (2026-08-07)
+The CRM tracked what a job **charged** and nothing about what it **cost**, so it could not answer
+"am I making money on this work". `jobs` had zero cost columns; `catalog_items` had a price and no
+cost. Built end to end: capture on the job, a Costs tab, and a Profitability section on `/reports`.
+
+**The rule the whole feature rests on:** an unknown cost makes a total *incomplete*, not lower.
+A line item with no cost adds 0, which is arithmetically identical to costing nothing — and that is
+exactly the danger, because zero cost reads as pure profit. So `CostCoverage` travels with every
+money figure, and incomplete jobs are **excluded** from report aggregates rather than averaged in.
+
+#### Schema + migration
+- [x] `20260806000001_job_costing.sql`, idempotent throughout (`DO $$` guard on the enum, an
+      `information_schema` guard on the generated column). New: `job_expenses`,
+      `tenant_member_rates`, `expense_category` enum, `jobs.actual_hours`, `jobs.labor_cost_rate`,
+      `job_line_items.unit_cost` + generated `cost_total`, `catalog_items.unit_cost`,
+      `tenants.default_labor_cost_rate`, 3 supporting indexes.
+- [x] **Every cost column is nullable with no zero default.** A `DEFAULT 0` would have made the
+      whole feature quietly wrong on day one.
+- [x] `jobs.labor_cost_rate` is **snapshotted**, not joined — a raise must not rewrite last year's
+      margins. Same reasoning as `unit_price`, which line items have always copied.
+
+#### API
+- [x] `services/costing/` — `money.ts` (integer cents; a margin is a *difference* of two sums, so
+      float error is doubled), `costing.service.ts` (`summarise()` — THE definition of a job's
+      margin), `rates.ts` (member override → tenant default → **null**, never 0),
+      `profitability.service.ts`, `queries/job-costs.ts`, `queries/profitability.ts`.
+- [x] Three correlated `LEFT JOIN LATERAL`s, not joins. Joining line items **and** expenses to jobs
+      multiplies the two sets — 4 items × 3 expenses counts each item 3× — and the wrong number
+      looks entirely plausible.
+- [x] `routes/jobs/costing.ts` (6 endpoints) and `routes/tenants/member-rates.ts` (3) as **sibling
+      plugins** under the existing prefixes; `routes/jobs/index.ts` is 2,497 lines and is ARC-05's
+      target. Every mutating handler runs `loadEditableJob` first; member rates are
+      `requireOrgRole(["owner","admin"])` throughout, because a rate is payroll data.
+- [x] `?section=profitability` on `/reports/stats`. Rolls up in TypeScript over per-job rows rather
+      than a SQL `GROUP BY`, so the report cannot form a second opinion about margin that disagrees
+      with the job's own Costs tab. Row set bounded at 2,000 and `totals.truncated` says when it bit.
+- [x] Caught before shipping: `z.coerce.boolean()` on a raw-SQL row is `Boolean(value)`, so `"false"`
+      → **true**. Same defect as `?showArchived=false` returning archived-only rows. Replaced with
+      two integer counts.
+
+#### Frontend
+- [x] **Costs tab** on both the job sheet and the job detail page. Margin headline, the cost stack,
+      hours + the snapshotted rate, expenses CRUD. Mounted only while selected — the summary is
+      derived on every read.
+- [x] `job-cost-stack.tsx` — one bar, scaled to `max(revenue, cost)` with a rule at what was billed,
+      so an overrun has length instead of a minus sign. **The margin segment is hatched, not filled,
+      when the cost side is incomplete**: that remainder is profit *or* an unentered cost, and a
+      solid green bar over a half-costed job is the most misleading thing this feature could draw.
+- [x] Line items and the catalog table print **"no cost"** rather than leaving the cell blank — a
+      blank cell reads as zero and zero reads as profit.
+- [x] **Profitability tab** on `/reports`: margin by job (thinnest first), service type, customer,
+      assignee. Names how many jobs were left out and why. A "set up costing" empty state instead of
+      a confident 100% margin for a tenant who has entered nothing.
+- [x] Catalog **Your cost** field, Settings → Business **labour cost rate**, Settings → Team
+      **Cost Rates** (all members listed, not just those with an override — "who is still on the
+      default" is the question a list of exceptions cannot answer).
+- [x] Housekeeping: REPO_MAP 1 + 2, API docs (10 new endpoints + `unitCost`/`defaultLaborCostRate`
+      on 3 existing bodies), 6 chatbot knowledge-base entries, lessons (backend-stack, frontend-nextjs).
+
+- [ ] **Not verified.** No typecheck/lint/build run this session — the user runs those.
+- [x] **Migration applied** (2026-08-07). Found by the workflow audit: it had never been run, and
+      because Drizzle names every schema column in an `INSERT`, *every* write to `tenants`, `jobs`,
+      `job_line_items` and `catalog_items` was failing `42703` against Neon — onboarding, job
+      creation, line items and the catalog were all broken on live, not just costing. Applied and
+      re-run 4×; columns and indexes byte-identical after each.
+- [ ] Follow-up: nothing prompts for hours at completion. The natural place is the completion gate
+      in `PATCH /jobs/:id/status`, prefilled from `scheduled_start`/`scheduled_end` where both are set.
+- [ ] Follow-up: quotes have no cost side, so there is no way to see margin *before* committing to
+      a price. `quote_line_items` would need the same `unit_cost` + generated `cost_total` pair.
+
+### Settings Sidebar Render Delay (2026-08-06)
+Reported as "the sidebar takes time to render on reload or when I change settings page".
+Two unrelated defects producing one symptom; the sidebar was innocent in the second.
+- [x] **Reload — the nav shipped incomplete.** `settings-nav.tsx` gated Business and Billing on
+      `useOrgRole()`, a bare `useEffect` fetch. `orgRole` is `null` for the whole server render
+      and the whole first paint, so those two items were *always* absent from the HTML and
+      arrived one browser → Vercel → Render → Neon round trip later, shoving Documents / Jobs /
+      Scheduling down. The hook returned `isLoading`; the nav destructured it as `roleLoading`
+      and never used it, so nothing even held the space. New `getServerOrgRole()` in
+      `lib/auth-server.ts` resolves it in the settings layout and passes it as a prop — the
+      nav is now complete in the server HTML and does nothing on mount.
+      Uses `/organization/get-active-member-role` (returns `{ role }`) rather than
+      `get-active-member` (the whole membership row); the role was all either caller wanted.
+      `hooks/use-org-role.ts` deleted — one importer, now zero.
+- [x] **Navigation — no Suspense boundary under `/settings`.** 6 of 12 settings pages are async
+      server components awaiting a server action, and settings was the **only** route under
+      `(dashboard)` with no `loading.tsx` (13 others have one). Next.js will not commit the
+      transition until the RSC payload lands, so clicking a link left the old page up with the
+      old item highlighted — `usePathname()` had not changed. The nav never unmounted and never
+      re-rendered; the destination was blocking it. Added `settings/loading.tsx`.
+- [ ] **Not verified.** No typecheck/build/browser run this session — the user runs those.
+      Worth a look on `/settings/business` reload (Business + Billing should be in the initial
+      paint, no shift) and on a click from Business → Pipelines (highlight should move instantly).
+- [ ] Pre-existing, untouched: the nav links to `/settings/billing` and no `billing/page.tsx`
+      exists, so that item 404s for owners.
+
+### Security Audit Remediation (2026-08-06)
+Whole-codebase security review (auth, public surface, tenant isolation, injection, storage,
+web layer). 7 candidates, each put through an independent adversarial verification pass:
+**2 confirmed HIGH, 1 confirmed LOW, 4 refuted.** The 4 refuted were all real code defects
+whose exploit required guessing a UUID the app never discloses — fixed anyway, because the
+invariant is one feature away from mattering.
+
+#### Phase 1 — the two HIGH findings (one root cause)
+- [x] **`/api/auth/admin/*` closed at the proxy** (`apps/api/src/server.ts:159`). The app models
+      three admin tiers in `user.adminTier`, but `routes/admin/admins.ts:88` sets
+      `role: "admin"` **unconditionally for every tier** — and `role` is the only thing
+      better-auth's admin plugin checks. The catch-all forwards `/api/auth/*` to
+      `auth.handler` with no preHandler, so `support`/`billing_admin` could call
+      `set-role`, `create-user` and `impersonate-user` directly: mint a platform admin
+      without the `super_admin` gate or the owner check, or take a full session as any
+      tenant user — no reason, no `tenants.isActive` check, no `admin_audit_log` row.
+      Plugin stays registered (it owns the `role`/`banned` columns); only its HTTP surface
+      closes. Verified zero callers: `adminClient()` is registered but never used. The
+      denylist folds case **and** percent-encoding before comparing — `/API/AUTH/ADMIN/…`
+      and `/api/auth/%61dmin/…` are both refused, since a guard that normalizes less than
+      the router it guards is decorative. Dot segments were already resolved by `new URL`.
+- [ ] **Regression test — now unblocked, still unwritten.** The harness landed 2026-08-07 with
+      workflow P0 (vitest in 3 workspaces, `withRollback` against real Neon). The denylist test
+      that could not be written then can be written now: assert `/api/auth/admin/*` is refused in
+      all four normalisation forms (plain, uppercase, percent-encoded, dot-segment).
+
+#### Phase 2 — the LOW finding
+- [x] **Open redirect on login** (`login/page.tsx:78`). `callbackUrl` went from the query
+      string straight into `window.location.replace()`. `middleware.ts:82` only ever writes
+      a pathname, but nothing enforced that on read. New `lib/safe-redirect.ts` — rejects
+      absolute URLs and both protocol-relative forms (`//host` and `/\host`; browsers
+      normalise the backslash while parsing the authority, so checking only `//` misses it).
+
+#### Phase 3 — the refuted-but-real ownership gaps
+Same defect in all three: a client-supplied FK written with no tenant check, plus read joins
+with no tenant predicate. `jobs`/`invoices`/`quotes` all guard this; these never got it.
+- [x] **`lib/tenant-guards.ts`** — canonical home for the `owns*` family, moved out of
+      `job-guards.ts` (which re-exports, so `routes/jobs` is untouched). The filename was
+      the bug: importing "job guards" into the calendar reads like a mistake, so nobody did,
+      and invoices/quotes wrote their own copies instead.
+- [x] **Conversations** — `ownsCustomer` on `POST /conversations`, plus a tenant predicate
+      on all three `customers` joins (`service:95,150`, `routes:147`) and the bare
+      `where(eq(customers.id, …))` at `service:188`. Worst of the three: the join chose who
+      `POST /:id/messages` emails, so an unchecked id leaked name/email/phone **and** sent
+      attacker-authored mail to another tenant's customer.
+- [x] **Checklists** — `ownsCatalogItem` on both item writers, plus the two
+      `leftJoin(catalogItems)` sites (`checklists:124`, `jobs:460`).
+- [x] **Calendar events** — `ownsCustomer` on `POST` and `PATCH`. No read path joins this
+      column today, so it was integrity rather than disclosure; the first page that renders
+      a customer name beside an event is what would have converted it.
+
+#### Phase 4 — housekeeping
+- [x] REPO_MAP (both new modules), API docs (3 endpoints gained a 400/404; `POST
+      /conversations` was undocumented entirely), lessons (`auth-flow`, `tenant-security`).
+- [ ] **Not run: `pnpm typecheck`.** No verification command was executed in this session —
+      the user runs those. Nothing here is confirmed compiling.
+- [ ] Follow-up: `invoice-guards.ts:181` and `quote-guards.ts:193` still carry their own
+      `ownsCustomer` copies — fold into `tenant-guards.ts`.
+- [ ] Follow-up: conversations API docs describe `GET /conversations/:id` (embedded
+      messages) and `POST /:id/send`; the code has `GET|POST /:id/messages`. Pre-existing
+      drift, flagged inline in the doc, not reconciled here.
+
+**Audited clean** (recorded so it isn't re-litigated): 49 `db.execute` sites all
+parameterized, zero `sql.raw` repo-wide, sort/granularity identifiers resolve through closed
+enums; public quote tokens are `randomUUID()` with accept/decline serialized under
+`SELECT … FOR UPDATE`; no webhook handler exists yet (**review signature verification the day
+Lemon Squeezy lands**); storage keys server-derived; SSE tenant-scoped; 3
+`dangerouslySetInnerHTML` sites all render server-owned data.
+
 ### Landing Page De-Slop (2026-08-02) — UNCOMMITTED, awaiting review
 Mode: Redesign-Overhaul, brand-preserved. Dials 5/3/5 → 7/5/5. 15 files in
 `components/landing/`, nothing outside it. **Not committed at the user's instruction.**

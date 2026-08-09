@@ -15,6 +15,7 @@ export * from "./equipment";
 export * from "./maintenance";
 export * from "./bookings";
 export * from "./jobs";
+export * from "./costing";
 export * from "./invoices";
 export * from "./quotes";
 export * from "./schedule";
@@ -30,6 +31,10 @@ export * from "./tags";
 export * from "./calendar-events";
 export * from "./notifications";
 export * from "./conversations";
+export * from "./workflows";
+export * from "./workflow-graph";
+export * from "./workflow-runs";
+export * from "./workflow-events";
 
 // Relations
 export * from "./relations";

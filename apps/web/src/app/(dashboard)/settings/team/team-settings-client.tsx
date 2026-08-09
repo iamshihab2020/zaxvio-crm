@@ -9,6 +9,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { TeamMemberList } from "@/components/dashboard/settings/team-member-list";
 import { TeamPendingInvitations } from "@/components/dashboard/settings/team-pending-invitations";
 import { TeamInviteDialog } from "@/components/dashboard/settings/team-invite-dialog";
+import { MemberCostRates } from "@/components/dashboard/settings/member-cost-rates";
 
 interface MemberData {
   id: string;
@@ -122,6 +123,10 @@ export function TeamSettingsClient() {
             Invite Member
           </Button>
         )}
+
+        {/* Cost rates. Owner/admin only — the API refuses a member, and the
+            section renders nothing rather than an error when it does. */}
+        {canManage && <MemberCostRates />}
 
         {/* Invite dialog */}
         <TeamInviteDialog

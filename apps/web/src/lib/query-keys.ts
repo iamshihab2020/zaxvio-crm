@@ -50,6 +50,11 @@ export const queryKeys = {
       ["jobs", "detail", jobId, "documents"] as const,
     activities: (jobId: string, params?: Record<string, unknown>) =>
       ["jobs", "detail", jobId, "activities", params ?? {}] as const,
+    // Nested under the job's detail key so editing a line item, an expense or
+    // the recorded hours all invalidate the same subtree — the cost summary is
+    // derived from every one of them and must never survive a change to any.
+    costs: (jobId: string) => ["jobs", "detail", jobId, "costs"] as const,
+    expenses: (jobId: string) => ["jobs", "detail", jobId, "expenses"] as const,
   },
 
   // ── Pipelines ──────────────────────────────────────────────
@@ -147,6 +152,33 @@ export const queryKeys = {
     list: () => ["tags", "list"] as const,
   },
 
+  // ── Workflows (Automations) ────────────────────────────────
+  // `validation` and `versions` nest under the workflow's detail key, so
+  // publishing invalidates the whole subtree in one call — a publish changes
+  // the version list, the dirty flag and (by clearing the errors it just
+  // passed) the validation, and three separate invalidations is three chances
+  // to forget one.
+  workflows: {
+    all: ["workflows"] as const,
+    list: (params: Record<string, unknown>) =>
+      ["workflows", "list", params] as const,
+    detail: (id: string) => ["workflows", "detail", id] as const,
+    validation: (id: string) => ["workflows", "detail", id, "validation"] as const,
+    versions: (id: string) => ["workflows", "detail", id, "versions"] as const,
+    builderContext: (id: string) =>
+      ["workflows", "detail", id, "builderContext"] as const,
+    quota: () => ["workflows", "quota"] as const,
+    /**
+     * Nested under `detail` so invalidating one automation clears its runs too.
+     * A run list left cached after a manual Run is a page that says "never run"
+     * about the run you just started.
+     */
+    runs: (id: string, params: Record<string, unknown>) =>
+      ["workflows", "detail", id, "runs", params] as const,
+    run: (id: string, runId: string) =>
+      ["workflows", "detail", id, "runs", "detail", runId] as const,
+  },
+
   // ── Dashboard ──────────────────────────────────────────────
   dashboard: {
     all: ["dashboard"] as const,
@@ -193,6 +225,7 @@ export const queryKeys = {
   tenant: {
     all: ["tenant"] as const,
     settings: () => ["tenant", "settings"] as const,
+    memberRates: () => ["tenant", "memberRates"] as const,
   },
 
   // ── Conversations (Supabase Realtime — rarely queried via TQ) ──

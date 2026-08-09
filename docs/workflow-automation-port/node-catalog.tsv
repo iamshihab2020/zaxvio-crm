@@ -1,0 +1,157 @@
+node_type	display_name	category	subcategory	scope	outputs	output_labels	prop_count	description
+action.org.addCategory	Add Category	agency	classification	agency	1		1	Add a category to the organization
+action.org.addDepartment	Add Department	agency	classification	agency	1		1	Add a department to the organization
+action.org.addTag	Add Tag	agency	classification	agency	1		1	Add a tag to the organization
+action.org.aiClassify	AI Classify	agency	integration	agency	1		3	Classify or label text with AI using your prompt. The result is available to later nodes as {{nodeOutputs...result}}.
+action.org.aiSummarize	AI Summarize	agency	integration	agency	1		3	Summarize text with AI. The result is available to later nodes as {{nodeOutputs...result}}.
+action.org.archive	Archive Organization	agency	high-impact	agency	1		2	Archive the organization (reversible). Requires super-admin approval unless run in simulate mode.
+action.org.assignCsm	Assign CSM	agency	assignment	agency	1		1	Assign a Customer Success Manager to the organization
+action.org.callAgencyWorkflow	Call Agency Workflow	agency	integration	agency	1		1	Run another agency workflow as a sub-workflow for the same organization (depth-limited to prevent recursion).
+action.org.createClientLead	Create Client Lead	agency	cross-org	agency	1		7	Create a lead in a validated target organization (the subject or a related parent/child org). Requires super-admin approval unless run in simulate mode.
+action.org.createCsmTask	Create CSM Task	agency	tasks	agency	1		4	Create a task assigned to the organization's CSM
+action.org.deploySnapshot	Deploy Snapshot	agency	provisioning	agency	1		4	Deploy a saved snapshot (bundle of workflows/settings) into the organization. Requires super-admin approval unless run in simulate mode.
+action.org.httpRequest	HTTP Request	agency	integration	agency	1		3	Make an outbound HTTP request (SSRF-guarded). The response is available to later nodes as {{nodeOutputs...body}}.
+action.org.internalNote	Internal Note	agency	tasks	agency	1		1	Add an internal note to the organization's activity log
+action.org.notifyCsm	Notify CSM	agency	notifications	agency	1		2	Send an in-app notification and push to the organization's assigned CSM
+action.org.notifyTeam	Notify Team	agency	notifications	agency	1		2	Send an in-app notification to all super-admins
+action.org.removeCategory	Remove Category	agency	classification	agency	1		1	Remove a category from the organization
+action.org.removeDepartment	Remove Department	agency	classification	agency	1		1	Remove a department from the organization
+action.org.removeTag	Remove Tag	agency	classification	agency	1		1	Remove a tag from the organization
+action.org.sendEmail	Send Email	agency	notifications	agency	1		4	Send an email to the organization's CSM, owner, or a custom address
+action.org.sendSMS	Send SMS	agency	notifications	agency	1		3	Send an SMS to the organization's CSM, owner, or a custom number (from the platform number)
+action.org.setBillingTier	Set Billing Tier	agency	high-impact	agency	1		3	Change the organization's billing tier (affects entitlements). Requires super-admin approval unless run in simulate mode.
+action.org.setLifecycleStage	Set Lifecycle Stage	agency	lifecycle	agency	1		1	Set the organization's lifecycle stage
+action.org.setLifecycleStatus	Set Lifecycle Status	agency	lifecycle	agency	1		1	Set the organization's lifecycle status
+action.org.setServiceTier	Set Service Tier	agency	classification	agency	1		1	Set the organization's service tier
+action.org.slackMessage	Slack Message	agency	notifications	agency	1		1	Post a message to the agency Slack channel
+action.org.startOnboarding	Start Onboarding	agency	lifecycle	agency	1		1	Move the organization into the 'onboarding' lifecycle stage. Requires super-admin approval unless run in simulate mode.
+action.org.suspend	Suspend Organization	agency	high-impact	agency	1		1	Suspend the organization by moving it to the 'paused' lifecycle stage (reversible). Requires super-admin approval unless run in simulate mode.
+action.org.triggerProvisioning	Trigger Provisioning	agency	provisioning	agency	1		3	Re-run the organization's idempotent auto-provisioning (website + Twilio). Requires super-admin approval unless run in simulate mode.
+action.org.unassignCsm	Unassign CSM	agency	assignment	agency	1		0	Remove the organization's assigned Customer Success Manager
+agent.assign	Assign to AI Agent	crm	other	org	1		6	Hand the lead to an AI Messages agent or to the lead nurturer
+agent.unassign	Remove from AI Follow-Up	crm	other	org	1		2	Stop all AI follow-up for the contact: unassigns the AI agent, ends lead nurturing, and cancels queued follow-ups
+appointment.cancel	Cancel Appointment	crm	appointments	org	1		3	Cancel an existing appointment or booking
+appointment.schedule	Schedule Appointment	crm	appointments	org	1		17	Schedule an appointment with the contact
+appointment.update	Update Appointment	crm	appointments	org	1		7	Update an existing appointment or booking
+condition.contact.hasLead	Contact Has Lead?	crm	contact-actions	org	2	Has Lead|No Lead	5	Check if the contact has a matching lead, then branch on Yes / No. Leave filters empty to match any lead.
+condition.if	If Condition	logic	branching	both	1		1	Branch workflow based on conditions (IF / ELSE IF / ELSE)
+contact.create	Create Contact	crm	contact-actions	org	1		15	Create a new contact in the CRM. Optionally upsert by matching against an existing contact's phone or email.
+contact.delete	Delete Contact	crm	contact-actions	org	1		1	Delete a contact from the CRM
+contact.lookup	Contact Lookup	crm	contact-actions	org	2	Found|Not Found	5	Find an existing contact by email, phone, or ID
+contact.query	Query Contacts	crm	contact-actions	org	2	Found|No Results	12	Find multiple contacts matching criteria for batch processing
+contact.update	Update Contact	crm	contact-actions	org	1		1	Update one or more standard or custom fields on a contact in a single step.
+create_calendar_event	Create Calendar Event	crm	appointments	org	1		7	Write an event to a specific connected calendar (Multi-Calendar Integration). Title, description, location, and attendee emails support {{variables}}.
+data.aggregate	Aggregate	data	operations	org	1		5	Aggregate data with count, sum, average, and more
+data.code	Code Block	data	operations	org	1		3	Execute custom JavaScript code
+data.math	Math Operation	data	operations	org	1		4	Perform mathematical operations on values
+data.removeDuplicates	Remove Duplicates	data	operations	org	2	Unique|Duplicates	5	Filter out duplicate records
+data.setFields	Set Fields	data	transform	org	1		3	Add or modify fields on the data
+data.transform	Transform Data	data	transform	org	1		4	Transform data using various operations
+delay.wait	Wait/Delay	logic	flow-control	both	1		18	Wait for a specified amount of time or until a specific date/time
+dnd.remove	Remove DND	crm	other	org	1		1	Disable Do Not Disturb for the contact
+dnd.set	Set DND	crm	other	org	1		2	Enable Do Not Disturb for the contact
+email.send	Send Email	communication	email	org	1		19	Send an email to one or more recipients
+filter.data	Filter Data	logic	flow-control	both	1		2	Filter items based on conditions
+goal.event	Goal Event	logic	flow	org	1		8	Exit the workflow as soon as a contact meets a goal condition
+http.request	HTTP Request	integration	api	org	1		12	Make an HTTP request to any URL
+integration.googleAdsConversion	Google Ads Conversion	integration	advertising	org	1		5	Send offline conversion data to Google Ads for Smart Bidding optimization
+integration.googleAnalyticsEvent	Google Analytics 4 Event	integration	analytics	org	1		5	Send server-side events to Google Analytics 4 via Measurement Protocol
+integration.googleSheets	Google Sheets	integration	productivity	org	1		13	Read or write data to Google Sheets
+integration.metaConversationApi	Send Facebook Message	integration	messaging	org	1		6	Send a message via Facebook Messenger to a contact
+integration.metaConversionApi	Meta Conversion API	integration	advertising	org	1		11	Send conversion events to Facebook/Meta for ad optimization
+integration.openai	OpenAI	integration	ai	org	1		8	Use OpenAI to generate text or analyze data
+integration.slack	Slack Message	communication	messaging	org	1		8	Send messages to Slack channels
+lead.create	Create Lead	crm	lead-actions	org	1		7	Create a new lead in the CRM
+lead.find	Find Opportunity	crm	lead-actions	org	2	Found|Not Found	5	Find leads belonging to the triggering contact — filter by pipeline, stage, or status
+lead.lookup	Lead Lookup	crm	lead-actions	org	2	Found|Not Found	5	Find an existing lead by email, phone, or ID
+lead.scoring	Lead Scoring	crm	lead-actions	org	1		2	Set the lead score stage
+lead.statusUpdate	Update Lead Status	crm	lead-actions	org	1		2	Move lead to a different pipeline stage
+lead.update	Update Lead	crm	lead-actions	org	1		8	Update an existing lead's information
+logic.errorHandler	Error Handler	logic	flow-control	both	2	Success|Error	5	Catch and handle errors from upstream nodes
+logic.goto	Go To	logic	flow-control	both	0		2	Jump to another node in the workflow
+logic.loop	Loop	logic	flow-control	both	2	Done|Each	6	Loop through a list of items and execute actions for each
+logic.merge	Merge	logic	branching	both	1		3	Combine data from multiple branches
+logic.stop	Stop	logic	flow-control	both	0		2	Stop workflow execution
+logic.switch	Switch	logic	branching	both	1		0	Route to different paths based on a value
+note.addToContact	Add Note to Contact	crm	tasks-notes	org	1		1	Add a note to the current contact
+note.addToLead	Add Note to Lead	crm	tasks-notes	org	1		1	Add a note to the current lead
+notification.internal	Internal Notification	communication	notifications	org	1		9	Send an internal notification to team members
+sms.send	Send SMS	communication	sms	org	1		13	Send an SMS message
+split.branch	Split Branch	logic	branching	both	1		1	Split workflow into multiple branches
+tag.add	Add Tag	crm	tags	org	1		3	Add one or more tags to a contact or lead
+tag.remove	Remove Tag	crm	tags	org	1		3	Remove one or more tags from a contact or lead
+task.create	Create Task	crm	tasks-notes	org	1		8	Create a new task
+task.delete	Delete Task	crm	tasks-notes	org	1		1	Delete a task from the workflow context
+task.update	Update Task	crm	tasks-notes	org	1		9	Update an existing task
+trigger.appointment.booked	Appointment Booked	trigger	booking	org	1		5	Triggers when a new appointment is created/booked
+trigger.appointment.reminder	Appointment Reminder	trigger	appointment	org	1		6	Sends automated reminders before appointments via Email and/or SMS
+trigger.appointment.status	Appointment Status Changed	trigger	booking	org	1		8	Triggers when an appointment status changes
+trigger.booking.cancelled	Booking Cancelled	trigger	booking	org	1		1	Triggers when a booking is cancelled
+trigger.booking.created	Booking Created	trigger	booking	org	1		2	Triggers when a new booking is created via scheduling link or by an org user
+trigger.booking.rescheduled	Booking Rescheduled	trigger	booking	org	1		1	Triggers when a booking is rescheduled to a different time
+trigger.call.incoming	Incoming Call Received	trigger	communication	org	1		1	Triggers when an incoming call is received on one of your phone numbers
+trigger.call.missed	Missed Call	trigger	communication	org	1		2	Triggers when an incoming call is missed
+trigger.call.outbound	Outbound Call Made	trigger	communication	org	1		0	Triggers when an outbound call is initiated from the browser
+trigger.call.status	Call Status Changed	trigger	communication	org	1		2	Triggers when a call status changes
+trigger.contact.created	Contact Created	trigger	contact	org	1		3	Triggers when a new contact is created
+trigger.contact.dnd	Contact DND Changed	trigger	contact	org	1		3	Triggers when contact DND status changes
+trigger.contact.noteAdded	Contact Note Added	trigger	task	org	1		3	Triggers when a note is added to a contact
+trigger.contact.tag	Contact Tag Changed	trigger	contact	org	1		3	Triggers when a tag is added or removed from a contact
+trigger.contact.updated	Contact Updated	trigger	contact	org	1		4	Triggers when a contact is updated
+trigger.customer.replied	Customer Replied	trigger	communication	org	1		9	Triggers when a customer replies via any channel
+trigger.customfield.changed	Custom Field Changed	trigger	data	org	1		3	Triggers when a custom field value changes on a lead or contact
+trigger.email.received	Email Received	trigger	communication	org	1		7	Triggers when an email is received
+trigger.facebook.lead_received	Facebook Lead Form Received	trigger	integration	org	1		4	Triggers when a new lead is received from a Facebook Lead Ad form
+trigger.facebook.message_received	Facebook Message Received	trigger	integration	org	1		2	Triggers when a message is received via Facebook Messenger
+trigger.form.submitted	Form Submitted	trigger	system	org	1		5	Triggers when a form is submitted
+trigger.lead.assigned	Lead Assigned	trigger	lead	org	1		6	Triggers when a lead is assigned to a user
+trigger.lead.created	Lead Created	trigger	lead	org	1		6	Triggers when a new lead is created
+trigger.lead.noteAdded	Lead Note Added	trigger	task	org	1		3	Triggers when a note is added to a lead
+trigger.lead.score.threshold	Lead Score Threshold	trigger	lead	org	1		3	Triggers when a lead's score crosses a threshold stage
+trigger.lead.statusChanged	Lead Status Changed	trigger	lead	org	1		7	Triggers when a lead's pipeline stage changes
+trigger.lead.updated	Lead Updated	trigger	lead	org	1		7	Triggers when a lead is updated
+trigger.manual	Manual Trigger	trigger	system	org	1		1	Manually trigger this workflow for testing or one-off executions
+trigger.org.a2p.status.changed	Org A2P Status Changed	trigger	provisioning	agency	1		2	Triggers when the organization's A2P (SMS) compliance status changes
+trigger.org.archived	Organization Archived	trigger	lifecycle	agency	1		1	Triggers when an organization is archived
+trigger.org.billing.status.changed	Org Billing Status Changed	trigger	billing	agency	1		2	Triggers when the organization's Stripe subscription status changes (inert until billing automation is enabled)
+trigger.org.category.changed	Org Category Changed	trigger	classification	agency	1		1	Triggers when an organization's category assignments change
+trigger.org.created	Organization Created	trigger	lifecycle	agency	1		1	Triggers when a new organization is created
+trigger.org.csm.assigned	CSM Assigned to Org	trigger	assignment	agency	1		2	Triggers when a Customer Success Manager is assigned to an organization
+trigger.org.csm.unassigned	CSM Unassigned from Org	trigger	assignment	agency	1		1	Triggers when a Customer Success Manager is removed from an organization
+trigger.org.department.changed	Org Department Changed	trigger	classification	agency	1		1	Triggers when an organization's department assignments change
+trigger.org.inactivity.detected	Org Inactivity Detected	trigger	scheduled	agency	1		0	Triggers when an organization has had no lead activity within the inactivity window
+trigger.org.lifecycle_stage.changed	Org Lifecycle Stage Changed	trigger	lifecycle	agency	1		2	Triggers when an organization's lifecycle stage changes (onboarding, active, offboarding, etc.)
+trigger.org.lifecycle_status.changed	Org Lifecycle Status Changed	trigger	lifecycle	agency	1		2	Triggers when an organization's lifecycle status changes (e.g. Active, At-Risk, Churned)
+trigger.org.member.added	Member Added to Org	trigger	assignment	agency	1		1	Triggers when a user is added to an organization
+trigger.org.no_leads	Org Has No New Leads	trigger	scheduled	agency	1		0	Triggers when an organization received no new leads within the window
+trigger.org.onboarding.completed	Org Onboarding Completed	trigger	provisioning	agency	1		0	Triggers when an onboarding-generated organization finishes its full auto-setup pass
+trigger.org.onboarding.started	Org Onboarding Started	trigger	provisioning	agency	1		0	Triggers when a super-admin generates an organization via the Onboarding tool and its auto-provisioning begins
+trigger.org.payment.failed	Org Payment Failed	trigger	billing	agency	1		1	Triggers when a subscription payment fails for the organization (inert until billing automation is enabled)
+trigger.org.plan.downgraded	Org Plan Downgraded	trigger	billing	agency	1		1	Triggers when the organization moves to a lower-priced plan (inert until billing automation is enabled)
+trigger.org.plan.upgraded	Org Plan Upgraded	trigger	billing	agency	1		1	Triggers when the organization moves to a higher-priced plan (inert until billing automation is enabled)
+trigger.org.provisioning.completed	Org Provisioning Completed	trigger	provisioning	agency	1		0	Triggers when an organization's technical auto-provisioning pass (subaccount / infra / A2P) finishes
+trigger.org.restored	Organization Restored	trigger	lifecycle	agency	1		1	Triggers when an archived or deleted organization is restored
+trigger.org.scheduled.daily	Org Daily Schedule	trigger	scheduled	agency	1		0	Runs once per day for the organization (agency daily sweep)
+trigger.org.service_tier.changed	Org Service Tier Changed	trigger	classification	agency	1		2	Triggers when an organization's service tier changes
+trigger.org.subscription.canceled	Org Subscription Canceled	trigger	billing	agency	1		1	Triggers when the organization's Stripe subscription is canceled (inert until billing automation is enabled)
+trigger.org.subscription.created	Org Subscription Created	trigger	billing	agency	1		1	Triggers when a Stripe subscription becomes active for the organization (inert until billing automation is enabled)
+trigger.org.tag.added	Org Tag Added	trigger	classification	agency	1		1	Triggers when a tag is added to an organization
+trigger.org.tag.removed	Org Tag Removed	trigger	classification	agency	1		1	Triggers when a tag is removed from an organization
+trigger.org.trial.ending	Org Trial Ending	trigger	billing	agency	1		1	Triggers when the organization's trial is ending within the configured window (inert until a trial scan emits it)
+trigger.org.website_provisioned	Org Website Provisioned	trigger	provisioning	agency	1		1	Triggers when a website is auto-provisioned for the organization
+trigger.schedule.daily	Daily Trigger	trigger	system	org	1		5	Triggers at a specific time each day
+trigger.schedule.hourly	Hourly Trigger	trigger	system	org	1		5	Triggers every X hours
+trigger.schedule.inactivity	Inactivity Trigger	trigger	system	org	1		8	Triggers after X days of no activity
+trigger.sms.keyword	SMS Keyword Detected	trigger	communication	org	1		5	Triggers when an SMS contains specific keywords
+trigger.sms.received	SMS Received	trigger	communication	org	1		5	Triggers when an SMS message is received
+trigger.task.added	Task Added	trigger	task	org	1		5	Triggers when a new task is created
+trigger.task.completed	Task Completed	trigger	task	org	1		6	Triggers when a task is marked as completed
+trigger.task.overdue	Task Overdue	trigger	task	org	1		7	Triggers when a task becomes overdue
+trigger.webhook	Webhook	trigger	system	org	1		19	Triggers when a webhook is received
+trigger.webhook.raw	Webhook (Raw Passthrough)	trigger	system	org	1		16	Receives a webhook and exposes the entire payload as {{webhook.body.<any.path>}} — no field mapping required
+user.assign	Assign User	crm	other	org	1		3	Assign a user to the contact or lead
+webhook.saveFiles	Save Webhook Files	crm	contact-actions	org	1		4	Saves files that arrived with the webhook (uploaded as form data, or linked by URL in the payload) to the matched contact's photos or documents, or to the org media library. Handles multiple files at once.
+webhook.saveToContact	Save Webhook to Contact	crm	contact-actions	org	1		3	Looks up (or creates) a contact from the incoming webhook payload and saves every body field as a contact custom field — auto-creating any field definitions that don't exist yet.
+webhook.send	Send Webhook	integration	api	org	1		8	Send data to a webhook URL
+workflow.add	Add to Workflow	logic	flow-control	org	2		6	Add the contact to another workflow with optional input/output variable mapping
+workflow.remove	Remove From Workflow	logic	flow-control	org	1		2	Removes the Contact from a specific workflow

@@ -58,3 +58,30 @@ From the [[bookings-calendar|Bookings & Calendar audit]].
   acceptable — v4 UUID, rate-limited, no data the requester didn't submit — but it was
   acceptable in nobody's head. The reasoning now sits above the route so the next person
   can re-evaluate it instead of rediscovering it.
+
+## Where you put a guard decides who uses it (2026-08-06, security audit)
+
+- **`ownsCustomer` lived in `job-guards.ts`, so the calendar never called it.** Importing
+  "job guards" into `routes/calendar-events` reads like a mistake, so nobody did — and
+  conversations, checklists and calendar events each wrote a client-supplied FK with no
+  tenant check at all. Meanwhile invoices and quotes wrote their *own* copies rather than
+  import from jobs. Three copies and three gaps, all from one filename. The helper now
+  lives in `lib/tenant-guards.ts`, which is named after the invariant instead of the first
+  domain that needed it, and `job-guards.ts` re-exports it.
+- **Naming a shared module after its first caller is a load-bearing mistake**, not a
+  cosmetic one. If a helper encodes a rule that applies everywhere, the name has to say so.
+- **Scope the join, not just the row.** `conversations` filtered `conversations.tenantId`
+  and then did `innerJoin(customers, eq(conversations.customerId, customers.id))` with no
+  predicate on the joined side. The conversation being ours says nothing about the customer
+  it points at — and that join chose the recipient of `POST /:id/messages`. Both halves are
+  needed: validate the FK on write, scope the join on read.
+- **"Unexploitable" and "correct" are different claims, and the gap between them is one
+  feature.** Three of these were downgraded in review because reaching them required
+  guessing a UUID the app never discloses. That is a property of today's endpoints, not of
+  the code — the first page that renders a customer name next to a calendar event converts
+  an integrity bug into a disclosure bug. Fixed all of them.
+- **Verify findings before you fix them.** Of 7 candidates from the audit, 4 did not survive
+  an adversarial second pass. The best example: a reported cross-tenant *delete* via `..` in
+  an R2 storage path. S3/R2 keys are opaque strings, not filesystem paths — `a/../b` is a
+  distinct key from `b`, so the delete hits nothing. The read half was real but reached only
+  the tenant logo, which `GET /public/booking/:slug` already serves to anonymous visitors.

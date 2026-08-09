@@ -1,6 +1,7 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
+import { equipmentCreated } from "../../services/workflow/events/producers/index.js";
 import {
   getDb,
   equipment,
@@ -199,8 +200,17 @@ const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       // Verify customer belongs to tenant
       const db = getDb();
+      // Email and phone are selected as well as the name because the workflow
+      // event carries them — an asset automation ("register the warranty",
+      // "book the first service") has to be able to reach the owner.
       const customer = await db
-        .select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
+        .select({
+          id: customers.id,
+          firstName: customers.firstName,
+          lastName: customers.lastName,
+          email: customers.email,
+          phone: customers.phone,
+        })
         .from(customers)
         .where(
           and(
@@ -214,29 +224,56 @@ const equipmentRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Customer not found" });
       }
 
-      const [item] = await db
-        .insert(equipment)
-        .values({
+      const item = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(equipment)
+          .values({
+            tenantId,
+            customerId: body.customerId,
+            equipmentType: body.equipmentType,
+            brand: body.brand ?? null,
+            model: body.model ?? null,
+            serialNumber: body.serialNumber ?? null,
+            installDate: body.installDate ?? null,
+            warrantyExpiry: body.warrantyExpiry ?? null,
+            location: body.location ?? null,
+            notes: body.notes ?? null,
+          })
+          .returning();
+
+        // Log customer activity
+        await tx.insert(customerActivities).values({
           tenantId,
           customerId: body.customerId,
-          equipmentType: body.equipmentType,
-          brand: body.brand ?? null,
-          model: body.model ?? null,
-          serialNumber: body.serialNumber ?? null,
-          installDate: body.installDate ?? null,
-          warrantyExpiry: body.warrantyExpiry ?? null,
-          location: body.location ?? null,
-          notes: body.notes ?? null,
-        })
-        .returning();
+          type: "equipment.created",
+          description: `Asset added: ${body.equipmentType}${body.brand ? ` (${body.brand})` : ""}`,
+          performedBy: userId,
+        });
 
-      // Log customer activity
-      await db.insert(customerActivities).values({
-        tenantId,
-        customerId: body.customerId,
-        type: "equipment.created",
-        description: `Asset added: ${body.equipmentType}${body.brand ? ` (${body.brand})` : ""}`,
-        performedBy: userId,
+        await equipmentCreated(tx, {
+          tenantId,
+          actorUserId: userId,
+          equipment: {
+            id: row.id,
+            equipmentType: row.equipmentType,
+            brand: row.brand,
+            model: row.model,
+            serialNumber: row.serialNumber,
+            location: row.location,
+            installDate: row.installDate,
+            warrantyExpiry: row.warrantyExpiry,
+            createdAt: row.createdAt,
+          },
+          customer: {
+            id: customer.id,
+            firstName: customer.firstName,
+            lastName: customer.lastName,
+            email: customer.email,
+            phone: customer.phone,
+          },
+        });
+
+        return row;
       });
 
       return reply.status(201).send({ data: item });

@@ -10,6 +10,7 @@ import {
   IconUsers,
   IconFileDescription,
   IconCalendarPlus,
+  IconChartPie,
 } from "@tabler/icons-react";
 import type { ReportSection, ReportSectionResponse } from "@hvac-saas/types";
 import { useReportStats } from "@/hooks/queries";
@@ -34,10 +35,14 @@ import { JobsTab } from "@/components/dashboard/reports/jobs-tab";
 import { CustomersTab } from "@/components/dashboard/reports/customers-tab";
 import { QuotesInvoicesTab } from "@/components/dashboard/reports/quotes-invoices-tab";
 import { BookingsTab } from "@/components/dashboard/reports/bookings-tab";
+import { ProfitabilityTab } from "@/components/dashboard/reports/profitability-tab";
 import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 
 const TABS: { value: ReportSection; label: string; icon: typeof IconCash }[] = [
   { value: "revenue", label: "Revenue", icon: IconCash },
+  // Next to Revenue, not last: "what came in" and "what stayed" are the same
+  // question asked twice, and they are read together.
+  { value: "profitability", label: "Profitability", icon: IconChartPie },
   { value: "jobs", label: "Jobs", icon: IconBriefcase },
   { value: "customers", label: "Customers", icon: IconUsers },
   { value: "quotes-invoices", label: "Quotes & Invoices", icon: IconFileDescription },
@@ -245,6 +250,10 @@ function ReportSectionView({ report }: { report: ReportSectionResponse }) {
       );
     case "bookings":
       return <BookingsTab data={report.data} granularity={report.granularity} />;
+    // No granularity: this section has no trend to bucket. It answers "over the
+    // whole window", not "week by week".
+    case "profitability":
+      return <ProfitabilityTab data={report.data} />;
     default: {
       const exhaustive: never = report;
       throw new Error(`Unhandled report section: ${String(exhaustive)}`);

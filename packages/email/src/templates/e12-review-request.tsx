@@ -14,6 +14,13 @@ export interface ReviewRequestEmailProps {
   googleReviewUrl: string;
   serviceType?: string | null;
   jobTitle?: string | null;
+  /**
+   * Required — not optional — because a review request is the textbook
+   * non-transactional send. Nobody asks to be asked for a review, and DF-NOT-01
+   * named this template and E-09 as the two that made an opt-out necessary.
+   * Optional here would mean the caller could forget.
+   */
+  unsubscribeUrl: string;
 }
 
 export function ReviewRequestEmail({
@@ -25,6 +32,7 @@ export function ReviewRequestEmail({
   googleReviewUrl,
   serviceType,
   jobTitle,
+  unsubscribeUrl,
 }: ReviewRequestEmailProps) {
   const firstName = customerName.split(" ")[0];
 
@@ -35,6 +43,7 @@ export function ReviewRequestEmail({
       logoUrl={businessLogoUrl}
       businessPhone={businessPhone}
       businessAddress={businessAddress}
+      unsubscribeUrl={unsubscribeUrl}
     >
       <Heading as="h1">How did we do, {firstName}?</Heading>
 
@@ -80,6 +89,7 @@ export default function ReviewRequestPreview() {
       googleReviewUrl="https://g.page/r/coolbreezehvac/review"
       serviceType="AC Repair"
       jobTitle="Compressor Replacement"
+      unsubscribeUrl="https://app.zaxvio.com/unsubscribe/preview-token"
     />
   );
 }

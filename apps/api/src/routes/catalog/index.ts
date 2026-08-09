@@ -191,6 +191,10 @@ const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
           name: body.name.trim(),
           itemType: body.itemType,
           unitPrice: String(body.unitPrice),
+          // `== null` catches both undefined and null, and both mean the same
+          // thing here: cost unknown. Storing "0" instead would report this
+          // item as pure profit forever.
+          unitCost: body.unitCost == null ? null : String(body.unitCost),
           unit: (body.unit || "each").trim(),
           category: body.category ? body.category.trim() : null,
           description: body.description ? body.description.trim() : null,
@@ -238,6 +242,13 @@ const catalogRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       if (body.unitPrice !== undefined) {
         updates.unitPrice = String(body.unitPrice);
+      }
+
+      // `undefined` = field absent, leave it alone. `null` = the user cleared
+      // it, which must be writable — cost is the one field where "I no longer
+      // know this" is a legitimate state to return to.
+      if (body.unitCost !== undefined) {
+        updates.unitCost = body.unitCost === null ? null : String(body.unitCost);
       }
 
       if (body.unit !== undefined) {

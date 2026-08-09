@@ -21,6 +21,7 @@ import customerRoutes from "./routes/customers/index.js";
 import tagRoutes from "./routes/tags/index.js";
 import catalogRoutes from "./routes/catalog/index.js";
 import jobRoutes from "./routes/jobs/index.js";
+import jobCostingRoutes from "./routes/jobs/costing.js";
 import checklistRoutes from "./routes/checklists/index.js";
 import pipelineRoutes from "./routes/pipelines/index.js";
 import pipelineStagesRoutes from "./routes/pipeline-stages/index.js";
@@ -30,6 +31,10 @@ import dashboardRoutes from "./routes/dashboard/index.js";
 import availabilityRoutes from "./routes/availability/index.js";
 import publicBookingRoutes from "./routes/public/booking.js";
 import publicQuoteRoutes from "./routes/public/quote.js";
+import publicUnsubscribeRoutes from "./routes/public/unsubscribe.js";
+import workflowRoutes from "./routes/workflows/index.js";
+import workflowGraphRoutes from "./routes/workflows/graph.js";
+import workflowRunRoutes from "./routes/workflows/runs.js";
 import bookingRoutes from "./routes/bookings/index.js";
 import calendarEventRoutes from "./routes/calendar-events/index.js";
 import equipmentRoutes from "./routes/equipment/index.js";
@@ -174,6 +179,50 @@ export async function buildServer() {
         `${request.protocol}://${request.hostname}`,
       );
 
+      // Better Auth's admin plugin mounts its own endpoints under
+      // /api/auth/admin/* — set-role, create-user, impersonate-user, ban-user,
+      // set-password, remove-user. Their only authorization check is
+      // `role === "admin"` against the plugin's default access-control table.
+      //
+      // That is not the platform's model. We gate admin work on `adminTier`
+      // (super_admin | support | billing_admin), and routes/admin/admins.ts sets
+      // `role: "admin"` for *every* tier — the tier lives in a separate column
+      // the plugin has never heard of. So a billing_admin, who is explicitly
+      // barred from /admin/impersonation/start, could POST
+      // /api/auth/admin/impersonate-user and receive a full session as any
+      // tenant user: no reason recorded, no tenants.isActive check, no row in
+      // admin_audit_log. Same story for set-role, which mints platform admins
+      // around the owner-only super_admin gate in /admin/admins.
+      //
+      // The plugin stays registered — it owns the role/banned/impersonatedBy
+      // columns and the session shape. Only its HTTP surface closes. Every
+      // admin action the product actually performs goes through /admin/*, which
+      // is tier-gated and audited. Nothing calls these: adminClient() is
+      // registered in apps/web/src/lib/auth-client.ts but has zero call sites.
+      //
+      // A denylist has to normalize at least as aggressively as the router it
+      // guards, or the guard is decorative. Dot segments are already resolved by
+      // `new URL` above, and the same normalized url is what auth.handler gets
+      // below. That leaves case and percent-encoding: we test the lowercased
+      // path both raw and decoded, so `/API/AUTH/ADMIN/...` and
+      // `/api/auth/%61dmin/...` are refused whether or not better-auth's router
+      // would have decoded them. decodeURIComponent throws on a malformed
+      // sequence like `%zz`, which is itself not a path we want to forward.
+      const isNativeAdminPath = (p: string) =>
+        p === "/api/auth/admin" || p.startsWith("/api/auth/admin/");
+
+      const rawPath = url.pathname.toLowerCase();
+      let decodedPath: string;
+      try {
+        decodedPath = decodeURIComponent(rawPath);
+      } catch {
+        return reply.status(400).send({ error: "Bad Request" });
+      }
+
+      if (isNativeAdminPath(rawPath) || isNativeAdminPath(decodedPath)) {
+        return reply.status(404).send({ error: "Not Found" });
+      }
+
       const headers = new Headers();
       for (const [key, value] of Object.entries(request.headers)) {
         if (value) headers.append(key, Array.isArray(value) ? value.join(", ") : value);
@@ -216,6 +265,10 @@ export async function buildServer() {
   await fastify.register(tagRoutes, { prefix: "/tags" });
   await fastify.register(catalogRoutes, { prefix: "/catalog" });
   await fastify.register(jobRoutes, { prefix: "/jobs" });
+  // Costing shares the /jobs prefix but lives in its own plugin: routes/jobs/
+  // index.ts is already 2,497 lines and is the file ARC-05 wants split, so new
+  // surface area goes beside it rather than into it.
+  await fastify.register(jobCostingRoutes, { prefix: "/jobs" });
   await fastify.register(checklistRoutes, { prefix: "/checklists" });
   await fastify.register(pipelineRoutes, { prefix: "/pipelines" });
   await fastify.register(pipelineStagesRoutes, { prefix: "/pipeline-stages" });
@@ -225,6 +278,10 @@ export async function buildServer() {
   await fastify.register(availabilityRoutes, { prefix: "/availability" });
   await fastify.register(publicBookingRoutes, { prefix: "/public/booking" });
   await fastify.register(publicQuoteRoutes, { prefix: "/public/quote" });
+  await fastify.register(publicUnsubscribeRoutes, { prefix: "/public/unsubscribe" });
+  await fastify.register(workflowRoutes, { prefix: "/workflows" });
+  await fastify.register(workflowGraphRoutes, { prefix: "/workflows" });
+  await fastify.register(workflowRunRoutes, { prefix: "/workflows" });
   await fastify.register(bookingRoutes, { prefix: "/bookings" });
   await fastify.register(calendarEventRoutes, { prefix: "/calendar-events" });
   await fastify.register(equipmentRoutes, { prefix: "/equipment" });
@@ -263,6 +320,17 @@ async function start() {
 
   const shutdown = async (signal: string) => {
     printShutdownMessage(signal);
+    // Stop claiming before the pool closes, so nothing is left mid-flight
+    // holding a connection that is about to disappear. Anything already claimed
+    // is durable and comes back through stale recovery on the next boot.
+    const { stopEventWorker } = await import("./services/workflow/events/worker.js");
+    const { stopResumeWorker } = await import("./services/workflow/workers/resume.js");
+    const { stopSweepWorker } = await import("./services/workflow/workers/sweeps.js");
+    const { stopRetentionWorker } = await import("./services/workflow/workers/retention.js");
+    stopEventWorker();
+    stopResumeWorker();
+    stopSweepWorker();
+    stopRetentionWorker();
     await server.close();
     await closeDb();
     process.exit(0);
@@ -282,6 +350,55 @@ async function start() {
   const { startEmailCronJobs } = await import("./lib/cron/email-cron.js");
   startEmailCronJobs();
   printCronStarted(["E-07 Invoice Overdue", "E-09 Renewal", "E-10 Trial Expiry"]);
+
+  // The workflow outbox worker. Started after `listen` for the same reason the
+  // crons are: a request served during boot should not race a background claim
+  // for the same connection pool.
+  //
+  // Subscribers are **registered here**, at the composition root, rather than
+  // imported by the worker — that is what keeps `worker.ts` free of any
+  // dependency on the engine, so the transport can be tested without booting
+  // the thing it carries. `goal_listener` has no handler until P6, and an
+  // unregistered subscriber completes its row rather than dead-lettering it.
+  const { startEventWorker, registerSubscriber } = await import(
+    "./services/workflow/events/worker.js"
+  );
+  const { handleTriggerEvent } = await import("./services/workflow/triggers/index.js");
+  const { getDb: getWorkflowDb } = await import("@hvac-saas/database");
+
+  registerSubscriber("workflow_trigger", async (event) => {
+    // Business outcomes — no filter matched, the subject was deleted, this
+    // automation is already running for this record — are **returns**, not
+    // throws. Throwing sends the row back for five attempts and a dead letter,
+    // and a dead-letter table full of "this automation correctly did not run"
+    // is worse than no dead-letter table.
+    await handleTriggerEvent(getWorkflowDb(), event);
+  });
+
+  startEventWorker();
+
+  // The resume worker. Separate from the outbox on purpose: one carries events
+  // to automations, the other wakes automations that are waiting on a clock,
+  // and neither should be able to stall the other. A paused run is a database
+  // row, so nothing is lost if this never starts on a given instance — the next
+  // boot picks the row up.
+  const { startResumeWorker } = await import("./services/workflow/workers/resume.js");
+  startResumeWorker();
+
+  // The sweep worker — the clock behind time-based triggers. A third timer
+  // rather than a branch inside the resume worker: that one wakes runs that are
+  // already waiting, this one decides whether a run should start at all, and a
+  // slow sweep must not delay a resume that is already due.
+  const { startSweepWorker } = await import("./services/workflow/workers/sweeps.js");
+  startSweepWorker();
+
+  // Retention. Its constants, its index and the `ON DELETE restrict` that makes
+  // its version check load-bearing all shipped on day one; the sweep itself
+  // never did, so four tables grew forever.
+  const { startRetentionWorker } = await import(
+    "./services/workflow/workers/retention.js"
+  );
+  startRetentionWorker();
 }
 
 start();

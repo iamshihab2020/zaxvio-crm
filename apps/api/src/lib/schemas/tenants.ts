@@ -28,6 +28,12 @@ export const updateTenantBody = z.object({
    * 10,000% tax rate to be set through the API (INV-40).
    */
   defaultTaxRate: z.coerce.number().min(0).max(1).optional(),
+  /**
+   * Loaded hourly cost of a technician — wage plus burden, not the rate you
+   * bill. Nullable so it can be cleared: null means "not configured", and job
+   * costing then reports labour as a missing input rather than as free.
+   */
+  defaultLaborCostRate: z.coerce.number().min(0).max(100_000).nullable().optional(),
   googleReviewUrl: z
     .string()
     .url()

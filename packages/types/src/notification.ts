@@ -37,4 +37,9 @@ export const NOTIFICATION_CHANNEL_DEFAULTS: Record<
   invoice_overdue: { inApp: true, email: true, sms: false, voice: false },
   team_member_joined: { inApp: true, email: false, sms: false, voice: false },
   message_received: { inApp: true, email: false, sms: false, voice: false },
+  // In-app on, **email off**. An automation can fire a hundred times a day, and
+  // the point of one is to save attention rather than spend it. A tenant who
+  // wants these in their inbox can turn it on; a tenant who does not should
+  // never have had to turn it off.
+  workflow_alert: { inApp: true, email: false, sms: false, voice: false },
 };

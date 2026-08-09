@@ -155,3 +155,398 @@
   raw ones. Two lines of `1.5 × 10.33` render as $15.50 each above a subtotal of $30.99
   (measured on quotes). Sum the stored `total`, or round each product, but never mix the
   two in one document.
+
+## Job costing
+
+- **Joining two child tables to one parent multiplies them.** Aggregating
+  `job_line_items` *and* `job_expenses` against `jobs` in one query is a
+  cartesian product: a job with 4 line items and 3 expenses counts each line
+  item 3 times and each expense 4. The failure is silent and plausible —
+  nothing about $2,400 looks like $800 counted three times. Use one correlated
+  `LEFT JOIN LATERAL` per child, or one query per child.
+- **A margin is a *difference* of two sums, so float error is doubled.** Parse
+  every `numeric` string to integer cents, do the arithmetic there, and format
+  once on the way out. `services/costing/money.ts` is the implementation. The
+  quotes audit had already found a subtotal a cent off the lines that produced
+  it (QUO-08); a margin lands on the number a contractor prices their work with.
+- **A percentage of zero revenue is `null`, not `0`.** Returning 0 files a job
+  that cost $300 and billed nothing next to one that broke even exactly. Every
+  `marginPct` in this codebase is `number | null` for that reason.
+- **`z.coerce.boolean()` is `Boolean(value)`, so the string `"false"` is
+  `true`.** I nearly shipped a `configured: z.coerce.boolean()` on a raw-SQL row.
+  It is the same defect as `?showArchived=false` returning archived-only rows
+  (CUST-29). When a raw query wants a yes/no, `SELECT COUNT(*)` and compare in
+  TypeScript — a count has no coercion edge.
+- **Roll a report up in TypeScript when the definition already lives there.**
+  The profitability section groups per-job rows in `profitability.service.ts`
+  rather than in a SQL `GROUP BY`, because `summarise()` is the one definition of
+  what a job's margin is — including when it is too incomplete to state.
+  Re-expressing that in SQL gives the report a second opinion that will
+  eventually disagree with the job's own Costs tab, and the user has no way to
+  tell which is lying. Bound the row set instead, and report when the bound bites.
+- **An unknown cost makes a total incomplete, not lower.** Nothing about the
+  arithmetic distinguishes "this line costs nothing" from "nobody costed this
+  line" — both add 0. So the sum travels with a count of what was skipped
+  (`CostCoverage`), and jobs with gaps are *excluded* from report aggregates
+  rather than averaged in, which would drag every group's margin toward 100% and
+  make a losing segment look healthy.
+- **Snapshot a rate onto the row, don't join it.** `jobs.labor_cost_rate` is
+  copied at the moment hours are saved, so giving somebody a raise does not
+  retroactively rewrite last year's margins. Same reasoning as `unit_price` on
+  line items, which the codebase had done since the beginning.
+
+## Test harness against Neon (2026-08-07)
+
+- **`withRollback` is the whole integration-test story: run against the real database, commit
+  nothing.** Every test body runs inside a transaction that is unconditionally rolled back, so
+  tests exercise real foreign keys, real partial unique indexes and real generated columns, and
+  leave the database exactly as they found it — no truncate step, no fixture cleanup, no ordering
+  dependency between suites. This is only possible because the services here already accept a
+  transaction handle (`Omit<ReturnType<typeof getDb>, "$client">`, added for the quote→job
+  conversion). That decision paid for itself twice.
+- **A constraint violation aborts the whole transaction, so a schema test cannot assert twice.**
+  Postgres returns `25P02 current transaction is aborted` for every statement after an error, which
+  means a test that deliberately triggers a `23505` and then wants to check that a *legitimate*
+  second row is still accepted will fail on the second half. The fix is a SAVEPOINT: Drizzle's
+  nested `db.transaction()` emits one, so `expectViolation()` in `src/test/db.ts` rolls back only
+  the failing statement and the outer transaction survives. Without this, half of what a schema test
+  is for is unexpressible.
+- **`ON DELETE RESTRICT` raises `23001`, not `23503`.** `restrict_violation` and
+  `foreign_key_violation` are different SQLSTATEs, and the difference is real: RESTRICT is checked
+  immediately and can never be deferred, while NO ACTION is checked at end-of-statement and could be
+  deferred by `SET CONSTRAINTS`. Assert the precise code when the immediacy is the guarantee you
+  care about.
+- **Drizzle names every schema column in an `INSERT`, so an unapplied migration breaks writes to
+  that table entirely — not just the new columns.** `20260806000001_job_costing.sql` had never been
+  run against Neon, and the effect was that *every* insert into `tenants`, `jobs`, `job_line_items`
+  and `catalog_items` failed with `42703 column "default_labor_cost_rate" does not exist`. Onboarding,
+  job creation, line items and the catalog were all broken against the live database while the code
+  looked fine. There is no partial-application mode: schema and migration must move together, and
+  "the migration is written" is not the same as "the migration is applied".
+
+## Event instrumentation across the domain routes (2026-08-07)
+
+- **`Omit<ReturnType<typeof getDb>, "$client">` is the only correct `db` type for anything a route
+  might call inside a transaction — and this repo has now got it wrong three times.**
+  `job-stages.service.ts` had it (QUO-02), `recalculateJobTotals` in `routes/jobs/index.ts` had it,
+  and both were found the same way: a handler that needed to become transactional couldn't, because
+  one helper in the middle refused a transaction handle. A Drizzle transaction has every query
+  method and no `$client`. Type new helpers this way from the start; the alternative is discovering
+  it at the moment you can least afford a refactor.
+- **Emit the event *inside* the caller's transaction, and emit it after the money.** Two separate
+  rules, both learned here. A queue row that commits apart from the domain write is either an
+  automation firing for work that rolled back, or a committed change whose automation silently
+  vanished. And a row written by `INSERT` starts at `0.00` — emitting `invoice.created` or
+  `quote.created` before the recalculation means a workflow gating on "over $2,000" never matches
+  anything, which reads as "the trigger is broken" rather than "the payload was early".
+- **One emitter per concept, not per route.** `booking.cancelled` is written by `PATCH`, `DELETE`
+  and `bulk-status-update`; `invoice.voided` by `/void`, `PATCH /:id/status` and the bulk path.
+  Each of those pairs has already diverged once in this codebase (JOB-22: the bulk job path sent no
+  completion email at all). A shared `emit*StatusEvents(transitions)` that filters `from === to`
+  itself makes the divergence unexpressible instead of findable.
+- **A no-op write must not emit.** Re-sending an invoice, re-saving a confirmed booking, re-adding
+  a tag that is already there, PATCHing a customer with identical values — all of these reach the
+  same handler as the real thing. `onConflictDoNothing().returning()` returning nothing, and a
+  `from !== to` filter, are what separate them. Without that, "when a tag is added" fires every time
+  someone opens the tag picker.
+- **`.returning()` on a DELETE is how you tell "removed" from "was not there".**
+  `DELETE /customers/:id/tags/:tagId` was idempotent by accident — it deleted unconditionally and
+  logged an activity either way. Idempotent responses are fine; an event that fires when nothing
+  changed is not.
+
+## Workflow engine (2026-08-08)
+
+- **Pauses have to be exceptions, not return values.** A wait node five frames
+  deep inside a loop body must suspend the whole run. As a discriminated return
+  every frame between it and the traverser has to check, and one missed check is
+  a "pause" that quietly carries on. As a throw, control flow reads top to
+  bottom and a missing handler is loud.
+- **Compare-and-set on every transition out of `running`.** `UPDATE … WHERE id =
+  ? AND status = 'running'`. A delay pause and a concurrent goal exit can both
+  believe they own the row; without the guard the later write wins silently and
+  the run is `waiting` or `completed` depending on which column you read.
+- **A unique-constraint violation can be the success path.** `23505` on the
+  execution table's `idempotency_key` means "this event was already handled" and
+  on `active_dedup_key` means "this subject is already mid-run" — both are
+  answers, not errors. That is the structural version of a query-then-insert
+  race, and it is why the indexes are partial.
+- **Resolve variables through a closed map, never by walking the context.**
+  Prototype-chain access then isn't reachable at all, and the `env`/`__proto__`
+  deny-list becomes defence in depth rather than the mechanism. The four
+  namespaces that *must* walk an object (`previous`, `vars`, `trigger`, `loop`)
+  walk **their own** object with `hasOwnProperty` checks — `in` and bare bracket
+  access both traverse the prototype, so `{{vars.toString}}` would resolve to a
+  function.
+- **Format by declaration, never by the value's shape.** The reference system
+  sniffed values and rendered a ten-digit Google Ads campaign id as
+  `(123) 456-7890`. `format: "phone"` lives on the variable, not in a heuristic.
+- **Declare what a node mutates and let the engine re-read it — including the
+  analytics cache.** The server invalidates that cache on an `onResponse` hook,
+  and an engine write has no request, so nothing fires for it. Without one line
+  in `refreshAfterNode`, a workflow that records a payment leaves the dashboard
+  wrong for ten minutes and nothing says why. It is the easiest thing in the
+  engine to forget and the hardest to notice.
+- **An "already running" at-most-once node should fail loudly, not re-send.** A
+  crash mid-send leaves a `running` log row, and the honest answer is "we don't
+  know whether the customer got that email". Re-sending to be safe is the wrong
+  kind of safe.
+- **Fail closed on an unknown ownership kind.** `assertOwnership` returns false
+  for a kind it has no checker for, so adding a new one refuses until somebody
+  writes the check. A permissive default would make the next `ownership: "…"`
+  silently unenforced.
+- **Hand-written migrations have no runner in this repo — apply them with
+  `postgres.js` `sql.unsafe(file).simple()`.** There is no `psql` on the dev
+  machine, and `pnpm db:migrate` is `drizzle-kit migrate`, which only applies
+  what is listed in `meta/_journal.json` — 32 of 42 files are not. So every
+  audit migration is applied by script or not at all. `.simple()` is the load-
+  bearing part: without it postgres.js uses the extended protocol, which allows
+  exactly **one** statement per call, and a migration file is many. Note the
+  trade-off — a multi-statement simple query is an *implicit transaction*, so
+  the whole file is all-or-nothing (good), but `ALTER TYPE … ADD VALUE` is only
+  legal in a transaction block on PG 12+ (Neon is 18.4, so fine) and the new
+  value cannot be used by a later statement in the same file.
+- **A deliberate constraint violation inside a transaction poisons every
+  assertion after it — wrap negative tests in a `SAVEPOINT`.** Postgres aborts
+  the *entire* transaction on any failed statement; catching the error in
+  JavaScript does not un-abort it. A verification script that checks "a bogus FK
+  is refused" and then keeps asserting is reading a dead transaction, and the
+  errors it reports afterwards are misleading rather than absent — this cost a
+  run where a bad `INSERT` was blamed on the FK it had nothing to do with. Use
+  `tx.savepoint(async sp => { … })` around the failing probe. Same reason
+  `withRollback()` exists, one level down.
+- **Verify a migration's *purpose*, not just its shape.** Column-and-index diffs
+  prove the DDL ran; they cannot prove `ON DELETE SET NULL` was written where
+  `CASCADE` was meant. Deleting the parent and asserting the child **survived**
+  is a two-line check that catches a clause which reads correctly and destroys
+  data. The structural pass and the behavioural pass find different bugs.
+- **The same predicate needs opposite defaults for the engine and the validator
+  — decide which caller you are writing for.** `assertOwnership` returns false
+  for an ownership kind it has no checker for, which is right at execution time
+  (an id you cannot verify must not be used) and wrong at publish time, where it
+  would tell the author "you do not own this customer" for the eight of eleven
+  kinds nobody has written a checker for yet — untrue, and unfixable from inside
+  the product. A shared helper with one fail-closed default silently makes the
+  permissive caller wrong. Export the *set of what is checkable* alongside the
+  checker so each caller picks its own default explicitly.
+- **A rule that must run in the browser and on the server belongs in the pure
+  package, whatever the design doc says.** wf-08 §8.7 placed the graph validator
+  in `services/workflow/graph/validate.ts` and also said the browser imports it —
+  which cannot both be true, because the browser cannot import from `apps/api`.
+  The resolution is to split by *purity*, not by layer: structural rules go in
+  `packages/workflow-nodes` (zod only, no Drizzle, no I/O), and only the rules
+  genuinely needing the database stay server-side and wrap it. Two validators
+  would disagree, and the one the user sees would be the wrong one.
+- **Two structurally identical interfaces in two packages type-check perfectly
+  and drift immediately.** `GraphIssue` was declared in both
+  `@hvac-saas/workflow-nodes` and `@hvac-saas/types`; assignment between them
+  worked, so nothing complained — while `code` was already a closed union in one
+  and a bare `string` in the other. Structural typing hides the duplication
+  instead of catching it. Pick the package lowest in the dependency graph as
+  canonical and leave a pointer comment in the other; a type-only re-export
+  erases at compile time if a real re-export is wanted.
+- **A comment claiming two functions cooperate is not the same as them
+  cooperating.** `isPropertyVisible` carried a doc comment saying it was "shared
+  by the config renderer and the validator so a hidden required field never
+  blocks a publish" — and `getMissingRequiredFields` never called it. Choosing
+  "Plain text" hides the HTML body field, so Publish would have been blocked
+  forever on a control that appears nowhere on screen. When a comment asserts a
+  relationship between two functions, grep for the call before trusting it.
+- **Two endpoints the client treats as interchangeable must actually be
+  interchangeable — and a comment asserting it does not make it so.** `POST
+  /publish` returns its problem list in a 422 body, but `api-fetch` nulls `data`
+  on any non-2xx, so the client re-reads that list from `GET /:id/validate`. The
+  action carried a comment saying the two "return exactly the same thing by
+  construction: both call the same validator". That was true when written and
+  stopped being true the moment a name check was added to the publish path
+  alone: publish refused an unnamed automation, the client re-read a list that
+  knew nothing about names, and the dialog rendered **"There are 0 things to fix
+  first"** — telling the user their automation was fine while refusing to
+  publish it. The fix is to put the rule in the shared validator so the claim is
+  structural, not aspirational. The tell was there in the comment: an invariant
+  worth writing down is one worth enforcing in code.
+- **Guard the impossible state anyway when the consequence is a lie.** Even with
+  the rule shared, the client now refuses to open the problem dialog on an empty
+  list and falls back to the server's own message. A dialog that says nothing is
+  wrong, while the action it is explaining was refused, is worse than a plain
+  error toast — it teaches the user the product is broken rather than that their
+  input is.
+- **A service that types its `db` as `ReturnType<typeof getDb>` cannot be called
+  from inside a transaction.** A Drizzle transaction has every query method but
+  no `$client`, so the bare handle type excludes it. This has now been the bug
+  three times — `job-stages.service.ts` (QUO-02), `recalculateJobTotals`, and
+  `availability.service.ts` — and every time it surfaced as a type error at the
+  *call* site, which reads as "the caller is doing something wrong" rather than
+  "this signature is too narrow". Type every service `db` parameter as
+  `Omit<ReturnType<typeof getDb>, "$client">`. A full handle still satisfies it,
+  so widening never breaks an existing caller.
+- **When a feature needs "when is this business open", it already has an
+  answer.** `services/availability.service.ts` resolves the weekly schedule plus
+  date overrides and is what the booking portal, the calendar and dashboard
+  rescheduling all read. Adding `tenants.quiet_hours_*` columns for workflow
+  delays would have created a second definition of the same fact — the exact
+  three-way drift that service was written to remove (BOOK-10, BOOK-21), where a
+  contractor who closed 25 December had the portal refuse bookings while their
+  own calendar showed a normal working day. A public holiday should be entered
+  once.
+- **A guard that blocks is not the safe choice; a guard that defers is.** The
+  ported system's quiet-hours check returns `{ success: false, status:
+  "blocked_quiet_hours" }`, so a follow-up due at 2am is never sent at all. The
+  customer silently never hears from you, which is worse than hearing from you
+  an hour early — and it is invisible, because nothing failed. Push the work to
+  the next allowed moment instead. Same shape as the email opt-out gate, which
+  returns a *decision with a reason* rather than a boolean.
+- **A "ship gate" only gates what it asserts.** `ACTIVE_NODES` is documented as
+  the list that stops the palette offering a node which would fail at run time,
+  and four tests back it: every active node has a definition, an executor entry,
+  an executor module on disk, and no orphans in the other direction. All four
+  passed for `trigger.invoice.overdue`, which was in the palette, configurable,
+  publishable — and whose event **nothing anywhere raised**. A trigger node is
+  only as real as its event's producer. When a gate exists, write down what it
+  does *not* cover; the gap is where the next bug lives, and here it was the
+  difference between "this node can execute" and "this node can be reached".
+- **A metadata field nothing reads is a comment.** The event registry recorded
+  `phase: "P9"` for `invoice.overdue` — accurate, and it sat beside an active
+  node the whole time. Either enforce a declaration in a test or accept it is
+  prose; the dangerous middle is a field that looks authoritative and binds
+  nothing.
+- **Emit dedup belongs in the database, not the process.** `emitWorkflowEvent`
+  has always taken a `dedupKey` enforced by a unique index, and nothing had used
+  it. For an hourly sweep raising a once-per-day event, the alternative — a "done
+  today" flag in module scope — is wrong on a second instance, lost on every
+  deploy, and its failure mode is a customer receiving two chase emails.
+- **Don't reuse another feature's claim column as an event trigger.** The E-07
+  cron already sweeps overdue invoices and writes `last_overdue_reminder_at`, so
+  emitting `invoice.overdue` from it looked free. It would have coupled every
+  overdue automation to whether reminder *emails* were enabled — turn those off
+  and the automations stop, with nothing to indicate why. Two concerns, two
+  sweeps, one shared definition of "overdue".
+- **"Refuses loudly" is only true if somebody is listening.** `execute()` rejected
+  an over-quota run before writing anything and returned a clear message — which
+  the route hands to whoever pressed Run. For an **event-triggered** run there is
+  no route and no person: the refusal happened before any `workflow_executions`
+  row existed, so it appeared in no run history, no notification and no toast.
+  The tenant's automations would simply stop. When an early-return guard fires
+  before the record that makes something visible, check every caller — one of
+  them has no user attached.
+- **Throttle a per-event notification by the thing that caused it, not the event.**
+  A tenant over their daily cap refuses every event for the rest of the day; one
+  notification per refusal turns one problem into a thousand. Key it on
+  `(limit kind, day)` — the same shape as the failure notification's per-run key
+  and the overdue sweep's per-invoice-per-day key.
+- **`deliverNotification` and `dispatchNotification` are not interchangeable.**
+  The fire-and-forget one is right on an error path, where a failing notification
+  must not turn one failure into two. It is wrong when the notification is the
+  *only* signal the user will get — dropping it on the floor puts you back where
+  you started.
+- **An index whose comment names a query nobody wrote is a to-do, not an index.**
+  `idx_node_logs_started` carried the comment "the retention sweep",
+  `RETENTION` had sat in `limits.ts` since P0, and
+  `workflow_executions.workflow_version_id` was `ON DELETE restrict` *specifically*
+  so the sweep's version check would be enforced rather than polite. All of that
+  shipped; the sweep did not, and four tables grew forever. When a schema comment
+  describes a component, grep for it — the surrounding design is already relying
+  on it existing.
+- **Retention order follows the foreign keys.** Executions must be pruned before
+  versions, because `ON DELETE restrict` means a version cannot go while a run
+  points at it. The other order does not error loudly — it just deletes nothing,
+  every time, forever.
+- **Never prune a non-terminal row on age alone.** A `waiting` run older than the
+  retention window is a three-month delay somebody deliberately set. Deleting it
+  cancels their automation as a side effect, with nothing anywhere saying why.
+- **`NOT IN (subquery)` is a trap when the subquery can yield NULL** — the
+  predicate is never true for any row, so the statement silently deletes nothing.
+  `NOT EXISTS` has no such behaviour and reads the same.
+- **A policy with two legitimate answers must not be decided once, in code.**
+  `email.send` hardcoded `purpose: "marketing"` for every automation email, with
+  a comment reasoning that "everything an automation sends is: the customer did
+  not ask for it and it is not a document they are party to". True of a review
+  request; false of an overdue invoice — and `lib/email-consent.ts` says so
+  itself: *"an invoice you owe... suppressing them would be worse for the
+  recipient than sending them."* That module's whole rule is that the exemption
+  is **an argument you pass, never an omission**, and a node with no way to pass
+  it converted that into one global decision — exactly what the rule exists to
+  prevent. The symptom was silent: the flagship chase-overdue template skipped
+  every customer who had ever unsubscribed from marketing, for money they owed.
+- **When a hardcoded value becomes a field, the fallback is the old value.**
+  `params.purpose === "transactional" ? "transactional" : "marketing"` rather
+  than `params.purpose ?? "marketing"` — a saved node with a junk value keeps the
+  stricter behaviour instead of accidentally gaining an exemption. Widening a
+  guard is the one direction where "unknown input" must not mean "new default".
+- **A knowledge-base entry is part of the contract.** Two entries told customers
+  that unsubscribing stops "anything an automation sends". The moment the code
+  stopped being true of that, the chatbot was confidently wrong about a legal
+  boundary — [[strict-rules]] §6 exists for exactly this, and it is not
+  housekeeping.
+- **Two sides of a denormalised column must be asserted, not remembered.**
+  `workflow_versions.trigger_types` is filled by publish from
+  `def.triggerEvents` — event names like `job.completed` — and was queried by
+  the trigger matcher with `LISTENERS_BY_EVENT.get(...)`, which yields the
+  **node ids** that listen for an event, `trigger.job.completed`. The overlap of
+  those two sets is empty for every trigger in the catalogue, so the candidate
+  query returned nothing for every event ever dispatched: **no event-triggered
+  automation could fire at all.** Both sides were internally consistent, both
+  typed `string[]`, both well-commented. The type system cannot help across a
+  denormalised column — the values are strings on both ends — so the round trip
+  needs a test.
+- **The thing that hid it was the escape hatch.** `POST /:id/runs` goes straight
+  to `execute()` and never touches the matcher, so every manual test of the
+  engine passed. When a feature has a "run it directly" path, that path is not
+  evidence the production path works — and it is usually the only one anyone
+  exercises by hand.
+- **Name a parameter for what it holds, not for what the caller happens to
+  have.** The parameter was `nodeTypes: string[]` and the call site dutifully
+  passed node ids. Renaming it `eventTypes` makes the mistake visible at the
+  call site instead of invisible at both ends.
+- **A backtick inside a `sql` tagged template ends the query.** The overdue
+  sweep's SQL comments quoted identifiers in backticks — the house style two
+  lines up in every JSDoc block — and inside ``sql`...` `` the first one closed
+  the string, so the rest of the SQL was parsed as JavaScript. esbuild reported
+  `Expected ")" but found "partially_paid"`, which is merely the first word
+  after the break and points nowhere near the cause. The API had not booted
+  since that file landed. Scan for it mechanically: walk every ``sql`...` `` and
+  flag any that closes before a plausible terminator (`)`, `,`, `;`, whitespace).
+  Exclude matches preceded by a backtick or word character, or every inline
+  `` `sql` `` in prose is a false positive.
+- **A variable resolved for display cannot be read back as data.** The
+  interpolator renders `{{booking.date}}` as "Aug 12, 2026" because that is what
+  an email needs. A field whose value the *engine* must compute with therefore
+  cannot be a text field holding a token — parsing a localised display string is
+  exactly the "guess the format from the value's shape" mistake the module
+  refuses to make. Store the **path** instead (`booking.date`, no braces, so
+  interpolation passes it through) and resolve it raw through `VARIABLE_MAP`.
+  The field type is the declaration that makes this checkable: a `dateVariable`
+  can be validated at publish for existence, type and scope, none of which a
+  free-text token can.
+- **A node's fields are a seam, and `Record<string, unknown>` gives it no
+  type.** `logic.stop` declared its field as `outcome` and the executor read
+  `params.stopType` — the name the *signal class* uses. Both halves compiled,
+  both read as correct in isolation, and the access simply returned `undefined`
+  forever, which the executor's own `?? "completed"` fallback absorbed. Result:
+  every Stop step ended the run as completed, including one explicitly set to
+  "Failed", so no failure notification ever fired from one. Check it
+  mechanically — parse `name: "…"` out of each definition, `params.X` out of
+  each executor, and diff. Sixteen executors, one mismatch, two commands. Strip
+  comments first or a docblock explaining the rename reads as a live access.
+- **The definition owns the vocabulary, not the executor.** The field name is
+  what is persisted in `node_config.parameters`, so a mismatch is always the
+  executor's bug to fix. Renaming the *definition* to match would silently
+  orphan the value in every automation already saved — same reasoning as
+  keeping publish's `trigger_types` vocabulary when the matcher was wrong.
+- **An unanswerable comparison is not an error, and that is what makes a typo
+  invisible.** `condition.if` rules store a bare variable path, and
+  `ResolveVariable` returns `{found: false}` for one that does not exist or that
+  this trigger does not provide. The evaluator then, correctly and by design,
+  sends the run down **No** — because a filter that cannot be answered must not
+  match. So `booking.stauts` publishes, runs, and quietly takes the No branch
+  forever. Nothing throws, nothing logs, and the run history shows a completed
+  run. Any field holding a *path* rather than a *value* needs a publish-time
+  check that the path exists and is in scope; the run-time behaviour is right
+  and can never be the place you find out.
+- **Pick the error class by who caused it, not by how bad it is.** In the
+  engine, `NodeFailure` emails the tenant a failure notification and
+  `WorkflowStopped("cancelled")` does not. A wait that would run past the
+  one-year horizon is triggered by *data* — a warranty ten years out, a service
+  agreement booked for next spring — so raising it as a failure trains people to
+  ignore the notification that means something. Config problems (an unknown
+  variable path, an unreadable time) are the author's and should fail loudly.
+  The run's own history is where expected-but-unhelpful outcomes belong.

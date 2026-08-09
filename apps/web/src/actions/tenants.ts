@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 
 import { API_URL } from "@/lib/api-url";
+import { apiGet, apiSend, apiVoid } from "@/lib/api-fetch";
 
 async function getCookieHeader() {
   const cookieStore = await cookies();
@@ -76,6 +77,8 @@ export async function updateTenant(data: {
   state?: string;
   zipCode?: string;
   defaultTaxRate?: string;
+  /** Null clears it, so "not tracked" stays expressible. */
+  defaultLaborCostRate?: number | null;
   googleReviewUrl?: string;
   logoUrl?: string;
   timezone?: string;
@@ -228,4 +231,42 @@ export async function getActiveImpersonationViewer() {
   } catch {
     return { data: null, error: "Network error" };
   }
+}
+
+// ── Member cost rates ────────────────────────────────────────
+
+export interface MemberRate {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+  /** Null when this member inherits the tenant default. */
+  hourlyCostRate: string | null;
+  /** True when the rate above is this member's own, not the inherited default. */
+  isOverride: boolean;
+}
+
+export interface MemberRatesPayload {
+  defaultLaborCostRate: string | null;
+  members: MemberRate[];
+}
+
+export async function getMemberRates() {
+  return apiGet<MemberRatesPayload>("/tenants/member-rates", {
+    fallback: "Failed to load cost rates",
+  });
+}
+
+export async function setMemberRate(userId: string, hourlyCostRate: string) {
+  return apiSend<{ userId: string }>("/tenants/member-rates", "PUT", {
+    userId,
+    hourlyCostRate,
+  }, { fallback: "Failed to save the rate" });
+}
+
+/** Drops the override so this member falls back to the tenant default. */
+export async function clearMemberRate(userId: string) {
+  return apiVoid(`/tenants/member-rates/${userId}`, "DELETE", undefined, {
+    fallback: "Failed to clear the rate",
+  });
 }

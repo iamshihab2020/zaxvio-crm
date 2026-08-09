@@ -32,6 +32,10 @@ import {
   round2,
   type InvoiceStatus,
 } from "./status.service.js";
+import {
+  emitInvoicePaidIfSettled,
+  emitPaymentRecorded,
+} from "./invoice-events.service.js";
 
 type Db = ReturnType<typeof getDb>;
 /** Either the pooled client or an open transaction — every helper accepts both. */
@@ -61,6 +65,13 @@ export async function recalculateInvoice(
   tx: Executor,
   invoiceId: string,
   tenantId: string,
+  /**
+   * Who caused the recalculation, for the workflow event. Optional because most
+   * callers are internal (a line-item write, a payment) and threading a user id
+   * through every one of them would be a wide change for a field that is null
+   * on the public paths anyway.
+   */
+  context?: { actorUserId: string | null },
 ): Promise<InvoiceTotals> {
   const [[sums], [inv]] = await Promise.all([
     tx
@@ -118,6 +129,19 @@ export async function recalculateInvoice(
       updatedAt: new Date(),
     })
     .where(and(eq(invoices.id, invoiceId), eq(invoices.tenantId, tenantId)));
+
+  // The one place `invoice.paid` can be emitted from, because this is the one
+  // place the derived status is written. Emitting from a route would mean the
+  // event agreed with whichever handler remembered to send it, which is the
+  // assignment model this function replaced.
+  await emitInvoicePaidIfSettled(tx, {
+    tenantId,
+    invoiceId,
+    previousStatus: inv.status as InvoiceStatus,
+    newStatus: status,
+    creditAmount,
+    actorUserId: context?.actorUserId ?? null,
+  });
 
   return {
     subtotal,
@@ -177,6 +201,8 @@ export async function recordPayment(
     tenantId: string;
     invoiceId: string;
     input: RecordPaymentInput;
+    /** Who recorded it. Null on any path with no session. */
+    actorUserId?: string | null;
   },
 ): Promise<PaymentResult> {
   const { tenantId, invoiceId, input } = params;
@@ -203,7 +229,25 @@ export async function recordPayment(
       })
       .returning();
 
-    const totals = await recalculateInvoice(tx, invoiceId, tenantId);
+    const totals = await recalculateInvoice(tx, invoiceId, tenantId, {
+      actorUserId: params.actorUserId ?? null,
+    });
+
+    // After the recalculation, so `settlesInvoice` reflects the balance this
+    // payment actually produced rather than the one it was expected to.
+    await emitPaymentRecorded(tx, {
+      tenantId,
+      invoiceId,
+      payment: {
+        id: payment.id,
+        amount: payment.amount,
+        method: payment.paymentMethod,
+        date: payment.paymentDate,
+      },
+      settlesInvoice: totals.balanceDue <= 0,
+      actorUserId: params.actorUserId ?? null,
+    });
+
     return {
       payment,
       totals,

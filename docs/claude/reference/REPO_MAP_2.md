@@ -17,7 +17,7 @@ packages/database/
     +-- client.ts             # Drizzle client (lazy singleton via postgres driver)
     +-- schema/
         +-- index.ts              # Barrel re-export of all tables, enums, relations
-        +-- enums.ts              # 13 pgEnum definitions (incl. serviceFrequencyEnum)
+        +-- enums.ts              # 14 pgEnum definitions (incl. serviceFrequencyEnum, expenseCategoryEnum)
         +-- auth.ts               # Better Auth tables: user, session, account, verification, organization, member, invitation
         +-- tenants.ts            # tenants table (with organizationId FK)
         +-- users.ts              # users table (replaced by Better Auth user + member)
@@ -27,11 +27,14 @@ packages/database/
         +-- customer-notes.ts     # customerNotes table
         +-- customer-activities.ts # customerActivities table
         +-- calendar-events.ts    # calendarEvents table
-        +-- catalog.ts            # catalogItems table
+        +-- catalog.ts            # catalogItems table (unitCost — nullable, never defaulted to 0)
         +-- equipment.ts          # equipment, refrigerantLogs tables (jobId FK to jobs)
         +-- maintenance.ts        # maintenanceContracts table (with frequency column)
         +-- bookings.ts           # bookings table
-        +-- jobs.ts               # jobs, jobLineItems, jobPhotos tables (status is text, equipmentId FK)
+        +-- jobs.ts               # jobs, jobLineItems, jobPhotos tables (status is text, equipmentId FK).
+        |                         # jobs.actualHours + jobs.laborCostRate (snapshotted, so a raise does
+        |                         # not rewrite old margins); jobLineItems.unitCost + generated costTotal
+        +-- costing.ts            # jobExpenses, tenantMemberRates tables
         +-- job-activities.ts     # jobActivities table
         +-- invoices.ts           # invoices, invoiceLineItems, invoicePayments tables
         +-- quotes.ts             # quotes, quoteLineItems tables
@@ -57,6 +60,9 @@ packages/types/
     +-- index.ts              # Barrel re-export
     +-- enums.ts              # Const arrays + union types for all enums
     +-- tenant.ts             # Tenant, TenantInsert, TenantUpdate
+    +-- costing.ts            # JobExpense, TenantMemberRate + the DERIVED contracts: CostCoverage
+    |                         # (what the margin doesn't know), JobCostSummary, ProfitabilityRow,
+    |                         # ProfitabilitySection
     +-- user.ts               # User, UserInsert
     +-- customer.ts           # Customer, CustomerInsert, CustomerUpdate
     +-- customer-note.ts      # CustomerNote types
@@ -80,14 +86,77 @@ packages/types/
     +-- admin.ts              # AdminAuditLog, AdminImpersonationSession, PlatformEvent
 ```
 
-### `packages/ui/` — Shared UI Component Library
+### `packages/workflow-nodes/` — The automation node contract
+
+Deliberately a **data** package: plain objects and pure functions, no React and
+no Drizzle, because the API and the browser both import it. A node definition is
+one declaration consumed three ways — the builder renders its form from
+`properties[]`, the engine dispatches on `node`, and the validator reads the
+same fields to block a bad publish. That is why adding a node is "write a
+definition, write an executor" rather than touching six files.
 
 ```
-packages/ui/
-+-- package.json              # @hvac-saas/ui
-+-- tsconfig.json
+packages/workflow-nodes/
++-- package.json              # @hvac-saas/workflow-nodes
 +-- src/
-    ~ index.ts                # Placeholder (export {})
+    +-- node-definition.ts    # THE contract. `node` is a permanent public API — every
+    |                         # saved automation stores the string, so a rename orphans
+    |                         # somebody's work. Output `id` and `label` are SEPARATE:
+    |                         # the reference impl. put the label in `sourceHandle`, so
+    |                         # renaming "Found" to "Match" broke routing everywhere
+    +-- active-nodes.ts       # The ship gate. A definition may land before its executor;
+    |                         # this list is what stops the palette offering a node that
+    |                         # would fail at run time. RELEASED_NODE_IDS only ever grows
+    +-- execution-context.ts  # What a node can read. The customer resolves for EVERY
+    |                         # subject type, and nothing in it is a Date — the context
+    |                         # round-trips through jsonb across a delay
+    +-- conditions.ts         # 22 operators in ONE closed set, shared by trigger filters
+    |                         # and condition.if. An unresolvable variable FAILS its rule;
+    |                         # `isUnset` is load-bearing because the builder persists
+    |                         # every property, so an unconfigured filter is
+    |                         # present-but-empty, and 0/false are values
+    +-- naming.ts             # DEFAULT_WORKFLOW_NAME + isNamedWorkflow
+    +-- graph/
+    |   +-- validate.ts       # Every structural publish rule, PURE so the browser runs
+    |                         # the same code the server does. 21 issue codes in a closed
+    |                         # union. Tenant ownership is the one rule that cannot be
+    |                         # pure and lives in services/workflow/graph/ instead
+    +-- registry/
+        +-- index.ts          # EXPLICIT STATIC IMPORTS ONLY — never a glob. The reference
+        |                     # impl. records an OOM in Next's "Collecting page data" from
+        |                     # exactly that. A test walks the directory and fails if a
+        |                     # file here is not imported, so the rule is enforced without
+        |                     # using the thing it forbids
+        +-- triggers/         # 12: manual · job.created · job.stage_changed · job.assigned ·
+        |                     # job.completed · quote.sent · quote.accepted · invoice.paid ·
+        |                     # invoice.overdue · booking.created · booking.cancelled ·
+        |                     # customer.created. job.stage_changed filters on LIFECYCLE,
+        |                     # never the stage name or id — a tenant renaming a column
+        |                     # must not silently stop an automation matching
+        +-- communication/    # email.send · notification.internal
+        +-- actions/          # customer.addNote · job.moveStage · job.assign
+        +-- timing/           # delay.wait — durable pause, working-hours aware. Three modes:
+        |                     # a relative wait, a date the author typed, and a date the
+        |                     # RECORD carries (`untilField`). The third stores a variable
+        |                     # PATH, not a `{{token}}`: interpolation renders variables for
+        |                     # people, so a token would arrive as "Aug 12, 2026"
+        +-- logic/            # condition.if · logic.merge (the ONLY AND join) · logic.stop
+    +-- templates/
+        +-- types.ts          # A template is a DECLARATION, not code that builds a graph —
+        |                     # the gallery renders it, the server instantiates it and a test
+        |                     # checks it would publish. Nodes join by a local `key`, never a
+        |                     # uuid: node id is what an edge stores and a run log points at,
+        |                     # so two automations from one template must not share them.
+        |                     # `needsSetup` (a field to finish, ASSERTED against the graph) is
+        |                     # kept apart from `dependsOn` (a tenant setting, unassertable)
+        +-- layout.ts         # GRAPH_LAYOUT — the single definition of canvas pitch, imported
+        |                     # by build-node.ts too. Positions are DERIVED (BFS column, lane
+        |                     # from the parent + branchIndex), so a template is a graph and
+        |                     # not a drawing
+        +-- catalogue.ts      # 5 starter templates. No tenant-scoped ids anywhere, because a
+                              # template cannot know a pipeline or a teammate. Every {{path}}
+                              # is a declared variable, checked by a test — a typo mails a
+                              # customer a sentence with a hole in it
 ```
 
 ### `packages/email/` — React Email Templates
@@ -115,6 +184,9 @@ packages/email/
         +-- e13-quote.tsx
         +-- e14-booking-cancelled.tsx        # To customer on cancel (added 2026-07-27 — the
         |                                    # customer was told when booked, never when cancelled)
+        +-- e15-notification.tsx             # Generic notification alert. Written in P0 with
+        |                                    # the fix for `sendNotificationAlertEmail`,
+        |                                    # which was imported from nowhere
         +-- team-invitation.tsx
 ```
 

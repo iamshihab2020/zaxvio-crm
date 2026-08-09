@@ -268,6 +268,86 @@ Get the current authenticated session.
 
 Tenant management for the current authenticated organization.
 
+### `GET /tenants/member-rates`
+
+**Auth:** `requireOrgRole(["owner", "admin"])`
+
+Every member of the business with their effective hourly cost rate.
+
+Owner/admin only, and deliberately so: a rate is what the business pays a
+person, which is payroll information. A member could otherwise list this
+endpoint and read every colleague's cost.
+
+Returns **all** members, not only those with a saved override — the useful
+question is "who is still on the default", and a list of exceptions cannot
+answer it.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "defaultLaborCostRate": "55.00",
+    "members": [
+      {
+        "userId": "usr_001",
+        "name": "Marco Ruiz",
+        "email": "marco@smithhvac.com",
+        "role": "member",
+        "hourlyCostRate": "72.00",
+        "isOverride": true
+      },
+      {
+        "userId": "usr_002",
+        "name": "Dana Okafor",
+        "email": "dana@smithhvac.com",
+        "role": "member",
+        "hourlyCostRate": null,
+        "isOverride": false
+      }
+    ]
+  }
+}
+```
+
+`hourlyCostRate: null` with `isOverride: false` means the member inherits
+`defaultLaborCostRate` — distinct from an explicit override that happens to
+equal it.
+
+### `PUT /tenants/member-rates`
+
+**Auth:** `requireOrgRole(["owner", "admin"])`
+
+Upsert one member's rate. Idempotent by `(tenant, user)`, so re-sending the same
+rate is a no-op rather than a duplicate row.
+
+**Request Body:**
+
+```json
+{ "userId": "usr_001", "hourlyCostRate": "72.00" }
+```
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `userId` | string | Yes | Must be a member of this tenant's organization |
+| `hourlyCostRate` | string | Yes | `^\d{1,8}(\.\d{1,2})?$` |
+
+| Status | When |
+|--------|------|
+| `400` | `userId` is not a member of this business — checked so that any valid user id cannot take a rate row, which would both leak that the account exists and pollute the tenant's costing |
+| `404` | Tenant not found |
+
+### `DELETE /tenants/member-rates/:userId`
+
+**Auth:** `requireOrgRole(["owner", "admin"])`
+
+Drop the override so the member falls back to the tenant default.
+
+**Response** `200 OK` — `{ "data": { "userId": "usr_001" } }`.
+
+No `404` when there is no row: "this member has no override" is the state the
+caller asked for, and it is already true.
+
 ### `POST /tenants/initialize`
 
 **Auth:** `requireAuth`
@@ -343,6 +423,7 @@ Update the current tenant's business settings.
   "state": "TX",
   "zipCode": "78702",
   "defaultTaxRate": "8.25",
+  "defaultLaborCostRate": "60.00",
   "googleReviewUrl": "https://g.page/r/smith-hvac/review",
   "timezone": "America/Chicago",
   "licenseNumber": "TACLA12345",
@@ -354,6 +435,14 @@ Update the current tenant's business settings.
   "quoteFooterMessage": "We look forward to working with you!"
 }
 ```
+
+`defaultLaborCostRate` is the **loaded hourly cost** of a technician — wages plus
+overhead, not the rate you bill. It is nullable and clearing it must send an
+explicit `null`: "not configured" is a real state, and job costing then reports
+labour as a missing input rather than as free. A per-person override lives at
+`/tenants/member-rates`.
+
+`defaultTaxRate` is a **fraction**, not a percentage: `0.0825` is 8.25%.
 
 **Response** `200 OK`
 
@@ -556,6 +645,12 @@ List customers with search, filtering, and pagination.
 | `sortOrder` | string | `"desc"` | `asc`, `desc` |
 | `showArchived` | boolean | `false` | `true`/`false`/`1`/`0`. Omit for active only |
 | `tagId` | uuid | - | Only customers carrying this tag |
+| `optedOut` | boolean | - | `true` = only customers who have unsubscribed, `false` = only those who have not. **Omit for no filter** — the list is never silently narrowed to the reachable |
+
+Every row carries `emailOptOutAt` (`timestamptz` or `null`) and
+`emailOptOutSource` (`unsubscribe_link` / `manual` / `complaint` / `import`).
+A non-null `emailOptOutAt` means the customer will not receive marketing or
+reminder email; estimates, invoices and receipts are unaffected.
 
 **Response** `200 OK`
 

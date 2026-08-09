@@ -84,6 +84,12 @@ export {
 } from "./templates/e14-booking-cancelled.js";
 
 export {
+  renderNotificationEmail,
+  NotificationEmail,
+  type NotificationEmailProps,
+} from "./templates/e15-notification.js";
+
+export {
   renderTeamInvitationEmail,
   TeamInvitationEmail,
   type TeamInvitationEmailProps,

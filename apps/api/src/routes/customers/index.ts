@@ -1,6 +1,12 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
+import {
+  emitCustomerCreatedEvent,
+  emitCustomerTagAddedEvent,
+  emitCustomerTagRemovedEvent,
+  emitCustomerUpdatedEvent,
+} from "../../services/customers/customer-events.service.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import { idParam, paginationQuery } from "../../lib/schemas/common.js";
 import { containsPattern } from "../../lib/search.js";
@@ -21,6 +27,7 @@ import {
   customers,
   customerNotes,
   customerActivities,
+  workflows,
   customerTags,
   tags,
   jobPhotos,
@@ -80,7 +87,8 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       schema: { querystring: customerListQuery },
     },
     async (request, reply) => {
-      const { search = "", page, limit, sortBy, sortOrder, showArchived, tagId } = request.query;
+      const { search = "", page, limit, sortBy, sortOrder, showArchived, tagId, optedOut } =
+        request.query;
 
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
@@ -115,7 +123,23 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           )`
         : undefined;
 
-      const whereClause = and(baseFilter, archiveFilter, searchFilter, tagFilter);
+      // "Who can I no longer email" (DF-NOT-01 §6). Absent means no opinion —
+      // the list is not silently filtered to the reachable, because a tenant
+      // looking at their customer list is looking at their customers.
+      const optOutFilter =
+        optedOut === undefined
+          ? undefined
+          : optedOut
+            ? isNotNull(customers.emailOptOutAt)
+            : isNull(customers.emailOptOutAt);
+
+      const whereClause = and(
+        baseFilter,
+        archiveFilter,
+        searchFilter,
+        tagFilter,
+        optOutFilter,
+      );
 
       const sortColumnMap = {
         createdAt: customers.createdAt,
@@ -293,28 +317,46 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // The schema already trims, lower-cases the email, normalises the phone and
       // maps "" to null, so both verbs agree on what an empty field means and no
       // caller can bypass it (CUST-07/08/09/11).
-      const [customer] = await db
-        .insert(customers)
-        .values({
-          tenantId,
-          firstName,
-          lastName,
-          email: email ?? null,
-          phone: phone ?? null,
-          address: address ?? null,
-          city: city ?? null,
-          state: state ?? null,
-          zipCode: zipCode ?? null,
-          notes: notes ?? null,
-        })
-        .returning();
+      // The insert, its activity row and its workflow event in one transaction,
+      // so an automation can never fire for a customer that was not created.
+      const customer = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(customers)
+          .values({
+            tenantId,
+            firstName,
+            lastName,
+            email: email ?? null,
+            phone: phone ?? null,
+            address: address ?? null,
+            city: city ?? null,
+            state: state ?? null,
+            zipCode: zipCode ?? null,
+            notes: notes ?? null,
+          })
+          .returning();
 
-      await db.insert(customerActivities).values({
-        tenantId,
-        customerId: customer.id,
-        type: "customer.created",
-        description: `Customer ${customer.firstName} ${customer.lastName} was created`,
-        performedBy: userId,
+        await tx.insert(customerActivities).values({
+          tenantId,
+          customerId: row.id,
+          type: "customer.created",
+          description: `Customer ${row.firstName} ${row.lastName} was created`,
+          performedBy: userId,
+        });
+
+        // Through the shared service rather than the producer directly. The row
+        // is right here, so this costs one extra `SELECT` — worth it, because
+        // the other three places a customer is created (the booking portal, the
+        // booking conversion, a quote acceptance) are all outside this file and
+        // would otherwise each assemble their own payload.
+        await emitCustomerCreatedEvent(tx, {
+          tenantId,
+          actorUserId: userId,
+          customerId: row.id,
+          source: "manual",
+        });
+
+        return row;
       });
 
       emitPlatformEvent(tenantId, "customer_created", userId);
@@ -546,25 +588,42 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         }
       }
 
-      const [updated] = await db
-        .update(customers)
-        .set(updates)
-        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
-        .returning();
+      // The update, its activity row and its event commit together, as they do
+      // on `POST`. A `customer.updated` that went missing because the request
+      // died between two statements is an automation that never runs and never
+      // reports why.
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(customers)
+          .set(updates)
+          .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+          .returning();
 
-      if (changedFields.length > 0) {
-        const readableFields = changedFields
-          .map((f) => fieldLabels[f] ?? f)
-          .join(", ");
-        await db.insert(customerActivities).values({
+        if (changedFields.length > 0) {
+          const readableFields = changedFields
+            .map((f) => fieldLabels[f] ?? f)
+            .join(", ");
+          await tx.insert(customerActivities).values({
+            tenantId,
+            customerId: id,
+            type: "customer.updated",
+            description: `Updated ${readableFields}`,
+            metadata: { changedFields },
+            performedBy: userId,
+          });
+        }
+
+        // No-ops emit nothing — the helper returns early on an empty diff, so a
+        // PATCH that re-sends the same values does not wake a workflow.
+        await emitCustomerUpdatedEvent(tx, {
           tenantId,
+          actorUserId: userId,
           customerId: id,
-          type: "customer.updated",
-          description: `Updated ${readableFields}`,
-          metadata: { changedFields },
-          performedBy: userId,
+          changedFields,
         });
-      }
+
+        return row;
+      });
 
       return reply.send({ data: updated });
     },
@@ -840,9 +899,24 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
             createdAt: customerNotes.createdAt,
             updatedAt: customerNotes.updatedAt,
             authorName: user.name,
+            // An automation is an author too. Without this the UI renders
+            // "Unknown" for every note a workflow writes, which reads as data
+            // loss rather than as attribution.
+            createdByWorkflowId: customerNotes.createdByWorkflowId,
+            authorWorkflowName: workflows.name,
           })
           .from(customerNotes)
           .leftJoin(user, eq(customerNotes.createdBy, user.id))
+          // Tenant predicate on the join as well as the FK. Three domains were
+          // found in the 2026-08-06 audit joining without one, and two of them
+          // leaked another tenant's data through it.
+          .leftJoin(
+            workflows,
+            and(
+              eq(customerNotes.createdByWorkflowId, workflows.id),
+              eq(workflows.tenantId, tenantId),
+            ),
+          )
           .where(whereClause)
           .orderBy(desc(customerNotes.createdAt))
           .limit(limit)
@@ -1151,11 +1225,36 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Tag not found" });
       }
 
-      const [assignment] = await db
-        .insert(customerTags)
-        .values({ customerId: id, tagId })
-        .onConflictDoNothing()
-        .returning();
+      const assignment = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .insert(customerTags)
+          .values({ customerId: id, tagId })
+          .onConflictDoNothing()
+          .returning();
+
+        // `onConflictDoNothing` returning nothing means the tag was already
+        // there. No row, no activity, and — the point here — no event: tagging
+        // someone `vip` twice must not enrol them in the VIP workflow twice.
+        if (!row) return null;
+
+        await tx.insert(customerActivities).values({
+          tenantId,
+          customerId: id,
+          type: "tag.assigned",
+          description: `Tagged as "${tag.name}"`,
+          metadata: { tagId, tagName: tag.name },
+          performedBy: request.authUser.userId,
+        });
+
+        await emitCustomerTagAddedEvent(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          customerId: id,
+          tag: { id: tag.id, name: tag.name },
+        });
+
+        return row;
+      });
 
       // `data` used to be either an assignment row or `{message: "Already
       // assigned"}` — two shapes behind one key (CUST-34). Re-assigning is now a
@@ -1168,15 +1267,6 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .then((r) => r[0]);
         return reply.status(200).send({ data: existingAssignment ?? null });
       }
-
-      await db.insert(customerActivities).values({
-        tenantId,
-        customerId: id,
-        type: "tag.assigned",
-        description: `Tagged as "${tag.name}"`,
-        metadata: { tagId, tagName: tag.name },
-        performedBy: request.authUser.userId,
-      });
 
       return reply.status(201).send({ data: assignment });
     },
@@ -1216,22 +1306,38 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(tags.tenantId, tenantId), eq(tags.id, tagId)))
         .then((r) => r[0]);
 
-      await db
-        .delete(customerTags)
-        .where(
-          and(
-            eq(customerTags.customerId, id),
-            eq(customerTags.tagId, tagId),
-          ),
-        );
+      await db.transaction(async (tx) => {
+        // `.returning()` so the event can tell "removed a tag" from "the tag
+        // was not on this customer". The route is idempotent either way, but an
+        // automation that runs when a tag comes off must not run for a DELETE
+        // that removed nothing.
+        const deleted = await tx
+          .delete(customerTags)
+          .where(
+            and(
+              eq(customerTags.customerId, id),
+              eq(customerTags.tagId, tagId),
+            ),
+          )
+          .returning({ tagId: customerTags.tagId });
 
-      await db.insert(customerActivities).values({
-        tenantId,
-        customerId: id,
-        type: "tag.removed",
-        description: removedTag ? `Removed tag "${removedTag.name}"` : "Removed a tag",
-        metadata: { tagId },
-        performedBy: request.authUser.userId,
+        await tx.insert(customerActivities).values({
+          tenantId,
+          customerId: id,
+          type: "tag.removed",
+          description: removedTag ? `Removed tag "${removedTag.name}"` : "Removed a tag",
+          metadata: { tagId },
+          performedBy: request.authUser.userId,
+        });
+
+        if (deleted.length > 0 && removedTag) {
+          await emitCustomerTagRemovedEvent(tx, {
+            tenantId,
+            actorUserId: request.authUser.userId,
+            customerId: id,
+            tag: { id: tagId, name: removedTag.name },
+          });
+        }
       });
 
       return reply.send({ message: "Tag removed" });

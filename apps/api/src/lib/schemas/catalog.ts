@@ -24,10 +24,22 @@ export const catalogListQuery = paginationQuery.extend({
 
 // ── Bodies ────────────────────────────────────────────────────────────────────
 
+/**
+ * What the item costs you, beside the `unitPrice` you charge.
+ *
+ * Explicitly `.nullable()`: null is the way to say "I don't know what this
+ * costs", and it has to stay expressible, because everything downstream treats
+ * null as a missing input and degrades the margin to provisional. If this were
+ * merely `.optional()` with a 0 default, every uncosted item would claim 100%
+ * margin — the failure the whole costing feature exists to prevent.
+ */
+const unitCost = z.number().min(0).nullable().optional();
+
 export const createCatalogItemBody = z.object({
   name: z.string().min(1).trim(),
   itemType: z.enum(["labor", "part", "material", "service_call", "other"]),
   unitPrice: z.number().min(0),
+  unitCost,
   unit: z.string().optional(),
   category: z.string().optional(),
   description: z.string().optional(),
@@ -40,6 +52,7 @@ export const updateCatalogItemBody = z.object({
     .enum(["labor", "part", "material", "service_call", "other"])
     .optional(),
   unitPrice: z.number().min(0).optional(),
+  unitCost,
   unit: z.string().optional(),
   category: z.string().optional(),
   description: z.string().optional(),

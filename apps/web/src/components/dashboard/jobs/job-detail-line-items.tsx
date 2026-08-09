@@ -44,6 +44,7 @@ interface LineItem {
   description: string;
   quantity: string;
   unitPrice: string;
+  unitCost: string | null;
   total: string | null;
   catalogItemId: string | null;
   sortOrder: number | null;
@@ -60,6 +61,8 @@ interface AddForm {
   itemType: string;
   quantity: string;
   unitPrice: string;
+  /** Blank means "not costed", which is not the same as costing nothing. */
+  unitCost: string;
   catalogItemId: string | null;
   catalogItemLabel: string;
   /** The catalog list price, kept so the form can show what this line overrides. */
@@ -71,6 +74,7 @@ const emptyForm: AddForm = {
   itemType: "labor",
   quantity: "1",
   unitPrice: "",
+  unitCost: "",
   catalogItemId: null,
   catalogItemLabel: "",
   catalogUnitPrice: null,
@@ -101,12 +105,19 @@ export function JobDetailLineItems({
     const price = parseFloat(form.unitPrice);
     if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
     if (isNaN(price) || price < 0) { toast.error("Unit price must be a valid number"); return; }
+    if (form.unitCost.trim() && isNaN(parseFloat(form.unitCost))) {
+      toast.error("Unit cost must be a valid number");
+      return;
+    }
     setSaving(true);
     const result = await addJobLineItem(jobId, {
       description: form.description,
       itemType: form.itemType,
       quantity: form.quantity,
       unitPrice: form.unitPrice,
+      // Omitted rather than sent as null when blank, so an untouched field
+      // never overwrites a cost the catalog auto-filled on the server.
+      ...(form.unitCost.trim() ? { unitCost: form.unitCost.trim() } : {}),
       ...(form.catalogItemId ? { catalogItemId: form.catalogItemId } : {}),
     });
     setSaving(false);
@@ -126,6 +137,7 @@ export function JobDetailLineItems({
       itemType: li.itemType,
       quantity: li.quantity,
       unitPrice: li.unitPrice,
+      unitCost: li.unitCost ?? "",
       catalogItemId: li.catalogItemId,
       catalogItemLabel: "",
       catalogUnitPrice: null,
@@ -144,6 +156,9 @@ export function JobDetailLineItems({
       itemType: editForm.itemType,
       quantity: editForm.quantity,
       unitPrice: editForm.unitPrice,
+      // Explicit null on an emptied field: clearing a cost has to be
+      // expressible, or a line item can be costed but never un-costed.
+      unitCost: editForm.unitCost.trim() ? editForm.unitCost.trim() : null,
     });
     setSaving(false);
     if (result.error) {
@@ -253,7 +268,20 @@ export function JobDetailLineItems({
                             unitPrice: e.target.value,
                           }))
                         }
-                        className="h-8 text-sm w-20 text-right"
+                        className="h-8 text-sm w-20 text-right tnum"
+                        aria-label="Unit price"
+                      />
+                      <Input
+                        value={editForm.unitCost}
+                        placeholder="cost"
+                        onChange={(e) =>
+                          setEditForm((f) => ({
+                            ...f,
+                            unitCost: e.target.value,
+                          }))
+                        }
+                        className="mt-1 h-7 text-xs w-20 text-right tnum"
+                        aria-label="Unit cost"
                       />
                     </td>
                     <td />
@@ -297,8 +325,24 @@ export function JobDetailLineItems({
                     <td className="px-3 py-2 text-muted-foreground font-body">
                       {li.quantity}
                     </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground font-body">
-                      ${parseFloat(li.unitPrice).toFixed(2)}
+                    {/* Cost sits under the price rather than in a fifth column:
+                        it is only ever read *against* the price, and the sheet
+                        has no room for another money column. "No cost" is
+                        stated rather than left blank — a blank cell reads as
+                        zero, and zero cost reads as pure profit. */}
+                    <td className="px-3 py-2 text-right font-body">
+                      <div className="text-muted-foreground">
+                        ${parseFloat(li.unitPrice).toFixed(2)}
+                      </div>
+                      {li.unitCost ? (
+                        <div className="tnum font-mono text-[11px] text-muted-foreground">
+                          cost ${parseFloat(li.unitCost).toFixed(2)}
+                        </div>
+                      ) : (
+                        <div className="text-[11px] text-muted-foreground/70">
+                          no cost
+                        </div>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-right font-medium text-foreground font-body">
                       ${parseFloat(li.total ?? "0").toFixed(2)}
@@ -363,6 +407,12 @@ export function JobDetailLineItems({
                     catalogItemLabel: item.name,
                     catalogUnitPrice: item.unitPrice,
                     unitPrice: parseFloat(item.unitPrice).toFixed(2),
+                    // Prefilled from the catalog so the common case needs no
+                    // typing, and still editable — a supplier price that moved
+                    // this week belongs on this job, not on the catalog record.
+                    unitCost: item.unitCost
+                      ? parseFloat(item.unitCost).toFixed(2)
+                      : "",
                     itemType: item.itemType,
                   }));
                 } else {
@@ -371,6 +421,7 @@ export function JobDetailLineItems({
                     catalogItemId: null,
                     catalogItemLabel: "",
                     catalogUnitPrice: null,
+                    unitCost: "",
                   }));
                 }
               }}
@@ -405,7 +456,14 @@ export function JobDetailLineItems({
               placeholder="Unit price"
               value={form.unitPrice}
               onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
-              className="w-28 text-sm"
+              className="w-28 text-sm tnum"
+            />
+            <Input
+              placeholder="Your cost"
+              value={form.unitCost}
+              onChange={(e) => setForm((f) => ({ ...f, unitCost: e.target.value }))}
+              className="w-28 text-sm tnum"
+              aria-label="Your cost per unit"
             />
           </div>
           <CatalogPriceHint

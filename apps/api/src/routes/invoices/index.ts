@@ -69,6 +69,11 @@ import {
   PaymentNotFoundError,
 } from "../../services/invoices/invoices.service.js";
 import {
+  emitInvoiceCreatedEvent,
+  emitInvoiceStatusEvents,
+  type InvoiceStatusTransition,
+} from "../../services/invoices/invoice-events.service.js";
+import {
   loadPdfBundle,
   renderInvoicePdf,
   storeInvoicePdf,
@@ -434,13 +439,26 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           });
         }
         await recalculateInvoice(tx, invoice.id, tenantId);
+
+        // After the recalculation, so the payload carries the real total. An
+        // invoice row starts at 0.00 and a workflow gating on an amount would
+        // never match one emitted a statement earlier.
+        await emitInvoiceCreatedEvent(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          invoiceId: invoice.id,
+          origin: body.jobId ? "job" : "manual",
+        });
+
         return invoice.id;
       });
 
+      // Tenant-scoped, unlike the read it replaces — that one matched on the
+      // invoice id alone ([[security-rules]] §1).
       const [created] = await db
         .select()
         .from(invoices)
-        .where(eq(invoices.id, invoiceId));
+        .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, invoiceId)));
 
       return reply.status(201).send({ data: created });
     },
@@ -781,6 +799,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           referenceNumber: body.referenceNumber,
           notes: body.notes,
         },
+        actorUserId: request.authUser.userId,
       });
 
       await afterPayment(request, {
@@ -840,6 +859,7 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           referenceNumber: body.referenceNumber,
           notes: null,
         },
+        actorUserId: request.authUser.userId,
       });
 
       await afterPayment(request, {
@@ -938,19 +958,36 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const nextStatus: InvoiceStatus =
         guard.invoice.status === "draft" ? "sent" : guard.invoice.status;
 
-      await db
-        .update(invoices)
-        .set({
-          pdfStoragePath: storagePath,
-          status: nextStatus,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)));
+      // After the PDF is stored, so `invoice.sent` can never announce an
+      // invoice with nothing to download — the same ordering rule the quote
+      // send path follows for its access token (QUO-01).
+      const updated = await db.transaction(async (tx) => {
+        await tx
+          .update(invoices)
+          .set({
+            pdfStoragePath: storagePath,
+            status: nextStatus,
+            updatedAt: new Date(),
+          })
+          .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)));
 
-      const [updated] = await db
-        .select()
-        .from(invoices)
-        .where(eq(invoices.id, id));
+        // The shared status emitter, which filters `from === to`: re-sending an
+        // invoice a customer says they never received must not restart a
+        // payment-chasing sequence from day one.
+        await emitInvoiceStatusEvents(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          transitions: [
+            { invoiceId: id, from: guard.invoice.status, to: nextStatus },
+          ],
+        });
+
+        const [row] = await tx
+          .select()
+          .from(invoices)
+          .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, id)));
+        return row;
+      });
 
       const { customer, tenant } = bundle;
       if (customer?.email) {
@@ -1106,11 +1143,23 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .send({ message: transitionMessage(guard.invoice.status, "void") });
       }
 
-      const [updated] = await db
-        .update(invoices)
-        .set({ status: "void", updatedAt: new Date() })
-        .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)))
-        .returning();
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(invoices)
+          .set({ status: "void", updatedAt: new Date() })
+          .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)))
+          .returning();
+
+        await emitInvoiceStatusEvents(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          transitions: [
+            { invoiceId: id, from: guard.invoice.status, to: "void" },
+          ],
+        });
+
+        return row;
+      });
 
       // The stored PDF says nothing about being void, so a customer holding the
       // link would keep a payable-looking document. Drop it; the next request
@@ -1157,11 +1206,26 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .send({ message: transitionMessage(guard.invoice.status, body.status) });
       }
 
-      const [updated] = await db
-        .update(invoices)
-        .set({ status: body.status, updatedAt: new Date() })
-        .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)))
-        .returning();
+      const updated = await db.transaction(async (tx) => {
+        const [row] = await tx
+          .update(invoices)
+          .set({ status: body.status, updatedAt: new Date() })
+          .where(and(eq(invoices.id, id), eq(invoices.tenantId, tenantId)))
+          .returning();
+
+        // The same emitter `/send`, `/void` and the bulk path use. A status
+        // reached by hand is the same status; only `sent` and `void` produce an
+        // event, and the helper is the one place that decides which.
+        await emitInvoiceStatusEvents(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          transitions: [
+            { invoiceId: id, from: guard.invoice.status, to: body.status },
+          ],
+        });
+
+        return row;
+      });
 
       return reply.send({ data: updated });
     },
@@ -1337,10 +1401,16 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // The single and the bulk path share `canTransition`, so a move the
       // detail sheet refuses cannot be smuggled through by selecting the row.
       const eligible: string[] = [];
+      const transitions: InvoiceStatusTransition[] = [];
       const errors: { id: string; message: string }[] = [];
       for (const row of existing) {
         if (canTransition(row.status as InvoiceStatus, status)) {
           eligible.push(row.id);
+          transitions.push({
+            invoiceId: row.id,
+            from: row.status as InvoiceStatus,
+            to: status,
+          });
         } else {
           errors.push({
             id: row.id,
@@ -1355,10 +1425,22 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
       }
 
       if (eligible.length > 0) {
-        await db
-          .update(invoices)
-          .set({ status, updatedAt: new Date() })
-          .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.id, eligible)));
+        await db.transaction(async (tx) => {
+          await tx
+            .update(invoices)
+            .set({ status, updatedAt: new Date() })
+            .where(and(eq(invoices.tenantId, tenantId), inArray(invoices.id, eligible)));
+
+          // Voiding fifty invoices from the bulk bar is the same event fifty
+          // times, not zero. This is the exact shape of JOB-22 — the bulk path
+          // skipping what the single path does — and sharing the emitter is how
+          // it stops being possible rather than how it gets found later.
+          await emitInvoiceStatusEvents(tx, {
+            tenantId,
+            actorUserId: request.authUser.userId,
+            transitions,
+          });
+        });
       }
 
       return reply.send({
@@ -1425,13 +1507,21 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
         await copyJobLineItems(tx, { tenantId, invoiceId: invoice.id, jobId });
         await recalculateInvoice(tx, invoice.id, tenantId);
+
+        await emitInvoiceCreatedEvent(tx, {
+          tenantId,
+          actorUserId: request.authUser.userId,
+          invoiceId: invoice.id,
+          origin: "job",
+        });
+
         return invoice.id;
       });
 
       const [created] = await db
         .select()
         .from(invoices)
-        .where(eq(invoices.id, invoiceId));
+        .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, invoiceId)));
 
       return reply.status(201).send({ data: created });
     },

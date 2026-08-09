@@ -10,7 +10,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["navigate", "find", "where", "sidebar", "menu", "page", "go to"],
     question: "How do I navigate the app?",
     answer:
-      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Conversations** — Send emails to customers, view message history\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space.",
+      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Conversations** — Send emails to customers, view message history\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Automate** group — Automations\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space.",
   },
   {
     id: "conversations-feature",
@@ -27,6 +27,198 @@ const entries: KnowledgeEntry[] = [
     question: "How do I get started?",
     answer:
       "Welcome! Here's the recommended setup order:\n\n1. **Settings > Business** — Add your business name, phone, address, and logo\n2. **Settings > Business** — Set your default tax rate\n3. **Catalog** — Add your common parts, labor items, and services with prices\n4. **Checklists** — Create checklist templates for your service types\n5. **Customers** — Add your existing customers\n6. **Settings > Scheduling** — Set your weekly availability hours\n7. **Jobs** — Create your first job and try the Kanban board\n\nYou're ready to start managing your service business!",
+  },
+  {
+    id: "general-automations",
+    category: "general",
+    keywords: [
+      "automation",
+      "automate",
+      "workflow",
+      "trigger",
+      "auto send",
+      "automatic email",
+      "follow up automatically",
+      "sequence",
+    ],
+    question: "Can I automate things like follow-up emails?",
+    answer:
+      "Yes. Go to **Automations** in the sidebar, under the **Automate** group.\n\n**How to build one:**\n1. Click **New automation** and give it a name\n2. Choose what starts it — a job being completed, or an invoice being paid in full\n3. Click the **+** under a step to add the next one: send an email, notify your team, or add a note to the customer\n4. Press **Save**, then **Publish**\n5. Switch it **on**\n\n**Saving is not publishing.** Save keeps your work; Publish is what makes the new version the one that actually runs. And a published automation still does nothing until you switch it on — that's deliberate, so nothing starts emailing customers while you're still building it.\n\nTwo things worth knowing:\n\n• **Customers can unsubscribe** from marketing messages. Every Send email step asks whether it's *a marketing or follow-up message* or *about a transaction they are party to* — the first is skipped for anyone who unsubscribed, the second still goes. The rest of the automation runs either way, and you'll see the reason on the run.\n• **Estimates, invoices and receipts are never affected** by an unsubscribe. Those aren't marketing, so they always go out.",
+  },
+  {
+    id: "automations-draft-vs-published",
+    category: "general",
+    keywords: [
+      "automation not running",
+      "automation broken",
+      "publish automation",
+      "draft automation",
+      "automation off",
+      "switch on automation",
+      "why isn't my automation working",
+    ],
+    question: "I built an automation but it isn't doing anything",
+    answer:
+      "Almost always one of two things, and the Automations list tells you which:\n\n**It says Draft.** Drawing an automation isn't the same as publishing it. Open it and press **Publish** — until you do, it has no published version and cannot run at all. The on/off switch stays disabled and will tell you the same thing if you hover it.\n\n**It says Off.** It's published but switched off. Flip the toggle on the list, or open it — there's a banner saying so.\n\nA third possibility if it says **Live**: the automation ran but a step was skipped. Common reason is the customer having unsubscribed from non-essential email.\n\nNew automations are **always created switched off** on purpose. Nothing starts emailing your customers the moment you build it.",
+  },
+  {
+    id: "automations-wait-until-date",
+    category: "general",
+    keywords: [
+      "appointment reminder",
+      "remind customer before appointment",
+      "reminder before booking",
+      "day before appointment",
+      "wait until date",
+      "wait until appointment",
+      "reduce no shows",
+      "remind before visit",
+    ],
+    question: "Can an automation remind customers before their appointment?",
+    answer:
+      "Yes. Add a **Wait** step and set it to *until a date on the record* — then pick the date it should count from, like the booking date, and how far before.\n\n**The quickest way:** open **Automations → New automation** and choose the **Remind customers before their appointment** template. It waits until 9am the day before and sends the customer the date, time and what they booked.\n\n**How the Wait step works:**\n\n• **For a length of time** — counted from when the automation reaches that step. Good for \"three days after the job\".\n• **Until a date on the record** — the appointment, the due date, the expiry. Different for every customer, which is what a reminder needs.\n• **Until a specific date** — one fixed day you type in.\n\nOnly dates your trigger actually provides are offered, so you can’t accidentally wait for something that isn’t there.\n\n**If that moment has already passed** — say a booking is made for tomorrow and you asked for a reminder the day before — you choose what happens. **Stop here** is the default and is right for reminders: a \"we’re coming tomorrow\" note that arrives late is worse than none. **Carry on straight away** is right for chasing, where late still beats never. Either way the run history says which happened.",
+  },
+  {
+    id: "automations-triggers",
+    category: "general",
+    keywords: [
+      "what can start an automation",
+      "automation trigger",
+      "trigger list",
+      "when a job moves",
+      "stage change automation",
+      "quote sent automation",
+      "job assigned automation",
+      "booking cancelled automation",
+    ],
+    question: "What can start an automation?",
+    answer:
+      "Twelve things, grouped by what they are about.\n\n**Jobs**\n\u2022 **Job Created** \u2014 any new job, however it was added. Filter by priority or service type.\n\u2022 **Job Moves Stage** \u2014 a job moves to a different column on the board. Filter by what the new stage *means* (scheduled, in progress, completed, cancelled) rather than its name, so renaming a column never quietly stops it. You can also skip bulk moves, which matters if the automation emails somebody.\n\u2022 **Job Assigned** \u2014 a job is given to someone, or taken off them.\n\u2022 **Job Completed** \u2014 a job is marked done.\n\n**Quotes**\n\u2022 **Quote Sent** \u2014 you send a quote out. Pair it with a Wait step to chase anything unanswered.\n\u2022 **Quote Accepted** \u2014 the customer presses Accept on the portal link.\n\n**Invoices**\n\u2022 **Invoice Paid** \u2014 paid in full.\n\u2022 **Invoice Overdue** \u2014 checked once a day, so you can chase at 1, 7 and 14 days.\n\n**Bookings and customers**\n\u2022 **Booking Created**, **Booking Cancelled**, **New Customer**.\n\n**And by hand** \u2014 **Run Manually**, for testing or for a one-off.\n\nMost triggers have filters, and leaving a filter empty means \u201crun every time\u201d rather than \u201cnever run\u201d.",
+  },
+  {
+    id: "automations-publish-blocked",
+    category: "general",
+    keywords: [
+      "can't publish",
+      "publish blocked",
+      "publish error",
+      "automation errors",
+      "fix automation",
+    ],
+    question: "Why can't I publish my automation?",
+    answer:
+      "Publishing checks the whole automation first and refuses if something would stop it working. You'll get a list of exactly what to fix — click any item to jump to the step it's about.\n\n**The usual ones:**\n\n• **Nothing starts it** — add a trigger step.\n• **A step is missing something** — a required field is empty.\n• **A step isn't connected** — nothing above it, so it could never run.\n• **A branch goes nowhere** — one side of a split has no next step.\n• **The step needs a different kind of record** — e.g. a job step under a trigger that gives you a customer.\n\nYou'll also see **warnings**. Those don't block publishing — they're things worth a look, like a step nothing can reach.\n\nPublishing never changes a run that's already going. Anything mid-flight finishes on the version it started with.",
+  },
+  {
+    id: "automations-wait-step",
+    category: "general",
+    keywords: [
+      "wait step",
+      "delay automation",
+      "wait 3 days",
+      "follow up later",
+      "automation timing",
+      "quiet hours",
+      "middle of the night",
+      "working hours automation",
+    ],
+    question: "How do I make an automation wait before the next step?",
+    answer:
+      "Add a **Wait** step. Everything below it happens later, not straight away — so \"three days after the job, ask for a review\" is one automation rather than something you have to remember.\n\n**Two ways to set it:**\n\n• **For a length of time** — minutes, hours, days or weeks, counted from the moment the automation reaches that step.\n• **Until a specific date** — a fixed point, with a time of day. Read in your business's timezone, not the customer's.\n\n**It won't wake up in the middle of the night.** A wait set in days will land at whatever hour the automation started, which is often 2am. By default the automation holds until your next working hours before carrying on — it's never cancelled, just moved. Working hours come from **Settings → Scheduling**, the same hours your booking page uses, so a day you're closed is a day it won't resume.\n\nSwitch that off per step with **Resume → as soon as the wait is up**. Useful for internal steps like notifying your team, where the hour doesn't matter.\n\nA \"wait until\" date is always honoured exactly as you set it — if you name a time, that's the time.\n\n**Waits survive restarts.** A three-day wait really does wait three days, and it finishes on the version of the automation it started on, even if you edit and republish while it's waiting.",
+  },
+  {
+    id: "automations-branches",
+    category: "general",
+    keywords: [
+      "automation branch",
+      "only if",
+      "split automation",
+      "wait for all branches",
+      "merge branches",
+      "automation stuck",
+      "automation stopped halfway",
+      "two paths",
+    ],
+    question: "How do branches work in an automation?",
+    answer:
+      "**Only if** splits the automation in two. Steps on the **Yes** side run when the check passes, steps on the **No** side when it doesn't — never both.\n\n**What happens where the branches come back together:** a step with more than one arrow into it runs on the **first branch to reach it**, once. That's usually what you want — an Only if where both sides end in \"send the follow-up\" sends one follow-up, whichever way the check went. Every step on the canvas with more than one incoming arrow says which rule it follows, right under its name.\n\n**Wait for all branches** is the exception. Use it where two chains genuinely both run and the next step needs both finished.\n\n**Don't put it after an Only if.** It waits for every arrow into it, and one side of an Only if never runs — so it would wait forever and the automation would just stop, with nothing marked as failed. Publishing catches this and tells you which step to unhook.",
+  },
+  {
+    id: "automations-run-history",
+    category: "general",
+    keywords: [
+      "run history",
+      "automation log",
+      "did my automation run",
+      "automation history",
+      "why did it fail",
+      "automation failed",
+      "what did the automation do",
+      "automation runs",
+    ],
+    question: "How do I see whether my automation actually ran?",
+    answer:
+      "Open the automation and click the **clock icon** in the toolbar, or pick **Run history** from the ⋯ menu on the Automations list.\n\n**The list** shows every run, newest first: what happened, which customer it ran for, when it started, how many steps it took and how long it took. The four counts at the top cover the whole history, not just the page you're looking at.\n\n**Filter it** with the tabs — **Needs a look** is failed and stopped runs together, which is usually what you came for.\n\n**Click any run** to see every step in the order it ran, each with what happened to it. A step that was skipped says why in plain language — \"this customer unsubscribed on 12 July, so we didn't email them\". A step that failed says what to fix. Expand **Details** on a step to see what it actually tried to do after your variables were filled in — that's where a mail merge that came out blank becomes obvious.\n\n**Waiting isn't failed.** A run sitting on **Waiting** is paused at a Wait step and tells you when it carries on. It survives restarts, so leave it be.\n\n**Stopped isn't failed either.** That's a Stop step doing its job — \"this invoice is already paid, stop chasing it\".\n\nThe filter and the open run are both in the page address, so you can copy the link and send someone the exact run you're looking at.",
+  },
+  {
+    id: "automations-overdue-chasing",
+    category: "general",
+    keywords: [
+      "chase overdue invoice",
+      "invoice reminder automation",
+      "overdue automation",
+      "payment reminder",
+      "days overdue",
+      "chase sequence",
+    ],
+    question: "Can I automatically chase overdue invoices?",
+    answer:
+      "Yes. Build an automation starting with the **Invoice Overdue** trigger.\n\n**Set \"Days overdue\"** to the exact day you want it to run — it fires when the invoice is that many days past due, not every day after. So a chase sequence is three separate automations, or three triggers: one at **1** day, one at **7**, one at **14**, each with its own message.\n\nLeave the days field empty and it fires on the first day only.\n\n**\"Only invoices of at least\"** skips small balances, so you're not chasing someone for $12.\n\n**What counts as overdue:** past its due date and not settled. Part-paid invoices count — someone who paid half and stopped is exactly who you want to chase. Draft and voided invoices never do.\n\n**Timing:** checked hourly against your own timezone, so it fires shortly after the due date passes rather than at midnight somewhere else. It runs at most once per invoice per day, so you won't double-send.\n\nThis is separate from the built-in overdue reminder emails in Settings — turning those off doesn't affect your automations, and vice versa.",
+  },
+  {
+    id: "automations-templates",
+    category: "general",
+    keywords: [
+      "automation template",
+      "ready made automation",
+      "template gallery",
+      "where do i start automation",
+      "example automation",
+      "start from template",
+    ],
+    question: "I don't know where to start with automations",
+    answer:
+      "Start with a template. Click **New automation** on the Automations page and you'll get a list of ready-made ones you can use as they are:\n\n• **Chase overdue invoices** — three reminders, gentle at 1 day, firmer at 7, direct at 14. Anyone who pays stops hearing from it.\n• **Ask for a review after the job** — waits three working days after you mark a job complete, then asks.\n• **Follow up an accepted quote** — confirms it straight away and flags the big ones for a personal call.\n• **Know about new bookings** — a notification the moment somebody books through your website.\n• **Welcome a new customer** — a short hello, so the first email they get from you isn't an invoice.\n\n**Nothing sends when you add one.** It opens in the builder as a draft, switched off. Read what it will send, change any wording you like, then Publish and switch it on.\n\nEvery step can be changed or removed, and you can add your own. If you'd rather build from scratch, **Start from blank** is at the bottom of the list.\n\nA template already added shows **Already added** — you can still add a second copy if you want two versions.",
+  },
+  {
+    id: "automations-version-history",
+    category: "general",
+    keywords: [
+      "undo automation",
+      "automation version",
+      "revert automation",
+      "restore automation",
+      "i broke my automation",
+      "previous version",
+      "version history",
+    ],
+    question: "I changed an automation and broke it — can I go back?",
+    answer:
+      "Yes. Open the automation and click the **versions icon** in the toolbar, next to the run history clock.\n\nEvery time you publish, a version is saved. The one currently running is marked **Live** — note that isn't always the highest number, since restoring an older one and publishing it makes that the live one.\n\nClick **Restore** on any version and it comes back onto your canvas.\n\n**Two things to know:**\n\n• **Restoring doesn't change what's running.** It puts the old version on your canvas so you can look at it. Press **Publish** when you're happy, and that's when it goes live.\n• **It replaces what's on your canvas now**, saved or not. You'll be asked to confirm first.\n\nPublishing a restored version creates a **new** version rather than rewriting the old one, so the history stays a true record of what was live and when.\n\nRuns already in progress finish on the version they started with — restoring never disturbs them.",
+  },
+  {
+    id: "automations-history-retention",
+    category: "general",
+    keywords: [
+      "how long is run history kept",
+      "old runs missing",
+      "automation history disappeared",
+      "run history gone",
+      "automation records deleted",
+    ],
+    question: "How long is automation run history kept?",
+    answer:
+      "**90 days.** After that, finished runs are removed to keep things fast — so an automation that last ran months ago will show an empty history even though it worked.\n\n**What is never removed on age:**\n\n• **Runs still waiting.** A three-month Wait step is a run in progress, not old history, and it carries on as normal.\n• **The version that's live**, and your ten most recent versions, so you can always go back.\n\nAnything an automation actually *did* stays where it belongs — a note added to a customer, an email that was sent, a job that was moved. Only the log of the run itself is cleaned up.",
   },
   {
     id: "general-capabilities",
@@ -157,6 +349,58 @@ const entries: KnowledgeEntry[] = [
       "**Dashboard** answers *what needs doing today* — fixed, operational windows. **Reports** answers *how did we do over a period* — any date range, with period-over-period comparison and CSV export.\n\nBoth read the same underlying data and follow the same counting rules:\n\n• **Archived** jobs, bookings, customers, invoices and quotes are excluded from every count, so the totals match the list pages\n• **Payments you've already received are always counted**, even if the invoice was later archived — archiving hides a document, it doesn't un-collect the money\n• An invoice is **overdue** when its due date has passed and it isn't fully paid\n\nIf a report fails to load you'll see an error with a **Try again** button — an empty chart always means there genuinely was no activity.",
   },
 
+
+  // ═══════════════════════════════════════
+  // ── Job Costing & Profitability ──
+  // ═══════════════════════════════════════
+  {
+    id: "costing-overview",
+    category: "jobs",
+    keywords: ["cost", "costing", "margin", "profit", "profitability", "make money", "markup", "made on this job"],
+    question: "How do I see what a job actually made me?",
+    answer:
+      "Open any job and go to the **Costs** tab. It shows what you charged, what the work cost, and the margin between them.\n\nThe cost side has three parts:\n\n• **Parts & materials** — the cost of each line item, from your catalog or typed on the line\n• **Time on site** — the hours you record, priced at your labour cost rate\n• **Expenses** — anything no line item covers: a parts run, a subcontractor, a permit fee\n\nRevenue is what you **invoiced** for the job. If there's no invoice yet, the job's own total stands in and the tab says so.",
+  },
+  {
+    id: "costing-provisional",
+    category: "jobs",
+    keywords: ["provisional", "incomplete", "not proven", "hatched", "missing cost", "why no margin", "estimate"],
+    question: "Why does my margin say it's provisional?",
+    answer:
+      "Because part of the cost side hasn't been entered, so the margin can't be stated as fact.\n\nA missing cost doesn't make a job cheaper — it makes the total **unknown**. If we filled the gap with zero, an uncosted job would look like pure profit, which is the one thing a costing tool must never do.\n\nThe Costs tab lists exactly what's missing, and the bar shows the margin hatched rather than solid until it's complete. Usually it's one of:\n\n• A line item with no cost set — add one on the **Line Items** tab, or set the cost on the catalog item so it fills in automatically next time\n• No hours recorded — enter them under **Time on site**\n• No labour cost rate — set one in **Settings → Business**, or per person in **Settings → Team**",
+  },
+  {
+    id: "costing-expenses",
+    category: "jobs",
+    keywords: ["expense", "expenses", "receipt", "subcontractor", "permit", "fuel", "rental", "extra cost"],
+    question: "How do I add an expense to a job?",
+    answer:
+      "On the job's **Costs** tab, click **Add expense**. Give it a description, a category, the date and the amount — a supplier is optional.\n\nCategories: Materials, Subcontractor, Permits & fees, Fuel & travel, Equipment rental, Other.\n\nExpenses come straight off the job's margin. They're for costs no line item accounts for, so you don't double-count anything you already billed as a line.",
+  },
+  {
+    id: "costing-labor-rate",
+    category: "settings",
+    keywords: ["labour rate", "labor rate", "hourly cost", "cost rate", "what an hour costs", "wage", "burden", "overhead"],
+    question: "What is the labour cost rate, and where do I set it?",
+    answer:
+      "It's what an hour of work **costs you** — wages plus overhead — not what you charge the customer. It's what turns hours on a job into a cost.\n\nSet a business-wide default in **Settings → Business**. To give one person a different rate, use **Settings → Team → Cost Rates**; anyone without their own rate uses the default.\n\nWhen you save hours on a job, the rate is **copied onto that job**. Giving somebody a raise later changes future jobs only — it never rewrites margins you've already reported.\n\nLeaving it blank is allowed. Jobs then report labour as a missing input rather than as free.",
+  },
+  {
+    id: "costing-catalog-cost",
+    category: "catalog",
+    keywords: ["item cost", "unit cost", "what it costs me", "buy price", "wholesale", "supplier price"],
+    question: "Can I record what a catalog item costs me?",
+    answer:
+      "Yes — each catalog item has a **Your cost** field alongside its price. Fill it in and every job that uses the item picks up that cost automatically, so margins work without extra typing.\n\nYou can still change the cost on an individual job line: a supplier price that moved this week belongs on that job, not on the catalog record.\n\nLeaving it blank is fine, but jobs using the item will report an incomplete margin. The catalog table marks uncosted items as **no cost** so you can see what's left to fill in.",
+  },
+  {
+    id: "reports-profitability",
+    category: "reports",
+    keywords: ["profitability", "margin report", "which jobs make money", "most profitable", "losing money", "by customer", "by assignee"],
+    question: "What's on the Profitability tab?",
+    answer:
+      "It answers *what did we keep* over the period, grouped four ways:\n\n• **Thinnest margins** — the jobs where least of what you charged stayed with you. Click one to open it\n• **By service type** — which kinds of work pay\n• **By customer** — your biggest accounts, and what they leave behind\n• **By assignee** — what each person's work returns once their time is costed\n\nA job counts here when it was **completed** in the range, whatever day it was scheduled.\n\n**Jobs with incomplete costs are left out of the figures**, and the page tells you how many. Including them would treat the missing costs as free and make every margin look better than it is. Open a job's Costs tab to see what it's missing.\n\nIf you haven't set any costs yet, the tab shows you the two things to set up instead of a made-up number.",
+  },
   // ═══════════════════════════════════════
   // ── Customers ──
   // ═══════════════════════════════════════
@@ -199,6 +443,23 @@ const entries: KnowledgeEntry[] = [
     question: "How do I archive or delete a customer?",
     answer:
       "**Archive** is what you usually want. It hides the customer from the Active tab without touching their history. Use the row menu or select several and click **Archive**. The **Archived** tab lists them, and each row has a **Restore** action.\n\n**Delete is permanent and is refused while the customer still has any job, invoice or quote — archived ones included.** The message tells you exactly what's blocking it. This is deliberate: jobs are linked to the customer, so deleting one would take its line items, photos and checklists with it.\n\nIf you delete several at once, anyone who is blocked is skipped and reported back to you — the toast says how many actually went through.",
+  },
+  {
+    id: "customers-unsubscribe",
+    category: "customers",
+    keywords: [
+      "unsubscribe",
+      "opt out",
+      "opted out",
+      "stop emails",
+      "marketing email",
+      "email preferences",
+      "resubscribe",
+      "unsubscribed",
+    ],
+    question: "What happens when a customer unsubscribes?",
+    answer:
+      "Every marketing email you send carries an unsubscribe link in the footer, and one-click unsubscribe in Gmail and Outlook works too. When a customer uses it:\n\n• They stop receiving **review requests**, **contract renewal reminders**, and any automation step marked as *a marketing or follow-up message*\n• They **keep** receiving estimates, invoices, receipts and booking confirmations — those are about work they asked for, so they're not something to unsubscribe from\n• They also keep receiving automation steps marked *about a transaction they are party to*. An overdue invoice reminder still reaches somebody who unsubscribed, because it's about money they owe rather than marketing — that setting is on each Send email step and defaults to marketing\n\n**Where to see it:** an amber **Unsubscribed** badge appears next to their email address on the customer page, with the date. The **Unsubscribed** tab on the Customers list shows everyone you can no longer email.\n\n**Resubscribing** isn't a link they can click by accident — if a customer asks to start receiving emails again, that has to be done deliberately from their record.\n\nThis is per business: unsubscribing from you doesn't affect any other business using Zaxvio.",
   },
   {
     id: "customers-duplicates",

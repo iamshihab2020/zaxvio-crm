@@ -442,18 +442,19 @@ being sold.
 | `address` | string | No | Max 500 |
 | `notes` | string | No | Max 2,000 |
 | `color` | enum | No | `purple` (default), `blue`, `green`, `amber`, `red`, `teal` |
-| `customerId` | uuid | No | Links the event to a customer |
+| `customerId` | uuid | No | Links the event to a customer. Must belong to the caller's tenant |
 
-**Response** `201 Created`
+**Response** `201 Created` · **Error** `400 Bad Request` — `{ "message": "Customer not found" }`
+when `customerId` names a customer outside the tenant.
 
 ### `PATCH /calendar-events/:id`
 
 **Auth:** `requireTenant`
 
 Same fields, all optional; nullable ones accept `null` to clear. `endTime` must
-still be after `startTime`.
+still be after `startTime`. `customerId` is tenant-checked as on `POST`.
 
-**Response** `200 OK` · **Error** `404 Not Found`
+**Response** `200 OK` · **Error** `404 Not Found`, `400 Bad Request` (foreign `customerId`)
 
 ### `DELETE /calendar-events/:id`
 
@@ -666,6 +667,449 @@ Public booking confirmation/status page.
   }
 }
 ```
+
+---
+
+## Workflows (Automations)
+
+`requireTenant` throughout. The tenant is **always** taken from the session and
+never from a body.
+
+Split across three plugins under one `/workflows` prefix: `routes/workflows/index.ts`
+holds the record CRUD, `routes/workflows/graph.ts` the builder's graph endpoints,
+`routes/workflows/runs.ts` the run history. The split is deliberate —
+`routes/jobs/index.ts` reached 2,497 lines one reasonable addition at a time
+([[architecture|ARC-05]]).
+
+**The two verbs that are not the same thing.** `PUT /:id/graph` **saves** and
+changes nothing about what runs. `POST /:id/publish` **publishes** — snapshots
+the draft into an immutable version, points `active_version_id` at it, and writes
+`trigger_types`, which is what makes the automation visible to the trigger
+matcher at all. An automation that has never been published fires for nothing,
+and cannot be switched on.
+
+### `POST /workflows/:id/runs`
+
+Run an automation by hand against one record. Until the trigger matcher ships,
+this is the only way to start a run.
+
+Rate limit: 10/min — running an automation can send email.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `subject.type` | enum | No | `customer`, `job`, `invoice`, `quote`, `booking`, `equipment`, `maintenance_contract` |
+| `subject.id` | uuid | No | Required if `subject.type` is given |
+| `versionId` | uuid | No | Run a specific **published** version. Not a way to run a draft — a version id only exists after a publish |
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "executionId": "…",
+    "status": "completed",
+    "reason": "Finished",
+    "nodesExecuted": 4,
+    "diagnostics": []
+  }
+}
+```
+
+`status` is one of `completed`, `failed`, `cancelled` or `waiting`. `waiting`
+means a step paused the run — it is **not** an error, and the run resumes on its
+own.
+
+`diagnostics` lists any `{{variable}}` that did not resolve, with the field it
+was in and a suggested correction. It is returned to the caller rather than only
+logged: a blank email is otherwise the least debuggable failure this feature has.
+
+**Error** `400 Bad Request` — over quota, no published version, or no trigger
+step. The `message` is written for the person who has to fix it:
+
+```json
+{ "message": "This automation has no published version, or it has been archived. Drawing an automation isn't the same as publishing it — open it and press Publish." }
+```
+
+**Error** `409 Conflict` — this automation is already running or waiting for
+this record. Not an error state: the correct response to a second enrolment is
+to leave the first run alone.
+
+### `GET /workflows/quota`
+
+This workspace's usage against its limits. Surfaced so a tenant never meets a
+cap by surprise.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "concurrent": 3,
+    "concurrentLimit": 25,
+    "daily": 142,
+    "dailyLimit": 2000
+  }
+}
+```
+
+`concurrent` counts runs that are `running` **or** `waiting` — a run parked on a
+delay holds no worker but does hold its subject's slot. `daily` is a rolling 24
+hours, not a calendar day, so it means the same thing in every timezone.
+
+### `GET /workflows`
+
+The automations list. Paginated.
+
+| Query | Type | Notes |
+|-------|------|-------|
+| `page`, `limit`, `search` | — | Standard. `search` matches `name`, escaped for `ilike` |
+| `showArchived` | `true`/`false`/`1`/`0` | String enum, **not** `z.coerce.boolean()` — `Boolean("false")` is `true` (CUST-29) |
+| `isActive` | `true`/`false` | Same encoding |
+| `folderId` | uuid | |
+
+**Response** `200 OK` — `{ data: [...], pagination: { page, limit, total, totalPages } }`,
+ordered by `updatedAt` descending.
+
+Each row is the workflow plus three fields **left-joined from its active
+version**, so the list can say what each automation *is* rather than only what it
+is called:
+
+| Field | Null when | Notes |
+|-------|-----------|-------|
+| `version` | never published | Displayed as "v3" |
+| `nodeCount` | never published | "6 steps" |
+| `triggerTypes` | never published | Event ids; the client resolves them to names through the event registry |
+
+All three were already denormalised onto `workflow_versions` for other reasons —
+`trigger_types` for the matcher, `node_count` for version history — so this costs
+one join rather than a query per row. The join is a **LEFT** join deliberately:
+an unpublished automation has no version and must still appear, and an inner join
+would silently hide every draft.
+
+### `POST /workflows`
+
+Creates the record only — no nodes. A new automation opens on the template
+gallery, and the chosen template is installed by the graph PUT, so creation has
+one job and templates need no second code path.
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `name` | string ≤120 | Yes | |
+| `description` | string ≤2000 | No | |
+| `folderId` | uuid | No | |
+| `timezoneMode` | `tenant` \| `custom` | No | Defaults `tenant` |
+| `timezone` | string ≤64 | No | IANA zone; only meaningful when mode is `custom` |
+| `templateKey` | string ≤120 | No | |
+
+**Response** `201 Created` — the row. `isActive` is **always `false`**: a drawing
+tool that starts emailing customers when a trigger lands on the canvas is a bad
+idea.
+
+### `GET /workflows/:id`
+
+The record, its **draft** graph, and enough state to render the toolbar.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "workflow": { "…": "…" },
+    "graph": { "nodes": [], "edges": [] },
+    "activeVersion": { "id": "…", "version": 3, "publishedAt": "…", "note": null },
+    "isDirty": true
+  }
+}
+```
+
+`isDirty` compares **behaviour, not layout** — node positions are excluded, so
+tidying the canvas does not light "unpublished changes". Parameter keys and row
+order are normalised first, or a re-save in a different key order would read as a
+change nobody made.
+
+### `PATCH /workflows/:id`
+
+`name`, `description`, `folderId`, `timezoneMode`, `timezone`. At least one
+field required.
+
+`isActive` is **not** accepted here — see below.
+
+### `POST /workflows/:id/active`
+
+The on/off switch. Its own endpoint because it carries a rule no other field
+does.
+
+**Body** — `{ "isActive": true }`
+
+**Error** `400` — nothing published yet (`is_active` with no `active_version_id`
+is a workflow the matcher would find and have no graph to run), or the
+automation is archived.
+
+### `DELETE /workflows/:id`
+
+**Archives**, and switches off in the same write. Not a hard delete:
+`workflow_executions` cascades from this row, so deleting destroys the record of
+every email the automation ever sent. An archived automation that kept firing
+would be the worst possible reading of "delete".
+
+`404` if not found **or already archived**.
+
+### `PUT /workflows/:id/graph`
+
+Whole-graph save. Never changes what runs.
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `nodes` | array ≤60 | Yes | `MAX_NODES_PER_WORKFLOW` |
+| `edges` | array ≤240 | Yes | Capped above nodes: branching and converging mean edges outnumber nodes |
+| `expectedUpdatedAt` | ISO datetime | **Yes** | The `updatedAt` the client last saw |
+
+Node ids are **client-minted** uuids; the server diffs by id. `sourceHandle` is a
+stable id (`found`), never a display label — renaming a branch must not break
+routing on every saved automation.
+
+`expectedUpdatedAt` has no default and no force flag. A save that *may* omit its
+concurrency token is a save that *will*, and with a whole-graph write the thing
+being overwritten is not a field — it is somebody's entire automation.
+
+**Response** `200 OK` — `{ data: { updatedAt, graph } }`. Send `updatedAt` back as
+the next `expectedUpdatedAt`.
+
+**Error** `409 Conflict` — someone else saved in between. Nothing is written.
+
+```json
+{
+  "message": "Someone else edited this automation while you were working on it. Reload to see their changes — your version has not been saved.",
+  "data": { "currentUpdatedAt": "…" }
+}
+```
+
+**Error** `400` — more than 60 steps.
+
+### `GET /workflows/:id/validate`
+
+The answer Publish would give, without publishing.
+
+**Response** `200 OK` — `{ data: { errors: GraphIssue[], warnings: GraphIssue[], canPublish: boolean } }`
+
+Each `GraphIssue` is `{ severity, code, message, nodeId?, field? }`. `nodeId` is
+what makes an error clickable — a list of errors you cannot navigate to is barely
+better than no list.
+
+Errors block: no trigger · required field empty · orphaned step · dangling edge ·
+unknown or unavailable node type · duplicate node id · unconnected branch output ·
+`goto` target deleted · over 60 steps · delay inside a loop · an action whose
+subject no trigger provides · a config pointing at a row this workspace does not own.
+
+Warnings do not: unreachable step · `goto` after a split · no action steps · more
+than 3 triggers · a **disabled** step with an empty required field.
+
+Two rules deserve their reasoning stated, because both would be publish-blockers
+if implemented naively:
+
+- **Hidden fields are never missing.** `displayOptions` is what makes an
+  eight-property node usable; choosing "Plain text" hides the HTML body, and
+  reporting it would block Publish forever on a field that appears nowhere.
+- **An undeterminable subject proves nothing.** `trigger.manual` carries its
+  subject in a *parameter*, not its definition. Reading only the definition would
+  make every manual automation look like a mismatch and none could be published.
+
+### `POST /workflows/:id/publish`
+
+Snapshots the draft, bumps the version, points `active_version_id` at it, writes
+`trigger_types`.
+
+**Body** — `{ "note": "…" }` (optional, ≤500 chars, shown in version history).
+
+One transaction with the workflow row locked: `version` is derived from the
+current maximum and `(workflow_id, version)` is unique, so two concurrent
+publishes would otherwise race to the same number. Validation runs **inside** the
+transaction against the graph just read, never against a client claim of validity.
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "id": "…", "version": 4, "publishedAt": "…",
+    "triggerTypes": ["job.completed"], "nodeCount": 6, "note": null
+  }
+}
+```
+
+`triggerTypes` is recomputed from the snapshot every time, never adjusted in
+place — a deleted trigger must stop matching the moment its author publishes.
+Disabled trigger nodes are excluded, or the disable toggle would be a lie.
+
+**Error** `422 Unprocessable Entity` — the request was well formed, the graph is
+not. `data` is the full validation payload so the dialog can list every problem
+and select the node behind each one.
+
+### `GET /workflows/:id/builder-context`
+
+Members, pipelines and stages in **one** request. Selecting a step in the builder
+would otherwise fire a server action per picker, sequentially, every time.
+
+Scoped to `:id` rather than being a bare `/workflows/builder-context` so it 404s
+for an automation this tenant does not own — the payload is workspace reference
+data and should not be readable by id-less probing.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "members":   [{ "id": "…", "name": "…", "email": "…", "image": null }],
+    "pipelines": [{ "id": "…", "name": "Standard" }],
+    "stages":    [{ "id": "…", "label": "Awaiting parts", "pipelineId": "…", "lifecycle": "in_progress" }]
+  }
+}
+```
+
+Small, bounded lists only. Anything that can grow without limit — customers,
+jobs, invoices — is a searchable picker with its own endpoint, not a payload
+shipped on open. Stages carry their `pipelineId` so the stage picker filters
+client-side off the sibling field rather than making a second request, and
+`label` is the human name (`name` is the slug).
+
+### `POST /workflows/:id/nodes/:nodeId/preview`
+
+"Test this step" — **resolves the step's settings; does not run it.**
+
+That distinction is the design, not a limitation. Half the catalogue is
+`at-most-once`: running `email.send` to test it puts a real message in a
+customer's inbox, and a test button that mails customers is one people learn not
+to press. What actually goes wrong with a step is its *configuration* — a
+mistyped `{{customer.frstName}}`, a variable the trigger cannot provide, a
+subject that comes out blank — and all of that is visible from the resolved
+values with no side effects. Executing a step belongs with the run viewer (P8),
+where there is somewhere to show what it did.
+
+Previews the **draft**, not the published version: the point is to check what you
+are editing.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `subject.type` | enum | No | Omit to see which variables would resolve empty — a manual run with no subject does the same |
+| `subject.id` | uuid | No | |
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "parameters": { "subject": "Your repair visit on 12 Aug", "body": "Hi Dana, …" },
+    "diagnostics": [
+      { "path": "customer.frstName", "field": "body",
+        "message": "No variable at that path", "suggestions": ["customer.firstName"] }
+    ]
+  }
+}
+```
+
+`diagnostics` is the reason this endpoint exists. An unresolved `{{token}}`
+renders as an empty string at run time — a blank line in a customer's email and
+no error anywhere. Naming the bad path with its near-misses turns the least
+debuggable failure in the feature into a fixable one.
+
+Timezone resolves through the same `resolveTimezone` a real run uses (workflow
+zone → tenant zone → default, never the server's), so a preview cannot format a
+date differently from the run it is previewing.
+
+**Error** `404` — no such automation, or the step is not in the saved draft (save
+first). **Error** `400` — the record no longer exists.
+
+### `GET /workflows/:id/versions`
+
+Version history, newest first. The `graph` column is deliberately **not**
+selected — shipping fifty snapshots to render fifty rows of "v12 · 3 Aug · Bob"
+is a payload nobody asked for.
+
+**Response** `200 OK` — `{ data: [{ id, version, publishedAt, publishedBy, note, nodeCount, triggerTypes, isActive }] }`
+
+`isActive` marks the version `active_version_id` points at — which is not
+necessarily the highest number, once someone restores an older one.
+
+---
+
+## Public Unsubscribe
+
+No authentication. The token *is* the authorisation: an HMAC-SHA256 of
+`unsubscribe:<tenantId>:<customerId>` under the server secret, formatted
+`<customerId>.<signature>`. It is derived rather than stored, so there is no
+token column, nothing to backfill, and rotating the secret invalidates every
+outstanding link at once. The tenant id is inside the signature, so a token is
+valid for exactly one (tenant, customer) pair.
+
+Every failure — malformed token, unknown customer, bad signature — returns the
+same `404`. Distinguishing them would let an unauthenticated caller probe the
+id space, and there is nothing useful to tell them.
+
+Opting out suppresses **marketing** email only (review requests, renewal
+reminders, workflow sends). Estimates, invoices and receipts are transactional
+and continue.
+
+### `GET /public/unsubscribe/:token`
+
+Who is this link for. **Changes nothing** — Gmail, Outlook and corporate link
+scanners fetch URLs in the background, so a `GET` that opted someone out would
+opt out people who never clicked.
+
+Rate limit: 30/min.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "businessName": "Smith HVAC Services",
+    "email": "s•••@example.com",
+    "alreadyOptedOut": false
+  }
+}
+```
+
+`email` is masked. The page has to show which address is affected; the full
+address is not this endpoint's to hand out.
+
+**Error** `404 Not Found` — `{ "message": "This unsubscribe link is not valid" }`
+
+### `POST /public/unsubscribe/:token`
+
+Record the opt-out. Idempotent — a second click is a `200`, not an error, and
+the **first** timestamp is kept, because that is the date the customer will
+quote back at you.
+
+Rate limit: 10/min.
+
+**Response** `200 OK`
+
+```json
+{ "data": { "businessName": "Smith HVAC Services", "optedOut": true } }
+```
+
+**Error** `404 Not Found` — same body as above.
+
+### `POST /public/unsubscribe/:token/one-click`
+
+RFC 8058. The mail provider posts here itself when the reader clicks the
+unsubscribe control Gmail renders beside the sender name — no browser, no page,
+nobody to read a response body. Required of bulk senders by Gmail and Yahoo, and
+this deployment sends every tenant's mail from one shared domain, so a missing
+one-click path is a deliverability problem for all of them.
+
+Accepts `application/x-www-form-urlencoded`; the body (`List-Unsubscribe=One-Click`)
+carries nothing the token does not and is discarded.
+
+Rate limit: 10/min.
+
+**Response** `204 No Content` — **even for an invalid token.** A mail provider
+retries a `4xx` and has nothing to fix; the failure that matters is a valid
+unsubscribe that does not take effect.
 
 ---
 
@@ -1314,6 +1758,35 @@ List all conversations with customers, organized by channel.
 }
 ```
 
+### `POST /conversations`
+
+**Auth:** `requireTenant`
+
+Get or create a conversation with a customer on a channel. Idempotent per
+`(tenant, customer, channel)` — an existing thread is returned rather than duplicated.
+
+**Request Body:**
+
+| Field | Type | Required | Constraints |
+|-------|------|----------|-------------|
+| `customerId` | uuid | Yes | Must belong to the caller's tenant |
+| `channel` | enum | Yes | `email` \| `sms` |
+| `subject` | string | No | Applied only when a new thread is created |
+
+`customerId` is checked against the tenant before anything is written. It decides
+whose name, email and phone the response carries, and who `POST /:id/messages`
+later emails — an unchecked value would have been a cross-tenant disclosure and an
+outbound email to another tenant's customer.
+
+**Response** `200 OK` · **Error** `404 Not Found` — `{ "error": "Customer not found" }`
+
+> **Doc drift, not yet reconciled:** the two entries below describe
+> `GET /conversations/:id` returning an embedded `messages` array and a
+> `POST /conversations/:id/send`. The implementation has
+> `GET /conversations/:id/messages` (cursor-paginated) and
+> `POST /conversations/:id/messages`. Left as-is here because correcting it is a
+> documentation pass, not part of the security fix that touched this route.
+
 ### `GET /conversations/:id`
 
 **Auth:** `requireTenant`
@@ -1398,3 +1871,172 @@ Mark all messages in a conversation as read.
 
 ---
 
+### `POST /workflows/from-template`
+
+Install one of the shipped templates as a new **draft** automation.
+
+The body carries a template **id**, never a graph. The browser imports the same
+catalogue and could send the nodes — which is exactly why it must not: a graph
+accepted from the client is a graph the client can change, and "install this
+template" would quietly become "write me any automation you like, including one
+that emails every customer".
+
+Created **off and unpublished**, like every other automation. `templateKey` is
+recorded on the row so the gallery can say "already added".
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `templateId` | string | ✓ | An id from `WORKFLOW_TEMPLATES` |
+| `name` | string | | Rename before creating. Max 120 |
+
+**Responses**
+
+- `201` — `{ "data": { "id": "uuid" } }`
+- `404` — unknown template id
+- `422` — the template names a node this build does not have. A packaging
+  mistake, not a tenant error, and caught before anything is written so it
+  cannot leave a half-built automation behind.
+
+---
+
+### `POST /workflows/:id/versions/:versionId/restore`
+
+Copy an earlier snapshot back over the **draft**.
+
+**It does not activate the version.** Pointing `active_version_id` at the old
+snapshot would be one column and instant, and it is wrong twice over: the draft
+would still hold the broken graph, so the builder would show one thing while the
+engine ran another and the next Save would quietly publish the breakage back —
+and it would put a version live without anybody looking at it, which is the rule
+this feature holds everywhere else. The tenant reviews the restored graph and
+presses Publish, which mints a **new** version. "v5, restored from v2" is a true
+record; silently making v2 current again is not.
+
+Node ids are preserved rather than re-minted: edges inside the snapshot already
+reference them, and `node_execution_logs.node_id` carries no FK precisely so a
+restored step keeps the run history it had the first time.
+
+Goes through the ordinary save path, so it takes the row lock, checks the
+concurrency token and enforces the size cap.
+
+**Body**
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `expectedUpdatedAt` | ISO datetime | ✓ | The token the client last saw |
+
+**Responses**
+
+- `200` — `{ "data": { "restoredVersion": 2, "updatedAt": "...", "graph": {...} } }`
+- `404` — no such version for this workflow and tenant
+- `409` — somebody else saved in between; reload before restoring
+- `413` — the snapshot exceeds the graph size cap
+- `422` — the version has no steps, so restoring it would leave an empty automation
+
+---
+
+## Run history
+
+The engine has written a row per run and a row per node since P3. These are the
+first read paths either table has ever had — before them an automation could be
+built, published, switched on and run with no way for its owner to find out
+whether it had done anything.
+
+Both lead with the **plain-language** fields. `error_hint` and `skip_reason` are
+written for the person who has to fix the automation; `error_message` is the
+technical one and is carried alongside rather than instead.
+
+### `GET /workflows/:id/runs`
+
+One page of runs, newest first, plus whole-history counts.
+
+404s when the automation is not yours — checked before querying, so a foreign id
+cannot come back as "0 runs", which reads as "this has never run".
+
+**Query**
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `page` | number | Default 1 |
+| `limit` | number | Default 20, max 100 |
+| `status` | string | **Comma-separated set** — `failed,cancelled`. 1–5 of `running`/`waiting`/`completed`/`failed`/`cancelled` |
+| `customerId` | uuid | "Which automations touched this customer" |
+
+**Response**
+
+```jsonc
+{
+  "runs": [{
+    "id": "uuid",
+    "status": "completed",          // running | waiting | completed | failed | cancelled
+    "source": "event",              // event | manual | test | webhook | schedule | sub | replay
+    "triggerEvent": "job.completed",
+    "startedAt": "2026-08-09T14:02:11.000Z",
+    "completedAt": "2026-08-09T14:02:12.400Z",
+    "resumeAt": null,               // set only while waiting on a delay
+    "errorHint": null,              // plain language, never a stack
+    "nodesExecuted": 4,
+    "contextTruncated": false,
+    "subjectType": "job",
+    "subjectId": "uuid",
+    "customerId": "uuid",
+    "customerName": "Maria Delgado", // null when there is no customer
+    "versionNumber": 3
+  }],
+  "pagination": { "page": 1, "limit": 20, "total": 61, "totalPages": 4 },
+  // Counted in SQL over the WHOLE history, not derived from this page — a tally
+  // from 20 rows would sit above a paginated list contradicting it.
+  "stats": {
+    "total": 61, "running": 0, "waiting": 2,
+    "completed": 57, "failed": 1, "cancelled": 1,
+    "lastRunAt": "2026-08-09T14:02:11.000Z"
+  }
+}
+```
+
+### `GET /workflows/:id/runs/:runId`
+
+One run and every step it took, in execution order.
+
+404 when the run does not exist **or** belongs to another tenant — one answer on
+purpose, so the response does not confirm which ids are real.
+
+**Response**
+
+```jsonc
+{
+  "run": {
+    // ...every field from the list, plus:
+    "workflowName": "Review request",
+    "versionId": "uuid",         // the PINNED version this run executes on
+    "triggerNodeId": "uuid",
+    "currentNodeId": "uuid",     // where a waiting run is paused
+    "parentExecutionId": null,   // set by "run from here"
+    "errorMessage": "…",         // technical; the UI leads with errorHint
+    "steps": [{
+      "id": "uuid",
+      "nodeId": "uuid",          // NO foreign key — a deleted node keeps its history
+      "nodeType": "email.send",
+      "nodeLabel": "Ask for a review",
+      "sequence": 3,             // execution order, which after a branch is not canvas order
+      "status": "skipped",       // running | completed | failed | waiting | skipped
+      "skipReason": "This customer unsubscribed on 12 July, so we didn't email them.",
+      "startedAt": "2026-08-09T14:02:12.100Z",
+      "completedAt": "2026-08-09T14:02:12.180Z",
+      "durationMs": 80,
+      "resolvedParams": { "subject": "How did we do, Maria?" }, // AFTER interpolation
+      "output": { "messageId": "…" },
+      "errorHint": null,
+      "errorMessage": null
+    }]
+  }
+}
+```
+
+`context_snapshot` is deliberately **not** returned. It is stored for failed
+nodes, it can be large, and a run page that ships a megabyte of context for a run
+nobody expands is a page nobody waits for.
+
+---

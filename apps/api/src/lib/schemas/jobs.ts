@@ -225,9 +225,19 @@ export const quantitySchema = z.coerce
   .positive()
   .max(MONEY_MAX);
 
+/**
+ * What this line cost, against the `unitPrice` it was billed at.
+ *
+ * Omitted on add, it is snapshotted from the catalog item. Nullable so it can
+ * be cleared back to unknown; null is never the same as 0, which would report
+ * the line as pure profit.
+ */
+const unitCostSchema = moneySchema.nullable().optional();
+
 export const addLineItemBody = z.object({
   description: lineItemDescription,
   unitPrice: moneySchema.optional(),
+  unitCost: unitCostSchema,
   itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
   quantity: quantitySchema.optional(),
   catalogItemId: z.string().uuid().optional(),
@@ -238,6 +248,7 @@ export const updateLineItemBody = z.object({
   description: lineItemDescription,
   quantity: quantitySchema.optional(),
   unitPrice: moneySchema.optional(),
+  unitCost: unitCostSchema,
   sortOrder: z.coerce.number().int().min(0).max(100_000).optional(),
   itemType: z.enum(["labor", "part", "material", "service_call", "other"]).optional(),
 });

@@ -126,8 +126,22 @@ export function CatalogTable({
             <TableCell className="text-muted-foreground">
               {item.category || "\u2014"}
             </TableCell>
+            {/* Cost under the price, as on a job's line items. "No cost" is
+                said out loud — a blank cell reads as free, and an item costing
+                nothing reports 100% margin on every job it touches. */}
             <TableCell className="text-right text-foreground">
-              {priceFormatter.format(Number(item.unitPrice))}
+              <div className="tnum">
+                {priceFormatter.format(Number(item.unitPrice))}
+              </div>
+              {item.unitCost ? (
+                <div className="tnum font-mono text-[11px] text-muted-foreground">
+                  cost {priceFormatter.format(Number(item.unitCost))}
+                </div>
+              ) : (
+                <div className="text-[11px] text-muted-foreground/70">
+                  no cost
+                </div>
+              )}
             </TableCell>
             <TableCell className="text-muted-foreground">
               {item.unit || "each"}
