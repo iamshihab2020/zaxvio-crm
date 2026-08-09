@@ -1,5 +1,5 @@
 /**
- * `trigger.job.stage_changed`.
+ * `trigger.job.stageChanged`.
  *
  * **The filters are not evaluated here.** They are declared on the definition's
  * properties (`filter: { path, operator }`) and evaluated by the trigger matcher

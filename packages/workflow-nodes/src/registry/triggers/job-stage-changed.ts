@@ -18,7 +18,7 @@ import type { NodeDefinition } from "../../node-definition.js";
  * (JOB-01), and the event's own registry entry says so too.
  */
 export default {
-  node: "trigger.job.stage_changed",
+  node: "trigger.job.stageChanged",
   version: 1,
   displayName: "Job Moves Stage",
   description: "Runs when a job moves to a different stage on the board.",

@@ -220,7 +220,12 @@ function emittedEventTypes(): Set<string> {
       const source = readFileSync(join(dir, file), "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/^\s*\/\/.*$/gm, "");
-      for (const match of source.matchAll(/type:\s*"([a-z][a-zA-Z0-9.]*)"/g)) {
+      // `_` is in the class because **event** types are snake_case
+      // (`job.stage_changed`, `invoice.payment_recorded`) while **node** ids are
+      // lowerCamel. Without it this stopped at the underscore, matched
+      // `job.stage`, and reported a producer that plainly exists as missing —
+      // the gate crying wolf on the first snake_case event a trigger declared.
+      for (const match of source.matchAll(/type:\s*"([a-z][a-zA-Z0-9._]*)"/g)) {
         found.add(match[1]);
       }
     }

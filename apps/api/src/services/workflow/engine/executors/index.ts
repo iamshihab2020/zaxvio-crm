@@ -40,7 +40,7 @@ export const EXECUTORS: Readonly<Record<string, Executor>> = {
   "trigger.booking.created": triggerBookingCreated,
   "trigger.customer.created": triggerCustomerCreated,
   "trigger.job.created": triggerJobCreated,
-  "trigger.job.stage_changed": triggerJobStageChanged,
+  "trigger.job.stageChanged": triggerJobStageChanged,
   "trigger.job.assigned": triggerJobAssigned,
   "trigger.quote.sent": triggerQuoteSent,
   "trigger.booking.cancelled": triggerBookingCancelled,

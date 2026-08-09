@@ -104,6 +104,19 @@ export type EventCategory = (typeof EVENT_CATEGORIES)[number];
  * - `manual` — a person pressed a button.
  */
 export const EVENT_ORIGINS = ["domain", "derived", "manual"] as const;
+
+/**
+ * Which phase's producer makes an event real.
+ *
+ * A constant rather than a union written inline, for the same reason
+ * `EVENT_CATEGORIES` and `EVENT_ORIGINS` are: the registry test asserts against
+ * it. `P6` was added to the inline union when the `invoice.overdue` sweep landed
+ * and the test kept its own hardcoded `["P2","P3","P9"]`, so a correct entry
+ * failed a stale assertion — one closed set declared in two places, which is the
+ * defect this whole feature keeps rediscovering.
+ */
+export const EVENT_PHASES = ["P2", "P3", "P6", "P9"] as const;
+export type EventPhase = (typeof EVENT_PHASES)[number];
 export type EventOrigin = (typeof EVENT_ORIGINS)[number];
 
 export interface EventDefinition {
@@ -126,7 +139,7 @@ export interface EventDefinition {
    * A test now asserts the real invariant — every event an active trigger
    * declares has a producer — and this stays as documentation of intent.
    */
-  phase: "P2" | "P3" | "P6" | "P9";
+  phase: EventPhase;
   payload: z.ZodType;
 }
 

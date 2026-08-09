@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import {
   EVENT_CATEGORIES,
   EVENT_ORIGINS,
+  EVENT_PHASES,
   EVENT_SUBSCRIBERS,
   EVENT_TYPES,
   WORKFLOW_EVENTS,
@@ -76,7 +77,7 @@ describe("event metadata", () => {
       const def = WORKFLOW_EVENTS[type];
       expect(EVENT_CATEGORIES, type).toContain(def.category);
       expect(EVENT_ORIGINS, type).toContain(def.origin);
-      expect(["P2", "P3", "P9"], type).toContain(def.phase);
+      expect(EVENT_PHASES, type).toContain(def.phase);
       expect(def.label.length, type).toBeGreaterThan(0);
       expect(def.description.length, type).toBeGreaterThan(0);
     }
