@@ -69,8 +69,10 @@ import {
   type ResolvedStage,
 } from "../job-stages.service.js";
 import { emitStageChangeEvents } from "./stage-events.service.js";
+import { emitJobUpdatedEvents } from "./job-events.service.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import { sendJobCompletionEmailFor } from "../../lib/job-helpers.js";
+import { isOrgMember } from "../../lib/tenant-guards.js";
 
 type Db = Omit<ReturnType<typeof getDb>, "$client">;
 type JobRow = typeof jobs.$inferSelect;
@@ -318,4 +320,151 @@ export async function moveJobStage(
   }
 
   return { ok: true, job: updated, from: existing.status, to: target };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Assignment
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Why an assignment did not happen.
+ *
+ * `not_a_member` is the one that carries security weight: `assigneeId` is a
+ * client-supplied foreign key with no row-level security underneath it, and it
+ * arrives from a saved automation config exactly as untrusted as a request body
+ * — templates and duplicated automations carry ids from wherever they were
+ * written. The check is two hops, tenant to organisation to membership, rather
+ * than a read of `user`: `user` has no tenant column, so trusting an id there is
+ * precisely what makes a cross-tenant assignment possible.
+ */
+export type AssignJobFailure =
+  | "not_found"
+  | "archived"
+  | "not_a_member"
+  | "already_assigned";
+
+export type AssignJobResult =
+  | { ok: true; job: JobRow; from: string | null; to: string | null }
+  | { ok: false; reason: AssignJobFailure; message: string };
+
+export interface AssignJobArgs {
+  tenantId: string;
+  jobId: string;
+  /** `null` unassigns. The automation node requires somebody; the API does not. */
+  assigneeId: string | null;
+  actor: JobActor;
+}
+
+/**
+ * Put a job in somebody's name, with the trail and the events that go with it.
+ *
+ * The `job.assign` executor did the `UPDATE` and stopped, so an assignment made
+ * by an automation raised no `job.assigned` **or** `job.updated` and wrote no
+ * activity row: `trigger.job.assigned` exists, and nothing an automation did
+ * could ever reach it.
+ *
+ * Both events fire, not just the specific one. That is `emitJobUpdatedEvents`'s
+ * own rule and it is worth restating: suppressing `job.updated` when a more
+ * specific event also fired would make "any change to a job" quietly mean "any
+ * change except a reassignment" — the kind of exception nobody discovers until
+ * their automation has been silently skipping cases for a month.
+ *
+ * No notification is dispatched, because `PATCH /jobs/:id` does not dispatch one
+ * either. Telling a tech they have been given a job is a real gap; it is a gap
+ * for people too, so it belongs in its own change rather than smuggled in here
+ * where only automations would get it.
+ */
+export async function assignJob(
+  db: Db,
+  args: AssignJobArgs,
+): Promise<AssignJobResult> {
+  const { tenantId, jobId, assigneeId, actor } = args;
+
+  const [existing] = await db
+    .select()
+    .from(jobs)
+    .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, jobId)));
+
+  if (!existing) {
+    return { ok: false, reason: "not_found", message: "Job not found" };
+  }
+
+  if (existing.archivedAt) {
+    return {
+      ok: false,
+      reason: "archived",
+      message: "Cannot modify an archived job. Restore it first.",
+    };
+  }
+
+  if (assigneeId) {
+    if (!(await isOrgMember(db, tenantId, assigneeId))) {
+      return {
+        ok: false,
+        reason: "not_a_member",
+        message: "Assignee is not a member of this organization",
+      };
+    }
+  }
+
+  // Reported rather than written. A resumed run must not record an assignment
+  // that did not happen, and `emitJobUpdatedEvents` would otherwise raise
+  // `job.updated` for a no-op — which is an automation firing for nothing.
+  if (existing.assigneeId === assigneeId) {
+    return {
+      ok: false,
+      reason: "already_assigned",
+      message: assigneeId
+        ? "That job is already assigned to them."
+        : "That job already has nobody assigned.",
+    };
+  }
+
+  const description =
+    actor.kind === "workflow"
+      ? `Updated Assignee by "${actor.workflowName}"`
+      : "Updated Assignee";
+
+  const updated = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(jobs)
+      .set({ assigneeId, updatedAt: new Date() })
+      .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, jobId)))
+      .returning();
+
+    await tx.insert(jobActivities).values({
+      tenantId,
+      jobId,
+      type: "job.updated",
+      description,
+      metadata: {
+        changedFields: ["assigneeId"],
+        ...(actor.kind === "workflow"
+          ? { workflowId: actor.workflowId, executionId: actor.executionId }
+          : {}),
+      },
+      performedBy: actorUserId(actor),
+    });
+
+    // The same emitter the route uses, given the same shape. The previous values
+    // come from `existing`, read before the update — the only place they still
+    // exist. Only `assigneeId` is listed as changed, so the schedule comparison
+    // inside finds nothing and `job.scheduled` correctly stays quiet.
+    await emitJobUpdatedEvents(tx, {
+      tenantId,
+      actorUserId: actorUserId(actor),
+      jobId,
+      previous: {
+        assigneeId: existing.assigneeId,
+        scheduledDate: existing.scheduledDate,
+        scheduledStart: existing.scheduledStart,
+        scheduledEnd: existing.scheduledEnd,
+      },
+      changedFields: ["assigneeId"],
+    });
+
+    return row;
+  });
+
+  return { ok: true, job: updated, from: existing.assigneeId, to: assigneeId };
 }

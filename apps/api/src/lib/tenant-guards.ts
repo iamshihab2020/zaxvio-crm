@@ -23,6 +23,8 @@ import {
   equipment,
   bookings,
   catalogItems,
+  member,
+  tenants,
   and,
   eq,
 } from "@hvac-saas/database";
@@ -58,6 +60,48 @@ export const ownsBooking = (db: Db, tenantId: string, id: string) =>
   owns(db, tenantId, id, bookings);
 export const ownsCatalogItem = (db: Db, tenantId: string, id: string) =>
   owns(db, tenantId, id, catalogItems);
+
+/**
+ * Is this user a member of the workspace's organisation?
+ *
+ * The `owns*` family above answers "is this row mine"; a user id cannot be
+ * answered that way, because **`user` has no tenant column** — Better Auth owns
+ * that table. So it is two hops: tenant → organisation → membership. Reading
+ * `user` directly and trusting the id is precisely what makes a cross-tenant
+ * assignment possible.
+ *
+ * Lives here for the reason this module exists at all. There were three copies:
+ * one inline in `PATCH /jobs/:id`, one in the workflow engine's `ownership.ts`,
+ * and a third about to be written for `assignJob`. That is the same shape as the
+ * `ownsCustomer` copies in `invoice-guards.ts` and `quote-guards.ts` — a check
+ * with nothing to import gets rewritten or skipped.
+ *
+ * Fails closed on a tenant with no organisation: nobody can be a member of an
+ * organisation that does not exist, and failing open would make the check
+ * decorative for exactly the workspaces whose setup is incomplete.
+ */
+export async function isOrgMember(
+  db: Db,
+  tenantId: string,
+  userId: string,
+): Promise<boolean> {
+  const [tenant] = await db
+    .select({ organizationId: tenants.organizationId })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId));
+  if (!tenant?.organizationId) return false;
+
+  const [row] = await db
+    .select({ id: member.id })
+    .from(member)
+    .where(
+      and(
+        eq(member.organizationId, tenant.organizationId),
+        eq(member.userId, userId),
+      ),
+    );
+  return row !== undefined;
+}
 
 /**
  * Validate every optional FK on a request in one pass. Returns the first

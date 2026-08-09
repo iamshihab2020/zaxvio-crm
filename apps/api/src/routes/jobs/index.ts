@@ -51,6 +51,7 @@ import {
   assertEditable,
   findForeignRef,
 } from "../../lib/job-guards.js";
+import { isOrgMember } from "../../lib/tenant-guards.js";
 import {
   attachChecklistToJob,
   deleteJobAttachments,
@@ -788,28 +789,13 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .send({ message: "End time must be after start time" });
       }
 
-      // Validate assignee is an org member
-      if (body.assigneeId) {
-        const tenant = await db
-          .select({ organizationId: tenants.organizationId })
-          .from(tenants)
-          .where(eq(tenants.id, tenantId))
-          .then((r) => r[0]);
-        if (tenant) {
-          const isMember = await db
-            .select({ id: member.id })
-            .from(member)
-            .where(
-              and(
-                eq(member.userId, body.assigneeId),
-                eq(member.organizationId, tenant.organizationId),
-              ),
-            )
-            .then((r) => r[0]);
-          if (!isMember) {
-            return reply.status(400).send({ message: "Assignee is not a member of this organization" });
-          }
-        }
+      // Validate assignee is an org member. One implementation in
+      // `lib/tenant-guards.ts` — this was a copy, and the old version also
+      // failed **open** when the tenant had no organisation row.
+      if (body.assigneeId && !(await isOrgMember(db, tenantId, body.assigneeId))) {
+        return reply
+          .status(400)
+          .send({ message: "Assignee is not a member of this organization" });
       }
 
       const allowedFields = [

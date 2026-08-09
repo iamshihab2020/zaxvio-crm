@@ -20,11 +20,11 @@ import {
   jobPipelineStages,
   member,
   pipelines,
-  tenants,
   and,
   eq,
   type getDb,
 } from "@hvac-saas/database";
+import { isOrgMember } from "../../../lib/tenant-guards.js";
 
 type Db = Omit<ReturnType<typeof getDb>, "$client">;
 
@@ -40,22 +40,11 @@ export async function assertOrgMember(
   tenantId: string,
   userId: string,
 ): Promise<boolean> {
-  const [tenant] = await db
-    .select({ organizationId: tenants.organizationId })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId));
-  if (!tenant?.organizationId) return false;
-
-  const [row] = await db
-    .select({ id: member.id })
-    .from(member)
-    .where(
-      and(
-        eq(member.organizationId, tenant.organizationId),
-        eq(member.userId, userId),
-      ),
-    );
-  return row !== undefined;
+  // Delegated rather than reimplemented: this was one of three copies, and
+  // `lib/tenant-guards.ts` exists because a check with nothing to import gets
+  // rewritten or skipped. The name stays — inside the engine, "assert" is the
+  // vocabulary every other ownership helper here uses.
+  return isOrgMember(db, tenantId, userId);
 }
 
 export async function assertPipeline(

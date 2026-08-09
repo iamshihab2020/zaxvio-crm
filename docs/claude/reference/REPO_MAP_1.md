@@ -143,7 +143,11 @@ apps/api/
 |   |   +-- tenant-guards.ts      # ownsCustomer/Equipment/Booking/CatalogItem + findForeignRef() —
 |   |   |                         # "does this id belong to the caller's tenant?" for every FK that
 |   |   |                         # arrives in a request body. Lived in job-guards, so conversations,
-|   |   |                         # checklists and calendar-events each wrote one unchecked (2026-08-06)
+|   |   |                         # checklists and calendar-events each wrote one unchecked (2026-08-06).
+|   |   |                         # + isOrgMember(): tenant -> organisation -> membership, because
+|   |   |                         # `user` has no tenant column. Was three copies (the jobs route,
+|   |   |                         # the engine's ownership.ts, assignJob) and the route's failed OPEN
+|   |   |                         # when a tenant had no organisation row (P7a.2)
 |   |   +-- upload-limits.ts      # UPLOAD_LIMITS + bodyLimitFor() so the number a handler enforces
 |   |   |                         # and the number Fastify enforces cannot drift; MIME allowlist
 |   |   +-- invoice-guards.ts     # loadEditableInvoice()/assertPayable()/assertDraft() + the FK
@@ -328,7 +332,11 @@ apps/api/
 |   |   |   |                         # because the route needs a 400 and the executor a skipped/
 |   |   |   |                         # NodeFailure. Called by PATCH /jobs/:id/status AND the
 |   |   |   |                         # job.moveStage node, which used to do its own UPDATE and skip
-|   |   |   |                         # every one of those (P7a)
+|   |   |   |                         # every one of those (P7a).
+|   |   |   |                         # assignJob(): same shape. Raises job.assigned AND job.updated
+|   |   |   |                         # (suppressing the catch-all would make "any change" mean "any
+|   |   |   |                         # change except a reassignment"), refuses a no-op so an
+|   |   |   |                         # automation cannot fire for a change that did not happen
 |   |   |   +-- stage-events.service.ts # job.stage_changed + job.completed/cancelled, from ONE
 |   |   |   |                         # implementation called by both the single and the bulk status
 |   |   |   |                         # path. Two completed stages in a row is not a re-completion

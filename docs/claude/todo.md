@@ -63,7 +63,22 @@ nothing here. This commit is what creates the possibility, so the guard ships in
       savepoint.
       **Not run: `pnpm test`.** `job-move-stage.integration.test.ts` is written and unexecuted; the
       18 assertions above were run directly against Neon and rolled back.
-- [ ] **P7a.2** `assignJob()` likewise — the route emits `job.assigned`, the executor does not.
+- [x] **P7a.2** `assignJob()` — **22/22 proven by execution against Neon.** The executor raised
+      neither `job.assigned` nor `job.updated` and wrote no activity row, so `trigger.job.assigned`
+      was unreachable from an automation. Now both events fire (suppressing the catch-all would
+      make "any change to a job" mean "any change except a reassignment"), `job.scheduled` stays
+      quiet, and a **no-op is refused** — otherwise `emitJobUpdatedEvents` raises `job.updated` for
+      a change that did not happen, every time a run resumes.
+      **Found while consolidating: the route's membership check failed OPEN.**
+      `PATCH /jobs/:id` wrote `if (tenant) { …check… }` with no `else`, so a tenant with no
+      organisation row skipped the check entirely; the engine's copy failed closed. Two
+      implementations of one rule disagreeing on the case nobody tests. There were three copies
+      about to be four — now one `isOrgMember` in `lib/tenant-guards.ts`, which is the module whose
+      own docblock says a check with nothing to import gets rewritten or skipped.
+      Two fixture mistakes again, both mine: the proof picked the member after the job (dies on a
+      one-person workspace) and then assumed an unassigned job existed (both workspaces have one
+      member and every job assigned). Clearing the assignee inside each savepoint beats fabricating
+      a user row.
 - [ ] **P7a.3** The rest of ARC-05 as pure moves (create, update, line items, checklist).
 - [ ] **P7b** CRM pickers + variable pills — frontend, and blocked behind eyeballing the canvas.
 - [ ] **P7c** Node breadth to ~45, `workflow_folders`.

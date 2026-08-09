@@ -85,3 +85,16 @@ From the [[bookings-calendar|Bookings & Calendar audit]].
   an R2 storage path. S3/R2 keys are opaque strings, not filesystem paths — `a/../b` is a
   distinct key from `b`, so the delete hits nothing. The read half was real but reached only
   the tenant logo, which `GET /public/booking/:slug` already serves to anonymous visitors.
+- **The route's org-membership check failed open, and it took consolidating three copies to see
+  it.** `PATCH /jobs/:id` read the tenant, and if there was no tenant row it skipped the membership
+  check entirely — `if (tenant) { ...check... }` with no `else`. The engine's copy in
+  `ownership.ts` failed closed (`if (!tenant?.organizationId) return false`). Two implementations
+  of one rule, disagreeing on the case nobody tests, and the divergence is invisible while you read
+  either one on its own. `isOrgMember` in `lib/tenant-guards.ts` is now the only copy. **Nobody can
+  be a member of an organisation that does not exist**: a guard that skips itself when its lookup
+  comes back empty is decorative for exactly the workspaces whose setup is broken.
+- **A user id cannot go through the `owns*` family, and that is why it kept getting rewritten.**
+  `user` is Better Auth's table and has no `tenant_id`, so "is this id mine" is two hops — tenant
+  to organisation to membership — not one tenant-scoped SELECT. It did not fit the helper that
+  existed, so three call sites each wrote it again. When a check does not fit the shared shape, add
+  the shape; leaving it out is how `tenant-guards.ts`'s own docblock describes the last gap.

@@ -124,3 +124,9 @@ See [[jobs|the report]] for the full 38 findings + 3 more found while fixing the
   a person *or* an automation, and failure as a **returned union** rather than a throw — the route
   needs a 400 with a sentence and the executor needs `skipped` vs `NodeFailure`, and neither
   vocabulary can be imposed on the other.
+- **A no-op write must be refused, not performed, once events hang off it.** `assignJob` returns
+  `already_assigned` when the assignee is unchanged, because `emitJobUpdatedEvents` would otherwise
+  raise `job.updated` for a change that did not happen — an automation firing for nothing, and on a
+  resumed run, firing again every time. The general update route is protected by its field diff;
+  any narrower operation extracted out of it has to re-establish that guarantee itself, because the
+  diff is what it left behind.
