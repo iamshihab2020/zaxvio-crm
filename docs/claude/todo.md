@@ -321,6 +321,26 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       whole path works and the thing a contractor actually installs.
       Found while wiring it: `working-hours.ts` had a private `shiftDate` about to become the
       second copy; it is now `shiftCalendarDate` in `zoned-time.ts`.
+- [~] **Every Stop step ignored its only setting** (2026-08-09) — **fixed, unrun.** Found by
+      sweeping the definition↔executor seam while wiring the reminder template's No branch.
+      `logic.stop` declares its field as `outcome`; the executor read `params.stopType`, the name
+      the `WorkflowStopped` **signal** uses. `params` is `Record<string, unknown>`, so it compiled,
+      returned `undefined` forever, and the executor's own `?? "completed"` fallback absorbed it —
+      a fallback whose comment rationalises it as a corrupt-config guard, which is what made it
+      invisible. So every Stop ended the run as **completed**, including one explicitly set to
+      "Failed": no failure notification has ever fired from a Stop step. Fixed in the executor,
+      not the definition — the field name is what is persisted, so renaming the declaration would
+      orphan the value in every saved automation. New test parses `name:` out of all 16
+      definitions and `params.X` out of all 16 executors and diffs them; it found exactly this one.
+- [~] **The reminder template could send for a cancelled booking** (2026-08-09) — **fixed, unrun.**
+      Caught reviewing the template shipped an hour earlier. A Wait's resume time is fixed when the
+      run *reaches* it, so a booking cancelled or moved to next month during the pause still wakes
+      the run — and `restoreContext` re-reads the record, so the email would have said "we are
+      visiting tomorrow" above a date three weeks out. Now an Only-if between the wait and the
+      send: status not in cancelled/completed, **and** `booking.date` within the next 2 days (two,
+      not one — a date carries no time of day, so one leaves no room for the tenant's UTC offset).
+      The No branch ends in a Stop marked "Stopped early", which is both honest in the run history
+      and required: a two-output node with a dead side will not publish.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

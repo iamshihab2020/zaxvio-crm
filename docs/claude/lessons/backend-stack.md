@@ -517,3 +517,18 @@
   The field type is the declaration that makes this checkable: a `dateVariable`
   can be validated at publish for existence, type and scope, none of which a
   free-text token can.
+- **A node's fields are a seam, and `Record<string, unknown>` gives it no
+  type.** `logic.stop` declared its field as `outcome` and the executor read
+  `params.stopType` — the name the *signal class* uses. Both halves compiled,
+  both read as correct in isolation, and the access simply returned `undefined`
+  forever, which the executor's own `?? "completed"` fallback absorbed. Result:
+  every Stop step ended the run as completed, including one explicitly set to
+  "Failed", so no failure notification ever fired from one. Check it
+  mechanically — parse `name: "…"` out of each definition, `params.X` out of
+  each executor, and diff. Sixteen executors, one mismatch, two commands. Strip
+  comments first or a docblock explaining the rename reads as a live access.
+- **The definition owns the vocabulary, not the executor.** The field name is
+  what is persisted in `node_config.parameters`, so a mismatch is always the
+  executor's bug to fix. Renaming the *definition* to match would silently
+  orphan the value in every automation already saved — same reasoning as
+  keeping publish's `trigger_types` vocabulary when the matcher was wrong.

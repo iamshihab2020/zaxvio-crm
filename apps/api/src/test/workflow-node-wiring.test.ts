@@ -306,3 +306,58 @@ describe("definitions the engine relies on", () => {
     expect(unguarded).toEqual([]);
   });
 });
+
+/**
+ * The definition↔executor parameter seam.
+ *
+ * A node's fields are declared in one package and read in another, joined only
+ * by a string, and `params` is `Record<string, unknown>` — so `params.stopType`
+ * against a field declared as `outcome` compiles perfectly and reads as correct
+ * at both ends. What it does is return `undefined` forever, which every
+ * executor here quite reasonably absorbs with a default.
+ *
+ * That is exactly how it shipped: `logic.stop` declared `outcome`, the executor
+ * read `stopType`, and so **every** stop ended the run as "completed" no matter
+ * which outcome the author picked — a step explicitly set to "Failed" finished
+ * quietly and fired no failure notification. Same shape as the `trigger_types`
+ * defect: two internally consistent halves and nothing asserting they meet.
+ */
+describe("executors read the fields their definitions declare", () => {
+  /** Property names declared by a node, including ones inside `displayOptions`. */
+  function declaredFields(nodeId: string): Set<string> {
+    const def = getDefinition(nodeId);
+    return new Set((def?.properties ?? []).map((p) => p.name));
+  }
+
+  it("no executor reads a parameter its definition does not declare", () => {
+    const mismatches: string[] = [];
+
+    for (const nodeId of mappedNodeIds()) {
+      const file = join(EXECUTOR_DIR, moduleNameFor(nodeId));
+      let source: string;
+      try {
+        source = readFileSync(file, "utf8");
+      } catch {
+        continue; // "every active node is mapped to an executor" owns this case
+      }
+
+      // Comments stripped: this very test file's rationale mentions
+      // `params.stopType`, and a docblock in an executor explaining a rename
+      // must not read as a live access.
+      const code = source
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+
+      const declared = declaredFields(nodeId);
+      const reads = new Set(
+        [...code.matchAll(/params\.([A-Za-z_]\w*)/g)].map((m) => m[1]),
+      );
+
+      for (const field of reads) {
+        if (!declared.has(field)) mismatches.push(`${nodeId} reads params.${field}`);
+      }
+    }
+
+    expect(mismatches).toEqual([]);
+  });
+});

@@ -1322,6 +1322,55 @@ legal boundary is why [[strict-rules|§6]] exists.
 Checked and clean while here: `idx_wf_queue_claim` on `(status, scheduled_at)`
 already covers the retention sweep's deletes, so that added no unindexed scan.
 
+### Commit 21 — every Stop step ignored its only setting (written, unrun)
+
+Found while wiring the No branch of the reminder template, which needed a Stop.
+
+`logic.stop` declares one field, `outcome`. The executor read `params.stopType`
+— the name the `WorkflowStopped` **signal** uses, one layer down. `params` is
+`Record<string, unknown>`, so the access compiled, returned `undefined` on every
+run, and the executor's own `?? "completed"` absorbed it. A Stop step explicitly
+set to **Failed** therefore ended the run as completed and fired no failure
+notification, and one set to "Stopped early" was indistinguishable from success.
+
+The fallback's comment rationalises itself as a guard against a hand-edited
+config, which is precisely what made this invisible: the defence looked like the
+design.
+
+Fixed in the **executor**, not the definition. The declared name is what is
+persisted in `node_config.parameters`, so renaming the declaration to match the
+executor would have orphaned the value in every automation already saved — the
+same reasoning that kept publish's vocabulary when the trigger matcher was wrong
+in commit 18.
+
+Then swept the class: parse `name: "…"` out of all 16 definitions, `params.X`
+out of all 16 executors, diff. One mismatch, and it is now a test — with comments
+stripped first, or a docblock explaining this rename reads as a live access.
+
+### Commit 22 — the reminder template could send for a cancelled booking (written, unrun)
+
+Reviewing commit 20 as a reader rather than its author.
+
+A Wait's resume time is fixed when the run *reaches* the step, so nothing about
+a booking cancelled or rescheduled during the pause moves it. The run wakes up
+anyway — and `restoreContext` re-reads the record, so the email would have gone
+out saying "we are visiting tomorrow" above a date three weeks in the future,
+having correctly fetched the new one.
+
+Now an **Only if** between the wait and the send, with two rules:
+
+- status not in `cancelled`/`completed`
+- `booking.date` within the next **2** days
+
+Two, not one, and the reason is the same flattening the wait itself does: a date
+carries no time of day, so a one-day window leaves no room for the tenant's
+offset from UTC. Two clears ±14 hours and still excludes anything genuinely
+moved.
+
+The No branch ends in a Stop marked "Stopped early" — honest in the run history,
+and not optional: a two-output node with a dead side is `unconnected_branch_output`,
+an error, and a template that cannot publish as delivered is worse than none.
+
 ### Commit 19 — a SQL comment closed its own template (fixed, and *run*)
 
 The first time any of this code was executed. `pnpm dev` died at boot:

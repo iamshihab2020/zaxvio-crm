@@ -186,4 +186,46 @@ describe("the appointment reminder template", () => {
     const wait = template?.nodes.find((n) => n.nodeType === "delay.wait");
     expect(wait?.parameters.ifPassed).toBe("skip");
   });
+
+  it("checks the booking is still on before sending", () => {
+    // The wait's resume time is fixed when the run reaches it, so a booking
+    // cancelled or moved during the pause still wakes this run up. Re-reading
+    // the record on resume is what makes the check meaningful; having the check
+    // is what makes the re-read matter.
+    const check = template?.nodes.find((n) => n.nodeType === "condition.if");
+    expect(check, "no guard between the wait and the email").toBeDefined();
+
+    const rules = check?.parameters.rules;
+    expect(Array.isArray(rules)).toBe(true);
+    if (!Array.isArray(rules)) return;
+
+    const guarded = new Set(
+      rules.map((r) => (r as { variable?: unknown }).variable),
+    );
+    expect(guarded).toContain("booking.status");
+    expect(guarded).toContain("booking.date");
+
+    // Every rule names a real variable — a typo here resolves to nothing and
+    // an unanswerable comparison goes down No, so the reminder would silently
+    // never send.
+    for (const rule of rules) {
+      const path = (rule as { variable?: unknown }).variable;
+      expect(typeof path).toBe("string");
+      if (typeof path === "string") expect(VARIABLE_MAP.has(path)).toBe(true);
+    }
+  });
+
+  it("gives the No branch somewhere to go", () => {
+    // A two-output node with a dead side is `unconnected_branch_output`, an
+    // error — a template that cannot publish as delivered is worse than none.
+    if (!template) return;
+    const check = template.nodes.find((n) => n.nodeType === "condition.if");
+    if (!check) return;
+
+    const handles = template.edges
+      .filter((e) => e.from === check.key)
+      .map((e) => e.fromHandle);
+    expect(handles).toContain("true");
+    expect(handles).toContain("false");
+  });
 });

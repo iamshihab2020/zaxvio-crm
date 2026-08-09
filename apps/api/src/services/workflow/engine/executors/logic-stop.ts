@@ -19,7 +19,13 @@ type StopType = "completed" | "failed" | "cancelled";
 const VALID: readonly StopType[] = ["completed", "failed", "cancelled"];
 
 const logicStop: Executor = async ({ params, node }) => {
-  const requested = typeof params.stopType === "string" ? params.stopType : "completed";
+  // `outcome` is what the definition declares and therefore what is stored in
+  // `node_config.parameters`. This read said `stopType` — the name the *signal*
+  // uses — so it never found the author's choice and every stop, including
+  // "Failed", ended the run as completed with no failure notification. Neither
+  // file was wrong on its own, both sides are strings, and the fallback below
+  // reads as a deliberate guard rather than the thing making it invisible.
+  const requested = typeof params.outcome === "string" ? params.outcome : "completed";
   // A value outside the set means a corrupt or hand-edited config. Ending the
   // run as completed is the conservative reading — the author asked for it to
   // stop, and inventing a failure would fire a notification they never asked

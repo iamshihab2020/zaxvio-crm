@@ -434,7 +434,8 @@ const remindBeforeAppointment: WorkflowTemplate = {
     "As soon as a booking is made, this waits until 9am the day before the " +
     "appointment and sends the customer a reminder with the date, the time and " +
     "what they booked. Bookings made less than a day out are left alone, since " +
-    "a reminder that arrives after the fact is worse than none.",
+    "a reminder that arrives after the fact is worse than none — and anything " +
+    "cancelled in the meantime is left alone too.",
   category: "staying-on-top",
   icon: "IconBell",
   nodes: [
@@ -461,6 +462,45 @@ const remindBeforeAppointment: WorkflowTemplate = {
       },
     },
     {
+      // The wait is set when the run reaches it and does not move afterwards,
+      // so between then and the morning before, the booking can be cancelled.
+      // Without this the reminder still goes: "we are visiting tomorrow" for an
+      // appointment that is off — worse than sending nothing, because the
+      // customer now believes it is on.
+      //
+      // Safe because `restoreContext` **re-reads the record** on resume rather
+      // than trusting the snapshot, so this sees the status as it is this
+      // morning, not as it was when the booking was made.
+      key: "still-on",
+      nodeType: "condition.if",
+      label: "Still going ahead?",
+      parameters: {
+        combinator: "and",
+        rules: [
+          {
+            variable: "booking.status",
+            operator: "notInList",
+            value: ["cancelled", "completed"],
+          },
+          {
+            // And the appointment is still where the reminder says it is. A
+            // booking moved to next month leaves the wait where it was — the
+            // resume time is fixed when the run reaches the Wait step — so
+            // without this the email says "tomorrow" above a date three weeks
+            // out, having re-read the record and found the new one.
+            //
+            // Two days, not one: `dateWithinNext` measures from the instant
+            // this runs, and a date has no time of day, so one day leaves no
+            // room for the tenant's offset from UTC. Two clears ±14 hours with
+            // margin and still excludes anything genuinely rescheduled.
+            variable: "booking.date",
+            operator: "dateWithinNext",
+            value: 2,
+          },
+        ],
+      },
+    },
+    {
       key: "email",
       nodeType: "email.send",
       label: "Reminder",
@@ -477,10 +517,26 @@ const remindBeforeAppointment: WorkflowTemplate = {
           "See you then,\n{{tenant.ownerName}}\n{{tenant.businessName}}",
       },
     },
+    {
+      // Not optional decoration: a two-output step with one side going nowhere
+      // is a publish error, so the No branch needs a real end. "Stopped early"
+      // rather than "Finished" — the automation deliberately did not do its job,
+      // and the run history should say that rather than claim success.
+      key: "called-off",
+      nodeType: "logic.stop",
+      label: "Booking is off",
+      branchIndex: 1,
+      parameters: {
+        outcome: "cancelled",
+        reason: "The booking was cancelled before the reminder was due.",
+      },
+    },
   ],
   edges: [
     { from: "trigger", to: "wait" },
-    { from: "wait", to: "email" },
+    { from: "wait", to: "still-on" },
+    { from: "still-on", fromHandle: "true", to: "email" },
+    { from: "still-on", fromHandle: "false", to: "called-off" },
   ],
 };
 
