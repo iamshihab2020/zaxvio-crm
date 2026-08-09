@@ -285,6 +285,42 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       refetch discarding the user's work — **also swallowed the restore**. Fixed with a callback
       fired only on the actual write; clearing the marker on every close would have reinstated the
       bug the guard exists to prevent.
+- [x] **A SQL comment closed its own template** (2026-08-09) — **found by running it.**
+      `pnpm dev` died at boot: esbuild could not parse `sweeps/invoice-overdue.ts`, so the API
+      had not started since the overdue sweep landed. Seven `--` comments quoted identifiers in
+      backticks — the house style used in every JSDoc block two lines above — and inside
+      `` sql`…` `` a backtick is the end of the string, not punctuation. The reported error
+      (`Expected ")" but found "partially_paid"`) points at the first word after the break, not
+      the cause. Swept the class with a scanner over every `` sql`…` `` in `apps/api/src`: one
+      file, seven comments, nothing else. **First execution of any of this code.**
+- [~] **Wait until a date on the record** (2026-08-09) — **written, unrun.** The appointment
+      reminder — the automation every service business asks for first — could not be built.
+      `delay.wait` had two modes and neither reaches it: a relative wait counts from when the
+      *booking was made*, which is anywhere from ten minutes to three months out, and a typed
+      date is the same day for every customer. Same hole under "chase before the quote expires",
+      "warn before the warranty ends", "raise the job before the contract visit is due" — every
+      one a date this system already carries and could not wait for.
+      New `untilField` mode + a `dateVariable` property type. **It stores a variable path, not a
+      `{{token}}`**, because interpolation renders variables *for people*: `{{booking.date}}`
+      resolves to "Aug 12, 2026", and reading a date back out of a localised display string is
+      the exact "guess the format from the value's shape" mistake `interpolate.ts` refuses to
+      make. A bare path passes through untouched and the executor resolves it raw.
+      Every anchor is flattened to a **calendar day** plus a chosen hour, even one arriving as a
+      full timestamp — one rule with no branches, and it matches how the wait is described out
+      loud ("the morning before") rather than landing at 03:47 because that is when the row was
+      written. `ifPassed` is a field, not a rule: a booking taken for tomorrow makes "the day
+      before" already gone, and carrying on would email "we are visiting tomorrow" to someone
+      expecting an engineer in two hours. Defaults to stopping; the run log says why.
+      The validator gained `unknown_variable` — a path can be well-formed, save, publish, and
+      resolve to nothing because the trigger never provided that subject. Three checks: the path
+      exists (with "did you mean"), it is a date rather than a time-of-day, and the trigger above
+      it actually provides it. Plus the sweep that found the one real gap: `node-summary.ts`
+      would have printed `booking.date` raw on the canvas card, and unlike a member or stage id
+      that one resolves without the builder context.
+      Sixth template — **Remind customers before their appointment** — which is the proof the
+      whole path works and the thing a contractor actually installs.
+      Found while wiring it: `working-hours.ts` had a private `shiftDate` about to become the
+      second copy; it is now `shiftCalendarDate` in `zoned-time.ts`.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

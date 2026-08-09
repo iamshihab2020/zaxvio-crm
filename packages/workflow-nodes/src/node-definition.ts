@@ -69,6 +69,20 @@ export const NODE_PROPERTY_TYPES = [
   "keyValue",
   "conditions",
   "notice",
+  /**
+   * Names a **date variable** — `booking.date`, `invoice.dueDate` — rather than
+   * holding a date.
+   *
+   * Deliberately not a `string` field carrying `{{booking.date}}`. Interpolation
+   * renders a variable for a human: `{{booking.date}}` resolves to
+   * "Aug 12, 2026", and an executor that had to read a date back out of that
+   * would be parsing a localised display string — precisely the "guess the
+   * format from the value's shape" mistake the interpolator refuses to make.
+   * The value stored here is a bare path with no braces, so interpolation
+   * leaves it alone and the executor resolves the **raw** value through
+   * `VARIABLE_MAP`.
+   */
+  "dateVariable",
   // CRM pickers (P7)
   "customerSelect",
   "jobSelect",
@@ -187,6 +201,12 @@ export interface NodePropertyTypeOptions {
   dependsOn?: string;
   /** `duration` — which units to offer. */
   units?: ("minutes" | "hours" | "days" | "weeks")[];
+  /**
+   * `dateVariable` — which variable types may be chosen. Defaults to date and
+   * datetime. Named here rather than assumed so the picker and the validator
+   * read the same list.
+   */
+  variableTypes?: ("date" | "datetime")[];
 }
 
 /** Conditional rendering, lifted from n8n. Without it an 8-property email node

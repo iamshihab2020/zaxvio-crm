@@ -405,6 +405,86 @@ const welcomeNewCustomer: WorkflowTemplate = {
 };
 
 /**
+ * The appointment reminder — the automation every service business asks for
+ * first, and the one this product could not express until `delay.wait` learned
+ * to anchor on a date the record carries.
+ *
+ * Neither other wait mode reaches it. A relative wait counts from when the
+ * booking was *made*, which is anywhere from ten minutes to three months before
+ * the appointment; a typed date is the same day for every customer. The whole
+ * category — remind before the visit, chase before the quote expires, warn
+ * before the warranty ends — needs the date to come out of the row.
+ *
+ * `ifPassed: "skip"` is doing real work here. A booking taken for tomorrow
+ * afternoon makes "the day before" a moment that is already gone, and carrying
+ * on regardless would email "your appointment is tomorrow" to somebody expecting
+ * an engineer in the morning. Stopping is the correct answer for a reminder and
+ * the run log says so.
+ *
+ * `purpose: "transactional"`: this is a message about an appointment they booked,
+ * not marketing, so it reaches someone who has opted out of the latter — which
+ * is the reading `lib/email-consent.ts` requires and the distinction the law
+ * draws.
+ */
+const remindBeforeAppointment: WorkflowTemplate = {
+  id: "remind-before-appointment",
+  name: "Remind customers before their appointment",
+  summary: "A short note the morning before, so fewer people forget you are coming.",
+  detail:
+    "As soon as a booking is made, this waits until 9am the day before the " +
+    "appointment and sends the customer a reminder with the date, the time and " +
+    "what they booked. Bookings made less than a day out are left alone, since " +
+    "a reminder that arrives after the fact is worse than none.",
+  category: "staying-on-top",
+  icon: "IconBell",
+  nodes: [
+    {
+      key: "trigger",
+      nodeType: "trigger.booking.created",
+      label: "A booking is made",
+      // No source filter: a booking typed in by phone deserves the reminder just
+      // as much as one from the portal, and more — nobody emailed them a
+      // confirmation to keep.
+      parameters: {},
+    },
+    {
+      key: "wait",
+      nodeType: "delay.wait",
+      label: "Until the morning before",
+      parameters: {
+        mode: "untilField",
+        dateField: "booking.date",
+        offsetDirection: "before",
+        offset: { amount: 1, unit: "days" },
+        atTime: "09:00",
+        ifPassed: "skip",
+      },
+    },
+    {
+      key: "email",
+      nodeType: "email.send",
+      label: "Reminder",
+      parameters: {
+        recipient: "customer",
+        purpose: "transactional",
+        subject: "Reminder: we are visiting tomorrow",
+        body:
+          "Hi {{customer.firstName}},\n\n" +
+          "Just a reminder that we are booked in for {{booking.serviceType}} " +
+          "tomorrow, {{booking.date}}, at {{booking.startTime}}.\n\n" +
+          "If tomorrow no longer works, reply to this email and we will find " +
+          "another time.\n\n" +
+          "See you then,\n{{tenant.ownerName}}\n{{tenant.businessName}}",
+      },
+    },
+  ],
+  edges: [
+    { from: "trigger", to: "wait" },
+    { from: "wait", to: "email" },
+  ],
+};
+
+/**
  * Every template, in gallery order.
  *
  * Ordered by how likely a contractor is to want it on day one, not
@@ -413,6 +493,7 @@ const welcomeNewCustomer: WorkflowTemplate = {
  */
 export const WORKFLOW_TEMPLATES: readonly WorkflowTemplate[] = [
   chaseOverdueInvoices,
+  remindBeforeAppointment,
   askForReview,
   followUpAcceptedQuote,
   newBookingHeadsUp,

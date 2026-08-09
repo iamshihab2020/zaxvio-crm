@@ -1,5 +1,6 @@
 import {
   isPropertyVisible,
+  VARIABLE_MAP,
   type NodeDefinition,
   type NodeProperty,
 } from "@hvac-saas/workflow-nodes";
@@ -105,6 +106,15 @@ function describe(property: NodeProperty, value: unknown): string | null {
     }
     const match = property.options.find((o) => String(o.value) === String(value));
     if (match) return match.name;
+  }
+
+  // A variable path, which is a string but not a phrase. Left alone it prints
+  // `booking.date` on a card whose entire job is to say what the step does in
+  // the language the rest of the product uses — and unlike a member or stage id,
+  // this one resolves without reaching for the builder context, because the
+  // declaration is the same one the picker was populated from.
+  if (property.type === "dateVariable" && typeof value === "string") {
+    return VARIABLE_MAP.get(value)?.label ?? null;
   }
 
   if (typeof value === "string") {

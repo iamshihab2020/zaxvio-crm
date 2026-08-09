@@ -28,7 +28,7 @@ import {
   getAvailabilityWindows,
   type AvailabilityWindow,
 } from "../../availability.service.js";
-import { zonedDate, zonedToUtc } from "./zoned-time.js";
+import { shiftCalendarDate, zonedDate, zonedToUtc } from "./zoned-time.js";
 import type { ExecutorDb } from "./executors/types.js";
 
 /**
@@ -76,7 +76,7 @@ export async function nextWorkingMoment(
     db,
     tenantId,
     firstDay,
-    shiftDate(firstDay, HORIZON_DAYS),
+    shiftCalendarDate(firstDay, HORIZON_DAYS),
   );
 
   // No schedule at all is not "closed forever" — it is a tenant who has never
@@ -85,7 +85,7 @@ export async function nextWorkingMoment(
   if (windows.size === 0) return unchanged;
 
   for (let offset = 0; offset <= HORIZON_DAYS; offset += 1) {
-    const day = shiftDate(firstDay, offset);
+    const day = shiftCalendarDate(firstDay, offset);
     const open = windows.get(day);
     if (!open) continue; // closed that day
 
@@ -111,15 +111,6 @@ export async function nextWorkingMoment(
   }
 
   return unchanged;
-}
-
-/** YYYY-MM-DD plus n calendar days. Pure string arithmetic — no zone involved. */
-function shiftDate(date: string, days: number): string {
-  const [y, m, d] = date.split("-").map(Number);
-  // Noon UTC so a `Date` built from this can never be nudged across a day
-  // boundary; month ends and leap years are then handled by `Date` itself.
-  const shifted = new Date(Date.UTC(y, m - 1, d + days, 12));
-  return shifted.toISOString().slice(0, 10);
 }
 
 /** "Monday, Aug 11 at 9:00 AM" in the tenant's zone, for the run log. */

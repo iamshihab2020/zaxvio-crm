@@ -1322,6 +1322,80 @@ legal boundary is why [[strict-rules|§6]] exists.
 Checked and clean while here: `idx_wf_queue_claim` on `(status, scheduled_at)`
 already covers the retention sweep's deletes, so that added no unindexed scan.
 
+### Commit 19 — a SQL comment closed its own template (fixed, and *run*)
+
+The first time any of this code was executed. `pnpm dev` died at boot:
+
+```
+Error [TransformError]: Transform failed with 1 error:
+  sweeps/invoice-overdue.ts:131:61: ERROR: Expected ")" but found "partially_paid"
+```
+
+Seven `--` comments in the sweep's SQL quoted identifiers in backticks, which is
+the house style in every JSDoc block two lines above them. Inside `` sql`…` `` a
+backtick is not punctuation, it is the end of the string — so the first one
+closed the query and everything after it was parsed as JavaScript. The reported
+position is the first word past the break and points nowhere near the cause.
+
+The API had not started since that commit landed. Swept the class rather than
+the line: a scanner walks every `` sql`…` `` in `apps/api/src` and reports any
+closing before a plausible terminator. One file, seven comments, and three
+false positives from inline `` `sql` `` spans in prose (fixed by requiring the
+match not be preceded by a backtick or word character).
+
+### Commit 20 — wait until a date on the record (written, unrun)
+
+The appointment reminder is the automation every service business asks for
+first, and this product could not express it.
+
+`delay.wait` had two modes and neither reaches it. A relative wait counts from
+when the *booking was made*, which is ten minutes to three months before the
+appointment; a typed date is the same day for every customer. The same hole sits
+under "chase before the quote expires", "warn before the warranty ends" and
+"raise the maintenance job before the contract visit is due" — every one a date
+already carried by a row and impossible to wait for.
+
+**The field stores a path, not a token.** `{{booking.date}}` in a text field
+would arrive at the executor already rendered as "Aug 12, 2026", and reading a
+date back out of a localised display string is precisely the "guess the format
+from the value's shape" mistake `interpolate.ts` refuses to make. A bare
+`booking.date` has no braces, so interpolation passes it through and the raw
+value is still a value on arrival. Declaring it as a `dateVariable` **type** is
+what makes it checkable: existence, kind and scope are all assertable at publish,
+and none of them is assertable about free text.
+
+**Every anchor flattens to a calendar day plus a chosen hour**, including one
+that arrives as a full timestamp. One rule with no branches, and it matches how
+the wait is described out loud — *the morning before* — rather than landing at
+03:47 because that is when the row happened to be written. An offset from a real
+timestamp is what `mode: "for"` already is.
+
+**`ifPassed` is a field rather than a rule.** A booking taken for tomorrow
+afternoon makes "the day before" a moment that has already gone. Carrying on
+regardless emails "we are visiting tomorrow" to somebody expecting an engineer in
+two hours, so the default is to stop and the run log says which happened. The
+existing `until` mode keeps its documented resume-immediately behaviour: a
+calendar date a human typed genuinely does mean "after this, continue".
+
+New validator code `unknown_variable`, because this field type has a failure the
+others do not — a path can be well-formed, save cleanly, publish cleanly and
+resolve to nothing at run time because the trigger above it never provided that
+subject. The symptom is a wait that silently never happens, which looks exactly
+like an automation nobody triggered. Three checks: the path exists (with "did you
+mean"), it is a date and not a time-of-day, and this trigger provides it.
+
+The consumer sweep found one real gap: `node-summary.ts` would have printed
+`booking.date` raw on the canvas card. Unlike a member or stage id — deliberately
+left unresolved there, because resolving would mean the card reaching for the
+builder context — this one resolves from the same declaration the picker was
+built from.
+
+Sixth template, **Remind customers before their appointment**, which is both the
+proof the path works end to end and the thing a contractor actually installs.
+
+Found on the way: `working-hours.ts` had a private `shiftDate` that was about to
+become the second copy. Now `shiftCalendarDate` in `zoned-time.ts`.
+
 ### Commit 18 — the trigger matcher could never match (written, unrun)
 
 **The largest defect found in this feature.** `workflow_versions.trigger_types`

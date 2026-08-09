@@ -62,6 +62,35 @@ const entries: KnowledgeEntry[] = [
       "Almost always one of two things, and the Automations list tells you which:\n\n**It says Draft.** Drawing an automation isn't the same as publishing it. Open it and press **Publish** — until you do, it has no published version and cannot run at all. The on/off switch stays disabled and will tell you the same thing if you hover it.\n\n**It says Off.** It's published but switched off. Flip the toggle on the list, or open it — there's a banner saying so.\n\nA third possibility if it says **Live**: the automation ran but a step was skipped. Common reason is the customer having unsubscribed from non-essential email.\n\nNew automations are **always created switched off** on purpose. Nothing starts emailing your customers the moment you build it.",
   },
   {
+    id: "automations-wait-until-date",
+    category: "general",
+    keywords: [
+      "appointment reminder",
+      "remind customer before appointment",
+      "reminder before booking",
+      "day before appointment",
+      "wait until date",
+      "wait until appointment",
+      "reduce no shows",
+      "remind before visit",
+    ],
+    question: "Can an automation remind customers before their appointment?",
+    answer:
+      "Yes. Add a **Wait** step and set it to *until a date on the record* — then pick the date it should count from, like the booking date, and how far before.
+
+**The quickest way:** open **Automations → New automation** and choose the **Remind customers before their appointment** template. It waits until 9am the day before and sends the customer the date, time and what they booked.
+
+**How the Wait step works:**
+
+• **For a length of time** — counted from when the automation reaches that step. Good for \"three days after the job\".
+• **Until a date on the record** — the appointment, the due date, the expiry. Different for every customer, which is what a reminder needs.
+• **Until a specific date** — one fixed day you type in.
+
+Only dates your trigger actually provides are offered, so you can’t accidentally wait for something that isn’t there.
+
+**If that moment has already passed** — say a booking is made for tomorrow and you asked for a reminder the day before — you choose what happens. **Stop here** is the default and is right for reminders: a \"we’re coming tomorrow\" note that arrives late is worse than none. **Carry on straight away** is right for chasing, where late still beats never. Either way the run history says which happened.",
+  },
+  {
     id: "automations-publish-blocked",
     category: "general",
     keywords: [

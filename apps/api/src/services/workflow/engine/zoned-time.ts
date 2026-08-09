@@ -92,6 +92,25 @@ export function zonedToUtc(date: string, hhmm: string, timezone: string): Date {
 }
 
 /**
+ * A `YYYY-MM-DD` plus (or minus) whole calendar days, still `YYYY-MM-DD`.
+ *
+ * Pure calendar arithmetic on a date with no time and no zone, so it never
+ * needs one — which is the point. Anything that reduces to "which day" before
+ * asking "at what hour" wants this rather than `addCalendarDays`, and doing it
+ * on the string keeps a DST boundary from ever entering the question.
+ *
+ * Built at **noon UTC** so a date can never cross into its neighbour when the
+ * runtime renders it back: midnight ± any real offset is still the same day
+ * twelve hours either side.
+ */
+export function shiftCalendarDate(date: string, days: number): string {
+  const [y, m, d] = date.split("-").map(Number);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) return date;
+  const shifted = new Date(Date.UTC(y, m - 1, d + days, 12));
+  return shifted.toISOString().slice(0, 10);
+}
+
+/**
  * Add whole days while keeping the wall-clock time in `timezone`.
  *
  * "Wait 3 days" means the same time of day, three days later. `+ 3 × 86400000`

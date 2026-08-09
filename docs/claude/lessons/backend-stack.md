@@ -497,3 +497,23 @@
   have.** The parameter was `nodeTypes: string[]` and the call site dutifully
   passed node ids. Renaming it `eventTypes` makes the mistake visible at the
   call site instead of invisible at both ends.
+- **A backtick inside a `sql` tagged template ends the query.** The overdue
+  sweep's SQL comments quoted identifiers in backticks — the house style two
+  lines up in every JSDoc block — and inside ``sql`...` `` the first one closed
+  the string, so the rest of the SQL was parsed as JavaScript. esbuild reported
+  `Expected ")" but found "partially_paid"`, which is merely the first word
+  after the break and points nowhere near the cause. The API had not booted
+  since that file landed. Scan for it mechanically: walk every ``sql`...` `` and
+  flag any that closes before a plausible terminator (`)`, `,`, `;`, whitespace).
+  Exclude matches preceded by a backtick or word character, or every inline
+  `` `sql` `` in prose is a false positive.
+- **A variable resolved for display cannot be read back as data.** The
+  interpolator renders `{{booking.date}}` as "Aug 12, 2026" because that is what
+  an email needs. A field whose value the *engine* must compute with therefore
+  cannot be a text field holding a token — parsing a localised display string is
+  exactly the "guess the format from the value's shape" mistake the module
+  refuses to make. Store the **path** instead (`booking.date`, no braces, so
+  interpolation passes it through) and resolve it raw through `VARIABLE_MAP`.
+  The field type is the declaration that makes this checkable: a `dateVariable`
+  can be validated at publish for existence, type and scope, none of which a
+  free-text token can.

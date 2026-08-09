@@ -10,6 +10,7 @@ import type { BuilderContext } from "@/actions/workflows";
 import {
   BooleanField,
   DateField,
+  DateVariableField,
   DurationField,
   KeyValueField,
   MemberField,
@@ -152,6 +153,8 @@ function Field({
       return <MultiOptionsField {...shared} />;
     case "date":
       return <DateField {...shared} />;
+    case "dateVariable":
+      return <DateVariableField {...shared} />;
     case "time":
       return <TimeField {...shared} />;
     case "duration":

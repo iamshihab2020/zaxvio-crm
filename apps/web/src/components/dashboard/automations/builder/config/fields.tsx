@@ -1,7 +1,11 @@
 "use client";
 
 import { IconInfoCircle, IconAlertTriangle, IconPlus, IconX } from "@tabler/icons-react";
-import { isBlank, type NodePropertyOption } from "@hvac-saas/workflow-nodes";
+import {
+  isBlank,
+  variablesForSubject,
+  type NodePropertyOption,
+} from "@hvac-saas/workflow-nodes";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -679,3 +683,83 @@ function initials(name: string): string {
  * `(nodeId, field)`. A second timer here would only add a window where the
  * control shows one value and the node badge reflects another.
  */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Date variable
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Pick a date the record carries, by name.
+ *
+ * The value stored is a bare variable **path** — `booking.date` — not a rendered
+ * date and not a `{{token}}`. That is what lets "wait until the day before the
+ * appointment" mean a different instant on every run, and it is why this is a
+ * dropdown rather than a text input with a variable picker beside it: the
+ * executor resolves the raw value, so a hand-typed `{{booking.date}}` would
+ * arrive already rendered as "Aug 12, 2026" and be unreadable as a date.
+ *
+ * Scoped by `variablesForSubject`, so a booking-triggered automation is never
+ * offered the invoice due date — a wait that could never resolve is the one
+ * failure this control exists to prevent.
+ */
+export function DateVariableField({
+  property,
+  value,
+  onChange,
+  disabled,
+  subject,
+}: FieldProps) {
+  const allowed = property.typeOptions?.variableTypes ?? ["date", "datetime"];
+  const options = variablesForSubject(subject).filter((variable) =>
+    (allowed as readonly string[]).includes(variable.type),
+  );
+
+  const invalid = !!property.required && isBlank(value);
+  const current = typeof value === "string" ? value : "";
+
+  // A trigger that carries no dates at all. Said plainly and with the cause,
+  // because the fix is upstream — change the trigger — and an empty dropdown
+  // reads as a bug in the dropdown.
+  if (options.length === 0) {
+    return (
+      <FieldWrapper property={property} invalid={invalid}>
+        <div className="rounded-md border border-dashed border-border px-3 py-2.5">
+          <p className="text-[11px] leading-snug text-muted-foreground font-body">
+            This trigger doesn&rsquo;t carry any dates, so there is nothing to wait
+            for. Waiting for a length of time works from any trigger.
+          </p>
+        </div>
+      </FieldWrapper>
+    );
+  }
+
+  return (
+    <FieldWrapper property={property} invalid={invalid}>
+      <Select
+        value={current}
+        onValueChange={(next) => onChange(next)}
+        disabled={disabled}
+      >
+        <SelectTrigger
+          id={`field-${property.name}`}
+          className={cn(TRIGGER_CLASS, invalid && "border-amber-500/50")}
+        >
+          <SelectValue placeholder={property.placeholder ?? "Choose a date"} />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((variable) => (
+            <SelectItem
+              key={variable.path}
+              value={variable.path}
+              // The sample, not the description: "Aug 12, 2026" answers "is this
+              // the field I mean" faster than a sentence about it does.
+              description={`e.g. ${variable.sample}`}
+            >
+              <span className="font-body">{variable.label}</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FieldWrapper>
+  );
+}
