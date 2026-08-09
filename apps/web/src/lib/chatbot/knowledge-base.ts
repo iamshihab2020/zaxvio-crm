@@ -76,19 +76,7 @@ const entries: KnowledgeEntry[] = [
     ],
     question: "Can an automation remind customers before their appointment?",
     answer:
-      "Yes. Add a **Wait** step and set it to *until a date on the record* — then pick the date it should count from, like the booking date, and how far before.
-
-**The quickest way:** open **Automations → New automation** and choose the **Remind customers before their appointment** template. It waits until 9am the day before and sends the customer the date, time and what they booked.
-
-**How the Wait step works:**
-
-• **For a length of time** — counted from when the automation reaches that step. Good for \"three days after the job\".
-• **Until a date on the record** — the appointment, the due date, the expiry. Different for every customer, which is what a reminder needs.
-• **Until a specific date** — one fixed day you type in.
-
-Only dates your trigger actually provides are offered, so you can’t accidentally wait for something that isn’t there.
-
-**If that moment has already passed** — say a booking is made for tomorrow and you asked for a reminder the day before — you choose what happens. **Stop here** is the default and is right for reminders: a \"we’re coming tomorrow\" note that arrives late is worse than none. **Carry on straight away** is right for chasing, where late still beats never. Either way the run history says which happened.",
+      "Yes. Add a **Wait** step and set it to *until a date on the record* — then pick the date it should count from, like the booking date, and how far before.\n\n**The quickest way:** open **Automations → New automation** and choose the **Remind customers before their appointment** template. It waits until 9am the day before and sends the customer the date, time and what they booked.\n\n**How the Wait step works:**\n\n• **For a length of time** — counted from when the automation reaches that step. Good for \"three days after the job\".\n• **Until a date on the record** — the appointment, the due date, the expiry. Different for every customer, which is what a reminder needs.\n• **Until a specific date** — one fixed day you type in.\n\nOnly dates your trigger actually provides are offered, so you can’t accidentally wait for something that isn’t there.\n\n**If that moment has already passed** — say a booking is made for tomorrow and you asked for a reminder the day before — you choose what happens. **Stop here** is the default and is right for reminders: a \"we’re coming tomorrow\" note that arrives late is worse than none. **Carry on straight away** is right for chasing, where late still beats never. Either way the run history says which happened.",
   },
   {
     id: "automations-triggers",
@@ -200,19 +188,7 @@ Only dates your trigger actually provides are offered, so you can’t accidental
     ],
     question: "I don't know where to start with automations",
     answer:
-      "Start with a template. Click **New automation** on the Automations page and you'll get a list of ready-made ones you can use as they are:
-
-• **Chase overdue invoices** — three reminders, gentle at 1 day, firmer at 7, direct at 14. Anyone who pays stops hearing from it.
-• **Ask for a review after the job** — waits three working days after you mark a job complete, then asks.
-• **Follow up an accepted quote** — confirms it straight away and flags the big ones for a personal call.
-• **Know about new bookings** — a notification the moment somebody books through your website.
-• **Welcome a new customer** — a short hello, so the first email they get from you isn't an invoice.
-
-**Nothing sends when you add one.** It opens in the builder as a draft, switched off. Read what it will send, change any wording you like, then Publish and switch it on.
-
-Every step can be changed or removed, and you can add your own. If you'd rather build from scratch, **Start from blank** is at the bottom of the list.
-
-A template already added shows **Already added** — you can still add a second copy if you want two versions.",
+      "Start with a template. Click **New automation** on the Automations page and you'll get a list of ready-made ones you can use as they are:\n\n• **Chase overdue invoices** — three reminders, gentle at 1 day, firmer at 7, direct at 14. Anyone who pays stops hearing from it.\n• **Ask for a review after the job** — waits three working days after you mark a job complete, then asks.\n• **Follow up an accepted quote** — confirms it straight away and flags the big ones for a personal call.\n• **Know about new bookings** — a notification the moment somebody books through your website.\n• **Welcome a new customer** — a short hello, so the first email they get from you isn't an invoice.\n\n**Nothing sends when you add one.** It opens in the builder as a draft, switched off. Read what it will send, change any wording you like, then Publish and switch it on.\n\nEvery step can be changed or removed, and you can add your own. If you'd rather build from scratch, **Start from blank** is at the bottom of the list.\n\nA template already added shows **Already added** — you can still add a second copy if you want two versions.",
   },
   {
     id: "automations-version-history",
@@ -228,20 +204,7 @@ A template already added shows **Already added** — you can still add a second 
     ],
     question: "I changed an automation and broke it — can I go back?",
     answer:
-      "Yes. Open the automation and click the **versions icon** in the toolbar, next to the run history clock.
-
-Every time you publish, a version is saved. The one currently running is marked **Live** — note that isn't always the highest number, since restoring an older one and publishing it makes that the live one.
-
-Click **Restore** on any version and it comes back onto your canvas.
-
-**Two things to know:**
-
-• **Restoring doesn't change what's running.** It puts the old version on your canvas so you can look at it. Press **Publish** when you're happy, and that's when it goes live.
-• **It replaces what's on your canvas now**, saved or not. You'll be asked to confirm first.
-
-Publishing a restored version creates a **new** version rather than rewriting the old one, so the history stays a true record of what was live and when.
-
-Runs already in progress finish on the version they started with — restoring never disturbs them.",
+      "Yes. Open the automation and click the **versions icon** in the toolbar, next to the run history clock.\n\nEvery time you publish, a version is saved. The one currently running is marked **Live** — note that isn't always the highest number, since restoring an older one and publishing it makes that the live one.\n\nClick **Restore** on any version and it comes back onto your canvas.\n\n**Two things to know:**\n\n• **Restoring doesn't change what's running.** It puts the old version on your canvas so you can look at it. Press **Publish** when you're happy, and that's when it goes live.\n• **It replaces what's on your canvas now**, saved or not. You'll be asked to confirm first.\n\nPublishing a restored version creates a **new** version rather than rewriting the old one, so the history stays a true record of what was live and when.\n\nRuns already in progress finish on the version they started with — restoring never disturbs them.",
   },
   {
     id: "automations-history-retention",
@@ -255,14 +218,7 @@ Runs already in progress finish on the version they started with — restoring n
     ],
     question: "How long is automation run history kept?",
     answer:
-      "**90 days.** After that, finished runs are removed to keep things fast — so an automation that last ran months ago will show an empty history even though it worked.
-
-**What is never removed on age:**
-
-• **Runs still waiting.** A three-month Wait step is a run in progress, not old history, and it carries on as normal.
-• **The version that's live**, and your ten most recent versions, so you can always go back.
-
-Anything an automation actually *did* stays where it belongs — a note added to a customer, an email that was sent, a job that was moved. Only the log of the run itself is cleaned up.",
+      "**90 days.** After that, finished runs are removed to keep things fast — so an automation that last ran months ago will show an empty history even though it worked.\n\n**What is never removed on age:**\n\n• **Runs still waiting.** A three-month Wait step is a run in progress, not old history, and it carries on as normal.\n• **The version that's live**, and your ten most recent versions, so you can always go back.\n\nAnything an automation actually *did* stays where it belongs — a note added to a customer, an email that was sent, a job that was moved. Only the log of the run itself is cleaned up.",
   },
   {
     id: "general-capabilities",
@@ -403,15 +359,7 @@ Anything an automation actually *did* stays where it belongs — a note added to
     keywords: ["cost", "costing", "margin", "profit", "profitability", "make money", "markup", "made on this job"],
     question: "How do I see what a job actually made me?",
     answer:
-      "Open any job and go to the **Costs** tab. It shows what you charged, what the work cost, and the margin between them.
-
-The cost side has three parts:
-
-• **Parts & materials** — the cost of each line item, from your catalog or typed on the line
-• **Time on site** — the hours you record, priced at your labour cost rate
-• **Expenses** — anything no line item covers: a parts run, a subcontractor, a permit fee
-
-Revenue is what you **invoiced** for the job. If there's no invoice yet, the job's own total stands in and the tab says so.",
+      "Open any job and go to the **Costs** tab. It shows what you charged, what the work cost, and the margin between them.\n\nThe cost side has three parts:\n\n• **Parts & materials** — the cost of each line item, from your catalog or typed on the line\n• **Time on site** — the hours you record, priced at your labour cost rate\n• **Expenses** — anything no line item covers: a parts run, a subcontractor, a permit fee\n\nRevenue is what you **invoiced** for the job. If there's no invoice yet, the job's own total stands in and the tab says so.",
   },
   {
     id: "costing-provisional",
@@ -419,15 +367,7 @@ Revenue is what you **invoiced** for the job. If there's no invoice yet, the job
     keywords: ["provisional", "incomplete", "not proven", "hatched", "missing cost", "why no margin", "estimate"],
     question: "Why does my margin say it's provisional?",
     answer:
-      "Because part of the cost side hasn't been entered, so the margin can't be stated as fact.
-
-A missing cost doesn't make a job cheaper — it makes the total **unknown**. If we filled the gap with zero, an uncosted job would look like pure profit, which is the one thing a costing tool must never do.
-
-The Costs tab lists exactly what's missing, and the bar shows the margin hatched rather than solid until it's complete. Usually it's one of:
-
-• A line item with no cost set — add one on the **Line Items** tab, or set the cost on the catalog item so it fills in automatically next time
-• No hours recorded — enter them under **Time on site**
-• No labour cost rate — set one in **Settings → Business**, or per person in **Settings → Team**",
+      "Because part of the cost side hasn't been entered, so the margin can't be stated as fact.\n\nA missing cost doesn't make a job cheaper — it makes the total **unknown**. If we filled the gap with zero, an uncosted job would look like pure profit, which is the one thing a costing tool must never do.\n\nThe Costs tab lists exactly what's missing, and the bar shows the margin hatched rather than solid until it's complete. Usually it's one of:\n\n• A line item with no cost set — add one on the **Line Items** tab, or set the cost on the catalog item so it fills in automatically next time\n• No hours recorded — enter them under **Time on site**\n• No labour cost rate — set one in **Settings → Business**, or per person in **Settings → Team**",
   },
   {
     id: "costing-expenses",
@@ -435,11 +375,7 @@ The Costs tab lists exactly what's missing, and the bar shows the margin hatched
     keywords: ["expense", "expenses", "receipt", "subcontractor", "permit", "fuel", "rental", "extra cost"],
     question: "How do I add an expense to a job?",
     answer:
-      "On the job's **Costs** tab, click **Add expense**. Give it a description, a category, the date and the amount — a supplier is optional.
-
-Categories: Materials, Subcontractor, Permits & fees, Fuel & travel, Equipment rental, Other.
-
-Expenses come straight off the job's margin. They're for costs no line item accounts for, so you don't double-count anything you already billed as a line.",
+      "On the job's **Costs** tab, click **Add expense**. Give it a description, a category, the date and the amount — a supplier is optional.\n\nCategories: Materials, Subcontractor, Permits & fees, Fuel & travel, Equipment rental, Other.\n\nExpenses come straight off the job's margin. They're for costs no line item accounts for, so you don't double-count anything you already billed as a line.",
   },
   {
     id: "costing-labor-rate",
@@ -447,13 +383,7 @@ Expenses come straight off the job's margin. They're for costs no line item acco
     keywords: ["labour rate", "labor rate", "hourly cost", "cost rate", "what an hour costs", "wage", "burden", "overhead"],
     question: "What is the labour cost rate, and where do I set it?",
     answer:
-      "It's what an hour of work **costs you** — wages plus overhead — not what you charge the customer. It's what turns hours on a job into a cost.
-
-Set a business-wide default in **Settings → Business**. To give one person a different rate, use **Settings → Team → Cost Rates**; anyone without their own rate uses the default.
-
-When you save hours on a job, the rate is **copied onto that job**. Giving somebody a raise later changes future jobs only — it never rewrites margins you've already reported.
-
-Leaving it blank is allowed. Jobs then report labour as a missing input rather than as free.",
+      "It's what an hour of work **costs you** — wages plus overhead — not what you charge the customer. It's what turns hours on a job into a cost.\n\nSet a business-wide default in **Settings → Business**. To give one person a different rate, use **Settings → Team → Cost Rates**; anyone without their own rate uses the default.\n\nWhen you save hours on a job, the rate is **copied onto that job**. Giving somebody a raise later changes future jobs only — it never rewrites margins you've already reported.\n\nLeaving it blank is allowed. Jobs then report labour as a missing input rather than as free.",
   },
   {
     id: "costing-catalog-cost",
@@ -461,11 +391,7 @@ Leaving it blank is allowed. Jobs then report labour as a missing input rather t
     keywords: ["item cost", "unit cost", "what it costs me", "buy price", "wholesale", "supplier price"],
     question: "Can I record what a catalog item costs me?",
     answer:
-      "Yes — each catalog item has a **Your cost** field alongside its price. Fill it in and every job that uses the item picks up that cost automatically, so margins work without extra typing.
-
-You can still change the cost on an individual job line: a supplier price that moved this week belongs on that job, not on the catalog record.
-
-Leaving it blank is fine, but jobs using the item will report an incomplete margin. The catalog table marks uncosted items as **no cost** so you can see what's left to fill in.",
+      "Yes — each catalog item has a **Your cost** field alongside its price. Fill it in and every job that uses the item picks up that cost automatically, so margins work without extra typing.\n\nYou can still change the cost on an individual job line: a supplier price that moved this week belongs on that job, not on the catalog record.\n\nLeaving it blank is fine, but jobs using the item will report an incomplete margin. The catalog table marks uncosted items as **no cost** so you can see what's left to fill in.",
   },
   {
     id: "reports-profitability",
@@ -473,18 +399,7 @@ Leaving it blank is fine, but jobs using the item will report an incomplete marg
     keywords: ["profitability", "margin report", "which jobs make money", "most profitable", "losing money", "by customer", "by assignee"],
     question: "What's on the Profitability tab?",
     answer:
-      "It answers *what did we keep* over the period, grouped four ways:
-
-• **Thinnest margins** — the jobs where least of what you charged stayed with you. Click one to open it
-• **By service type** — which kinds of work pay
-• **By customer** — your biggest accounts, and what they leave behind
-• **By assignee** — what each person's work returns once their time is costed
-
-A job counts here when it was **completed** in the range, whatever day it was scheduled.
-
-**Jobs with incomplete costs are left out of the figures**, and the page tells you how many. Including them would treat the missing costs as free and make every margin look better than it is. Open a job's Costs tab to see what it's missing.
-
-If you haven't set any costs yet, the tab shows you the two things to set up instead of a made-up number.",
+      "It answers *what did we keep* over the period, grouped four ways:\n\n• **Thinnest margins** — the jobs where least of what you charged stayed with you. Click one to open it\n• **By service type** — which kinds of work pay\n• **By customer** — your biggest accounts, and what they leave behind\n• **By assignee** — what each person's work returns once their time is costed\n\nA job counts here when it was **completed** in the range, whatever day it was scheduled.\n\n**Jobs with incomplete costs are left out of the figures**, and the page tells you how many. Including them would treat the missing costs as free and make every margin look better than it is. Open a job's Costs tab to see what it's missing.\n\nIf you haven't set any costs yet, the tab shows you the two things to set up instead of a made-up number.",
   },
   // ═══════════════════════════════════════
   // ── Customers ──
