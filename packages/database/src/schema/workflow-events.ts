@@ -88,6 +88,23 @@ export const workflowEventQueue = pgTable(
     correlationId: uuid("correlation_id").notNull(),
 
     /**
+     * How many automations deep the chain that produced this event is.
+     *
+     * 0 for anything a person, a cron or the public portal caused. An event
+     * raised by an automation running at depth N is stamped N+1, and the
+     * matcher hands it to `execute({ depth })`, whose existing guard refuses
+     * beyond `MAX_NESTING_DEPTH`.
+     *
+     * Without it, `execute()`'s depth guard covered only one automation calling
+     * another **directly** — an event-triggered run started fresh at 0 every
+     * time, so two automations triggering each other through the outbox would
+     * cycle until the tenant's quota or the disk stopped them. Harmless while
+     * executors wrote their tables silently; a live hazard the moment they
+     * started going through the domain services that raise events.
+     */
+    causationDepth: integer("causation_depth").notNull().default(0),
+
+    /**
      * Producer-supplied, and unique per subscriber where present.
      *
      * Structural rather than a check-then-insert, for the same reason

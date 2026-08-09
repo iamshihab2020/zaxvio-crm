@@ -70,6 +70,8 @@ export interface ClaimedEvent {
   attempts: number;
   maxAttempts: number;
   correlationId: string;
+  /** How many automations deep the chain that raised this event is. */
+  causationDepth: number;
 }
 
 /**
@@ -137,6 +139,7 @@ export async function claimEvents(db: Db, limit: number): Promise<ClaimedEvent[]
     attempts: number;
     max_attempts: number;
     correlation_id: string;
+    causation_depth: number;
   }>(sql`
     UPDATE workflow_event_queue
        SET status = 'processing',
@@ -153,7 +156,8 @@ export async function claimEvents(db: Db, limit: number): Promise<ClaimedEvent[]
         LIMIT ${limit}
      )
     RETURNING id, tenant_id, event_type, payload, subject_type, subject_id,
-              actor_user_id, subscriber, attempts, max_attempts, correlation_id
+              actor_user_id, subscriber, attempts, max_attempts, correlation_id,
+              causation_depth
   `);
 
   return rows.map((r) => ({
@@ -168,6 +172,7 @@ export async function claimEvents(db: Db, limit: number): Promise<ClaimedEvent[]
     attempts: r.attempts,
     maxAttempts: r.max_attempts,
     correlationId: r.correlation_id,
+    causationDepth: r.causation_depth,
   }));
 }
 

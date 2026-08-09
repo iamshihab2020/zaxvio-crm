@@ -96,6 +96,21 @@ const entries: KnowledgeEntry[] = [
       "Twelve things, grouped by what they are about.\n\n**Jobs**\n\u2022 **Job Created** \u2014 any new job, however it was added. Filter by priority or service type.\n\u2022 **Job Moves Stage** \u2014 a job moves to a different column on the board. Filter by what the new stage *means* (scheduled, in progress, completed, cancelled) rather than its name, so renaming a column never quietly stops it. You can also skip bulk moves, which matters if the automation emails somebody.\n\u2022 **Job Assigned** \u2014 a job is given to someone, or taken off them.\n\u2022 **Job Completed** \u2014 a job is marked done.\n\n**Quotes**\n\u2022 **Quote Sent** \u2014 you send a quote out. Pair it with a Wait step to chase anything unanswered.\n\u2022 **Quote Accepted** \u2014 the customer presses Accept on the portal link.\n\n**Invoices**\n\u2022 **Invoice Paid** \u2014 paid in full.\n\u2022 **Invoice Overdue** \u2014 checked once a day, so you can chase at 1, 7 and 14 days.\n\n**Bookings and customers**\n\u2022 **Booking Created**, **Booking Cancelled**, **New Customer**.\n\n**And by hand** \u2014 **Run Manually**, for testing or for a one-off.\n\nMost triggers have filters, and leaving a filter empty means \u201crun every time\u201d rather than \u201cnever run\u201d.",
   },
   {
+    id: "automations-move-job-effects",
+    category: "general",
+    keywords: [
+      "automation moved my job",
+      "automation move stage",
+      "does an automation email the customer",
+      "automation trigger another automation",
+      "chain automations",
+      "job timeline automation",
+    ],
+    question: "If an automation moves a job, does everything else still happen?",
+    answer:
+      "Yes. A **Move Job Stage** step now does exactly what dragging the card does:\n\n• The move is written to the job's **timeline**, saying which automation did it.\n• You get the same **notification** you would for any status change.\n• Moving to a completed stage sends the customer the **job completion email**.\n• It can **start another automation**. \"When a job reaches In Progress, tell the customer\" fires whether a person moved it or an automation did.\n\nIt also obeys the same rules you do. A job can't jump straight from Scheduled to Completed, and a job with **required checklist items** outstanding won't complete — the run history says so, and the automation carries on rather than failing.\n\n**Automations that trigger each other** are allowed but bounded: a chain can only go a few automations deep before it stops, so two automations can't set each other off forever.",
+  },
+  {
     id: "automations-publish-blocked",
     category: "general",
     keywords: [

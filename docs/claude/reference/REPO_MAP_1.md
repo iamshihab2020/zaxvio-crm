@@ -321,6 +321,14 @@ apps/api/
 |   |   |                             # stageUpdate() -> {stageId,status,completedAt}. One place a
 |   |   |                             # job changes column; makes custom stages reachable
 |   |   +-- jobs/
+|   |   |   +-- jobs.service.ts        # moveJobStage(): THE definition of a stage move — archived
+|   |   |   |                         # gate, transition table, required-checklist gate, activity row,
+|   |   |   |                         # stage events, notification, E-05 email. JobActor is a person
+|   |   |   |                         # OR an automation; failure is a returned union, never a throw,
+|   |   |   |                         # because the route needs a 400 and the executor a skipped/
+|   |   |   |                         # NodeFailure. Called by PATCH /jobs/:id/status AND the
+|   |   |   |                         # job.moveStage node, which used to do its own UPDATE and skip
+|   |   |   |                         # every one of those (P7a)
 |   |   |   +-- stage-events.service.ts # job.stage_changed + job.completed/cancelled, from ONE
 |   |   |   |                         # implementation called by both the single and the bulk status
 |   |   |   |                         # path. Two completed stages in a row is not a re-completion
@@ -424,6 +432,11 @@ apps/api/
 |   |   |       |                     # insert, asserts the subject against the registry, one row per
 |   |   |       |                     # subscriber, onConflictDoNothing for dedup, rethrows so the
 |   |   |       |                     # domain write rolls back with it
+|   |   |       +-- causation.ts      # AsyncLocalStorage carrying how many automations deep a chain
+|   |   |       |                     # is. The engine declares it around traversal; emit.ts reads it.
+|   |   |       |                     # Ambient rather than a parameter threaded through ~30 producers,
+|   |   |       |                     # because a producer that forgets it does not fail to compile —
+|   |   |       |                     # it defaults to 0 and reopens the infinite loop
 |   |   |       +-- bus.ts            # In-process nudge so the worker wakes without waiting on the
 |   |   |       |                     # poll floor. Never throws, never awaited
 |   |   |       +-- worker.ts         # Claim (UPDATE … FOR UPDATE SKIP LOCKED, clock_timestamp() not

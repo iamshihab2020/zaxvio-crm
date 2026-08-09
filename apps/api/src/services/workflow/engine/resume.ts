@@ -34,6 +34,7 @@ import { EXECUTION_LIMITS } from "@hvac-saas/workflow-nodes";
 import type { WorkflowGraph } from "@hvac-saas/types";
 import { restoreContext } from "./context.js";
 import { traverse } from "./traverser.js";
+import { runWithCausation } from "../events/causation.js";
 import { SubjectGone, withTimeout } from "./errors.js";
 import { handleTerminal, resolveTimezone as _tz } from "./execute.js";
 import type { ExecutorDb } from "./executors/index.js";
@@ -78,6 +79,7 @@ export async function resumeExecution(
       waitingContext: workflowExecutions.waitingContext,
       triggerEvent: workflowExecutions.triggerEvent,
       nodesExecuted: workflowExecutions.nodesExecuted,
+      causationDepth: workflowExecutions.causationDepth,
     });
 
   const run = claimed[0];
@@ -186,15 +188,17 @@ export async function resumeExecution(
 
   try {
     const result = await withTimeout(
-      traverse({
-        db: db as ExecutorDb,
-        ctx,
-        graph,
-        startNodeIds,
-        // Continues the log ordering rather than restarting at 1, so a replay
-        // reads as one run instead of two overlapping ones.
-        startSequence: run.nodesExecuted,
-      }),
+      runWithCausation(run.causationDepth + 1, () =>
+        traverse({
+          db: db as ExecutorDb,
+          ctx,
+          graph,
+          startNodeIds,
+          // Continues the log ordering rather than restarting at 1, so a replay
+          // reads as one run instead of two overlapping ones.
+          startSequence: run.nodesExecuted,
+        }),
+      ),
       EXECUTION_LIMITS.MAX_EXECUTION_MS,
     );
 

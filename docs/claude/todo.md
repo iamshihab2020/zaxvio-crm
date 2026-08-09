@@ -8,6 +8,66 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### P7 (re-scoped) — the executors are a third status writer (2026-08-10)
+
+**Plan audit first.** [[wf-12-phases|P7 as written]] bundles five unrelated things — 13 CRM
+pickers, `services/jobs/` + `services/customers/` extraction, node breadth to ~45,
+`workflow_folders`, and the variable picker — under one **XL**. That is not a phase, it is a
+quarter, and its stated motivation ("pays down [[architecture|ARC-05]]") is the *weakest* reason
+to do the extraction. Re-scoped into P7a/P7b/P7c; P7a is below and is the only one with a
+correctness defect behind it.
+
+**The real motivation, found by auditing the seam rather than the line count.** `job.moveStage`
+and `job.assign` write `jobs` **directly**. Against `PATCH /jobs/:id/status`, the executor omits:
+the archived gate, the **required-checklist completion gate**, the `job_activities` row, the
+`job.stage_changed` + `job.completed`/`cancelled` events, the in-app notification, and the **E-05
+completion email**. So an automation that completes a job completes it in a way the product does
+not otherwise permit, tells the customer nothing, and — because no event is raised — **cannot
+trigger another automation**, which is why `trigger.job.stage_changed` exists and is unreachable
+from an automation.
+This is the **third** occurrence of one shape: `/reorder` was a second status writer that skipped
+the same gate, email, notification and activity row (JOB-06), and `lib/quote-to-job.ts` was
+another (QUO-02). Both were fixed by routing through the one path. The executor is the third, and
+it shipped *after* both fixes, because a sweep of `routes/jobs` does not reach `services/workflow`.
+
+**Correction to the plan's own method.** It says "do it as a pure move with no behaviour change."
+A pure lift of the handler yields a function that takes a request body and returns a `reply` — an
+executor cannot call it. The extraction has to be **shaped by its second caller**: an `actor` that
+is a person *or* a workflow (the shape `customer.addNote` already uses — `createdBy: null`,
+`createdByWorkflowId`), and a **result union** rather than a throw, because the route needs a 400
+with a message and the executor needs a `NodeFailure` or a `skipped`, and neither vocabulary can
+be imposed on the other.
+
+**Risk the plan does not name: event-mediated recursion.** Once executors emit, an automation
+triggered on `job.stage_changed` that moves a stage loops forever. `EXECUTION_LIMITS.MAX_NESTING_DEPTH`
+guards `execute({depth})` — but an event-triggered run starts fresh at **depth 0**, so it guards
+nothing here. This commit is what creates the possibility, so the guard ships in it.
+
+- [x] **P7a.1** `moveJobStage()` — **18/18 proven by execution against Neon.** One definition, two
+      callers: `PATCH /jobs/:id/status` (now validate → service → respond, −123 lines) and the
+      `job.moveStage` node. Proven that a workflow actor writes the activity row with
+      `performed_by` NULL and the run id in metadata, **raises `job.stage_changed`** (so an
+      automation can trigger an automation, which it never could), fires the notification, and that
+      each refusal is distinguishable — `already_there` reads as *skipped* in the run log while
+      `no_such_stage` is a `NodeFailure`. Migration `20260810000001` applied to Neon, **14/14**,
+      idempotent ×4 with NOTICE-only re-runs.
+      **The loop guard shipped with it, because this commit is what makes loops possible.**
+      Causation depth on both tables, carried on an `AsyncLocalStorage` rather than threaded — a
+      producer that forgets a parameter does not fail to compile, it defaults to 0. Proven: an
+      event raised inside `runWithCausation(3)` lands at depth 3 with **no producer changed**, and
+      0 outside a run.
+      Found on the way: `execute()`'s depth guard had been unreachable since P3 — it reads
+      `params.depth`, which only a *direct* call passes, so every event-triggered run started at 0.
+      Two of my own test fixtures were wrong before the code was (a `completed` job cannot move,
+      and `in_progress` does not return to `scheduled`), which is why each case now gets its own
+      savepoint.
+      **Not run: `pnpm test`.** `job-move-stage.integration.test.ts` is written and unexecuted; the
+      18 assertions above were run directly against Neon and rolled back.
+- [ ] **P7a.2** `assignJob()` likewise — the route emits `job.assigned`, the executor does not.
+- [ ] **P7a.3** The rest of ARC-05 as pure moves (create, update, line items, checklist).
+- [ ] **P7b** CRM pickers + variable pills — frontend, and blocked behind eyeballing the canvas.
+- [ ] **P7c** Node breadth to ~45, `workflow_folders`.
+
 ### Workflow Automation — P0–P4 written, P2–P4 UNVERIFIED (paused 2026-08-08)
 
 > **▶ Resuming? Read the `⏸ START HERE` block at the top of [[wf-PROGRESS]] first.** The short

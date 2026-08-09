@@ -219,6 +219,12 @@ async function evaluateAndEnrol(
     // actually decides, and it can only do that if the key is on the insert.
     idempotencyKey: idempotencyKey(candidate.workflowId, node.id, event.id),
     actorUserId: event.actorUserId,
+    // The chain this event came from. 0 when a person caused it; N+1 when the
+    // automation running at depth N did. This is what makes `execute()`'s depth
+    // guard cover event-mediated cycles — until it was passed, an
+    // event-triggered run always started at 0 and two automations triggering
+    // each other could never be stopped by it.
+    depth: event.causationDepth,
   });
 
   return {

@@ -1,27 +1,40 @@
 /**
  * `job.moveStage` — move the job to a pipeline stage.
  *
- * **Resolves through `job-stages.service.ts` and never writes the columns
- * itself.** That service is the one place that decides what stage a job may
- * move to and what `jobs.status` becomes as a result, and bypassing it is a
- * mistake this repo has already made and paid for: `lib/quote-to-job.ts` set
- * `jobs.status` by hand and never `stage_id`, so for four days every job created
- * from a quote sat outside the stage model — it counted 0 in the pipeline stage
- * counts and matched no lifecycle filter (QUO-02).
+ * **Calls `moveJobStage()` and writes no table itself**, which is what the
+ * contract in `types.ts` has said since P3: *"An executor containing an `UPDATE`
+ * has, by definition, a second opinion about a business rule."* This one had
+ * one. It resolved the stage correctly and checked the transition table, and
+ * then it skipped the archived gate, the **required-checklist completion gate**,
+ * the `job_activities` row, the `job.stage_changed` / `job.completed` events,
+ * the in-app notification and the E-05 completion email.
  *
- * The transition rules apply here exactly as they do to a person dragging the
- * card. An automation that could make moves the board refuses would be a second
- * opinion about the rule, which is what D-17 exists to prevent.
+ * The event is the one that mattered most: with no event raised, an automation
+ * that moved a job could not trigger another automation, which is why
+ * `trigger.job.stage_changed` shipped and was unreachable from an automation.
+ *
+ * All this node still owns is the **translation** — turning a service result
+ * into the vocabulary a run log speaks. That split is deliberate: the same
+ * outcome is a 400 to the route and a `skipped` here, and a service that picked
+ * one would force the other caller to catch and re-word it.
  */
 
-import { jobs, and, eq } from "@hvac-saas/database";
-import {
-  canTransition,
-  resolveStage,
-  transitionMessage,
-} from "../../../job-stages.service.js";
+import { moveJobStage, type MoveJobStageFailure } from "../../../jobs/jobs.service.js";
 import { NodeFailure } from "../errors.js";
 import type { Executor } from "./types.js";
+
+/**
+ * Which failures are somebody's mistake, and which are just what happened.
+ *
+ * A missing or deleted stage is a **configuration** problem: the automation
+ * cannot work until someone opens it and picks another, so it fails loudly and
+ * the tenant gets a notification. Everything else is ordinary — the job was
+ * already there, it has been deleted, it was archived, the tech has not ticked
+ * the required checklist items yet, the board does not allow that move. Those
+ * are recorded with a reason and the run carries on, because a failure alert for
+ * an expected outcome teaches people to ignore failure alerts.
+ */
+const CONFIG_FAILURES: ReadonlySet<MoveJobStageFailure> = new Set(["no_such_stage"]);
 
 const jobMoveStage: Executor = async ({ db, ctx, params, node }) => {
   if (!ctx.job) {
@@ -31,7 +44,6 @@ const jobMoveStage: Executor = async ({ db, ctx, params, node }) => {
     };
   }
 
-  const pipelineId = typeof params.pipelineId === "string" ? params.pipelineId : null;
   const stageId = typeof params.stageId === "string" ? params.stageId : null;
 
   if (!stageId) {
@@ -41,81 +53,39 @@ const jobMoveStage: Executor = async ({ db, ctx, params, node }) => {
     );
   }
 
-  // Tenant-scoped by `resolveStage`, and it refuses a stage belonging to a
-  // different pipeline — so a stage id copied between automations cannot move a
-  // job onto someone else's board.
-  const stage = await resolveStage(db, {
+  // No `pipelineId` from the saved config. The service resolves against the
+  // job's *own* pipeline, read from the row — a stage id copied between
+  // automations could otherwise move a job onto a board it was never on, and no
+  // product path changes a job's pipeline by moving its stage.
+  const result = await moveJobStage(db, {
     tenantId: ctx.tenantId,
-    pipelineId,
+    jobId: ctx.job.id,
     stageId,
+    actor: {
+      kind: "workflow",
+      workflowId: ctx.workflowId,
+      workflowName: ctx.workflowName,
+      executionId: ctx.executionId,
+    },
   });
 
-  if (!stage) {
-    throw new NodeFailure(
-      `Stage ${stageId} not found for tenant ${ctx.tenantId}`,
-      `The stage this step moves jobs to no longer exists. Open the automation and pick a different one.`,
-    );
+  if (!result.ok) {
+    if (CONFIG_FAILURES.has(result.reason)) {
+      throw new NodeFailure(
+        `moveStage failed: ${result.reason} (stage ${stageId}, tenant ${ctx.tenantId})`,
+        "The stage this step moves jobs to no longer exists. Open the automation and pick a different one.",
+      );
+    }
+    return { skipped: result.message };
   }
-
-  // Read the job's CURRENT stage from the row rather than from the context: the
-  // context was loaded when the run started, and on a resumed run that may be
-  // days old. A transition check against a stale lifecycle is not a check.
-  const [current] = await db
-    .select({ stageId: jobs.stageId, status: jobs.status })
-    .from(jobs)
-    .where(and(eq(jobs.tenantId, ctx.tenantId), eq(jobs.id, ctx.job.id)));
-
-  if (!current) {
-    return {
-      skipped: "That job has been deleted, so there was nothing to move.",
-    };
-  }
-
-  // Already there. Reported rather than written, so a resumed run does not
-  // record a move that did not happen — and so the log reads honestly.
-  if (current.stageId === stage.id) {
-    return {
-      skipped: `The job is already in ${stage.label}.`,
-      output: { jobId: ctx.job.id, stageId: stage.id, stageLabel: stage.label },
-    };
-  }
-
-  // The whole stage, not just its lifecycle: `transitionMessage` names both
-  // stages in the sentence it writes for the user, and "cannot move a scheduled
-  // job to Completed" is a far better failure than two enum values.
-  const from = current.stageId
-    ? await resolveStage(db, {
-        tenantId: ctx.tenantId,
-        pipelineId: null,
-        stageId: current.stageId,
-      })
-    : null;
-
-  if (from && !canTransition(from.lifecycle, stage.lifecycle)) {
-    throw new NodeFailure(
-      `Illegal transition ${from.lifecycle} → ${stage.lifecycle}`,
-      transitionMessage(from, stage),
-    );
-  }
-
-  await db
-    .update(jobs)
-    .set({
-      stageId: stage.id,
-      // Denormalised from the resolved stage, never assigned independently.
-      // The pair is written together or not at all.
-      status: stage.name,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(jobs.tenantId, ctx.tenantId), eq(jobs.id, ctx.job.id)));
 
   return {
     output: {
       jobId: ctx.job.id,
-      stageId: stage.id,
-      stageLabel: stage.label,
-      lifecycle: stage.lifecycle,
-      movedFrom: from?.label ?? null,
+      stageId: result.to.id,
+      stageLabel: result.to.label,
+      lifecycle: result.to.lifecycle,
+      movedFrom: result.from,
     },
   };
 };

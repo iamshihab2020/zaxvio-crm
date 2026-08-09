@@ -46,6 +46,7 @@ import {
 } from "@hvac-saas/workflow-nodes";
 import type { SubjectType } from "@hvac-saas/workflow-nodes";
 import { nudgeWorker } from "./bus.js";
+import { currentCausationDepth } from "./causation.js";
 
 /**
  * `Omit<…, "$client">` so a `PgTransaction` satisfies it. Every producer is
@@ -138,6 +139,12 @@ export async function emitWorkflowEvent<T extends WorkflowEventType>(
     actorUserId: args.actorUserId ?? null,
     subscriber,
     correlationId,
+    // Read from the async context rather than taken as an argument: the depth
+    // has to reach here from an executor through a domain service and a
+    // producer, and a parameter that thirty producers must each remember to
+    // forward is a guard against runaway execution that fails silently the
+    // first time someone forgets. See `causation.ts`.
+    causationDepth: currentCausationDepth(),
     // Namespaced per subscriber by the unique index, so one key covers both
     // rows without the producer having to know there are two.
     dedupKey: args.dedupKey ?? null,

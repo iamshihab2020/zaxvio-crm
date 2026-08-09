@@ -122,6 +122,16 @@ export const workflowExecutions = pgTable(
     activeDedupKey: text("active_dedup_key"),
 
     nodesExecuted: integer("nodes_executed").notNull().default(0),
+
+    /**
+     * How many automations deep this run is. Mirrors
+     * `workflow_event_queue.causation_depth`, and it is stored rather than
+     * derived because a run that **pauses** has to keep it: a resume is the
+     * same chain continuing days later, and restarting the count at 0 would
+     * make a loop with a one-minute wait in it unbounded again — slower than a
+     * tight cycle, and no less runaway.
+     */
+    causationDepth: integer("causation_depth").notNull().default(0),
   },
   (table) => [
     index("idx_wf_exec_workflow").on(table.workflowId, table.startedAt),

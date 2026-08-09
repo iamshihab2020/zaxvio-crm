@@ -712,3 +712,20 @@
   reference id while logging the real error, including `.cause`. Worth checking
   on any Fastify service: the absence of `setErrorHandler` is silent, and looks
   exactly like not needing one.
+- **A guard that thirty call sites must remember to forward is not a guard.** Causation depth —
+  how many automations deep a chain is — had to reach `emitWorkflowEvent` from an executor, through
+  a domain service, through `emitStageChangeEvents`, through a producer. Threaded as a parameter it
+  would be correct only until one producer omitted it, and omitting it does not fail to compile: it
+  defaults to 0 and silently reopens an infinite loop. It rides on an `AsyncLocalStorage` instead
+  (`services/workflow/events/causation.ts`), declared once by the engine around traversal and read
+  once at the insert, so every event raised by anything an executor calls inherits it **by
+  construction** — including services not yet written. Reach for ambient context when the value is
+  (a) uniform for an entire logical operation, (b) needed by a leaf far from the caller, and
+  (c) dangerous when missing. `AsyncLocalStorage` propagates across `await`; outside the scope
+  there is no store, and the default is the safe value.
+- **`execute()` had a depth guard for two months that guarded nothing.** It read `params.depth`,
+  which only a *direct* automation-to-automation call passes — and an **event-triggered** run
+  starts fresh at 0 every time, because an event carried no history. The guard looked present in
+  code review and in the tests, and was unreachable in the only path that could loop. A limit that
+  is never exercised is a comment; the useful question of any guard is "what actually sets the
+  value it reads?"

@@ -109,3 +109,18 @@ See [[jobs|the report]] for the full 38 findings + 3 more found while fixing the
   transaction.** A `PgTransaction` has no `$client`, so it is not assignable, and the failure only
   appears the first time someone tries to compose the service into a larger atomic operation.
   `Omit<ReturnType<typeof getDb>, "$client">` is the shape every service in this repo should use.
+- **The "one place that writes X" rule failed a third time, and the third writer was written after
+  both fixes.** `PATCH /jobs/reorder` (JOB-06) and `lib/quote-to-job.ts` (QUO-02) each wrote
+  `jobs.status` on their own and skipped the gate, the email, the notification and the activity
+  row. Both were fixed by routing through the one path — and then the `job.moveStage` **automation
+  node** shipped with its own `UPDATE`, skipping all of it again, because a sweep of `routes/jobs`
+  does not reach `services/workflow`. The grep that would have caught it is the one the earlier
+  lesson already prescribes (`grep -rl "<column>" apps/api/src`); what is new is that a *feature
+  built later* becomes a new writer, so the sweep is not a one-off at centralisation time. If a
+  table has a "one place", put the assertion in a test that enumerates writers, not in a habit.
+- **Extracting a service "as a pure move with no behaviour change" is wrong when the point is a
+  second caller.** A lifted route handler takes a request body and returns a `reply`; an executor
+  cannot call it. Shape the extraction around the second caller from the start: an `actor` that is
+  a person *or* an automation, and failure as a **returned union** rather than a throw — the route
+  needs a 400 with a sentence and the executor needs `skipped` vs `NodeFailure`, and neither
+  vocabulary can be imposed on the other.

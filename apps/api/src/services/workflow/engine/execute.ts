@@ -46,6 +46,7 @@ import type { WorkflowGraph } from "@hvac-saas/types";
 import { loadExecutionContext, serialiseContext } from "./context.js";
 import { deactivateListeners, registerGoals } from "../goals/index.js";
 import { traverse } from "./traverser.js";
+import { runWithCausation } from "../events/causation.js";
 import { assertWithinQuota } from "./quotas.js";
 import {
   DelayPause,
@@ -132,7 +133,8 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
   }
 
   // 2 · Depth guard.
-  if ((params.depth ?? 0) > EXECUTION_LIMITS.MAX_NESTING_DEPTH) {
+  const depth = params.depth ?? 0;
+  if (depth > EXECUTION_LIMITS.MAX_NESTING_DEPTH) {
     return refused(
       `Automations can only call each other ${EXECUTION_LIMITS.MAX_NESTING_DEPTH} levels deep. This one went further, which usually means two automations are triggering each other.`,
     );
@@ -179,6 +181,10 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
         triggerEvent: params.event?.type ?? null,
         idempotencyKey: params.idempotencyKey ?? null,
         activeDedupKey,
+        // Stored, not derived: a run that pauses has to keep its place in the
+        // chain, or a loop with a wait in it restarts the count at 0 on every
+        // resume and is unbounded again.
+        causationDepth: depth,
       })
       .returning({ id: workflowExecutions.id });
     executionId = row.id;
@@ -253,8 +259,13 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
 
   // 8 · Traverse, under the wall clock.
   try {
+    // Everything this run causes is one automation deeper than this run. Ambient
+    // rather than threaded, so a domain service added later inherits it without
+    // anyone remembering to pass it — see `events/causation.ts`.
     const result = await withTimeout(
-      traverse({ db, ctx, graph, startNodeIds: [triggerNode.id] }),
+      runWithCausation(depth + 1, () =>
+        traverse({ db, ctx, graph, startNodeIds: [triggerNode.id] }),
+      ),
       EXECUTION_LIMITS.MAX_EXECUTION_MS,
     );
 

@@ -93,7 +93,6 @@ import {
   matchStage,
   resolveStage,
   stageUpdate,
-  transitionMessage,
   type JobLifecycle,
 } from "../../services/job-stages.service.js";
 import { emitStageChangeEvents } from "../../services/jobs/stage-events.service.js";
@@ -101,6 +100,7 @@ import {
   emitJobCreatedEvent,
   emitJobUpdatedEvents,
 } from "../../services/jobs/job-events.service.js";
+import { moveJobStage } from "../../services/jobs/jobs.service.js";
 
 // ========== HELPERS ==========
 
@@ -955,152 +955,28 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const { id } = request.params;
       const tenantId = request.authUser.tenantId!;
-      const userId = request.authUser.userId;
       const { stageId, status: requestedStatus } = request.body;
-      const db = getDb();
 
-      const existing = await db
-        .select()
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .then((r) => r[0]);
-
-      const gate = assertEditable(existing);
-      if (gate) {
-        return reply.status(gate.status).send({ message: gate.message });
-      }
-
-      const target = await resolveStage(db, {
+      // Validate -> service -> respond (api-rules §1). Everything this handler
+      // used to do inline — the archived gate, the transition table, the
+      // required-checklist gate, the activity row, the stage-change events, the
+      // notification and the E-05 email — lives in `moveJobStage`, because the
+      // `job.moveStage` automation node needs all of it too and had none of it.
+      const result = await moveJobStage(getDb(), {
         tenantId,
-        pipelineId: existing.pipelineId,
+        jobId: id,
         stageId,
         status: requestedStatus,
+        actor: { kind: "user", userId: request.authUser.userId },
       });
 
-      if (!target) {
-        return reply.status(400).send({
-          message: `No stage "${stageId ?? requestedStatus}" in this job's pipeline`,
-        });
+      if (!result.ok) {
+        return reply
+          .status(result.reason === "not_found" ? 404 : 400)
+          .send({ message: result.message });
       }
 
-      if (existing.stageId === target.id) {
-        return reply.status(400).send({
-          message: `Job is already in "${target.label}"`,
-        });
-      }
-
-      const fromLifecycle = await getJobLifecycle(db, {
-        tenantId,
-        stageId: existing.stageId,
-        status: existing.status,
-      });
-
-      if (!canTransition(fromLifecycle, target.lifecycle)) {
-        return reply.status(400).send({
-          message: transitionMessage(
-            { label: existing.status, lifecycle: fromLifecycle },
-            target,
-          ),
-        });
-      }
-
-      const status = target.name;
-
-      // Gate: completion requires all required checklist items
-      if (target.lifecycle === "completed") {
-        const incompleteRequired = await db
-          .select({ id: jobChecklistCompletions.id })
-          .from(jobChecklistCompletions)
-          .innerJoin(
-            checklistItems,
-            eq(jobChecklistCompletions.checklistItemId, checklistItems.id),
-          )
-          .where(
-            and(
-              eq(jobChecklistCompletions.jobId, id),
-              eq(jobChecklistCompletions.tenantId, tenantId),
-              eq(checklistItems.isRequired, true),
-              eq(jobChecklistCompletions.isCompleted, false),
-            ),
-          );
-
-        if (incompleteRequired.length > 0) {
-          return reply.status(400).send({
-            message: `Cannot complete job: ${incompleteRequired.length} required checklist item(s) not completed`,
-          });
-        }
-      }
-
-      // One transaction: the move, its activity row and its workflow events.
-      // The events must not be able to commit without the move, or an
-      // automation fires for a change that did not happen; the move must not be
-      // able to commit without the events, or an automation is permanently
-      // un-fired with nothing left to show for it.
-      const updated = await db.transaction(async (tx) => {
-        const [row] = await tx
-          .update(jobs)
-          .set({ ...stageUpdate(target, fromLifecycle), updatedAt: new Date() })
-          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-          .returning();
-
-        await tx.insert(jobActivities).values({
-          tenantId,
-          jobId: id,
-          type: "job.status_changed",
-          description: `Status changed from ${existing.status} to ${target.label}`,
-          metadata: {
-            from: existing.status,
-            to: status,
-            fromLifecycle,
-            toLifecycle: target.lifecycle,
-            stageId: target.id,
-          },
-          performedBy: userId,
-        });
-
-        await emitStageChangeEvents(tx, {
-          tenantId,
-          actorUserId: userId,
-          bulk: false,
-          transitions: [
-            {
-              jobId: id,
-              // `jobs.status` is the stage's name, denormalised — so the row
-              // itself carries the old stage's name without a second read.
-              from: existing.stageId
-                ? {
-                    id: existing.stageId,
-                    name: existing.status,
-                    lifecycle: fromLifecycle,
-                  }
-                : null,
-              to: { id: target.id, name: target.name, lifecycle: target.lifecycle },
-            },
-          ],
-        });
-
-        return row;
-      });
-
-      dispatchNotification({
-        tenantId,
-        type: "job_status_changed",
-        title: `Job ${existing.jobNumber ?? ""} moved to ${target.label}`,
-        description: `Job status changed from ${existing.status} to ${target.label}`,
-        entityType: "job",
-        entityId: id,
-        actorId: userId,
-        metadata: { jobNumber: existing.jobNumber, from: existing.status, to: status },
-      });
-
-      // E-05: completion email. Keyed on lifecycle, not the stage name — a
-      // tenant whose final column is called "closed_out" must still get it.
-      // Shared with bulk-status-update, which previously sent nothing.
-      if (target.lifecycle === "completed") {
-        void sendJobCompletionEmailFor(db, tenantId, id);
-      }
-
-      return reply.send({ data: updated });
+      return reply.send({ data: result.job });
     },
   );
 
