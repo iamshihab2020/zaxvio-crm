@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "kill-port 4000 && tsx watch src/server.ts",
-    "build": "echo \"api: no build step \u2014 run with tsx, see start\"",
+    "dev": "kill-port 4000 && node --watch --import tsx src/server.ts",
+    "build": "echo \"api: no build step — run with tsx, see start\"",
     "start": "tsx src/server.ts",
     "test": "vitest run",
     "test:unit": "vitest run --config vitest.config.ts",

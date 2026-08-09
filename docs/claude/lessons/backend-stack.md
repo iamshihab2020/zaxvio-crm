@@ -550,3 +550,41 @@
   ignore the notification that means something. Config problems (an unknown
   variable path, an unreadable time) are the author's and should fail loudly.
   The run's own history is where expected-but-unhelpful outcomes belong.
+- **`tsx watch` deadlocks under Turborepo on Windows; `node --watch --import tsx`
+  does not.** `pnpm dev` had not started the API since some point before
+  2026-08-09 — `api:dev` printed `Process on port 4000 killed` and then nothing,
+  forever, while `web:dev` served every request as a 500 `ECONNREFUSED`. The API
+  was fine: `tsx src/server.ts` booted in 647ms, and `tsx watch src/server.ts`
+  booted in 467ms *when run directly*. Only `tsx watch` **under turbo** hung, and
+  it hung with no output at all — no error, no exit, and turbo reports nothing
+  because the task never terminates.
+  Bisected with dynamic `await import()` over `server.ts`'s import list: the run
+  dies at `consola`, which resolves in 28ms directly and never resolves under
+  turbo. It is not graph size (fastify + drizzle load fine), not the script's
+  location (a probe in `apps/api/src` runs), not `kill-port`, not
+  `--clear-screen`, not stdin, and not `os.tmpdir()`/the IPC pipe path (verified
+  identical under both). What differs is that watch mode makes the child report
+  **every resolved module** back to the parent over a named pipe so chokidar can
+  watch it; under turbo's captured stdio that stalls. Node's own `--watch` has
+  no such channel, so `node --watch --import tsx src/server.ts` boots in ~440ms
+  under turbo and restarts once per change.
+  The lesson that generalises: **a dev server that hangs is worse than one that
+  crashes**, because every layer above it reports a plausible downstream error —
+  here, a Next.js `fetch failed` that reads as an API bug. When one command in a
+  chain goes silent, bisect the chain (`turbo` vs `pnpm` vs the binary) *before*
+  touching application code; all three of this repo's remaining dev-loop
+  suspects were exonerated in about four commands.
+- **The environment under turbo is not the environment in your shell.** Measured
+  during the above: 44 environment variables under `turbo dev`, 95 running the
+  same script with `pnpm -F api dev`. Turbo filters everything a task does not
+  declare in `turbo.json`'s `env`, and only the `build` task declares any. It did
+  not cause this bug — `TEMP`, `TMP`, `SystemRoot` and `USERPROFILE` all survive,
+  so `os.tmpdir()` is intact — but it is the first thing to check whenever
+  something works directly and fails under turbo, and it is why the
+  still-open backlog item about declaring `env` keys matters.
+- **`kill-port` reports success whether or not it killed anything.** Its CLI
+  logs `Process on port N killed` from a `.then()`, and `shell-exec` resolves
+  even when the underlying `taskkill` exits non-zero — so the message is printed
+  when the port was already free. The kill itself does work on Windows (verified:
+  a live server on 4000 went from `200` to dead). Treat the line as "kill-port
+  ran", never as "something was listening".

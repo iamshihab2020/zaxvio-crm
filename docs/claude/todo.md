@@ -10,13 +10,13 @@ Task tracking for the Zaxvio CRM project.
 
 ### Workflow Automation — P0–P4 written, P2–P4 UNVERIFIED (paused 2026-08-08)
 
-> **▶ Resuming? Read the `⏸ START HERE` block at the top of [[wf-PROGRESS]] first.** It has the
-> four things to do in order; **step 1 is now done**. The short version: **nothing is committed**
-> (77 files on `security/close-native-admin-surface`), **all four migrations are applied and
-> verified** (2026-08-08 — the `42703` exposure on `customers` / `customer_notes` is closed), and
-> **three phases of code have never been compiled or executed**. Next up: `pnpm typecheck`, then
-> `pnpm test`, then walk P3's "done when" list. Do not build P5 on top of that without deciding
-> deliberately to.
+> **▶ Resuming? Read the `⏸ START HERE` block at the top of [[wf-PROGRESS]] first.** The short
+> version: the work is **merged to `main`** (PR #17, `c1ff8d2` — the old
+> `security/close-native-admin-surface` branch is done with), **all four migrations are applied and
+> verified** (2026-08-08 — the `42703` exposure on `customers` / `customer_notes` is closed),
+> `pnpm typecheck` is **green across all 7 packages**, and `pnpm dev` **boots the API again** as of
+> 2026-08-09. What is still true: **almost none of this has been executed.** Next up: `pnpm test`,
+> then prove one event-triggered run end to end, then walk P3's "done when" list.
 
 An n8n-style automation builder native to Zaxvio's data model. Full plan in
 [[workflow-automation/README|docs/workflow-automation/]] — 16 documents: decisions, gap analysis,
@@ -394,6 +394,24 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       Every one was invisible to reading because the **content** was correct in each case. Each now
       has a scanner or a lesson. **Compiling is not working** — nothing here has been executed, and
       `pnpm test` is the next gate.
+- [x] **`pnpm dev` had not started the API at all** (2026-08-09) — **found by running it**, one day
+      after the SQL-comment defect was found the same way. `api:dev` printed `Process on port 4000
+      killed` and then **nothing, forever**; every page was a 500 `ECONNREFUSED` and the visible
+      error was Next.js's `fetch failed`, which reads as an API bug. The API was healthy the whole
+      time: `tsx src/server.ts` boots in 647ms and `tsx watch src/server.ts` in 467ms — but only
+      when run **directly**. `tsx watch` **under turbo** deadlocks, silently, with no error and no
+      exit, which is why turbo reports nothing: the task never terminates.
+      Bisected by dynamic `import()` down `server.ts`'s import list — it dies at **`consola`**,
+      28ms directly and never under turbo. Exonerated on the way: graph size (fastify + drizzle load
+      fine), script location, `kill-port`, `--clear-screen`, stdin, and `os.tmpdir()`/the IPC pipe
+      path (identical under both, and the pipe listens). What is left is watch mode's per-module
+      dependency reporting to the parent over a named pipe, which stalls under turbo's captured
+      stdio. Node's `--watch` has no such channel: `node --watch --import tsx src/server.ts` boots
+      in ~440ms under turbo and restarts once per file change. Verified end to end — `/health` 200,
+      `/dashboard` 307 instead of 500, one `Restarting` per edit, stable across 60s.
+      Measured while bisecting: **44 env vars under turbo, 95 under `pnpm`** — turbo strips
+      everything a task does not declare, and only `build` declares any. Not the cause here, but it
+      is why the backlog item about `env` keys in `turbo.json` is worth closing.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 
