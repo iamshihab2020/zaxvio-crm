@@ -79,7 +79,19 @@ nothing here. This commit is what creates the possibility, so the guard ships in
       one-person workspace) and then assumed an unassigned job existed (both workspaces have one
       member and every job assigned). Clearing the assignee inside each savepoint beats fabricating
       a user row.
-- [ ] **P7a.3** The rest of ARC-05 as pure moves (create, update, line items, checklist).
+- [x] **P7a.3a** The bulk path was a **fourth** implementation of a stage move — **13/13 proven by
+      execution.** A careful one (target resolved per pipeline, writes grouped by stage and by
+      previous lifecycle, gates re-checked) and still a copy; its own comment records JOB-22, where
+      the bulk path skipped the completion email the single path sent. Now a loop over
+      `moveJobStage`, bounded at 100 by `bulkIds`. **N transactions deliberately**: the contract is
+      `{succeeded, failed, errors}`, so one job refusing must not roll back the ninety-nine that
+      were fine. Each refusal now names **its own id** rather than `{id: "N/A", message: "3 job(s)
+      ..."}` — a documented response change, so API docs updated.
+      `routes/jobs/index.ts` 2,616 → 2,284 lines across P7a, and 8 imports became dead.
+      My proof failed 2/13 first: the queue query was tenant-scoped but not fixture-scoped, so it
+      counted the 14 rows already committed in the database.
+- [ ] **P7a.3b** The remaining ARC-05 extractions as genuine pure moves (create, update, line
+      items, checklist) — no second caller, so no reshaping needed.
 - [ ] **P7b** CRM pickers + variable pills — frontend, and blocked behind eyeballing the canvas.
 - [ ] **P7c** Node breadth to ~45, `workflow_folders`.
 

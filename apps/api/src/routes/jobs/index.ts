@@ -1,7 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
-import { dispatchNotification } from "../../lib/notifications.js";
 import {
   getDb,
   pipelines,
@@ -56,7 +55,6 @@ import {
   attachChecklistToJob,
   deleteJobAttachments,
   countLinkedInvoices,
-  sendJobCompletionEmailFor,
 } from "../../lib/job-helpers.js";
 import {
   idParam,
@@ -86,17 +84,11 @@ import { escapeLike } from "../../lib/search.js";
 import { isItemType, resolveLineItemDescription } from "../../lib/line-items.js";
 import { formatDateInTimezone } from "../../lib/timezone.js";
 import {
-  canTransition,
   getDefaultPipelineId,
   getFirstStage,
   getJobLifecycle,
-  loadStagesByPipeline,
-  matchStage,
   resolveStage,
-  stageUpdate,
-  type JobLifecycle,
 } from "../../services/job-stages.service.js";
-import { emitStageChangeEvents } from "../../services/jobs/stage-events.service.js";
 import {
   emitJobCreatedEvent,
   emitJobUpdatedEvents,
@@ -2243,235 +2235,49 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const { ids, stageId, status: requestedStatus } = request.body;
       const tenantId = request.authUser.tenantId!;
-      const userId = request.authUser.userId;
       const db = getDb();
 
-      const existing = await db
-        .select({
-          id: jobs.id,
-          status: jobs.status,
-          stageId: jobs.stageId,
-          pipelineId: jobs.pipelineId,
-        })
-        .from(jobs)
-        .where(
-          and(eq(jobs.tenantId, tenantId), inArray(jobs.id, ids), isNull(jobs.archivedAt)),
-        );
-
-      let eligibleIds = existing.map((r) => r.id);
-      const skippedNotFound = ids.length - existing.length;
+      // One job at a time, through `moveJobStage` — the same function the single
+      // endpoint and the `job.moveStage` automation node call.
+      //
+      // This was a fourth implementation of "move a job's stage". It was a
+      // careful one: it resolved a target per pipeline, grouped the writes,
+      // kept the checklist gate, and its own comment records JOB-22, where the
+      // bulk path had skipped the completion email the single path sent. But
+      // being careful is not the same as being one definition, and every rule
+      // added to `moveJobStage` from here on would have had to be remembered
+      // here too.
+      //
+      // **N transactions instead of one, deliberately.** This endpoint's
+      // contract is `{succeeded, failed, errors}` — partial success is the
+      // documented outcome, so one job refusing a transition must not roll back
+      // the ninety-nine that were fine. The old shape got there by pre-filtering
+      // and then writing the survivors atomically; the loop gets there directly,
+      // and each refusal now names **its own id** instead of being tallied into
+      // an `{ id: "N/A", message: "3 job(s) ..." }` line that tells the user
+      // nothing about which three.
+      //
+      // Bounded at 100 by `bulkIds`, so the extra round trips are bounded too.
       const errors: { id: string; message: string }[] = [];
+      let succeeded = 0;
 
-      if (skippedNotFound > 0) {
-        errors.push({ id: "N/A", message: `${skippedNotFound} job(s) not found or archived` });
-      }
-
-      // Selected jobs can span pipelines, so the target stage is resolved per
-      // pipeline: the same requested status lands in each pipeline's own column.
-      const stagesByPipeline = await loadStagesByPipeline(
-        db,
-        tenantId,
-        existing.map((j) => j.pipelineId ?? ""),
-      );
-
-      const targetByJob = new Map<
-        string,
-        NonNullable<ReturnType<typeof matchStage>>
-      >();
-      let unresolved = 0;
-      let invalidTransitions = 0;
-
-      for (const job of existing) {
-        const stages = stagesByPipeline.get(job.pipelineId ?? "");
-        const target = matchStage(stages, {
+      for (const jobId of ids) {
+        const result = await moveJobStage(db, {
+          tenantId,
+          jobId,
           stageId,
           status: requestedStatus,
-        });
-        if (!target) {
-          unresolved++;
-          continue;
-        }
-        const fromLifecycle: JobLifecycle =
-          stages?.find((s) => s.id === job.stageId)?.lifecycle ??
-          (["scheduled", "in_progress", "completed", "cancelled"].includes(
-            job.status,
-          )
-            ? (job.status as JobLifecycle)
-            : "scheduled");
-
-        if (!canTransition(fromLifecycle, target.lifecycle)) {
-          invalidTransitions++;
-          continue;
-        }
-        targetByJob.set(job.id, target);
-      }
-
-      if (unresolved > 0) {
-        errors.push({
-          id: "N/A",
-          message: `${unresolved} job(s) have no matching stage in their pipeline`,
-        });
-      }
-      if (invalidTransitions > 0) {
-        errors.push({
-          id: "N/A",
-          message: `${invalidTransitions} job(s) cannot transition to "${requestedStatus ?? stageId}"`,
-        });
-      }
-      eligibleIds = [...targetByJob.keys()];
-
-      // Every resolved target shares one lifecycle even when the stage rows
-      // differ, so the completion gate can be decided once.
-      const targetLifecycle =
-        targetByJob.size > 0
-          ? [...targetByJob.values()][0].lifecycle
-          : undefined;
-
-      // If completing, enforce checklist gate
-      if (targetLifecycle === "completed" && eligibleIds.length > 0) {
-        const incompleteJobs = await db
-          .select({ jobId: jobChecklistCompletions.jobId })
-          .from(jobChecklistCompletions)
-          .innerJoin(
-            checklistItems,
-            eq(jobChecklistCompletions.checklistItemId, checklistItems.id),
-          )
-          .where(
-            and(
-              eq(jobChecklistCompletions.tenantId, tenantId),
-              inArray(jobChecklistCompletions.jobId, eligibleIds),
-              eq(checklistItems.isRequired, true),
-              eq(jobChecklistCompletions.isCompleted, false),
-            ),
-          );
-
-        const blockedJobIds = new Set(incompleteJobs.map((r) => r.jobId));
-        if (blockedJobIds.size > 0) {
-          errors.push({
-            id: "N/A",
-            message: `${blockedJobIds.size} job(s) have incomplete required checklist items`,
-          });
-          eligibleIds = eligibleIds.filter((id) => !blockedJobIds.has(id));
-        }
-      }
-
-      if (eligibleIds.length > 0) {
-        const lifecycleByJob = new Map(
-          existing.map((j) => [
-            j.id,
-            (stagesByPipeline
-              .get(j.pipelineId ?? "")
-              ?.find((s) => s.id === j.stageId)?.lifecycle ??
-              "scheduled") as JobLifecycle,
-          ]),
-        );
-
-        // Jobs can sit in different pipelines, so each lands in its own stage
-        // row — one grouped UPDATE per distinct target rather than one blanket
-        // write of a status string that may not exist in every pipeline.
-        await db.transaction(async (tx) => {
-          const byStage = new Map<string, string[]>();
-          for (const [jobId, target] of targetByJob) {
-            const list = byStage.get(target.id);
-            if (list) list.push(jobId);
-            else byStage.set(target.id, [jobId]);
-          }
-          for (const [, jobIds] of byStage) {
-            const target = targetByJob.get(jobIds[0])!;
-            // Jobs grouped here share a target stage; `completedAt` still needs
-            // each job's own previous lifecycle, so split by that too.
-            const byPrev = new Map<JobLifecycle, string[]>();
-            for (const jobId of jobIds) {
-              const prev = lifecycleByJob.get(jobId) ?? "scheduled";
-              const list = byPrev.get(prev);
-              if (list) list.push(jobId);
-              else byPrev.set(prev, [jobId]);
-            }
-            for (const [prev, group] of byPrev) {
-              await tx
-                .update(jobs)
-                .set({ ...stageUpdate(target, prev), updatedAt: new Date() })
-                .where(
-                  and(
-                    eq(jobs.tenantId, tenantId),
-                    inArray(jobs.id, group),
-                  ),
-                );
-            }
-          }
-
-          // Same helper as the single-job path, inside the same transaction as
-          // the writes. JOB-22 was exactly this divergence one layer up — the
-          // bulk path skipped the completion email the single path sent — so
-          // the two paths share the one implementation by construction.
-          await emitStageChangeEvents(tx, {
-            tenantId,
-            actorUserId: userId,
-            bulk: true,
-            transitions: eligibleIds.map((jobId) => {
-              const target = targetByJob.get(jobId)!;
-              const prev = lifecycleByJob.get(jobId) ?? "scheduled";
-              const job = existing.find((j) => j.id === jobId);
-              return {
-                jobId,
-                from: job?.stageId
-                  ? { id: job.stageId, name: job.status, lifecycle: prev }
-                  : null,
-                to: { id: target.id, name: target.name, lifecycle: target.lifecycle },
-              };
-            }),
-          });
+          actor: { kind: "user", userId: request.authUser.userId },
+          // Carried into the event, where "notify me per job" reads it — the
+          // reason a hundred-card drag does not become a hundred emails.
+          bulk: true,
         });
 
-        // Log activity for each updated job
-        await db.insert(jobActivities).values(
-          eligibleIds.map((jobId) => {
-            const target = targetByJob.get(jobId)!;
-            return {
-              tenantId,
-              jobId,
-              type: "job.status_changed",
-              description: `Status bulk-changed to ${target.label}`,
-              metadata: {
-                to: target.name,
-                toLifecycle: target.lifecycle,
-                stageId: target.id,
-                bulk: true,
-              },
-              performedBy: userId,
-            };
-          }),
-        );
-
-        // Dispatch notifications for each updated job
-        const updatedJobs = await db
-          .select({ id: jobs.id, jobNumber: jobs.jobNumber, status: jobs.status })
-          .from(jobs)
-          .where(and(eq(jobs.tenantId, tenantId), inArray(jobs.id, eligibleIds)));
-
-        for (const j of updatedJobs) {
-          const target = targetByJob.get(j.id);
-          // JOB-22: this sent no completion email at all, so completing ten
-          // jobs from the bulk bar notified nobody while completing the same
-          // ten one at a time sent ten emails.
-          if (target?.lifecycle === "completed") {
-            void sendJobCompletionEmailFor(db, tenantId, j.id);
-          }
-          dispatchNotification({
-            tenantId,
-            type: "job_status_changed",
-            title: `Job ${j.jobNumber ?? ""} moved to ${target?.label ?? j.status}`,
-            description: `Job status bulk-changed to ${target?.label ?? j.status}`,
-            entityType: "job",
-            entityId: j.id,
-            actorId: userId,
-            metadata: { jobNumber: j.jobNumber, to: j.status, bulk: true },
-          });
-        }
+        if (result.ok) succeeded += 1;
+        else errors.push({ id: jobId, message: result.message });
       }
 
-      const failedCount = ids.length - eligibleIds.length;
-      return reply.send({ succeeded: eligibleIds.length, failed: failedCount, errors });
+      return reply.send({ succeeded, failed: ids.length - succeeded, errors });
     },
   );
 };

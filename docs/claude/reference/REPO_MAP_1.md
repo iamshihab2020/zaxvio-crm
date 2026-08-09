@@ -336,7 +336,10 @@ apps/api/
 |   |   |   |                         # assignJob(): same shape. Raises job.assigned AND job.updated
 |   |   |   |                         # (suppressing the catch-all would make "any change" mean "any
 |   |   |   |                         # change except a reassignment"), refuses a no-op so an
-|   |   |   |                         # automation cannot fire for a change that did not happen
+|   |   |   |                         # automation cannot fire for a change that did not happen.
+|   |   |   |                         # FOUR callers: PATCH /jobs/:id/status, POST
+|   |   |   |                         # /jobs/bulk-status-update (a per-id loop, so partial success
+|   |   |   |                         # names each refusal), and the two automation nodes
 |   |   |   +-- stage-events.service.ts # job.stage_changed + job.completed/cancelled, from ONE
 |   |   |   |                         # implementation called by both the single and the bulk status
 |   |   |   |                         # path. Two completed stages in a row is not a re-completion

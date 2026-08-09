@@ -130,3 +130,13 @@ See [[jobs|the report]] for the full 38 findings + 3 more found while fixing the
   resumed run, firing again every time. The general update route is protected by its field diff;
   any narrower operation extracted out of it has to re-establish that guarantee itself, because the
   diff is what it left behind.
+- **A bulk endpoint that pre-filters and then writes atomically is a second implementation of the
+  single-item rule, and it will drift.** `POST /jobs/bulk-status-update` resolved a target per
+  pipeline, grouped the writes by stage and by previous lifecycle, and re-checked the transition
+  table and the checklist gate — all correct, and all a copy. JOB-22 is what the drift looks like:
+  the bulk path skipped the completion email the single path sent. It is now a loop over
+  `moveJobStage`, bounded at 100 by `bulkIds`. **N transactions is the right number here**, because
+  the endpoint's contract is `{succeeded, failed, errors}` — one job refusing a transition must not
+  roll back the ninety-nine that were fine. The old shape reached partial success by pre-filtering;
+  the loop reaches it directly, and each refusal names its own id instead of being tallied into
+  `{ id: "N/A", message: "3 job(s) ..." }`, which told the caller nothing about which three.

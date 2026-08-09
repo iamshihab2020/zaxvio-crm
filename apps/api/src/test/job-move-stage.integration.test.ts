@@ -3,7 +3,7 @@ import { jobs, jobActivities, workflowEventQueue, and, eq } from "@hvac-saas/dat
 
 import { requireDatabase } from "./setup.js";
 import { withRollback, type TestDb } from "./db.js";
-import { createWorkspace, foreignId } from "./factories/index.js";
+import { createJob, createWorkspace, foreignId } from "./factories/index.js";
 import { moveJobStage } from "../services/jobs/jobs.service.js";
 import { runWithCausation } from "../services/workflow/events/causation.js";
 
@@ -175,6 +175,58 @@ describe("moveJobStage", () => {
       // The route turns exactly this one into a 404 and everything else into a
       // 400, which is only expressible because the reason is returned.
       expect(goneJob).toMatchObject({ ok: false, reason: "not_found" });
+    });
+  });
+
+  it("gives the bulk path partial success with a reason per id", async () => {
+    await withRollback(async (db) => {
+      const ws = await createWorkspace(db);
+      const second = await createJob(db, {
+        tenantId: ws.tenantId,
+        customerId: ws.customerId,
+        pipeline: ws.pipeline,
+      });
+      const ghost = foreignId();
+
+      // Verbatim what `POST /jobs/bulk-status-update` now runs. It used to be a
+      // fourth implementation of a stage move — resolve per pipeline, group the
+      // writes, re-check the gates — and its errors were aggregated into
+      // `{ id: "N/A", message: "3 job(s) ..." }`, which named none of them.
+      const ids = [ws.jobId, second.id, ghost];
+      const errors: { id: string; message: string }[] = [];
+      let succeeded = 0;
+
+      for (const jobId of ids) {
+        const result = await moveJobStage(db, {
+          tenantId: ws.tenantId,
+          jobId,
+          stageId: ws.pipeline.stages.in_progress,
+          actor: WORKFLOW_ACTOR,
+          bulk: true,
+        });
+        if (result.ok) succeeded += 1;
+        else errors.push({ id: jobId, message: result.message });
+      }
+
+      expect(succeeded).toBe(2);
+      expect(errors).toEqual([{ id: ghost, message: "Job not found" }]);
+
+      // One job failing must not undo the two that worked — partial success is
+      // this endpoint's documented contract.
+      const moved = await db
+        .select({ id: jobs.id })
+        .from(jobs)
+        .where(
+          and(
+            eq(jobs.tenantId, ws.tenantId),
+            eq(jobs.stageId, ws.pipeline.stages.in_progress),
+          ),
+        );
+      expect(moved).toHaveLength(2);
+
+      const rows = await stageChangedRows(db, ws.tenantId);
+      expect(new Set(rows.map((r) => r.depth))).toEqual(new Set([0]));
+      expect(rows.length).toBeGreaterThan(0);
     });
   });
 

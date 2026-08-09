@@ -270,6 +270,9 @@ export async function moveJobStage(
         fromLifecycle,
         toLifecycle: target.lifecycle,
         stageId: target.id,
+        // Kept on the row so "why did ten jobs all change at 14:02" is
+        // answerable from the timeline alone.
+        ...(args.bulk ? { bulk: true } : {}),
         ...(actor.kind === "workflow"
           ? { workflowId: actor.workflowId, executionId: actor.executionId }
           : {}),
@@ -309,6 +312,7 @@ export async function moveJobStage(
       jobNumber: existing.jobNumber,
       from: existing.status,
       to: target.name,
+      ...(args.bulk ? { bulk: true } : {}),
       ...(actor.kind === "workflow" ? { workflowId: actor.workflowId } : {}),
     },
   });

@@ -613,6 +613,27 @@ required-checklist gate, and sends the same E-05 completion email per job.
 { "ids": ["job_001", "job_002"], "status": "completed" }
 ```
 
+**Response:** the standard bulk shape — and since 2026-08-10 **every entry in `errors` names
+the job it is about**. It used to aggregate (`{ "id": "N/A", "message": "3 job(s) cannot
+transition to completed" }`), which told the caller how many had failed and nothing about
+which. Partial success is expected: the jobs that could move have moved.
+
+```json
+{
+  "succeeded": 1,
+  "failed": 1,
+  "errors": [
+    { "id": "job_002", "message": "Cannot move a scheduled job to Completed" }
+  ]
+}
+```
+
+Every job goes through the same `moveJobStage` service as `PATCH /jobs/:id/status` and the
+`job.moveStage` automation node, so the transition table, the required-checklist gate, the
+activity row, the `job.stage_changed` event, the notification and the E-05 completion email
+are identical by construction rather than by being kept in step. Events carry `bulk: true`,
+so a "notify me per job" automation can opt out of a hundred-card move.
+
 ---
 
 ## Job Line Items
