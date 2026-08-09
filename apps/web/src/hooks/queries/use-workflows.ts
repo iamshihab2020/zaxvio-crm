@@ -17,6 +17,7 @@ import {
   getWorkflowRuns,
   getWorkflows,
   getWorkflowVersions,
+  previewWorkflowNode,
   publishWorkflow,
   restoreWorkflowVersion,
   runWorkflow,
@@ -46,12 +47,22 @@ import {
 
 // ── Queries ──────────────────────────────────────────────────
 
-export interface WorkflowRunsParams {
+/**
+ * A `type`, not an `interface`, and that is load-bearing rather than style.
+ *
+ * `queryKeys.workflows.runs` takes `Record<string, unknown>`. TypeScript gives
+ * a type alias an implicit index signature and an interface none — an interface
+ * is open to declaration merging, so the compiler cannot promise its keys are
+ * only these. `WorkflowListParams` is a type alias for exactly this reason, and
+ * the same distinction bit `ScheduleEventProps`, which grew a hand-written
+ * `[key: string]: unknown` that then made the library's own props unassignable.
+ */
+export type WorkflowRunsParams = {
   page?: number;
   limit?: number;
   status?: string;
   customerId?: string;
-}
+};
 
 /**
  * Run history for one automation.

@@ -666,3 +666,14 @@ From [[bookings-calendar|the report]] — the front-end half.
   The fix is a callback fired **only on the actual write** — clearing the marker
   on every sheet close would have restored the bug the guard exists to prevent,
   for anybody who opened it, looked, and closed it again.
+- **A params type passed to a query key must be a `type`, never an `interface`.**
+  TypeScript gives a type alias an implicit index signature and an interface
+  none, because an interface is open to declaration merging and the compiler
+  cannot promise its keys are only the declared ones. So an interface is not
+  assignable to `Record<string, unknown>`, which is what most `queryKeys.*`
+  entries take. `WorkflowRunsParams` shipped as an interface and failed;
+  `WorkflowListParams` beside it is a type alias and compiles. This is the third
+  appearance of the same rule — `ScheduleEventProps` grew a hand-written
+  `[key: string]: unknown` to work around it, which then made the library's own
+  props unassignable to it. Do not add the index signature by hand; change the
+  declaration to `type`.
