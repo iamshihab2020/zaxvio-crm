@@ -16,6 +16,11 @@ import triggerInvoiceOverdue from "./trigger-invoice-overdue.js";
 import triggerQuoteAccepted from "./trigger-quote-accepted.js";
 import triggerBookingCreated from "./trigger-booking-created.js";
 import triggerCustomerCreated from "./trigger-customer-created.js";
+import triggerJobCreated from "./trigger-job-created.js";
+import triggerJobStageChanged from "./trigger-job-stage-changed.js";
+import triggerJobAssigned from "./trigger-job-assigned.js";
+import triggerQuoteSent from "./trigger-quote-sent.js";
+import triggerBookingCancelled from "./trigger-booking-cancelled.js";
 import emailSend from "./email-send.js";
 import notificationInternal from "./notification-internal.js";
 import customerAddNote from "./customer-add-note.js";
@@ -34,6 +39,11 @@ export const EXECUTORS: Readonly<Record<string, Executor>> = {
   "trigger.quote.accepted": triggerQuoteAccepted,
   "trigger.booking.created": triggerBookingCreated,
   "trigger.customer.created": triggerCustomerCreated,
+  "trigger.job.created": triggerJobCreated,
+  "trigger.job.stage_changed": triggerJobStageChanged,
+  "trigger.job.assigned": triggerJobAssigned,
+  "trigger.quote.sent": triggerQuoteSent,
+  "trigger.booking.cancelled": triggerBookingCancelled,
   "email.send": emailSend,
   "notification.internal": notificationInternal,
   "customer.addNote": customerAddNote,

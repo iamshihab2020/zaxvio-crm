@@ -118,7 +118,7 @@ packages/workflow-nodes/
     +-- naming.ts             # DEFAULT_WORKFLOW_NAME + isNamedWorkflow
     +-- graph/
     |   +-- validate.ts       # Every structural publish rule, PURE so the browser runs
-    |                         # the same code the server does. 19 issue codes in a closed
+    |                         # the same code the server does. 21 issue codes in a closed
     |                         # union. Tenant ownership is the one rule that cannot be
     |                         # pure and lives in services/workflow/graph/ instead
     +-- registry/
@@ -127,11 +127,19 @@ packages/workflow-nodes/
         |                     # exactly that. A test walks the directory and fails if a
         |                     # file here is not imported, so the rule is enforced without
         |                     # using the thing it forbids
-        +-- triggers/         # manual · job.completed · invoice.paid · invoice.overdue ·
-        |                     # quote.accepted · booking.created · customer.created
+        +-- triggers/         # 12: manual · job.created · job.stage_changed · job.assigned ·
+        |                     # job.completed · quote.sent · quote.accepted · invoice.paid ·
+        |                     # invoice.overdue · booking.created · booking.cancelled ·
+        |                     # customer.created. job.stage_changed filters on LIFECYCLE,
+        |                     # never the stage name or id — a tenant renaming a column
+        |                     # must not silently stop an automation matching
         +-- communication/    # email.send · notification.internal
         +-- actions/          # customer.addNote · job.moveStage · job.assign
-        +-- timing/           # delay.wait — durable pause, working-hours aware
+        +-- timing/           # delay.wait — durable pause, working-hours aware. Three modes:
+        |                     # a relative wait, a date the author typed, and a date the
+        |                     # RECORD carries (`untilField`). The third stores a variable
+        |                     # PATH, not a `{{token}}`: interpolation renders variables for
+        |                     # people, so a token would arrive as "Aug 12, 2026"
         +-- logic/            # condition.if · logic.merge (the ONLY AND join) · logic.stop
     +-- templates/
         +-- types.ts          # A template is a DECLARATION, not code that builds a graph —

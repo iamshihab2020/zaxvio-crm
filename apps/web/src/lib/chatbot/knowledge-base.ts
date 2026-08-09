@@ -91,6 +91,23 @@ Only dates your trigger actually provides are offered, so you can’t accidental
 **If that moment has already passed** — say a booking is made for tomorrow and you asked for a reminder the day before — you choose what happens. **Stop here** is the default and is right for reminders: a \"we’re coming tomorrow\" note that arrives late is worse than none. **Carry on straight away** is right for chasing, where late still beats never. Either way the run history says which happened.",
   },
   {
+    id: "automations-triggers",
+    category: "general",
+    keywords: [
+      "what can start an automation",
+      "automation trigger",
+      "trigger list",
+      "when a job moves",
+      "stage change automation",
+      "quote sent automation",
+      "job assigned automation",
+      "booking cancelled automation",
+    ],
+    question: "What can start an automation?",
+    answer:
+      "Twelve things, grouped by what they are about.\n\n**Jobs**\n\u2022 **Job Created** \u2014 any new job, however it was added. Filter by priority or service type.\n\u2022 **Job Moves Stage** \u2014 a job moves to a different column on the board. Filter by what the new stage *means* (scheduled, in progress, completed, cancelled) rather than its name, so renaming a column never quietly stops it. You can also skip bulk moves, which matters if the automation emails somebody.\n\u2022 **Job Assigned** \u2014 a job is given to someone, or taken off them.\n\u2022 **Job Completed** \u2014 a job is marked done.\n\n**Quotes**\n\u2022 **Quote Sent** \u2014 you send a quote out. Pair it with a Wait step to chase anything unanswered.\n\u2022 **Quote Accepted** \u2014 the customer presses Accept on the portal link.\n\n**Invoices**\n\u2022 **Invoice Paid** \u2014 paid in full.\n\u2022 **Invoice Overdue** \u2014 checked once a day, so you can chase at 1, 7 and 14 days.\n\n**Bookings and customers**\n\u2022 **Booking Created**, **Booking Cancelled**, **New Customer**.\n\n**And by hand** \u2014 **Run Manually**, for testing or for a one-off.\n\nMost triggers have filters, and leaving a filter empty means \u201crun every time\u201d rather than \u201cnever run\u201d.",
+  },
+  {
     id: "automations-publish-blocked",
     category: "general",
     keywords: [

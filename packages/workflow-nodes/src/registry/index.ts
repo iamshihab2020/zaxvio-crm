@@ -22,6 +22,11 @@ import triggerInvoiceOverdue from "./triggers/invoice-overdue.js";
 import triggerQuoteAccepted from "./triggers/quote-accepted.js";
 import triggerBookingCreated from "./triggers/booking-created.js";
 import triggerCustomerCreated from "./triggers/customer-created.js";
+import triggerJobCreated from "./triggers/job-created.js";
+import triggerJobStageChanged from "./triggers/job-stage-changed.js";
+import triggerJobAssigned from "./triggers/job-assigned.js";
+import triggerQuoteSent from "./triggers/quote-sent.js";
+import triggerBookingCancelled from "./triggers/booking-cancelled.js";
 
 // ── communication ───────────────────────────────────────────────────────────
 import emailSend from "./communication/email-send.js";
@@ -46,6 +51,11 @@ export const NODE_DEFINITIONS: NodeDefinition[] = [
   triggerQuoteAccepted,
   triggerBookingCreated,
   triggerCustomerCreated,
+  triggerJobCreated,
+  triggerJobStageChanged,
+  triggerJobAssigned,
+  triggerQuoteSent,
+  triggerBookingCancelled,
   emailSend,
   notificationInternal,
   customerAddNote,

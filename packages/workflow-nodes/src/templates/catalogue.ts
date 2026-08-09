@@ -541,6 +541,102 @@ const remindBeforeAppointment: WorkflowTemplate = {
 };
 
 /**
+ * Chasing a quote nobody answered — the other half of the quote story.
+ *
+ * `follow-up-accepted-quote` handles the good outcome. This handles the common
+ * one: most quotes get no reply at all, and the difference between a contractor
+ * who chases at day three and one who does not is measurable revenue. It was
+ * unbuildable until `trigger.quote.sent` existed — `quote.accepted` is the only
+ * quote trigger that shipped, and by definition it never fires for these.
+ *
+ * `purpose: "marketing"`, and that is the honest reading. A quote the customer
+ * asked for is a transaction they are party to; an unprompted nudge about one
+ * they have ignored is a follow-up, which is exactly what `email-consent.ts`
+ * means by marketing. Somebody who has unsubscribed should not get chased, and
+ * the run log will say so.
+ */
+const chaseUnansweredQuote: WorkflowTemplate = {
+  id: "chase-unanswered-quote",
+  name: "Chase a quote nobody answered",
+  summary: "A single polite nudge three days on, and only if they have not replied.",
+  detail:
+    "Three days after you send a quote, this checks whether the customer has " +
+    "done anything with it. If it is still sitting unanswered they get one " +
+    "short message with the link again. Anyone who has already accepted, " +
+    "declined, or let it lapse hears nothing.",
+  category: "winning-work",
+  icon: "IconMail",
+  nodes: [
+    {
+      key: "trigger",
+      nodeType: "trigger.quote.sent",
+      label: "A quote goes out",
+      parameters: {},
+    },
+    {
+      key: "wait",
+      nodeType: "delay.wait",
+      label: "Give them three days",
+      parameters: {
+        mode: "for",
+        duration: { amount: 3, unit: "days" },
+        // A chase is a message to a person, so it waits for a working hour
+        // rather than arriving at 2am three days after an afternoon send.
+        resumeDuring: "businessHours",
+      },
+    },
+    {
+      // `equals "sent"` rather than "not accepted", deliberately. The status
+      // enum is draft/sent/accepted/declined/expired, and only `sent` means
+      // genuinely unanswered — a lapsed quote should get a fresh one, not a
+      // nudge about a price that is no longer on offer.
+      key: "unanswered",
+      nodeType: "condition.if",
+      label: "Still no reply?",
+      parameters: {
+        combinator: "and",
+        rules: [{ variable: "quote.status", operator: "equals", value: "sent" }],
+      },
+    },
+    {
+      key: "email",
+      nodeType: "email.send",
+      label: "One nudge",
+      parameters: {
+        recipient: "customer",
+        purpose: "marketing",
+        subject: "Any thoughts on quote {{quote.number}}?",
+        body:
+          "Hi {{customer.firstName}},\n\n" +
+          "Just checking you got the quote we sent over for " +
+          "{{quote.total}} — no rush, but I did not want it to get lost.\n\n" +
+          "If anything on it needs changing, or you would rather talk it " +
+          "through, reply to this email and we will sort it out.\n\n" +
+          "Thanks,\n{{tenant.ownerName}}\n{{tenant.businessName}}",
+        ctaLabel: "View the quote",
+        ctaUrl: "{{quote.publicUrl}}",
+      },
+    },
+    {
+      key: "answered",
+      nodeType: "logic.stop",
+      label: "They already replied",
+      branchIndex: 1,
+      parameters: {
+        outcome: "completed",
+        reason: "The customer had already responded, so no chase was needed.",
+      },
+    },
+  ],
+  edges: [
+    { from: "trigger", to: "wait" },
+    { from: "wait", to: "unanswered" },
+    { from: "unanswered", fromHandle: "true", to: "email" },
+    { from: "unanswered", fromHandle: "false", to: "answered" },
+  ],
+};
+
+/**
  * Every template, in gallery order.
  *
  * Ordered by how likely a contractor is to want it on day one, not
@@ -550,6 +646,7 @@ const remindBeforeAppointment: WorkflowTemplate = {
 export const WORKFLOW_TEMPLATES: readonly WorkflowTemplate[] = [
   chaseOverdueInvoices,
   remindBeforeAppointment,
+  chaseUnansweredQuote,
   askForReview,
   followUpAcceptedQuote,
   newBookingHeadsUp,

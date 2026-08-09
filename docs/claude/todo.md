@@ -359,6 +359,26 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       Also: the new test's edge literals used `source`/`target` where the validator's shape is
       `sourceNodeId`/`targetNodeId`, so it would not have compiled either; and it walked a
       hardcoded node list, now `NODE_DEFINITIONS`.
+- [~] **Trigger breadth: 7 → 12** (2026-08-09) — **written, unrun.** Audit angle: the same
+      declared-with-no-consumer sweep, pointed at the event taxonomy. **22 events had a producer
+      emitting them on every relevant write and zero trigger nodes listening** — the largest such
+      gap left in the feature. Added the five a solo contractor actually reaches for:
+      `job.created`, `job.stage_changed`, `job.assigned`, `quote.sent`, `booking.cancelled`.
+      `job.stage_changed` is the one a CRM exists to have — "when a job reaches In Progress, tell
+      the customer" — and it filters on **lifecycle, not stage name or id**, so renaming a column
+      cannot silently stop it. It also offers the bulk opt-out the payload was carrying `bulk` for
+      all along, defaulted to *include* per the schema author's stated intent.
+      `quote.sent` is the bigger revenue unlock: `quote.accepted` was the only quote trigger, and
+      by definition it never fires for the quotes that need chasing. Seventh template —
+      **Chase a quote nobody answered** — three days, only if `status` is still exactly `sent`
+      (a lapsed quote wants a fresh price, not a nudge about one that is off the table).
+      Two guesses caught by checking rather than assuming, which is now the third time:
+      `jobPrioritySchema` is `standard|urgent|emergency`, so a filter offering "Low"/"High" would
+      have matched nothing silently; and `serviceTypeSelect` is a declared property type with **no
+      case in the config renderer**, so it draws "this kind of field isn't available yet" — used
+      `multiOptions` over the closed enum instead. Two more found in the executors: `JobContext`
+      has no `assigneeId` at all (the id is on `ctx.assignee`) and its lifecycle field is
+      `stageLifecycle`.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

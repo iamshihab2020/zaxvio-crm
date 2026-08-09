@@ -1322,6 +1322,55 @@ legal boundary is why [[strict-rules|§6]] exists.
 Checked and clean while here: `idx_wf_queue_claim` on `(status, scheduled_at)`
 already covers the retention sweep's deletes, so that added no unindexed scan.
 
+### Commit 24 — trigger breadth, 7 → 12 (written, unrun)
+
+The declared-with-no-consumer sweep again, pointed at the event taxonomy:
+
+```
+22 events with a producer  →  0 trigger nodes listening
+```
+
+Every one of those producer sites runs on every relevant write, and nothing
+could ever subscribe. Added the five a solo contractor actually reaches for.
+
+**`trigger.job.stage_changed`** is the one a CRM exists to have. Everything else
+fires on something that happens *to* a record; this fires on the thing the
+contractor does all day, which is dragging a card. It filters on **lifecycle**,
+never the stage name or id — a tenant can rename "Completed", add a stage or
+reorder the board, and a filter keyed to any of those breaks silently. Same
+reasoning `jobs.stage_id` + `lifecycle` was introduced under (JOB-01). It also
+offers the bulk opt-out the payload has been carrying `bulk` for since P2,
+defaulted to *include* because the schema author framed it as an opt-out.
+
+**`trigger.quote.sent`** is the bigger revenue unlock. `quote.accepted` was the
+only quote trigger, and by definition it never fires for the quotes that need
+chasing — which is most of them.
+
+Plus `job.created`, `job.assigned` (which fires on *un*assignment too, with a
+null assignee, because a job nobody is on is a job nobody is doing) and
+`booking.cancelled`.
+
+Seventh template, **Chase a quote nobody answered**: three days, and only if the
+status is still exactly `sent`. Not "not accepted" — the enum is
+draft/sent/accepted/declined/expired, and a lapsed quote wants a fresh price
+rather than a nudge about one that is no longer on offer. `purpose: "marketing"`,
+which is the honest reading: a quote they asked for is transactional, an
+unprompted chase about one they ignored is a follow-up.
+
+Four things caught by checking instead of assuming — the third time this exact
+discipline has paid in this feature:
+
+| Guessed | Actually |
+|---|---|
+| priority `low\|standard\|high\|emergency` | `standard\|urgent\|emergency` — two invented values, matching nothing, silently |
+| `serviceTypeSelect` renders a picker | declared type, **no case in the config renderer** — draws "this kind of field isn't available yet" |
+| `ctx.job.assigneeId` | `JobContext` has no id at all; it is on `ctx.assignee` |
+| `ctx.job.lifecycle` | `ctx.job.stageLifecycle` |
+
+Verified before shipping: all 12 trigger events have a producer (the gate that
+caught `invoice.overdue`), all 21 executors read only declared fields, and all
+20 template tokens resolve to declared variables.
+
 ### Commit 23 — review pass: a condition typo has always been silent (written, unrun)
 
 Read commits 20 and 22 as a reviewer rather than their author. Three findings,
