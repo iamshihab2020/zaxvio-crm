@@ -1322,6 +1322,49 @@ legal boundary is why [[strict-rules|§6]] exists.
 Checked and clean while here: `idx_wf_queue_claim` on `(status, scheduled_at)`
 already covers the retention sweep's deletes, so that added no unindexed scan.
 
+### Commit 23 — review pass: a condition typo has always been silent (written, unrun)
+
+Read commits 20 and 22 as a reviewer rather than their author. Three findings,
+in ascending order of how long they had been there.
+
+**Would not have compiled.** The `dateVariable` rule went into the validator's
+*second* per-node loop — the one that has `subjectsAt` and `subjectUnknown`, which
+the scope check needs — and that loop binds `def` but not `parameters`. Only the
+first loop declares it.
+
+**Wrong error class.** The one-year horizon threw `NodeFailure`, and in this
+engine that emails the tenant a failure notification. The input that trips it is
+ordinary data: a warranty ten years out, a service agreement booked for next
+spring — the annual-maintenance case this very file advertises in its own
+docblock. Now a `cancelled` stop carrying the reason into run history. The engine
+already draws this line (`logic.stop`'s docblock says so): config problems are the
+author's and should be loud; expected outcomes must not cry wolf, or the
+notification that matters gets ignored.
+
+**And the one that was already there.** `condition.if` rules store a bare
+variable path — exactly what `dateVariable` does — and **nothing has validated
+them since P6**. `ResolveVariable` returns `{found: false}` for a path that is a
+typo or out of scope, and the evaluator then correctly routes an unanswerable
+comparison down **No**, because a filter that cannot be answered must not match.
+The consequence is that `booking.stauts` saves, publishes, runs, and takes the No
+branch forever: nothing throws, nothing logs, and the run history shows a
+completed run. The run-time behaviour is right, which is precisely why it can
+never be where you find out.
+
+So the rule is now one `checkVariablePath` closure serving both field types
+rather than the same three checks written twice — existence with a "did you
+mean", kind (dates only where a date is required), and scope under the same
+"known and disjoint" caution `subject_mismatch` uses. It stays silent on an empty
+path: a rule row added and not yet filled in is a normal intermediate state, and
+`missing_required_field` already covers a wholly blank field.
+
+Checked before shipping that no existing template breaks — `quote.total` in
+`follow-up-accepted-quote` is a real declared path.
+
+Two test defects too: the edge literals used `source`/`target` where the
+validator's shape is `sourceNodeId`/`targetNodeId`, so the file would not have
+compiled; and it walked a hardcoded node list instead of `NODE_DEFINITIONS`.
+
 ### Commit 21 — every Stop step ignored its only setting (written, unrun)
 
 Found while wiring the No branch of the reminder template, which needed a Stop.

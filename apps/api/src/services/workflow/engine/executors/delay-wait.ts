@@ -189,15 +189,20 @@ function fromRecordDate(
     at = new Date(at.getTime() + sign * amount * MS.hours);
   }
 
-  // Data-driven, so this is not a typo guard like MAX_DAYS — it is a bound on
-  // how long one run may hold a row open. A booking two years out is real; a
-  // run parked on it for two years is not something to do silently.
+  // A bound on how long one run may hold a row open — not a typo guard like
+  // MAX_DAYS in `relative()`, because this distance comes from the data.
+  //
+  // **A stop, not a `NodeFailure`.** A failure emails the owner, and the input
+  // that trips this is ordinary: a warranty ten years out, a service agreement
+  // booked for next spring. Crying wolf over real data is how a tenant learns
+  // to ignore the failure notification that matters. The run still says so in
+  // its history, with the thing to do about it.
   const horizonMs = MAX_DAYS * 86_400_000;
   if (at.getTime() - now.getTime() > horizonMs) {
-    throw new NodeFailure(
-      `delay.wait would pause for more than ${MAX_DAYS} days`,
-      `The "${label}" step would wait until ${zonedDate(at, ctx.timezone)}, which is more than a year away. Automations cannot hold a run open that long — trigger this closer to the date instead.`,
-    );
+    return {
+      kind: "stop",
+      reason: `Stopped at "${label}": that would mean waiting until ${zonedDate(at, ctx.timezone)}, more than a year away. A run cannot stay open that long — start this automation nearer the date instead.`,
+    };
   }
 
   if (at.getTime() > now.getTime()) return { kind: "pause", at, note: null };

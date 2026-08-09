@@ -341,6 +341,24 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       not one — a date carries no time of day, so one leaves no room for the tenant's UTC offset).
       The No branch ends in a Stop marked "Stopped early", which is both honest in the run history
       and required: a two-output node with a dead side will not publish.
+- [~] **Review pass on the wait work** (2026-08-09) — read the last two commits as a reviewer.
+      **One would not have compiled**: the `dateVariable` rule was added to the validator's
+      *second* per-node loop, which binds `def` but not `parameters` — that only exists in the
+      first loop. **One had the wrong error class**: the >1-year horizon threw `NodeFailure`,
+      which emails the tenant a failure notification, for input that is ordinary data (a warranty
+      ten years out, a service agreement booked for next spring) — and the same file's docblock
+      advertises the annual-maintenance case that would have tripped it. Now a `cancelled` stop
+      with the reason in run history, matching the rule the engine already follows: config
+      problems fail loudly, expected outcomes do not cry wolf.
+      **And one found by following the thread, bigger than either**: `condition.if` rules store
+      bare variable paths with the identical failure mode, and **nothing has validated them since
+      P6**. `ResolveVariable` returns `{found: false}` for a typo, the evaluator correctly sends an
+      unanswerable comparison down **No**, and so `booking.stauts` publishes, runs, and silently
+      takes the No branch forever — no throw, no log, a completed run. The rule is now one shared
+      `checkVariablePath` covering both field types rather than the same check written twice.
+      Also: the new test's edge literals used `source`/`target` where the validator's shape is
+      `sourceNodeId`/`targetNodeId`, so it would not have compiled either; and it walked a
+      hardcoded node list, now `NODE_DEFINITIONS`.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**
 - [ ] **P10** Hardening, 10 templates, GA housekeeping
 

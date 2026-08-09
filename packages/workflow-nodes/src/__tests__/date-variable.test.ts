@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { getDefinition } from "../catalog.js";
+import { NODE_DEFINITIONS } from "../registry/index.js";
 import { VARIABLE_MAP, variablesForSubject } from "../variables/index.js";
 import { isPropertyVisible, type NodeProperty } from "../node-definition.js";
 import { validateGraph, type ValidatableGraph } from "../graph/validate.js";
@@ -21,14 +22,17 @@ import { WORKFLOW_TEMPLATES } from "../templates/catalogue.js";
  * agree — so the round trip is asserted here rather than assumed.
  */
 
-/** Every `dateVariable` property across the whole registry. */
+/**
+ * Every `dateVariable` property across the whole registry.
+ *
+ * Walks `NODE_DEFINITIONS` rather than a hardcoded list, so the second node to
+ * grow one of these is covered without anybody remembering to come back here.
+ */
 function dateVariableProperties(): { node: string; property: NodeProperty }[] {
   const found: { node: string; property: NodeProperty }[] = [];
-  for (const nodeType of ["delay.wait"]) {
-    const def = getDefinition(nodeType);
-    if (!def) continue;
+  for (const def of NODE_DEFINITIONS) {
     for (const property of def.properties) {
-      if (property.type === "dateVariable") found.push({ node: nodeType, property });
+      if (property.type === "dateVariable") found.push({ node: def.node, property });
     }
   }
   return found;
@@ -106,7 +110,7 @@ describe("delay.wait untilField mode", () => {
   });
 });
 
-describe("the validator catches what only this field type can get wrong", () => {
+describe("the validator catches what only a path-valued field can get wrong", () => {
   function graphWith(parameters: Record<string, unknown>): ValidatableGraph {
     return {
       nodes: [
@@ -121,7 +125,37 @@ describe("the validator catches what only this field type can get wrong", () => 
           nodeConfig: { label: "Wait", parameters },
         },
       ],
-      edges: [{ id: "e", source: "t", target: "w", sourceHandle: "main" }],
+      edges: [
+        { id: "e", sourceNodeId: "t", sourceHandle: "main", targetNodeId: "w" },
+      ],
+    };
+  }
+
+  /** The same graph, but the second node is an Only if with one rule. */
+  function graphWithRule(rule: Record<string, unknown>): ValidatableGraph {
+    return {
+      nodes: [
+        {
+          id: "t",
+          nodeType: "trigger.booking.created",
+          nodeConfig: { label: "A booking is made", parameters: {} },
+        },
+        {
+          id: "c",
+          nodeType: "condition.if",
+          nodeConfig: {
+            label: "Only if",
+            parameters: { combinator: "and", rules: [rule] },
+          },
+        },
+        { id: "y", nodeType: "logic.stop", nodeConfig: { parameters: {} } },
+        { id: "n", nodeType: "logic.stop", nodeConfig: { parameters: {} } },
+      ],
+      edges: [
+        { id: "e1", sourceNodeId: "t", sourceHandle: "main", targetNodeId: "c" },
+        { id: "e2", sourceNodeId: "c", sourceHandle: "true", targetNodeId: "y" },
+        { id: "e3", sourceNodeId: "c", sourceHandle: "false", targetNodeId: "n" },
+      ],
     };
   }
 
@@ -157,6 +191,41 @@ describe("the validator catches what only this field type can get wrong", () => 
 
   it("accepts a date the trigger really provides", () => {
     const issues = validateGraph(graphWith({ ...base, dateField: "booking.date" }));
+    expect(issues.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
+  });
+
+  // The same rule, on the field type that has been shipping since P6 with
+  // nothing checking it. An unresolvable path in a condition is not an error at
+  // run time — it is a comparison that cannot be answered, and those go down
+  // "No" by design, so the Yes branch silently never runs.
+  it("rejects a condition rule naming a variable that does not exist", () => {
+    const issues = validateGraph(
+      graphWithRule({ variable: "booking.stauts", operator: "equals", value: "confirmed" }),
+    );
+    const issue = issues.find((i) => i.code === "unknown_variable");
+    expect(issue).toBeDefined();
+    expect(issue?.message).toContain("booking.status");
+  });
+
+  it("rejects a condition rule the trigger cannot provide", () => {
+    const issues = validateGraph(
+      graphWithRule({ variable: "invoice.balanceDue", operator: "greaterThan", value: 0 }),
+    );
+    expect(issues.some((i) => i.code === "unknown_variable")).toBe(true);
+  });
+
+  it("accepts a condition rule on any type, not only dates", () => {
+    const issues = validateGraph(
+      graphWithRule({ variable: "booking.status", operator: "equals", value: "confirmed" }),
+    );
+    expect(issues.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
+  });
+
+  it("says nothing about a rule row that has not been filled in yet", () => {
+    // Adding a rule and not yet choosing a variable is a normal intermediate
+    // state. Reporting it here would put two errors on one mistake, since
+    // `missing_required_field` already covers a wholly empty field.
+    const issues = validateGraph(graphWithRule({ variable: "", operator: "equals" }));
     expect(issues.filter((i) => i.code === "unknown_variable")).toHaveLength(0);
   });
 });

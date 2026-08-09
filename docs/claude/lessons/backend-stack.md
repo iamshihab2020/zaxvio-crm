@@ -532,3 +532,21 @@
   executor's bug to fix. Renaming the *definition* to match would silently
   orphan the value in every automation already saved — same reasoning as
   keeping publish's `trigger_types` vocabulary when the matcher was wrong.
+- **An unanswerable comparison is not an error, and that is what makes a typo
+  invisible.** `condition.if` rules store a bare variable path, and
+  `ResolveVariable` returns `{found: false}` for one that does not exist or that
+  this trigger does not provide. The evaluator then, correctly and by design,
+  sends the run down **No** — because a filter that cannot be answered must not
+  match. So `booking.stauts` publishes, runs, and quietly takes the No branch
+  forever. Nothing throws, nothing logs, and the run history shows a completed
+  run. Any field holding a *path* rather than a *value* needs a publish-time
+  check that the path exists and is in scope; the run-time behaviour is right
+  and can never be the place you find out.
+- **Pick the error class by who caused it, not by how bad it is.** In the
+  engine, `NodeFailure` emails the tenant a failure notification and
+  `WorkflowStopped("cancelled")` does not. A wait that would run past the
+  one-year horizon is triggered by *data* — a warranty ten years out, a service
+  agreement booked for next spring — so raising it as a failure trains people to
+  ignore the notification that means something. Config problems (an unknown
+  variable path, an unreadable time) are the author's and should fail loudly.
+  The run's own history is where expected-but-unhelpful outcomes belong.

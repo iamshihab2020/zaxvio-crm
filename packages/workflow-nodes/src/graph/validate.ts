@@ -381,6 +381,7 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
   for (const node of nodeById.values()) {
     const def = defByNodeId.get(node.id);
     if (!def) continue;
+    const parameters = node.nodeConfig.parameters ?? {};
 
     if (def.category !== "trigger" && !reachable.has(node.id)) {
       // A warning, not an error: the node may be connected to something that is
@@ -420,75 +421,113 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
       }
     }
 
-    // ── dateVariable fields ─────────────────────────────────────────────────
+    // ── fields that name a variable rather than hold a value ────────────────
     //
-    // A `dateVariable` names a variable rather than holding a value, so it has
-    // two ways to be wrong that no other field type has: the path may not exist
-    // at all, and it may exist but not be provided by this trigger. Both
-    // produce the same runtime symptom — a wait that never happens — and both
-    // are answerable here, at publish, where the author is looking at the step.
+    // Two field types do this: `dateVariable` (a Wait's anchor) and every rule
+    // inside a `conditions` field. Both store a bare path, and both fail the
+    // same silent way — an unresolvable path is not an error at run time, it is
+    // a comparison that cannot be answered, and an unanswerable comparison goes
+    // down "No" **by design**, so the automation quietly does nothing forever.
+    //
+    // `ResolveVariable` names this exact case in its own docstring ("a typo, or
+    // one this trigger cannot provide") and nothing upstream was checking for
+    // it. Both are answerable here, at publish, with the author looking at the
+    // step — which is the only moment anyone can act on it.
     for (const property of def.properties) {
-      if (property.type !== "dateVariable") continue;
       if (!isPropertyVisible(property, parameters)) continue;
 
-      const path = parameters[property.name];
-      // Empty is `missing_required_field`'s business, already reported above.
-      if (typeof path !== "string" || !path.trim()) continue;
-
-      const variable = VARIABLE_MAP.get(path.trim());
-      if (!variable) {
-        const suggestions = suggestVariables(path.trim(), 1);
-        push({
-          severity: "error",
-          code: "unknown_variable",
-          message:
-            `"${labelOf(node)}" is set to wait for a date called "${path}", which ` +
-            `does not exist.` +
-            (suggestions.length > 0 ? ` Did you mean "${suggestions[0]}"?` : ""),
-          nodeId: node.id,
-          field: property.name,
+      if (property.type === "dateVariable") {
+        checkVariablePath(node, property.name, parameters[property.name], {
+          types: property.typeOptions?.variableTypes ?? ["date", "datetime"],
+          expected: "a date",
         });
         continue;
       }
 
-      const allowed: readonly string[] =
-        property.typeOptions?.variableTypes ?? ["date", "datetime"];
-      if (!allowed.includes(variable.type)) {
-        push({
-          severity: "error",
-          code: "unknown_variable",
-          message:
-            `"${labelOf(node)}" needs a date, but "${variable.label}" is ` +
-            `${variable.type === "time" ? "a time of day with no date attached" : `a ${variable.type}`}.`,
-          nodeId: node.id,
-          field: property.name,
-        });
-        continue;
-      }
-
-      // In scope? Same "known and disjoint" caution as `subject_mismatch`: a
-      // variable with no `providedBy` is universal, and an unknown subject
-      // cannot prove anything. A false publish-blocker is worse than a missed
-      // warning, because the author has no way around it.
-      if (variable.providedBy && !subjectUnknown) {
-        const available = subjectsAt.get(node.id);
-        if (available && available.size > 0) {
-          const ok = variable.providedBy.some((s) => available.has(s));
-          if (!ok) {
-            push({
-              severity: "error",
-              code: "unknown_variable",
-              message:
-                `"${labelOf(node)}" waits for "${variable.label}", but the trigger ` +
-                `above it provides ${listOf([...available])} — so that date is ` +
-                `never there to wait for.`,
-              nodeId: node.id,
-              field: property.name,
-            });
-          }
+      if (property.type === "conditions") {
+        const rules = parameters[property.name];
+        if (!Array.isArray(rules)) continue;
+        for (const rule of rules) {
+          if (!rule || typeof rule !== "object") continue;
+          // Any type is fine in a comparison — `isEmpty` on a string and
+          // `greaterThan` on a number are equally valid.
+          checkVariablePath(node, property.name, (rule as { variable?: unknown }).variable);
         }
       }
     }
+  }
+
+  /**
+   * One path, checked three ways: it exists, it is the right kind of thing, and
+   * this trigger actually provides it.
+   *
+   * Declared here rather than at module scope because it closes over `push`,
+   * `subjectsAt` and `subjectUnknown` — passing those through would be four
+   * arguments of ceremony around one rule.
+   *
+   * **Silent on an empty path.** A rule row the author has added but not filled
+   * in yet is a normal intermediate state, and `missing_required_field` already
+   * covers a field left wholly blank. Reporting both would put two errors on one
+   * mistake and block publishing on a half-typed thought.
+   */
+  function checkVariablePath(
+    node: ValidatableNode,
+    field: string,
+    raw: unknown,
+    options: { types?: readonly string[]; expected?: string } = {},
+  ): void {
+    if (typeof raw !== "string") return;
+    const path = raw.trim();
+    if (!path) return;
+
+    const variable = VARIABLE_MAP.get(path);
+    if (!variable) {
+      const [suggestion] = suggestVariables(path, 1);
+      push({
+        severity: "error",
+        code: "unknown_variable",
+        message:
+          `"${labelOf(node)}" refers to "${path}", which is not something this ` +
+          `automation can read.` +
+          (suggestion ? ` Did you mean "${suggestion}"?` : ""),
+        nodeId: node.id,
+        field,
+      });
+      return;
+    }
+
+    if (options.types && !options.types.includes(variable.type)) {
+      push({
+        severity: "error",
+        code: "unknown_variable",
+        message:
+          `"${labelOf(node)}" needs ${options.expected ?? "a different kind of value"}, ` +
+          `but "${variable.label}" is ` +
+          `${variable.type === "time" ? "a time of day with no date attached" : `a ${variable.type}`}.`,
+        nodeId: node.id,
+        field,
+      });
+      return;
+    }
+
+    // Same "known and disjoint" caution as `subject_mismatch`: a variable with
+    // no `providedBy` is universal, and an unknown subject proves nothing. A
+    // false publish-blocker is far worse than a missed warning, because the
+    // author has no way around it.
+    if (!variable.providedBy || subjectUnknown) return;
+    const available = subjectsAt.get(node.id);
+    if (!available || available.size === 0) return;
+    if (variable.providedBy.some((s) => available.has(s))) return;
+
+    push({
+      severity: "error",
+      code: "unknown_variable",
+      message:
+        `"${labelOf(node)}" uses "${variable.label}", but the trigger above it ` +
+        `provides ${listOf([...available])} — so that value is never there to read.`,
+      nodeId: node.id,
+      field,
+    });
   }
 
   // ── P6 shapes: goto after a split, delay inside a loop ────────────────────
