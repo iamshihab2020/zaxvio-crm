@@ -490,10 +490,43 @@ handles, per-subscriber outbox) each close a documented defect in the source sys
       Shipped **without** the optional goal-filter field: it would have to evaluate against the
       event *payload* while `condition.if` rules hold variable *paths*, and a control that silently
       does nothing is the exact defect this project keeps finding.
+- [x] **P6 gate — all five "done when" proofs, by execution** (2026-08-09) — the internal-alpha
+      gate, and every one of them is a runtime proof that could not be argued from reading code.
+      **1 · A pause survives a real deploy** — a run paused in one process, resumed by a *different*
+      process that never started it; the step after the pause ran and the run completed.
+      **2 · Version pinning** — a run paused on v1, v2 published while it slept, resume executed
+      **v1's** step, not the version now live.
+      **3 · Compare-and-set** — a goal exit raced against a delay resume; exactly one drives the
+      run, never both.
+      **4 · DST** — 1 day across the America/Chicago fall-back keeps 09:00 and really is 25 real
+      hours; across the spring-forward, 23; 24 *hours* across the same boundary correctly lands at
+      08:00, because hours are real hours and days are calendar days.
+      **5 · OR/AND joins** — an if/else converging on one step publishes, runs once on the first
+      branch to arrive, and does not hang. AND remains `logic.merge` alone.
+      **Proof 3 found a real defect.** The goal subscriber marked its listener `met` whether or not
+      its compare-and-set had actually ended the run. When the resume worker won, the goal had
+      ended nothing but the watch was disarmed — the run carried on, reached its goal node,
+      re-parked, and could only be freed by the 30-day reaper. Every compare-and-set has a loser,
+      and the loser must leave the world as it found it.
+      Also found: a `conditions` rule missing `variable` or `operator` **published** and then failed
+      at run time as "this step has no checks set up" — `parseConditionRules` filters malformed
+      rules out, so three become zero, to an author looking at a panel showing three. Now a publish
+      error naming the step.
 - [ ] **P6 remaining** — `logic.switch`, `logic.goto`, `logic.loop`. All three need UI that does
       not exist yet: a variable-path field (switch, loop), a node picker (goto) and a route table.
       The validator's rules for `goto_after_split`, `goto_target_missing` and `delay_in_loop` are
-      already written and waiting.
+      already written and waiting. **Everything else in P6 is done and proven.**
+- [x] **The Costs tab was broken for every job** (2026-08-09) — reported from the UI.
+      `getJobCostInputs` bound `ANY(${jobIds}::uuid[])`, so Postgres received one uuid where it
+      expected an array literal and raised `22P02`. **The same defect as the trigger matcher, four
+      hours later** — and my sweep after that fix had looked for `&&`/`@>`/`<@` and never for
+      `ANY(...)`, so it reported the class clean. Fixed with `ARRAY[...]::uuid[]` via `sql.join`,
+      verified 4/4 through the real service (one job, three jobs, none, plus the shared
+      configuration query), and the scan now looks for any JS array reaching a `sql` template.
+- [ ] Follow-up: the Costs tab rendered Drizzle's raw SQL to the user. `DrizzleQueryError.message`
+      is the statement plus its parameters, and the UI shows it verbatim — database internals in
+      front of a customer, and useless to them. Same root as the `last_error` follow-up: the
+      readable half is on `.cause`.
 - [ ] Follow-up: goal filters. The column and the shape exist; the evaluator does not. Needs a
       payload-path resolver distinct from the context-path one `condition.if` uses.
 - [ ] **P9** Webhooks, schedules, recurring triggers — **public beta gate**

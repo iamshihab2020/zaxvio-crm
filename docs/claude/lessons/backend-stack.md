@@ -686,3 +686,19 @@
   booking is a different row than the quote. So it is a field, defaulting to the
   narrower option: a goal that fails to fire is visible in run history, while one
   that fires too eagerly looks exactly like success.
+- **The array-into-`sql`-template defect has two shapes, and sweeping for one
+  misses the other.** After fixing the trigger matcher's `&& ${eventTypes}` I
+  swept for `&&`, `@>` and `<@` and declared the class clean. The Costs tab was
+  broken the whole time by `ANY(${jobIds}::uuid[])` — same root cause, different
+  operator, and it made every job's Costs tab render "Couldn't load costs". The
+  scan now looks for *any* JS array reaching a template (`ANY(`, `ALL(`, the
+  set operators, and `${x}::type[]`), not for one operator. When you find a
+  defect class, define the class by its **cause**, not by the syntax you
+  happened to see it in.
+- **Losing a compare-and-set is not the same as the thing not happening.** The
+  goal subscriber marked its listener `met` whether or not the UPDATE actually
+  ended the run. When the resume worker won the race, the goal had ended
+  nothing — but the watch was now disarmed, so the run carried on, reached its
+  goal node, re-parked, and could only ever be freed by the 30-day reaper. Every
+  compare-and-set has a loser, and the loser must leave the world exactly as it
+  found it. Found only by racing the two, which is why the P6 gate asks for it.

@@ -453,9 +453,44 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
         if (!Array.isArray(rules)) continue;
         for (const rule of rules) {
           if (!rule || typeof rule !== "object") continue;
+          const shape = rule as { variable?: unknown; operator?: unknown };
+
+          // A rule that is not shaped like a rule.
+          //
+          // `parseConditionRules` FILTERS these out rather than failing on
+          // them, so three malformed rules become zero and the executor
+          // reports "this step has no checks set up" — to an author looking at
+          // a panel that plainly shows three. The empty case is already caught
+          // by `required`, which is exactly why this one slipped through: the
+          // array is non-empty, so nothing looked wrong until it ran.
+          if (typeof shape.variable !== "string" || !shape.variable) {
+            push({
+              severity: "error",
+              code: "missing_required_field",
+              message:
+                `A check on "${labelOf(node)}" doesn't say what to compare. Open the ` +
+                `step and pick a value for it, or remove the check.`,
+              nodeId: node.id,
+              field: property.name,
+            });
+            continue;
+          }
+          if (typeof shape.operator !== "string" || !shape.operator) {
+            push({
+              severity: "error",
+              code: "missing_required_field",
+              message:
+                `A check on "${labelOf(node)}" doesn't say how to compare. Choose ` +
+                `a comparison for it, or remove the check.`,
+              nodeId: node.id,
+              field: property.name,
+            });
+            continue;
+          }
+
           // Any type is fine in a comparison — `isEmpty` on a string and
           // `greaterThan` on a number are equally valid.
-          checkVariablePath(node, property.name, (rule as { variable?: unknown }).variable);
+          checkVariablePath(node, property.name, shape.variable);
         }
       }
     }

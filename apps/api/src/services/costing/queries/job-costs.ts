@@ -77,7 +77,19 @@ export const COST_INPUT_LATERALS = sql`
   ) inv ON TRUE
 `;
 
-/** Every cost input for a set of jobs, in one round trip. */
+/**
+ * Every cost input for a set of jobs, in one round trip.
+ *
+ * `ANY(ARRAY[$1, $2, …]::uuid[])`, built server-side. Interpolating the array
+ * itself — `ANY(${jobIds}::uuid[])` — binds it as ONE scalar parameter, so
+ * Postgres tried to read a single uuid as an array literal and raised `22P02`.
+ * The Costs tab rendered "Couldn't load costs" for every job.
+ *
+ * The cast does not save it: the parameter's *value* is already malformed by
+ * the time `::uuid[]` applies. This is the second site of that defect today —
+ * the trigger matcher had it with `&&` — which is why the scan now looks for
+ * any JS array reaching a `sql` template rather than for one operator.
+ */
 export async function getJobCostInputs(
   db: DbClient,
   tenantId: string,
@@ -90,7 +102,10 @@ export async function getJobCostInputs(
     FROM jobs j
     ${COST_INPUT_LATERALS}
     WHERE j.tenant_id = ${tenantId}
-      AND j.id = ANY(${jobIds}::uuid[])
+      AND j.id = ANY(ARRAY[${sql.join(
+        jobIds.map((id) => sql`${id}`),
+        sql`, `,
+      )}]::uuid[])
   `);
 
   return z.array(jobCostRow).parse(rows);

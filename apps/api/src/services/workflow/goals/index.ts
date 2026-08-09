@@ -35,7 +35,6 @@ import {
   and,
   eq,
   or,
-  inArray,
   type getDb,
 } from "@hvac-saas/database";
 import { SUBJECT_TYPES, type SubjectType } from "@hvac-saas/workflow-nodes";
@@ -152,15 +151,29 @@ export async function handleGoalEvent(
 
     const endedRun = ended.length > 0;
 
-    await db
-      .update(workflowGoalListeners)
-      .set({ status: "met", metAt: new Date() })
-      .where(
-        and(
-          eq(workflowGoalListeners.tenantId, event.tenantId),
-          eq(workflowGoalListeners.id, listener.id),
-        ),
-      );
+    // **Only when it actually ended the run.**
+    //
+    // Losing the compare-and-set means something else had the run at that
+    // instant — most often the resume worker, waking it from a delay. The run
+    // is still going, so the goal is still live and must stay armed: marking it
+    // `met` here disarmed a watch that had done nothing, and the run then
+    // carried on, reached its goal node, re-parked, and could only be freed by
+    // the 30-day reaper. Found by racing a goal exit against a delay resume,
+    // which is the one thing that produces this ordering.
+    //
+    // If the run really has finished, `settle()` already stood every listener
+    // down on the terminal transition, so leaving it alone is safe either way.
+    if (endedRun) {
+      await db
+        .update(workflowGoalListeners)
+        .set({ status: "met", metAt: new Date() })
+        .where(
+          and(
+            eq(workflowGoalListeners.tenantId, event.tenantId),
+            eq(workflowGoalListeners.id, listener.id),
+          ),
+        );
+    }
 
     // A run may carry several goals. Once one is met the others are moot, and
     // leaving them active would keep matching events for a run that has ended.
@@ -199,25 +212,6 @@ export async function deactivateListeners(
       and(
         eq(workflowGoalListeners.tenantId, tenantId),
         eq(workflowGoalListeners.executionId, executionId),
-        eq(workflowGoalListeners.status, "active"),
-      ),
-    );
-}
-
-/** Same, for a batch — used by the retention sweep and the reaper. */
-export async function deactivateListenersFor(
-  db: Db,
-  tenantId: string,
-  executionIds: string[],
-): Promise<void> {
-  if (executionIds.length === 0) return;
-  await db
-    .update(workflowGoalListeners)
-    .set({ status: "inactive" })
-    .where(
-      and(
-        eq(workflowGoalListeners.tenantId, tenantId),
-        inArray(workflowGoalListeners.executionId, executionIds),
         eq(workflowGoalListeners.status, "active"),
       ),
     );

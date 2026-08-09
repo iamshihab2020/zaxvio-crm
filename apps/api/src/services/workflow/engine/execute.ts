@@ -217,7 +217,10 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
     });
   } catch (err) {
     if (err instanceof SubjectGone) {
-      await settle(db, executionId, "cancelled", err.message, err.message, undefined, ctx.tenantId);
+      // `tenantId`, not `ctx.tenantId` — this is the branch where building the
+      // context is what failed, so `ctx` is not assigned yet. Same value, and
+      // it is the one that exists here.
+      await settle(db, executionId, "cancelled", err.message, err.message, undefined, tenantId);
       return {
         executionId,
         status: "cancelled",
@@ -226,7 +229,7 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
         diagnostics: [],
       };
     }
-    await settle(db, executionId, "failed", String(err), "This automation couldn't start.");
+    await settle(db, executionId, "failed", String(err), "This automation couldn't start.", undefined, tenantId);
     throw err;
   }
 
