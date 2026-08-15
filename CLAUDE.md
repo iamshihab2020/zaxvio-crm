@@ -50,6 +50,8 @@ pnpm typecheck              # TypeCheck all packages
 pnpm test                   # Run all tests
 pnpm db:push                # Push schema directly to DB (dev only)
 pnpm db:apply <file.sql>    # Apply ONE hand-written migration from supabase/migrations/
+                            # Takes a filename or a path — only the basename is used, since
+                            # every migration lives in that one directory
 # pnpm db:generate          # AVOID — diffs against meta/_journal.json, not the database, so it
 #                             emits a migration recreating everything applied by hand
 # pnpm db:migrate           # DISABLED — replays the journal from 0000 and fails on existing types

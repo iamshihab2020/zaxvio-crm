@@ -27,10 +27,20 @@
  * be used by a later statement in the same file.
  *
  * Usage:  pnpm db:apply 20260815000001_workflow_webhooks_and_schedules.sql
+ *     or:  pnpm db:apply supabase/migrations/20260815000001_....sql
+ *
+ * ## Why it takes the basename
+ *
+ * The argument used to be joined onto `supabase/migrations/` as given, so
+ * passing the path — which is what shell tab-completion produces, every time —
+ * resolved to `supabase/migrations/supabase/migrations/...` and died with a raw
+ * ENOENT stack that named the doubled path but not the reason. Every one of
+ * these files lives in that one directory, so the directory is the invariant and
+ * the basename is the only part of the argument that carries information.
  */
 
 import { readFile } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { resolve, dirname, basename } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import postgres from "postgres";
@@ -38,15 +48,27 @@ import postgres from "postgres";
 const here = dirname(fileURLToPath(import.meta.url));
 config({ path: resolve(here, "../../../.env") });
 
-const name = process.argv[2];
-if (!name) {
+const arg = process.argv[2];
+if (!arg) {
   console.error("Usage: pnpm db:apply <filename.sql>");
   console.error("Files live in supabase/migrations/");
   process.exit(1);
 }
 
-const path = resolve(here, "../../../supabase/migrations", name);
-const text = await readFile(path, "utf8");
+const dir = resolve(here, "../../../supabase/migrations");
+const name = basename(arg);
+const path = resolve(dir, name);
+
+let text: string;
+try {
+  text = await readFile(path, "utf8");
+} catch {
+  // A stack trace here says "open failed" and buries which file was wanted. The
+  // question the reader has is "is it named what I think it is", so answer that.
+  console.error(`No such migration: ${name}`);
+  console.error(`Looked in: ${dir}`);
+  process.exit(1);
+}
 
 if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL is not set. It lives in the repo-root .env, not in any package.");
