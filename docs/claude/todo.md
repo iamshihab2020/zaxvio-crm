@@ -1285,6 +1285,27 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **Template gallery redesigned — index and sheet** (2026-08-15) — the gallery was one scrolling
+      column of cards, each carrying its full description, so **two and a half templates fit on
+      screen** and choosing between ten of them meant scrolling past nine paragraphs. Now an index
+      (every template one scannable line, grouped by category) and a sheet (the selected one, with
+      room for the prose it always had, and **all** its steps rather than five plus "+2 more").
+      **Start from blank is a peer, not a footer link** — the first row of the index, pinned above
+      the scroll, the only dashed thing in the dialog, with a real sheet of its own explaining what
+      you are taking on instead of dropping you onto an empty grid. Visible first, chosen second.
+      The category filter is gone: the index groups by the same four categories, which shows every
+      shelf and its contents at once rather than charging a click for information a list can just
+      display. Steps are read off the template's own nodes, triggers tinted brand and actions muted,
+      the same distinction the builder canvas draws.
+      Three things caught reviewing my own draft before it shipped: `needsSetup?.length ||
+      dependsOn?.length` is a **number**, so two empty arrays would have rendered a literal "0" into
+      the sheet; the footer button leaned on TypeScript's aliased-condition narrowing to know the
+      selection was not blank, now derived once through an explicit null check; and Radix focuses
+      the first tabbable control on open, which here is **Start from blank** — a focus ring on the
+      blank option while the sheet beside it shows a template invites an Enter press that creates
+      the wrong thing.
+      Chatbot knowledge base corrected: it said blank was "at the bottom of the list" and named 5 of
+      the 10 templates.
 - [x] **Vercel Speed Insights** (2026-08-15) — `@vercel/speed-insights` + `<SpeedInsights />` in the
       root layout, so production gets real-user Core Web Vitals instead of synthetic ones. Collector
       is same-origin (`/_vercel/speed-insights/script.js`), so none of `next.config.mjs`'s security

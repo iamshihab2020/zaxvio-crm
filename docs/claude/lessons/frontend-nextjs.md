@@ -701,3 +701,26 @@ From [[bookings-calendar|the report]] — the front-end half.
   arrive out of order, so a slow result for "sm" lands after "smith" and
   replaces the right list with a stale one. The timer bounds the request count;
   only the counter bounds *which answer wins*.
+
+- **Radix focuses the first tabbable control when a Dialog opens — check what
+  that is before shipping the dialog.** The redesigned template gallery pins
+  **Start from blank** at the top of its index, which made it the first button
+  in DOM order: the dialog opened with a focus ring on the option that discards
+  every template, while the pane beside it showed a template. Enter creates the
+  wrong thing, and nothing about that reads as a bug in review. Fixed with
+  `onOpenAutoFocus={(e) => { e.preventDefault(); ...focus the content }}` — the
+  title and description are still announced and Tab still walks into the list.
+  The general rule: whenever a dialog's first tabbable control is destructive,
+  irreversible, or simply not the likely intent, focus the container instead.
+- **`a?.length || b?.length` in JSX renders a literal `0`.** It is a *number*,
+  not a boolean, so two empty arrays print `0` into the layout where you meant
+  to render nothing. `undefined` and `null` are skipped by React; `0` is not.
+  Wrap each side in `Boolean()`. Same family as the `z.coerce.boolean()` bug —
+  a value that is falsy in JS but not absent.
+- **Don't lean on TypeScript's aliased-condition narrowing across JSX.**
+  `const isBlank = sel === BLANK || item === null` then `isBlank ? … : use(item)`
+  compiles today, but the narrowing is fragile — it breaks the moment the alias
+  stops being `const`, gains a third clause, or moves into a child component's
+  props. Derive the whole branch once off the nullable value itself
+  (`const action = item ? {...} : {...}`) so there is one narrowing point and
+  the JSX carries none.
