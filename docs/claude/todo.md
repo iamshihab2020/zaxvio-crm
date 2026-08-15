@@ -67,8 +67,19 @@ disagreed with nothing, so nothing could catch it being wrong.
 - [x] Housekeeping: REPO_MAP 1 + 2, API docs (7 new endpoints, `PATCH /jobs/:id/labor` marked
       removed, `GET /jobs/:id/costs` response documented as a breaking change), 3 chatbot entries
       added and 3 corrected, lessons.
-- [ ] **Not executed.** `20260815000002` is **not applied**; `job-time.integration.test.ts` is
-      written and unrun; no typecheck, lint or build this session — the user runs those.
+- [x] **`pnpm typecheck` 9/9 green.** Six errors, all in the new test, all one root cause and a
+      real defect rather than a test problem: `analytics/types.ts` declared
+      `DbClient = ReturnType<typeof getDb>` — the bare handle — so **`getJobCostSummary` could not
+      be called inside a transaction at all**, which is why the costing assertions would not
+      compile under `withRollback`. **Fourth recurrence** of the same mistake after
+      `job-stages.service.ts` (QUO-02), `recalculateJobTotals` and `availability.service.ts`.
+      Fixed at the definition, not the call site. Two tells worth reusing: **nothing in this repo
+      reads `.$client`** — all ~54 occurrences are `Omit<…, "$client">`, so the bare type's only
+      distinguishing member is one no caller touches and it exists solely to exclude transactions;
+      and `availability.service.ts` already exported its *own* `DbClient` in the correct form, so
+      two types of one name disagreed on exactly this point.
+- [ ] **Still not executed.** `20260815000002` is **not applied**; `job-time.integration.test.ts`
+      compiles but has never run; no lint or build this session.
 - [ ] Follow-up: **drop `jobs.labor_cost_rate`** once the backfill is proven on real data. Nothing
       reads it now; it survives only because the backfill is the one thing that can reconstruct a
       historic entry's rate. A live column nothing reads is the exact "declared with no consumer"

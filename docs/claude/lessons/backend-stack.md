@@ -373,12 +373,22 @@
 - **A service that types its `db` as `ReturnType<typeof getDb>` cannot be called
   from inside a transaction.** A Drizzle transaction has every query method but
   no `$client`, so the bare handle type excludes it. This has now been the bug
-  three times — `job-stages.service.ts` (QUO-02), `recalculateJobTotals`, and
-  `availability.service.ts` — and every time it surfaced as a type error at the
-  *call* site, which reads as "the caller is doing something wrong" rather than
-  "this signature is too narrow". Type every service `db` parameter as
-  `Omit<ReturnType<typeof getDb>, "$client">`. A full handle still satisfies it,
-  so widening never breaks an existing caller.
+  **four** times — `job-stages.service.ts` (QUO-02), `recalculateJobTotals`,
+  `availability.service.ts`, and `analytics/types.ts`'s `DbClient`, which made
+  `getJobCostSummary` uncallable under `withRollback` — and every time it
+  surfaced as a type error at the *call* site, which reads as "the caller is
+  doing something wrong" rather than "this signature is too narrow". Type every
+  service `db` parameter as `Omit<ReturnType<typeof getDb>, "$client">`. A full
+  handle still satisfies it, so widening never breaks an existing caller.
+  **Two tells that the bare form is always wrong, both cheap to check.** First:
+  grep `\$client` across the repo — every single occurrence is inside an `Omit`
+  that removes it. *Nothing reads that property.* A type whose only distinguishing
+  member is one no caller ever touches is not modelling anything; it is only
+  excluding transactions. Second: when the same name is declared twice with
+  different definitions — `availability.service.ts` exported its own `DbClient`
+  in the correct form while `analytics/types.ts` exported the bare one — the
+  disagreement itself is the finding. Grep for duplicate type names before
+  importing one of them.
 - **When a feature needs "when is this business open", it already has an
   answer.** `services/availability.service.ts` resolves the weekly schedule plus
   date overrides and is what the booking portal, the calendar and dashboard
