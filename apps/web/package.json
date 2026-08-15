@@ -42,6 +42,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tabler/icons-react": "^3.40.0",
     "@tanstack/react-query": "^5.99.0",
+    "@vercel/speed-insights": "^2.0.0",
     "@xyflow/react": "^12.11.2",
     "ai": "^6.0.142",
     "better-auth": "^1.5.5",

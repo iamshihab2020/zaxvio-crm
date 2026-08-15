@@ -1285,6 +1285,10 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **Vercel Speed Insights** (2026-08-15) — `@vercel/speed-insights` + `<SpeedInsights />` in the
+      root layout, so production gets real-user Core Web Vitals instead of synthetic ones. Collector
+      is same-origin (`/_vercel/speed-insights/script.js`), so none of `next.config.mjs`'s security
+      headers had to be relaxed. Lockfile regenerated in the same commit.
 - [x] **`pnpm lint` existed only as a script** (2026-08-15) — reported from a real run:
       `'eslint' is not recognized`. Not a lint error. Three packages declared
       `"lint": "eslint src --fix"`, **`eslint` appeared nowhere in `pnpm-lock.yaml`**, and

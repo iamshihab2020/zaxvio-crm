@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Space_Grotesk, DM_Sans, DM_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "sonner";
@@ -78,6 +79,14 @@ export default function RootLayout({
           </QueryProvider>
           <Toaster position="bottom-right" richColors />
         </ThemeProvider>
+        {/*
+          Real-user Core Web Vitals, reported to Vercel Speed Insights. Renders
+          nothing and injects its collector from this app's own origin
+          (/_vercel/speed-insights/script.js), so no CSP or security header in
+          next.config.mjs has to be relaxed for it. Outside a Vercel deployment
+          it is inert — local `pnpm dev` sends nothing.
+        */}
+        <SpeedInsights />
       </body>
     </html>
   );
