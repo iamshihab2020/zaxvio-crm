@@ -223,9 +223,8 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   );
   const [sheetOpen, setSheetOpen] = useState(!!searchParams.get("jobId"));
 
-  // Job detail/delete dialog state
-  const [editingJob, setEditingJob] = useState<JobDetail | null>(null);
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  // Job delete dialog state. `editingJob` and `createDialogOpen` used to sit
+  // here and were written but never read — see the note by the sheet callbacks.
   const [deletingJob, setDeletingJob] = useState<JobDetail | null>(null);
 
   // Navigation direction for calendar transitions (-1 = prev, 0 = view change, 1 = next)
@@ -538,10 +537,13 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   // like a live feature (BOOK-31). Re-enabling resize means restoring both.
 
   /* ── Job detail sheet callbacks ── */
-  function handleEdit(job: JobDetail) {
-    setEditingJob(job);
-    setCreateDialogOpen(true);
-  }
+  //
+  // There is no `handleEdit`. It existed, set `editingJob` and opened
+  // `createDialogOpen` — and **no job dialog is rendered on this page**, nothing
+  // read either piece of state, and `JobDetailSheet` was never given an `onEdit`,
+  // so no control invoked it. Three pieces of a feature, none of them connected.
+  // Editing a job from the schedule means rendering the dialog, not restoring
+  // the handler. Same shape as the resize note above.
 
   function handleDelete(job: JobDetail) {
     setDeletingJob(job);

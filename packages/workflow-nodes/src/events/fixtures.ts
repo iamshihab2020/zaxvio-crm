@@ -36,10 +36,13 @@ import {
   type WorkflowEventType,
 } from "./registry.js";
 
-/** What `.meta({ example })` is read as. */
-interface FieldMeta {
-  example?: unknown;
-}
+/**
+ * Zod's internals, reached deliberately.
+ *
+ * `def` carries the discriminator this generator walks (`optional`, `object`,
+ * `enum`, …) and Zod types it as `$ZodTypeDef`, which describes the union rather
+ * than any one member. This is the narrower view this file actually reads.
+ */
 
 /**
  * Deterministic. Never `Math.random()` or `Date.now()` — a fixture that differs
@@ -67,13 +70,37 @@ interface ZodDefLike {
   options?: z.ZodType[];
 }
 
-function defOf(schema: z.ZodType): ZodDefLike {
-  return (schema as unknown as { def?: ZodDefLike }).def ?? {};
+/**
+ * Narrowed at runtime rather than asserted.
+ *
+ * These three helpers used to be `as unknown as { … }` double casts, which is
+ * banned by strict-rules §4 and was hiding something: a cast asserts the
+ * property is there, an `in` check *asks*. Writing the question out is what
+ * showed that `meta()` had been public API on `z.ZodType` all along — the cast
+ * was working around a type that already fit.
+ */
+function hasDef(schema: object): schema is { def: ZodDefLike } {
+  return "def" in schema;
 }
 
+function hasShape(schema: object): schema is { shape: Record<string, z.ZodType> } {
+  return "shape" in schema;
+}
+
+function defOf(schema: z.ZodType): ZodDefLike {
+  return hasDef(schema) ? schema.def : {};
+}
+
+/**
+ * The `example` a field declares through `.meta({ example })`.
+ *
+ * Zod's `GlobalMeta` does not declare `example` — it is this project's own key —
+ * so the value is reached with an `in` check rather than by widening the return
+ * type, which would be a second declaration of a shape Zod already owns.
+ */
 function exampleOf(schema: z.ZodType): unknown {
-  const meta = (schema as unknown as { meta?: () => FieldMeta | undefined }).meta?.();
-  return meta?.example;
+  const meta = schema.meta();
+  return meta && "example" in meta ? meta.example : undefined;
 }
 
 function checkFormats(def: ZodDefLike): string[] {
@@ -121,8 +148,7 @@ function sampleFor(schema: z.ZodType, path: string): unknown {
             (def.innerType ? sampleFor(def.innerType, path) : undefined));
 
     case "object": {
-      const shape =
-        (schema as unknown as { shape?: Record<string, z.ZodType> }).shape ?? def.shape ?? {};
+      const shape = hasShape(schema) ? schema.shape : (def.shape ?? {});
       const out: Record<string, unknown> = {};
       for (const [key, child] of Object.entries(shape)) {
         const value = sampleFor(child, path ? `${path}.${key}` : key);

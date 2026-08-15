@@ -7,12 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import {
   IconPlus,
   IconCalendarEvent,
-  IconBriefcase,
-  IconCalendarCheck,
   IconClipboardList,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { format, isToday, isBefore, startOfDay, addDays } from "date-fns";
+import { format, addDays } from "date-fns";
 import type { CalendarEventData } from "@/actions/calendar-events";
 
 /* ── Types ── */
@@ -65,12 +63,6 @@ const FILTER_OPTIONS: { value: TaskFilter; label: string }[] = [
   { value: "upcoming", label: "Upcoming" },
   { value: "completed", label: "Done" },
 ];
-
-const TYPE_ICON: Record<string, React.ElementType> = {
-  job: IconBriefcase,
-  booking: IconCalendarCheck,
-  event: IconCalendarEvent,
-};
 
 const PRIORITY_DOT: Record<string, string> = {
   standard: "bg-blue-500",

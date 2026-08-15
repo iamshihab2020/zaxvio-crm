@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconPhoto, IconTrash, IconUpload, IconLayoutColumns } from "@tabler/icons-react";
-import { getJobPhotos, deleteJobPhoto, updateJobPhotoTag } from "@/actions/jobs";
+import { getJobPhotos, deleteJobPhoto } from "@/actions/jobs";
 import { getStorageUrl } from "@/lib/storage-url";
 import { PhotoTagPill } from "./photo-tag-pill";
 import { JobPhotoLightbox } from "./job-photo-lightbox";

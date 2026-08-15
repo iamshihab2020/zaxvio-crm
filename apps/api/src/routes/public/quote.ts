@@ -1,3 +1,4 @@
+import { recordQuoteView } from "../../services/quotes/quote-views.service.js";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { dispatchNotification } from "../../lib/notifications.js";
 import { publish } from "../../lib/event-bus.js";
@@ -152,6 +153,18 @@ const publicQuoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const status = displayStatus(result, todayInTimezone(tz));
 
       const db = getDb();
+
+      // The one write this GET is allowed to make, and it earns the exception:
+      // it happens at most **once per quote ever**, and it records a fact about
+      // the read itself that nothing else can observe. Fire-and-forget — a
+      // customer trying to look at their quote must never get a 500 because a
+      // timestamp could not be stamped.
+      void recordQuoteView(db, {
+        tenantId: result.tenantId,
+        quoteId: result.id,
+      }).catch((err) => {
+        request.log.warn({ err, quoteId: result.id }, "quote view not recorded");
+      });
       const lineItems = await db
         .select({
           description: quoteLineItems.description,

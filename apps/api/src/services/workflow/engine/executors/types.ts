@@ -63,6 +63,28 @@ export interface ExecutorOutput {
    * didn't email them", never a code.
    */
   skipped?: string;
+  /**
+   * Continue from a **different node** instead of following edges — `logic.goto`.
+   *
+   * Declared on the output rather than done by the executor, because walking the
+   * graph is the traverser's job and an executor that could move the cursor
+   * would be a second implementation of traversal. The traverser is also the
+   * only place that can enforce `MAX_GOTO_JUMPS` and clear the `visited` marks
+   * a backwards jump needs — an executor has no access to either.
+   */
+  jumpTo?: string;
+  /**
+   * Run this node's `loop` output once per item — `logic.loop`.
+   *
+   * The executor resolves the list; the traverser iterates it. Same division as
+   * `jumpTo` and for the same reason: the body is a *subgraph*, and the thing
+   * that knows how to walk a subgraph is the walker.
+   *
+   * An empty array is meaningful and is not the same as absent — "the list was
+   * empty" runs the body zero times and then continues at `done`, while a node
+   * that returns no `loopItems` at all is not a loop.
+   */
+  loopItems?: unknown[];
 }
 
 export type Executor = (input: ExecutorInput) => Promise<ExecutorOutput>;

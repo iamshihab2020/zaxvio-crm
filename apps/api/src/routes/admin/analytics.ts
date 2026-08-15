@@ -1,6 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireAdmin } from "../../lib/auth-middleware.js";
-import { getPlanPrice, PLAN_PRICES } from "../../lib/plan-prices.js";
+import { getPlanPrice } from "../../lib/plan-prices.js";
 import {
   getDb,
   tenants,
@@ -14,8 +14,6 @@ import {
   eq,
   and,
   gte,
-  lte,
-  not,
   desc,
   count,
   sql,

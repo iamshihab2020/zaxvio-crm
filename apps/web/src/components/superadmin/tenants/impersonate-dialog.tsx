@@ -33,13 +33,16 @@ export function ImpersonateDialog({
   tenantName,
   open,
   onOpenChange,
-  onSuccess,
 }: {
   tenantId: string;
   tenantName: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSuccess: () => void;
+  // No `onSuccess`. The sibling dialogs have one because they mutate the tenant
+  // and the page behind them needs re-reading; both paths here end in
+  // `window.location.replace("/dashboard")`, so a `router.refresh()` would be
+  // refreshing a page that is already being navigated away from. A prop that
+  // cannot meaningfully fire is worse than none: the obvious "fix" is to call it.
 }) {
   const [reason, setReason] = useState("");
   const [mode, setMode] = useState<Mode>("ghost");

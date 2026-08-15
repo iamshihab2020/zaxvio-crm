@@ -15,10 +15,8 @@ import {
   IconX,
   IconLayoutColumns,
 } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
 import {
   getPipelines,
-  createPipeline,
   updatePipeline,
   deletePipeline,
 } from "@/actions/pipelines";
@@ -27,7 +25,6 @@ import { PipelineStagesDialog } from "@/components/dashboard/jobs/pipeline-stage
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { SettingsPageHeader } from "@/components/dashboard/settings/settings-page-header";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
-import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { Input } from "@/components/ui/input";
 
 export interface PipelineData {

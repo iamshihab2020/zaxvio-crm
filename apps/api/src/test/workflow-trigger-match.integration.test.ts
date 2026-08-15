@@ -83,6 +83,7 @@ function claimed(tenantId: string, eventType: string, subjectId: string | null):
     tenantId,
     eventType,
     payload: {},
+    causationDepth: 0,
     subjectType: subjectId ? "job" : null,
     subjectId,
     actorUserId: null,

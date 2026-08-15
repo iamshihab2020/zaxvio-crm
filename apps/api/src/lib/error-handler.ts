@@ -42,8 +42,25 @@ export interface ErrorBody {
   validation?: unknown;
 }
 
+/**
+ * What actually arrives here — which is not `FastifyError`.
+ *
+ * Fastify *types* the error handler's argument as `FastifyError`, but at runtime
+ * anything thrown inside a handler lands there, and the error this module exists
+ * for is a `DrizzleQueryError`: an ordinary `Error` with a `cause`, no
+ * `statusCode` and no `code`. Declaring the narrow type meant the test that
+ * proves the SQL-leak branch had to pass its realistic error `as never` — a cast
+ * papering over a signature that was describing the happy path rather than the
+ * input.
+ */
+type HandledError = Error & {
+  statusCode?: number;
+  code?: string;
+  validation?: FastifyError["validation"];
+};
+
 export function buildErrorResponse(
-  error: FastifyError,
+  error: HandledError,
   log: (payload: Record<string, unknown>, message: string) => void,
   context: { url: string; method: string; tenantId?: string },
 ): ErrorBody {
@@ -93,7 +110,10 @@ export function registerErrorHandler(fastify: FastifyInstance): void {
       {
         url: request.url,
         method: request.method,
-        tenantId: request.authUser?.tenantId,
+        // `?? undefined`, because the decorator types it `string | null` and
+        // the context field is optional. Null and absent mean the same thing
+        // here — no tenant in scope — so collapsing them loses nothing.
+        tenantId: request.authUser?.tenantId ?? undefined,
       },
     );
     return reply.status(body.statusCode).send(body);

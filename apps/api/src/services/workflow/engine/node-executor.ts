@@ -46,6 +46,16 @@ export interface ExecuteNodeResult {
   output: Record<string, unknown>;
   skipped: boolean;
   diagnostics: Diagnostic[];
+  /**
+   * Carried through untouched from the executor, for the traverser to act on.
+   *
+   * Neither is interpreted here. This boundary normalises *how a node leaves*
+   * (`handles`); where the walk goes next is the walker's decision, and putting
+   * a jump or an iteration behind a second interpretation here would be two
+   * places that decide traversal.
+   */
+  jumpTo?: string;
+  loopItems?: unknown[];
 }
 
 /** `handles` when given, else the single handle, else `main`. */
@@ -182,6 +192,8 @@ export async function executeNode(
         output: result.output ?? {},
         skipped: true,
         diagnostics,
+        jumpTo: result.jumpTo,
+        loopItems: result.loopItems,
       };
     }
 
@@ -201,6 +213,8 @@ export async function executeNode(
       output: result.output ?? {},
       skipped: false,
       diagnostics,
+      jumpTo: result.jumpTo,
+      loopItems: result.loopItems,
     };
   } catch (err) {
     // A pause is not a failure. The log says `waiting` and the signal goes up

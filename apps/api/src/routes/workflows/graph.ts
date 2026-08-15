@@ -21,11 +21,13 @@ import {
   previewNodeBody,
   publishWorkflowBody,
   restoreVersionBody,
+  recordSearchQuery,
   saveGraphBody,
   versionParam,
 } from "../../lib/schemas/workflows.js";
 import { loadWorkflowWithGraph, loadActiveVersion } from "../../services/workflow/graph/load.js";
 import { loadBuilderContext } from "../../services/workflow/graph/builder-context.js";
+import { searchRecords } from "../../services/workflow/graph/record-search.js";
 import { previewNode } from "../../services/workflow/graph/preview.js";
 import { saveGraph } from "../../services/workflow/graph/persist.js";
 import { publishWorkflow } from "../../services/workflow/graph/publish.js";
@@ -188,8 +190,48 @@ const workflowGraphRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(404).send({ message: "Automation not found" });
       }
 
-      const context = await loadBuilderContext(getDb(), tenantId);
+      const context = await loadBuilderContext(getDb(), tenantId, request.params.id);
       return reply.send({ data: context });
+    },
+  );
+
+  /**
+   * GET /workflows/:id/records?kind=customer&q=smith
+   *
+   * The searchable half of the picker set. `builder-context` ships the closed
+   * lists; this one serves customers, jobs, equipment and contracts, which have
+   * no ceiling and would make opening a node slower the longer a tenant has
+   * been in business.
+   *
+   * `ids` rather than `q` is the **rehydrate** path: a saved config holds an id
+   * and the panel has to render a name for it on open, with no search term to
+   * find it by. Without it a configured picker would show a bare uuid — or an
+   * empty control, which reads as "nothing is set" on a step that is set.
+   *
+   * Scoped to `:id` for the same reason as `builder-context`: it 404s for an
+   * automation this tenant does not own, so the customer list is not readable
+   * by id-less probing.
+   */
+  fastify.get(
+    "/:id/records",
+    {
+      preHandler: [requireTenant],
+      schema: { params: idParam, querystring: recordSearchQuery },
+    },
+    async (request, reply) => {
+      const tenantId = request.authUser.tenantId!;
+      const loaded = await loadWorkflowWithGraph(getDb(), tenantId, request.params.id);
+      if (!loaded) {
+        return reply.status(404).send({ message: "Automation not found" });
+      }
+
+      const options = await searchRecords(getDb(), {
+        tenantId,
+        kind: request.query.kind,
+        query: request.query.q ?? "",
+        ids: request.query.ids,
+      });
+      return reply.send({ data: options });
     },
   );
 

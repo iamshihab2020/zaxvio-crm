@@ -12,8 +12,6 @@ import {
   user,
   eq,
   and,
-  gte,
-  lte,
   desc,
   count,
 } from "@hvac-saas/database";

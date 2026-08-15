@@ -165,12 +165,47 @@ export interface BuilderContext {
   members: { id: string; name: string; email: string; image: string | null }[];
   pipelines: { id: string; name: string }[];
   stages: { id: string; label: string; pipelineId: string; lifecycle: string }[];
+  tags: { id: string; name: string; color: string | null }[];
+  checklists: { id: string; name: string; serviceType: string | null }[];
+  catalogItems: { id: string; name: string; unitPrice: string | null }[];
+  workflows: { id: string; name: string; isActive: boolean }[];
+  /** Lists that hit the server's cap, so the panel can say so rather than
+   *  showing a prefix and letting the author conclude a row is missing. */
+  truncated: string[];
 }
 
 export async function getBuilderContext(id: string) {
   return apiGet<BuilderContext>(`/workflows/${id}/builder-context`, {
     fallback: "Failed to load your pipelines and team",
   });
+}
+
+/** One row in a searchable picker. `sublabel` disambiguates two same names. */
+export interface RecordOption {
+  id: string;
+  label: string;
+  sublabel: string | null;
+}
+
+/**
+ * The searchable half of the picker set — customers, jobs, equipment, contracts.
+ *
+ * Two modes, and the second is the one that is easy to forget: `ids` rehydrates
+ * a saved config into labels on open. Without it a configured picker renders a
+ * bare uuid, or nothing, which reads as "this step is not set up".
+ */
+export async function searchWorkflowRecords(
+  workflowId: string,
+  params: { kind: string; q?: string; ids?: string[] },
+) {
+  const search = new URLSearchParams({ kind: params.kind });
+  if (params.q) search.set("q", params.q);
+  for (const id of params.ids ?? []) search.append("ids", id);
+
+  return apiGet<RecordOption[]>(
+    `/workflows/${workflowId}/records?${search.toString()}`,
+    { fallback: "Failed to search your records" },
+  );
 }
 
 /** One `{{token}}` that did not resolve, with the field it was in. */

@@ -170,3 +170,62 @@
   row.** Otherwise a templated node carries only the parameters the template
   mentioned and none of its definition's own defaults — which surfaces much
   later as a required field that was never empty on screen.
+- **A script that names an uninstalled tool reads as coverage until somebody
+  types the command.** `pnpm lint` had never run once: three packages declared
+  `"lint": "eslint src --fix"`, `eslint` appeared nowhere in `pnpm-lock.yaml`,
+  and `packages/config` advertised `"./eslint": "./eslint.config.js"` with the
+  directory holding nothing but `.gitkeep` and a `package.json`. Identical shape
+  to the P0 finding that `pnpm test` ran `vitest run` with vitest in no
+  package.json and zero test files. Both survived because the *declaration* was
+  correct — CLAUDE.md lists both commands, and reading either package.json tells
+  you the repo lints. The check that finds this class is not reading, it is
+  running the command, or grepping the lockfile for the binary a script names.
+- **`lint` and `lint:fix` are different tasks and only one of them belongs in
+  turbo's cache.** The single `eslint src --fix` script meant the check *was* the
+  mutation: turbo recorded a successful "lint" produced by rewriting the files
+  under it, and cached that. Anything auto-fixable never appeared in a diff
+  anybody reviewed. Split them, and mark `lint:fix` `"cache": false` — replaying
+  a cached run of a command whose only output is edits to the working tree does
+  nothing at all.
+- **A lint rule that cannot fire is worse than no lint rule.** Two in one sitting
+  while writing this config: a rule name that does not exist
+  (`no-restricted-syntax-warn`), which makes ESLint abort the whole run rather
+  than skip it, and `no-restricted-properties` with `object: "Date"`, which
+  matches the bare identifier `Date.toLocaleDateString` and never
+  `new Date(x).toLocaleDateString()` — the only form anyone writes. Both looked
+  right in review. What settled it was a probe fixture with one line per pattern,
+  plus the cases that must stay silent, linted once and checked line by line.
+  Rules are code; the reason to test them is that a silent rule is indistinguishable
+  from a clean codebase.
+- **Make the linter earn its place by encoding the defects `tsc` cannot see.**
+  A config that only repeats the compiler is a slower compiler. The four worth
+  having here are all recurrences: `as unknown` / `as never` (each one has hidden
+  a real error — `as never` in `job-helpers.ts` was concealing an untyped enum in
+  `lib/quote-to-job.ts`), a server action passed to `mutationFn` by reference,
+  and `z.coerce.boolean()`, which is `Boolean(value)` so `?showArchived=false`
+  parses as **true** — shipped three separate times by three different authors,
+  all of whom read the word "coerce" and drew the same wrong conclusion.
+- **Fix lint by codemod, then re-lint, because the findings cascade.** 78 dead import specifiers
+  came out mechanically; what a hand sweep would have missed is the second layer — deleting an
+  unused `TYPE_ICON` map orphaned two icon imports, and deleting the schedule page's `handleEdit`
+  orphaned two pieces of state that had looked "used" only because a setter was called. Each
+  round of the linter walks one step further down the chain.
+- **Every `as unknown` in this repo was removable, and three were hiding a fact.** `test/db.ts`
+  cast a transaction `as unknown as TestDb` twice, when `Omit<…, "$client">` had accepted a
+  transaction for months — the cast was stale, not necessary. `invoice-photos-tab.tsx` asserted
+  `{ detail: number }` onto an event React already types that way via `UIEvent`. And
+  `date-range-picker.tsx` needed two casts purely because `PRESETS` was `as const`; annotating it
+  `DatePreset[]` removed both. Where a cast is genuinely needed (React 18 vs `@react-pdf`'s
+  bundled React types), a **single** specific assertion compiles — the hop through `unknown` was
+  never buying anything.
+- **A prop the caller passes and the component never calls is a prop that should not exist.**
+  `ImpersonateDialog` took `onSuccess` and never invoked it, and the caller passed
+  `router.refresh()`. Calling it would have been the wrong fix: both impersonation paths end in
+  `window.location.replace("/dashboard")`, so the refresh would target a page already being left.
+  Deleting the prop is the fix; leaving it invites the other one.
+- **Dead code with a plausible name reads as a feature.** Lint surfaced four: a job-edit path on
+  the schedule page with a handler, two pieces of state and **no dialog rendered anywhere**; a
+  `hasActiveFilters` boolean computed for a "Clear filters" control that does not exist; and two
+  middleware path predicates left over from a design that gated on a role cookie. Each was
+  removed with a note stating what restoring the *feature* would actually take, so the next
+  reader does not mistake the absence for an oversight.

@@ -16,6 +16,8 @@
  * each marked below. See docs/workflow-automation/wf-04-node-catalog.md §4.1.
  */
 
+import type { VariableValueType } from "./variables/types.js";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared vocabulary
 // ─────────────────────────────────────────────────────────────────────────────
@@ -83,6 +85,28 @@ export const NODE_PROPERTY_TYPES = [
    * `VARIABLE_MAP`.
    */
   "dateVariable",
+  /**
+   * Names **any** variable, rather than holding a value — the general form of
+   * `dateVariable`.
+   *
+   * Same storage (a bare path, no braces, so interpolation leaves it alone) and
+   * the same validation, but no date constraint. A Switch routes on it and a
+   * Loop iterates over it. Kept as a separate type from `dateVariable` rather
+   * than widening that one, because a Wait's anchor genuinely must be a date and
+   * the control should say so — the type is where that rule is enforced.
+   */
+  "variablePath",
+  /**
+   * Names another **step in this same graph** — a Goto's target.
+   *
+   * Its options are not fetched and are not a closed list: they are the other
+   * nodes on the canvas, which only the builder knows. That makes it the one
+   * picker whose options come from the editor's own state rather than from the
+   * server, and the reason it is a distinct type rather than a `string`: a typed
+   * node id is unverifiable, and the validator's `goto_target_missing` rule can
+   * only tell you afterwards.
+   */
+  "nodeSelect",
   // CRM pickers (P7)
   "customerSelect",
   "jobSelect",
@@ -90,6 +114,8 @@ export const NODE_PROPERTY_TYPES = [
   "stageSelect",
   "catalogItemSelect",
   "checklistSelect",
+  "equipmentSelect",
+  "contractSelect",
   "tagSelect",
   "multiTagSelect",
   "memberSelect",
@@ -154,6 +180,29 @@ export const OWNERSHIP_KINDS = [
 ] as const;
 export type OwnershipKind = (typeof OWNERSHIP_KINDS)[number];
 
+/**
+ * Which record kinds a picker searches rather than preloads.
+ *
+ * The split is a ceiling question, not a taste one. Members, pipelines, stages,
+ * tags and checklist templates are bounded by how a business is *set up*, so
+ * they ship whole on node open. Customers, jobs, equipment and contracts are
+ * bounded by how long the business has *existed*, so preloading them makes the
+ * builder slower every year a tenant stays.
+ *
+ * Declared here, in the package both sides import, because three consumers must
+ * agree: the Zod query schema (which validates `kind`), the service (which
+ * switches on it), and the browser picker (which sends it). A free-string `kind`
+ * turns a typo into an empty result list — indistinguishable, to the person
+ * looking at it, from "this workspace has no customers".
+ */
+export const SEARCHABLE_KINDS = [
+  "customer",
+  "job",
+  "equipment",
+  "contract",
+] as const;
+export type SearchableKind = (typeof SEARCHABLE_KINDS)[number];
+
 /** Where an interpolated value is about to land. Declared with the field, not
  *  remembered at each call site — the reference implementation chose it per
  *  call and a node that forgot silently got `none`. */
@@ -206,7 +255,14 @@ export interface NodePropertyTypeOptions {
    * datetime. Named here rather than assumed so the picker and the validator
    * read the same list.
    */
-  variableTypes?: ("date" | "datetime")[];
+  /**
+   * Which kinds of variable a `dateVariable` / `variablePath` field will accept.
+   *
+   * Was `("date" | "datetime")[]`, which was right while the only such field was
+   * a Wait's anchor and wrong the moment a Switch needed to route on anything.
+   * Omitted means "any".
+   */
+  variableTypes?: VariableValueType[];
 }
 
 /** Conditional rendering, lifted from n8n. Without it an 8-property email node

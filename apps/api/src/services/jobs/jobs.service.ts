@@ -88,6 +88,7 @@ import {
 // read like a mistake, so nobody did, and invoices and quotes wrote their own
 // copies instead.
 import { findForeignRef, isOrgMember } from "../../lib/tenant-guards.js";
+import { actorUserId, type Actor } from "../actor.js";
 import type { createJobBody, updateJobBody } from "../../lib/schemas/jobs.js";
 
 type Db = Omit<ReturnType<typeof getDb>, "$client">;
@@ -96,24 +97,13 @@ type JobRow = typeof jobs.$inferSelect;
 /**
  * Who is doing this.
  *
- * `workflowName` and `executionId` are carried rather than looked up because the
- * activity row quotes the automation by name — "Moved by \"Chase overdue
- * invoices\"" is what the job's timeline should say, and a reader who wants the
- * run has the execution id to open it with.
+ * The type moved to `services/actor.ts` when `customers` needed the identical
+ * shape — two structurally-compatible declarations drift the moment one of them
+ * gains a field. `JobActor` stays as an alias because it is the name every
+ * caller in `routes/jobs` and the executors already imports, and renaming a
+ * type across call sites is churn with no reader benefit.
  */
-export type JobActor =
-  | { kind: "user"; userId: string }
-  | {
-      kind: "workflow";
-      workflowId: string;
-      workflowName: string;
-      executionId: string;
-    };
-
-/** The user id for the columns that hold one. Null for every automation. */
-function actorUserId(actor: JobActor): string | null {
-  return actor.kind === "user" ? actor.userId : null;
-}
+export type JobActor = Actor;
 
 export interface MoveJobStageArgs {
   tenantId: string;

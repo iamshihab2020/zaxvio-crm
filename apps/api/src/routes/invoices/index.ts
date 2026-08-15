@@ -78,7 +78,6 @@ import {
   renderInvoicePdf,
   storeInvoicePdf,
   contentDisposition,
-  pdfStoragePath,
 } from "../../services/invoices/pdf.service.js";
 import { sendOverdueReminder } from "../../lib/cron/email-cron.js";
 

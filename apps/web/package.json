@@ -10,7 +10,8 @@
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint src --fix"
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix"
   },
   "dependencies": {
     "@ai-sdk/groq": "^3.0.31",
@@ -64,6 +65,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@hvac-saas/config": "workspace:*",
     "@types/node": "^25.5.0",
     "@types/react": "^18.3.28",
     "@types/react-big-calendar": "^1.16.3",

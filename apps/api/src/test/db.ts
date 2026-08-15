@@ -39,7 +39,7 @@ export async function withRollback<T>(fn: (db: TestDb) => Promise<T>): Promise<T
   try {
     await db.transaction(async (tx) => {
       try {
-        result = await fn(tx as unknown as TestDb);
+        result = await fn(tx);
       } catch (err) {
         // Hold the real failure: the rollback below would otherwise replace it
         // with "test rollback" and the test would report the wrong cause.
@@ -88,7 +88,7 @@ export async function expectViolation(
 
   try {
     await db.transaction(async (savepoint) => {
-      await fn(savepoint as unknown as TestDb);
+      await fn(savepoint);
       throw new NoViolationSignal();
     });
   } catch (err) {

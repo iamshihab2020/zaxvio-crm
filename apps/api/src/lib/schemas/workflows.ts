@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   EXECUTION_LIMITS,
   NODE_ID_PATTERN,
+  SEARCHABLE_KINDS,
   SUBJECT_TYPES,
 } from "@hvac-saas/workflow-nodes";
 import { booleanFlag, boundedText, paginationQuery } from "./common.js";
@@ -187,6 +188,60 @@ export const previewNodeBody = z.object({
   subject: z
     .object({ type: subjectTypeSchema, id: z.string().uuid() })
     .optional(),
+});
+
+/**
+ * The searchable picker query.
+ *
+ * `kind` is a closed enum built from the service's own list, not a free string:
+ * a caller-supplied record type is an injection surface even through an ORM, and
+ * a typo in a picker would otherwise return an empty list rather than a 400 —
+ * which reads as "this tenant has no customers".
+ *
+ * `ids` is the rehydrate path and is capped: a saved config holds at most a
+ * handful, and an uncapped `IN` list from the query string is an unbounded read.
+ */
+export const recordSearchQuery = z.object({
+  kind: z.enum(SEARCHABLE_KINDS),
+  q: boundedText(120).optional(),
+  ids: z
+    .union([z.string().uuid(), z.array(z.string().uuid())])
+    .transform((v) => (Array.isArray(v) ? v : [v]))
+    .pipe(z.array(z.string().uuid()).max(20))
+    .optional(),
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Inbound webhooks (P9)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** No `hmac` — see `packages/database/src/schema/workflow-integrations.ts`. */
+export const webhookAuthModeSchema = z.enum(["none", "secret"]);
+
+/**
+ * `authMode` defaults to `secret`, not to `none`.
+ *
+ * The default on a security control is the setting most tenants will ship with,
+ * because most people do not change defaults. An endpoint that authenticates
+ * nobody unless you opt in is one that authenticates nobody.
+ */
+export const createWebhookBody = z.object({
+  authMode: webhookAuthModeSchema.default("secret"),
+  description: boundedText(200).nullish(),
+});
+
+export const updateWebhookBody = z
+  .object({
+    description: boundedText(200).nullish(),
+    isActive: z.boolean().optional(),
+  })
+  .refine((body) => Object.keys(body).length > 0, {
+    message: "Nothing to update",
+  });
+
+export const webhookParam = z.object({
+  id: z.string().uuid(),
+  webhookId: z.string().uuid(),
 });
 
 export const publishWorkflowBody = z.object({

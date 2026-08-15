@@ -1,7 +1,6 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import {
   getDb,
-  tenants,
   adminImpersonationSessions,
   eq,
   and,

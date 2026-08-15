@@ -14,7 +14,7 @@ import {
   IconLoader2,
 } from "@tabler/icons-react";
 import { LicenseBadge } from "@/components/public/license-badge";
-import type { ServiceType, BookingStatus } from "@hvac-saas/types";
+import type { ServiceType } from "@hvac-saas/types";
 
 interface BookingStatusClientProps {
   slug: string;

@@ -9,6 +9,7 @@
     "dev:web": "pnpm -F web dev",
     "build": "turbo build",
     "lint": "turbo lint",
+    "lint:fix": "turbo lint:fix",
     "typecheck": "turbo typecheck",
     "test": "turbo test",
     "test:unit": "pnpm -F api test:unit",
@@ -20,11 +21,13 @@
     "db:push": "pnpm -F @hvac-saas/database db:push",
     "db:studio": "pnpm -F @hvac-saas/database db:studio",
     "db:migrate": "pnpm -F @hvac-saas/database db:migrate",
+    "db:apply": "pnpm -F @hvac-saas/database db:apply",
     "seed:admin": "pnpm -F api seed:admin",
     "seed:demo": "pnpm -F api seed:demo"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
+    "eslint": "^9.39.0",
     "kill-port": "^2.0.1",
     "prettier": "^3.2.0",
     "turbo": "^2.10.9",

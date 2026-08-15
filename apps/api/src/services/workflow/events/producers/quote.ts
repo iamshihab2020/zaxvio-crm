@@ -129,6 +129,44 @@ export function quoteSent(db: EmitDb, args: QuoteSentArgs) {
   });
 }
 
+export interface QuoteViewedArgs extends ProducerContext {
+  quote: QuoteArgs;
+  customer: CustomerArgs;
+  viewedAt: Date | string;
+}
+
+/**
+ * The customer opened their quote — the first time, and only the first.
+ *
+ * The only quote event caused by the *customer* rather than by the business.
+ * "Sent and never opened" and "opened and ignored" want different follow-ups,
+ * and until this existed a chase could not tell them apart.
+ */
+export function quoteViewed(db: EmitDb, args: QuoteViewedArgs) {
+  const b = quoteBase(args.quote, args.customer);
+  return emitWorkflowEvent(db, {
+    type: "quote.viewed",
+    tenantId: args.tenantId,
+    subject: { type: "quote", id: args.quote.id },
+    actorUserId: args.actorUserId,
+    payload: {
+      customerId: b.customerId,
+      customerFirstName: b.customerFirstName,
+      customerLastName: b.customerLastName,
+      customerEmail: b.customerEmail,
+      customerPhone: b.customerPhone,
+      quoteId: b.quoteId,
+      quoteNumber: b.quoteNumber,
+      status: b.status,
+      totalAmount: b.totalAmount,
+      subtotal: b.subtotal,
+      issuedDate: b.issuedDate,
+      expiryDate: b.expiryDate,
+      viewedAt: isoDateTime(args.viewedAt),
+    },
+  });
+}
+
 export interface QuoteAcceptedArgs extends ProducerContext {
   quote: QuoteArgs;
   customer: CustomerArgs;

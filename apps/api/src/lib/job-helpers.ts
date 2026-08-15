@@ -34,7 +34,15 @@ export async function attachChecklistToJob(
   // the Zod schema now mirrors it, so the real union flows through and the
   // suppression is unnecessary.
   serviceType: (typeof checklistTemplates.serviceType)["_"]["data"],
-  userId: string,
+  /**
+   * Null when an automation created the job.
+   *
+   * Widened from `string` in P7: `job.create` goes through `createJob`, which
+   * takes an actor that is a person **or** a workflow, and the workflow case has
+   * no user id at all. The alternative — a sentinel id at the call site — would
+   * be a foreign key pointing at a user who does not exist.
+   */
+  userId: string | null,
 ) {
   // Find active template for this service type
   const template = await db

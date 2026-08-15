@@ -56,7 +56,6 @@ import type { AssigneeMember } from "@/components/dashboard/jobs/assignee-picker
 import { getPipelines } from "@/actions/pipelines";
 import { getPipelineStages } from "@/actions/pipeline-stages";
 import { rememberJobsPipeline, readJobsPipeline } from "@/lib/jobs-pipeline-preference";
-import { getTenant } from "@/actions/tenants";
 import { PipelineTabs } from "@/components/dashboard/jobs/pipeline-tabs";
 import { JobTable } from "@/components/dashboard/jobs/job-table";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
@@ -577,7 +576,6 @@ export function JobsPageClient({
     setPriorityFilter(null);
     setServiceTypeFilter(null);
     setTablePage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPipelineId]);
 
   function handlePipelineChange(pipelineId: string) {

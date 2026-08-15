@@ -313,7 +313,9 @@ export function KanbanCard({
             job.assigneeId && job.assigneeName ? (
               <span title={job.assigneeName} className="shrink-0">
                 {job.assigneeImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+                  // A plain <img>, deliberately: an avatar URL comes from the
+                  // auth provider and next/image would need each host in
+                  // `remotePatterns` first.
                   <img
                     src={job.assigneeImage}
                     alt={job.assigneeName}

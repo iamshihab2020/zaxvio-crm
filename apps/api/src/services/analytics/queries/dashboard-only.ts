@@ -9,16 +9,6 @@ import {
   upcomingBookingRow,
 } from "../schemas.js";
 
-/**
- * "Today" in the tenant's timezone, as a SQL `date`.
- *
- * Postgres `CURRENT_DATE` uses the session timezone, which is UTC on Neon — a US
- * Central tenant would see the dashboard roll over at 6-7 PM local.
- */
-function tenantToday(timezone: string) {
-  return sql`(now() AT TIME ZONE ${timezone})::date`;
-}
-
 /** Recent activity (UNION of job_activities + quote_activities). */
 export async function getRecentActivity(db: DbClient, tenantId: string, limit = 10) {
   const rows = await db.execute(sql`

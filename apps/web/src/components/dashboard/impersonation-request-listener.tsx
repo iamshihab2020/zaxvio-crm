@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { IconShieldCheck, IconUserCheck } from "@tabler/icons-react";
 import { toast } from "sonner";
 import {

@@ -43,7 +43,6 @@ export function EntityDetailShell({
 }: EntityDetailShellProps) {
   const {
     mode,
-    mounted,
     liveSidebarWidth,
     toggleMode,
     handleOpenChange,

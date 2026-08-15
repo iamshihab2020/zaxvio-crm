@@ -215,6 +215,12 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
       versionId: loaded.versionId,
       executionId,
       timezone: loaded.timezone,
+      // The source is the authority, not a flag on the payload. `manual.run`
+      // has carried `isTest` since P3 and nothing lifted it anywhere an
+      // executor could read it; deriving it from `source` instead means the
+      // engine cannot end up disagreeing with itself about which kind of run
+      // this is halfway through.
+      isTest: params.source === "test",
       subject: params.subject,
       trigger: {
         event: params.event?.type ?? null,

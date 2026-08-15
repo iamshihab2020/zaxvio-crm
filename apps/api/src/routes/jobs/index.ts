@@ -10,7 +10,6 @@ import {
   jobDocuments,
   jobActivities,
   jobChecklistCompletions,
-  checklistTemplates,
   checklistItems,
   catalogItems,
   customers,
@@ -72,7 +71,6 @@ import { paginationQuery } from "../../lib/schemas/common.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import { escapeLike } from "../../lib/search.js";
 import { isItemType, resolveLineItemDescription } from "../../lib/line-items.js";
-import { formatDateInTimezone } from "../../lib/timezone.js";
 import {
   createJob,
   moveJobStage,

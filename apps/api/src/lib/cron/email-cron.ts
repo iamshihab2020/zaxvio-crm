@@ -10,7 +10,6 @@
 import { z } from "zod";
 import {
   getDb,
-  invoices,
   customers,
   tenants,
   maintenanceContracts,
@@ -18,7 +17,6 @@ import {
   member,
   eq,
   and,
-  lt,
   gte,
   lte,
   sql,

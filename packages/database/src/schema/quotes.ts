@@ -51,6 +51,20 @@ export const quotes = pgTable(
       onDelete: "set null",
     }),
     accessToken: text("access_token"),
+    /**
+     * When the customer **first** opened the portal link. P9.
+     *
+     * First, not last, and the distinction is the feature: the automation worth
+     * building is "they looked at it and then went quiet", and a column that
+     * moved on every view would restart that clock each time they glanced at it
+     * again — so the chase would never fire for the customer who keeps
+     * re-reading it and never decides.
+     *
+     * Nullable with no default. A default would assert that every quote written
+     * before this column existed had been viewed, which is false for all of
+     * them — the same reason every cost column landed nullable.
+     */
+    firstViewedAt: timestamp("first_viewed_at", { withTimezone: true }),
     declineReason: text("decline_reason"),
     customerScheduledDate: date("customer_scheduled_date"),
     customerScheduledTime: text("customer_scheduled_time"),

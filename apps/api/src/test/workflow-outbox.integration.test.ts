@@ -127,9 +127,10 @@ describe("emit — the transactional guarantee", () => {
           actorUserId: null,
           payload: {
             ...buildEventFixture("customer.created", { customerId: customer.id }),
-            // Not a member of the source enum.
+            // @ts-expect-error - not a member of the source enum, which is the
+            // assertion: the payload parse must reject it at runtime too.
             source: "telepathy",
-          } as never,
+          },
         }),
       ).rejects.toThrow();
 

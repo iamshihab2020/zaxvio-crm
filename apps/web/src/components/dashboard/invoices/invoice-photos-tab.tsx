@@ -111,7 +111,10 @@ export function InvoicePhotosTab({ jobId }: InvoicePhotosTabProps) {
                 className="h-full w-full object-cover"
                 onClick={(e) => {
                   // Long-press intent: open lightbox on separate click
-                  if ((e as unknown as { detail: number }).detail === 2) {
+                  // `detail` is on React's MouseEvent already, via UIEvent — the
+                  // cast that used to be here was inventing a property React
+                  // types perfectly well.
+                  if (e.detail === 2) {
                     e.stopPropagation();
                     setLightboxIndex(index);
                   }

@@ -677,3 +677,27 @@ From [[bookings-calendar|the report]] — the front-end half.
   `[key: string]: unknown` to work around it, which then made the library's own
   props unassignable to it. Do not add the index signature by hand; change the
   declaration to `type`.
+
+- **`resolveNodeIcon` takes an icon NAME, not a node type.** It falls back to a
+  question mark rather than throwing — deliberately, so a missing map entry is
+  not fatal — which means a wrong name renders a node with no icon and nothing
+  else. `IconBriefcasePlus` is not a Tabler icon and the definition using it
+  looked entirely correct. **Check the name exists in the installed package**
+  (`grep` the package's `icons/index.mjs`); there is now a test that asserts
+  every definition's icon is in the map, but only the package can say whether
+  the name is real.
+- **A declared property type with no renderer case draws "this kind of field
+  isn't available yet".** Honest, and invisible until somebody opens that exact
+  node — `serviceTypeSelect` sat like that for two phases. Adding a
+  `NodePropertyType` is a case in `config-renderer.tsx` and a component, in the
+  same commit. `apps/web/src/__tests__/node-ui-coverage.test.ts` diffs the two.
+- **A picker stores an id and must be able to render a label for it with no
+  search term.** On open, a saved config holds a uuid and nothing else, so the
+  control shows a bare uuid — or worse, an empty trigger, which reads as *not
+  configured* on a step that is configured, and gets "fixed" by picking
+  something else. The searchable pickers take an `ids` parameter for this
+  rehydrate path, separate from the search path.
+- **Debounced search needs a generation counter, not just a timer.** Responses
+  arrive out of order, so a slow result for "sm" lands after "smith" and
+  replaces the right list with a stale one. The timer bounds the request count;
+  only the counter bounds *which answer wins*.

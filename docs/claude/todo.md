@@ -105,8 +105,93 @@ nothing here. This commit is what creates the possibility, so the guard ships in
       so "exactly one" is wrong and `[0]` is the checklist row — and that assertion would have
       passed on a tenant with no checklist template, i.e. no real tenant.
 - [ ] **P7a.3c** Line items + checklist handlers — the genuinely mechanical remainder.
-- [ ] **P7b** CRM pickers + variable pills — frontend, and blocked behind eyeballing the canvas.
-- [ ] **P7c** Node breadth to ~45, `workflow_folders`.
+- [~] **P7b/P7c — CRM pickers, node breadth, P6 remainder, P9 and P10** (2026-08-15) —
+      **written, `pnpm typecheck` green across all 9 tasks, nothing executed.**
+
+      **The audit that started it.** Asked what remained, and checked the live database rather
+      than my own notes. Three findings. `workflow_executions` is **0** — nothing has ever run
+      outside a rolled-back proof. One real automation exists ("Whatever", `job.created` → assign
+      + notify, active, last touched 2026-08-14), and its zero runs are **correct**: no job has
+      been created since it was switched on. One `failed` outbox row survives from the `22P02`
+      era, proving both recorded follow-ups — `last_error` holds the SQL and never says
+      `malformed array literal`, and a dead-lettered row is invisible in the product.
+
+      **And the defect the audit actually found, in that automation's own graph:** a notification
+      titled `{{quote.status}}` under a `job.created` trigger. The validator checks variable paths
+      for exactly two property types — `dateVariable` and `conditions` — and its own comment says
+      *"Two field types do this"*. **Text fields carrying `{{tokens}}` are a third, by far the most
+      common, and were unchecked.** At run time `interpolate.ts` substitutes `""` and records a
+      diagnostic that rides `execute()`'s return value, which an event-triggered run has nobody to
+      read — so the email goes out with a hole in it and the run log says it succeeded. Fixed: one
+      shared `checkVariablePath` over all three, `extractVariablePaths` exported from the package,
+      and `interpolate.ts` now imports the token pattern instead of keeping its own copy.
+
+      **CRM pickers: 3 → 13.** All thirteen types were already *declared*; the gap was renderers
+      and checkers. Split on the axis that actually matters — **preloaded vs searched**. Members,
+      pipelines, stages, tags, checklists, catalog items and other automations are bounded by how
+      a business is *configured*, so they ship with `builder-context` (now with a 200 cap that
+      **says** when it bit). Customers, jobs, equipment and contracts are bounded by how long the
+      business has *existed*, so they query `GET /:id/records`. That endpoint's `ids` parameter is
+      the half that is easy to miss: a saved config holds a uuid and the panel has no search term
+      to find its label with, so without it a configured picker renders a bare uuid — or an empty
+      control, which reads as *not set up* on a step that is.
+      **`assertOwnership` returned `false` for 8 of 11 kinds**, so any node carrying a customer,
+      job, tag or catalog picker would have refused at run time with "you do not own this" — which
+      reads as a tenancy bug rather than as unimplemented. All eleven now have a checker.
+
+      **Nodes: 23 → 54.** 10 triggers off events that had producers and no listeners; 9 actions
+      (`customer.addTag`/`removeTag`/`update`, `job.create`/`update`, `data.setFields`/`math`/
+      `format`, `workflow.run`); P6's `logic.switch`/`goto`/`loop`; P9's 7; P10's 2.
+      `data.setFields` is the writer `ctx.vars` has been documented as having **since P3** —
+      `{{vars.anything}}` resolved to nothing for every automation ever built, silently, because an
+      unresolved token substitutes `""`.
+      `services/customers/customers.service.ts` created, because D-17 forbids an executor writing a
+      table and there was nothing for the tag nodes to call. Its rule is load-bearing: tagging
+      twice writes no row, no activity and **no event**, so a re-run cannot enrol somebody twice.
+      `Actor` moved to `services/actor.ts` — `JobActor` and a customers copy would be two
+      structurally-compatible types that drift the first time one gains a field.
+
+      **Jumps and loops live in the traverser, not their executors.** `logic.goto` returns `jumpTo`
+      and `logic.loop` returns `loopItems`; the walker acts on them. Not tidiness: **only the
+      walker holds `visited`**, and a backwards jump that does not clear it re-enqueues nodes that
+      have already run, gets them dropped by the revisit guard, and produces a *completed run with
+      half its steps missing and no error anywhere*.
+
+      **P9 — the public-beta gate.** `workflow_webhooks` + `workflow_schedule_state` +
+      `quotes.first_viewed_at` (migration `20260815000001`, **written, not applied**). The receiver
+      returns **the same 404 for every refusal** — unknown token, switched-off endpoint, archived
+      automation, wrong secret — with the reason logged and never sent. Secrets are sha256, shown
+      in full exactly once, four-character hint thereafter. The constant-time compare **hashes both
+      sides first**: `timingSafeEqual` throws on a length mismatch and the obvious early-return
+      guard is itself a length oracle. Raw body kept by a plugin-scoped content-type parser,
+      because HMAC over a re-serialised object fails for every sender that is not Node.
+      Schedules: a minute-grained clock for daily/weekly and an hourly sweep for warranties,
+      agreements and visits. Once-only is a **row** with a unique index, never a timer — and
+      deliberately not the outbox's `dedupKey`, which retention clears at 30 days, so a warranty
+      reminder deduped against it would fire again on day 31.
+      `quote.viewed` is the trigger that makes "sent and never opened" distinguishable from
+      "opened and ignored" — two different problems, and until now a chase had to assume the worse.
+
+      **P10.** Templates 7 → 10 (renew an agreement, warranty ending, chase a viewed quote — the
+      first two only buildable now that P9's date triggers exist). `http.request` and
+      `webhook.send` ship with the **whole** of §10.5, not part of it: scheme allowlist, private/
+      loopback/link-local denial including IPv4-mapped IPv6, **resolve-then-pin** (built on
+      `node:https` because `fetch` cannot take a custom `lookup`, and rewriting the URL to the IP
+      breaks TLS), every redirect re-validated and capped at 3, 1 MB, 5s/10s, a per-tenant daily
+      quota derived from the logs rather than a counter column, and the response body withheld
+      from later steps unless the run is a test. `ctx.isTest` existed on `manual.run`'s payload
+      since P3 and had never been lifted anywhere an executor could read it.
+      ADR-003 written — twelve standing decisions, each with the defect behind it.
+
+      **Found by running `pnpm typecheck`, not by reading.** Nine errors across four packages.
+      The one worth recording: **I reintroduced the backtick-in-a-SQL-comment defect** — the same
+      one that stopped the API booting for a day on 2026-08-09 — and then **the comment I added
+      warning about it contained two backticks and broke the same template.** Also a literal
+      newline inside a quoted string in `error-handler.test.ts`, which means that file had never
+      compiled despite its commit claiming 7/7 verified.
+
+- [ ] **Not executed.** `pnpm test` has still never run; migration `20260815000001` is written and
+      **not applied**; the builder has never been rendered. Typechecking is not working.
 
 ### Workflow Automation — P0–P4 written, P2–P4 UNVERIFIED (paused 2026-08-08)
 
@@ -1200,6 +1285,99 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **`pnpm lint` existed only as a script** (2026-08-15) — reported from a real run:
+      `'eslint' is not recognized`. Not a lint error. Three packages declared
+      `"lint": "eslint src --fix"`, **`eslint` appeared nowhere in `pnpm-lock.yaml`**, and
+      `packages/config` had advertised `"./eslint": "./eslint.config.js"` since the repo was
+      created with the directory holding `.gitkeep` and a `package.json` and nothing else. So the
+      command has never run once. Same shape as P0's finding that `pnpm test` ran `vitest run`
+      with vitest in no package.json and 0 test files — both survived because the *declaration*
+      read correctly.
+      Now one flat config in `packages/config/eslint.config.js`, re-exported by a one-line file in
+      each of the three packages (flat config resolves from cwd). Deliberately **not** type-aware:
+      `projectService` would make lint depend on tsconfig resolution across seven packages, which
+      is a second way for the build to break that reports as a lint failure.
+      Beyond the recommended set it carries four rules `tsc` cannot express, each a recurrence:
+      `as unknown` / `as never` (§4 — `as never` in `job-helpers.ts` was hiding an untyped enum in
+      `lib/quote-to-job.ts`), a server action passed to `mutationFn` by reference (§11), and
+      `z.coerce.boolean()`, which is `Boolean(value)` so `?showArchived=false` parses as **true** —
+      shipped three separate times.
+      **`--fix` split out into `lint:fix`, uncached.** The one script made the check *be* the
+      mutation: turbo cached a "successful lint" it had produced by rewriting the files under it.
+      Two dead rules caught by a probe fixture rather than by reading: a rule name that does not
+      exist (ESLint aborts the whole run, it does not skip it), and `no-restricted-properties`
+      with `object: "Date"`, which matches `Date.toLocaleDateString` and never
+      `new Date(x).toLocaleDateString()`. Config verified to load in all three packages and all
+      five rules proven to fire on the right lines and stay quiet on the four negative cases.
+      Lockfile regenerated in the same change — the omission that broke `main` three times.
+- [x] **First `pnpm lint` run** (2026-08-15) — 5 problems in `workflow-nodes`, all resolved;
+      that package is now **0/0**. Also dropped the dead `"./tsconfig"` export from
+      `@hvac-saas/config` — the shared base is the root `tsconfig.json` every package extends.
+      Three defects the linter surfaced that reading had not:
+      **(1)** `producers/shared.ts` had an `eslint-disable-next-line eqeqeq` sitting above its own
+      two-line description, so the directive targeted the *comment* and the deliberate `!=` on the
+      next line was never covered. Invisible for exactly as long as the linter went uninstalled.
+      **(2)** Three `eslint-disable-next-line @next/next/no-img-element` comments naming a rule
+      from `eslint-config-next`, which has never been installed — ESLint errors on an unknown rule
+      in a directive. The `<img>` uses are legitimate (tenant/auth-provider remote URLs that
+      `next/image` will not render without `remotePatterns`); the comments now say that instead of
+      addressing a linter that is not there. **Next's own lint rules remain absent** — a separate
+      decision.
+      **(3)** `events/fixtures.ts` had three `as unknown as {…}` double casts into Zod internals.
+      Replaced with `in`-check type predicates, which is what exposed that **`meta()` has been
+      public API on `z.ZodType` all along** — the cast was working around a type that already fit.
+      Two rule calibrations, both narrow: `@ts-expect-error` is allowed **in test files with a
+      description** (asserting "this must not compile" is a real assertion, and the directive
+      self-destructs when the error goes away — `ts-ignore` stays banned everywhere), and the two
+      canonical formatter modules are exempt from the `toLocaleDateString` warning, since
+      `formatDateOnly` is the implementation the rule points everyone else at.
+- [x] **Lint sweep — `pnpm lint` is green** (2026-08-15). 110 errors → **0**, across `api` and
+      `web`; 6/6 turbo tasks, and `typecheck` 9/9 and `test` **235/235** still pass.
+      78 dead import specifiers removed by codemod rather than by hand, then re-linted so the
+      cascade could be followed — removing `TYPE_ICON` orphaned two icon imports, and removing
+      the schedule page's `handleEdit` orphaned two pieces of state. A hand sweep stops at the
+      first layer.
+      **Every `as unknown` in the repo turned out to be removable, and three were hiding
+      something:** `test/db.ts` cast a transaction `as unknown as TestDb` twice when
+      `Omit<…, "$client">` had already accepted a transaction for months — stale;
+      `invoice-photos-tab.tsx` invented `{ detail: number }` for a property React already
+      declares on `MouseEvent` via `UIEvent`; and `date-range-picker.tsx` needed two casts only
+      because `PRESETS` was `as const`, so annotating it `DatePreset[]` removed both. The PDF
+      generators and `highlight.tsx` needed a single specific cast, not a hop through `unknown`.
+      **`buildErrorResponse` was typed `FastifyError` and does not receive one.** The error this
+      module exists for is a `DrizzleQueryError` — a plain `Error` with a `cause`, no
+      `statusCode`, no `code` — so the test proving the SQL-leak branch had to pass it
+      `as never`. New `HandledError` type; the cast is gone.
+      **Four dead features found, each rendering nothing:** the schedule page's job-edit path
+      (`handleEdit` + `editingJob` + `createDialogOpen`, with **no dialog rendered at all** and
+      no `onEdit` on the sheet); `schedule-filters`' `hasActiveFilters`, computed for a "Clear
+      filters" control that does not exist; `ImpersonateDialog`'s `onSuccess`, passed by its
+      caller and never called — correctly, since both paths end in
+      `window.location.replace("/dashboard")`, so it is a prop that should not exist rather than
+      a call that is missing; and `middleware.ts`'s `isSuperadminPath`/`isDashboardPath`, left
+      over from a design that gated on a role cookie. All removed with a note saying what
+      restoring them would actually take.
+      Remaining: **70 warnings, deliberately.** 53 `toLocaleDateString` — this *is* the open
+      cross-page sweep, now enumerated instead of grepped — and 17 `exhaustive-deps`.
+- [x] **P9 migration applied** (2026-08-15) — `20260815000001_workflow_webhooks_and_schedules.sql`
+      on Neon, **22/22 verified by execution**: idempotent ×4 with the object set byte-identical
+      and NOTICE-only re-runs; `webhook_auth_mode` is exactly `none|secret`; the `path_token`
+      index is UNIQUE and global; 3 FKs with tenants+workflows CASCADE and user SET NULL;
+      `(tenant_id, dedup_key)` unique; `quotes.first_viewed_at` nullable with no default and its
+      index PARTIAL. Behavioural cases rolled back — duplicate token `23505`, bogus workflow
+      `23503`, duplicate dedup key `23505`, deleting the workflow cascades its webhooks — each
+      negative case in its own SAVEPOINT. Row counts unchanged (2/23/15/8/3).
+- [x] **`pnpm db:migrate` disabled; `pnpm db:apply` added** (2026-08-15) — **found by running
+      it.** `db:generate` diffs the schema against `meta/_journal.json` rather than against the
+      database, so with 32 hand-written files unlisted it emitted a **28 KB** migration
+      recreating 14 tables, 7 enums and 73 ALTERs that already exist. `db:migrate` then replayed
+      the journal from the beginning — `drizzle.__drizzle_migrations` is **empty** — and died on
+      `CREATE TYPE booking_status`, a type months old. Nothing was applied (drizzle runs the whole
+      thing in one transaction), and the generated file plus its snapshot and journal entry were
+      removed. `db:migrate` now exits with an explanation instead of trying;
+      `packages/database/scripts/apply-migration.mts` is the documented `sql.unsafe(...).simple()`
+      procedure turned into a command, which is what the backlog item has been asking for since
+      2026-07-26.
 - [x] **Demo Data Seed** (2026-07-31) — New `pnpm seed:demo` (`apps/api/src/scripts/seed-demo-data.ts`
       + `seed-demo-dataset.ts`). Resolves a tenant from the owner's email, then fills it with a working
       dataset: 13 customers, 19 jobs across all three stages, 12 invoices, 7 quotes, 8 bookings,

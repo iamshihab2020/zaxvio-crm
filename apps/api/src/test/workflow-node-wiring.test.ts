@@ -40,6 +40,16 @@ const EXECUTOR_DIR = join(HERE, "..", "services", "workflow", "engine", "executo
 const BARREL = join(EXECUTOR_DIR, "index.ts");
 const PRODUCER_DIR = join(HERE, "..", "services", "workflow", "events", "producers");
 const SWEEP_DIR = join(HERE, "..", "services", "workflow", "sweeps");
+/**
+ * The inbound webhook receiver raises its event **directly**, not through a
+ * producer, and that is correct rather than an omission: the outbox exists so an
+ * event commits with the domain write that caused it, and a webhook has no
+ * domain write. There is nothing to be transactional with.
+ *
+ * Scanned all the same, because the question this gate asks is "can this event
+ * actually be raised" — and the answer for `webhook.received` lives here.
+ */
+const WEBHOOK_ROUTE = join(HERE, "..", "routes", "public", "workflow-webhook.ts");
 const MATCHER = join(HERE, "..", "services", "workflow", "triggers", "index.ts");
 
 /** Comments stripped first, so a node id mentioned in prose is not a mapping. */
@@ -56,11 +66,22 @@ function mappedNodeIds(): string[] {
   );
 }
 
+/**
+ * Every executor module. One per node id, named for it.
+ *
+ * `*-shared.ts` is excluded by convention. The rule below exists because *"a
+ * file that exists and is not imported is a node that silently does not run"* —
+ * and a helper imported by two executors is reachable through them, so that
+ * concern does not apply to it. The suffix is what makes the exemption
+ * assertable rather than a list somebody has to maintain: a file either claims
+ * to be an executor by its name, or it does not.
+ */
 function executorFiles(): string[] {
   return readdirSync(EXECUTOR_DIR)
     .filter((f) => statSync(join(EXECUTOR_DIR, f)).isFile())
     .filter((f) => f.endsWith(".ts"))
-    .filter((f) => f !== "index.ts" && f !== "types.ts");
+    .filter((f) => f !== "index.ts" && f !== "types.ts")
+    .filter((f) => !f.endsWith("-shared.ts"));
 }
 
 /** `customer.addNote` → `customer-add-note.ts`. The file naming convention. */
@@ -214,6 +235,13 @@ function emittedEventTypes(): Set<string> {
   const dirs = [PRODUCER_DIR, SWEEP_DIR];
   const found = new Set<string>();
 
+  // The one single-file source, for the reason above.
+  for (const match of readFileSync(WEBHOOK_ROUTE, "utf8").matchAll(
+    /type:\s*"([a-z][a-zA-Z0-9._]*)"/g,
+  )) {
+    found.add(match[1]);
+  }
+
   for (const dir of dirs) {
     for (const file of readdirSync(dir)) {
       if (!file.endsWith(".ts")) continue;
@@ -304,6 +332,11 @@ describe("definitions the engine relies on", () => {
         if (!property.type.endsWith("Select")) continue;
         // Picks a value, not a row: no id, nothing to own.
         if (property.type === "serviceTypeSelect") continue;
+        // Picks another **step in this same graph**, not a tenant-scoped row.
+        // There is no table to check it against, and the graph validator owns
+        // the equivalent rule — `goto_target_missing` fires when the step it
+        // points at has been deleted, which is the only way it can go wrong.
+        if (property.type === "nodeSelect") continue;
         if (!property.ownership) unguarded.push(`${def.node}.${property.name}`);
       }
     }

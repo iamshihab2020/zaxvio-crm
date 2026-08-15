@@ -35,6 +35,7 @@ export * from "./workflows";
 export * from "./workflow-graph";
 export * from "./workflow-runs";
 export * from "./workflow-events";
+export * from "./workflow-integrations";
 
 // Relations
 export * from "./relations";

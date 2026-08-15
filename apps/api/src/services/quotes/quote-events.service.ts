@@ -35,6 +35,7 @@ import {
   quoteDeclined,
   quoteExpired,
   quoteSent,
+  quoteViewed,
   type CustomerArgs,
   type QuoteArgs,
 } from "../workflow/events/producers/index.js";
@@ -170,6 +171,33 @@ export async function emitQuoteSentEvent(
     customer: context.customer,
     onlineAcceptanceEnabled: args.onlineAcceptanceEnabled,
     sentAt: new Date(),
+  });
+}
+
+/**
+ * `quote.viewed`, raised by the public portal on the first open.
+ *
+ * Takes the transaction its caller is already in, so the event and the
+ * `first_viewed_at` stamp commit together. An event that could commit without
+ * the stamp would fire an automation for a view the database does not record;
+ * a stamp that could commit without the event would leave a quote marked viewed
+ * that no automation ever heard about.
+ */
+export async function emitQuoteViewedEvent(
+  db: Db,
+  args: EmitQuoteArgs & { viewedAt: Date },
+): Promise<void> {
+  const context = (
+    await loadQuoteEventContext(db, args.tenantId, [args.quoteId])
+  ).get(args.quoteId);
+  if (!context) return;
+
+  await quoteViewed(db, {
+    tenantId: args.tenantId,
+    actorUserId: args.actorUserId,
+    quote: context.quote,
+    customer: context.customer,
+    viewedAt: args.viewedAt,
   });
 }
 

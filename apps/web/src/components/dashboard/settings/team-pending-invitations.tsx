@@ -32,13 +32,14 @@ interface InvitationData {
 
 interface TeamPendingInvitationsProps {
   invitations: InvitationData[];
-  organizationId: string;
+  // No `organizationId`. Cancelling an invitation is keyed on the invitation's
+  // own id and the server resolves the organisation from the session, so a
+  // caller-supplied one could only ever disagree with it.
   onRefresh: () => void;
 }
 
 export function TeamPendingInvitations({
   invitations,
-  organizationId,
   onRefresh,
 }: TeamPendingInvitationsProps) {
   const [cancelling, setCancelling] = useState<string | null>(null);

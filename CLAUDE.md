@@ -44,12 +44,15 @@ pnpm dev                    # Start all apps (API + web)
 pnpm dev:api                # Fastify only (port 4000)
 pnpm dev:web                # Next.js only (port 3000)
 pnpm build                  # Build all packages
-pnpm lint                   # Lint all packages
+pnpm lint                   # Lint all packages (check only — never writes)
+pnpm lint:fix               # Lint and apply auto-fixes (rewrites source, uncached)
 pnpm typecheck              # TypeCheck all packages
 pnpm test                   # Run all tests
-pnpm db:generate            # Generate SQL migrations from schema
 pnpm db:push                # Push schema directly to DB (dev only)
-pnpm db:migrate             # Run pending migrations
+pnpm db:apply <file.sql>    # Apply ONE hand-written migration from supabase/migrations/
+# pnpm db:generate          # AVOID — diffs against meta/_journal.json, not the database, so it
+#                             emits a migration recreating everything applied by hand
+# pnpm db:migrate           # DISABLED — replays the journal from 0000 and fails on existing types
 pnpm seed:admin             # Create admin user (ADMIN_SEED_EMAIL + ADMIN_SEED_PASSWORD env vars)
 ```
 

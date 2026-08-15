@@ -9,7 +9,12 @@ import {
   updateAdminBody,
 } from "../../lib/schemas/admin.js";
 
-const VALID_TIERS = ["super_admin", "support", "billing_admin"] as const;
+/**
+ * A type, not a runtime array. It was `["super_admin", …] as const` and both of
+ * its uses were `(typeof VALID_TIERS)[number]` — a value shipped to production
+ * so that two type positions could read it.
+ */
+type AdminTier = "super_admin" | "support" | "billing_admin";
 
 const adminAdminsRoutes: FastifyPluginAsyncZod = async (fastify) => {
   /**
@@ -89,7 +94,7 @@ const adminAdminsRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const db = getDb();
       const updateData: Record<string, unknown> = {
         role: "admin",
-        adminTier: adminTier as (typeof VALID_TIERS)[number],
+        adminTier: adminTier as AdminTier,
       };
       if (makeOwner) {
         updateData.isOwner = true;
@@ -180,7 +185,7 @@ const adminAdminsRoutes: FastifyPluginAsyncZod = async (fastify) => {
 
       const oldTier = target.adminTier;
       const updateData: Record<string, unknown> = {
-        adminTier: adminTier as (typeof VALID_TIERS)[number],
+        adminTier: adminTier as AdminTier,
       };
       if (makeOwner) {
         updateData.isOwner = true;

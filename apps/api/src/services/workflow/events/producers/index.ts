@@ -27,3 +27,5 @@ export * from "./booking.js";
 export * from "./quote.js";
 export * from "./invoice.js";
 export * from "./misc.js";
+export * from "./assets.js";
+export * from "./schedule.js";

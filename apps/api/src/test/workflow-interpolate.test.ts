@@ -22,6 +22,7 @@ function ctx(overrides: Partial<ExecutionContext> = {}): ExecutionContext {
     timezone: "America/Chicago",
     workflowId: "w1",
     workflowName: "Quote follow-up",
+    isTest: false,
     versionId: "v1",
     executionId: "e1",
     subject: { type: "job", id: "j1" },

@@ -2040,3 +2040,200 @@ nodes, it can be large, and a run page that ships a megabyte of context for a ru
 nobody expands is a page nobody waits for.
 
 ---
+
+## Inbound webhooks (P9)
+
+### `GET /workflows/:id/records`
+
+**Auth:** `requireTenant`
+
+The searchable half of the builder's pickers. `builder-context` ships the small
+closed lists (members, pipelines, stages, tags, checklists, catalog items, other
+automations); this serves the ones with no ceiling.
+
+Scoped to `:id` for the same reason as `builder-context` — it 404s for an
+automation this tenant does not own, so the customer list is not readable by
+id-less probing.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `kind` | enum | Yes | `customer` · `job` · `equipment` · `contract` |
+| `q` | string | No | Search term, ≤ 120 chars. Empty returns the most recent. |
+| `ids` | uuid[] | No | **Rehydrate** path — resolve saved ids to labels. Max 20. |
+
+`ids` and `q` are alternatives; `ids` wins. It exists because a saved config
+holds an id and the panel has no search term to find its label with — without it
+a configured picker renders a bare uuid, or an empty control that reads as
+"not set up".
+
+**Response** `200 OK`
+
+```json
+{ "data": [{ "id": "…", "label": "Marcus Whitfield", "sublabel": "marcus@example.com" }] }
+```
+
+---
+
+### `GET /workflows/:id/webhooks`
+
+**Auth:** `requireTenant`
+
+**Never returns a secret.** `secretHint` is the last four characters, which is
+what makes two endpoints on one automation distinguishable — a list where every
+row says `••••` is a list nobody can act on.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "…",
+      "pathToken": "Yk3nQ8vRt2mLpX9a",
+      "authMode": "secret",
+      "secretHint": "8fQz",
+      "description": "Website contact form",
+      "isActive": true,
+      "lastReceivedAt": "2026-08-15T09:12:04.000Z",
+      "receivedCount": 47,
+      "createdAt": "2026-08-01T10:00:00.000Z"
+    }
+  ]
+}
+```
+
+`lastReceivedAt` and `receivedCount` are the difference between "it fired but
+nothing happened" and "it never fired" — two different problems that look
+identical from the automation's side.
+
+---
+
+### `POST /workflows/:id/webhooks`
+
+**Auth:** `requireTenant`
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `authMode` | enum | No | `secret` (default) · `none` |
+| `description` | string | No | ≤ 200 chars |
+
+`authMode` defaults to **`secret`**, not `none`. The default on a security
+control is what most tenants will ship with, and an endpoint that authenticates
+nobody unless you opt in authenticates nobody.
+
+**Response** `201 Created`
+
+```json
+{
+  "data": {
+    "id": "…",
+    "pathToken": "Yk3nQ8vRt2mLpX9a",
+    "authMode": "secret",
+    "secretHint": "8fQz",
+    "secretShownOnce": "3Kd9…full-secret…8fQz"
+  }
+}
+```
+
+> **`secretShownOnce` appears in this response and in `rotate`, and nowhere
+> else, ever.** The column stores a sha256 hash, so re-displaying it is not
+> possible rather than merely not done — which is the point: a database leak is
+> then not a leak of every tenant's ability to fire their own automations. The
+> field is named for its lifetime so a client cannot treat it as re-fetchable.
+
+---
+
+### `POST /workflows/:id/webhooks/:webhookId/rotate`
+
+**Auth:** `requireTenant`
+
+Mints a new secret and returns it once. **The path token does not change** — an
+integration that is already configured keeps working the moment its owner
+updates the secret, whereas rotating the URL too would make every rotation an
+outage until somebody edits the sending system twice.
+
+Rotating an endpoint that was `authMode: none` turns authentication **on**,
+which is the safe direction and the one somebody rotating means.
+
+**Response** `200 OK` — same shape as create.
+
+---
+
+### `PATCH /workflows/:id/webhooks/:webhookId`
+
+**Auth:** `requireTenant`
+
+| Field | Type | Description |
+|---|---|---|
+| `description` | string | ≤ 200 chars |
+| `isActive` | boolean | Pause without deleting |
+
+Never touches the secret.
+
+---
+
+### `DELETE /workflows/:id/webhooks/:webhookId`
+
+**Auth:** `requireTenant`
+
+Permanent, and the URL stops working immediately. There is no archive state: a
+webhook is a credential, "switched off but recoverable" is a category that does
+not apply to something whose only purpose is to be callable, and `isActive`
+already covers pausing one.
+
+---
+
+### `POST /public/hooks/:token`
+
+**Auth:** none — this is the public receiver.
+
+The only route in the product that fires an automation with **no session at
+all**. The tenant is resolved from the path token and from nothing else, never
+from a header, a body field or a query parameter (wf-10 T-4).
+
+| Header | When | Description |
+|---|---|---|
+| `X-Webhook-Secret` | `authMode: secret` | The secret, verbatim |
+
+> **There is no inbound signature mode.** An `hmac` option shipped in the first
+> draft and could never have validated a request: verifying an HMAC requires the
+> verifier to hold the key, and inbound secrets are stored as a sha256 hash on
+> purpose — the sender would sign with the secret and the receiver would check
+> against its hash. Because every refusal here returns the same 404, it would
+> have failed silently and permanently on endpoints whose owners had done
+> nothing wrong. Adding it back needs encrypted-at-rest secret storage first.
+>
+> **Outbound** signing (`webhook.send`) is unaffected and uses real
+> `HMAC-SHA256(secret, body)` in `X-Zaxvio-Signature`, because the node holds the
+> secret the author typed into it.
+
+**Rate limit** 60/min per endpoint. **Body limit** 256 KB; the stored payload is
+capped at 64 KB and *replaced* rather than truncated beyond that, because half a
+JSON object read through `{{webhook.body.x}}` resolves to nothing with no sign
+anything was dropped.
+
+**Headers reaching the automation** are an allowlist —
+`content-type`, `user-agent`, `x-request-id`, `x-event-type`, `x-event-id`,
+`x-source`. Never a denylist: the header you forget to deny is the one carrying
+a credential.
+
+**Response** `202 Accepted`
+
+```json
+{ "data": { "executionId": "…", "status": "completed" } }
+```
+
+202, not 200 — the automation has been *accepted*, not finished. It may contain
+a three-day Wait, and a sender holding a connection open for that would time out
+and retry, sending it twice.
+
+**Every refusal is `404` with `{"message": "Not found"}`** — an unknown token, a
+switched-off endpoint, an archived automation, a paused automation and a wrong
+secret are indistinguishable. The real reason is logged and never sent, so
+probing cannot tell "exists but wrong secret" from "does not exist".
+
+A malformed JSON body is the one exception: `400`, because the sender is already
+authenticated by then and telling them "not found" would send them hunting for
+the wrong thing.
+
+---

@@ -24,7 +24,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
-const PRESETS = [
+// Annotated rather than `as const`. A readonly tuple of readonly objects is not
+// a `DatePreset[]`, which is what forced two casts through `unknown` at the only
+// place this is read — and a cast through unknown is exactly what strict-rules
+// §4 bans. Declaring the type the consumer wants removes both.
+const PRESETS: DatePreset[] = [
   { label: "Today", getValue: () => ({ from: new Date(), to: new Date() }) },
   {
     label: "Last 7 days",
@@ -119,8 +123,8 @@ export function DateRangePicker({
   };
 
   const allPresets = React.useMemo(() => {
-    if (!extraPresets?.length) return PRESETS as unknown as DatePreset[];
-    return [...(PRESETS as unknown as DatePreset[]), ...extraPresets];
+    if (!extraPresets?.length) return PRESETS;
+    return [...PRESETS, ...extraPresets];
   }, [extraPresets]);
 
   const handlePreset = (preset: DatePreset) => {

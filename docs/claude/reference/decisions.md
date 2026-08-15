@@ -113,3 +113,161 @@ twenty, which is the point of doing this first.
 - Every request has a timeout. Previously a hung API hung the server action.
 - Cost: 20 action files to migrate. `tags.ts` went 99 lines → 25 with no
   behaviour change; the rest are the same shape.
+
+---
+
+## ADR-003 — The workflow engine's standing decisions
+
+> Related: [[wf-00-decisions]] | [[wf-02-architecture]] | [[wf-10-security]] | [[strict-rules]]
+
+**Status**: accepted, P0–P10. Written at the end of the build rather than the
+start, so every rule below has at least one defect behind it.
+
+### Context
+
+The automation engine touches every domain in the product and is reached from
+five different directions — a person pressing Run, an event, a schedule, an
+inbound webhook, and another automation. Almost every bug found during the build
+was **two sides of one seam disagreeing while both type-checked**. These are the
+rules that make particular classes of that unwriteable.
+
+### 1 · A node definition is one declaration, consumed by three
+
+The builder renders a form from `properties[]`, the engine dispatches on `node`,
+and the validator runs in both. Behaviour lives in an executor keyed by the same
+string. That is why adding a node is "write a definition, write one function"
+rather than touching six files.
+
+**What it cost to learn**: `serviceTypeSelect` was a declared property type with
+no case in the config renderer for two phases, so any node using it drew "this
+kind of field isn't available yet" — honest, and invisible until somebody opened
+that exact node. There is now a test.
+
+### 2 · An executor may not write a table
+
+Every side effect goes through the domain service that already owns the rule.
+`executors/types.ts` states it: *"An executor containing an `UPDATE` has, by
+definition, a second opinion about a business rule."*
+
+**What it cost**: `job.moveStage` was the **third** implementation of a stage
+move — after `/reorder` (JOB-06) and `lib/quote-to-job.ts` (QUO-02) — and the
+bulk bar was the fourth. Each skipped the archived gate, the required-checklist
+gate, the activity row, the completion email and the events. An automation that
+completed a job completed it in a way a person is not allowed to, and because it
+raised no event it could not trigger another automation.
+
+### 3 · Failure is a returned union, never a throw across a seam
+
+A domain service used by both a route and an executor returns
+`{ok: false, reason}`. The route maps a reason to a status code; the executor
+maps it to `skipped` or `NodeFailure`. Neither vocabulary is imposed on the
+other.
+
+**Why not exceptions**: the route needs a 400 with a sentence a person reads, and
+the executor needs to know whether this is *the author's problem* (fix the step)
+or *the day's* (an ordinary outcome). Those are different questions and an
+exception carries neither. `reply` objects are also truthy, which is how the
+booking convert path ran its success branch on a failure (BOOK-01).
+
+### 4 · Config problems fail loudly; expected outcomes do not cry wolf
+
+`NodeFailure` emails the tenant. So it is reserved for something they can open
+the automation and fix — a stage that does not exist, a teammate who left, a
+variable that resolves to nothing. Everything else is `skipped` with a sentence
+in the run log: an unsubscribed customer, a job already in that stage, a daily
+quota reached, a wait whose date has passed.
+
+**What it cost**: a >1-year wait horizon threw `NodeFailure` for input that is
+ordinary data — a warranty ten years out, a contract booked for next spring —
+and the same file's docblock advertised the case that would have tripped it.
+
+### 5 · An event commits with the write that caused it, or not at all
+
+The transactional outbox. A producer inserts into `workflow_event_queue` inside
+the domain write's own transaction; a worker sends it. Never inline, never after
+commit.
+
+**Both alternatives have a failure this cannot have**: an email sent for a
+transaction that rolled back, and a committed change whose automation was lost
+because the process died in the gap. Ten handlers gained a transaction they did
+not have when P2's instrumentation swept them.
+
+### 6 · Two names for one thing across a denormalised column will drift, silently
+
+`workflow_versions.trigger_types` is written by publish from `def.triggerEvents`
+(**event names**) and was read by the matcher through `LISTENERS_BY_EVENT`
+(**node ids**). Empty overlap for every trigger, so no event ever matched
+anything — the whole event taxonomy, 28 producers, the outbox and P4's matching
+were dead for anything but a manual run.
+
+Nothing caught it because both sides were internally consistent, both are
+`string[]` (a denormalised column has no type across its seam), the parameter was
+named `nodeTypes` so the call site read as correct, and `POST /:id/runs` bypasses
+the matcher — so every by-hand test exercised the one path that avoids the bug.
+
+**The rule**: name a parameter for what it *holds*, and put a test on the seam
+itself rather than on either side.
+
+### 7 · A JS array interpolated into a `sql` template binds as one scalar
+
+`` sql`${col} && ${eventTypes}` `` sends `job.created` where Postgres expects an
+array literal — `22P02 malformed array literal`. Build `ARRAY[$1, …]::text[]`
+with `sql.join`. **A `::text[]` cast does not fix it**: the value is already
+malformed before the cast applies.
+
+Found twice, four hours apart — the trigger matcher and then `getJobCostInputs`,
+which showed a customer a LATERAL join. The sweep after the first fix looked for
+`&&`/`@>`/`<@` and not for `ANY(...)`, and reported the class clean.
+
+### 8 · Once-only is a row, never a timer
+
+A three-day wait outlives every process that could hold a timer, so a pause is a
+row with a `resume_at` and a compare-and-set claim. The same reasoning covers
+schedules (`workflow_schedule_state`) and per-day event dedup (the outbox's
+`dedup_key`) — and those two are **not** interchangeable: the queue is cleared by
+the retention sweep, so a warranty reminder deduped against a queue row fires
+again on day 31.
+
+### 9 · Every compare-and-set has a loser, and the loser leaves the world alone
+
+Proven by the P6 gate: a goal exit racing a delay resume. The goal subscriber
+marked its listener `met` whether or not its CAS had actually ended the run, so
+when the resume worker won, the goal had ended nothing but the watch was
+disarmed — the run carried on, re-parked, and could only be freed by the 30-day
+reaper.
+
+### 10 · Dates are calendar days in the tenant's zone; hours are real hours
+
+`(now() AT TIME ZONE t.timezone)::date`, everywhere. On Neon the server is UTC,
+so without it a Chicago tenant sees an invoice go overdue six hours early — and
+"overdue" is a word customers get emailed about. Across a DST boundary, 1 day
+keeps 09:00 and really is 25 real hours; 24 *hours* lands at 08:00. Both proven.
+
+### 11 · A cap that is silent reads as "we covered everything"
+
+Every bound in the engine reports what it dropped: the loop's
+`MAX_LOOP_ITERATIONS`, the sweeps' batch limits, the context serialiser's
+`context_truncated`, the report row cap's `totals.truncated`. A run that
+processed 500 of 900 and said "completed" is the same defect as a report that
+averaged in the rows it excluded.
+
+### 12 · The recursion guard is ambient, not a parameter
+
+`execute()`'s depth guard read `params.depth`, which only a *direct* call passes
+— so every event-triggered run started at 0 and the guard had been unreachable
+since P3. Causation depth now travels on an `AsyncLocalStorage`: a producer that
+forgets a parameter defaults to 0 and silently reopens the loop, while a producer
+that forgets to be inside a scope is not a thing that can happen.
+
+### Consequences
+
+- Adding a node is two files and three one-line registrations, enforced by a test
+  that walks the directory.
+- A domain rule has one implementation, reachable from a route, an executor, a
+  bulk endpoint and a template.
+- The seams that have historically drifted — definition↔executor,
+  publish↔matcher, definition↔renderer, definition↔icon-map — each have a test
+  that diffs the two sides rather than checking either one.
+- Cost: more indirection than a direct implementation, and a service signature
+  shaped by its second caller before that caller exists.
+

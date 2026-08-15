@@ -60,6 +60,8 @@ export interface LoadContextParams {
   workflowName: string;
   versionId: string;
   executionId: string;
+  /** Defaults to false at every call site — see `ExecutionContext.isTest`. */
+  isTest?: boolean;
   /** Already resolved: workflow zone → tenant zone → default. Never the server. */
   timezone: string;
   subject: { type: SubjectType; id: string } | null;
@@ -92,6 +94,10 @@ export async function loadExecutionContext(
     workflowName: params.workflowName,
     versionId: params.versionId,
     executionId: params.executionId,
+    // `?? false`, never `?? true`. A test flag that defaults on is a production
+    // run behaving like a test — which for `http.request` means the response
+    // body of a live call landing in a log kept for ninety days.
+    isTest: params.isTest ?? false,
     subject: params.subject,
     customer: null,
     tenant,

@@ -89,7 +89,6 @@ export function CustomersPageClient({
   // Bulk selection
   const {
     selectedIds,
-    isSelected,
     toggle,
     toggleAll,
     clearSelection,

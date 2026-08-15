@@ -11,8 +11,6 @@ import {
   quoteKpisRow,
   quoteKpisPrevRow,
   collectionRateRow,
-  totalCountRow,
-  totalAmountRow,
   overdueInvoiceRow,
   quoteSummaryRow,
 } from "../schemas.js";

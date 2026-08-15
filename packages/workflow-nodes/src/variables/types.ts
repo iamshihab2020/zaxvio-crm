@@ -23,16 +23,7 @@ export interface VariableDef {
   /** Freely renameable — this is display only. */
   label: string;
   description: string;
-  type:
-    | "string"
-    | "number"
-    | "money"
-    | "boolean"
-    | "date"
-    | "datetime"
-    | "time"
-    | "array"
-    | "object";
+  type: VariableValueType;
 
   /**
    * How to render it, **declared rather than inferred from the value's shape**.
@@ -71,5 +62,25 @@ export interface VariableDef {
  * resolver has to know which prefixes are allowed to do that — an open fallback
  * is how `{{constructor.prototype}}` becomes reachable.
  */
+/**
+ * What kind of thing a variable holds.
+ *
+ * Named rather than inlined because a **second** consumer appeared: a property
+ * declaring `variableTypes` needs to say which of these it will accept, and that
+ * list was typed `("date" | "datetime")[]` — correct for a Wait's anchor and too
+ * narrow for anything else, so a Switch could not say "any value at all" without
+ * widening it here first.
+ */
+export type VariableValueType =
+  | "string"
+  | "number"
+  | "money"
+  | "boolean"
+  | "date"
+  | "datetime"
+  | "time"
+  | "array"
+  | "object";
+
 export const DYNAMIC_NAMESPACES = ["previous", "vars", "trigger", "loop"] as const;
 export type DynamicNamespace = (typeof DYNAMIC_NAMESPACES)[number];

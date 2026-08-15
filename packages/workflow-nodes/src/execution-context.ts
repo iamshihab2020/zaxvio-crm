@@ -171,6 +171,22 @@ export interface ExecutionContext {
   workflowName: string;
   versionId: string;
   executionId: string;
+  /**
+   * Is this a test run rather than a real one?
+   *
+   * `manual.run`'s payload has carried this since P3 — *"a test run writes logs
+   * and refuses external side effects; a real one does not"* — and nothing ever
+   * lifted it onto the context, so no executor could act on it.
+   *
+   * P10 gives it a consumer with teeth: `http.request` puts the response body
+   * into the run log **only** on a test run, because a body on a live run is
+   * whatever a remote server chose to send, stored for ninety days and readable
+   * by anyone with run-history access ([[wf-10-security|§10.5]]).
+   *
+   * Defaults to `false` at every construction site. A test flag that defaults to
+   * true is a production run behaving like a test.
+   */
+  isTest: boolean;
 
   // ── the subject and everything hanging off it ─────────────────────────────
   subject: { type: SubjectType; id: string } | null;
