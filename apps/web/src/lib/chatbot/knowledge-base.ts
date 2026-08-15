@@ -417,7 +417,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["cost", "costing", "margin", "profit", "profitability", "make money", "markup", "made on this job"],
     question: "How do I see what a job actually made me?",
     answer:
-      "Open any job and go to the **Costs** tab. It shows what you charged, what the work cost, and the margin between them.\n\nThe cost side has three parts:\n\n• **Parts & materials** — the cost of each line item, from your catalog or typed on the line\n• **Time on site** — the hours you record, priced at your labour cost rate\n• **Expenses** — anything no line item covers: a parts run, a subcontractor, a permit fee\n\nRevenue is what you **invoiced** for the job. If there's no invoice yet, the job's own total stands in and the tab says so.",
+      "Open any job and go to the **Costs** tab. It shows what you charged, what the work cost, and the margin between them.\n\nThe cost side has three parts:\n\n• **Parts & materials** — the cost of each line item, from your catalog or typed on the line\n• **Time on site** — the hours tracked on the **Time** tab, each priced at that person's own cost rate\n• **Expenses** — anything no line item covers: a parts run, a subcontractor, a permit fee\n\nRevenue is what you **invoiced** for the job. If there's no invoice yet, the job's own total stands in and the tab says so.",
   },
   {
     id: "costing-provisional",
@@ -425,7 +425,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["provisional", "incomplete", "not proven", "hatched", "missing cost", "why no margin", "estimate"],
     question: "Why does my margin say it's provisional?",
     answer:
-      "Because part of the cost side hasn't been entered, so the margin can't be stated as fact.\n\nA missing cost doesn't make a job cheaper — it makes the total **unknown**. If we filled the gap with zero, an uncosted job would look like pure profit, which is the one thing a costing tool must never do.\n\nThe Costs tab lists exactly what's missing, and the bar shows the margin hatched rather than solid until it's complete. Usually it's one of:\n\n• A line item with no cost set — add one on the **Line Items** tab, or set the cost on the catalog item so it fills in automatically next time\n• No hours recorded — enter them under **Time on site**\n• No labour cost rate — set one in **Settings → Business**, or per person in **Settings → Team**",
+      "Because part of the cost side hasn't been entered, so the margin can't be stated as fact.\n\nA missing cost doesn't make a job cheaper — it makes the total **unknown**. If we filled the gap with zero, an uncosted job would look like pure profit, which is the one thing a costing tool must never do.\n\nThe Costs tab lists exactly what's missing, and the bar shows the margin hatched rather than solid until it's complete. Usually it's one of:\n\n• A line item with no cost set — add one on the **Line Items** tab, or set the cost on the catalog item so it fills in automatically next time\n• No hours recorded — start the timer or log time on the **Time** tab\n• Someone's time has no cost rate — set one in **Settings → Business**, or per person in **Settings → Team**\n• A timer was stopped automatically — it ran past 12 hours, so nobody has confirmed the number. Edit the entry to correct it",
   },
   {
     id: "costing-expenses",
@@ -441,7 +441,23 @@ const entries: KnowledgeEntry[] = [
     keywords: ["labour rate", "labor rate", "hourly cost", "cost rate", "what an hour costs", "wage", "burden", "overhead"],
     question: "What is the labour cost rate, and where do I set it?",
     answer:
-      "It's what an hour of work **costs you** — wages plus overhead — not what you charge the customer. It's what turns hours on a job into a cost.\n\nSet a business-wide default in **Settings → Business**. To give one person a different rate, use **Settings → Team → Cost Rates**; anyone without their own rate uses the default.\n\nWhen you save hours on a job, the rate is **copied onto that job**. Giving somebody a raise later changes future jobs only — it never rewrites margins you've already reported.\n\nLeaving it blank is allowed. Jobs then report labour as a missing input rather than as free.",
+      "It's what an hour of work **costs you** — wages plus overhead — not what you charge the customer. It's what turns hours on a job into a cost.\n\nSet a business-wide default in **Settings → Business**. To give one person a different rate, use **Settings → Team → Cost Rates**; anyone without their own rate uses the default.\n\nThe rate is **copied onto each time entry** as it's recorded, at the rate of the person who did the work. Giving somebody a raise later changes future entries only — it never rewrites margins you've already reported. It also means a job two people worked costs each of their hours correctly, rather than pricing everything at one rate.\n\nLeaving it blank is allowed. Those hours then report labour as a missing input rather than as free.",
+  },
+  {
+    id: "job-time-tracking",
+    category: "jobs",
+    keywords: ["time", "timer", "clock in", "clock out", "hours", "track time", "stopwatch", "timesheet", "log time"],
+    question: "How do I track time on a job?",
+    answer:
+      "Open the job and press **Start timer** — on the job header, or on the **Time** tab. While it runs, a bar across the top of every page shows which job you're on and how long for, with a Stop button, so you can carry on using the app without losing track of it.\n\nYou can only have **one timer running at a time**. Starting one on a different job offers to switch: it stops the first and logs the time it ran.\n\n**Forgot to start it?** Use **Log time** on the Time tab and enter the date, start and end. Entries can be edited or deleted afterwards, so a mistake is always fixable.\n\n**Forgot to stop it?** Anything still running after 12 hours is closed automatically and marked so you can see it. The hours still count, but the job's margin stays provisional until you correct the entry.\n\nHours feed straight into the job's **Costs** tab. Labour is usually the biggest cost on a job, so this is what makes its margin real.",
+  },
+  {
+    id: "job-time-who-sees",
+    category: "jobs",
+    keywords: ["who can see time", "team time", "someone else hours", "payroll", "privacy", "log time for"],
+    question: "Can my team see each other's hours and rates?",
+    answer:
+      "Everyone on the team can see the **hours** recorded on a job, including who recorded them — that's how you tell what a job actually took.\n\n**Cost rates and what each entry cost are only visible to owners and admins.** A person's hourly rate is payroll information, so it isn't shown to other team members.\n\nOwners and admins can also edit or delete anyone's entries, and log time on behalf of someone who forgot. Everyone else can only add and change their own.",
   },
   {
     id: "costing-catalog-cost",

@@ -104,6 +104,46 @@ export async function isOrgMember(
 }
 
 /**
+ * This user's role in the workspace's organisation, or null if they have none.
+ *
+ * `requireOrgRole(["owner","admin"])` answers the same question but **refuses**
+ * when the answer is no, which is wrong for any handler that stays open to
+ * members and merely shows them less. Job time entries are exactly that shape: a
+ * tech records and reads their own hours, and only an owner or admin sees the
+ * rate attached to them, because a per-person hourly rate is payroll data.
+ *
+ * Same two hops and the same fail-closed rule as `isOrgMember` above, for the
+ * same reason — a tenant with no organisation row has no members to have roles.
+ */
+export async function resolveOrgRole(
+  db: Db,
+  tenantId: string,
+  userId: string,
+): Promise<string | null> {
+  const [tenant] = await db
+    .select({ organizationId: tenants.organizationId })
+    .from(tenants)
+    .where(eq(tenants.id, tenantId));
+  if (!tenant?.organizationId) return null;
+
+  const [row] = await db
+    .select({ role: member.role })
+    .from(member)
+    .where(
+      and(
+        eq(member.organizationId, tenant.organizationId),
+        eq(member.userId, userId),
+      ),
+    );
+  return row?.role ?? null;
+}
+
+/** Owners and admins see money; members see their own hours. */
+export function canSeeLaborRates(role: string | null): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/**
  * Validate every optional FK on a request in one pass. Returns the first
  * offending field name, or null when all supplied ids belong to the tenant.
  */

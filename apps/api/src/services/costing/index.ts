@@ -9,5 +9,5 @@ export {
   getJobCostInputs,
   getCostingConfiguration,
 } from "./queries/job-costs.js";
-export { toCents, fromCents, laborCents, marginPct } from "./money.js";
+export { toCents, fromCents, marginPct } from "./money.js";
 export type { JobCostRow, JobProfitabilityRow } from "./schemas.js";

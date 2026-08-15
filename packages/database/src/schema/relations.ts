@@ -20,7 +20,7 @@ import { equipment, refrigerantLogs } from "./equipment";
 import { maintenanceContracts } from "./maintenance";
 import { bookings } from "./bookings";
 import { jobs, jobLineItems, jobPhotos, jobDocuments } from "./jobs";
-import { jobExpenses, tenantMemberRates } from "./costing";
+import { jobExpenses, jobTimeEntries, tenantMemberRates } from "./costing";
 import { invoices, invoiceLineItems, invoicePayments } from "./invoices";
 import { quotes, quoteLineItems } from "./quotes";
 import { availabilitySchedules, scheduleOverrides } from "./schedule";
@@ -275,6 +275,31 @@ export const jobsRelations = relations(jobs, ({ one, many }) => ({
   refrigerantLogs: many(refrigerantLogs),
   activities: many(jobActivities),
   expenses: many(jobExpenses),
+  timeEntries: many(jobTimeEntries),
+}));
+
+export const jobTimeEntriesRelations = relations(jobTimeEntries, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [jobTimeEntries.tenantId],
+    references: [tenants.id],
+  }),
+  job: one(jobs, {
+    fields: [jobTimeEntries.jobId],
+    references: [jobs.id],
+  }),
+  // The person whose time this is. Distinct from `createdByUser`: an owner can
+  // add an entry on behalf of a tech who forgot, and the cost must follow the
+  // person who did the work, not the person who typed it in.
+  user: one(user, {
+    fields: [jobTimeEntries.userId],
+    references: [user.id],
+    relationName: "timeEntryWorker",
+  }),
+  createdByUser: one(user, {
+    fields: [jobTimeEntries.createdBy],
+    references: [user.id],
+    relationName: "timeEntryAuthor",
+  }),
 }));
 
 export const jobExpensesRelations = relations(jobExpenses, ({ one }) => ({

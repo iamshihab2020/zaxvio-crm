@@ -1,4 +1,8 @@
-import type { jobExpenses, tenantMemberRates } from "@hvac-saas/database";
+import type {
+  jobExpenses,
+  jobTimeEntries,
+  tenantMemberRates,
+} from "@hvac-saas/database";
 
 export type JobExpense = typeof jobExpenses.$inferSelect;
 export type JobExpenseInsert = typeof jobExpenses.$inferInsert;
@@ -6,6 +10,48 @@ export type JobExpenseUpdate = Partial<JobExpenseInsert>;
 
 export type TenantMemberRate = typeof tenantMemberRates.$inferSelect;
 export type TenantMemberRateInsert = typeof tenantMemberRates.$inferInsert;
+
+/**
+ * A time entry as it crosses the wire.
+ *
+ * Deliberately **not** `typeof jobTimeEntries.$inferSelect`. Drizzle types every
+ * timestamp as a `Date`; the boundary is JSON, so they arrive as strings — the
+ * same find that produced `WorkflowListItem` and removed a cast from every
+ * consumer of the automations list.
+ *
+ * `hourlyCostRate` and `cost` are withheld from members and present only for
+ * owners and admins: a per-person hourly rate is payroll data, which is why
+ * `tenant_member_rates` is already gated on `requireOrgRole(["owner","admin"])`.
+ * `undefined` here means "not yours to see", which is distinct from `null`
+ * meaning "nobody has set a rate".
+ */
+export interface JobTimeEntryView {
+  id: string;
+  jobId: string;
+  userId: string;
+  /** Display name of the person who did the work; null if the user is gone. */
+  userName: string | null;
+  startedAt: string;
+  /** Null while the clock is running. */
+  endedAt: string | null;
+  /** `ended_at - started_at` in hours, to two decimals. Null while running. */
+  hours: string | null;
+  hourlyCostRate?: string | null;
+  /** `hours * hourlyCostRate`. Null when the rate is unknown. */
+  cost?: string | null;
+  note: string | null;
+  autoStopped: boolean;
+  createdAt: string;
+}
+
+/** The running timer for the current user, if there is one. */
+export interface RunningTimer {
+  id: string;
+  jobId: string;
+  jobNumber: string;
+  jobTitle: string;
+  startedAt: string;
+}
 
 /**
  * How complete a cost figure is.
@@ -21,8 +67,22 @@ export interface CostCoverage {
   costedLineItems: number;
   /** Line items in total. `costedLineItems < lineItems` ⇒ cost understated. */
   lineItems: number;
-  /** True when hours were entered *and* a rate resolved. */
+  /**
+   * True when the job has at least one closed time entry *and* every one of
+   * them carries a rate. One entry logged by somebody with no rate set makes
+   * labour understated in exactly the way an uncosted line item does.
+   */
   laborCosted: boolean;
+  /** Closed time entries on the job. */
+  timeEntries: number;
+  /** Of those, how many carry an `hourlyCostRate`. */
+  costedTimeEntries: number;
+  /**
+   * Entries the sweep closed because the timer ran past the ceiling. They still
+   * count toward hours, but somebody should look at them — so the figure is
+   * provisional while any exist.
+   */
+  autoStoppedTimeEntries: number;
   /** Every cost input is filled in, so the margin can be stated plainly. */
   complete: boolean;
   /** Human-readable reasons the figure is provisional. Empty when complete. */
@@ -49,13 +109,24 @@ export interface JobCostSummary {
   lineItemCost: string;
   /** Sum of `job_expenses.amount`. */
   expenseCost: string;
-  /** `actualHours * laborCostRate`, or "0.00" when either is missing. */
+  /**
+   * Sum of `hours * hourlyCostRate` across the job's **closed** time entries,
+   * each at its own snapshotted rate — so a job worked by two people at
+   * different rates costs what it actually cost. Entries with no rate
+   * contribute nothing and are reported through `coverage` instead.
+   */
   laborCost: string;
   /** The three above, added. */
   totalCost: string;
 
+  /** Sum of the job's closed entry durations. Null when it has none. */
   actualHours: string | null;
-  laborCostRate: string | null;
+  /**
+   * How many closed entries produced `actualHours`. There is deliberately no
+   * single `laborCostRate` any more: rates live per entry, and one job can
+   * legitimately carry several.
+   */
+  timeEntryCount: number;
 
   revenue: string;
   revenueBasis: RevenueBasis;

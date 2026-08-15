@@ -14,7 +14,6 @@ import {
 import type { JobCostSummary, JobExpense } from "@hvac-saas/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -43,12 +42,13 @@ import {
   useAddJobExpense,
   useUpdateJobExpense,
   useDeleteJobExpense,
-  useUpdateJobLabor,
 } from "@/hooks/queries";
 import { JobCostStack } from "./job-cost-stack";
 
 interface JobDetailCostsProps {
   jobId: string;
+  /** Switch to the Time tab. Optional — a caller with no tab strip omits it. */
+  onOpenTime?: () => void;
 }
 
 interface ExpenseForm {
@@ -69,7 +69,7 @@ function emptyExpense(): ExpenseForm {
   };
 }
 
-export function JobDetailCosts({ jobId }: JobDetailCostsProps) {
+export function JobDetailCosts({ jobId, onOpenTime }: JobDetailCostsProps) {
   const costs = useJobCosts(jobId);
   const expenses = useJobExpenses(jobId);
 
@@ -101,7 +101,7 @@ export function JobDetailCosts({ jobId }: JobDetailCostsProps) {
   return (
     <div className="space-y-6">
       <MarginHeadline summary={summary} />
-      <LaborPanel jobId={jobId} summary={summary} />
+      <LaborPanel summary={summary} onOpenTime={onOpenTime} />
       <ExpensesPanel jobId={jobId} expenses={rows} />
     </div>
   );
@@ -177,30 +177,21 @@ function MarginHeadline({ summary }: { summary: JobCostSummary }) {
 
 // ── Labour ───────────────────────────────────────────────────
 
+/**
+ * Read-only. Hours used to be a text box here, typed from memory days later and
+ * multiplied by one rate resolved from the assignee — so it was usually empty,
+ * and a two-person job could not be expressed at all. They are now the sum of
+ * the job's time entries, and the only way to change the number is to change the
+ * work it came from, which is the Time tab's job.
+ */
 function LaborPanel({
-  jobId,
   summary,
+  onOpenTime,
 }: {
-  jobId: string;
   summary: JobCostSummary;
+  onOpenTime?: () => void;
 }) {
-  const [hours, setHours] = useState(summary.actualHours ?? "");
-  const mutation = useUpdateJobLabor(jobId);
-
-  const dirty = (summary.actualHours ?? "") !== hours.trim();
-
-  function handleSave() {
-    const trimmed = hours.trim();
-    if (trimmed === "") {
-      mutation.mutate({ actualHours: null });
-      return;
-    }
-    if (!/^\d{1,4}(\.\d{1,2})?$/.test(trimmed)) {
-      toast.error("Enter hours as a number, like 4 or 3.5");
-      return;
-    }
-    mutation.mutate({ actualHours: trimmed });
-  }
+  const { actualHours, timeEntryCount, coverage } = summary;
 
   return (
     <section>
@@ -212,57 +203,59 @@ function LaborPanel({
       </div>
 
       <div className="rounded-md border border-border p-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="w-28">
-            <Label
-              htmlFor={`hours-${jobId}`}
-              className="mb-1 block font-body text-xs text-muted-foreground"
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            {actualHours ? (
+              <>
+                <p className="tnum font-mono text-lg font-semibold text-foreground">
+                  {actualHours} h
+                </p>
+                <p className="font-body text-xs text-muted-foreground">
+                  across {timeEntryCount}{" "}
+                  {timeEntryCount === 1 ? "entry" : "entries"}
+                  {coverage.laborCosted && (
+                    <>
+                      {" · costing "}
+                      <span className="tnum font-mono font-medium text-foreground">
+                        {formatMoney(summary.laborCost)}
+                      </span>
+                    </>
+                  )}
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="font-body text-sm text-foreground">
+                  No time recorded
+                </p>
+                <p className="font-body text-xs text-muted-foreground">
+                  Labour is usually the largest cost on a job. Until somebody
+                  logs time, this margin is missing its biggest input.
+                </p>
+              </>
+            )}
+          </div>
+
+          {onOpenTime && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onOpenTime}
+              className="cursor-pointer"
             >
-              Hours worked
-            </Label>
-            <Input
-              id={`hours-${jobId}`}
-              value={hours}
-              inputMode="decimal"
-              placeholder="0.00"
-              onChange={(e) => setHours(e.target.value)}
-              className="tnum h-9 text-sm"
-            />
-          </div>
-
-          <div className="min-w-0 flex-1">
-            <p className="font-body text-xs text-muted-foreground">
-              Cost rate
-            </p>
-            <p className="tnum font-mono text-sm text-foreground">
-              {summary.laborCostRate
-                ? `${formatMoney(summary.laborCostRate)} / hr`
-                : "Not set"}
-            </p>
-            <p className="mt-0.5 font-body text-[11px] leading-tight text-muted-foreground">
-              {summary.laborCostRate
-                ? "Taken from the assignee's rate when the hours were saved, so later rate changes leave this job alone."
-                : "Set a rate in Settings → Business, or per person under Team, then save the hours again."}
-            </p>
-          </div>
-
-          <Button
-            size="sm"
-            onClick={handleSave}
-            disabled={!dirty || mutation.isPending}
-            className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
-          >
-            {mutation.isPending ? "Saving…" : "Save hours"}
-          </Button>
+              {actualHours ? "View time" : "Log time"}
+            </Button>
+          )}
         </div>
 
-        {summary.coverage.laborCosted && (
+        {/* Each entry carries its own snapshotted rate, so there is no single
+            "cost rate" to print here any more — one job can legitimately hold
+            several. The per-entry rate lives on the Time tab, where the person
+            it belongs to is named beside it. */}
+        {coverage.timeEntries > 0 && !coverage.laborCosted && (
           <p className="mt-2 font-body text-xs text-muted-foreground">
-            Labour on this job costs{" "}
-            <span className="tnum font-mono font-medium text-foreground">
-              {formatMoney(summary.laborCost)}
-            </span>
-            .
+            Some of this time has no cost rate, so labour here is understated.
+            Set a rate in Settings → Business, or per person under Team.
           </p>
         )}
       </div>

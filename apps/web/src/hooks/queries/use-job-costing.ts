@@ -7,9 +7,7 @@ import {
   addJobExpense,
   updateJobExpense,
   deleteJobExpense,
-  updateJobLabor,
   type ExpenseInput,
-  type LaborInput,
 } from "@/actions/job-costing";
 
 // ── Queries ──────────────────────────────────────────────────
@@ -99,20 +97,8 @@ export function useDeleteJobExpense(jobId: string) {
   });
 }
 
-export function useUpdateJobLabor(jobId: string) {
-  const invalidate = useCostingInvalidation(jobId);
-  return useMutation({
-    mutationFn: (data: LaborInput) => updateJobLabor(jobId, data),
-    onSuccess: (res) => {
-      if (res.error) {
-        toast.error(res.error);
-        return;
-      }
-      toast.success(
-        res.data?.actualHours === null ? "Hours cleared" : "Hours saved",
-      );
-      invalidate();
-    },
-    onError: () => toast.error("Failed to save hours"),
-  });
-}
+/*
+ * `useUpdateJobLabor` is gone with `PATCH /jobs/:id/labor`. Hours are no longer
+ * something a caller can assert — they are the sum of the job's time entries.
+ * See `use-job-time.ts`.
+ */

@@ -27,11 +27,6 @@ const moneyString = z
   .string()
   .regex(/^\d{1,8}(\.\d{1,2})?$/, "Must be a valid amount");
 
-/** Hours on a job: `numeric(6,2)`, so four digits before the point. */
-const hoursString = z
-  .string()
-  .regex(/^\d{1,4}(\.\d{1,2})?$/, "Must be a valid number of hours");
-
 // ── Params ────────────────────────────────────────────────────────────────────
 
 export const expenseParams = z.object({
@@ -61,18 +56,10 @@ export const updateJobExpenseBody = z.object({
   vendor: boundedText(200).nullable().optional(),
 });
 
-/**
- * Actual labour on a job.
- *
- * Both fields are nullable on purpose — clearing hours must be expressible,
- * and "0 hours" is a different statement from "not recorded". If
- * `laborCostRate` is omitted the server resolves it from the assignee's
- * override or the tenant default and snapshots the result.
+/*
+ * `updateJobLaborBody` is gone with the endpoint it validated. Labour is no
+ * longer a pair of fields on the job — see `schemas/job-time.ts`.
  */
-export const updateJobLaborBody = z.object({
-  actualHours: hoursString.nullable(),
-  laborCostRate: moneyString.nullable().optional(),
-});
 
 /** Per-member hourly cost override. */
 export const setMemberRateBody = z.object({

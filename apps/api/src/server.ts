@@ -22,6 +22,7 @@ import tagRoutes from "./routes/tags/index.js";
 import catalogRoutes from "./routes/catalog/index.js";
 import jobRoutes from "./routes/jobs/index.js";
 import jobCostingRoutes from "./routes/jobs/costing.js";
+import jobTimeRoutes from "./routes/jobs/time.js";
 import checklistRoutes from "./routes/checklists/index.js";
 import pipelineRoutes from "./routes/pipelines/index.js";
 import pipelineStagesRoutes from "./routes/pipeline-stages/index.js";
@@ -281,6 +282,7 @@ export async function buildServer() {
   // index.ts is already 2,497 lines and is the file ARC-05 wants split, so new
   // surface area goes beside it rather than into it.
   await fastify.register(jobCostingRoutes, { prefix: "/jobs" });
+  await fastify.register(jobTimeRoutes, { prefix: "/jobs" });
   await fastify.register(checklistRoutes, { prefix: "/checklists" });
   await fastify.register(pipelineRoutes, { prefix: "/pipelines" });
   await fastify.register(pipelineStagesRoutes, { prefix: "/pipeline-stages" });
@@ -367,6 +369,18 @@ async function start() {
   const { startEmailCronJobs } = await import("./lib/cron/email-cron.js");
   startEmailCronJobs();
   printCronStarted(["E-07 Invoice Overdue", "E-09 Renewal", "E-10 Trial Expiry"]);
+
+  // Close timers nobody stopped. Hourly, because the ceiling is measured in
+  // hours — a tighter interval would find nothing new, and a looser one leaves
+  // somebody unable to start their next timer for the rest of the morning.
+  const { sweepRunningTimers } = await import("./services/jobs/time-sweep.js");
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+  setInterval(() => {
+    sweepRunningTimers().catch((err) =>
+      server.log.error({ err }, "[time-sweep] Failed to sweep running timers"),
+    );
+  }, ONE_HOUR_MS);
+  printCronStarted(["Job timer auto-stop"]);
 
   // The workflow outbox worker. Started after `listen` for the same reason the
   // crons are: a request served during boot should not race a background claim

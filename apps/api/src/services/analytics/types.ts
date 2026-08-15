@@ -1,7 +1,26 @@
 import type { getDb } from "@hvac-saas/database";
 import { todayInTimezone } from "../../lib/timezone.js";
 
-export type DbClient = ReturnType<typeof getDb>;
+/**
+ * The database handle every analytics and costing query accepts.
+ *
+ * `Omit<…, "$client">` rather than the bare `ReturnType<typeof getDb>`. A
+ * Drizzle transaction has every query method but no `$client`, so the bare form
+ * makes anything typed with it **uncallable from inside a transaction** — and it
+ * fails at the *call site*, so the fix looks like "move this statement out of
+ * the transaction" rather than "widen this type".
+ *
+ * This is the **fourth** recurrence of that one mistake: `job-stages.service.ts`
+ * (QUO-02), `recalculateJobTotals`, `availability.service.ts` — which ships its
+ * own `DbClient` already in this form, so the repo had two types of the same
+ * name disagreeing on exactly this point — and now here, where it made
+ * `getJobCostSummary` impossible to call under `withRollback`.
+ *
+ * Strictly a widening: nothing in this codebase reads `.$client`. Every one of
+ * its 50-odd occurrences is an `Omit` exactly like this one, which is the real
+ * tell that the bare form was never the intended type anywhere.
+ */
+export type DbClient = Omit<ReturnType<typeof getDb>, "$client">;
 
 /** Bucket size for every `generate_series` trend. */
 export type TrendGranularity = "day" | "week" | "month";

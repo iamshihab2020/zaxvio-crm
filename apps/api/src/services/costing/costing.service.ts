@@ -6,12 +6,7 @@ import type {
 import type { DbClient } from "../analytics/types.js";
 import type { JobCostRow } from "./schemas.js";
 import { getJobCostInputs } from "./queries/job-costs.js";
-import {
-  toCents,
-  fromCents,
-  laborCents,
-  marginPct,
-} from "./money.js";
+import { toCents, fromCents, marginPct } from "./money.js";
 
 /**
  * Turn a job's raw cost inputs into a margin — and, just as importantly, into a
@@ -33,9 +28,12 @@ import {
  * count of what was skipped, and anything downstream that would present the
  * margin as fact must check `complete` first.
  */
-function buildCoverage(row: JobCostRow, laborKnown: boolean): CostCoverage {
+function buildCoverage(row: JobCostRow): CostCoverage {
   const lineItems = row.line_item_count;
   const costed = row.costed_line_item_count;
+  const entries = row.time_entry_count;
+  const costedEntries = row.costed_time_entry_count;
+  const autoStopped = row.auto_stopped_time_entry_count;
   const gaps: string[] = [];
 
   const uncosted = lineItems - costed;
@@ -46,18 +44,39 @@ function buildCoverage(row: JobCostRow, laborKnown: boolean): CostCoverage {
       } no cost set`,
     );
   }
-  if (!laborKnown) {
+
+  // Labour is known only when there is time *and* every bit of it is priced.
+  // Splitting the two cases matters to whoever has to fix it: "nobody tracked
+  // time" is a different job from "Sam has no cost rate", and one message
+  // covering both would point at neither.
+  const uncostedEntries = entries - costedEntries;
+  if (entries === 0) {
+    gaps.push("No hours recorded for this job");
+  } else if (uncostedEntries > 0) {
     gaps.push(
-      row.actual_hours === null
-        ? "No hours recorded for this job"
-        : "No labour cost rate set",
+      `${uncostedEntries} of ${entries} time entr${
+        entries === 1 ? "y" : "ies"
+      } ${uncostedEntries === 1 ? "has" : "have"} no cost rate`,
+    );
+  }
+
+  // An auto-stop does not make labour *unknown* — the hours are counted — but it
+  // does mean a timer ran past the ceiling and nobody confirmed the number. That
+  // is enough to keep the margin provisional rather than stated as fact.
+  if (autoStopped > 0) {
+    gaps.push(
+      `${autoStopped} time entr${autoStopped === 1 ? "y was" : "ies were"} ` +
+        `stopped automatically and may be wrong`,
     );
   }
 
   return {
     costedLineItems: costed,
     lineItems,
-    laborCosted: laborKnown,
+    laborCosted: entries > 0 && uncostedEntries === 0,
+    timeEntries: entries,
+    costedTimeEntries: costedEntries,
+    autoStoppedTimeEntries: autoStopped,
     complete: gaps.length === 0,
     gaps,
   };
@@ -67,9 +86,11 @@ function buildCoverage(row: JobCostRow, laborKnown: boolean): CostCoverage {
 export function summarise(row: JobCostRow): JobCostSummary {
   const lineItemCost = toCents(row.line_item_cost) ?? 0;
   const expenseCost = toCents(row.expense_cost) ?? 0;
-  const labor = laborCents(row.actual_hours, row.labor_cost_rate);
-  const laborKnown = labor !== null;
-  const totalCost = lineItemCost + expenseCost + (labor ?? 0);
+  // Already money: the lateral summed hours × each entry's own rate, so there is
+  // nothing left to multiply. `laborCents(hours, rate)` is what this replaces,
+  // and it could only ever express one rate for the whole job.
+  const labor = toCents(row.labor_cost) ?? 0;
+  const totalCost = lineItemCost + expenseCost + labor;
 
   // Invoiced revenue wins whenever an invoice exists, because the invoice is
   // the document the customer actually received; the job's own total is an
@@ -85,15 +106,15 @@ export function summarise(row: JobCostRow): JobCostSummary {
     jobId: row.job_id,
     lineItemCost: fromCents(lineItemCost),
     expenseCost: fromCents(expenseCost),
-    laborCost: fromCents(labor ?? 0),
+    laborCost: fromCents(labor),
     totalCost: fromCents(totalCost),
     actualHours: row.actual_hours,
-    laborCostRate: row.labor_cost_rate,
+    timeEntryCount: row.time_entry_count,
     revenue: fromCents(revenue),
     revenueBasis: basis,
     margin: fromCents(margin),
     marginPct: marginPct(margin, revenue),
-    coverage: buildCoverage(row, laborKnown),
+    coverage: buildCoverage(row),
   };
 }
 

@@ -158,3 +158,35 @@ See [[jobs|the report]] for the full 38 findings + 3 more found while fixing the
   Filter by `type` — and note the assertion would have *passed* against a tenant with no checklist
   template, which is no real tenant, so the wrong version was one seeded template away from being
   a permanently green false negative.
+- **A feature can ship complete and still be blind, if nothing prompts for its main input.** Job
+  Costing landed with a money model, three LATERAL joins, integer-cent arithmetic and a
+  `CostCoverage` type designed so an unknown cost could never read as free — resting on
+  `jobs.actual_hours`, a text box on the Costs tab that nobody ever filled in. The system already
+  *said so*: `buildCoverage()` emitted the literal string "No hours recorded for this job" and
+  flipped `complete: false` on essentially every job. **A coverage gap that fires for 100% of rows
+  is not a warning, it is an unimplemented feature reporting itself.** Worth grepping for: any
+  "missing input" branch that no realistic row avoids.
+- **Deriving a number is not enough — the thing it derives *from* has to be capturable.** The fix
+  was not "validate the hours field harder"; it was noticing the field could not express the truth
+  at all. One number times one rate resolved from the *assignee* cannot represent two people on a
+  job, and `tenant_member_rates` had existed since day one with per-user rates the costing path
+  could never reach. When a stored value has no relationship to any recorded event, that is
+  INV-01/02/03 again: **assigned rather than derived.** The repair shape is the same every time —
+  find the rows that ought to produce it, make those the source, and demote the column to a cache
+  maintained in the same transaction (the `recalculateJobTotals` pattern).
+- **One-per-user state belongs in a partial unique index, not in a check.** "You can only have one
+  timer running" is enforced by `UNIQUE (tenant_id, user_id) WHERE ended_at IS NULL`. Being partial
+  is the whole trick: it makes the invalid state unrepresentable while still permitting the next
+  timer after a stop. The application-side check is still worth keeping — but only so the caller
+  gets a sentence naming the other job instead of a `23505`. It races; the index does not.
+- **A constraint that blocks the invalid state also blocks the recovery path, so sweep for who
+  else must clear it.** The same index that stops double-clocking means a timer left running on a
+  completed job silently refuses that person's **next** Start, indefinitely. So completion has to
+  stop the clock, inside its own transaction — a job whose completion rolls back must not leave
+  its crew clocked out. Every new uniqueness rule deserves the question: *what now has to clean
+  this up, and what happens to the user if nothing does?*
+- **Withheld and unset must not be the same value.** Time entries hide `hourlyCostRate` and `cost`
+  from non-admins, and the temptation is to send `null`. But `null` already means "nobody has set
+  a rate for this person" — a real state the UI prompts about. Collapsing them would have told
+  every member their workspace was misconfigured each time they opened their own timesheet.
+  **Absent** for "not yours to see", `null` for "genuinely unknown".

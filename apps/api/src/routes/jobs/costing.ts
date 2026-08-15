@@ -2,7 +2,6 @@ import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import { requireTenant } from "../../lib/auth-middleware.js";
 import {
   getDb,
-  jobs,
   jobExpenses,
   jobActivities,
   eq,
@@ -10,20 +9,17 @@ import {
   desc,
 } from "@hvac-saas/database";
 import { loadEditableJob } from "../../lib/job-guards.js";
-import {
-  getJobCostSummary,
-  resolveLaborCostRate,
-} from "../../services/costing/index.js";
+import { getJobCostSummary } from "../../services/costing/index.js";
 import {
   idParam,
   expenseParams,
   createJobExpenseBody,
   updateJobExpenseBody,
-  updateJobLaborBody,
 } from "../../lib/schemas/job-costing.js";
 
 /**
- * Job costing: expenses, actual labour, and the derived cost/margin rollup.
+ * Job costing: expenses and the derived cost/margin rollup. Labour lives in
+ * `routes/jobs/time.ts` — it stopped being a field on the job and became rows.
  *
  * A sibling plugin under the same `/jobs` prefix rather than more lines in
  * `routes/jobs/index.ts`, which is already 2,497 lines and is the file
@@ -235,80 +231,17 @@ const jobCostingRoutes: FastifyPluginAsyncZod = async (fastify) => {
     },
   );
 
-  /**
-   * PATCH /jobs/:id/labor
-   * Record the hours actually worked, and snapshot the rate they cost.
+  /*
+   * `PATCH /jobs/:id/labor` used to live here: one hours figure and one rate,
+   * written straight onto the job. It is gone, replaced by `routes/jobs/time.ts`.
+   *
+   * Not a rename — the old endpoint made the bad state expressible. Hours typed
+   * by hand had no relationship to any work anybody did, could not represent two
+   * people on one job, and disagreed with nothing, so nothing could catch them
+   * being wrong. This is the INV-01 fix applied a second time: derive the number
+   * from the rows that produce it, and "hours that contradict the timesheet"
+   * stops being something a caller can say.
    */
-  fastify.patch(
-    "/:id/labor",
-    {
-      preHandler: [requireTenant],
-      schema: { params: idParam, body: updateJobLaborBody },
-    },
-    async (request, reply) => {
-      const { id } = request.params;
-      const tenantId = request.authUser.tenantId!;
-      const userId = request.authUser.userId;
-      const body = request.body;
-      const db = getDb();
-
-      const guard = await loadEditableJob(db, tenantId, id);
-      if (!guard.ok) {
-        return reply.status(guard.status).send({ message: guard.message });
-      }
-
-      // Clearing the hours clears the rate with them. Leaving a stale rate on a
-      // job with no hours would make the job look configured when its labour
-      // cost is once again unknown, and coverage would stop reporting the gap.
-      let rate: string | null = null;
-      if (body.actualHours !== null) {
-        rate =
-          body.laborCostRate !== undefined && body.laborCostRate !== null
-            ? body.laborCostRate
-            : // Resolve against the *assignee*, not the caller: the cost of a
-              // job is the cost of whoever worked it. Falls back to the tenant
-              // default, then to null, which keeps labour an honest unknown
-              // rather than silently free.
-              await resolveLaborCostRate(
-                db,
-                tenantId,
-                await db
-                  .select({ assigneeId: jobs.assigneeId })
-                  .from(jobs)
-                  .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-                  .then((r) => r[0]?.assigneeId ?? null),
-              );
-      }
-
-      const [updated] = await db
-        .update(jobs)
-        .set({
-          actualHours: body.actualHours,
-          laborCostRate: rate,
-          updatedAt: new Date(),
-        })
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .returning({
-          id: jobs.id,
-          actualHours: jobs.actualHours,
-          laborCostRate: jobs.laborCostRate,
-        });
-
-      await db.insert(jobActivities).values({
-        tenantId,
-        jobId: id,
-        type: "labor.updated",
-        description:
-          body.actualHours === null
-            ? "Cleared recorded hours"
-            : `Recorded ${body.actualHours} hours`,
-        metadata: { actualHours: body.actualHours, laborCostRate: rate },
-        performedBy: userId,
-      });
-
-      return reply.send({ data: updated });
-    },
-  );
 };
 
 export default jobCostingRoutes;

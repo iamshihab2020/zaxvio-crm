@@ -179,7 +179,11 @@ apps/api/
 |   |   |   +-- calendar-events.ts # + colour enum, endTime-after-startTime refinement
 |   |   |   +-- availability.ts    # weekly schedule + overrides + slotCapacity
 |   |   |   +-- public-booking.ts  # The hardened public submit body
-|   |   |   +-- job-costing.ts     # Expense CRUD bodies, PATCH /jobs/:id/labor, member cost rates.
+|   |   |   +-- job-time.ts       # Time-entry bodies. isoDateTime, not isoDate — an entry is a
+|   |   |   |                      # moment, and a timestamptz accepts 'infinity' just as happily
+|   |   |   |                      # as a date column does. MAX_ENTRY_HOURS is shared with the sweep
+|   |   |   +-- job-costing.ts     # Expense CRUD bodies + member cost rates. PATCH /jobs/:id/labor
+|   |   |   |                      # and its body are GONE — hours are time entries now.
 |   |   |   |                      # Money and hours are strings matched against a regex, never
 |   |   |   |                      # z.number() — a float round-trip on the way to numeric(10,2) is
 |   |   |   |                      # how a cost ends up a cent off the sum it came from
@@ -224,9 +228,13 @@ apps/api/
 |   |   |                         # the transitions and the PDF all live in services/invoices/
 |   |   +-- jobs/
 |   |   |   +-- index.ts          # 15 endpoints: CRUD, line items, checklist, photos, activities
-|   |   |   +-- costing.ts        # 6 endpoints under the same /jobs prefix: GET /:id/costs (the derived
-|   |   |                         # margin), expenses CRUD, PATCH /:id/labor. A sibling plugin rather
-|   |   |                         # than more lines in index.ts, which is already 2,497 (ARC-05)
+|   |   |   +-- costing.ts        # 5 endpoints under the same /jobs prefix: GET /:id/costs (the derived
+|   |   |   |                     # margin) and expenses CRUD. A sibling plugin rather than more lines
+|   |   |   |                     # in index.ts, which is already 1,862 (ARC-05)
+|   |   |   +-- time.ts           # 7 endpoints: list/start/stop/create/patch/delete time entries plus
+|   |   |                         # GET /jobs/time-entries/running for the shell bar. Declared before
+|   |   |                         # /:id/... so "time-entries" is not eaten by the uuid param. Members
+|   |   |                         # record their own hours; only owner/admin sees the rate on them
 |   |   +-- pipelines/
 |   |   |   +-- index.ts          # CRUD /pipelines (list, create, update, delete)
 |   |   +-- pipeline-stages/
@@ -389,6 +397,15 @@ apps/api/
 |   |   |   |                         # handler extracted would have had to import from a route file or
 |   |   |   |                         # take a copy. Db type omits $client so it works inside a tx —
 |   |   |   |                         # the third recurrence of that defect (QUO-02, availability)
+|   |   |   +-- time.service.ts        # Job time tracking. start/stop/create/update/delete, every one
+|   |   |   |                         # ending in recalculateJobHours() inside the SAME transaction —
+|   |   |   |                         # jobs.actual_hours is a cache like total_amount, never an input.
+|   |   |   |                         # Refusals are a returned union, not a throw (the moveJobStage
+|   |   |   |                         # shape). stopTimersForJob() is what the completion path calls
+|   |   |   +-- time-sweep.ts          # Hourly auto-stop for timers left running past MAX_ENTRY_HOURS.
+|   |   |   |                         # Caps and FLAGS rather than deleting or trusting: the hours are
+|   |   |   |                         # probably partly real, so coverage reports them as unconfirmed.
+|   |   |   |                         # One UPDATE ... RETURNING claims the rows, so N instances split
 |   |   |   +-- stage-events.service.ts # job.stage_changed + job.completed/cancelled, from ONE
 |   |   |   |                         # implementation called by both the single and the bulk status
 |   |   |   |                         # path. Two completed stages in a row is not a re-completion
@@ -693,9 +710,14 @@ apps/web/
     |       +-- index.ts                       # Barrel export for all query hooks
     |       +-- use-customers.ts               # Customer queries & mutations
     |       +-- use-jobs.ts                    # Job queries & mutations
-    |       +-- use-job-costing.ts             # Cost summary, expenses CRUD, hours. Every mutation
+    |       +-- use-job-costing.ts             # Cost summary + expenses CRUD. Every mutation
     |       |                                  # invalidates the whole job-detail subtree — the margin
     |       |                                  # is derived from line items, expenses AND hours
+    |       +-- use-job-time.ts                # Time entries + the running timer. Invalidates TWO
+    |       |                                  # keys: the job subtree (hours feed the margin) and
+    |       |                                  # jobs.runningTimer, which sits OUTSIDE it because the
+    |       |                                  # timer belongs to the user, not the job. Polls, since
+    |       |                                  # the sweep or a completion can stop it elsewhere
     |       +-- use-invoices.ts                # Invoice queries & mutations
     |       +-- use-quotes.ts                  # Quote queries & mutations
     |       +-- use-bookings.ts                # Booking queries & mutations
@@ -905,9 +927,17 @@ apps/web/
     |   |   |   +-- job-detail-activities.tsx
     |   |   |   +-- job-detail-checklist.tsx
     |   |   |   +-- job-detail-info.tsx
-    |   |   |   +-- job-detail-costs.tsx        # The Costs tab: margin headline, hours + snapshotted
-    |   |   |   |                                # rate, expenses CRUD. Says "provisional" and lists the
-    |   |   |   |                                # gaps rather than printing a number it can't back up
+    |   |   |   +-- job-detail-costs.tsx        # The Costs tab: margin headline, a READ-ONLY hours
+    |   |   |   |                                # figure linking to Time, expenses CRUD. Says
+    |   |   |   |                                # "provisional" and lists the gaps rather than printing
+    |   |   |   |                                # a number it can't back up
+    |   |   |   +-- job-detail-time.tsx         # The Time tab: entry list, manual log, edit, delete.
+    |   |   |   |                                # Its own tab because clocking in is not a costing
+    |   |   |   |                                # action. cost === undefined means "withheld from a
+    |   |   |   |                                # member"; cost === null means "nobody set a rate"
+    |   |   |   +-- job-timer-button.tsx        # Start/Stop. Three states, because a timer running on
+    |   |   |   |                                # ANOTHER job is a refusal at the database — so it asks
+    |   |   |   |                                # to switch instead of surfacing a 23505
     |   |   |   +-- job-cost-stack.tsx          # One bar: cost segments, a rule at what was billed, and
     |   |   |   |                                # a HATCHED margin when the cost side is incomplete —
     |   |   |   |                                # that remainder is profit *or* an unentered cost
@@ -1012,6 +1042,14 @@ apps/web/
     |   |   |
     |   |   +-- reusable/            # Shared dashboard-level reusable components
     |   |   |   +-- stats-cards.tsx  # Stats cards grid (clickable filter + filterValue support)
+    |   |   |   +-- running-timer-bar.tsx # The running timer, pinned under the navbar on EVERY page.
+    |   |   |   |                     # The whole reason a stopwatch beats a text box is that you
+    |   |   |   |                     # cannot forget it; Stop lives here because the user has usually
+    |   |   |   |                     # navigated away from the job they clocked into. Renders null
+    |   |   |   |                     # when nothing is running, which is almost always
+    |   |   |   +-- elapsed-time.tsx  # Live 1s counter. Starts EMPTY on purpose — elapsed time differs
+    |   |   |   |                     # between server and browser by definition, so rendering it
+    |   |   |   |                     # during SSR is a guaranteed hydration mismatch
     |   |   |   +-- entity-detail-shell/  # Reusable shell for entity detail views (sidebar/dialog/page)
     |   |   |       +-- types.ts                          # Shared TypeScript interfaces
     |   |   |       +-- use-detail-shell.ts               # Hook: mode/resize/toggle logic
