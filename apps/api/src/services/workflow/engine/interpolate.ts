@@ -26,6 +26,7 @@
 import {
   DYNAMIC_NAMESPACES,
   VARIABLE_MAP,
+  interpolationToken,
   formatDateOnly,
   formatDateTime,
   formatList,
@@ -40,8 +41,14 @@ import {
   type VariableDef,
 } from "@hvac-saas/workflow-nodes";
 
-/** `{{ anything.but.braces }}` */
-const TOKEN = /\{\{\s*([^{}]+?)\s*\}\}/g;
+// The token shape now lives in `@hvac-saas/workflow-nodes`, because the graph
+// validator has to find the same tokens at publish time in order to report a
+// path that will never resolve. Two copies of this regex is a validator that
+// stops seeing a shape the engine still honours — and the failure would be
+// silent in the direction that matters, since the validator's job is to notice.
+//
+// A factory, not a shared const: a `g` regex carries `lastIndex` between calls,
+// so one instance shared by two consumers interleaves and drops matches.
 
 /**
  * Paths that are refused outright.
@@ -149,7 +156,7 @@ function substitute(
   // run; `.replace` with a global regex on every string is not free.
   if (!template.includes("{{")) return template;
 
-  return template.replace(TOKEN, (_match, rawPath: string) => {
+  return template.replace(interpolationToken(), (_match, rawPath: string) => {
     const path = rawPath.trim();
 
     if (BLOCKED.test(path)) {

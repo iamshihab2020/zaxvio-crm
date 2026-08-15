@@ -108,7 +108,6 @@ export function TeamSettingsClient() {
         {canManage && (
           <TeamPendingInvitations
             invitations={invitations}
-            organizationId={organizationId}
             onRefresh={fetchTeamData}
           />
         )}

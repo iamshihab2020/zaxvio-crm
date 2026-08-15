@@ -136,8 +136,15 @@ export function changedFields<T extends Record<string, unknown>>(
       changed.push(key);
       continue;
     }
-    // eslint-disable-next-line eqeqeq -- deliberate: "100.00" and 100 are the
-    // same amount, and reporting that as a change is a false trigger.
+    // Deliberate loose comparison: postgres.js returns `numeric` as a string, so
+    // "100.00" and 100 are the same amount and reporting that as a change is a
+    // false trigger on every automation filtering `changedFields`.
+    //
+    // The directive goes last, immediately above the code. It used to sit above
+    // its own two-line description, so `disable-next-line` targeted the second
+    // comment line and this comparison was never covered — invisible for as long
+    // as the linter it was written for went uninstalled.
+    // eslint-disable-next-line eqeqeq
     if (prev != next) changed.push(key);
   }
   // The payload caps this at 64. A PATCH touching more columns than that is not

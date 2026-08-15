@@ -54,7 +54,10 @@ describe("event identity", () => {
     // The count is asserted so that *adding* an event is a deliberate act that
     // updates this number and the docs together, rather than something that
     // slips in unnoticed and is never given a producer.
-    expect(EVENT_TYPES).toHaveLength(36);
+    //
+    // 36 → 38 at P9: `webhook.received` (something outside Zaxvio called an
+    // inbound URL) and `quote.viewed` (the customer opened their quote link).
+    expect(EVENT_TYPES).toHaveLength(38);
   });
 
   it("recognises its own types and rejects near-misses", () => {
@@ -90,7 +93,16 @@ describe("event metadata", () => {
         // A subject-less event cannot use the enrollment dedup key, which is
         // why it needs `workflow_schedule_state` instead. Keep the set tiny and
         // explicit rather than letting new ones appear by accident.
-        expect(["schedule.daily", "schedule.weekly", "manual.run"]).toContain(type);
+        // `webhook.received` joins them at P9 and for the same reason: a
+        // webhook is about whatever the automation decides it is about, and
+        // reading a record id out of an untrusted body and trusting it is the
+        // exact tenant-crossing wf-10 T-4 forbids.
+        expect([
+          "schedule.daily",
+          "schedule.weekly",
+          "manual.run",
+          "webhook.received",
+        ]).toContain(type);
       } else {
         expect(SUBJECT_TYPES, type).toContain(subject);
         expect(category, type).not.toBe("system");
@@ -212,6 +224,9 @@ describe("payload schemas", () => {
       "schedule.daily",
       "schedule.weekly",
       "manual.run",
+      // Entirely author-controlled and entirely untrusted — the only payload in
+      // the taxonomy not built by a producer from a row we wrote.
+      "webhook.received",
     ]);
     for (const type of EVENT_TYPES) {
       if (exempt.has(type)) continue;

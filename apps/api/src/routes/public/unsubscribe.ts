@@ -29,7 +29,6 @@ import {
   customers,
   customerActivities,
   tenants,
-  and,
   eq,
 } from "@hvac-saas/database";
 import {

@@ -32,6 +32,8 @@ import availabilityRoutes from "./routes/availability/index.js";
 import publicBookingRoutes from "./routes/public/booking.js";
 import publicQuoteRoutes from "./routes/public/quote.js";
 import publicUnsubscribeRoutes from "./routes/public/unsubscribe.js";
+import workflowWebhookRoutes from "./routes/public/workflow-webhook.js";
+import workflowWebhookMgmtRoutes from "./routes/workflows/webhooks.js";
 import workflowRoutes from "./routes/workflows/index.js";
 import workflowGraphRoutes from "./routes/workflows/graph.js";
 import workflowRunRoutes from "./routes/workflows/runs.js";
@@ -289,8 +291,13 @@ export async function buildServer() {
   await fastify.register(publicBookingRoutes, { prefix: "/public/booking" });
   await fastify.register(publicQuoteRoutes, { prefix: "/public/quote" });
   await fastify.register(publicUnsubscribeRoutes, { prefix: "/public/unsubscribe" });
+  // The inbound webhook receiver. Registered under `/public` with the rest of
+  // the unauthenticated surface, so "what can be reached without a session" is
+  // one prefix rather than something to remember.
+  await fastify.register(workflowWebhookRoutes, { prefix: "/public/hooks" });
   await fastify.register(workflowRoutes, { prefix: "/workflows" });
   await fastify.register(workflowGraphRoutes, { prefix: "/workflows" });
+  await fastify.register(workflowWebhookMgmtRoutes, { prefix: "/workflows" });
   await fastify.register(workflowRunRoutes, { prefix: "/workflows" });
   await fastify.register(bookingRoutes, { prefix: "/bookings" });
   await fastify.register(calendarEventRoutes, { prefix: "/calendar-events" });
@@ -424,6 +431,14 @@ async function start() {
     "./services/workflow/workers/retention.js"
   );
   startRetentionWorker();
+
+  // P9's clock. Two cadences in one worker — a minute for daily/weekly
+  // schedules, an hour for the calendar sweeps — because "09:00" has to mean
+  // 09:00 while a warranty scan has no answer that changes within a day.
+  const { startScheduleWorker } = await import(
+    "./services/workflow/workers/schedule.js"
+  );
+  startScheduleWorker();
 }
 
 start();

@@ -10,6 +10,7 @@
  */
 
 export * from "./node-definition.js";
+export * from "./crm-enums.js";
 export * from "./categories.js";
 export * from "./limits.js";
 export * from "./active-nodes.js";

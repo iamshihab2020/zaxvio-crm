@@ -9,7 +9,6 @@ import {
   eq,
   and,
   asc,
-  sql,
 } from "@hvac-saas/database";
 import { attachChecklistToJob } from "./job-helpers.js";
 import {

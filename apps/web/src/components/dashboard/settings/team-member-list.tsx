@@ -4,7 +4,6 @@ import { useState } from "react";
 import { IconUsersGroup, IconDotsVertical } from "@tabler/icons-react";
 import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { SettingsSection } from "./settings-section";
 import { TeamRoleBadge } from "./team-role-badge";
 import { Badge } from "@/components/ui/badge";

@@ -64,6 +64,16 @@ export const TENANT_QUOTAS = {
   MAX_DAILY_EXECUTIONS: 2_000,
   /** Counts toward a shared Resend sender reputation, so this one is real. */
   MAX_DAILY_AUTOMATION_EMAILS: 200,
+  /**
+   * Outbound HTTP calls per tenant per day. P10, and the last item on
+   * [[wf-10-security|§10.5]]'s list — the one it names as most commonly missed.
+   *
+   * Not about cost. An unbounded outbound node makes this API a free, credible
+   * traffic source pointed at whatever address a tenant types: the request comes
+   * from our IP, with our reputation, and the tenant is the only one who knows
+   * it was them. A ceiling is what keeps that a bug rather than a service.
+   */
+  MAX_DAILY_OUTBOUND_REQUESTS: 500,
 } as const;
 
 /** Outbox worker behaviour. */

@@ -3,7 +3,6 @@ import { requireTenant } from "../../lib/auth-middleware.js";
 import { emitPlatformEvent } from "../../lib/platform-events.js";
 import {
   getDb,
-  pipelines,
   jobPipelineStages,
   jobs,
   jobLineItems,
@@ -11,16 +10,13 @@ import {
   jobDocuments,
   jobActivities,
   jobChecklistCompletions,
-  checklistTemplates,
   checklistItems,
   catalogItems,
   customers,
-  customerActivities,
   equipment,
   tenants,
   user,
   member,
-  organization,
   eq,
   and,
   or,
@@ -28,7 +24,6 @@ import {
   desc,
   asc,
   count,
-  sql,
   gte,
   lte,
   isNull,
@@ -45,14 +40,8 @@ import {
   isValidBase64,
   ALLOWED_UPLOAD_MIME,
 } from "../../lib/upload-limits.js";
+import { loadEditableJob, findForeignRef } from "../../lib/job-guards.js";
 import {
-  loadEditableJob,
-  assertEditable,
-  findForeignRef,
-} from "../../lib/job-guards.js";
-import { isOrgMember } from "../../lib/tenant-guards.js";
-import {
-  attachChecklistToJob,
   deleteJobAttachments,
   countLinkedInvoices,
 } from "../../lib/job-helpers.js";
@@ -82,18 +71,12 @@ import { paginationQuery } from "../../lib/schemas/common.js";
 import { bulkIdsBody } from "../../lib/schemas/bulk.js";
 import { escapeLike } from "../../lib/search.js";
 import { isItemType, resolveLineItemDescription } from "../../lib/line-items.js";
-import { formatDateInTimezone } from "../../lib/timezone.js";
 import {
-  getDefaultPipelineId,
-  getFirstStage,
-  getJobLifecycle,
-  resolveStage,
-} from "../../services/job-stages.service.js";
-import {
-  emitJobCreatedEvent,
-  emitJobUpdatedEvents,
-} from "../../services/jobs/job-events.service.js";
-import { moveJobStage } from "../../services/jobs/jobs.service.js";
+  createJob,
+  moveJobStage,
+  updateJob,
+} from "../../services/jobs/jobs.service.js";
+import { recalculateJobTotals } from "../../services/jobs/totals.js";
 
 // ========== HELPERS ==========
 
@@ -107,49 +90,9 @@ import { moveJobStage } from "../../services/jobs/jobs.service.js";
 // on the status string and no entry listed itself, so a same-column drag read
 // as an illegal transition and the write was skipped.
 
-// `Omit<…, "$client">` rather than the bare handle: a Drizzle transaction has
-// every query method but no `$client`, so typing this as `ReturnType<typeof
-// getDb>` made the function uncallable from inside a transaction. That is the
-// same defect QUO-02 found in `job-stages.service.ts`, and it is why this was
-// the one statement in `PATCH /jobs/:id` that could not join the others.
-async function recalculateJobTotals(
-  db: Omit<ReturnType<typeof getDb>, "$client">,
-  jobId: string,
-  tenantId: string,
-) {
-  // Sum all line items (quantity * unit_price since total is generated)
-  const result = await db
-    .select({
-      subtotal: sql<string>`COALESCE(SUM(quantity * unit_price), 0)`,
-    })
-    .from(jobLineItems)
-    .where(
-      and(eq(jobLineItems.jobId, jobId), eq(jobLineItems.tenantId, tenantId)),
-    );
-
-  const subtotal = result[0]?.subtotal ?? "0";
-
-  // Get job's tax rate
-  const [job] = await db
-    .select({ taxRate: jobs.taxRate })
-    .from(jobs)
-    .where(and(eq(jobs.id, jobId), eq(jobs.tenantId, tenantId)));
-
-  const taxRate = parseFloat(job?.taxRate ?? "0");
-  const subtotalNum = parseFloat(subtotal);
-  const taxAmount = subtotalNum * taxRate;
-  const totalAmount = subtotalNum + taxAmount;
-
-  await db
-    .update(jobs)
-    .set({
-      subtotal: subtotalNum.toFixed(2),
-      taxAmount: taxAmount.toFixed(2),
-      totalAmount: totalAmount.toFixed(2),
-      updatedAt: new Date(),
-    })
-    .where(and(eq(jobs.id, jobId), eq(jobs.tenantId, tenantId)));
-}
+// `recalculateJobTotals` now lives in `services/jobs/totals.ts`. It was private
+// here with six callers, and extracting the handlers one at a time would have
+// forced the first one out to import from a route file or take a copy.
 
 // ========== ROUTES ==========
 
@@ -506,193 +449,20 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
       const tenantId = request.authUser.tenantId!;
       const userId = request.authUser.userId;
-      const body = request.body;
 
-      const db = getDb();
-
-      // Validate customer exists and belongs to tenant
-      const customer = await db
-        .select({ id: customers.id, firstName: customers.firstName, lastName: customers.lastName })
-        .from(customers)
-        .where(
-          and(
-            eq(customers.tenantId, tenantId),
-            eq(customers.id, body.customerId),
-          ),
-        )
-        .then((r) => r[0]);
-
-      if (!customer) {
-        return reply.status(400).send({ message: "Customer not found" });
-      }
-
-      // `bookingId` and `equipmentId` were written straight from the body with
-      // no ownership check, so a job could be linked to another tenant's
-      // booking or asset. `customerId`, `pipelineId` and `assigneeId` were all
-      // validated; these two sat beside them unchecked.
-      const badRef = await findForeignRef(db, tenantId, {
-        equipmentId: body.equipmentId,
-        bookingId: body.bookingId,
+      const result = await createJob(getDb(), {
+        tenantId,
+        input: request.body,
+        actor: { kind: "user", userId },
       });
-      if (badRef) {
-        return reply.status(400).send({ message: `${badRef} not found` });
+
+      if (!result.ok) {
+        return reply.status(400).send({ message: result.message });
       }
-
-      // Resolve pipeline: validate provided or fallback to default
-      let pipelineId: string | null = null;
-      if (body.pipelineId) {
-        const pipeline = await db
-          .select({ id: pipelines.id })
-          .from(pipelines)
-          .where(
-            and(
-              eq(pipelines.tenantId, tenantId),
-              eq(pipelines.id, body.pipelineId),
-            ),
-          )
-          .then((r) => r[0]);
-        if (!pipeline) {
-          return reply.status(400).send({ message: "Pipeline not found" });
-        }
-        pipelineId = pipeline.id;
-      } else {
-        pipelineId = await getDefaultPipelineId(db, tenantId);
-      }
-
-      // A job starts in the stage the caller asked for — "Add job to this
-      // column" sends one — and otherwise in the pipeline's first stage. Either
-      // way `status` is that stage's name, so a tenant who renamed "Scheduled"
-      // to "Booked" sees new jobs land in the column they actually built.
-      let startingStage = null;
-      if (pipelineId) {
-        if (body.stageId || body.status) {
-          startingStage = await resolveStage(db, {
-            tenantId,
-            pipelineId,
-            stageId: body.stageId,
-            status: body.status,
-          });
-          if (!startingStage) {
-            return reply.status(400).send({
-              message: `No stage "${body.stageId ?? body.status}" in the selected pipeline`,
-            });
-          }
-        } else {
-          startingStage = await getFirstStage(db, { tenantId, pipelineId });
-        }
-        if (!startingStage) {
-          return reply.status(400).send({
-            message: "The selected pipeline has no stages. Add a stage first.",
-          });
-        }
-      }
-
-      // Fetch tenant for defaultTaxRate and assignee validation
-      const tenantRecord = await db
-        .select({ organizationId: tenants.organizationId, defaultTaxRate: tenants.defaultTaxRate })
-        .from(tenants)
-        .where(eq(tenants.id, tenantId))
-        .then((r) => r[0]);
-
-      // Validate assignee is an org member
-      if (body.assigneeId && tenantRecord) {
-        const isMember = await db
-          .select({ id: member.id })
-          .from(member)
-          .where(
-            and(
-              eq(member.userId, body.assigneeId),
-              eq(member.organizationId, tenantRecord.organizationId),
-            ),
-          )
-          .then((r) => r[0]);
-        if (!isMember) {
-          return reply.status(400).send({ message: "Assignee is not a member of this organization" });
-        }
-      }
-
-      // Use tenant's defaultTaxRate if no taxRate provided
-      const taxRate = body.taxRate || tenantRecord?.defaultTaxRate || "0";
-
-      // One transaction. This was five separate statements — insert job,
-      // attach checklist, log job activity, log customer activity, re-fetch —
-      // so a failure part-way left a job with no checklist and no activity
-      // trail, which is invisible until someone wonders where the checklist
-      // went. The checklist is the thing techs work from; a job without one is
-      // not a usable job.
-      const created = await db.transaction(async (tx) => {
-        const [job] = await tx
-          .insert(jobs)
-          .values({
-            tenantId,
-            customerId: body.customerId,
-            bookingId: body.bookingId || null,
-            equipmentId: body.equipmentId || null,
-            pipelineId,
-            stageId: startingStage?.id ?? null,
-            jobNumber: "", // Auto-generated by DB trigger
-            serviceType: body.serviceType,
-            title: body.title,
-            description: body.description || null,
-            scheduledDate: body.scheduledDate,
-            scheduledStart: body.scheduledStart || null,
-            scheduledEnd: body.scheduledEnd || null,
-            address: body.address || null,
-            status: startingStage?.name ?? "scheduled",
-            priority: body.priority ?? "standard",
-            taxRate,
-            notes: body.notes || null,
-            assigneeId: body.assigneeId || null,
-          })
-          .returning();
-
-        await attachChecklistToJob(tx, job.id, tenantId, body.serviceType, userId);
-
-        await tx.insert(jobActivities).values({
-          tenantId,
-          jobId: job.id,
-          type: "job.created",
-          description: `Job created for ${customer.firstName} ${customer.lastName}`,
-          performedBy: userId,
-        });
-
-        await tx.insert(customerActivities).values({
-          tenantId,
-          customerId: body.customerId,
-          type: "job.created",
-          description: `Job ${job.jobNumber || "new"} created`,
-          metadata: { jobId: job.id },
-          performedBy: userId,
-        });
-
-        // The event goes in the same transaction as the job. Outside it, a
-        // failure between the two would leave a job no automation ever sees —
-        // and nothing anywhere would show that anything had been missed.
-        // `emitJobCreatedEvent` re-reads the row itself, so it gets the
-        // trigger-issued `jobNumber` and the resolved stage without this route
-        // assembling a payload.
-        await emitJobCreatedEvent(tx, {
-          tenantId,
-          actorUserId: userId,
-          jobId: job.id,
-          // A job created against a booking is a conversion, whatever screen it
-          // was clicked from — an automation that greets a new customer needs to
-          // know they have already had a booking confirmation.
-          origin: body.bookingId ? "booking" : "manual",
-          originId: body.bookingId || null,
-        });
-
-        // Re-fetch inside the transaction for the trigger-generated jobNumber.
-        const [row] = await tx
-          .select()
-          .from(jobs)
-          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, job.id)));
-        return row;
-      });
 
       emitPlatformEvent(tenantId, "job_created", userId);
 
-      return reply.status(201).send({ data: created });
+      return reply.status(201).send({ data: result.job });
     },
   );
 
@@ -707,214 +477,20 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       schema: { params: idParam, body: updateJobBody },
     },
     async (request, reply) => {
-      const { id } = request.params;
-      const tenantId = request.authUser.tenantId!;
-      const userId = request.authUser.userId;
-      const body = request.body;
-      const db = getDb();
-
-      const existing = await db
-        .select()
-        .from(jobs)
-        .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
-        .then((r) => r[0]);
-
-      const gate = assertEditable(existing);
-      if (gate) {
-        return reply.status(gate.status).send({ message: gate.message });
-      }
-
-      // Validate pipelineId belongs to tenant and has a stage the job can land in
-      let rehomedStageId: string | undefined;
-      if (body.pipelineId) {
-        const pipeline = await db
-          .select({ id: pipelines.id })
-          .from(pipelines)
-          .where(
-            and(
-              eq(pipelines.tenantId, tenantId),
-              eq(pipelines.id, body.pipelineId),
-            ),
-          )
-          .then((r) => r[0]);
-        if (!pipeline) {
-          return reply.status(400).send({ message: "Pipeline not found" });
-        }
-
-        // Moving pipelines has to move the stage pointer too, or the job keeps
-        // a stage_id belonging to the pipeline it just left. The stage lookup
-        // was also missing its tenant filter (security-rules §1) — it matched
-        // on pipeline + name alone.
-        const currentLifecycle = await getJobLifecycle(db, {
-          tenantId,
-          stageId: existing.stageId,
-          status: existing.status,
-        });
-        const landing = await resolveStage(db, {
-          tenantId,
-          pipelineId: body.pipelineId,
-          status: existing.status,
-        });
-        if (!landing) {
-          return reply.status(400).send({
-            message: `Target pipeline has no stage matching current job status "${existing.status}"`,
-          });
-        }
-        if (landing.lifecycle !== currentLifecycle) {
-          return reply.status(400).send({
-            message: `Target pipeline's "${landing.label}" stage is ${landing.lifecycle.replace("_", " ")}, but this job is ${currentLifecycle.replace("_", " ")}`,
-          });
-        }
-        rehomedStageId = landing.id;
-      }
-
-      // The schema-level refinement only sees the fields in this request, so a
-      // PATCH sending just `scheduledEnd` would pass while inverting the times
-      // on a job that already has a start. Check the merged result.
-      const mergedStart =
-        "scheduledStart" in body ? body.scheduledStart : existing.scheduledStart;
-      const mergedEnd =
-        "scheduledEnd" in body ? body.scheduledEnd : existing.scheduledEnd;
-      if (mergedStart && mergedEnd && mergedEnd <= mergedStart) {
-        return reply
-          .status(400)
-          .send({ message: "End time must be after start time" });
-      }
-
-      // Validate assignee is an org member. One implementation in
-      // `lib/tenant-guards.ts` — this was a copy, and the old version also
-      // failed **open** when the tenant had no organisation row.
-      if (body.assigneeId && !(await isOrgMember(db, tenantId, body.assigneeId))) {
-        return reply
-          .status(400)
-          .send({ message: "Assignee is not a member of this organization" });
-      }
-
-      const allowedFields = [
-        "title",
-        "description",
-        "priority",
-        "serviceType",
-        "scheduledDate",
-        "scheduledStart",
-        "scheduledEnd",
-        "address",
-        "notes",
-        "taxRate",
-        "equipmentId",
-        "pipelineId",
-        "assigneeId",
-      ] as const;
-
-      const fieldLabels: Record<string, string> = {
-        title: "Title",
-        description: "Description",
-        priority: "Priority",
-        serviceType: "Service Type",
-        scheduledDate: "Scheduled Date",
-        scheduledStart: "Scheduled Start",
-        scheduledEnd: "Scheduled End",
-        address: "Address",
-        notes: "Notes",
-        taxRate: "Tax Rate",
-        equipmentId: "Asset",
-        pipelineId: "Pipeline",
-        assigneeId: "Assignee",
-      };
-
-      const updates: Record<string, unknown> = { updatedAt: new Date() };
-      const changedFields: string[] = [];
-
-      // Nullable text columns where "the user cleared this" must be one value.
-      // `POST` wrote `body.x || null` while this loop wrote `body[field]`
-      // verbatim, so clearing a description through the two verbs produced
-      // `NULL` from one and `''` from the other — one column, two spellings of
-      // empty, and every `IS NULL` check downstream disagreeing with itself.
-      const nullableText = new Set([
-        "description",
-        "address",
-        "notes",
-        "scheduledStart",
-        "scheduledEnd",
-      ]);
-
-      for (const field of allowedFields) {
-        if (field in body) {
-          const raw = body[field];
-          const value =
-            nullableText.has(field) && typeof raw === "string" && raw.trim() === ""
-              ? null
-              : raw;
-          const oldVal = existing[field] ?? "";
-          const newVal = value ?? "";
-          if (String(oldVal) !== String(newVal)) {
-            changedFields.push(field);
-          }
-          updates[field] = value;
-        }
-      }
-
-      if (rehomedStageId) {
-        updates.stageId = rehomedStageId;
-      }
-
-      // One transaction. These were four loose statements, and the events now
-      // added are the reason it matters: `emitJobUpdatedEvents` reads the row
-      // back to build its payload, so it must see the update, and the update
-      // must not survive without it. The activity row joins them for the same
-      // reason it does in `POST` — a change with no trail is invisible.
-      const final = await db.transaction(async (tx) => {
-        await tx
-          .update(jobs)
-          .set(updates)
-          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
-
-        // Recalculate totals if tax rate changed
-        if (changedFields.includes("taxRate")) {
-          await recalculateJobTotals(tx, id, tenantId);
-        }
-
-        // Log activity
-        if (changedFields.length > 0) {
-          const readableFields = changedFields
-            .map((f) => fieldLabels[f] ?? f)
-            .join(", ");
-          await tx.insert(jobActivities).values({
-            tenantId,
-            jobId: id,
-            type: "job.updated",
-            description: `Updated ${readableFields}`,
-            metadata: { changedFields },
-            performedBy: userId,
-          });
-        }
-
-        // `job.updated`, plus `job.assigned` and `job.scheduled` when those
-        // specific things moved. The previous values come from `existing`,
-        // read before the update — the only place they still exist.
-        await emitJobUpdatedEvents(tx, {
-          tenantId,
-          actorUserId: userId,
-          jobId: id,
-          previous: {
-            assigneeId: existing.assigneeId,
-            scheduledDate: existing.scheduledDate,
-            scheduledStart: existing.scheduledStart,
-            scheduledEnd: existing.scheduledEnd,
-          },
-          changedFields,
-        });
-
-        // Re-fetch after potential recalculation. Tenant-scoped like every
-        // other read — this one had only the job id (security-rules §1).
-        const [row] = await tx
-          .select()
-          .from(jobs)
-          .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)));
-        return row;
+      const result = await updateJob(getDb(), {
+        tenantId: request.authUser.tenantId!,
+        jobId: request.params.id,
+        input: request.body,
+        actor: { kind: "user", userId: request.authUser.userId },
       });
 
-      return reply.send({ data: final });
+      if (!result.ok) {
+        return reply
+          .status(result.reason === "not_found" ? 404 : 400)
+          .send({ message: result.message });
+      }
+
+      return reply.send({ data: result.job });
     },
   );
 

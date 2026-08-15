@@ -23,7 +23,13 @@
 import { EXECUTION_LIMITS } from "../limits.js";
 import { getDefinition, isActive, outputsFor } from "../catalog.js";
 import { getEventDefinition } from "../events/registry.js";
-import { VARIABLE_MAP, suggestVariables } from "../variables/index.js";
+import {
+  VARIABLE_MAP,
+  extractVariablePaths,
+  namespaceOf,
+  suggestVariables,
+} from "../variables/index.js";
+import { DYNAMIC_NAMESPACES } from "../variables/types.js";
 import {
   getMissingRequiredFields,
   isPropertyVisible,
@@ -440,10 +446,23 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
     for (const property of def.properties) {
       if (!isPropertyVisible(property, parameters)) continue;
 
-      if (property.type === "dateVariable") {
+      // Two controls store a bare variable **path** rather than a value:
+      // `dateVariable` (a Wait's anchor) and `variablePath` (a Switch's subject,
+      // a Loop's list). One rule for both — the only difference is which types
+      // they accept, and that is already a declaration on the property.
+      if (property.type === "dateVariable" || property.type === "variablePath") {
+        const declared = property.typeOptions?.variableTypes;
+        const types =
+          declared ??
+          // A `dateVariable` with nothing declared still means a date; a
+          // `variablePath` with nothing declared means anything, and passing
+          // `undefined` is how `checkVariablePath` is told not to care.
+          (property.type === "dateVariable"
+            ? (["date", "datetime"] as const)
+            : undefined);
         checkVariablePath(node, property.name, parameters[property.name], {
-          types: property.typeOptions?.variableTypes ?? ["date", "datetime"],
-          expected: "a date",
+          types,
+          expected: expectedFor(types),
         });
         continue;
       }
@@ -492,6 +511,42 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
           // `greaterThan` on a number are equally valid.
           checkVariablePath(node, property.name, shape.variable);
         }
+        continue;
+      }
+
+      // ── the third field type, and by far the most common ──────────────────
+      //
+      // A text field carrying `{{tokens}}`. The two cases above store a *bare*
+      // path; this one stores a template with paths inside it, which is why it
+      // was missed — the field's value is a sentence, not a variable, so it did
+      // not look like something to check.
+      //
+      // It fails the same silent way and worse. `interpolate.ts` substitutes
+      // `""` for an unresolvable path and records a diagnostic, but the
+      // diagnostic rides `execute()`'s return value and an event-triggered run
+      // has no caller reading it — it is not written to `node_execution_logs`.
+      // So the email goes out with a blank where the customer's name should be,
+      // or the notification title is empty, and the run log says it succeeded.
+      //
+      // Found in live data: an automation published with `{{quote.status}}` in a
+      // notification title under a `job.created` trigger. Well-formed, saved,
+      // published, switched on, and permanently empty.
+      if (typeof parameters[property.name] !== "string") continue;
+      // `noInterpolate` fields hold regexes and raw bodies — braces in them are
+      // literal, and the engine does not resolve them either.
+      if (property.noInterpolate) continue;
+
+      for (const path of extractVariablePaths(parameters[property.name] as string)) {
+        // `previous.`, `loop.`, `vars.` and `trigger.` resolve against run state
+        // that does not exist until the run does. The validator cannot know
+        // them and must not guess — a false publish-blocker has no workaround.
+        if ((DYNAMIC_NAMESPACES as readonly string[]).includes(namespaceOf(path))) {
+          continue;
+        }
+        // No `types` option: interpolation stringifies whatever it finds, so a
+        // date in a sentence is correct. Only "does this exist" and "does this
+        // trigger provide it" are answerable here.
+        checkVariablePath(node, property.name, path);
       }
     }
   }
@@ -509,6 +564,20 @@ export function validateGraph(graph: ValidatableGraph): GraphValidation {
    * covers a field left wholly blank. Reporting both would put two errors on one
    * mistake and block publishing on a half-typed thought.
    */
+  /**
+   * "a date" / "a list" / "a number" — what to tell an author they needed.
+   *
+   * Derived from the declared types rather than written per call site, so a
+   * property that widens its `variableTypes` cannot keep an error message
+   * describing the narrower rule it used to have.
+   */
+  function expectedFor(types: readonly string[] | undefined): string | undefined {
+    if (!types || types.length === 0) return undefined;
+    if (types.length === 1 && types[0] === "array") return "a list";
+    if (types.every((t) => t === "date" || t === "datetime")) return "a date";
+    return `${types.join(" or ")}`;
+  }
+
   function checkVariablePath(
     node: ValidatableNode,
     field: string,

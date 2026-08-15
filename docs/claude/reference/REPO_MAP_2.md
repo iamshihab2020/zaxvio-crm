@@ -98,6 +98,7 @@ definition, write an executor" rather than touching six files.
 ```
 packages/workflow-nodes/
 +-- package.json              # @hvac-saas/workflow-nodes
++-- eslint.config.js          # Re-exports @hvac-saas/config/eslint
 +-- src/
     +-- node-definition.ts    # THE contract. `node` is a permanent public API — every
     |                         # saved automation stores the string, so a rename orphans
@@ -207,8 +208,27 @@ Senders live in `apps/api/src/lib/email.ts`; every subject goes through
 ### `packages/config/` — Shared Configuration
 
 ```
+packages/database/
++-- scripts/
+    +-- apply-migration.mts   # `pnpm db:apply <file.sql>` — the ONLY way to apply a hand-written
+                              # migration here. `db:migrate` is deliberately disabled: it replays
+                              # meta/_journal.json, 32 files there are unlisted, and drizzle's
+                              # tracking table is empty, so it restarts from 0000 and dies on a
+                              # type created months ago. Uses sql.unsafe(...).simple() — without
+                              # .simple() postgres.js allows one statement per call.
+
 packages/config/
-+-- package.json              # @hvac-saas/config
++-- package.json              # @hvac-saas/config — deps: typescript-eslint, eslint-plugin-react-hooks
++-- eslint.config.js          # THE lint config. Flat, non-type-aware, one definition for all
+                              # packages. Beyond the recommended set it carries four
+                              # project-specific rules, each a defect this repo has shipped and
+                              # the compiler cannot see: `as unknown` / `as never` (strict-rules
+                              # §4), a server action passed to `mutationFn` by reference
+                              # (strict-rules §11), and `z.coerce.boolean()`, which is
+                              # `Boolean(value)` and so parses "false" as true — shipped three
+                              # separate times. Consumed by a one-line re-export in each of
+                              # apps/api, apps/web and packages/workflow-nodes, because flat
+                              # config resolves from the working directory.
 ```
 
 ---

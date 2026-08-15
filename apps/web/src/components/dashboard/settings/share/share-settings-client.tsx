@@ -3,7 +3,6 @@
 import { useState } from "react";
 import {
   IconLink,
-  IconCode,
   IconBrandWordpress,
   IconBrandWix,
   IconCheck,

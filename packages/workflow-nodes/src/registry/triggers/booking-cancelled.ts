@@ -1,3 +1,4 @@
+import { SERVICE_TYPES, enumOptions } from "../../crm-enums.js";
 import type { NodeDefinition } from "../../node-definition.js";
 
 /**
@@ -39,15 +40,11 @@ export default {
       name: "serviceType",
       type: "multiOptions",
       description: "Leave all off to run on every cancellation.",
-      options: [
-        { name: "Installation", value: "installation" },
-        { name: "Repair", value: "repair" },
-        { name: "Maintenance", value: "maintenance" },
-        { name: "Inspection", value: "inspection" },
-        { name: "Emergency", value: "emergency" },
-        { name: "Consultation", value: "consultation" },
-        { name: "Other", value: "other" },
-      ],
+      // From `SERVICE_TYPES`, not written out. Three definitions each had their
+      // own copy of this list, and a filter whose options miss the payload's
+      // enum matches nothing — silently — which is the one failure the
+      // declarative design exists to prevent.
+      options: enumOptions(SERVICE_TYPES),
       filter: { path: "serviceType", operator: "inList" },
     },
   ],

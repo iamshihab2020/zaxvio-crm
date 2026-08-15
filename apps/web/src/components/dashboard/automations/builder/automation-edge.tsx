@@ -52,8 +52,9 @@ function AutomationEdgeComponent({
   sourceY,
   targetX,
   targetY,
-  sourcePosition,
-  targetPosition,
+  // `sourcePosition` / `targetPosition` are deliberately not taken: this edge is
+  // a straight segment between two handles, so the side each one sits on does
+  // not change what is drawn.
   data,
   selected,
 }: EdgeProps<AutomationFlowEdge>) {

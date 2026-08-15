@@ -28,8 +28,8 @@ function appWith(route: (app: ReturnType<typeof Fastify>) => void) {
 /** Exactly the shape Drizzle throws: statement in the message, reason on cause. */
 function drizzleError(): Error {
   const err = new Error(
-    'Failed query: select "workflows"."id" from "workflows" where tenant_id = $1
-params: 556682d0-fa7b-4f40-a843-3765181dbe68',
+    'Failed query: select "workflows"."id" from "workflows" where tenant_id = $1' +
+      "\nparams: 556682d0-fa7b-4f40-a843-3765181dbe68",
   );
   (err as Error & { cause?: unknown }).cause = {
     code: "22P02",
@@ -64,7 +64,7 @@ describe("a 500 tells the client nothing about the database", () => {
     // logger rather than the decision.
     const captured: Record<string, unknown>[] = [];
     buildErrorResponse(
-      drizzleError() as never,
+      drizzleError(),
       (payload) => captured.push(payload),
       { url: "/jobs/x/costs", method: "GET" },
     );

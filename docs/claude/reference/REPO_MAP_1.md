@@ -21,7 +21,7 @@
 zaxvio-crm/
 +-- package.json              # Root scripts: dev, build, lint, typecheck, test, db:*, seed:admin
 +-- pnpm-workspace.yaml       # Workspaces: apps/*, packages/*
-+-- turbo.json                # Pipeline: build, lint, typecheck, test, dev
++-- turbo.json                # Pipeline: build, lint, lint:fix (uncached), typecheck, test, dev
 +-- tsconfig.json             # Base TS config (ES2022, strict)
 +-- .prettierrc               # Semi, double quotes, trailing comma, width 100
 +-- .npmrc                    # auto-install-peers, no strict peer deps
@@ -124,6 +124,7 @@ REST API server. Multi-tenant middleware, Better Auth, PDF generation, dashboard
 apps/api/
 +-- package.json              # deps: fastify, @fastify/cors, better-auth, @react-pdf/renderer, etc.
 +-- tsconfig.json             # jsx: "react-jsx" (for PDF rendering)
++-- eslint.config.js          # Re-exports @hvac-saas/config/eslint — flat config resolves from cwd
 +-- src/
 |   +-- server.ts             # Entry point — Fastify with CORS, Swagger, Better Auth mount, routes
 |   |
@@ -340,6 +341,54 @@ apps/api/
 |   |   |   |                         # FOUR callers: PATCH /jobs/:id/status, POST
 |   |   |   |                         # /jobs/bulk-status-update (a per-id loop, so partial success
 |   |   |   |                         # names each refusal), and the two automation nodes
+|   |   |   |                         # createJob() / updateJob(): the pure-move half (P7a.3b). No
+|   |   |   |                         # second caller yet, but same actor + result-union shape, so a
+|   |   |   |                         # future job.create node needs no reshaping. createJob folded in
+|   |   |   |                         # the FOURTH copy of the org-membership check, which still failed
+|   |   |   |                         # OPEN on a tenant with no organisation row
+|   |   +-- actor.ts               # Actor: a person OR an automation, shared by every domain
+|   |   |                             # service. Was JobActor in jobs.service.ts until customers
+|   |   |                             # needed the identical shape - two structurally-compatible
+|   |   |                             # declarations drift the moment one gains a field
+|   |   +-- customers/
+|   |   |   +-- customers.service.ts  # addCustomerTag / removeCustomerTag / updateCustomer (P7).
+|   |   |   |                         # Tagging twice writes nothing and raises NO event, which is
+|   |   |   |                         # what stops a re-run enrolling somebody twice
+|   |   |   +-- customer-events.service.ts
+|   |   +-- quotes/
+|   |   |   +-- quote-views.service.ts # recordQuoteView(): stamps first_viewed_at while it is NULL,
+|   |   |   |                         # in the WHERE clause, so two tabs produce one event. The one
+|   |   |   |                         # write a GET is allowed to make (P9)
+|   |   +-- workflow/
+|   |   |   +-- http/
+|   |   |   |   +-- url-validator.ts  # THE outbound guard (wf-10 §10.5). Resolves the hostname,
+|   |   |   |   |                     # validates the ADDRESSES, and returns them - the caller
+|   |   |   |   |                     # connects to those. Validating a name then handing the name
+|   |   |   |   |                     # to fetch is DNS rebinding, not a check
+|   |   |   |   +-- outbound.ts       # node:https with a pinned `lookup`, because fetch cannot take
+|   |   |   |   |                     # one. Re-validates every redirect, caps at 3, 1MB, 5s/10s
+|   |   |   +-- webhooks/
+|   |   |   |   +-- secrets.ts        # mint/hash/compare. Hashes BOTH sides to 32 bytes before
+|   |   |   |   |                     # timingSafeEqual - an early length check is itself a timing
+|   |   |   |   |                     # oracle. Header allowlist, never a denylist
+|   |   |   |   +-- receive.ts        # resolve + authorise. Every refusal returns the SAME 404;
+|   |   |   |   |                     # the reason is logged and never sent (enumeration control)
+|   |   |   +-- sweeps/
+|   |   |   |   +-- invoice-overdue.ts
+|   |   |   |   +-- schedule.ts       # warranties, agreements, visits. Claims a row in
+|   |   |   |   |                     # workflow_schedule_state BEFORE emitting - a permanent row,
+|   |   |   |   |                     # not the outbox's dedupKey, which retention clears at 30d
+|   |   |   |   +-- clock.ts          # schedule.daily/weekly. The ONE sweep that reads node config,
+|   |   |   |   |                     # because there is no record to sweep - the config IS the timing
+|   |   |   +-- graph/
+|   |   |   |   +-- record-search.ts  # the searchable pickers (customer/job/equipment/contract).
+|   |   |   |   |                     # `ids` is the REHYDRATE path: a saved config holds an id and
+|   |   |   |   |                     # the panel has no term to find its label with
+|   |   |   +-- totals.ts              # recalculateJobTotals(): a job's money from its line items. Was
+|   |   |   |                         # private in routes/jobs/index.ts with SIX callers, so the first
+|   |   |   |                         # handler extracted would have had to import from a route file or
+|   |   |   |                         # take a copy. Db type omits $client so it works inside a tx —
+|   |   |   |                         # the third recurrence of that defect (QUO-02, availability)
 |   |   |   +-- stage-events.service.ts # job.stage_changed + job.completed/cancelled, from ONE
 |   |   |   |                         # implementation called by both the single and the bulk status
 |   |   |   |                         # path. Two completed stages in a row is not a re-completion
@@ -593,6 +642,7 @@ Unified app: landing page + auth + tenant dashboard + super admin panel + public
 apps/web/
 +-- package.json              # deps: next, better-auth, @tabler/icons-react, recharts, etc.
 +-- tsconfig.json
++-- eslint.config.js          # Re-exports @hvac-saas/config/eslint — flat config resolves from cwd
 +-- .env.local                # FRONTEND ONLY — Next.js reads .env* from this folder, never the root .env (not committed)
 +-- .env.example              # Template for the frontend env
 +-- next.config.mjs           # staleTimes + instrumentationHook: true (required on Next 14 for instrumentation.ts)

@@ -10,7 +10,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate",
+    "db:apply": "tsx scripts/apply-migration.mts",
+    "db:migrate": "node -e \"console.error('db:migrate is disabled in this repo.\\n\\ndrizzle-kit replays supabase/migrations/meta/_journal.json, but 32 files there are hand-written and unlisted, and drizzle.__drizzle_migrations is empty — so it restarts from 0000 and dies on CREATE TYPE booking_status, a type that has existed for months.\\n\\nUse:  pnpm db:apply <filename.sql>\\n\\nRe-enable this only after re-baselining the journal.'); process.exit(1)\"",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio"
   },
@@ -20,6 +21,7 @@
     "postgres": "^3.4.8"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.9"
+    "drizzle-kit": "^0.31.9",
+    "tsx": "^4.21.0"
   }
 }

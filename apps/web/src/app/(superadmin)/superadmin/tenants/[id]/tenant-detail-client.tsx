@@ -478,7 +478,6 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
         tenantName={tenant.businessName}
         open={impersonateOpen}
         onOpenChange={setImpersonateOpen}
-        onSuccess={handleSuccess}
       />
       <ExtendTrialDialog
         tenantId={tenant.id}

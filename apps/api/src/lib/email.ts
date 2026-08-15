@@ -14,7 +14,6 @@ import type {
   WelcomePaidEmailProps,
   ReviewRequestEmailProps,
   QuoteEmailProps,
-  TeamInvitationEmailProps,
   BookingCancelledEmailProps,
   NotificationEmailProps,
 } from "@hvac-saas/email";
@@ -140,16 +139,6 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailOutcome
       reason: error instanceof Error ? error.message : "Unknown email error",
     };
   }
-}
-
-// ── Render helpers (lazy imports to avoid top-level await) ──
-
-async function renderTemplate<P>(
-  renderFn: () => Promise<{ default: (props: P) => Promise<string> }>,
-  props: P
-): Promise<string> {
-  const mod = await renderFn();
-  return mod.default(props);
 }
 
 // ── E-01: Welcome ──

@@ -8,7 +8,6 @@ import {
   and,
   gte,
   lte,
-  desc,
   asc,
   count,
   sql,

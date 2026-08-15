@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Skeleton } from "@/components/ui/skeleton";
 import { IconPhoto, IconFile, IconUpload, IconX } from "@tabler/icons-react";
 import { uploadJobFile, addJobPhoto, addJobDocument } from "@/actions/jobs";
 

@@ -148,7 +148,9 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
         <div className="mx-auto flex max-w-2xl flex-wrap items-center justify-between gap-4 px-5 py-6">
           <div className="flex items-center gap-3">
             {business.logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
+              // A plain <img>, deliberately: the URL is tenant-supplied R2
+              // content, and next/image would need every such host in
+              // `remotePatterns` before it would render at all.
               <img
                 src={business.logoUrl}
                 alt=""
@@ -205,14 +207,14 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
                   You&rsquo;ve already responded to this estimate.
                 </p>
               </div>
-              <QuoteReviewCard business={business} quote={quote} />
+              <QuoteReviewCard quote={quote} />
             </div>
           )}
 
           {/* Step: Review */}
           {!alreadyResponded && step === "review" && (
             <div className="space-y-7">
-              <QuoteReviewCard business={business} quote={quote} />
+              <QuoteReviewCard quote={quote} />
               <div className="no-print flex justify-end border-t border-ink/10 pt-5 dark:border-border">
                 <Button
                   onClick={() => setStep("respond")}

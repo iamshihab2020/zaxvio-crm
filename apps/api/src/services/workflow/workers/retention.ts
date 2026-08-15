@@ -279,8 +279,12 @@ async function deleteBatch(db: Db, statement: ReturnType<typeof sql>): Promise<n
   const result = await db.execute(statement);
   // `rowCount` is what a DELETE reports; the driver wrappers differ on whether
   // it is present, so `rows.length` is the fallback rather than an assumption.
-  const asRecord = result as unknown as { rowCount?: number; rows?: unknown[] };
-  return asRecord.rowCount ?? asRecord.rows?.length ?? 0;
+  // Asked rather than asserted. The cast that used to be here claimed both
+  // properties existed on a type where neither is declared; an `in` check is
+  // the same question with a truthful answer.
+  if ("rowCount" in result && typeof result.rowCount === "number") return result.rowCount;
+  if ("rows" in result && Array.isArray(result.rows)) return result.rows.length;
+  return 0;
 }
 
 /**

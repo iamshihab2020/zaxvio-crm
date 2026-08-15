@@ -7,7 +7,6 @@ import {
   quoteLineItems,
   quoteActivities,
   jobs,
-  jobLineItems,
   catalogItems,
   customers,
   equipment,
@@ -19,7 +18,6 @@ import {
   desc,
   asc,
   count,
-  sql,
   user,
   isNull,
   isNotNull,
@@ -27,7 +25,6 @@ import {
 } from "@hvac-saas/database";
 import { uploadFile, downloadFile } from "../../lib/storage.js";
 import { withSafeLogo } from "../../lib/pdf/logo.js";
-import { lt } from "drizzle-orm";
 import crypto from "node:crypto";
 import { env } from "../../lib/env.js";
 import {
@@ -58,7 +55,6 @@ import {
   canTransitionQuote,
   transitionRefusal,
   isQuoteStatus,
-  type QuoteStatus,
 } from "../../lib/quote-guards.js";
 import {
   recalculateQuoteTotals,
@@ -588,7 +584,7 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         return reply.status(draftGate.status).send({ message: draftGate.message });
       }
 
-      let description = body.description;
+      const description = body.description;
       let unitPrice = body.unitPrice;
       let itemType = body.itemType;
       let catalogName: string | null = null;

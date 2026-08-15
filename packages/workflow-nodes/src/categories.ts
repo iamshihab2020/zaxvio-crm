@@ -98,6 +98,14 @@ export const SUBCATEGORIES: SubcategoryMeta[] = [
   { id: "logic.branch", label: "Branching", category: "logic", order: 1 },
   { id: "logic.timing", label: "Timing", category: "logic", order: 2 },
   { id: "logic.control", label: "Flow control", category: "logic", order: 3 },
+  // data
+  //
+  // One subcategory, not three. Remember / Calculate / Format are the same
+  // gesture at different grain, and splitting them would put a single-node
+  // heading under each - a palette that reads as more capable than it is.
+  { id: "data.transform", label: "Values", category: "data", order: 1 },
+  // integration
+  { id: "integration.http", label: "Other systems", category: "integration", order: 1 },
 ];
 
 const SUBCATEGORY_BY_ID = new Map(SUBCATEGORIES.map((s) => [s.id, s]));

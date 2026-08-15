@@ -57,6 +57,7 @@ import {
   quoteAcceptedPayload,
   quoteCreatedPayload,
   quoteDeclinedPayload,
+  quoteViewedPayload,
   quoteExpiredPayload,
   quoteSentPayload,
 } from "./quote.js";
@@ -79,6 +80,7 @@ import {
   manualRunPayload,
   scheduleDailyPayload,
   scheduleWeeklyPayload,
+  webhookReceivedPayload,
 } from "./system.js";
 
 // ── Shape ────────────────────────────────────────────────────────────────────
@@ -103,7 +105,20 @@ export type EventCategory = (typeof EVENT_CATEGORIES)[number];
  * - `derived` — a schedule worker noticed a date arrived. No write caused it.
  * - `manual` — a person pressed a button.
  */
-export const EVENT_ORIGINS = ["domain", "derived", "manual"] as const;
+/**
+ * What makes an event real.
+ *
+ *   domain    — a write we made raised it, in the same transaction
+ *   derived   — nothing happened; a date arrived and a sweep noticed
+ *   manual    — somebody pressed Run
+ *   external  — something outside Zaxvio called an inbound webhook
+ *
+ * `external` is the P9 addition and it is genuinely a fourth kind, not a
+ * relabelling of one of the others: its payload is the only one in the taxonomy
+ * that is **entirely author-controlled and entirely untrusted**. Everything else
+ * here is built by a producer from a row we wrote.
+ */
+export const EVENT_ORIGINS = ["domain", "derived", "manual", "external"] as const;
 
 /**
  * Which phase's producer makes an event real.
@@ -340,6 +355,16 @@ export const WORKFLOW_EVENTS = {
     phase: "P2",
     payload: quoteAcceptedPayload,
   },
+  "quote.viewed": {
+    label: "Quote viewed",
+    description:
+      "The customer opened their quote link for the first time. Fires once per quote.",
+    category: "quote",
+    origin: "domain",
+    subject: "quote",
+    phase: "P9",
+    payload: quoteViewedPayload,
+  },
   "quote.declined": {
     label: "Quote declined",
     description: "The customer declined. Carries their reason when they gave one.",
@@ -486,6 +511,16 @@ export const WORKFLOW_EVENTS = {
     subject: null,
     phase: "P9",
     payload: scheduleWeeklyPayload,
+  },
+  "webhook.received": {
+    label: "Webhook received",
+    description:
+      "Something outside Zaxvio called one of your webhook URLs. Has no subject - the automation decides what it is about.",
+    category: "system",
+    origin: "external",
+    subject: null,
+    phase: "P9",
+    payload: webhookReceivedPayload,
   },
   "manual.run": {
     label: "Run manually",

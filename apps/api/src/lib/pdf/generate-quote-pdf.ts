@@ -64,7 +64,7 @@ export async function generateQuotePdf(
   // strict-rules §4 asks for here — `as any` would also hide a genuine
   // mis-shaped element. (ARC-17)
   const buffer = await renderToBuffer(
-    element as unknown as Parameters<typeof renderToBuffer>[0],
+    element as Parameters<typeof renderToBuffer>[0],
   );
   return Buffer.from(buffer);
 }

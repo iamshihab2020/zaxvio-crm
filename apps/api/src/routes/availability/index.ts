@@ -50,7 +50,10 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .then((r) => r[0]);
       const tz = tenantRow?.timezone ?? "America/Chicago";
 
-      let [weeklySchedule, overrides] = await Promise.all([
+      // `weeklySchedule` is reassigned below when the tenant has none yet;
+      // `overrides` never is, so they are declared apart rather than both being
+      // `let` for the sake of one.
+      const [initialSchedule, overrides] = await Promise.all([
         db
           .select()
           .from(availabilitySchedules)
@@ -69,6 +72,7 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
       ]);
 
       // Lazy-seed default schedule for existing tenants
+      let weeklySchedule = initialSchedule;
       if (weeklySchedule.length === 0) {
         weeklySchedule = await seedDefaultAvailability(db, tenantId);
       }

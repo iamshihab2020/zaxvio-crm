@@ -25,24 +25,12 @@ function isAuthPath(pathname: string) {
   );
 }
 
-function isSuperadminPath(pathname: string) {
-  return pathname.startsWith("/superadmin");
-}
-
-function isDashboardPath(pathname: string) {
-  return (
-    pathname.startsWith("/dashboard") ||
-    pathname.startsWith("/customers") ||
-    pathname.startsWith("/jobs") ||
-    pathname.startsWith("/invoices") ||
-    pathname.startsWith("/quotes") ||
-    pathname.startsWith("/bookings") ||
-    pathname.startsWith("/schedule") ||
-    pathname.startsWith("/catalog") ||
-    pathname.startsWith("/checklists") ||
-    pathname.startsWith("/settings")
-  );
-}
+// `isSuperadminPath` and `isDashboardPath` used to live here and had no callers.
+// They are not restored on purpose: the only thing middleware could do with them
+// is gate on a role, and the role it can see is a client-set cookie. That check
+// belongs in the (superadmin) layout, server-side, which is where it is —
+// security-rules §3. A path predicate sitting unused next to a session check is
+// an invitation to reintroduce exactly that.
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;

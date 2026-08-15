@@ -47,7 +47,8 @@ function MemberAvatar({
 
   if (member.image) {
     return (
-      // eslint-disable-next-line @next/next/no-img-element
+      // A plain <img>, deliberately: an avatar URL comes from the auth provider
+      // and next/image would need each host in `remotePatterns` first.
       <img
         src={member.image}
         alt={member.name}

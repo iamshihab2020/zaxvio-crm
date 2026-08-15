@@ -27,6 +27,16 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
+    // Separate from `lint`, and never cached. `lint` is a check; `lint:fix`
+    // rewrites source. Until now the one script did both, which means turbo was
+    // caching a "success" that had been produced by editing the files under it —
+    // so a second run against unfixable errors could still replay a cache hit
+    // recorded when the fixable ones were silently rewritten.
+    "lint:fix": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "outputs": []
+    },
     "typecheck": {
       "dependsOn": ["^build"],
       "outputs": []

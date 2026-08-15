@@ -204,6 +204,7 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
                 context={context}
                 contextLoading={contextQuery.isLoading}
                 subject={subject}
+                workflowId={workflowId}
               />
             )}
 

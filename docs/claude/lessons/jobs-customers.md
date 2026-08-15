@@ -140,3 +140,21 @@ See [[jobs|the report]] for the full 38 findings + 3 more found while fixing the
   roll back the ninety-nine that were fine. The old shape reached partial success by pre-filtering;
   the loop reaches it directly, and each refusal names its own id instead of being tallied into
   `{ id: "N/A", message: "3 job(s) ..." }`, which told the caller nothing about which three.
+- **A consolidation commit sweeps the handler it is reading, not the file it is in.** `assignJob`
+  moved `PATCH /jobs/:id` onto the shared `isOrgMember` and its commit message said three copies
+  had become one. `POST /jobs`, two hundred lines above in the *same file*, still had its own
+  inline `member` lookup — carrying the identical **fail-open** shape, `if (assigneeId &&
+  tenantRecord)` with no `else`, so a tenant whose organisation row is missing skipped the check
+  instead of failing it. Every previous instance of this project's propagation failure crossed a
+  directory boundary (`routes/jobs` → `services/workflow`, `routes/jobs` → `lib/quote-to-job.ts`);
+  this one did not cross anything. **Grep the whole repo for the primitive you are replacing —
+  `from(member)`, `jobs.status`, `db.execute` — and count the hits before and after. "I fixed the
+  call sites I was looking at" is not a sweep, and the file you are editing is not a smaller
+  search space than the repo.**
+- **Assert on the row you mean, not on the first row returned.** A proof of `createJob` asserted
+  "exactly one `job_activities` row" and failed: `attachChecklistToJob` writes its own
+  ("Checklist X attached (6 items)"), correctly and since long before. Taking `[0]` then read the
+  checklist row's `description` and `metadata` and reported three failures against working code.
+  Filter by `type` — and note the assertion would have *passed* against a tenant with no checklist
+  template, which is no real tenant, so the wrong version was one seeded template away from being
+  a permanently green false negative.

@@ -25,6 +25,19 @@ import {
   TextField,
   TimeField,
 } from "./fields";
+import {
+  CatalogItemField,
+  ChecklistField,
+  ContractField,
+  CustomerField,
+  EquipmentField,
+  JobField,
+  MultiTagField,
+  ServiceTypeField,
+  TagField,
+  WorkflowField,
+} from "./crm-pickers";
+import { NodeSelectField, VariablePathField } from "./graph-fields";
 import { ConditionsField } from "./conditions-field";
 
 /**
@@ -50,6 +63,12 @@ interface Props {
   contextLoading: boolean;
   /** What the trigger provides — scopes the variable picker. */
   subject: SubjectType | null;
+  /**
+   * The automation being edited. The searchable pickers query through it, so
+   * the endpoint can 404 for an automation this tenant does not own rather than
+   * exposing the customer list to id-less probing.
+   */
+  workflowId: string;
 }
 
 export function ConfigRenderer({
@@ -61,6 +80,7 @@ export function ConfigRenderer({
   context,
   contextLoading,
   subject,
+  workflowId,
 }: Props) {
   // C-1: conditional fields are a MUST. Without them an eight-property email
   // node is an unusable wall of inputs, and the same evaluation runs in the
@@ -99,6 +119,7 @@ export function ConfigRenderer({
             context={context}
             contextLoading={contextLoading}
             subject={subject}
+            workflowId={workflowId}
           />
         </div>
       ))}
@@ -115,6 +136,7 @@ function Field({
   context,
   contextLoading,
   subject,
+  workflowId,
 }: {
   property: NodeProperty;
   parameters: Record<string, unknown>;
@@ -124,6 +146,7 @@ function Field({
   context: BuilderContext | null;
   contextLoading: boolean;
   subject: SubjectType | null;
+  workflowId: string;
 }) {
   const shared = {
     property,
@@ -136,6 +159,9 @@ function Field({
     subject,
   };
   const picker = { ...shared, context, contextLoading };
+  // Searchable pickers need the automation id to query through. Kept separate
+  // from `picker` so a bounded picker cannot accidentally depend on it.
+  const searchable = { ...picker, workflowId };
 
   switch (property.type) {
     // ── P5 primitives ────────────────────────────────────────────────────────
@@ -176,7 +202,38 @@ function Field({
     case "stageSelect":
       return <StageField {...picker} />;
 
-    // ── P7 ───────────────────────────────────────────────────────────────────
+    // ── P7 CRM pickers ───────────────────────────────────────────────────────
+    //
+    // Bounded — options ship with `builder-context` on node open.
+    case "tagSelect":
+      return <TagField {...picker} />;
+    case "multiTagSelect":
+      return <MultiTagField {...picker} />;
+    case "checklistSelect":
+      return <ChecklistField {...picker} />;
+    case "catalogItemSelect":
+      return <CatalogItemField {...picker} />;
+    case "serviceTypeSelect":
+      return <ServiceTypeField {...picker} />;
+    case "workflowSelect":
+      return <WorkflowField {...picker} />;
+
+    // Searchable — bounded by how long the business has existed, so they query.
+    case "customerSelect":
+      return <CustomerField {...searchable} />;
+    case "jobSelect":
+      return <JobField {...searchable} />;
+    case "equipmentSelect":
+      return <EquipmentField {...searchable} />;
+    case "contractSelect":
+      return <ContractField {...searchable} />;
+
+    // ── graph-scoped: options come from the trigger or the canvas ────────────
+    case "variablePath":
+      return <VariablePathField {...shared} />;
+    case "nodeSelect":
+      return <NodeSelectField {...shared} />;
+
     default:
       // Named, not silent. A field with no renderer would otherwise be a gap in
       // the form the user cannot see — and they would publish an automation

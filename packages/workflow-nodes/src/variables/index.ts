@@ -463,6 +463,43 @@ export function namespaceOf(path: string): string {
 }
 
 /**
+ * `{{ anything.but.braces }}`.
+ *
+ * Declared here rather than in the engine because **two** consumers need to
+ * agree on it: the interpolator, which resolves these at run time, and the graph
+ * validator, which has to find them at publish time in order to report a path
+ * that will never resolve. A second copy of this regex is a validator that
+ * silently stops seeing a token shape the engine still honours.
+ *
+ * Not a shared `const` with the `g` flag — a global regex carries `lastIndex`
+ * across calls, so two consumers sharing one instance interleave and miss
+ * matches. A factory hands each caller its own.
+ */
+export function interpolationToken(): RegExp {
+  return /\{\{\s*([^{}]+?)\s*\}\}/g;
+}
+
+/**
+ * Every `{{token}}` path in a template, in order, deduplicated.
+ *
+ * Returns paths **as typed**, trimmed of the braces and surrounding space, so a
+ * caller reporting an error can quote back exactly what the author wrote.
+ */
+export function extractVariablePaths(template: string): string[] {
+  if (!template.includes("{{")) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const match of template.matchAll(interpolationToken())) {
+    const path = match[1]?.trim();
+    if (path && !seen.has(path)) {
+      seen.add(path);
+      out.push(path);
+    }
+  }
+  return out;
+}
+
+/**
  * "Did you mean?" for an unresolved path.
  *
  * Same namespace first, then edit distance. Free, because the table exists — and

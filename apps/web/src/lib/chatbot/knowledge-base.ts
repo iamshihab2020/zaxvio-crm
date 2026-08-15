@@ -1,6 +1,46 @@
 import type { KnowledgeEntry } from "./types";
 
 const entries: KnowledgeEntry[] = [
+  {
+    id: "automations-webhooks",
+    question: "Can something outside Zaxvio start an automation?",
+    answer:
+      "Yes. Add a Webhook step as the starting point and Zaxvio gives you a URL and a secret to hand to the other system. Anything that can send a web request \u2014 a form on your website, Zapier, a supplier's system \u2014 can then start that automation.\n\nThe secret is shown in full once, when you create it. Copy it then; afterwards you will only see the last four characters. If you lose it you can rotate it, and the URL stays the same so you only have to update the secret at the other end.\n\nKeep both private. Anyone with the URL and the secret can start that automation.",
+    category: "automations",
+    keywords: ["webhook", "url", "external", "zapier", "integration", "api", "trigger"],
+  },
+  {
+    id: "automations-schedules",
+    question: "Can an automation run on a schedule instead of an event?",
+    answer:
+      "Yes. Every Day and Every Week start an automation at a time you choose rather than off something happening. They run once per day or week even if the system restarts, so you will not get two of anything.\n\nThe time is local to your business, and it stays correct across daylight saving.\n\nThere are also date-based starting points that watch your records for you: Warranty Expiring, Agreement Expiring and Maintenance Visit Due. Those fire once per item \u2014 you will not be chased about the same warranty every day for two months.",
+    category: "automations",
+    keywords: ["schedule", "daily", "weekly", "recurring", "every day", "cron", "warranty", "renewal"],
+  },
+  {
+    id: "automations-quote-opened",
+    question: "Can I tell whether a customer opened their quote?",
+    answer:
+      "Yes. When a customer opens their quote link for the first time, Zaxvio records it \u2014 and there is a Quote Opened starting point for automations.\n\nThat distinction is worth using. Somebody who never opened it might not have received it, so resending or ringing makes sense. Somebody who opened it and went quiet has a question about the price or the scope, and another copy of the same quote will not answer it \u2014 asking them what they thought usually will.\n\nIt records the first open only, so a customer who keeps re-reading it still counts as gone quiet.",
+    category: "automations",
+    keywords: ["quote", "opened", "viewed", "read", "tracking", "follow up"],
+  },
+  {
+    id: "automations-outside-calls",
+    question: "Can an automation call another system's API?",
+    answer:
+      "Yes \u2014 Call a URL sends a request you configure, and Send to a URL posts a small standard message about the customer or job.\n\nFor safety, addresses on private or internal networks are refused, and so is anything that redirects to one. There is a daily limit of 500 outside calls per workspace; if you reach it, those steps are skipped and start working again the next day.\n\nThe reply from Call a URL is only shown when you test the step. On a live run later steps can see whether it succeeded, but not what came back.",
+    category: "automations",
+    keywords: ["api", "http", "request", "integration", "call", "external", "post"],
+  },
+  {
+    id: "automations-tags",
+    question: "How do I start an automation by hand for one customer?",
+    answer:
+      "Tag them. Use Tag Added as the starting point and pick the tag \u2014 then tagging that customer starts the automation.\n\nIt is the simplest way to put one specific person into a sequence without building a filter that happens to match only them. Automations can add and remove tags too, which is how one hands off to another: the first tags them, the second starts when the tag appears.\n\nAdding a tag somebody already has does nothing, so it is safe to re-run.",
+    category: "automations",
+    keywords: ["tag", "manual", "start", "trigger", "segment", "by hand"],
+  },
   // ═══════════════════════════════════════
   // ── Navigation & Getting Started ──
   // ═══════════════════════════════════════

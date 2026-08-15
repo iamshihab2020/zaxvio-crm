@@ -29,7 +29,6 @@ import {
   startOfWeek,
   endOfWeek,
   isToday as dateIsToday,
-  startOfDay,
 } from "date-fns";
 import { useState } from "react";
 

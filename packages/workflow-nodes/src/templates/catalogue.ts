@@ -643,6 +643,222 @@ const chaseUnansweredQuote: WorkflowTemplate = {
  * alphabetically and not by category. Getting paid comes first because it is the
  * reason anybody opens this page.
  */
+
+/**
+ * The renewal, which is the highest-value automation a service business has.
+ *
+ * A service agreement that lapses unnoticed is recurring revenue that stops
+ * without anybody deciding it should — and nobody notices, because nothing
+ * happens. There is no invoice that goes unpaid and no customer who complains.
+ *
+ * Only buildable since P9: the trigger is derived from a date rather than from a
+ * write, so it needs the schedule sweep behind it. Thirty days is enough time to
+ * have the conversation and not so long that it gets forgotten again.
+ *
+ * `purpose: "transactional"` — a renewal notice for an agreement the customer is
+ * currently paying for is a service message about their existing contract, which
+ * is exactly the exemption `lib/email-consent.ts` describes. Left on the default
+ * it would skip every customer who had ever unsubscribed from marketing, which
+ * for an agreement they are still paying for is both wrong and expensive.
+ */
+const renewServiceAgreement: WorkflowTemplate = {
+  id: "renew-service-agreement",
+  name: "Renew a service agreement before it lapses",
+  summary: "A month before an agreement ends, ask the customer to renew.",
+  detail:
+    "Thirty days before a service agreement runs out, your customer gets a note " +
+    "about what it covers and an offer to renew, and you get a reminder to " +
+    "follow it up. Agreements that lapse quietly are the easiest revenue to lose.",
+  category: "keeping-customers",
+  icon: "IconFileCertificate",
+  nodes: [
+    {
+      key: "trigger",
+      nodeType: "trigger.contract.expiring",
+      label: "30 days before it ends",
+      parameters: { leadDays: 30 },
+    },
+    {
+      key: "email",
+      nodeType: "email.send",
+      label: "Offer to renew",
+      parameters: {
+        recipient: "customer",
+        purpose: "transactional",
+        subject: "Your service agreement with {{tenant.businessName}}",
+        body:
+          "Hi {{customer.firstName}},\n\n" +
+          "Your service agreement with us runs to {{contract.endDate}}, so it is " +
+          "coming up for renewal.\n\n" +
+          "It covers {{contract.visitsPerYear}} visits a year, which keeps " +
+          "everything serviced on schedule and means you are first in the queue " +
+          "if something goes wrong.\n\n" +
+          "Just reply to this and I will get it sorted — nothing changes at your " +
+          "end.\n\n" +
+          "Thanks,\n{{tenant.ownerName}}\n{{tenant.businessName}}",
+      },
+    },
+    {
+      key: "notify",
+      nodeType: "notification.internal",
+      label: "Remind me to chase it",
+      parameters: {
+        title: "Agreement renewal: {{customer.fullName}}",
+        description:
+          "Ends {{contract.endDate}}. Renewal note sent — worth a call if they do not reply.",
+      },
+    },
+  ],
+  edges: [
+    { from: "trigger", to: "email" },
+    { from: "email", to: "notify" },
+  ],
+};
+
+/**
+ * The warranty, which is the same idea one layer down.
+ *
+ * A warranty running out is the moment a customer's risk changes and they do not
+ * know it. This is not a sales email pretending to be a service one, so it says
+ * plainly what is ending and offers the thing that replaces it.
+ *
+ * `purpose: "marketing"`, deliberately and unlike the renewal above: the
+ * customer has no current agreement covering this, so a message offering one is
+ * an offer. Somebody who unsubscribed should not receive it, and the honest
+ * classification is what makes that work.
+ *
+ * Sixty days rather than thirty. A warranty ending is not a deadline the
+ * customer has to meet — it is a decision they need time to make.
+ */
+const warrantyEndingSoon: WorkflowTemplate = {
+  id: "warranty-ending-soon",
+  name: "Tell customers before a warranty runs out",
+  summary: "Two months before cover ends, offer a service plan instead.",
+  detail:
+    "When a piece of equipment you have on record is two months from the end of " +
+    "its warranty, the customer hears about it — with an offer of a service plan " +
+    "so they are not left uncovered. Fires once per item, never repeatedly.",
+  category: "keeping-customers",
+  icon: "IconShieldExclamation",
+  nodes: [
+    {
+      key: "trigger",
+      nodeType: "trigger.equipment.warrantyExpiring",
+      label: "60 days before it ends",
+      parameters: { leadDays: 60 },
+    },
+    {
+      key: "email",
+      nodeType: "email.send",
+      label: "Let them know",
+      parameters: {
+        recipient: "customer",
+        purpose: "marketing",
+        subject: "Your {{equipment.type}} warranty ends soon",
+        body:
+          "Hi {{customer.firstName}},\n\n" +
+          "The manufacturer warranty on your {{equipment.type}} runs out on " +
+          "{{equipment.warrantyExpiresAt}}. After that, parts and labour are not " +
+          "covered.\n\n" +
+          "If you would like, we can put it on a service plan instead — an annual " +
+          "check to keep it running well, and priority if anything goes wrong.\n\n" +
+          "Reply and I will send you the details.\n\n" +
+          "Thanks,\n{{tenant.ownerName}}\n{{tenant.businessName}}",
+      },
+    },
+  ],
+  edges: [{ from: "trigger", to: "email" }],
+};
+
+/**
+ * Chasing a quote somebody **opened** and then went quiet on.
+ *
+ * The distinction P9's `trigger.quote.viewed` exists to make. "Sent and never
+ * opened" is a deliverability problem — resend it, ring them. "Opened and
+ * ignored" is a price or a trust problem, and a second copy of the same email
+ * will not help.
+ *
+ * So this one does not resend anything. It waits two days, checks they still
+ * have not replied, and asks a **question** — because the useful thing to learn
+ * from a quote nobody answered is why, and the only way to learn it is to ask.
+ *
+ * The Only-if between the wait and the send is not optional. A resume time is
+ * fixed when the run reaches the wait, so a quote accepted an hour later still
+ * wakes this run up — and without the check it would email somebody asking what
+ * they thought of a quote they had already said yes to.
+ */
+const chaseViewedQuote: WorkflowTemplate = {
+  id: "chase-viewed-quote",
+  name: "Follow up a quote they opened but did not answer",
+  summary: "Two days after they read it, ask what they thought.",
+  detail:
+    "When a customer opens their quote and then goes quiet, this waits two days " +
+    "and asks them directly what they thought of it. Somebody who opened it is " +
+    "interested — a question gets a reply far more often than another copy of " +
+    "the same quote does.",
+  category: "winning-work",
+  icon: "IconEye",
+  nodes: [
+    {
+      key: "trigger",
+      nodeType: "trigger.quote.viewed",
+      label: "They opened the quote",
+      parameters: {},
+    },
+    {
+      key: "wait",
+      nodeType: "delay.wait",
+      label: "Give them two days",
+      parameters: {
+        mode: "for",
+        duration: { amount: 2, unit: "days" },
+        resumeDuring: "businessHours",
+      },
+    },
+    {
+      key: "still",
+      nodeType: "condition.if",
+      label: "Still waiting on them?",
+      parameters: {
+        combinator: "and",
+        rules: [{ variable: "quote.status", operator: "equals", value: "sent" }],
+      },
+    },
+    {
+      key: "email",
+      nodeType: "email.send",
+      label: "Ask what they thought",
+      parameters: {
+        recipient: "customer",
+        purpose: "transactional",
+        subject: "What did you think of quote {{quote.number}}?",
+        body:
+          "Hi {{customer.firstName}},\n\n" +
+          "I saw you had a look at the quote I sent over — thanks for taking the " +
+          "time.\n\n" +
+          "Was there anything on it you wanted to go through? Happy to talk about " +
+          "the price, the timing, or change the scope if some of it is not what " +
+          "you need.\n\n" +
+          "It is valid until {{quote.expiryDate}}.\n\n" +
+          "Thanks,\n{{tenant.ownerName}}\n{{tenant.businessName}}",
+      },
+    },
+    {
+      key: "stop",
+      nodeType: "logic.stop",
+      label: "They already answered",
+      parameters: { outcome: "cancelled" },
+      branchIndex: 1,
+    },
+  ],
+  edges: [
+    { from: "trigger", to: "wait" },
+    { from: "wait", to: "still" },
+    { from: "still", fromHandle: "true", to: "email" },
+    { from: "still", fromHandle: "false", to: "stop" },
+  ],
+};
+
 export const WORKFLOW_TEMPLATES: readonly WorkflowTemplate[] = [
   chaseOverdueInvoices,
   remindBeforeAppointment,
@@ -651,6 +867,9 @@ export const WORKFLOW_TEMPLATES: readonly WorkflowTemplate[] = [
   followUpAcceptedQuote,
   newBookingHeadsUp,
   welcomeNewCustomer,
+  renewServiceAgreement,
+  warrantyEndingSoon,
+  chaseViewedQuote,
 ];
 
 export function getTemplate(id: string): WorkflowTemplate | undefined {

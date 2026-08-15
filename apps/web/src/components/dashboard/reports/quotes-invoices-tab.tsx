@@ -13,7 +13,6 @@ import {
   YAxis,
 } from "recharts";
 import {
-  IconFileDescription,
   IconReceipt,
   IconPercentage,
   IconClock,

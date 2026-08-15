@@ -94,7 +94,10 @@
       "Bash(NEXT_PUBLIC_API_URL=https://zaxvio-crm-web.vercel.app API_INTERNAL_URL=https://zaxvio-api.onrender.com FRONTEND_URL=https://zaxvio-crm-web.vercel.app npx next build)",
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__evaluate_script",
       "mcp__plugin_chrome-devtools-mcp_chrome-devtools__resize_page",
-      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot"
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "Bash(awk 'NR>=1 && /^\\\\s*fastify\\\\.\\(get|post|patch|put|delete\\)\\\\\\(/ {getline nxt; print NR-1\": \"$0\" \"nxt}' src/routes/jobs/index.ts)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(echo \"workflow-nodes exit=$?\")"
     ]
   },
   "hooks": {

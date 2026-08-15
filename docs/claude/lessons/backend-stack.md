@@ -729,3 +729,97 @@
   code review and in the tests, and was unreachable in the only path that could loop. A limit that
   is never exercised is a comment; the useful question of any guard is "what actually sets the
   value it reads?"
+
+- **The backtick-in-a-SQL-comment defect recurs, and it recurred while I was
+  writing the warning about it.** Inside a tagged `sql` template a backtick ends
+  the string, whatever it looks like it is quoting — and the house style of
+  putting identifiers in backticks inside JSDoc two lines above makes it a
+  natural thing to type. It cost a day on 2026-08-09 (the API had not booted
+  since the overdue sweep landed) and cost a typecheck round again on
+  2026-08-15 in `sweeps/schedule.ts`. **The comment I added warning about it
+  contained two backticks and broke the same template.** No backticks anywhere
+  inside a `sql` template, including in comments, including in comments about
+  this. The reported error points at the first word after the break, never at
+  the cause.
+- **A literal newline inside a quoted string is a syntax error nobody sees when
+  reading.** `test/error-handler.test.ts` had one and had therefore never
+  compiled, in a commit whose message claims 7/7 verified. The content read
+  correctly, which is the whole problem — it is the same class as the ten
+  knowledge-base answers holding real newlines that produced ~900 errors from
+  one literal. Use `'…' + "
+…"` or a template literal.
+- **Casting a SQL result to `z.string()` when the column is an enum defers the
+  failure to the worst place.** The schedule sweep read `frequency::text` and
+  typed it `z.string().nullable()`; the payload schema downstream declares the
+  closed enum, so a value that drifts fails the parse at *emit* time — which
+  drops the event silently and makes the automation never fire. Validate raw SQL
+  as the real enum ([[api-rules]] §4), which is also where drift gets caught.
+- **A `g` regex shared between two consumers drops matches.** `lastIndex` is
+  carried on the RegExp object, so two callers interleaving over one instance
+  each skip whatever the other advanced past. The graph validator and the
+  interpolator both need the `{{token}}` pattern; it is exported as a
+  **factory** (`interpolationToken()`) rather than a const for exactly this
+  reason. Two copies of the pattern would be worse — the validator silently
+  stops seeing a shape the engine still honours — so the choice is a factory,
+  never a shared const and never a duplicate.
+- **`crypto.timingSafeEqual` throws on a length mismatch, and the obvious guard
+  is itself the vulnerability.** Checking `a.length !== b.length` and returning
+  early leaks the secret's exact length in a handful of requests, turning a
+  search over all strings into a search over strings of one known length. Hash
+  **both** sides to a fixed 32 bytes first and compare the digests; the length
+  check that remains is on something always 32 by construction.
+- **Validating a hostname and then handing the hostname to `fetch` is not a
+  guard.** An attacker controls their own DNS and can answer the validator with
+  a public address and the connection, milliseconds later, with
+  `169.254.169.254` — both legitimately theirs to give. Resolve, validate the
+  **addresses**, and connect to those. `fetch` cannot take a custom `lookup`, so
+  outbound HTTP is built on `node:https`; rewriting the URL to the IP also pins
+  it and breaks TLS, because the certificate is checked against the URL's
+  hostname.
+- **A dedup mechanism that silently expires is worse than none.** The outbox's
+  `dedup_key` is right for something repeating daily and wrong for a warranty
+  reminder: the retention sweep clears that table at 30 days, so the reminder
+  fires again on day 31 and looks like a one-off glitch. `workflow_schedule_state`
+  is a permanent row for exactly the cases whose memory must outlive the queue.
+- **Put the resolved calendar date *in* the dedup key, not in a comparison.**
+  "Which day is it" has a different answer per tenant timezone, so the decision
+  belongs to the query that already knows the zone — `(now() AT TIME ZONE
+  t.timezone)::date`. Comparing a `fired_at` timestamp afterwards re-opens the
+  question somewhere that cannot answer it.
+- **`onConflictDoNothing` returning no row is an answer, not an error.** It is
+  how two API instances sweeping the same second produce exactly one event, with
+  no lock and no leader election. The same shape stops a customer being tagged
+  twice, and in both cases the *absence* of a row is what suppresses the event.
+- **`sha256(secret + body)` is not a MAC.** SHA-256 is Merkle-Damgard, so its
+  digest *is* its internal state: anyone holding one valid `(body, signature)`
+  pair can resume from that state, append bytes and forge a signature for the
+  extended message **without ever learning the secret**. A delimiter does not
+  help - `secret.body` is just a longer prefix. Use `createHmac`, which exists
+  for exactly this. This repo shipped the broken construction on both the
+  signing and the checking side at once, with a comment describing them as "the
+  same construction" - they were, consistently wrong.
+- **You cannot verify an HMAC against a hash of the key.** Chasing the finding
+  above surfaced a worse one: the inbound `hmac` mode computed its expected
+  digest from `secret_hash`, while any real sender would sign with the *secret*.
+  Two different keys, so the mode could never have accepted a single request -
+  and because every refusal on that endpoint returns the same 404 by design, it
+  would have failed **silently and permanently** on endpoints whose owners had
+  done nothing wrong. If a verifier stores only a hash, it can compare a
+  presented bearer secret and nothing else. Signature verification is a
+  different storage decision, not a different function call.
+- **`pnpm db:generate` diffs against the journal, not the database — in this repo that makes it
+  a loaded gun.** Running it emitted a 28 KB migration recreating 14 tables, 7 enums and 73
+  ALTERs that have all existed for months, because `meta/_journal.json` does not list the 32
+  hand-written files. `db:migrate` then replayed the journal from `0000` (drizzle's own
+  `drizzle.__drizzle_migrations` table is empty) and died on `CREATE TYPE booking_status`.
+  Nothing was applied — drizzle wraps the whole run in one transaction — but the generated file
+  stayed on disk, registered in the journal, where the obvious "fix" is to make it idempotent and
+  run it. `db:migrate` is now a script that exits with the explanation, and `pnpm db:apply
+  <file.sql>` is the `sql.unsafe(...).simple()` procedure as an actual command. **The lesson is
+  not "be careful": it is that a documented manual procedure with no command attached will be
+  bypassed by whichever built-in command looks closest.**
+- **Read the error's *statement*, not just its code, before believing what failed.** The
+  `42710 type already exists` named `booking_status`, which appears nowhere in the file that had
+  just been generated. That mismatch is what revealed drizzle was replaying from the start of the
+  journal rather than applying the new file — the code alone would have sent me to the new
+  migration.

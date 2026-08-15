@@ -30,6 +30,7 @@ function fullContext(): ExecutionContext {
     workflowName: "Quote follow-up",
     versionId: "33333333-3333-3333-3333-333333333333",
     executionId: "44444444-4444-4444-4444-444444444444",
+    isTest: false,
     subject: { type: "job", id: "55555555-5555-5555-5555-555555555555" },
     customer: {
       id: "66666666-6666-6666-6666-666666666666",

@@ -47,7 +47,10 @@ export function ScheduleFilters({
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [serviceTypeOpen, setServiceTypeOpen] = useState(false);
 
-  const hasActiveFilters = priorityFilter !== null || serviceTypeFilter !== null;
+  // No `hasActiveFilters` here any more: it was computed and never read, so the
+  // "Clear filters" affordance it was plainly written for does not exist. Each
+  // filter clears from inside its own popover instead. Adding the control means
+  // rendering it, not restoring the boolean.
 
   return (
     <div className="flex items-center gap-2 border-b border-border px-4 py-2">

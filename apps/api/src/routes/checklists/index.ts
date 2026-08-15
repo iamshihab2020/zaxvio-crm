@@ -9,7 +9,6 @@ import {
   and,
   asc,
   desc,
-  count,
   sql,
 } from "@hvac-saas/database";
 import { ownsCatalogItem } from "../../lib/tenant-guards.js";

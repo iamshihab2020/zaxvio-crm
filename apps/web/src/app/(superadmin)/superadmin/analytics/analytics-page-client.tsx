@@ -5,8 +5,6 @@ import {
   Area,
   BarChart,
   Bar,
-  LineChart,
-  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -23,7 +21,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { TenantStatusBadge } from "@/components/superadmin/tenants/tenant-status-badge";
 
 interface AnalyticsPageClientProps {
   mrr: {

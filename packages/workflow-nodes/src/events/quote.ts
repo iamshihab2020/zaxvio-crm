@@ -63,6 +63,26 @@ export const quoteAcceptedPayload = z
   })
   .strict();
 
+/**
+ * P9. The customer opened the portal link — **once**, the first time.
+ *
+ * The one quote event caused by the *customer* rather than by the business, and
+ * the reason it is worth having: "sent and never opened" and "opened and
+ * ignored" are different problems with different follow-ups, and until this
+ * existed a chase automation could not tell them apart.
+ *
+ * Fires once per quote, ever. A column that moved on every view would restart
+ * the "gone quiet" clock each time they glanced at it again, so the customer who
+ * keeps re-reading and never decides would never be chased — which is exactly
+ * the customer to chase.
+ */
+export const quoteViewedPayload = z
+  .object({
+    ...quoteBase,
+    viewedAt: isoDateTimeField,
+  })
+  .strict();
+
 export const quoteDeclinedPayload = z
   .object({
     ...quoteBase,

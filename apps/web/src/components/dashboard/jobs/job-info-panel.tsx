@@ -86,10 +86,6 @@ export function JobInfoPanel({ job, stages, onUpdate }: JobInfoPanelProps) {
   const statusLabel = currentStage?.label ?? job.status;
   const priorityColors = JOB_PRIORITY_COLORS[job.priority];
 
-  const customerName =
-    `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim() ||
-    "No customer";
-
   const timeRange =
     job.scheduledStart && job.scheduledEnd
       ? `${formatTime(job.scheduledStart)} - ${formatTime(job.scheduledEnd)}`

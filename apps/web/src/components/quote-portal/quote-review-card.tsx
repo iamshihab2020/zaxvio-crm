@@ -11,15 +11,9 @@ interface LineItem {
 }
 
 interface QuoteReviewCardProps {
-  business: {
-    name: string;
-    logoUrl: string | null;
-    phone: string | null;
-    address: string | null;
-    city: string | null;
-    state: string | null;
-    zipCode: string | null;
-  };
+  // No `business`. The portal page renders the letterhead itself, above this
+  // card, so passing it here only created a second component entitled to draw
+  // the business name — and one of them would eventually disagree.
   quote: {
     quoteNumber: string;
     issuedDate: string;
@@ -62,7 +56,7 @@ function qty(value: string): string {
  * ruled ladder of lines, labels in the left margin, and the total stamped at
  * the bottom rather than right-aligned at the same weight as "Subtotal".
  */
-export function QuoteReviewCard({ business, quote }: QuoteReviewCardProps) {
+export function QuoteReviewCard({ quote }: QuoteReviewCardProps) {
   const hasDiscount = Number(quote.discountAmount) > 0;
   const hasTax = Number(quote.taxAmount) > 0;
 
