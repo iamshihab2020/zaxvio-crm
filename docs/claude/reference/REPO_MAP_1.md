@@ -340,6 +340,16 @@ apps/api/
 |   |   |   |                         # FOUR callers: PATCH /jobs/:id/status, POST
 |   |   |   |                         # /jobs/bulk-status-update (a per-id loop, so partial success
 |   |   |   |                         # names each refusal), and the two automation nodes
+|   |   |   |                         # createJob() / updateJob(): the pure-move half (P7a.3b). No
+|   |   |   |                         # second caller yet, but same actor + result-union shape, so a
+|   |   |   |                         # future job.create node needs no reshaping. createJob folded in
+|   |   |   |                         # the FOURTH copy of the org-membership check, which still failed
+|   |   |   |                         # OPEN on a tenant with no organisation row
+|   |   |   +-- totals.ts              # recalculateJobTotals(): a job's money from its line items. Was
+|   |   |   |                         # private in routes/jobs/index.ts with SIX callers, so the first
+|   |   |   |                         # handler extracted would have had to import from a route file or
+|   |   |   |                         # take a copy. Db type omits $client so it works inside a tx —
+|   |   |   |                         # the third recurrence of that defect (QUO-02, availability)
 |   |   |   +-- stage-events.service.ts # job.stage_changed + job.completed/cancelled, from ONE
 |   |   |   |                         # implementation called by both the single and the bulk status
 |   |   |   |                         # path. Two completed stages in a row is not a re-completion

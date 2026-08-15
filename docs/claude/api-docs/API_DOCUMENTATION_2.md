@@ -161,6 +161,13 @@ after the start. `title` ≤ 200, `description`/`notes` ≤ 5000, `address` ≤ 
 `unitPrice` and `quantity` on line items are bounded by `numeric(10,2)` (max
 `99,999,999.99`) and reject `Infinity`/`NaN`.
 
+`assigneeId`, `equipmentId`, `bookingId` and `customerId` are all client-supplied foreign
+keys and all four are checked against the tenant before anything is written. The assignee
+check is `isOrgMember()` in `lib/tenant-guards.ts` — one implementation shared with
+`PATCH /jobs/:id` and the automation nodes. It used to be a per-handler copy that **failed
+open** when the tenant had no organisation row, so the rule this table has always stated
+was not enforced in that case.
+
 **Response** `201 Created`
 
 ```json

@@ -14,6 +14,7 @@ import {
   setMemberRateBody,
   memberRateParams,
 } from "../../lib/schemas/job-costing.js";
+import { isOrgMember } from "../../lib/tenant-guards.js";
 
 /**
  * Per-member hourly cost rates.
@@ -107,26 +108,11 @@ const memberRateRoutes: FastifyPluginAsyncZod = async (fastify) => {
       // The user must be a member of *this* tenant's organization. Without this
       // check any valid user id would take a rate row, which both leaks the
       // existence of that account and pollutes the tenant's costing.
-      const [tenant] = await db
-        .select({ organizationId: tenants.organizationId })
-        .from(tenants)
-        .where(eq(tenants.id, tenantId));
-
-      if (!tenant) {
-        return reply.status(404).send({ message: "Tenant not found" });
-      }
-
-      const [membership] = await db
-        .select({ id: member.id })
-        .from(member)
-        .where(
-          and(
-            eq(member.organizationId, tenant.organizationId),
-            eq(member.userId, userId),
-          ),
-        );
-
-      if (!membership) {
+      // `isOrgMember` rather than a fifth copy of the two-hop lookup. This one
+      // was already correct — it failed closed — but `POST /jobs` carried the
+      // same shape and failed **open**, and the way that survived a
+      // consolidation commit was by being one more place to remember.
+      if (!(await isOrgMember(db, tenantId, userId))) {
         return reply
           .status(400)
           .send({ message: "That user is not a member of this business" });

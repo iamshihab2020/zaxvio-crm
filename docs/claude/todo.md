@@ -90,8 +90,21 @@ nothing here. This commit is what creates the possibility, so the guard ships in
       `routes/jobs/index.ts` 2,616 → 2,284 lines across P7a, and 8 imports became dead.
       My proof failed 2/13 first: the queue query was tenant-scoped but not fixture-scoped, so it
       counted the 14 rows already committed in the database.
-- [ ] **P7a.3b** The remaining ARC-05 extractions as genuine pure moves (create, update, line
-      items, checklist) — no second caller, so no reshaping needed.
+- [x] **P7a.3b** `createJob()` + `updateJob()` — **35/35 proven by execution against Neon.**
+      Planned as pure moves, and one was not: `POST /jobs` still had its **own** inline
+      organisation-membership check after P7a.2 moved `PATCH /jobs/:id` onto `isOrgMember` — and it
+      carried the same **fail-open** shape, `if (assigneeId && tenantRecord)` with no `else`. Every
+      earlier instance of this project's propagation failure crossed a directory boundary; this one
+      was two hundred lines up the same file. Swept `from(member)` repo-wide afterwards and folded
+      the fifth copy (`member-rates.ts`, correct but duplicated) in too.
+      `recalculateJobTotals` moved to `services/jobs/totals.ts` — it was private in the route file
+      with **six** callers, so the first handler extracted would have had to import from a route
+      file or take a copy.
+      `routes/jobs/index.ts` 2,284 → 1,862 lines; 11 more imports went dead.
+      My proof failed 3/35 first, all my fault: `attachChecklistToJob` writes its own activity row,
+      so "exactly one" is wrong and `[0]` is the checklist row — and that assertion would have
+      passed on a tenant with no checklist template, i.e. no real tenant.
+- [ ] **P7a.3c** Line items + checklist handlers — the genuinely mechanical remainder.
 - [ ] **P7b** CRM pickers + variable pills — frontend, and blocked behind eyeballing the canvas.
 - [ ] **P7c** Node breadth to ~45, `workflow_folders`.
 
