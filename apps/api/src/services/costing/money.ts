@@ -31,23 +31,15 @@ export function sumCents(values: Array<number | null>): number {
   return values.reduce<number>((acc, v) => acc + (v ?? 0), 0);
 }
 
-/**
- * `hours * rate` in cents, rounded half-up once at the end.
- *
- * Hours carry two decimals (`numeric(6,2)`), so the product is scaled by 10⁴
- * before rounding rather than multiplying two already-rounded cent values.
+/*
+ * `laborCents(hours, rate)` used to live here and is deliberately gone rather
+ * than kept "just in case". It could only ever express **one** rate for a whole
+ * job, which is precisely the limitation time tracking removed: labour is now
+ * summed per entry, each at its own snapshotted rate, inside the costing lateral.
+ * Leaving it exported would have offered a second answer to "what did this job's
+ * labour cost" — the same reason `getOutputs` was deleted rather than retained
+ * once `outputsFor` existed.
  */
-export function laborCents(
-  hours: string | null | undefined,
-  rate: string | null | undefined,
-): number | null {
-  if (hours === null || hours === undefined || hours === "") return null;
-  if (rate === null || rate === undefined || rate === "") return null;
-  const h = Number(hours);
-  const r = Number(rate);
-  if (!Number.isFinite(h) || !Number.isFinite(r)) return null;
-  return Math.round(h * r * 100);
-}
 
 /**
  * `margin / revenue` as a 0–1 fraction.

@@ -32,9 +32,16 @@ packages/database/
         +-- maintenance.ts        # maintenanceContracts table (with frequency column)
         +-- bookings.ts           # bookings table
         +-- jobs.ts               # jobs, jobLineItems, jobPhotos tables (status is text, equipmentId FK).
-        |                         # jobs.actualHours + jobs.laborCostRate (snapshotted, so a raise does
-        |                         # not rewrite old margins); jobLineItems.unitCost + generated costTotal
-        +-- costing.ts            # jobExpenses, tenantMemberRates tables
+        |                         # jobs.actualHours is now a CACHE of the time entries' sum, like
+        |                         # totalAmount is of the line items — never written by hand.
+        |                         # jobs.laborCostRate is retained for the backfill and read by nothing;
+        |                         # jobLineItems.unitCost + generated costTotal
+        +-- costing.ts            # jobExpenses, jobTimeEntries, tenantMemberRates tables.
+        |                         # jobTimeEntries: duration derived not stored, hourlyCostRate
+        |                         # nullable AND snapshotted per entry (which is what makes a
+        |                         # two-person job cost right), and a PARTIAL unique index on
+        |                         # (tenant, user) WHERE ended_at IS NULL — one running timer per
+        |                         # person, enforced where an application check would race
         +-- job-activities.ts     # jobActivities table
         +-- invoices.ts           # invoices, invoiceLineItems, invoicePayments tables
         +-- quotes.ts             # quotes, quoteLineItems tables
@@ -62,7 +69,9 @@ packages/types/
     +-- tenant.ts             # Tenant, TenantInsert, TenantUpdate
     +-- costing.ts            # JobExpense, TenantMemberRate + the DERIVED contracts: CostCoverage
     |                         # (what the margin doesn't know), JobCostSummary, ProfitabilityRow,
-    |                         # ProfitabilitySection
+    |                         # ProfitabilitySection. Plus JobTimeEntryView and RunningTimer — wire
+    |                         # shapes, NOT $inferSelect: Drizzle types timestamps as Date and the
+    |                         # boundary is JSON, the same find that produced WorkflowListItem
     +-- user.ts               # User, UserInsert
     +-- customer.ts           # Customer, CustomerInsert, CustomerUpdate
     +-- customer-note.ts      # CustomerNote types

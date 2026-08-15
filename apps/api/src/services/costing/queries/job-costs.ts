@@ -37,22 +37,29 @@ export const COST_INPUT_COLUMNS = sql`
   COALESCE(li.total_count, 0)       AS line_item_count,
   COALESCE(li.costed_count, 0)      AS costed_line_item_count,
   COALESCE(ex.cost, 0)::text        AS expense_cost,
-  j.actual_hours::text              AS actual_hours,
-  j.labor_cost_rate::text           AS labor_cost_rate,
+  tm.hours::text                    AS actual_hours,
+  COALESCE(tm.cost, 0)::text        AS labor_cost,
+  COALESCE(tm.total_count, 0)       AS time_entry_count,
+  COALESCE(tm.costed_count, 0)      AS costed_time_entry_count,
+  COALESCE(tm.auto_stopped_count, 0) AS auto_stopped_time_entry_count,
   COALESCE(j.total_amount, 0)::text AS job_total,
   inv.total::text                   AS invoiced_total
 `;
 
 /**
- * The three sub-selects are correlated laterals rather than plain joins because
+ * The four sub-selects are correlated laterals rather than plain joins because
  * joining line items *and* expenses to jobs in one query multiplies the two sets
  * together — a job with 4 line items and 3 expenses would count each line item 3
  * times and each expense 4 times. That fan-out is the classic way a costing
  * number comes out plausible and wrong, and it is silent: nothing about $2,400
- * looks like $800 counted three times.
+ * looks like $800 counted three times. Time entries are a fourth set on the same
+ * job, so adding them as a plain join would have multiplied all three.
  *
  * `costed_count` is what makes the coverage rule enforceable: it lets the caller
- * distinguish "this job cost $0" from "nobody has costed this job".
+ * distinguish "this job cost $0" from "nobody has costed this job". Time entries
+ * carry the same pair of counts for the same reason — an entry logged by someone
+ * with no rate set understates labour exactly as an uncosted line item
+ * understates materials.
  */
 export const COST_INPUT_LATERALS = sql`
   LEFT JOIN LATERAL (
@@ -75,6 +82,29 @@ export const COST_INPUT_LATERALS = sql`
       AND i.job_id = j.id
       AND ${BILLED_FILTER}
   ) inv ON TRUE
+  LEFT JOIN LATERAL (
+    SELECT
+      ROUND(SUM(EXTRACT(EPOCH FROM (t.ended_at - t.started_at))) / 3600, 2) AS hours,
+      -- Each entry at its OWN snapshotted rate, summed. This is what makes a
+      -- job worked by two people cost what it actually cost; the column it
+      -- replaces was one number times one rate resolved from the assignee.
+      --
+      -- An entry with a NULL rate contributes NULL, which SUM skips -- so
+      -- unknown labour is omitted rather than counted as free, and costed_count
+      -- below is what tells the caller it happened.
+      ROUND(SUM(
+        EXTRACT(EPOCH FROM (t.ended_at - t.started_at)) / 3600 * t.hourly_cost_rate
+      ), 2) AS cost,
+      COUNT(*)                                                    AS total_count,
+      COUNT(*) FILTER (WHERE t.hourly_cost_rate IS NOT NULL)      AS costed_count,
+      COUNT(*) FILTER (WHERE t.auto_stopped)                      AS auto_stopped_count
+    FROM job_time_entries t
+    WHERE t.tenant_id = j.tenant_id
+      AND t.job_id = j.id
+      -- A running timer contributes nothing until it stops. Without this a
+      -- job's margin would move every time the page refreshed.
+      AND t.ended_at IS NOT NULL
+  ) tm ON TRUE
 `;
 
 /**

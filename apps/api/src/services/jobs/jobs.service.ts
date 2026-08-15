@@ -78,6 +78,7 @@ import {
 import { emitStageChangeEvents } from "./stage-events.service.js";
 import { emitJobCreatedEvent, emitJobUpdatedEvents } from "./job-events.service.js";
 import { recalculateJobTotals } from "./totals.js";
+import { stopTimersForJob } from "./time.service.js";
 import { dispatchNotification } from "../../lib/notifications.js";
 import {
   attachChecklistToJob,
@@ -264,6 +265,17 @@ export async function moveJobStage(
       .set({ ...stageUpdate(target, fromLifecycle), updatedAt: new Date() })
       .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, jobId)))
       .returning();
+
+    // A job that has reached a terminal lifecycle cannot still be being worked
+    // on. Left running, a timer clocked into a completed job keeps its owner
+    // clocked in forever — the partial unique index means they cannot start
+    // another one, so the next job they open silently refuses to start.
+    //
+    // Inside the transaction on purpose: a completion that rolls back must not
+    // leave the crew clocked out of work they are still doing.
+    if (target.lifecycle === "completed" || target.lifecycle === "cancelled") {
+      await stopTimersForJob(tx, tenantId, jobId);
+    }
 
     await tx.insert(jobActivities).values({
       tenantId,

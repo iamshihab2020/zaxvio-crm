@@ -8,6 +8,7 @@ import { JobDetailPhotos } from "./job-detail-photos";
 import { JobDetailDocuments } from "./job-detail-documents";
 import { JobDetailActivities } from "./job-detail-activities";
 import { JobDetailCosts } from "./job-detail-costs";
+import { JobDetailTime } from "./job-detail-time";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface JobTabsPanelProps {
@@ -34,6 +35,15 @@ export function JobTabsPanel({ job, onUpdate }: JobTabsPanelProps) {
           className="cursor-pointer data-[state=active]:border-b-2 data-[state=active]:border-brand rounded-none"
         >
           Costs
+        </TabsTrigger>
+        {/* Beside Costs, because hours are the largest input to them — but its
+            own tab rather than a section of Costs, because clocking in is not a
+            costing action and this tab is written to while Costs is read. */}
+        <TabsTrigger
+          value="time"
+          className="cursor-pointer data-[state=active]:border-b-2 data-[state=active]:border-brand rounded-none"
+        >
+          Time
         </TabsTrigger>
         <TabsTrigger
           value="checklist"
@@ -67,7 +77,15 @@ export function JobTabsPanel({ job, onUpdate }: JobTabsPanelProps) {
           {/* Mounted only while selected: the summary is derived on every read,
               so an unopened tab must not be issuing that query on every job the
               user clicks through. */}
-          {activeTab === "costs" && <JobDetailCosts jobId={job.id} />}
+          {activeTab === "costs" && (
+            <JobDetailCosts
+              jobId={job.id}
+              onOpenTime={() => setActiveTab("time")}
+            />
+          )}
+        </TabsContent>
+        <TabsContent value="time" className="mt-0">
+          {activeTab === "time" && <JobDetailTime jobId={job.id} />}
         </TabsContent>
         <TabsContent value="checklist" className="mt-0">
           <JobDetailChecklist

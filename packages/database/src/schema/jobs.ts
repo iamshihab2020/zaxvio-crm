@@ -84,18 +84,33 @@ export const jobs = pgTable(
      * got billed. A job quoted at a 3-hour flat rate that took 5 hours reads as
      * healthy margin if you only ever look at line items — the exact failure
      * that makes a costing tool worse than none, because it tells you you are
-     * winning while you lose. Captured once at completion (prefilled from
-     * scheduled_start/scheduled_end where both are set).
+     * winning while you lose.
+     *
+     * **A cache, not an input.** Since time tracking landed this is the sum of
+     * the job's closed `job_time_entries`, maintained by `recalculateJobHours()`
+     * in the same transaction as every entry write — exactly what
+     * `recalculateJobTotals` does for `totalAmount`. Nothing writes it by hand.
+     * Costing does not read it either: money needs the *per-entry* rates, so it
+     * sums the entries directly. This column exists for the `job.actualHours`
+     * workflow variable and anything else reading the job row on its own.
+     *
+     * NULL rather than 0 when there are no entries. Zero asserts the job took
+     * no time; NULL is the absence of a claim, and coverage reports them
+     * differently.
      */
     actualHours: numeric("actual_hours", { precision: 6, scale: 2 }),
     /**
-     * The hourly cost rate applied to `actualHours`, snapshotted onto the job.
+     * @deprecated Read by nothing since 2026-08-15.
      *
-     * Resolved at entry time from the assignee's `tenant_member_rates` row,
-     * falling back to `tenants.default_labor_cost_rate`. Stored rather than
-     * joined so that giving yourself a raise does not retroactively rewrite
-     * last year's margins — same reasoning as the unit-cost snapshot on line
-     * items below.
+     * Rates live on `job_time_entries.hourly_cost_rate`, one per entry, because
+     * a single figure per job could not price two people at their own rates —
+     * which is the limitation that made this column wrong rather than merely
+     * redundant.
+     *
+     * Retained only because the `20260815000002` backfill is the one thing that
+     * can reconstruct a historic entry's rate. Drop it once that backfill is
+     * proven against real data; a live column nothing reads is exactly the
+     * "declared with no consumer" shape this project keeps finding.
      */
     laborCostRate: numeric("labor_cost_rate", { precision: 10, scale: 2 }),
     notes: text("notes"),

@@ -12,6 +12,7 @@ import { ImpersonationActiveIndicator } from "@/components/dashboard/impersonati
 import { HelpChatbot } from "@/components/dashboard/chatbot/help-chatbot";
 import { PageContent } from "@/components/dashboard/page-content";
 import { PageActionsProvider } from "@/components/dashboard/page-actions";
+import { RunningTimerBar } from "@/components/dashboard/reusable/running-timer-bar";
 
 export default async function DashboardLayout({
   children,
@@ -69,6 +70,14 @@ export default async function DashboardLayout({
           <PageActionsProvider>
             <Navbar />
             <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
+              {/* Inside the scroll flow so it can pin, and above the page's own
+                  content so a running timer is the first thing on screen. It
+                  renders nothing at all when no timer is running, which is
+                  almost always — so every other page pays one cached query and
+                  no layout. */}
+              <RunningTimerBar
+                offsetClass={isImpersonating ? "top-24" : "top-14"}
+              />
               {children}
             </PageContent>
           </PageActionsProvider>

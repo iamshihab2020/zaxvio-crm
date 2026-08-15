@@ -27,6 +27,7 @@ import {
 } from "@/lib/constants/job-options";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { updateJobStatus, deleteJob } from "@/actions/jobs";
+import { JobTimerButton } from "./job-timer-button";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface PipelineStage {
@@ -133,6 +134,9 @@ export function JobDetailPageHeader({
         {/* Right: action buttons */}
         <div className="flex items-center gap-2">
           {children}
+          {/* Before the stage actions on purpose. Clocking in is what a tech
+              does when they arrive; moving the stage is what happens after. */}
+          <JobTimerButton jobId={job.id} size="sm" />
           {nextStage && (
             <Button
               size="sm"

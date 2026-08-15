@@ -11,13 +11,6 @@ export interface ExpenseInput {
   vendor?: string;
 }
 
-export interface LaborInput {
-  /** Null clears the recorded hours, which clears the snapshotted rate with them. */
-  actualHours: string | null;
-  /** Omit to let the server resolve it from the assignee, then the tenant default. */
-  laborCostRate?: string | null;
-}
-
 export async function getJobCosts(jobId: string) {
   return apiGet<JobCostSummary>(`/jobs/${jobId}/costs`, {
     fallback: "Failed to load costs",
@@ -55,11 +48,7 @@ export async function deleteJobExpense(jobId: string, expenseId: string) {
   });
 }
 
-export async function updateJobLabor(jobId: string, data: LaborInput) {
-  return apiSend<{ id: string; actualHours: string | null; laborCostRate: string | null }>(
-    `/jobs/${jobId}/labor`,
-    "PATCH",
-    data,
-    { fallback: "Failed to save hours" },
-  );
-}
+/*
+ * `updateJobLabor` is gone with the endpoint behind it. Labour is recorded as
+ * time entries now — see `actions/job-time.ts`.
+ */

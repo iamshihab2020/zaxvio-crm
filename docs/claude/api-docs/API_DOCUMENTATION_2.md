@@ -932,7 +932,7 @@ The derived cost/margin rollup for one job.
     "laborCost": "210.00",
     "totalCost": "606.40",
     "actualHours": "3.50",
-    "laborCostRate": "60.00",
+    "timeEntryCount": 2,
     "revenue": "980.00",
     "revenueBasis": "invoiced",
     "margin": "373.60",
@@ -941,6 +941,9 @@ The derived cost/margin rollup for one job.
       "costedLineItems": 4,
       "lineItems": 4,
       "laborCosted": true,
+      "timeEntries": 2,
+      "costedTimeEntries": 2,
+      "autoStoppedTimeEntries": 0,
       "complete": true,
       "gaps": []
     }
@@ -952,7 +955,15 @@ The derived cost/margin rollup for one job.
 |-------|-------|
 | `revenueBasis` | `invoiced` when the job has at least one non-draft, non-void, non-archived invoice — that is the document the customer received. `estimated` falls back to the job's own `totalAmount` |
 | `marginPct` | 0–1 fraction, or **`null`** when revenue is 0. A percentage of nothing is undefined, not 0% |
-| `coverage.gaps` | Human-readable reasons the figure is provisional, e.g. `"2 of 5 line items have no cost set"`. Empty when `complete` |
+| `laborCost` | Sum of `hours × rate` across the job's **closed** time entries, each at its own snapshotted rate. A running timer contributes nothing until it stops. Entries with no rate contribute hours but no cost |
+| `actualHours` | Sum of those entries' durations, or **`null`** when the job has none. Null is the absence of a claim; `"0.00"` would assert the job took no time |
+| `coverage.laborCosted` | True only when there is at least one closed entry **and** every one carries a rate |
+| `coverage.gaps` | Human-readable reasons the figure is provisional, e.g. `"2 of 5 line items have no cost set"`, `"1 of 3 time entries has no cost rate"`, `"1 time entry was stopped automatically and may be wrong"`. Empty when `complete` |
+
+> **Breaking change (2026-08-15).** `laborCostRate` is gone from this response.
+> Rates live per time entry now, and one job can legitimately carry several — a
+> single figure could not represent a two-person job. `timeEntryCount` and the
+> three `coverage` time fields are new.
 
 | Status | When |
 |--------|------|
@@ -1016,33 +1027,182 @@ Matched on `tenantId AND jobId AND expenseId` — never the expense id alone.
 **Response** `200 OK` — `{ "data": { "id": "exp_001" } }`. Writes an
 `expense.deleted` job activity.
 
-### `PATCH /jobs/:id/labor`
+> **`PATCH /jobs/:id/labor` was removed on 2026-08-15.** It took one hours figure
+> and one rate and wrote them onto the job. Hours are now time entries — see
+> **Job Time Tracking** below. The old endpoint made a bad state expressible:
+> hours typed by hand had no relationship to any work anybody did, could not
+> represent two people on one job, and disagreed with nothing, so nothing could
+> catch them being wrong.
 
-**Auth:** `requireTenant`
+---
 
-Record the hours actually worked, and snapshot what they cost.
+## Job Time Tracking
 
 Hours worked are not the hours billed. A job quoted at a 3-hour flat rate that
 took 5 reads as healthy margin if you only look at line items — which is the
 failure that makes a costing tool worse than none, because it tells you you are
 winning while you lose.
 
+**One running timer per person**, enforced by a partial unique index on
+`(tenant_id, user_id) WHERE ended_at IS NULL`. Starting a second one is refused
+by the database, not by a check that could race.
+
+**Who sees what.** Everyone in the workspace can read a job's entries and record
+their own time. `hourlyCostRate` and `cost` are **absent from the response
+entirely** for members, and only owners and admins may touch another person's
+entry — a per-person hourly rate is payroll data, the same reason
+`/tenants/member-rates` is gated on `requireOrgRole(["owner","admin"])`.
+
+Note the distinction in the response: `cost` **absent** means "not yours to
+see"; `cost: null` means "nobody has set a rate for this person", which is a
+real state the UI prompts about.
+
+Every mutating handler runs `loadEditableJob` first, so an archived job or
+another tenant's job is refused before anything is written.
+
+### `GET /jobs/time-entries/running`
+
+**Auth:** `requireTenant`
+
+The **calling user's** running timer, or `null`. Powers the persistent timer bar
+in the dashboard shell.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": {
+    "id": "tim_001",
+    "jobId": "job_001",
+    "jobNumber": "JOB-1042",
+    "jobTitle": "AC not cooling",
+    "startedAt": "2026-08-15T13:04:00.000Z"
+  }
+}
+```
+
+Returns `{ "data": null }` when no timer is running. An object or null, never a
+list — the partial unique index guarantees at most one.
+
+### `GET /jobs/:id/time-entries`
+
+**Auth:** `requireTenant`
+
+Every entry on the job, newest first.
+
+**Response** `200 OK`
+
+```json
+{
+  "data": [
+    {
+      "id": "tim_001",
+      "jobId": "job_001",
+      "userId": "usr_002",
+      "userName": "Sam Rivera",
+      "startedAt": "2026-08-15T13:04:00.000Z",
+      "endedAt": "2026-08-15T15:34:00.000Z",
+      "hours": "2.50",
+      "hourlyCostRate": "60.00",
+      "cost": "150.00",
+      "note": "Replaced capacitor",
+      "autoStopped": false,
+      "createdAt": "2026-08-15T13:04:00.000Z"
+    }
+  ]
+}
+```
+
+| Field | Notes |
+|-------|-------|
+| `hours` | `endedAt - startedAt`, to two decimals. **`null` while the timer runs** |
+| `hourlyCostRate` / `cost` | Owner/admin only. Omitted from the object for members |
+| `autoStopped` | The hourly sweep closed this because it ran past 12 hours. The hours still count, but `coverage` reports the job's figure as provisional until somebody edits it |
+
+### `POST /jobs/:id/time-entries/start`
+
+**Auth:** `requireTenant`
+
+Start the clock. `startedAt` is **stamped by the server** — a client-supplied
+start would let a wrong device clock shift the beginning of a running timer, and
+the one thing a stopwatch has over a text box is that nobody typed the number.
+
+The rate is resolved for the **person doing the work** (their
+`tenant_member_rates` row, then `tenants.defaultLaborCostRate`, then `null`) and
+snapshotted onto the entry, so a later raise leaves it alone.
+
+**Request Body:** `{ "note": "optional, ≤500 chars" }`
+
+**Response** `201 Created` — the created entry.
+
+| Status | When |
+|--------|------|
+| `404` | The job is not this tenant's |
+| `400` | The job is archived |
+| `409` | You already have a timer running. The message names the other job |
+
+### `POST /jobs/:id/time-entries/stop`
+
+**Auth:** `requireTenant`
+
+Stops **whichever timer this user has running**, not necessarily the one on the
+job in the path. The path job is there for symmetry and the activity row —
+scoping the stop to it would strand a timer the moment somebody navigated away,
+and the shell bar offers Stop from every page.
+
+**Request Body:** `{ "note": "optional" }`
+
+**Response** `200 OK` — the closed entry, with `hours` filled in.
+`404` when no timer is running.
+
+### `POST /jobs/:id/time-entries`
+
+**Auth:** `requireTenant`
+
+Log time after the fact, or on behalf of somebody who forgot.
+
 **Request Body:**
 
 ```json
-{ "actualHours": "3.50" }
+{
+  "startedAt": "2026-08-15T13:04:00.000Z",
+  "endedAt": "2026-08-15T15:34:00.000Z",
+  "note": "Replaced capacitor"
+}
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `actualHours` | string \| null | Yes | `^\d{1,4}(\.\d{1,2})?$`. **`null` clears the hours — and the stored rate with them**, so the job goes back to reporting labour as unknown rather than as configured-and-free |
-| `laborCostRate` | string \| null | No | Omit and the server resolves it from the **assignee's** `tenant_member_rates` row, then `tenants.defaultLaborCostRate`, then `null`. The cost of a job is the cost of whoever worked it, not of whoever typed the hours |
+| `startedAt` / `endedAt` | ISO 8601 with offset | Yes | Refused if `endedAt <= startedAt`, if it ends more than a minute in the future, or if the entry is longer than **12 hours** — the same ceiling the auto-stop sweep enforces, so the same duration cannot mean two things depending on how it was recorded |
+| `userId` | string | No | **Owner/admin only.** Defaults to the caller |
+| `hourlyCostRate` | string \| null | No | **Owner/admin only.** Otherwise resolved from the subject's rate. Present so a correction can restate what a historic hour actually cost rather than silently repricing it at today's rate |
+| `note` | string | No | ≤500 chars |
 
-The rate is **snapshotted onto the job**, not joined at read time, so giving
-somebody a raise does not retroactively rewrite last year's margins.
+**Response** `201 Created` — the created entry.
+`403` when a member supplies a `userId` other than their own.
 
-**Response** `200 OK` — `{ "data": { "id", "actualHours", "laborCostRate" } }`.
-Writes a `labor.updated` job activity.
+### `PATCH /jobs/:id/time-entries/:entryId`
+
+**Auth:** `requireTenant`
+
+Correct an entry. Same validation as `POST`. Editing **clears `autoStopped`** —
+setting the end time by hand is exactly the review that flag was asking for.
+
+| Status | When |
+|--------|------|
+| `404` | No such entry on this job, for this tenant |
+| `403` | It is somebody else's entry and you are not an owner or admin |
+| `400` | The timer is still running — stop it first |
+
+### `DELETE /jobs/:id/time-entries/:entryId`
+
+**Auth:** `requireTenant`
+
+**Response** `200 OK` — `{ "data": { "id": "tim_001" } }`. Writes a
+`time.deleted` job activity.
+
+Deleting the last entry returns `jobs.actualHours` to **`null`**, not `0` — the
+absence of a claim rather than a claim that the job took no time.
 
 ---
 

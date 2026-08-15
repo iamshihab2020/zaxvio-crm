@@ -8,6 +8,76 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### Job Time Tracking (2026-08-15) — **written, nothing executed**
+
+The Job Costing feature shipped on 2026-08-07 resting on a field nobody filled in.
+`jobs.actual_hours` was **one number, per job**, typed by hand into a text box on the Costs tab
+days after the work, multiplied by **one** rate resolved from the job's *assignee*. Three
+consequences: nothing ever prompted for it, so it was empty; a job worked by two people could
+not be represented at all; and `buildCoverage()` spent its life emitting the string
+*"No hours recorded for this job"* — the system already knew it was blind and had no way to fix
+it. Labour is usually the largest cost line on a service job.
+
+**This is INV-01/02/03 a second time.** The invoices audit found status was being *assigned*
+rather than *derived*, and fixed it by making the bad state unexpressible. `actual_hours` was in
+exactly that position: a stored number with no relationship to any work anybody did, which
+disagreed with nothing, so nothing could catch it being wrong.
+
+- [x] **Schema + migration** `20260815000002_job_time_entries.sql` — **written, NOT applied.**
+      `job_time_entries` with duration derived rather than stored, `hourly_cost_rate` nullable
+      **and snapshotted per entry** (which is what finally makes a two-person job cost what it
+      actually cost), and a **partial unique index** on `(tenant_id, user_id) WHERE ended_at IS
+      NULL` — the same device as `idx_goal_listeners_match`, making "clocked into two jobs at
+      once" unexpressible rather than merely discouraged, while still permitting a new timer once
+      the last has stopped. Plus a `CHECK` that a closed entry ends after it starts.
+      Backfill converts every job's typed hours into one adjustment entry anchored to its
+      completion, then re-derives the cache. A job with hours and **no assignee** is deliberately
+      skipped — there is nobody to attribute the time to, and inventing one is worse than
+      reporting the gap. Guarded by `NOT EXISTS`, so it converges.
+- [x] **`jobs.actual_hours` is now a cache, not an input** — `recalculateJobHours()` beside
+      `recalculateJobTotals`, called inside the same transaction as every entry write, and typed
+      `Omit<…, "$client">` because that mistake has now been made four times in this repo.
+- [x] **Costing reads a fourth lateral.** `laborCents(hours, rate)` is **deleted**, not kept —
+      it could only ever express one rate for a whole job. Labour is now `SUM(hours × each
+      entry's own rate)`. A lateral rather than a join because time entries are a fourth set on
+      the same job and a plain join would have multiplied all three. `costed_count` carries over
+      from line items, so an entry logged by somebody with no rate adds **hours but no cost** and
+      `coverage` says so — the rule the whole feature rests on, intact.
+- [x] **7 endpoints** in a new sibling plugin `routes/jobs/time.ts`.
+      `GET /jobs/time-entries/running` is declared **before** `/:id/...` — a uuid schema turning
+      a real route into a 400 is a confusing way to lose an endpoint.
+      **Members record their own hours; only owner/admin sees the rate on them.** New
+      `resolveOrgRole` + `canSeeLaborRates` in `tenant-guards.ts`, because `requireOrgRole`
+      *refuses*, which is the wrong shape for a route that stays open and shows less. `cost`
+      **absent** means "not yours to see"; `cost: null` means "nobody set a rate" — collapsing
+      the two would tell a member their workspace is broken every time they read their timesheet.
+- [x] **Completion stops the clock**, inside `moveJobStage`'s existing transaction. Not tidiness:
+      the partial unique index means a timer left running on a completed job makes that person's
+      **next** Start silently refuse, for the rest of the day.
+- [x] **Hourly auto-stop sweep.** Caps at 12h and **flags** rather than deleting (destroys a real
+      record) or trusting (bills overnight to a margin). The ceiling is shared with the manual
+      entry validator, so the same duration cannot mean two things depending on how it was
+      recorded. Editing an entry clears the flag — the edit *is* the review it was asking for.
+- [x] **UI** — a persistent running-timer bar pinned under the navbar on every page (the whole
+      reason a stopwatch beats a text box is that you cannot forget it, and Stop lives there
+      because the user has usually navigated away from the job they clocked into); a **Time** tab
+      with manual log/edit/delete; Start/Stop on the job header with a three-state switch prompt,
+      because a timer on another job is a database refusal and asking beats surfacing a `23505`.
+      The Costs tab's hours box is **gone**, replaced by a read-only figure linking to Time.
+- [x] Housekeeping: REPO_MAP 1 + 2, API docs (7 new endpoints, `PATCH /jobs/:id/labor` marked
+      removed, `GET /jobs/:id/costs` response documented as a breaking change), 3 chatbot entries
+      added and 3 corrected, lessons.
+- [ ] **Not executed.** `20260815000002` is **not applied**; `job-time.integration.test.ts` is
+      written and unrun; no typecheck, lint or build this session — the user runs those.
+- [ ] Follow-up: **drop `jobs.labor_cost_rate`** once the backfill is proven on real data. Nothing
+      reads it now; it survives only because the backfill is the one thing that can reconstruct a
+      historic entry's rate. A live column nothing reads is the exact "declared with no consumer"
+      shape this project keeps finding.
+- [ ] Follow-up: no weekly "my time" view, no payroll export, no per-user timesheet report.
+      Deliberately out of scope for v1 — the hole was costing being blind, not reporting.
+- [ ] Follow-up: overlapping entries by one person are permitted. Refusing would make fixing a
+      mistake harder than making one, but nothing warns about it either.
+
 ### P7 (re-scoped) — the executors are a third status writer (2026-08-10)
 
 **Plan audit first.** [[wf-12-phases|P7 as written]] bundles five unrelated things — 13 CRM

@@ -55,6 +55,15 @@ export const queryKeys = {
     // derived from every one of them and must never survive a change to any.
     costs: (jobId: string) => ["jobs", "detail", jobId, "costs"] as const,
     expenses: (jobId: string) => ["jobs", "detail", jobId, "expenses"] as const,
+    timeEntries: (jobId: string) =>
+      ["jobs", "detail", jobId, "timeEntries"] as const,
+    // Deliberately NOT under a job's detail key. The running timer belongs to
+    // the *user*, not to whichever job is open, and the shell bar reads it from
+    // every page in the app — including pages that have no job at all. Nesting
+    // it would make a job-detail invalidation the only thing that could refresh
+    // it, which is exactly wrong for the one query that must stay live while you
+    // navigate away.
+    runningTimer: () => ["jobs", "runningTimer"] as const,
   },
 
   // ── Pipelines ──────────────────────────────────────────────
