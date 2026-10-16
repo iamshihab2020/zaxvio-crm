@@ -1,13 +1,50 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+/**
+ * Paths a visitor with no session may load.
+ *
+ * Every entry is somewhere a person arrives from OUTSIDE the app — an email, a
+ * search result, a customer's website — so redirecting it to /login does not
+ * protect anything, it just breaks the link. Each one was broken that way
+ * until 2026-10-16 (ONB-02/03):
+ *
+ * - `/unsubscribe` — the footer link and the `List-Unsubscribe` header in every
+ *   non-transactional email. A customer has no account here by definition, and
+ *   the one-click POST comes from a mail provider with no cookies at all. An
+ *   opt-out that lands on a login form is a CAN-SPAM / RFC 8058 failure.
+ * - `/invite` — the team invitation email. The page has its own logged-out
+ *   branch ("Sign in to accept" / "Create an account"); the redirect hid it, and
+ *   sent people who had no account yet to a form they could not complete.
+ * - `/blog`, `/robots.txt`, `/sitemap.xml` — crawlers never carry a session, so
+ *   all three were invisible to search engines.
+ * - `/widget.js` — loaded by a `<script>` tag on the tenant's own website.
+ * - `/api/chat` — answers its own 401 as JSON (`getServerSession()` inside the
+ *   handler). The redirect turned that into an HTML login page where the chat
+ *   widget expected JSON.
+ * - `/privacy`, `/terms` — linked from the footer and the signup form. A
+ *   privacy policy only a signed-in user can read is not published (LAND-05).
+ *
+ * Making a path public here is NOT an authorisation decision — this middleware
+ * only ever checks that a cookie exists. Anything a route serves must still be
+ * authorised by the route itself.
+ */
 const publicPaths = [
   "/login",
   "/signup",
   "/forgot-password",
+  "/invite",
   "/book",
   "/quote",
   "/ref",
+  "/unsubscribe",
+  "/blog",
+  "/robots.txt",
+  "/sitemap.xml",
+  "/widget.js",
+  "/api/chat",
+  "/privacy",
+  "/terms",
 ];
 
 const authPaths = ["/login", "/signup"];

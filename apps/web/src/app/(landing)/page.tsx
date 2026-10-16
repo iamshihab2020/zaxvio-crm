@@ -8,10 +8,11 @@ import { FeaturesSection } from "@/components/landing/features-section";
 import { IndustryShowcase } from "@/components/landing/industry-showcase";
 import { HowItWorksSection } from "@/components/landing/how-it-works-section";
 import { PricingSection } from "@/components/landing/pricing-section";
-import { TestimonialsSection } from "@/components/landing/testimonials-section";
 import { FaqSection } from "@/components/landing/faq-section";
 import { BlogPreviewSection } from "@/components/landing/blog-preview-section";
 import { FinalCtaSection } from "@/components/landing/final-cta-section";
+import { SkipLink } from "@/components/landing/skip-link";
+import { MotionProvider } from "@/components/motion-provider";
 
 export const metadata: Metadata = {
   title: "Zaxvio — Service Management Software for Field Service Businesses",
@@ -31,11 +32,18 @@ export const metadata: Metadata = {
  * by the `surface` prop on `Section`; the previous page repeated the same
  * background across three adjacent pairs, so those sections ran together with
  * ~200px of empty space and no visible boundary.
+ *
+ * There is no testimonials section, on purpose (LAND-01). The three quotes that
+ * sat between Pricing and FAQ were invented people at invented businesses, and
+ * PRODUCT.md records that no customer evidence exists yet. Bring the section
+ * back only with real customers who agreed to be quoted, and re-check the
+ * alternation when you do: FAQ and Blog swapped surfaces to keep it.
  */
 export default function LandingPage() {
   return (
-    <>
+    <MotionProvider>
       <JsonLd />
+      <SkipLink />
       <Navbar />
       <main id="main">
         <HeroSection />
@@ -44,12 +52,11 @@ export default function LandingPage() {
         <IndustryShowcase />
         <HowItWorksSection />
         <PricingSection />
-        <TestimonialsSection />
         <FaqSection />
         <BlogPreviewSection />
         <FinalCtaSection />
       </main>
       <Footer />
-    </>
+    </MotionProvider>
   );
 }

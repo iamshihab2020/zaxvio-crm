@@ -10,7 +10,9 @@ import { Logo } from "@/components/logo";
  * decoration; the About, Contact, Privacy and Terms entries pointed at `href="#"`,
  * which scrolls the reader to the top of the page and looks broken. Dead links
  * in a footer cost trust on the one page whose whole job is earning it, so they
- * are gone until the pages behind them exist.
+ * are gone until the pages behind them exist. Privacy and Terms now do, and sit
+ * in the bottom row. About and Contact are still absent: there is no contact
+ * address to publish.
  */
 
 const PRODUCT_LINKS = [
@@ -18,6 +20,11 @@ const PRODUCT_LINKS = [
   { label: "Industries", href: "/#industries" },
   { label: "Pricing", href: "/#pricing" },
   { label: "FAQ", href: "/#faq" },
+] as const;
+
+const LEGAL_LINKS = [
+  { label: "Privacy", href: "/privacy" },
+  { label: "Terms", href: "/terms" },
 ] as const;
 
 const ACCOUNT_LINKS = [
@@ -79,11 +86,30 @@ export function Footer() {
         <Separator className="my-8 bg-midnight-foreground/10" />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="tnum font-mono text-[11px] text-midnight-foreground/40">
-            &copy; {new Date().getFullYear()} Zaxvio
-          </p>
-          <p className="text-[11px] text-midnight-foreground/40">
-            Built for HVAC, plumbing, electrical, cleaning and landscaping.
+          {/* `/60`, not `/40`: at 11px the copyright and tagline were 3.5:1 on
+              the midnight slab (LAND-15). 6.3:1 now. */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <p className="tnum font-mono text-[11px] text-midnight-foreground/60">
+              &copy; {new Date().getFullYear()} Zaxvio
+            </p>
+            {/* The links the old footer pointed at `#` are real pages now
+                (LAND-05). Same 40px tap floor as the columns above. */}
+            <ul role="list" className="flex items-center gap-4">
+              {LEGAL_LINKS.map((link) => (
+                <li key={link.href}>
+                  <Link
+                    href={link.href}
+                    className="inline-flex min-h-[40px] items-center rounded-sm text-sm text-midnight-foreground/60 transition-colors hover:text-midnight-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="text-[11px] text-midnight-foreground/60">
+            Built for HVAC, plumbing, electrical, cleaning, landscaping and any
+            other service trade.
           </p>
         </div>
       </div>

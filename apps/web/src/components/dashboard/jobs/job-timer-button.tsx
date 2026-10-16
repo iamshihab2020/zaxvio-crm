@@ -65,7 +65,7 @@ export function JobTimerButton({ jobId, size = "default" }: JobTimerButtonProps)
         variant="outline"
         disabled={pending}
         onClick={() => stop.mutate(undefined)}
-        className="cursor-pointer border-brand/40 text-brand hover:bg-brand/10 hover:text-brand"
+        className="cursor-pointer border-brand/40 text-brand-ink hover:bg-brand/10 hover:text-brand-ink"
       >
         <IconPlayerStop className="mr-1.5 h-4 w-4" aria-hidden />
         Stop

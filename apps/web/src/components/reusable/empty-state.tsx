@@ -18,7 +18,10 @@ export function EmptyState({
   onAction,
 }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-20">
+    // `motion-appear`: an empty result usually replaces a list in place after a
+    // filter or search, and fading in is what tells the reader the change was a
+    // response to them. Opacity only, so it never stacks with the route arrival.
+    <div className="motion-appear flex flex-col items-center justify-center py-20">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-light">
         <Icon className="h-8 w-8 text-brand" />
       </div>

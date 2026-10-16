@@ -71,7 +71,7 @@ export function ConversationList({
               <Button
                 variant="link"
                 size="sm"
-                className="mt-1 h-auto p-0 text-xs text-brand"
+                className="mt-1 h-auto p-0 text-xs text-brand-ink"
                 onClick={onNew}
               >
                 Start one now

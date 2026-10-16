@@ -30,7 +30,7 @@ export function LoadErrorState({
   return (
     <div
       role="alert"
-      className="flex min-h-[50vh] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/10 p-10 text-center"
+      className="motion-appear flex min-h-[50vh] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/10 p-10 text-center"
     >
       <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
         <IconPlugConnectedX className="h-6 w-6 text-muted-foreground" aria-hidden />
@@ -41,8 +41,10 @@ export function LoadErrorState({
       <p className="mt-1 max-w-sm text-sm font-body text-muted-foreground">
         {message ?? "Something went wrong while fetching your data."}
       </p>
+      {/* No spinning icon while retrying (DESIGN.md: no spinners). The label
+          and the disabled button already say it is working. */}
       <Button onClick={onRetry} disabled={isRetrying} className="mt-5 gap-2">
-        <IconRefresh className={isRetrying ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+        <IconRefresh className="h-4 w-4" />
         {isRetrying ? "Retrying…" : "Try again"}
       </Button>
     </div>

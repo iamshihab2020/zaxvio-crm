@@ -724,3 +724,132 @@ From [[bookings-calendar|the report]] — the front-end half.
   props. Derive the whole branch once off the nullable value itself
   (`const action = item ? {...} : {...}`) so there is one narrowing point and
   the JSX carries none.
+
+## Middleware and headers vs links that arrive from outside (2026-10-16)
+- **Every path a person reaches from an email, a crawler or someone else's website belongs in
+  `publicPaths`.** The list grew one page at a time and missed `/unsubscribe` (every marketing
+  email's footer and `List-Unsubscribe` header), `/invite` (team invitations), `/blog`,
+  `/robots.txt`, `/sitemap.xml` and `/widget.js` — all redirected a logged-out visitor to `/login`
+  (ONB-02/03). Nothing failed loudly because every developer testing them was logged in. When you add
+  a URL that goes into an email or onto a third-party page, open it in a private window.
+- **A blanket `X-Frame-Options: DENY` breaks the product's own embed.** `/:path*` covered
+  `/book/<slug>?embed=1`, so the booking widget opened a blank modal on every customer site (ONB-04).
+  Scope the header with a negative lookahead (`/:path((?!book(?:/|$)).*)`) and give the exempt tree
+  `Content-Security-Policy: frame-ancestors *`. Send `frame-ancestors` beside XFO everywhere — modern
+  browsers obey the CSP directive and ignore XFO when both are present. Exempt the whole `/book/*`
+  tree, not just `?embed=1`: the form `router.push`es to `/status/<id>` without the query string.
+
+## Landing page passes (2026-10-16)
+- **Never wrap above-the-fold content in a JS-gated reveal.** `.js .reveal` is `opacity: 0` from
+  first paint until React hydrates and an IntersectionObserver fires. Chrome does not treat an
+  `opacity: 0` element as an LCP candidate, so wrapping the hero `<h1>` tied LCP to the client
+  bundle. "Fails open" protected readers without JS, not readers with slow JS. Reveal is for
+  below the fold only.
+- **A brand colour that is a fill, a text colour and a focus ring can only be good at one of
+  them.** The orange was 2.85:1 under white labels and 2.7:1 as text and as the ring. The fix is
+  a second token (`--brand-ink`) plus a dark `--brand-foreground`, not per-component overrides.
+  After any foreground-token change, grep for hard-coded `bg-brand text-white`: six sites had
+  been bypassing the token, and they would have been the only buttons left failing.
+- **A shared navbar's `#anchor` handler must check the element exists.** `preventDefault()` plus
+  `scrollIntoView` on `#features` is right on `/` and does nothing on `/blog`, where the same
+  bar renders. Fall back to `router.push("/#features")`.
+- **Check every import before planning a bundle saving.** The audit proposed swapping the
+  landing tabs and accordion off `motion/react`, but `ui/sheet.tsx` (the mobile menu) imports it
+  too, so the swap would have saved nothing. Grep the whole import graph of the page first.
+- **`MotionConfig reducedMotion="user"` belongs in the layouts that use motion, NOT the root.**
+  Every animate-ui component arrived with its own motion and none consulted the preference. The
+  first fix put the provider at the root, which put `motion/react` into the bundle of every route,
+  including the booking portal, quote page and auth pages, none of which import anything from it.
+  It now wraps the five route groups that do (corrected 2026-10-16, LAND-09). A new route that
+  renders a dialog, sheet, tabs, accordion, checkbox, switch or toggle needs it added. CSS reveals, WAAPI or View Transitions (the theme wipe) and
+  `scrollIntoView({ behavior: "smooth" })` each need their own check, since `MotionConfig`
+  reaches none of them.
+- **Marketing copy is a claim, and the FAQ is also structured data.** Once PRODUCT.md lists
+  what is not built, check every sentence against it. `faq-data.ts` feeds the `FAQPage` JSON-LD,
+  so an untrue answer is also served to search engines as fact.
+
+- **Never fade text with `opacity` on top of an already-muted colour.** `opacity-70` over
+  `text-muted-foreground` on a muted fill multiplied down to 2.78:1. Fade by choosing the muted
+  token, which is a single measured value (4.7:1 or better here), not a product of two.
+- **A detector measures sizes, not measure.** The type scan found every off-ramp size and never
+  the FAQ answers running about 100 characters a line at 14px. For reading text, check the
+  container width against the font size, and cap prose at about 68ch.
+- **Check the scale for steps too close to be roles.** 2rem against 1.75rem (1.14×) was a closing
+  heading that could not be told apart from a section heading, and at `sm` the two were already
+  identical. Fold a near-duplicate step into its neighbour rather than documenting it.
+
+## Orange as a fill vs orange as text (2026-10-16)
+
+- **A contrast fix at the token level does not reach utilities that name the fill.** Changing
+  `--brand-foreground` to ink fixed every button, but `text-brand` is the *fill* colour used as
+  text, and 213 of those (115 files) still printed 2.7:1 orange. The fix is two tokens with two
+  jobs, `--brand` to fill and `--brand-ink` to be read, and then a sweep. In dark mode `--brand-ink`
+  is `--brand`, so the swap is invisible there; don't verify it in dark mode and call it done.
+- **Flipping a `*-foreground` token silently changes everything that borrowed it as "white".**
+  `bg-brand-foreground text-brand` was a white pill with orange digits. It became a dark pill,
+  nearly invisible in dark mode. After changing a foreground token, grep for it as a *background*
+  and as text that is not on its own fill.
+- **"Has to be read" includes some icons.** A selection check, an icon-only button and a toggled
+  toolbar icon carry meaning alone, so they need 3:1 (WCAG 1.4.11). A glyph beside a heading that
+  names the same thing does not. That split is what lets the bright orange survive as a mark.
+- **A dimmed ink is only for hover.** `text-brand-ink/80` is about 4.4:1 on paper, so it's fine as
+  a transient hover but not as resting text. A `text-brand/70` hint failed at any size and became
+  full ink.
+- **Codemod a class sweep with a keep-list, not a find-and-replace.** Default to converting and name
+  every exception by `file:line` with a reason (glyph tile, Night Shift slab, logotype). That makes
+  each surviving bright orange a decision someone can audit, not a miss.
+
+## Data colours are computed, not chosen (2026-10-16, dashboard polish)
+
+- **Run the dataviz validator on the tokens you already have before trusting them.** The
+  hand-rolled hex on the dashboard looked like the problem, but `--chart-3` (umber, chroma 0.04)
+  read as grey and `--chart-4` (amber, L 0.81) sat above the lightness band and collapsed into
+  `--chart-5` for protanopes. The hex wasn't covering for a working token set; there was none.
+- **`${color}1a` only works while the colour is a hex string.** The quote funnel tinted its
+  chips by appending an alpha byte. The moment the colour became `hsl(var(--x))`, that produced
+  invalid CSS. Keep the token *name* and build the tint with `hsl(var(--x) / 0.1)`
+  (`tokenColor(name, alpha)`).
+- **A donut has one more adjacent pair than a stacked bar: its last slice touches its first.**
+  Validate the wrap pair. Here it landed in the 6–8 floor band, legal only because the donut has
+  gaps (`paddingAngle`) and a labelled list beside it.
+- **More than three nominal types can't have fixed colours in a form where the present set
+  varies.** Seven service types against five validated slots, keyed to the type, puts unchecked
+  pairs next to each other whenever a type is absent. All-pairs validation caps at about three.
+  The compromise that stays valid is count order (touching slices are always neighbouring slots)
+  plus a neutral "Other". Never `i % palette.length`.
+- **A single series is one hue.** Colouring nominal bars by rank spends the colour channel on
+  what length already says, and repaints a bar whenever its rank changes.
+- **An ordinal ramp flips its anchor in dark mode.** On a dark card the darkest red would be the
+  quietest, so the oldest debt is the *brightest* there. Re-step each mode against its own
+  surface; never invert the light ramp.
+- **A colour that means "good" in one widget and "booking" in the next is two meanings.** The KPI
+  pills borrowed booking-teal and event-indigo as decoration beside the widget where those hues
+  are identities. Decoration takes the brand, and identity hues stay with what they identify.
+
+
+## App-wide motion pass (2026-10-16)
+- **Animate a route change on the shell, not on 55 pages, and never with a remount.** A layout
+  effect on `usePathname()` that calls `el.animate()` on the content container plays on every
+  navigation, inherits to new routes, and remounts nothing (strict-rules §7's `template.tsx`
+  problem). It must be a *layout* effect, or the new page paints at rest for a frame and then
+  snaps back to start the animation. It must also skip the initial path, or it delays the
+  server-rendered first paint.
+- **Never leave a transform on a container that has `position: fixed` children.** Any non-`none`
+  transform, including one held by `animation-fill-mode: both`, makes the element the containing
+  block for its fixed descendants, so a bulk-action bar or a dnd-kit drag overlay inside the page
+  is quietly mispositioned. CSS arrivals use `backwards`, and WAAPI arrivals use no fill.
+- **Reduced motion for tailwindcss-animate is a variables problem.** Its `enter`/`exit` keyframes
+  read movement from `--tw-enter-scale`, `--tw-enter-translate-*` and friends. Zeroing those
+  under the media query keeps the fade and drops the zoom and slide, where the common global
+  `animation-duration: 0.01ms` kills the fade that tells someone a menu opened.
+- **An inline `style={{ animation: "name …" }}` can't be overridden by a stylesheet, so redefine
+  the keyframes.** A later `@keyframes` with the same name inside
+  `@media (prefers-reduced-motion: reduce)` wins while the query matches. That was the only way to
+  reach the chatbot's inline animations without rewriting the component.
+- **A component inside a pathname-keyed `<main>` remounts on every navigation, so "play once" needs
+  module scope.** The running-timer bar would have dropped in on every page. A module variable
+  holding the announced timer's id survives the remount; component state cannot.
+- **Sweep for loops, not just for spinners.** Six spinners broke DESIGN.md's rule. So did two
+  decorative rings spinning forever, a scroll hint bouncing forever, and a chatbot launcher that
+  pulsed forever on every page load, because its "has opened" flag is not persisted. Give each a
+  finite iteration count or stop it.

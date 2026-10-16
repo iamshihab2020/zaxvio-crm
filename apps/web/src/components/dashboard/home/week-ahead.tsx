@@ -246,8 +246,8 @@ function DayColumn({ day, peak }: { day: DayLoad; peak: number }) {
           <div className="flex flex-col items-center gap-0.5" aria-hidden>
             <span
               className={cn(
-                "font-mono text-[9px] uppercase tracking-wider",
-                day.isToday ? "text-brand" : "text-muted-foreground",
+                "font-mono text-[10px] uppercase tracking-wider",
+                day.isToday ? "text-brand-ink" : "text-muted-foreground",
               )}
             >
               {day.isToday ? "Today" : format(day.date, "EEE")}

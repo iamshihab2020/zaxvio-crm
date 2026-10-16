@@ -62,7 +62,7 @@ export function ScheduleFilters({
             size="sm"
             className={cn(
               "h-7 cursor-pointer gap-1.5 text-xs",
-              priorityFilter && "border-brand/40 bg-brand-light/20 text-brand",
+              priorityFilter && "border-brand/40 bg-brand-light/20 text-brand-ink",
             )}
           >
             <IconAlertTriangle className="h-3.5 w-3.5" />
@@ -79,7 +79,7 @@ export function ScheduleFilters({
               }}
               className={cn(
                 "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer transition-colors",
-                priorityFilter === p && "bg-brand-light/30 text-brand font-medium",
+                priorityFilter === p && "bg-brand-light/30 text-brand-ink font-medium",
               )}
             >
               {JOB_PRIORITY_LABELS[p]}
@@ -96,7 +96,7 @@ export function ScheduleFilters({
             size="sm"
             className={cn(
               "h-7 cursor-pointer gap-1.5 text-xs",
-              serviceTypeFilter && "border-brand/40 bg-brand-light/20 text-brand",
+              serviceTypeFilter && "border-brand/40 bg-brand-light/20 text-brand-ink",
             )}
           >
             <IconTool className="h-3.5 w-3.5" />
@@ -115,7 +115,7 @@ export function ScheduleFilters({
               }}
               className={cn(
                 "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer transition-colors",
-                serviceTypeFilter === st && "bg-brand-light/30 text-brand font-medium",
+                serviceTypeFilter === st && "bg-brand-light/30 text-brand-ink font-medium",
               )}
             >
               {SERVICE_TYPE_LABELS[st]}

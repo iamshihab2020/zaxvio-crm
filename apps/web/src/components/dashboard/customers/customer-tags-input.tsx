@@ -212,7 +212,7 @@ export function CustomerTagsInput({
                       />
                     )}
                     <span className="flex-1">{tag.name}</span>
-                    <IconCheck className="h-3.5 w-3.5 text-brand" />
+                    <IconCheck className="h-3.5 w-3.5 text-brand-ink" />
                   </div>
                 ))}
 
@@ -223,7 +223,7 @@ export function CustomerTagsInput({
                   size="sm"
                   onClick={handleCreateAndAssign}
                   disabled={creating}
-                  className="w-full justify-start gap-2 text-brand"
+                  className="w-full justify-start gap-2 text-brand-ink"
                 >
                   <IconPlus className="h-3.5 w-3.5" />
                   Create &quot;{search.trim()}&quot;

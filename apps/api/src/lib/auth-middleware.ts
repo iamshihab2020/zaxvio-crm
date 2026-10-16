@@ -9,6 +9,7 @@ import {
   adminImpersonationSessions,
   eq,
   and,
+  inArray,
   sql,
 } from "@hvac-saas/database";
 
@@ -122,6 +123,54 @@ export function requireAdminTier(allowedTiers: AdminTier[]) {
 
 const IMPERSONATION_MAX_MS = 2 * 60 * 60 * 1000; // 2 hours
 
+/**
+ * May this admin open another tenant's event stream (`GET /events?tenantId=`)?
+ *
+ * The only caller that needs to is the superadmin impersonation dialog, waiting
+ * for the tenant's answer to a visible-mode request it has just sent. Until
+ * ONB-09 the check was `role === "admin"` and nothing else, so any tier —
+ * `billing_admin` included, who cannot request access at all — could watch any
+ * tenant's live notifications, conversations and job updates indefinitely, with
+ * no reason given and nothing in `admin_audit_log`.
+ *
+ * Now the stream is tied to a request: the admin must be a tier that can make
+ * one, and must have an open visible-mode session on that tenant. That request
+ * is already audited (`impersonate_start`, with its reason), so the stream does
+ * not need an audit row of its own — it can only exist inside one. The route
+ * also narrows it to the `impersonation` channel, which is all the dialog reads.
+ */
+export async function canWatchTenantStream(
+  authUser: AuthUser,
+  tenantId: string,
+): Promise<boolean> {
+  if (authUser.role !== "admin") return false;
+
+  const db = getDb();
+  const [admin] = await db
+    .select({ adminTier: user.adminTier })
+    .from(user)
+    .where(eq(user.id, authUser.userId));
+  const tier = admin?.adminTier as AdminTier | null | undefined;
+  if (tier !== "super_admin" && tier !== "support") return false;
+
+  const [session] = await db
+    .select({ id: adminImpersonationSessions.id })
+    .from(adminImpersonationSessions)
+    .where(
+      and(
+        eq(adminImpersonationSessions.adminUserId, authUser.userId),
+        eq(adminImpersonationSessions.tenantId, tenantId),
+        eq(adminImpersonationSessions.mode, "visible"),
+        // `active` as well as `pending`: EventSource reconnects on its own, and
+        // a reconnect landing just after approval must not 403 the dialog that
+        // is about to read the approval.
+        inArray(adminImpersonationSessions.status, ["pending", "active"]),
+        sql`${adminImpersonationSessions.endedAt} IS NULL`,
+      ),
+    );
+  return session !== undefined;
+}
+
 export async function requireTenant(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -148,6 +197,13 @@ export async function requireTenant(
             request.authUser.userId,
           ),
           sql`${adminImpersonationSessions.endedAt} IS NULL`,
+          // `active` only. A visible-mode request is inserted `pending` with
+          // `ended_at` NULL, and before this line it passed every check above —
+          // so the admin who asked could set the cookie to the new session id
+          // and walk into the tenant before the tenant had answered, or after
+          // ignoring the dialog (ONB-08). Approval is the only thing that sets
+          // `active` on a visible session; ghost sessions are created `active`.
+          eq(adminImpersonationSessions.status, "active"),
         ),
       )
       .then((r) => r[0]);

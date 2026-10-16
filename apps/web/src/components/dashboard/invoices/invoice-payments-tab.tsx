@@ -190,7 +190,7 @@ export function InvoicePaymentsTab({
         )}
         <div className="text-right">
           <p className="text-xs text-muted-foreground font-body">Balance Due</p>
-          <p className="text-sm font-bold text-brand font-body">
+          <p className="text-sm font-bold text-brand-ink font-body">
             {formatMoney(balanceDue)}
           </p>
         </div>

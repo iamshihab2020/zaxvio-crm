@@ -172,7 +172,7 @@ export function AssetServiceHistoryTab({
                     <TableCell>
                       <Link
                         href={`/jobs/${job.id}`}
-                        className="text-sm font-medium text-brand hover:underline"
+                        className="text-sm font-medium text-brand-ink hover:underline"
                       >
                         {job.jobNumber || "—"}
                       </Link>
@@ -230,7 +230,7 @@ export function AssetServiceHistoryTab({
                     <TableCell>
                       <Link
                         href={`/quotes/${quote.id}`}
-                        className="text-sm font-medium text-brand hover:underline"
+                        className="text-sm font-medium text-brand-ink hover:underline"
                       >
                         {quote.quoteNumber || "—"}
                       </Link>

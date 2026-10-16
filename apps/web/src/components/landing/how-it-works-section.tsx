@@ -21,7 +21,7 @@ const STEPS = [
     at: "0:02",
     title: "Add your services and hours",
     description:
-      "What you do, what you charge, and when you work. Bring your customer list over from a spreadsheet if you have one.",
+      "What you do, what you charge, and when you work. Customers who book through your link are added for you.",
   },
   {
     at: "0:10",
@@ -60,7 +60,7 @@ export function HowItWorksSection() {
             className="group grid grid-cols-[3.25rem_1fr] gap-x-4 sm:grid-cols-[4.5rem_1fr] sm:gap-x-6"
           >
             <div className="flex flex-col items-start">
-              <span className="tnum py-1 font-mono text-sm font-medium text-brand">
+              <span className="tnum py-1 font-mono text-sm font-medium text-brand-ink">
                 {step.at}
               </span>
               {/* The rail stops at the last step rather than trailing into

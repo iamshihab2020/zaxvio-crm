@@ -144,6 +144,18 @@ export function canSeeLaborRates(role: string | null): boolean {
 }
 
 /**
+ * Who may let platform support into the workspace.
+ *
+ * Granting a visible-mode support session hands a Zaxvio staff member the
+ * whole workspace for two hours — every customer, invoice and payroll rate. That
+ * is the business's decision, not any member's: until ONB-08 the request dialog
+ * went to everybody and the newest hire could say yes on the owner's behalf.
+ */
+export function canGrantSupportAccess(role: string | null): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/**
  * Validate every optional FK on a request in one pass. Returns the first
  * offending field name, or null when all supplied ids belong to the tenant.
  */

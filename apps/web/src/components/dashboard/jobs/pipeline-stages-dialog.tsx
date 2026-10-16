@@ -164,7 +164,7 @@ function StageMarkMenu({
               <IconCheck
                 className={cn(
                   "h-3.5 w-3.5 shrink-0",
-                  mark === o.value ? "opacity-100 text-brand" : "opacity-0",
+                  mark === o.value ? "opacity-100 text-brand-ink" : "opacity-0",
                 )}
               />
               {o.label}
@@ -327,7 +327,7 @@ function SortableStageRow({
           variant="ghost"
           size="sm"
           onClick={() => setEditing(true)}
-          className="flex-1 justify-start text-sm font-medium text-foreground font-body hover:text-brand truncate"
+          className="flex-1 justify-start text-sm font-medium text-foreground font-body hover:text-brand-ink truncate"
         >
           {stage.label}
         </Button>

@@ -20,7 +20,7 @@ export const JOB_STATUS_COLORS: Record<
   in_progress: {
     dot: "bg-brand",
     bg: "bg-brand-light/30",
-    text: "text-brand",
+    text: "text-brand-ink",
     border: "border-brand/40",
   },
   completed: {

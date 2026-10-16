@@ -376,7 +376,7 @@ function StatCard({
         <span className="font-body text-xs">{label}</span>
       </div>
       <p
-        className={`font-heading text-lg font-bold ${accent ? "text-brand" : "text-foreground"}`}
+        className={`font-heading text-lg font-bold ${accent ? "text-brand-ink" : "text-foreground"}`}
       >
         {value}
       </p>

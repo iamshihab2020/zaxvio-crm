@@ -3,6 +3,8 @@
 > Related: [[architecture]] | [[frontend-nextjs]] | [[strict-rules]] | [[REPO_MAP_1]]
 
 > **Source of truth** for all frontend design patterns, component conventions, layout structures, and UI/UX principles in the Zaxvio CRM web app (`apps/web/`).
+>
+> The **visual** system (tokens, colour names, named rules) is also recorded in `apps/web/DESIGN.md`, which Impeccable reads. `globals.css` is the normative source for both: when a token changes, re-run `/impeccable document` so `DESIGN.md` follows.
 
 ---
 
@@ -72,13 +74,21 @@ All colors defined as CSS variables (HSL) in `apps/web/src/app/globals.css`, map
 
 ### Chart Colors (5-series)
 
+Categorical, in this fixed order, never cycled. Read them through
+`lib/constants/chart-palette.ts` (`categoricalColor(i)`), not as raw hex. Each slot is validated
+in both themes with the dataviz script; past the fifth, a bucket folds into a neutral "Other".
+
 | Token | Color |
 |-------|-------|
-| `--chart-1` | Orange (brand) |
+| `--chart-1` | Orange (brand; a deeper step in dark mode) |
 | `--chart-2` | Teal |
-| `--chart-3` | Navy |
-| `--chart-4` | Gold |
+| `--chart-3` | Rust (was an umber that read as grey) |
+| `--chart-4` | Blue (was a gold that collapsed into green for protanopes) |
 | `--chart-5` | Green |
+
+Also in `chart-palette.ts`: `STATUS_COLORS` (`--status-good/-warning/-critical`, reserved
+meaning, always with a label; words use `text-status-good-ink` / `text-status-critical-ink`)
+and `OVERDUE_COLORS` (`--overdue-1..4`, one red darkening with age, for invoice aging).
 
 ### Admin Theme
 

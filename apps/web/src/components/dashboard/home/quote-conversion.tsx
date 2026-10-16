@@ -3,18 +3,20 @@
 import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { IconFileDescription } from "@tabler/icons-react";
-import { cn } from "@/lib/utils";
+import { tokenColor } from "@/lib/constants/chart-palette";
 import type { DashboardQuoteSummary } from "@hvac-saas/types";
 
 interface QuoteConversionProps {
   data: DashboardQuoteSummary;
 }
 
+// Status meaning, so status tokens. Each carries its token name rather than a
+// colour string because the % chip needs the same hue at 10% for its tint.
 const SEGMENT_CONFIG = [
-  { key: "accepted" as const, label: "Accepted", color: "#22c55e" },
-  { key: "declined" as const, label: "Declined", color: "#ef4444" },
-  { key: "pending" as const, label: "Pending", color: "#fbbf24" },
-];
+  { key: "accepted" as const, label: "Accepted", token: "status-good" },
+  { key: "declined" as const, label: "Declined", token: "status-critical" },
+  { key: "pending" as const, label: "Pending", token: "status-warning" },
+].map((s) => ({ ...s, color: tokenColor(s.token) }));
 
 function FunnelTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: { name: string; value: number; color: string } }> }) {
   if (!active || !payload?.length) return null;
@@ -118,14 +120,13 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
                       <span className="flex-1 text-[11px] font-body text-muted-foreground">
                         {s.label}
                       </span>
+                      {/* Ink on a tint of the status hue. The number used to be
+                          printed in the hue itself, which was 1.6:1 for pending
+                          and 2.1:1 for accepted; the dot beside the label
+                          already carries the colour. */}
                       <span
-                        className={cn(
-                          "rounded-full px-1.5 py-0.5 text-[10px] font-medium font-body",
-                        )}
-                        style={{
-                          backgroundColor: `${s.color}1a`,
-                          color: s.color,
-                        }}
+                        className="tnum rounded-full px-1.5 py-0.5 text-[10px] font-medium font-body text-foreground"
+                        style={{ backgroundColor: tokenColor(s.token, 0.14) }}
                       >
                         {pct}%
                       </span>

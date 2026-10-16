@@ -39,6 +39,7 @@ import {
 import {
   EXECUTION_LIMITS,
   DEFAULT_TIMEZONE,
+  getDefinition,
   type ExecutionContext,
   type SubjectType,
 } from "@hvac-saas/workflow-nodes";
@@ -92,6 +93,13 @@ export interface ExecuteParams {
    */
   subject: { type: SubjectType; id: string } | null;
   event?: { type: string; payload: Record<string, unknown> };
+  /**
+   * The trigger step to start from, when the caller knows it. The trigger
+   * matcher always does — it is the step whose filters it just evaluated — and
+   * must pass it, or a canvas with two triggers for one event starts from the
+   * wrong one (ONB-07).
+   */
+  triggerNodeId?: string;
   source: ExecutionSource;
   actorUserId?: string | null;
   idempotencyKey?: string;
@@ -152,7 +160,7 @@ export async function execute(params: ExecuteParams): Promise<ExecutionResult> {
   }
 
   const graph = loaded.graph;
-  const triggerNode = findTriggerNode(graph, params.event?.type ?? null);
+  const triggerNode = findTriggerNode(graph, params.event?.type ?? null, params.triggerNodeId);
   if (!triggerNode) {
     return refused(
       "This automation has no starting step, so there was nowhere to begin. Add a trigger.",
@@ -584,21 +592,51 @@ export async function resolveTimezone(
 /**
  * The node a run starts at.
  *
- * With an event, the trigger listening for it. Without one, the first trigger
- * in the graph — which is what a manual run means.
+ * 1. The step the caller names. The trigger matcher always names one: it has
+ *    just evaluated that step's filters, and a canvas may hold two triggers for
+ *    the same event with different filters ("a repair" vs "over $2,000"), so
+ *    nothing but its id can tell them apart.
+ * 2. Else the trigger whose **definition** declares this event — the webhook
+ *    receiver's case.
+ * 3. Else, for a run with no event, the Manual trigger if the canvas has one,
+ *    since that is the step a person pressing Run means.
+ * 4. Else the first trigger, so an automation can still be tried by hand
+ *    against a record whatever it starts with.
+ *
+ * Step 2 used to read `nodeConfig.parameters.triggerEvents` — the node's saved
+ * SETTINGS, where `triggerEvents` never is; it lives on the definition. So the
+ * lookup matched nothing, every run fell through to `triggers[0]`, and a
+ * multi-trigger automation started from its first trigger whichever one had
+ * fired (ONB-07): the wrong step's output in the context, and the wrong branch
+ * run.
  */
-function findTriggerNode(graph: WorkflowGraph, eventType: string | null) {
+function findTriggerNode(
+  graph: WorkflowGraph,
+  eventType: string | null,
+  triggerNodeId: string | undefined,
+) {
   const triggers = graph.nodes.filter((n) => n.nodeType.startsWith("trigger."));
   if (triggers.length === 0) return null;
-  if (!eventType) return triggers[0];
 
-  return (
-    triggers.find((n) => {
-      const events = n.nodeConfig.parameters?.triggerEvents;
-      return Array.isArray(events) && events.includes(eventType);
-    }) ?? triggers[0]
-  );
+  if (triggerNodeId) {
+    const named = triggers.find((n) => n.id === triggerNodeId);
+    if (named) return named;
+  }
+
+  if (eventType) {
+    const listening = triggers.find((n) =>
+      getDefinition(n.nodeType)?.triggerEvents?.includes(eventType),
+    );
+    if (listening) return listening;
+  } else {
+    const manual = triggers.find((n) => n.nodeType === MANUAL_TRIGGER);
+    if (manual) return manual;
+  }
+
+  return triggers[0];
 }
+
+const MANUAL_TRIGGER = "trigger.manual";
 
 function refused(reason: string): ExecutionResult {
   return {

@@ -10,12 +10,13 @@ import { Section, SectionHeading } from "./section";
 
 export function FaqSection() {
   return (
-    <Section id="faq" surface="alt" labelledBy="faq-heading">
+    <Section id="faq" surface="base" labelledBy="faq-heading">
       <div className="grid gap-8 lg:grid-cols-3 lg:gap-12">
+        {/* The lede promised "support from a person" with no contact route
+            anywhere on the site (LAND-10). Restore it alongside a real one. */}
         <SectionHeading
           id="faq-heading"
           title="Answers, before you ask."
-          lede="Still stuck? Every plan includes support from a person."
           className="lg:sticky lg:top-28 lg:self-start"
         />
 
@@ -23,10 +24,10 @@ export function FaqSection() {
           <Accordion type="single" collapsible className="w-full">
             {FAQ_ITEMS.map((item, i) => (
               <AccordionItem key={item.question} value={`faq-${i}`}>
-                <AccordionTrigger className="text-left font-medium text-ink hover:text-brand">
+                <AccordionTrigger className="text-left text-base font-medium text-ink hover:text-brand-ink">
                   {item.question}
                 </AccordionTrigger>
-                <AccordionContent className="leading-relaxed text-muted-foreground text-pretty">
+                <AccordionContent className="max-w-[68ch] text-base leading-relaxed text-muted-foreground text-pretty">
                   {item.answer}
                 </AccordionContent>
               </AccordionItem>

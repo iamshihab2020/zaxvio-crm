@@ -36,13 +36,13 @@ export function QuoteSidebarPanel({ quote }: QuoteSidebarPanelProps) {
         <div className="rounded-md bg-muted/50 p-3 space-y-2.5">
           <div className="flex items-center gap-2.5">
             <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-brand/10 text-brand text-xs font-heading">
+              <AvatarFallback className="bg-brand/10 text-brand-ink text-xs font-heading">
                 {initials}
               </AvatarFallback>
             </Avatar>
             <Link
               href={`/customers/${quote.customerId}`}
-              className="text-sm font-medium text-foreground hover:text-brand transition-colors font-body"
+              className="text-sm font-medium text-foreground hover:text-brand-ink transition-colors font-body"
             >
               {customerName}
             </Link>
@@ -82,7 +82,7 @@ export function QuoteSidebarPanel({ quote }: QuoteSidebarPanelProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light shrink-0">
               <IconBriefcase className="h-4 w-4 text-brand" />
             </div>
-            <span className="text-sm font-medium text-foreground group-hover:text-brand transition-colors font-body">
+            <span className="text-sm font-medium text-foreground group-hover:text-brand-ink transition-colors font-body">
               View created job
             </span>
           </Link>

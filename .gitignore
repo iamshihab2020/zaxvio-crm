@@ -24,9 +24,13 @@ Thumbs.db
 coverage/
 test-results/
 playwright-report/
+.playwright-mcp/
 
 # Turbo
 .turbo/
+
+# Impeccable design-hook cache (rebuilt on every run)
+**/.impeccable/hook.cache.json
 
 # Memory (auto-generated, local only)
 scripts/memory/*.md

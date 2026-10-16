@@ -246,7 +246,7 @@ export function ChecklistsSettingsClient() {
                   className="w-full justify-start gap-2 font-body"
                 >
                   {!filterServiceType && (
-                    <IconCheck className="h-4 w-4 text-brand shrink-0" />
+                    <IconCheck className="h-4 w-4 text-brand-ink shrink-0" />
                   )}
                   <span className={cn(!filterServiceType ? "" : "pl-6")}>
                     All Types
@@ -265,7 +265,7 @@ export function ChecklistsSettingsClient() {
                     className="w-full justify-start gap-2 font-body"
                   >
                     {filterServiceType === st && (
-                      <IconCheck className="h-4 w-4 text-brand shrink-0" />
+                      <IconCheck className="h-4 w-4 text-brand-ink shrink-0" />
                     )}
                     <span className={cn(filterServiceType !== st && "pl-6")}>
                       {SERVICE_TYPE_LABELS[st]}

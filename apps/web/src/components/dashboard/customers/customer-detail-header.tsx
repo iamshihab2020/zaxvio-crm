@@ -134,7 +134,7 @@ function EditableText({
             variant="ghost"
             size="icon"
             onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
-            className="h-6 w-6 shrink-0 text-brand hover:text-brand/80"
+            className="h-6 w-6 shrink-0 text-brand-ink hover:text-brand-ink/80"
             aria-label="Save"
           >
             <IconCheck className="h-3.5 w-3.5" />
@@ -159,7 +159,7 @@ function EditableText({
         variant="ghost"
         size="sm"
         onClick={() => setEditing(true)}
-        className="h-auto p-0 text-sm italic text-muted-foreground/40 hover:text-brand"
+        className="h-auto p-0 text-sm italic text-muted-foreground/40 hover:text-brand-ink"
       >
         {placeholder}
       </Button>
@@ -172,7 +172,7 @@ function EditableText({
       variant="ghost"
       size="sm"
       onClick={() => setEditing(true)}
-      className={`group inline-flex h-auto items-center gap-1 p-0 hover:text-brand ${className ?? ""}`}
+      className={`group inline-flex h-auto items-center gap-1 p-0 hover:text-brand-ink ${className ?? ""}`}
     >
       <span>{shown}</span>
       <IconPencil className="h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" />
@@ -324,7 +324,7 @@ export function CustomerDetailHeader({
         <div className="px-4 pb-4 pt-1 sm:px-6">
           <div className="flex items-center gap-4">
             <Avatar className="h-11 w-11 shrink-0 ring-2 ring-brand/20 ring-offset-2 ring-offset-card">
-              <AvatarFallback className="bg-brand/10 font-heading text-sm text-brand">
+              <AvatarFallback className="bg-brand/10 font-heading text-sm text-brand-ink">
                 {initials}
               </AvatarFallback>
             </Avatar>
@@ -434,7 +434,7 @@ export function CustomerDetailHeader({
                 <span
                   className={
                     Number(summary.outstandingAmount) > 0
-                      ? "font-medium text-brand"
+                      ? "font-medium text-brand-ink"
                       : "font-medium text-foreground"
                   }
                 >

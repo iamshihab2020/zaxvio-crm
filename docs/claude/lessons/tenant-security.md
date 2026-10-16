@@ -98,3 +98,28 @@ From the [[bookings-calendar|Bookings & Calendar audit]].
   to organisation to membership — not one tenant-scoped SELECT. It did not fit the helper that
   existed, so three call sites each wrote it again. When a check does not fit the shared shape, add
   the shape; leaving it out is how `tenant-guards.ts`'s own docblock describes the last gap.
+
+
+## Onboarding audit fixes (2026-10-16)
+- **An address guard has to parse, because `new URL()` rewrites the spelling you matched on.**
+  `http://[::ffff:169.254.169.254]/` comes out of the WHATWG parser with the hostname
+  `[::ffff:a9fe:a9fe]`, so the SSRF validator's `^::ffff:d.d.d.d$` regex never saw the one form a
+  literal URL can actually produce, and `http.request` reached cloud metadata (ONB-05). The IPv4
+  half already parsed octets "because a leading zero defeats a regex"; IPv6 had the same reason
+  and skipped it. Now 8 parsed groups, and every v4-carrying form (mapped, translated, compatible,
+  NAT64, 6to4) is judged by the v4 inside it. Check what the parser hands you, not what the user typed.
+- **A state column checked by one gate must be checked by every gate.** `requireTenant`'s
+  impersonation branch checked `ended_at IS NULL` and never `status`, and a visible-mode request is
+  inserted `pending` with `ended_at` NULL — so the requesting admin could set the cookie and enter
+  before the tenant answered (ONB-08). The approval step existed, wrote the right status, and gated
+  nothing. When a row has a lifecycle, the access check names the one state that grants access.
+- **A cross-tenant stream must be bound to a reason, not to a role.** `GET /events?tenantId=` checked
+  `role === "admin"`, which every admin tier has, including `billing_admin` who cannot even request
+  access. Tying it to an open visible-mode session on that tenant made it exist only inside an
+  already-audited request, and narrowing it to the `impersonation` channel made it carry only the
+  answer the dialog reads (ONB-09). An audit row per open would have been noise: EventSource
+  reconnects on its own.
+- **`requireOrgRole` reads the session's active org, not the tenant you resolved.** During
+  impersonation those differ, so an admin who owns their own org would pass an owner check for the
+  tenant they are inside. For "may this person decide for THIS workspace" use
+  `resolveOrgRole(db, tenantId, userId)` and refuse `isImpersonating` explicitly.

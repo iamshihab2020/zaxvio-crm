@@ -191,7 +191,7 @@ function AutomationNodeComponent({ data, selected }: NodeProps<AutomationFlowNod
                       "nodrag pointer-events-auto absolute z-10 flex h-6 w-6 -translate-y-1/2",
                       "items-center justify-center rounded-full border border-dashed",
                       "border-input bg-card text-muted-foreground shadow-sm",
-                      "transition-colors hover:border-brand hover:text-brand",
+                      "transition-colors hover:border-brand hover:text-brand-ink",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
                     )}
                     style={{ top, right: -40 }}

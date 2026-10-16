@@ -179,7 +179,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                     className="w-full justify-start gap-2 font-body"
                   >
                     {selectedId === c.id && (
-                      <IconCheck className="h-4 w-4 text-brand shrink-0" />
+                      <IconCheck className="h-4 w-4 text-brand-ink shrink-0" />
                     )}
                     <span className={cn(selectedId !== c.id && "pl-6")}>
                       {c.firstName} {c.lastName}
@@ -193,7 +193,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   variant="ghost"
                   size="sm"
                   onClick={handleNewCustomer}
-                  className="w-full justify-start gap-2 font-body text-brand"
+                  className="w-full justify-start gap-2 font-body text-brand-ink"
                 >
                   <IconPlus className="h-4 w-4 shrink-0" />
                   New Customer
@@ -221,7 +221,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                 size="sm"
                 onClick={handleSwitchToExisting}
                 tabIndex={isNewMode ? 0 : -1}
-                className="gap-1 text-xs text-brand hover:underline font-body h-auto p-0"
+                className="gap-1 text-xs text-brand-ink hover:underline font-body h-auto p-0"
               >
                 <IconArrowBack className="h-3 w-3" />
                 Select existing

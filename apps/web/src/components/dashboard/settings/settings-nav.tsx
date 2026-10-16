@@ -169,7 +169,7 @@ export function SettingsNav({ orgRole }: SettingsNavProps) {
                         className={cn(
                           "relative z-10 flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 font-body",
                           isActive
-                            ? "text-brand bg-brand-light"
+                            ? "text-brand-ink bg-brand-light"
                             : "text-muted-foreground hover:text-foreground hover:bg-brand-light/50",
                         )}
                       >

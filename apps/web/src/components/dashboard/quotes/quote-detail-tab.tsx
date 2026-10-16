@@ -274,7 +274,7 @@ export function QuoteDetailTab({
           <div className="rounded-md border border-border p-3">
             <Link
               href={`/assets/${quote.equipmentId}`}
-              className="text-sm font-medium font-body hover:text-brand transition-colors"
+              className="text-sm font-medium font-body hover:text-brand-ink transition-colors"
             >
               {[quote.equipmentType, quote.equipmentBrand, quote.equipmentModel]
                 .filter(Boolean)
@@ -323,7 +323,7 @@ export function QuoteDetailTab({
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-semibold font-body">Total</span>
-            <span className="text-sm font-bold text-brand font-body">
+            <span className="text-sm font-bold text-brand-ink font-body">
               {formatCurrency(quote.totalAmount)}
             </span>
           </div>

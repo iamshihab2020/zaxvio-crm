@@ -67,7 +67,7 @@ export function QuoteReviewCard({ quote }: QuoteReviewCardProps) {
       <header className="border-b border-ink/15 pb-5 dark:border-border">
         <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
           <div>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
+            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand-ink">
               Estimate
             </p>
             <p className="tnum mt-1 font-mono text-2xl font-medium text-foreground">
@@ -166,10 +166,10 @@ export function QuoteReviewCard({ quote }: QuoteReviewCardProps) {
           )}
           {hasDiscount && (
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-brand">
+              <dt className="font-mono text-[10px] uppercase tracking-[0.14em] text-brand-ink">
                 Discount
               </dt>
-              <dd className="tnum font-mono text-sm text-brand">
+              <dd className="tnum font-mono text-sm text-brand-ink">
                 −{money(quote.discountAmount)}
               </dd>
             </div>

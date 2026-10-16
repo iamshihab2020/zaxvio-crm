@@ -122,6 +122,50 @@ export function HelpChatbot() {
             transform: translateY(0) scale(1);
           }
         }
+
+        /* Reduced motion. These animations are set inline by name, which a
+           stylesheet cannot override, so the KEYFRAMES are redefined instead:
+           a later @keyframes of the same name wins while the query matches.
+           Arrivals keep their fade; the shake and the pulse lose their
+           movement entirely, because the message and the button already
+           carry the state. */
+        @media (prefers-reduced-motion: reduce) {
+          @keyframes chatSlideLeft {
+            from {
+              opacity: 0;
+            }
+          }
+          @keyframes chatSlideRight {
+            from {
+              opacity: 0;
+            }
+          }
+          @keyframes chatFadeIn {
+            from {
+              opacity: 0;
+            }
+          }
+          @keyframes chatPop {
+            from {
+              opacity: 0;
+            }
+          }
+          @keyframes chatPanelIn {
+            from {
+              opacity: 0;
+            }
+          }
+          @keyframes chatShake {
+            from {
+              opacity: 1;
+            }
+          }
+          @keyframes chatPulse {
+            from {
+              opacity: 1;
+            }
+          }
+        }
       `}</style>
 
       {/* Chat Panel */}
@@ -149,9 +193,13 @@ export function HelpChatbot() {
         className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-brand text-brand-foreground shadow-lg transition-all duration-300 hover:bg-brand/90 hover:shadow-xl ${
           isOpen ? "rotate-90 scale-90" : "scale-100"
         }`}
+        // Three pulses, then rest. `hasOpened` is not persisted, so this used to
+        // loop forever on every dashboard page load until the assistant was
+        // opened, a screen that never went still (DESIGN.md). Three is enough to
+        // be noticed.
         style={
           !hasOpened && !isOpen
-            ? { animation: "chatPulse 2s ease-in-out infinite" }
+            ? { animation: "chatPulse 2s ease-in-out 3" }
             : undefined
         }
         size="icon"

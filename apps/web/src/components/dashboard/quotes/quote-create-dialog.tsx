@@ -408,7 +408,7 @@ export function QuoteCreateDialog({
                             email: "",
                           })
                         }
-                        className="gap-1 text-xs text-brand hover:underline font-body h-auto p-0"
+                        className="gap-1 text-xs text-brand-ink hover:underline font-body h-auto p-0"
                       >
                         <IconPlus className="h-3 w-3" />
                         New Customer

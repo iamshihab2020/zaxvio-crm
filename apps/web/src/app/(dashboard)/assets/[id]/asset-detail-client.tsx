@@ -136,7 +136,7 @@ export function AssetDetailClient({ asset }: AssetDetailClientProps) {
                 value={
                   <Link
                     href={`/customers/${asset.customerId}`}
-                    className="text-brand hover:underline"
+                    className="text-brand-ink hover:underline"
                   >
                     {customerName}
                   </Link>

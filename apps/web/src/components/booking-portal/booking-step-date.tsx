@@ -107,7 +107,7 @@ export function BookingStepDate({
               row: "flex w-full",
               cell: "flex-1 text-center relative",
               day: "h-10 w-full rounded-md text-sm font-medium transition-colors hover:bg-brand/10 cursor-pointer",
-              day_selected: "bg-brand text-white hover:bg-brand/90",
+              day_selected: "bg-brand text-brand-foreground hover:bg-brand/90",
               day_disabled: "text-muted-foreground/30 cursor-not-allowed hover:bg-transparent",
               day_today: "ring-1 ring-brand/40 font-bold",
               nav: "flex items-center justify-between mb-2",

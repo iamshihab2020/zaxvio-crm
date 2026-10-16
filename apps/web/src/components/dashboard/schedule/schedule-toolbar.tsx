@@ -101,7 +101,7 @@ export function ScheduleToolbar({
                 size="icon"
                 className={cn(
                   "h-8 w-8 cursor-pointer",
-                  sidebarOpen && "text-brand",
+                  sidebarOpen && "text-brand-ink",
                 )}
                 onClick={onToggleSidebar}
               >
@@ -121,7 +121,7 @@ export function ScheduleToolbar({
               className={cn(
                 "relative cursor-pointer gap-1.5",
                 viewingToday
-                  ? "bg-brand/10 border-brand/30 text-brand hover:bg-brand/15"
+                  ? "bg-brand/10 border-brand/30 text-brand-ink hover:bg-brand/15"
                   : "",
               )}
             >

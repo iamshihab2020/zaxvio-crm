@@ -31,6 +31,16 @@ zaxvio-crm/
 +-- CLAUDE.md                 # AI assistant instructions + strict rules
 +-- README.md
 +-- pnpm-lock.yaml
++-- render.yaml               # Render Blueprint (API deploy) — Render only reads it from the repo root
++-- skills-lock.json          # `npx skills` lockfile for .agents/skills/ — the CLI expects it at the root
++-- .agents/skills/           # Installed agent skills (design-taste, frontend-design, high-end, redesign)
++-- .claude/                  # Claude Code settings + project skills
++-- .github/workflows/        # ci.yml, keepalive.yml
+|
+| Root is kept to config and tool-mandated files. Everything readable lives in docs/
+| (strict-rules §2). Removed 2026-10-16: prd.md (→ docs/project_docs/), skills/ (→
+| docs/claude/workflow/consolidate-memory.md), .playwright-mcp/ (stale tool snapshots,
+| now gitignored), and PRODUCT.md, DESIGN.md + .impeccable/ (→ apps/web/).
 |
 +-- docs/
 |   +-- todo.md               # Task tracking (In Progress / Upcoming / Done)
@@ -60,7 +70,10 @@ zaxvio-crm/
 |       +-- HVAC_SaaS_Phase1_PRD_v2.md                          # PRD (source of truth)
 |       +-- HVAC_SaaS_System_Diagrams_and_Unified_Auth.md       # Architecture diagrams
 |       +-- HVAC_Saas_Proposal.md                               # Business proposal
+|       +-- PRD_Data_Fetching_Architecture.md                   # TanStack Query data-layer PRD (was root prd.md)
 |       +-- REPO_MAP.md                                         # <-- This file
+|
+|   (docs/claude/workflow/consolidate-memory.md — in-session memory consolidation method, was skills/)
 |
 +-- scripts/
 |   +-- memory/
@@ -69,9 +82,6 @@ zaxvio-crm/
 |       +-- long-term-memory.md       # Stable facts, preferences (gitignored)
 |       +-- project-memory.md         # Active project snapshot (gitignored)
 |       +-- recent-memory.md          # Rolling 48hr summaries (gitignored)
-|
-+-- skills/
-|   +-- consolidate-memory.md         # Claude skill for in-session memory consolidation
 |
 +-- supabase/
     +-- migrations/
@@ -372,7 +382,10 @@ apps/api/
 |   |   |   |   +-- url-validator.ts  # THE outbound guard (wf-10 §10.5). Resolves the hostname,
 |   |   |   |   |                     # validates the ADDRESSES, and returns them - the caller
 |   |   |   |   |                     # connects to those. Validating a name then handing the name
-|   |   |   |   |                     # to fetch is DNS rebinding, not a check
+|   |   |   |   |                     # to fetch is DNS rebinding, not a check. IPv6 is PARSED into
+|   |   |   |   |                     # 8 groups and every v4-carrying form (mapped, translated,
+|   |   |   |   |                     # compatible, NAT64, 6to4) judged by its v4 - new URL() writes
+|   |   |   |   |                     # [::ffff:169.254.169.254] as [::ffff:a9fe:a9fe] (ONB-05)
 |   |   |   |   +-- outbound.ts       # node:https with a pinned `lookup`, because fetch cannot take
 |   |   |   |   |                     # one. Re-validates every redirect, caps at 3, 1MB, 5s/10s
 |   |   |   +-- webhooks/
@@ -604,6 +617,8 @@ apps/api/
 |   |                             # calls process.exit(1) and would kill the runner with no output.
 |   |                             # db.ts = withRollback()/withCleanup(); factories/ build a tenant
 |   |                             # (org + user + member), customer, pipeline, job
+|   |   +-- workflow-url-validator.test.ts # SSRF guard: every spelling of a private/metadata
+|   |                             # address, literal and resolved (unit, no network)
 |   +-- jobs/
 |   |   ~ .gitkeep                # Planned: background cron runners
 |   +-- scripts/
@@ -662,6 +677,10 @@ apps/web/
 +-- eslint.config.js          # Re-exports @hvac-saas/config/eslint — flat config resolves from cwd
 +-- .env.local                # FRONTEND ONLY — Next.js reads .env* from this folder, never the root .env (not committed)
 +-- .env.example              # Template for the frontend env
++-- PRODUCT.md                # Impeccable product record (users, positioning, built vs not built, evidence). Here, not docs/: Impeccable discovers it upward from apps/web
++-- DESIGN.md                 # Impeccable visual spec — "The Work Order": tokens (frontmatter), named rules, components. Mirrors globals.css; regenerate with /impeccable document
++-- .impeccable/design.json   # DESIGN.md sidecar: tonal ramps, shadows, motion, breakpoints, 10 drop-in component snippets for the live panel
++-- .impeccable/live/config.json  # Impeccable live-mode inject target (src/app/layout.tsx). No script-src CSP, so no dev allowance needed
 +-- next.config.mjs           # staleTimes + instrumentationHook: true (required on Next 14 for instrumentation.ts)
 +-- tailwind.config.ts
 +-- public/
@@ -706,6 +725,8 @@ apps/web/
     |   +-- use-dashboard-widget-prefs.ts # Which dashboard widgets are visible (localStorage)
     |   +-- use-stored-date-range.ts      # Remembers a page's date range as two absolute dates (one key per page: dashboard, reports)
     |   +-- use-fill-viewport-height.ts   # Measured height so a panel runs to the fold (Kanban board)
+    |   +-- use-route-arrival.ts     # Route arrival: content rises 8px on navigation, never on first
+    |   |                            # paint; WAAPI with no fill, no remount (DESIGN.md motion vocabulary)
     |   +-- queries/                 # TanStack Query hooks (one file per domain)
     |       +-- index.ts                       # Barrel export for all query hooks
     |       +-- use-customers.ts               # Customer queries & mutations
@@ -765,6 +786,8 @@ apps/web/
     |   +-- format.ts                # formatCurrency(), formatMoney() (thousands separators — the
     |   |                            # invoice table and PDF each printed `$1234.50`), formatDateOnly()
     |   |                            # (a `date` column read a day early west of UTC), formatRelativeTime()
+    |   +-- legal.ts                 # LEGAL_LAST_UPDATED, LEGAL_CONTACT_EMAIL (null until a real
+    |   |                            # inbox exists), DATA_PROCESSORS read off the codebase
     |   +-- open-pdf.ts              # openPdfPayload() — the PDF used to be window.open()'d straight at
     |   |                            # the API origin, the one request relying on a cross-origin cookie
     |   +-- utils.ts                 # cn() helper (clsx + tailwind-merge)
@@ -792,6 +815,10 @@ apps/web/
     |   |                            # endpoint returns `message`, so every hook's `res.message ?? "…"`
     |   |                            # silently reported success for records the server refused
     |   +-- constants/
+    |       +-- chart-palette.ts     # The ONE home for data colours: categoricalColor() (fixed order,
+    |       |                        # never cycled, neutral "Other" past 5), STATUS_COLORS,
+    |       |                        # OVERDUE_COLORS, tokenColor(). Tokens only — every value was
+    |       |                        # validated with the dataviz script in globals.css
     |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
     |       +-- job-options.ts       # Service types, priorities
@@ -803,6 +830,11 @@ apps/web/
     |   +-- logo.tsx                 # Logo component
     |   +-- refresh-on-nav.tsx       # Fixes Next.js 14 back/forward stale cache
     |   +-- theme-provider.tsx       # next-themes wrapper
+    |   +-- route-stage.tsx          # <main> that plays useRouteArrival, for server-component layouts
+    |   |                            # (superadmin, blog, legal). Dashboard calls the hook in PageContent
+    |   +-- motion-provider.tsx      # MotionConfig reducedMotion="user". Mounted in the five route
+    |   |                            # groups that use motion, NOT the root: the booking, quote and
+    |   |                            # auth pages import none of it (LAND-07, LAND-09)
     |   +-- theme-toggle.tsx         # Light/dark toggle button
     |   +-- under-development.tsx    # Placeholder for unbuilt pages
     |   +-- query-provider.tsx       # QueryClientProvider wrapper with global TanStack Query defaults
@@ -847,12 +879,13 @@ apps/web/
     |   |   +-- industry-showcase.tsx # shadcn Tabs, one panel per trade
     |   |   +-- how-it-works-section.tsx
     |   |   +-- pricing-section.tsx  # Sticky price rail + included list + replacement ledger
-    |   |   +-- testimonials-section.tsx
     |   |   +-- faq-section.tsx
     |   |   +-- blog-preview-section.tsx
     |   |   +-- final-cta-section.tsx
     |   |   +-- footer.tsx
     |   |   +-- json-ld.tsx          # SoftwareApplication + FAQPage structured data
+    |   |   +-- skip-link.tsx        # "Skip to content"; landing, blog and legal pages (main#main)
+    |   |   +-- legal-document.tsx   # LegalDocument / LegalSection / LegalContact for /privacy, /terms
     |   |
     |   +-- booking-portal/          # Public booking portal components
     |   |   +-- booking-progress-indicator.tsx  # Step dots (5 steps)
@@ -1120,7 +1153,13 @@ apps/web/
         +-- icon.png                # Favicon
         |
         +-- (landing)/                               # -- Landing Page (Public) --
-        |   +-- page.tsx                             # Hero, features, pricing, FAQ, testimonials
+        |   +-- page.tsx                             # Hero, features, industries, pricing, FAQ, blog.
+        |                                            # No testimonials: none exist (LAND-01)
+        |
+        +-- (legal)/                                 # -- Privacy + Terms (Public, in middleware publicPaths) --
+        |   +-- layout.tsx                           # SkipLink + landing Navbar + main#main + Footer
+        |   +-- privacy/page.tsx                     # Privacy Policy, drafted from the code (LAND-05)
+        |   +-- terms/page.tsx                       # Terms of Service. Both need legal review
         |
         +-- (auth)/                                  # -- Auth Pages (Public, NO layout.tsx) --
         |   +-- login/page.tsx                       # Email/password sign-in (AuthShell)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { IconMessageCircle, IconMail, IconLoader2 } from "@tabler/icons-react";
+import { IconMessageCircle, IconMail } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -156,7 +156,7 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
               <IconMail className="h-3 w-3" />
               {c.subject ?? "Email thread"}
               {c.unreadCount > 0 && (
-                <Badge className="h-4 px-1 text-[10px] bg-brand-foreground text-brand ml-0.5">
+                <Badge className="h-4 px-1 text-[10px] bg-card text-brand-ink ml-0.5">
                   {c.unreadCount}
                 </Badge>
               )}
@@ -167,12 +167,15 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
             disabled={isCreating}
             className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground bg-muted shrink-0 transition-colors"
           >
+            {/* The label says it is working; the button is disabled meanwhile. */}
             {isCreating ? (
-              <IconLoader2 className="h-3 w-3 animate-spin" />
+              "Starting…"
             ) : (
-              <span className="text-base leading-none">+</span>
+              <>
+                <span className="text-base leading-none">+</span>
+                New
+              </>
             )}
-            New
           </button>
         </div>
       )}

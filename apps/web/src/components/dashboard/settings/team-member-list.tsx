@@ -149,7 +149,7 @@ export function TeamMemberList({
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-brand-light text-brand text-xs font-heading">
+                        <AvatarFallback className="bg-brand-light text-brand-ink text-xs font-heading">
                           {getInitials(m.user.name)}
                         </AvatarFallback>
                       </Avatar>

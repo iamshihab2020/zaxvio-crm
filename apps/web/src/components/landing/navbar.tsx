@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { IconMenu2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -26,6 +27,19 @@ const NAV_LINKS = [
 const SECTION_IDS = ["features", "industries", "pricing", "faq"] as const;
 
 /**
+ * Smooth unless the reader asked for less motion (LAND-07).
+ *
+ * `scroll-behavior: auto` under `prefers-reduced-motion` in globals.css covers
+ * CSS-driven scrolling only. `scrollIntoView({ behavior: "smooth" })` is an
+ * explicit request that overrides it, so the preference has to be read here.
+ */
+function scrollBehavior(): ScrollBehavior {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    ? "auto"
+    : "smooth";
+}
+
+/**
  * Landing navbar.
  *
  * Deliberately a full-width bar rather than the floating rounded pill it
@@ -44,6 +58,7 @@ const SECTION_IDS = ["features", "industries", "pricing", "faq"] as const;
  * page scrolled away behind the open menu.
  */
 export function Navbar() {
+  const router = useRouter();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [active, setActive] = useState<string | null>(null);
@@ -106,7 +121,7 @@ export function Navbar() {
     const hash = pendingHash.current;
     pendingHash.current = null;
     const id = window.setTimeout(() => {
-      document.querySelector(hash)?.scrollIntoView({ behavior: "smooth" });
+      document.querySelector(hash)?.scrollIntoView({ behavior: scrollBehavior() });
       history.replaceState(null, "", hash);
     }, 220);
     return () => window.clearTimeout(id);
@@ -117,6 +132,16 @@ export function Navbar() {
       if (!href.startsWith("#")) return;
       e.preventDefault();
 
+      // The same bar renders on /blog, /privacy and /terms, where #features
+      // and the rest are not in the document. This used to scroll to nothing,
+      // so every section link off the landing page was dead. Go to the landing
+      // page's section instead; the App Router scrolls to the hash on arrival.
+      if (!document.querySelector(href)) {
+        setMenuOpen(false);
+        router.push(`/${href}`);
+        return;
+      }
+
       if (inSheet) {
         pendingHash.current = href;
         setMenuOpen(false);
@@ -124,10 +149,10 @@ export function Navbar() {
       }
 
       // scroll-margin-top in globals.css keeps the heading clear of this bar.
-      document.querySelector(href)?.scrollIntoView({ behavior: "smooth" });
+      document.querySelector(href)?.scrollIntoView({ behavior: scrollBehavior() });
       history.replaceState(null, "", href);
     },
-    [],
+    [router],
   );
 
   return (
@@ -167,7 +192,7 @@ export function Navbar() {
                   className={cn(
                     "h-9 px-3 text-sm",
                     isActive
-                      ? "text-brand hover:text-brand"
+                      ? "text-brand-ink hover:text-brand-ink"
                       : "text-muted-foreground hover:text-ink",
                   )}
                 >

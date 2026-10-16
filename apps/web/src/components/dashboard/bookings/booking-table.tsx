@@ -140,7 +140,7 @@ export function BookingTable({
             <TableCell>
               <div className="flex items-center gap-3">
                 <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-brand/10 text-brand text-xs font-medium">
+                  <AvatarFallback className="bg-brand/10 text-brand-ink text-xs font-medium">
                     {getInitials(booking.customerName)}
                   </AvatarFallback>
                 </Avatar>
@@ -181,7 +181,7 @@ export function BookingTable({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div className="group cursor-pointer">
-                    <p className="text-xs font-medium text-brand group-hover:underline">
+                    <p className="text-xs font-medium text-brand-ink group-hover:underline">
                       {booking.convertedJobNumber}
                     </p>
                     <p className="text-[11px] text-muted-foreground capitalize">

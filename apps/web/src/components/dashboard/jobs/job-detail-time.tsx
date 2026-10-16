@@ -361,7 +361,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
                   {!entry.endedAt && (
                     <Badge
                       variant="outline"
-                      className="border-brand/40 text-brand"
+                      className="border-brand/40 text-brand-ink"
                     >
                       Running
                     </Badge>

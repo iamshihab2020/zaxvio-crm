@@ -143,7 +143,7 @@ export default function ForgotPasswordPage() {
           Remember your password?{" "}
           <Link
             href="/login"
-            className="font-medium text-brand transition-colors hover:text-brand/80"
+            className="font-medium text-brand-ink transition-colors hover:text-brand-ink/80"
           >
             Sign in
           </Link>

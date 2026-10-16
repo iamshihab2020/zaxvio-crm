@@ -11,7 +11,7 @@ import {
   IconTool,
   IconMapPin,
   IconX,
-  IconLoader2,
+  IconRefresh,
 } from "@tabler/icons-react";
 import { LicenseBadge } from "@/components/public/license-badge";
 import type { ServiceType } from "@hvac-saas/types";
@@ -197,7 +197,9 @@ export function BookingStatusClient({
 
           {/* Auto-refresh notice */}
           <div className="mt-4 flex items-center justify-center gap-2 text-xs text-muted-foreground/60 font-body">
-            <IconLoader2 className="h-3 w-3 animate-spin" />
+            {/* A still icon. A spinner here said "loading" for as long as the
+                page stayed open, which it never was (DESIGN.md: no spinners). */}
+            <IconRefresh className="h-3 w-3" aria-hidden />
             <span>This page updates automatically</span>
           </div>
         </div>

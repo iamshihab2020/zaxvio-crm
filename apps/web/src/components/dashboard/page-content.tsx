@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { useRouteArrival } from "@/hooks/use-route-arrival";
 
 export function PageContent({
   children,
@@ -25,8 +26,15 @@ export function PageContent({
     }
   }, [pathname, router]);
 
+  // Every dashboard route arrives the same way: content rises 8px into place
+  // on navigation, never on first paint. One call here covers all of them, and
+  // any route added later. `<main>` is keyed by pathname, so the ref points at
+  // the new element by the time the hook's layout effect reads it.
+  const mainRef = useRef<HTMLElement>(null);
+  useRouteArrival(mainRef);
+
   return (
-    <main key={pathname} className={className}>
+    <main key={pathname} ref={mainRef} className={className}>
       {children}
     </main>
   );

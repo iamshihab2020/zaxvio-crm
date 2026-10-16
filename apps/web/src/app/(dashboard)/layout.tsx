@@ -13,6 +13,7 @@ import { HelpChatbot } from "@/components/dashboard/chatbot/help-chatbot";
 import { PageContent } from "@/components/dashboard/page-content";
 import { PageActionsProvider } from "@/components/dashboard/page-actions";
 import { RunningTimerBar } from "@/components/dashboard/reusable/running-timer-bar";
+import { MotionProvider } from "@/components/motion-provider";
 
 export default async function DashboardLayout({
   children,
@@ -41,6 +42,7 @@ export default async function DashboardLayout({
   }
 
   return (
+    <MotionProvider>
     <SidebarProvider>
       <div className="flex min-h-screen">
         <Sidebar />
@@ -85,5 +87,6 @@ export default async function DashboardLayout({
         <HelpChatbot />
       </div>
     </SidebarProvider>
+    </MotionProvider>
   );
 }

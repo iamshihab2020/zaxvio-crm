@@ -1,5 +1,7 @@
 # Skill: Consolidate Memory
 
+> Related: [[memory-system]] | [[workflow]] | [[lessons]]
+
 Use this methodology to manually consolidate session context into the persistent memory layer. Run this at the end of a productive session or when asked to `/consolidate-memory`.
 
 ## Prerequisites

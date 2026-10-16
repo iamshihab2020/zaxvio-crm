@@ -32,10 +32,12 @@ type TabsListProps = AnimatedTabsListProps & {
   className?: string;
 };
 
+// The underline is brand-ink, not brand: it is the selected state's main cue,
+// so it needs 3:1 (WCAG 1.4.11). Bright brand was 2.56:1 on surface-alt (LAND-22).
 function TabsList({ className, ...props }: TabsListProps) {
   return (
     <TabsHighlight
-      className="bg-brand rounded-full"
+      className="bg-brand-ink rounded-full"
       style={{ inset: "auto 0 0 0", height: "2px" }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
     >

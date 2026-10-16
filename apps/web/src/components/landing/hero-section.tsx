@@ -2,20 +2,26 @@ import Link from "next/link";
 import { IconArrowRight } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { DaySheet } from "./day-sheet";
-import { Reveal } from "./reveal";
 
 /**
  * Hero.
+ *
+ * Paints with the HTML. Nothing up here is wrapped in `<Reveal>`, and that is
+ * the point (LAND-04): `.js .reveal` is `opacity: 0` from first paint until
+ * React hydrates and an IntersectionObserver fires, so the headline (the
+ * page's LCP element) used to wait on the whole client bundle, and an
+ * `opacity: 0` element is not even an LCP candidate until it shows. Below the
+ * fold that cost is invisible; on the first screen it is the load time. Do not
+ * re-wrap anything in this component.
  *
  * The headline no longer carries a rotating industry word. That trick reflowed
  * the <h1> every 2.5 seconds, a measurable layout shift on the page's largest
  * text, and left the heading's text content unstable for screen readers and
  * crawlers.
  *
- * This is the page's only eyebrow. It used to read
- * "HVAC · Plumbing · Electrical · Cleaning · Landscaping", which carried four
- * separators on one line and restated the six trades that the strip directly
- * below prints with icons. Saying a thing twice in two screens weakens it.
+ * There is no eyebrow. It read "Field service software" in mono caps above the
+ * headline, which said what the headline and the product already say, and an
+ * eyebrow above a heading is a pattern this page has retired everywhere else.
  *
  * The rating row that sat under the CTAs is gone. It made the hero five text
  * elements deep, and the figure itself ("4.9 from 500+ service businesses") was
@@ -32,11 +38,16 @@ export function HeroSection() {
     >
       {/* Ruled texture + a single warm wash behind the headline. Replaces the
           animated aurora gradient: a nebula says "AI startup", ruled paper says
-          "work order". */}
+          "work order".
+
+          The wash is a radial gradient that already fades to transparent, so it
+          carries no `blur-3xl`. The filter added nothing visible and cost a GPU
+          raster of a 1088×576px layer, which the fixed navbar's backdrop blur
+          then recomposited over on every scroll frame (LAND-11). */}
       <div aria-hidden="true" className="pointer-events-none absolute inset-0">
         <div className="sheet-wash absolute inset-0 opacity-60" />
         <div
-          className="absolute -top-40 left-1/2 h-[36rem] w-[68rem] -translate-x-1/2 rounded-full opacity-70 blur-3xl"
+          className="absolute -top-40 left-1/2 h-[36rem] w-[68rem] -translate-x-1/2 rounded-full opacity-70"
           style={{
             background:
               "radial-gradient(ellipse at center, hsl(var(--brand) / 0.14) 0%, transparent 65%)",
@@ -47,57 +58,44 @@ export function HeroSection() {
       <div className="relative mx-auto grid w-full max-w-6xl gap-12 px-5 sm:px-6 lg:grid-cols-12 lg:items-center lg:gap-10 lg:px-8">
         {/* Copy */}
         <div className="lg:col-span-6">
-          <Reveal>
-            <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
-              Field service software
-            </p>
-          </Reveal>
+          <h1
+            id="hero-heading"
+            className="font-heading text-[2.5rem] font-bold leading-[1.05] tracking-tight text-ink text-balance sm:text-5xl lg:text-6xl"
+          >
+            Run the whole day from one screen.
+          </h1>
 
-          <Reveal delay={60}>
-            <h1
-              id="hero-heading"
-              className="mt-5 font-heading text-[2.5rem] font-bold leading-[1.05] tracking-tight text-ink text-balance sm:text-5xl lg:text-6xl"
+          <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">
+            Your schedule, quotes, invoices and customer history in one place.
+            Book a job, finish it, get paid.
+          </p>
+
+          <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Button
+              asChild
+              size="lg"
+              className="h-12 w-full px-7 text-base font-semibold sm:w-auto"
             >
-              Run the whole day from one screen.
-            </h1>
-          </Reveal>
-
-          <Reveal delay={120}>
-            <p className="mt-5 max-w-xl text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">
-              Your schedule, quotes, invoices and customer history in one place.
-              Book a job, finish it, get paid.
-            </p>
-          </Reveal>
-
-          <Reveal delay={180}>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Button
-                asChild
-                size="lg"
-                className="h-12 w-full px-7 text-base font-semibold sm:w-auto"
-              >
-                <Link href="/signup">
-                  Start free trial
-                  <IconArrowRight className="!size-[18px]" />
-                </Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                size="lg"
-                className="h-12 w-full px-7 text-base sm:w-auto"
-              >
-                <a href="#features">See what&rsquo;s included</a>
-              </Button>
-            </div>
-          </Reveal>
-
+              <Link href="/signup">
+                Start free trial
+                <IconArrowRight className="!size-[18px]" />
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              size="lg"
+              className="h-12 w-full px-7 text-base sm:w-auto"
+            >
+              <a href="#features">See what&rsquo;s included</a>
+            </Button>
+          </div>
         </div>
 
         {/* Signature */}
-        <Reveal delay={200} className="lg:col-span-6">
+        <div className="lg:col-span-6">
           <DaySheet />
-        </Reveal>
+        </div>
       </div>
     </section>
   );

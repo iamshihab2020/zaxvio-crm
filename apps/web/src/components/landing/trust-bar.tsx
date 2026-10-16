@@ -15,18 +15,20 @@ const INDUSTRIES = [
   { icon: IconBolt, label: "Electrical" },
   { icon: IconSpray, label: "Cleaning" },
   { icon: IconPlant2, label: "Landscaping" },
-  { icon: IconTool, label: "Handyman" },
+  { icon: IconTool, label: "Any trade" },
 ] as const;
 
 /**
  * Trust strip.
  *
  * Was a 342px band of four animated counter cards — "500+ businesses",
- * "4.9★", "6+ industries", "99% uptime" — two of which repeated numbers the
- * hero had already stated a screen earlier, and one of which ("6+ industries")
- * simply counted the row of icons printed underneath it. Repeating a claim
- * three times weakens it. The count now lives in the hero; this strip carries
- * the one thing the hero cannot, which is the breadth itself.
+ * "4.9★", "6+ industries", "99% uptime" — none of which had anything behind
+ * it. This strip carries the one thing the page can state truthfully, which is
+ * the breadth itself.
+ *
+ * The six labels match the Industries tabs exactly. The last one used to read
+ * "Handyman" here and "Any trade" there (LAND-13); the product is trade-neutral
+ * by principle, so "Any trade" is the one that is true.
  */
 export function TrustBar() {
   return (
@@ -52,9 +54,9 @@ export function TrustBar() {
               <li key={industry.label}>
                 <Badge
                   variant="secondary"
-                  className="gap-1.5 whitespace-nowrap px-3 py-1.5 text-[13px] font-medium text-muted-foreground"
+                  className="gap-1.5 whitespace-nowrap px-3 py-1.5 text-muted-foreground"
                 >
-                  <industry.icon size={15} stroke={1.6} aria-hidden="true" />
+                  <industry.icon size={14} stroke={1.6} aria-hidden="true" />
                   {industry.label}
                 </Badge>
               </li>

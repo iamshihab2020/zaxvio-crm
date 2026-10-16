@@ -51,7 +51,10 @@ export function ThemeToggle({
           type="button"
           onClick={() => toggleTheme(getNextTheme(effective, modes))}
           className={cn(
-            "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-accent",
+            // Its own focus ring (LAND-18). Without one it fell back to the
+            // browser's default outline: visible, but the one control in the
+            // navbar not drawn from `--ring`.
+            "flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             className,
           )}
           aria-label={`Switch to ${resolved === "dark" ? "light" : "dark"} mode`}

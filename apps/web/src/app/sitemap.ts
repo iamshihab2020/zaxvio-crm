@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { BLOG_POSTS } from "@/lib/blog/posts";
+import { LEGAL_LAST_UPDATED } from "@/lib/legal";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.FRONTEND_URL || "https://zaxvio.com";
@@ -26,6 +27,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${baseUrl}/login`,
       changeFrequency: "monthly",
       priority: 0.3,
+    },
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: new Date(LEGAL_LAST_UPDATED),
+      changeFrequency: "yearly",
+      priority: 0.2,
+    },
+    {
+      url: `${baseUrl}/terms`,
+      lastModified: new Date(LEGAL_LAST_UPDATED),
+      changeFrequency: "yearly",
+      priority: 0.2,
     },
   ];
 

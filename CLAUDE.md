@@ -81,7 +81,7 @@ packages/email/     @hvac-saas/email — React Email templates
 
 > **Skill**: Use `docs/claude/workflow/planner.md` **PROACTIVELY** for feature implementation, architectural changes, or complex refactoring. Write the plan to `docs/claude/todo.md` before writing any code.
 
-> **Skill**: If `skills/consolidate-memory.md` exists locally, follow its methodology when consolidating session memory.
+> **Skill**: When consolidating session memory, follow the methodology in `docs/claude/workflow/consolidate-memory.md`.
 
 > **Skill**: If the user asks to generate, write, or review a PRD, follow the methodology in `docs/claude/workflow/prd-generator/SKILL.md`.
 

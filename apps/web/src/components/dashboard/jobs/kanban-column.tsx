@@ -145,7 +145,7 @@ export function KanbanColumn({
             {/* Drop indicator for empty columns */}
             {jobs.length === 0 && isOver && (
               <div className="rounded-xl border-2 border-dashed border-brand/40 bg-brand/5 dark:bg-brand/10 py-8 text-center">
-                <p className="text-xs text-brand/70 font-body">Drop here</p>
+                <p className="text-xs text-brand-ink font-body">Drop here</p>
               </div>
             )}
 
@@ -154,7 +154,7 @@ export function KanbanColumn({
               variant="ghost"
               size="sm"
               onClick={() => onAddJob(stage.name)}
-              className="w-full h-8 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand font-body rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
+              className="w-full h-8 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand-ink font-body rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
             >
               <IconPlus className="h-3 w-3 mr-1" />
               Add Job

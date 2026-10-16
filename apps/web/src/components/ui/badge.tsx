@@ -14,8 +14,10 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground",
         outline: "border border-border text-foreground",
+        // `text-brand-ink`, not `text-brand`: the bright orange on its own
+        // light tint is 2.6:1. The ink is 6.6:1 there, and the tint is unchanged.
         brand:
-          "border-transparent bg-brand-light text-brand",
+          "border-transparent bg-brand-light text-brand-ink",
       },
     },
     defaultVariants: {

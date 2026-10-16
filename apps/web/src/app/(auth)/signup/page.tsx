@@ -249,6 +249,27 @@ function SignupForm() {
           >
             {loading ? "Creating account..." : "Create account"}
           </Button>
+
+          {/* Next to the button, where the decision is made. This form collects
+              a name and an email, so the policy that covers them is linked
+              before submission rather than only from the landing footer. */}
+          <p className="text-center text-xs leading-relaxed text-muted-foreground">
+            By creating an account you agree to the{" "}
+            <Link
+              href="/terms"
+              className="font-medium text-ink underline underline-offset-2 hover:text-brand-ink"
+            >
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link
+              href="/privacy"
+              className="font-medium text-ink underline underline-offset-2 hover:text-brand-ink"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
         </form>
 
         {/* Footer */}
@@ -256,7 +277,7 @@ function SignupForm() {
           Already have an account?{" "}
           <Link
             href="/login"
-            className="font-medium text-brand transition-colors hover:text-brand/80"
+            className="font-medium text-brand-ink transition-colors hover:text-brand-ink/80"
           >
             Sign in
           </Link>

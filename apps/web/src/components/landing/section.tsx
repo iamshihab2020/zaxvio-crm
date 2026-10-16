@@ -14,11 +14,11 @@ import { Reveal } from "./reveal";
  * one-handed on a phone, where a left edge to scan down is worth more than
  * symmetry.
  *
- * `label` is OPTIONAL and should stay that way. It used to be required, which
- * meant all ten sections rendered a mono uppercase eyebrow by construction, and
- * that single templated rhythm was the page's loudest generic-AI signature.
- * An eyebrow earns its place at most a few times per page; a section's position
- * already tells the reader what it is. Default to omitting it.
+ * There is no eyebrow option. A `label` prop used to put a mono uppercase
+ * kicker on the rule; it began as required, so all ten sections rendered one by
+ * construction, and that single templated rhythm was the page's loudest
+ * generic signature. It became optional, then went unused, and is now gone so
+ * it cannot drift back in. The heading carries its own weight.
  */
 
 type Surface = "base" | "alt" | "dark";
@@ -57,18 +57,12 @@ export function Section({
 
 export function SectionHeading({
   id,
-  label,
   title,
   lede,
   tone = "light",
   className,
 }: {
   id: string;
-  /**
-   * Optional mono eyebrow sitting on the rule. Omit it unless the section
-   * genuinely cannot be identified without one; see the note above.
-   */
-  label?: string;
   title: React.ReactNode;
   lede?: React.ReactNode;
   /** `dark` when the section sits on the midnight slab. */
@@ -83,20 +77,13 @@ export function SectionHeading({
           the prose width made it read as an underline that had run out rather
           than as the sheet's ruling, and it disagreed with every full-width
           element below it. */}
-      <div className="flex items-center gap-4">
-        {label ? (
-          <span className="font-mono text-[11px] font-medium uppercase tracking-[0.18em] text-brand">
-            {label}
-          </span>
-        ) : null}
-        <span
-          aria-hidden="true"
-          className={cn(
-            "h-px flex-1",
-            isDark ? "bg-midnight-foreground/15" : "bg-border",
-          )}
-        />
-      </div>
+      <span
+        aria-hidden="true"
+        className={cn(
+          "block h-px w-full",
+          isDark ? "bg-midnight-foreground/15" : "bg-border",
+        )}
+      />
 
       <div className="max-w-2xl">
         <h2

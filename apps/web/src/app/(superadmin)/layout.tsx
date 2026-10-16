@@ -4,6 +4,8 @@ import { SuperadminSidebarProvider } from "@/components/superadmin/superadmin-si
 import { SuperadminSidebar } from "@/components/superadmin/superadmin-sidebar";
 import { SuperadminNavbar } from "@/components/superadmin/superadmin-navbar";
 import { SuperadminShell } from "@/components/superadmin/superadmin-shell";
+import { MotionProvider } from "@/components/motion-provider";
+import { RouteStage } from "@/components/route-stage";
 
 export default async function SuperadminLayout({
   children,
@@ -21,14 +23,17 @@ export default async function SuperadminLayout({
   }
 
   return (
+    <MotionProvider>
     <SuperadminSidebarProvider>
       <div className="flex min-h-screen">
         <SuperadminSidebar />
         <SuperadminShell>
           <SuperadminNavbar />
-          <main className="pt-14">{children}</main>
+          {/* RouteStage: the same route arrival as the dashboard. */}
+          <RouteStage className="pt-14">{children}</RouteStage>
         </SuperadminShell>
       </div>
     </SuperadminSidebarProvider>
+    </MotionProvider>
   );
 }

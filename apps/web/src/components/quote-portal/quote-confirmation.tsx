@@ -31,7 +31,7 @@ export function QuoteConfirmation({
   return (
     <div className="space-y-5 py-2">
       <div className="border-b border-ink/15 pb-4 dark:border-border">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
+        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand-ink">
           {quoteNumber} · {isAccepted ? "Accepted" : "Declined"}
         </p>
         <h2 className="mt-2 flex items-center gap-2 font-heading text-xl font-semibold text-foreground">

@@ -10,24 +10,32 @@ import {
   TableCaption,
   TableCell,
   TableFooter,
+  TableHead,
   TableRow,
 } from "@/components/ui/table";
 import { Reveal } from "./reveal";
 import { Section, SectionHeading } from "./section";
 
+/*
+ * Every line is something the product does today (PRODUCT.md → Capabilities).
+ * "Invoicing and online payments" and "Support from a person" were here until
+ * LAND-02/10: there is no payment processor, and no support contact anywhere.
+ * Automations replace the support line because they are one of the four edges
+ * PRODUCT.md confirms, and the page did not mention them at all.
+ */
 const INCLUDED = [
   "Unlimited jobs and customers",
   "Customer self-booking portal",
-  "Invoicing and online payments",
-  "Quote builder with PDF export",
+  "Invoicing and payment tracking",
+  "Quotes customers accept online",
   "Job board with custom stages",
-  "Revenue and job analytics",
+  "Reports, job costing and margins",
   "Equipment and asset tracking",
-  "Maintenance contracts",
+  "Service agreements",
   "Checklist templates",
   "Email notifications",
+  "Automations with ready-made templates",
   "Works on any phone",
-  "Support from a person",
 ] as const;
 
 /**
@@ -42,8 +50,10 @@ const INCLUDED = [
 const REPLACES = [
   { what: "Paper diary and clipboard", cost: "No cost", note: "Slow, and it gets lost" },
   { what: "Phone-tag scheduling", cost: "No cost", note: "Missed calls are missed jobs" },
-  { what: "Spreadsheets", cost: "$10", note: "Per month" },
-  { what: "Three separate apps", cost: "$150", note: "Per month, typical" },
+  // Estimates, and labelled as estimates: nothing on this page has a source
+  // for what a contractor's current tools cost them.
+  { what: "Spreadsheets", cost: "$10", note: "Per month, estimated" },
+  { what: "Three separate apps", cost: "$150", note: "Per month, estimated" },
 ] as const;
 
 export function PricingSection() {
@@ -67,7 +77,7 @@ export function PricingSection() {
         <Reveal className="lg:sticky lg:top-24 lg:col-span-2">
           <Card>
             <CardContent className="flex flex-col p-6 sm:p-8">
-              <Badge variant="brand" className="w-fit font-mono text-[11px]">
+              <Badge variant="brand" className="w-fit text-[11px]">
                 Everything plan
               </Badge>
 
@@ -101,7 +111,7 @@ export function PricingSection() {
                   { term: "Setup fee", detail: "None" },
                   { term: "Contract", detail: "None, monthly" },
                   { term: "Extra users", detail: "Included" },
-                  { term: "Your data", detail: "Export any time" },
+                  { term: "Free trial", detail: "14 days, no card" },
                 ].map((row) => (
                   <div key={row.term}>
                     <dt className="text-xs text-muted-foreground">
@@ -147,18 +157,24 @@ export function PricingSection() {
                 <TableCaption className="caption-top mt-0 pb-3 text-left font-heading text-sm font-semibold text-ink">
                   What it replaces
                 </TableCaption>
+                {/* Each row is headed by what it replaces (`<th scope="row">`),
+                    so a screen reader announces "Spreadsheets, $10" rather than
+                    two bare cells (LAND-14). */}
                 <TableBody>
                   {REPLACES.map((row) => (
                     <TableRow key={row.what} className="border-border">
-                      <TableCell className="px-0 py-3 align-top">
-                        <span className="block text-[13px] font-medium text-ink">
+                      <TableHead
+                        scope="row"
+                        className="h-auto px-0 py-3 align-top font-normal"
+                      >
+                        <span className="block text-sm font-medium text-ink">
                           {row.what}
                         </span>
                         <span className="block text-[11px] text-muted-foreground">
                           {row.note}
                         </span>
-                      </TableCell>
-                      <TableCell className="tnum px-0 py-3 text-right align-top font-mono text-[13px] text-muted-foreground">
+                      </TableHead>
+                      <TableCell className="tnum px-0 py-3 text-right align-top font-mono text-sm text-muted-foreground">
                         {row.cost}
                       </TableCell>
                     </TableRow>
@@ -166,10 +182,13 @@ export function PricingSection() {
                 </TableBody>
                 <TableFooter className="border-t-0 bg-transparent">
                   <TableRow className="border-border hover:bg-transparent">
-                    <TableCell className="px-0 py-3 text-[13px] font-semibold text-ink">
+                    <TableHead
+                      scope="row"
+                      className="h-auto px-0 py-3 text-sm font-semibold text-ink"
+                    >
                       Zaxvio, all of it
-                    </TableCell>
-                    <TableCell className="tnum px-0 py-3 text-right font-mono text-[13px] font-semibold text-brand">
+                    </TableHead>
+                    <TableCell className="tnum px-0 py-3 text-right font-mono text-sm font-semibold text-brand-ink">
                       $49
                     </TableCell>
                   </TableRow>

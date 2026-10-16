@@ -40,7 +40,7 @@ const KIND_META: Record<AgendaKind, { label: string; icon: typeof IconUser; styl
   job: {
     label: "Job",
     icon: IconBriefcase,
-    style: "bg-brand/10 text-brand border-brand/20",
+    style: "bg-brand/10 text-brand-ink border-brand/20",
   },
   booking: {
     label: "Booking",
@@ -198,6 +198,6 @@ function priorityClass(p: string): string {
     case "low":
       return "bg-slate-500/10 text-slate-500";
     default:
-      return "bg-brand/10 text-brand";
+      return "bg-brand/10 text-brand-ink";
   }
 }

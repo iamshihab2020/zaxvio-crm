@@ -222,7 +222,7 @@ function LoginForm() {
           Don&apos;t have an account?{" "}
           <Link
             href="/signup"
-            className="font-medium text-brand transition-colors hover:text-brand/80"
+            className="font-medium text-brand-ink transition-colors hover:text-brand-ink/80"
           >
             Sign up
           </Link>

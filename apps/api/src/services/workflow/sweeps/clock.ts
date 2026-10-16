@@ -24,10 +24,19 @@
  *
  * ## Once, across restarts and instances
  *
- * `workflow_schedule_state` keyed on the workflow **and the resolved local
- * date**. Two instances ticking in the same minute both attempt the insert;
- * exactly one gets a row, and only that one dispatches. No lock, no leader
- * election, no timer that a deploy resets.
+ * `workflow_schedule_state` keyed on the workflow, **the trigger step** and the
+ * resolved local date. Two instances ticking in the same minute both attempt
+ * the insert; exactly one gets a row, and only that one dispatches. No lock, no
+ * leader election, no timer that a deploy resets.
+ *
+ * ## Addressed, not broadcast
+ *
+ * The event this raises names the step it was raised for, and the matcher
+ * delivers it to that step alone (`triggers/index.ts`). It used to be a plain
+ * `schedule.daily` for the tenant, which every daily automation in the
+ * workspace answered — at the first one's time, because `atTime` is read here
+ * and nowhere else — while the outbox's per-tenant dedup key swallowed the rest
+ * (ONB-06).
  */
 
 import {
@@ -110,12 +119,19 @@ export async function tickSchedules(db: Db = getDb()): Promise<ClockResult> {
     const graph = row.graph as WorkflowGraph | null;
     if (!graph?.nodes) continue;
 
-    for (const node of graph.nodes) {
-      if (node.nodeType !== DAILY_NODE && node.nodeType !== WEEKLY_NODE) continue;
+    const clockNodes = graph.nodes.filter(
+      (node) => node.nodeType === DAILY_NODE || node.nodeType === WEEKLY_NODE,
+    );
+    if (clockNodes.length === 0) continue;
 
+    // Once per automation, not once per step: every step on one canvas shares
+    // the automation's zone, and asking Postgres the time twice in one tick can
+    // straddle a minute boundary and give two steps two different "now"s.
+    const zone = await resolveZone(db, row);
+    const local = await localNow(db, zone);
+
+    for (const node of clockNodes) {
       const parameters = node.nodeConfig?.parameters ?? {};
-      const zone = await resolveZone(db, row);
-      const local = await localNow(db, zone);
 
       const atTime =
         typeof parameters.atTime === "string" ? parameters.atTime : "09:00";
@@ -134,42 +150,52 @@ export async function tickSchedules(db: Db = getDb()): Promise<ClockResult> {
         }
       }
 
+      // Keyed on the STEP, not the automation. Per automation, a canvas with a
+      // Monday step and a Friday step fired on Monday and then found Friday's
+      // claim already taken for the week; two daily steps at 08:00 and 17:00
+      // lost the afternoon one the same way.
       const dedupKey =
         node.nodeType === WEEKLY_NODE
-          ? `schedule.weekly:${row.workflowId}:${local.isoWeek}`
-          : `schedule.daily:${row.workflowId}:${local.date}`;
+          ? `schedule.weekly:${row.workflowId}:${node.id}:${local.isoWeek}`
+          : `schedule.daily:${row.workflowId}:${node.id}:${local.date}`;
 
-      const claimed = await db
-        .insert(workflowScheduleState)
-        .values({
+      // The claim and the emit commit together. Apart, an emit that failed after
+      // its claim had committed would leave the period marked as fired with
+      // nothing in the outbox — and every later tick in the grace window would
+      // read the claim as "already done", so that day's run is lost silently.
+      const didFire = await db.transaction(async (tx) => {
+        const claimed = await tx
+          .insert(workflowScheduleState)
+          .values({
+            tenantId: row.tenantId,
+            workflowId: row.workflowId,
+            dedupKey,
+            kind: node.nodeType === WEEKLY_NODE ? "schedule-weekly" : "schedule-daily",
+          })
+          .onConflictDoNothing()
+          .returning({ id: workflowScheduleState.id });
+
+        if (claimed.length === 0) return false;
+
+        const target = {
           tenantId: row.tenantId,
+          actorUserId: null,
           workflowId: row.workflowId,
-          dedupKey,
-          kind: node.nodeType === WEEKLY_NODE ? "schedule-weekly" : "schedule-daily",
-        })
-        .onConflictDoNothing()
-        .returning({ id: workflowScheduleState.id });
+          triggerNodeId: node.id,
+          localDate: local.date,
+          timezone: zone,
+        };
+        if (node.nodeType === WEEKLY_NODE) {
+          await scheduleWeekly(tx, { ...target, isoWeek: local.isoWeek });
+        } else {
+          await scheduleDaily(tx, target);
+        }
+        return true;
+      });
 
-      if (claimed.length === 0) {
+      if (!didFire) {
         deduped += 1;
         continue;
-      }
-
-      if (node.nodeType === WEEKLY_NODE) {
-        await scheduleWeekly(db, {
-          tenantId: row.tenantId,
-          actorUserId: null,
-          localDate: local.date,
-          isoWeek: local.isoWeek,
-          timezone: zone,
-        });
-      } else {
-        await scheduleDaily(db, {
-          tenantId: row.tenantId,
-          actorUserId: null,
-          localDate: local.date,
-          timezone: zone,
-        });
       }
       fired += 1;
     }

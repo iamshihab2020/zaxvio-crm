@@ -37,8 +37,8 @@ export function SidebarNavItem({
         "relative z-10 flex h-10 w-full items-center rounded-md px-3 text-sm font-medium font-body transition-colors duration-200",
         showLabel ? "justify-start gap-3" : "justify-center px-0",
         isActive
-          ? "text-brand bg-brand-light"
-          : "text-muted-foreground hover:text-brand hover:bg-brand-light/50",
+          ? "text-brand-ink bg-brand-light"
+          : "text-muted-foreground hover:text-brand-ink hover:bg-brand-light/50",
       )}
     >
       <Icon className="h-5 w-5 shrink-0" />

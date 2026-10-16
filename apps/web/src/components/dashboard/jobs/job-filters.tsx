@@ -81,7 +81,7 @@ export function JobFilters({
             className={cn(
               "h-7 w-7 rounded-md relative",
               activeFilterCount > 0
-                ? "text-brand"
+                ? "text-brand-ink"
                 : "text-muted-foreground hover:text-foreground",
             )}
             title="Filters"
@@ -108,7 +108,7 @@ export function JobFilters({
                   className={cn(
                     "flex w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors",
                     priority === p
-                      ? "bg-brand-light/20 text-brand"
+                      ? "bg-brand-light/20 text-brand-ink"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
@@ -134,7 +134,7 @@ export function JobFilters({
                   className={cn(
                     "flex w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors",
                     serviceType === st
-                      ? "bg-brand-light/20 text-brand"
+                      ? "bg-brand-light/20 text-brand-ink"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
@@ -160,7 +160,7 @@ export function JobFilters({
                       className={cn(
                         "flex w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors",
                         assigneeId === id
-                          ? "bg-brand-light/20 text-brand"
+                          ? "bg-brand-light/20 text-brand-ink"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
                       )}
                     >

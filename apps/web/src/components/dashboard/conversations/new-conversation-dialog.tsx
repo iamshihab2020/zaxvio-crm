@@ -86,7 +86,7 @@ export function NewConversationDialog({
                 className={cn(
                   "flex flex-1 items-center gap-2 rounded-lg border px-3 py-2.5 text-sm transition-colors cursor-pointer",
                   channel === "email"
-                    ? "border-brand bg-brand-light text-brand"
+                    ? "border-brand bg-brand-light text-brand-ink"
                     : "border-border hover:bg-muted",
                 )}
               >

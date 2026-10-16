@@ -63,6 +63,27 @@ const LISTENERS_BY_EVENT: ReadonlyMap<string, string[]> = (() => {
   return map;
 })();
 
+/**
+ * Events raised FOR one trigger step rather than about something that happened.
+ *
+ * A schedule is a step's own alarm: the clock read that step's `atTime` and
+ * decided it was due. Broadcast like a domain event, every daily automation in
+ * the workspace answered every daily alarm — at the first one's time, since the
+ * matcher has no way to evaluate `atTime` — and the per-tenant dedup key
+ * swallowed the rest (ONB-06). The payload carries `workflowId` and
+ * `triggerNodeId`; see `scheduleTarget` in `@hvac-saas/workflow-nodes`.
+ */
+const ADDRESSED_EVENTS: ReadonlySet<string> = new Set(["schedule.daily", "schedule.weekly"]);
+
+/** The step an addressed event is for, or null when the payload names none. */
+function addressOf(payload: unknown): { workflowId: string; triggerNodeId: string } | null {
+  if (!payload || typeof payload !== "object") return null;
+  const { workflowId, triggerNodeId } = payload as Record<string, unknown>;
+  return typeof workflowId === "string" && typeof triggerNodeId === "string"
+    ? { workflowId, triggerNodeId }
+    : null;
+}
+
 export interface TriggerOutcome {
   workflowId: string;
   triggerNodeId: string;
@@ -107,14 +128,24 @@ export async function handleTriggerEvent(
       ? { type: event.subjectType as SubjectType, id: event.subjectId }
       : null;
 
+  // An addressed event goes to its one step and nowhere else.
+  const target = ADDRESSED_EVENTS.has(event.eventType) ? addressOf(event.payload) : undefined;
+  // Addressed, but carrying no address — a row enqueued before the payload
+  // gained one. Delivering it to every listener is the defect addressing
+  // exists to prevent, so it is delivered to nobody.
+  if (target === null) return [];
+
   const outcomes: TriggerOutcome[] = [];
 
   for (const candidate of candidates) {
+    if (target && candidate.workflowId !== target.workflowId) continue;
+
     // A workflow may have several trigger nodes of the same type — "when a job
     // is completed, if it was a repair" and "…if it was over $2,000" are two
     // legitimate starting points on one canvas, each with its own filters.
-    const triggerNodes = candidate.graph.nodes.filter((node) =>
-      nodeTypes.includes(node.nodeType),
+    const triggerNodes = candidate.graph.nodes.filter(
+      (node) =>
+        nodeTypes.includes(node.nodeType) && (!target || node.id === target.triggerNodeId),
     );
 
     for (const node of triggerNodes) {
@@ -213,6 +244,10 @@ async function evaluateAndEnrol(
       payload: event.payload as Record<string, unknown>,
     },
     source: "event",
+    // The step whose filters just matched. Without it `execute()` has to guess
+    // from the event type, and two triggers for one event on one canvas are
+    // indistinguishable by type (ONB-07).
+    triggerNodeId: node.id,
     // Passed so `execute()`'s insert carries it too. `resolveEnrolment` checked
     // for an existing row, but two workers claiming two rows for the same event
     // in the same instant would both pass that check — the unique index is what

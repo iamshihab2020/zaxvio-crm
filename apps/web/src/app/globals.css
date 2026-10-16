@@ -136,17 +136,36 @@
     /* Lines */
     --border: 30 14% 89%;
     --input: 30 12% 80%;
-    --ring: 24 95% 53%;
+    /* The focus ring is --brand-ink, not --brand. The bright orange is 2.7:1
+       against the light surfaces, under the 3:1 a focus indicator needs
+       (WCAG 1.4.11, LAND-06). This is 6.9:1. */
+    --ring: 24 90% 30%;
     --radius: 0.5rem;
 
     /* Brand — unchanged hue/sat/lightness. The dashboard, charts, PDFs and
        email templates all key off this; it is the one value that must not
-       drift. */
+       drift.
+
+       What changed is what sits ON it (LAND-03). White on this orange is
+       2.85:1, so every primary button in the product failed AA for its own
+       label. The foreground is the ink instead: 5.8:1 here, 6.2:1 in dark. The
+       fill is untouched, so the brand looks the same and its text reads.
+
+       --brand-ink is the orange for TEXT and for the ring. One token was doing
+       three jobs — fill, text and focus — and the bright value can only do the
+       first. Its light value is Orange Deep, the same 24 90% 30% as
+       --accent-foreground, so the light theme has exactly one readable orange
+       (DESIGN.md, The One Mark Rule): surface 6.9, card 7.2, surface-alt 6.5,
+       brand-light 6.6. It is its own token rather than a reuse of
+       --accent-foreground because the two part ways in dark mode, where the
+       accent text is a pale peach and the readable orange is the brand itself.
+       Fills stay --brand; anything that has to be read uses --brand-ink. */
     --primary: 24 95% 53%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 25 20% 12%;
     --brand: 24 95% 53%;
-    --brand-foreground: 0 0% 100%;
+    --brand-foreground: 25 20% 12%;
     --brand-light: 24 100% 96%;
+    --brand-ink: 24 90% 30%;
 
     --secondary: 32 18% 95%;
     --secondary-foreground: 25 20% 12%;
@@ -162,12 +181,37 @@
     --midnight-foreground: 30 20% 94%;
     --midnight-light: 25 12% 14%;
 
-    /* Chart palette */
+    /* Chart palette — categorical, in this fixed order, never cycled.
+       Every value is checked with the dataviz validator against --card, in both
+       themes: lightness band, chroma floor, colour-blind separation between
+       neighbours, and contrast. The old slot 3 (umber, 25 25% 32%) had so little
+       chroma it read as grey, and slot 4 (amber, 43 96% 52%) sat above the
+       lightness band and collapsed into slot 5's green for protanopes. Slot 1
+       stays the brand; at 2.85:1 it needs labels or a table beside it, which
+       every chart here has. A sixth category folds into "Other". */
     --chart-1: 24 95% 53%;
     --chart-2: 173 58% 39%;
-    --chart-3: 25 25% 32%;
-    --chart-4: 43 96% 52%;
+    --chart-3: 18 62% 38%;
+    --chart-4: 212 70% 48%;
     --chart-5: 142 65% 40%;
+
+    /* Status — reserved meaning, never a series colour, and never shown without
+       a label or icon (warning is 2.15:1 on white by design). The -ink pair is
+       for words: up/down deltas and danger footnotes, 5.1:1 or better even on
+       their own 10% tint. */
+    --status-good: 152 62% 36%;
+    --status-warning: 40 95% 48%;
+    --status-critical: 0 72% 48%;
+    --status-good-ink: 152 70% 27%;
+    --status-critical-ink: 0 72% 40%;
+
+    /* Overdue age — one red, darker the older the debt (invoice aging). An
+       ordinal ramp, so the order is visible in the colour itself; the light end
+       clears 3:1 against the card. */
+    --overdue-1: 4 80% 66%;
+    --overdue-2: 2 75% 55%;
+    --overdue-3: 0 72% 45%;
+    --overdue-4: 358 75% 34%;
 
     /* Scheduled-work series. Identity, not rank: a job is always brand, a
        booking always teal, an event always indigo — the same three colours the
@@ -208,11 +252,15 @@
     --input: 25 9% 24%;
     --ring: 24 95% 56%;
 
+    /* Dark ink on the orange here too: white was 2.68:1. --brand-ink is the
+       brand itself in this theme, which already reads at 6–7:1 on the dark
+       surfaces. */
     --primary: 24 95% 56%;
-    --primary-foreground: 0 0% 100%;
+    --primary-foreground: 25 20% 12%;
     --brand: 24 95% 56%;
-    --brand-foreground: 0 0% 100%;
+    --brand-foreground: 25 20% 12%;
     --brand-light: 24 40% 16%;
+    --brand-ink: 24 95% 56%;
 
     --secondary: 25 10% 15%;
     --secondary-foreground: 30 20% 94%;
@@ -226,11 +274,27 @@
     --midnight-foreground: 30 20% 94%;
     --midnight-light: 25 11% 15%;
 
-    --chart-1: 24 95% 58%;
-    --chart-2: 173 50% 50%;
-    --chart-3: 30 22% 62%;
-    --chart-4: 43 96% 60%;
-    --chart-5: 142 60% 52%;
+    /* Re-stepped into the dark lightness band rather than flipped. Slot 1 is a
+       deeper orange than --brand here on purpose: the UI orange sits above the
+       band and would outweigh every other series. */
+    --chart-1: 24 88% 49%;
+    --chart-2: 173 62% 39%;
+    --chart-3: 18 55% 52%;
+    --chart-4: 212 68% 58%;
+    --chart-5: 142 55% 42%;
+
+    --status-good: 150 55% 45%;
+    --status-warning: 42 92% 55%;
+    --status-critical: 0 75% 60%;
+    --status-good-ink: 150 55% 58%;
+    --status-critical-ink: 0 80% 72%;
+
+    /* Flipped anchor: on a dark card the oldest debt is the brightest, so worse
+       still reads as louder. */
+    --overdue-1: 2 55% 38%;
+    --overdue-2: 2 65% 48%;
+    --overdue-3: 0 75% 58%;
+    --overdue-4: 0 85% 70%;
 
     --series-booking: 175 83% 35%;
     --series-event: 239 84% 67%;
@@ -250,6 +314,14 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Text selection in the brand instead of the OS blue, which belongs to no
+     palette here. Background only: leaving `color` unset keeps each
+     surface's own text colour, which is what keeps selected text readable
+     on the always-dark midnight slab as well as on the light pages. */
+  ::selection {
+    background-color: hsl(var(--brand) / 0.28);
   }
 }
 
@@ -290,6 +362,222 @@
   .tnum {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   MOTION SYSTEM — one vocabulary for every page (2026-10-16).
+
+   DESIGN.md's rule: things move when they appear, move or change state, then
+   stop. A resting screen is still. These are the only durations and the one
+   curve new motion uses; the 8px rise is the language the app already spoke
+   (kanban `card-enter`, settings `settings-enter`, the landing reveal).
+
+   Fill mode is `backwards`, never `both`. A filling transform would leave
+   the element with an active transform after it lands, and that makes it the
+   containing block for every `position: fixed` child (the bulk-action bar,
+   dnd-kit's drag overlay), quietly mispositioning them.
+   ───────────────────────────────────────────────────────────────────── */
+
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-feedback: 120ms; /* a press, a toggle */
+  --dur-state: 200ms; /* something changed in place */
+  --dur-arrive: 280ms; /* something new arrived */
+  --dur-focal: 700ms; /* the one authored moment */
+}
+
+@keyframes motion-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes motion-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes motion-from-end {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+}
+
+@keyframes motion-from-start {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+}
+
+@keyframes motion-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* Something new arrived where the reader is looking: a step, a result. */
+.motion-arrive {
+  animation: motion-rise var(--dur-arrive) var(--ease-out) backwards;
+}
+
+/* A state that appeared in place (an empty result, an error). Opacity only:
+   it usually lands inside a container that is itself arriving, and two rises
+   stacked read as a jolt. */
+.motion-appear {
+  animation: motion-fade var(--dur-state) var(--ease-out) backwards;
+}
+
+/* Arrives from above: a bar that slides out from under the navbar. */
+.motion-drop-in {
+  animation: motion-drop var(--dur-arrive) var(--ease-out) backwards;
+}
+
+/* Step travel in a multi-step flow. Forward comes in from the end, back from
+   the start, so the direction of travel is visible, not just the change. */
+.motion-step-forward {
+  animation: motion-from-end var(--dur-arrive) var(--ease-out) backwards;
+}
+
+.motion-step-back {
+  animation: motion-from-start var(--dur-arrive) var(--ease-out) backwards;
+}
+
+/* A hint that there is more below: a 3px dip, twice, then rest. It uses the
+   system curve rather than Tailwind's `animate-bounce`, which overshoots and
+   loops forever. */
+@keyframes motion-nudge {
+  0%,
+  100% {
+    transform: none;
+  }
+  50% {
+    transform: translateY(3px);
+  }
+}
+
+.motion-nudge {
+  animation: motion-nudge 900ms var(--ease-out) 2;
+}
+
+/* The chatbot's "thinking" dots: a sequenced fade, not a bounce. Still a
+   signal while a reply is pending, with no spatial movement. */
+@keyframes motion-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.3;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+.motion-dot {
+  animation: motion-dot 1.2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Fewer and gentler, not none. Every arrival keeps its fade so the change
+     still reads as a change; only the movement goes. */
+  .motion-arrive,
+  .motion-drop-in,
+  .motion-step-forward,
+  .motion-step-back {
+    animation-name: motion-fade;
+    animation-duration: var(--dur-state);
+  }
+
+  .motion-nudge {
+    animation: none;
+  }
+
+  /* Existing keyframes that had no override, against DESIGN.md's rule. */
+  .animate-card-enter,
+  .animate-settings-enter {
+    animation-name: motion-fade !important;
+  }
+
+  /* The emergency pulse is a signal, so the state must survive without the
+     motion: a steady ring instead of a breathing one. */
+  .animate-pulse-emergency {
+    animation: none !important;
+    box-shadow: 0 0 0 3px hsl(var(--destructive) / 0.25) !important;
+  }
+
+  /* tailwindcss-animate (popovers, dropdowns, selects, tooltips). Its enter
+     and exit keyframes read their movement from these variables, so zeroing
+     them keeps the fade and drops the zoom and slide. Deliberately not the
+     usual global `animation-duration: 0.01ms`, which would also kill the fade
+     that tells a reader something opened. */
+  .animate-in,
+  .animate-out {
+    --tw-enter-scale: 1 !important;
+    --tw-exit-scale: 1 !important;
+    --tw-enter-translate-x: 0 !important;
+    --tw-enter-translate-y: 0 !important;
+    --tw-exit-translate-x: 0 !important;
+    --tw-exit-translate-y: 0 !important;
+    --tw-enter-rotate: 0 !important;
+    --tw-exit-rotate: 0 !important;
+  }
+
+  /* Safety net for Tailwind's stock ping, which ignores the preference. Its
+     one site (the impersonation bar) also opts in with `motion-safe:`. No
+     `animate-bounce` is left in the app. */
+  .animate-ping {
+    animation: none !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   NOW MARKER — the landing page's one authored motion.
+
+   The day sheet's marker on the reader's real hour (`day-sheet.tsx`). The
+   dot lands on the hour rail, then the line draws across the day from it.
+   It is the page's only live element, so it is the one thing worth moving.
+
+   It mounts after hydration, over a sheet that is already painted, so the
+   first paint and LCP never wait on it. Transform only, and it runs once:
+   the marker's node is kept when the minute ticks, so it does not replay.
+   ───────────────────────────────────────────────────────────────────── */
+
+@keyframes now-dot-land {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes now-line-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.now-marker-dot {
+  animation: now-dot-land 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.now-marker-line {
+  transform-origin: left center;
+  animation: now-line-draw 700ms cubic-bezier(0.16, 1, 0.3, 1) 150ms both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .now-marker-dot,
+  .now-marker-line {
+    animation: none;
   }
 }
 

@@ -102,7 +102,7 @@ export function AutomationsTable({
               <TableCell className="py-3">
                 <Link
                   href={`/automations/${workflow.id}`}
-                  className="font-medium hover:text-brand focus-visible:text-brand focus-visible:underline focus-visible:outline-none"
+                  className="font-medium hover:text-brand-ink focus-visible:text-brand-ink focus-visible:underline focus-visible:outline-none"
                 >
                   {workflow.name}
                 </Link>

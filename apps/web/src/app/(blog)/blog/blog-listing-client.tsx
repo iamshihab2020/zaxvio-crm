@@ -35,7 +35,7 @@ function BlogCard({ post }: { post: BlogPost }) {
           <Badge variant="secondary" className="mb-3 text-xs">
             {post.categoryLabel}
           </Badge>
-          <h3 className="font-heading text-lg font-semibold text-ink line-clamp-2 group-hover:text-brand transition-colors">
+          <h3 className="font-heading text-lg font-semibold text-ink line-clamp-2 group-hover:text-brand-ink transition-colors">
             {post.title}
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-ink/60 line-clamp-2">

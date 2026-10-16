@@ -98,7 +98,7 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                       )}
                     >
                       {/* Customer avatar */}
-                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[10px] font-semibold text-brand dark:bg-brand/20 dark:text-brand">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[10px] font-semibold text-brand-ink dark:bg-brand/20 dark:text-brand">
                         {getInitials(job.customerFirstName, job.customerLastName)}
                       </span>
 

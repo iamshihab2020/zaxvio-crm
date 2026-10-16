@@ -60,7 +60,7 @@ function MemberAvatar({
   return (
     <span
       className={cn(
-        "flex shrink-0 items-center justify-center rounded-full bg-brand-light/40 font-semibold text-brand dark:bg-brand/20 dark:text-brand",
+        "flex shrink-0 items-center justify-center rounded-full bg-brand-light/40 font-semibold text-brand-ink dark:bg-brand/20 dark:text-brand",
         sizeClasses,
       )}
     >
@@ -114,7 +114,7 @@ export function AssigneePicker({
             {selected ? (
               <MemberAvatar member={selected} size="xs" />
             ) : (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-brand/50 hover:text-brand/70 transition-colors">
+              <span className="flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/40 text-muted-foreground/60 hover:border-brand/50 hover:text-brand-ink/70 transition-colors">
                 <IconUserCircle className="h-3.5 w-3.5" />
               </span>
             )}
@@ -182,7 +182,7 @@ export function AssigneePicker({
         >
           <IconUserCircle className="h-4 w-4 shrink-0 text-muted-foreground" />
           <span className="flex-1 text-left">No assignee</span>
-          {!value && <IconCheck className="h-3 w-3 text-brand shrink-0" />}
+          {!value && <IconCheck className="h-3 w-3 text-brand-ink shrink-0" />}
         </button>
 
         {members.length > 0 && (
@@ -201,7 +201,7 @@ export function AssigneePicker({
             <MemberAvatar member={m} size="xs" />
             <span className="flex-1 text-left truncate">{m.name}</span>
             {value === m.id && (
-              <IconCheck className="h-3 w-3 text-brand shrink-0" />
+              <IconCheck className="h-3 w-3 text-brand-ink shrink-0" />
             )}
           </button>
         ))}

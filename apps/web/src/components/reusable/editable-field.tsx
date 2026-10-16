@@ -86,7 +86,7 @@ export function EditableText({
           variant="ghost"
           size="icon"
           onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
-          className="shrink-0 h-6 w-6 text-brand hover:text-brand/80"
+          className="shrink-0 h-6 w-6 text-brand-ink hover:text-brand-ink/80"
         >
           <IconCheck className="h-3.5 w-3.5" />
         </Button>
@@ -101,7 +101,7 @@ export function EditableText({
       size="sm"
       onClick={() => setEditing(true)}
       className={cn(
-        "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
+        "group inline-flex items-center gap-1 text-left hover:text-brand-ink h-auto p-0",
         saving && "opacity-50 pointer-events-none",
         className,
       )}
@@ -194,7 +194,7 @@ export function EditableTextarea({
       size="sm"
       onClick={() => setEditing(true)}
       className={cn(
-        "group inline-flex items-start gap-1 text-left hover:text-brand h-auto p-0 w-full justify-start",
+        "group inline-flex items-start gap-1 text-left hover:text-brand-ink h-auto p-0 w-full justify-start",
         saving && "opacity-50 pointer-events-none",
         className,
       )}
@@ -267,7 +267,7 @@ export function EditableSelect({
           variant="ghost"
           size="sm"
           className={cn(
-            "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
+            "group inline-flex items-center gap-1 text-left hover:text-brand-ink h-auto p-0",
             saving && "opacity-50 pointer-events-none",
             className,
           )}
@@ -292,14 +292,14 @@ export function EditableSelect({
             className={cn(
               "flex w-full items-center gap-2 h-8 rounded-md px-2 text-sm font-body justify-start",
               option.value === value
-                ? "bg-brand-light/30 text-brand dark:bg-brand/15"
+                ? "bg-brand-light/30 text-brand-ink dark:bg-brand/15"
                 : "text-foreground",
               option.className,
             )}
           >
             <span className="flex-1 text-left">{option.label}</span>
             {option.value === value && (
-              <IconCheck className="h-3.5 w-3.5 text-brand shrink-0" />
+              <IconCheck className="h-3.5 w-3.5 text-brand-ink shrink-0" />
             )}
           </Button>
         ))}
@@ -370,7 +370,7 @@ export function EditableDate({
           variant="ghost"
           size="sm"
           className={cn(
-            "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
+            "group inline-flex items-center gap-1 text-left hover:text-brand-ink h-auto p-0",
             saving && "opacity-50 pointer-events-none",
             className,
           )}
@@ -454,7 +454,7 @@ export function EditableTime({
           variant="ghost"
           size="sm"
           className={cn(
-            "group inline-flex items-center gap-1 text-left hover:text-brand h-auto p-0",
+            "group inline-flex items-center gap-1 text-left hover:text-brand-ink h-auto p-0",
             saving && "opacity-50 pointer-events-none",
             className,
           )}

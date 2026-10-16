@@ -216,7 +216,7 @@ export function KanbanCard({
                         onClick={() => { onJobFieldChange!(job.id, "serviceType", st); setServiceTypeOpen(false); }}
                         className={cn(
                           "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
-                          job.serviceType === st ? "bg-brand-light/30 text-brand font-medium dark:bg-brand/15" : "hover:bg-muted",
+                          job.serviceType === st ? "bg-brand-light/30 text-brand-ink font-medium dark:bg-brand/15" : "hover:bg-muted",
                         )}
                       >
                         <span className={cn("h-2 w-2 rounded-full shrink-0", SERVICE_TYPE_DOT[st] ?? "bg-gray-400")} />
@@ -252,7 +252,7 @@ export function KanbanCard({
                           onClick={() => { onJobFieldChange!(job.id, "priority", p); setPriorityOpen(false); }}
                           className={cn(
                             "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs cursor-pointer transition-colors",
-                            job.priority === p ? "bg-brand-light/30 text-brand font-medium dark:bg-brand/15" : "hover:bg-muted",
+                            job.priority === p ? "bg-brand-light/30 text-brand-ink font-medium dark:bg-brand/15" : "hover:bg-muted",
                           )}
                         >
                           <span className={cn("h-2 w-2 rounded-full shrink-0", PRIORITY_DOT[p] ?? "bg-gray-400")} />
@@ -288,7 +288,7 @@ export function KanbanCard({
       {/* Customer row */}
       {vf.customer && (
         <div className="flex items-center gap-2 mb-2.5">
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[10px] font-semibold text-brand dark:bg-brand/20 dark:text-brand">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[10px] font-semibold text-brand-ink dark:bg-brand/20 dark:text-brand">
             {getInitials(job.customerFirstName, job.customerLastName)}
           </span>
           <span className="text-xs text-muted-foreground font-body truncate flex-1">
@@ -405,7 +405,7 @@ export function KanbanCard({
               )
             )}
             {vf.todayBadge && isToday && (
-              <Badge className="bg-brand-light/50 text-brand px-1.5 py-0 text-[9px] font-medium border-0 dark:bg-brand/20">
+              <Badge className="bg-brand-light/50 text-brand-ink px-1.5 py-0 text-[9px] font-medium border-0 dark:bg-brand/20">
                 Today
               </Badge>
             )}

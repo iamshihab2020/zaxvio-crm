@@ -1,7 +1,11 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { requireAuth, requireTenant } from "../../lib/auth-middleware.js";
-import { subscribe, type TenantEvent } from "../../lib/event-bus.js";
+import {
+  canWatchTenantStream,
+  requireAuth,
+  requireTenant,
+} from "../../lib/auth-middleware.js";
+import { subscribe, type EventChannel, type TenantEvent } from "../../lib/event-bus.js";
 import { eventStreamQuery } from "../../lib/schemas/events.js";
 
 /** Proxies and load balancers commonly idle out a stream after ~60s. */
@@ -24,14 +28,25 @@ const eventRoutes: FastifyPluginAsyncZod = async (fastify) => {
     async (request, reply) => {
     // Supabase channels had no authorization — any authenticated user could
     // listen to another tenant by guessing its id. Scope it properly here:
-    // your own tenant by default, another only if you are an admin.
+    // your own tenant by default; another only for an admin waiting on the
+    // answer to their own visible-mode impersonation request, and then only
+    // that answer (ONB-09 — see `canWatchTenantStream`).
     let tenantId: string;
+    /** Null means every channel — the caller's own workspace. */
+    let onlyChannel: EventChannel | null = null;
 
     if (request.query.tenantId) {
-      if (request.authUser.role !== "admin") {
-        return reply.status(403).send({ message: "Forbidden: admin role required" });
+      if (!(await canWatchTenantStream(request.authUser, request.query.tenantId))) {
+        return reply.status(403).send({
+          message: "Forbidden: another workspace's events are only available while awaiting its answer to your access request",
+        });
       }
       tenantId = request.query.tenantId;
+      // The tenant's answer is all the dialog reads. Its notifications,
+      // conversations and quote updates are the tenant's business until they
+      // say yes — and after that, the admin is inside the workspace with a
+      // stream of their own.
+      onlyChannel = "impersonation";
     } else {
       await requireTenant(request, reply);
       if (reply.sent) return;
@@ -58,6 +73,7 @@ const eventRoutes: FastifyPluginAsyncZod = async (fastify) => {
     send(`event: connected\ndata: {}\n\n`);
 
     const unsubscribe = subscribe(tenantId, (tenantEvent: TenantEvent) => {
+      if (onlyChannel && tenantEvent.channel !== onlyChannel) return;
       // `event:` carries the channel so one stream serves all four, letting the
       // browser attach a listener per channel just like the old Supabase code.
       send(

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   IconEye,
   IconEyeOff,
-  IconLoader2,
+  IconHourglass,
   IconCheck,
   IconX,
 } from "@tabler/icons-react";
@@ -161,7 +161,9 @@ export function ImpersonateDialog({
         <DialogContent className="sm:max-w-sm">
           <div className="flex flex-col items-center gap-4 py-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-              <IconLoader2 className="h-6 w-6 animate-spin text-amber-600 dark:text-amber-400" />
+              {/* An hourglass, not a spinner: this waits on a person, for up
+                  to five minutes, and a spinner promises something is loading. */}
+              <IconHourglass className="h-6 w-6 text-amber-600 dark:text-amber-400" aria-hidden />
             </div>
             <div className="space-y-1 text-center">
               <p className="font-heading text-base font-semibold">

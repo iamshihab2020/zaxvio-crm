@@ -91,7 +91,7 @@ export function BookingStepTime({
                 slot.available && selectedTime !== slot.time &&
                   "border-border bg-card hover:border-brand/40 hover:bg-brand/5",
                 selectedTime === slot.time &&
-                  "border-brand bg-brand text-white shadow-sm hover:bg-brand/90",
+                  "border-brand bg-brand text-brand-foreground shadow-sm hover:bg-brand/90",
                 !slot.available &&
                   "border-transparent bg-muted/30 text-muted-foreground/30",
               )}

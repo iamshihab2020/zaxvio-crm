@@ -833,3 +833,17 @@
   just been generated. That mismatch is what revealed drizzle was replaying from the start of the
   journal rather than applying the new file — the code alone would have sent me to the new
   migration.
+
+## Workflow schedules are addressed, not broadcast (2026-10-16)
+- **An event raised FOR one trigger step must say which step, or every listener answers it.** The
+  clock read one automation's `atTime`, decided it was due, and raised a plain `schedule.daily` for
+  the tenant. The matcher then started every daily automation in the workspace — `atTime` is not a
+  filter it can evaluate — and the producer's per-tenant dedup key swallowed the later automations'
+  own events, so they never ran at their own time (ONB-06). The payload now carries `workflowId` +
+  `triggerNodeId` and `ADDRESSED_EVENTS` in `triggers/index.ts` delivers to that step alone. A
+  domain event describes something that happened; an alarm belongs to whoever set it.
+- **`triggerEvents` lives on the definition, never in `nodeConfig.parameters`.** `findTriggerNode`
+  looked for it in the saved settings, matched nothing, and fell back to `triggers[0]` for every run
+  — so a canvas with two triggers always started from the first (ONB-07). The matcher already knew
+  which node matched; it now passes `triggerNodeId` to `execute()`. When the caller has the answer,
+  hand it over rather than letting the callee re-derive it.

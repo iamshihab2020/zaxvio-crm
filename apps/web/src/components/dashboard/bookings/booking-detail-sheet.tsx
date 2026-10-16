@@ -253,7 +253,7 @@ export function BookingDetailSheet({
                 <DetailRow icon={IconPhone} label="Phone">
                   <a
                     href={`tel:${booking.customerPhone}`}
-                    className="text-brand hover:underline"
+                    className="text-brand-ink hover:underline"
                   >
                     {booking.customerPhone}
                   </a>
@@ -263,7 +263,7 @@ export function BookingDetailSheet({
                 <DetailRow icon={IconMail} label="Email">
                   <a
                     href={`mailto:${booking.customerEmail}`}
-                    className="text-brand hover:underline"
+                    className="text-brand-ink hover:underline"
                   >
                     {booking.customerEmail}
                   </a>

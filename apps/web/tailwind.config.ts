@@ -52,6 +52,9 @@ const config: Config = {
           DEFAULT: "hsl(var(--brand))",
           foreground: "hsl(var(--brand-foreground))",
           light: "hsl(var(--brand-light))",
+          // Orange that has to be READ: text, and the focus ring. See the
+          // note on --brand-ink in globals.css.
+          ink: "hsl(var(--brand-ink))",
         },
         midnight: {
           DEFAULT: "hsl(var(--midnight))",
@@ -63,6 +66,16 @@ const config: Config = {
           alt: "hsl(var(--surface-alt))",
         },
         ink: "hsl(var(--ink))",
+        // Reserved meaning. Marks use the plain step with a label beside them;
+        // words use -ink. Chart and overdue colours stay CSS variables, read
+        // through lib/constants/chart-palette.ts.
+        status: {
+          good: "hsl(var(--status-good))",
+          warning: "hsl(var(--status-warning))",
+          critical: "hsl(var(--status-critical))",
+          "good-ink": "hsl(var(--status-good-ink))",
+          "critical-ink": "hsl(var(--status-critical-ink))",
+        },
         admin: {
           accent: "hsl(var(--admin-accent))",
           "accent-foreground": "hsl(var(--admin-accent-foreground))",

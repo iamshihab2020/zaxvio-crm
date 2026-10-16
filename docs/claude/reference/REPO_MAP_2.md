@@ -316,6 +316,7 @@ packages/config/
 |---|---|---|
 | `/`, `/login`, `/signup`, `/forgot-password` | None (public) | middleware.ts |
 | `/book/*`, `/ref/*` | None | middleware.ts |
+| `/invite/*`, `/unsubscribe/*`, `/blog/*`, `/privacy`, `/terms`, `/robots.txt`, `/sitemap.xml`, `/widget.js`, `/api/chat` | None (`/api/chat` checks its own session) | middleware.ts `publicPaths` |
 | `/dashboard/*` | Better Auth session | middleware.ts + requireTenant |
 | `/superadmin/*` | Better Auth session (admin role) | middleware.ts + requireAdmin |
 

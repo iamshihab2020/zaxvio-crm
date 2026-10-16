@@ -84,10 +84,40 @@ const config = {
   },
   async headers() {
     return [
+      /**
+       * Framing is refused everywhere EXCEPT the public booking portal.
+       *
+       * `/book/<slug>?embed=1` is the product's embed: `public/widget.js` opens
+       * it in an iframe on the tenant's own website, and Settings → Share hands
+       * out an `<iframe>` snippet for the same URL. A blanket `DENY` blocked both
+       * on every site they were pasted into (ONB-04) — the widget opened a blank
+       * modal. The whole `/book/*` tree is allowed rather than just `?embed=1`,
+       * because a submitted booking `router.push`es to `/book/<slug>/status/<id>`
+       * without the query string, and a reload of that page inside the frame
+       * would otherwise go blank.
+       *
+       * The booking portal takes no authenticated action, so there is nothing
+       * on it for a clickjacking page to steal; everything that does is still
+       * `DENY`. `frame-ancestors` is sent beside `X-Frame-Options` because
+       * modern browsers obey the CSP directive and ignore the older header when
+       * both are present.
+       */
+      {
+        source: "/:path((?!book(?:/|$)).*)",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+        ],
+      },
+      {
+        source: "/book/:path*",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors *" },
+        ],
+      },
       {
         source: "/:path*",
         headers: [
-          { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
           {
             key: "Referrer-Policy",

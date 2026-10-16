@@ -28,8 +28,8 @@ export function BookingProgressIndicator({
               <div
                 className={cn(
                   "flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300",
-                  isCompleted && "bg-brand text-white",
-                  isActive && "bg-brand text-white ring-4 ring-brand/20",
+                  isCompleted && "bg-brand text-brand-foreground",
+                  isActive && "bg-brand text-brand-foreground ring-4 ring-brand/20",
                   !isCompleted && !isActive && "bg-muted text-muted-foreground",
                 )}
               >

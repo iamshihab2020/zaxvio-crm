@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 const ROLE_STYLES: Record<string, string> = {
-  owner: "bg-brand-light text-brand",
+  owner: "bg-brand-light text-brand-ink",
   admin: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300",
   member: "bg-muted text-muted-foreground",
 };

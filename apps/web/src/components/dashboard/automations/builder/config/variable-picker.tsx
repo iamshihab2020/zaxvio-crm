@@ -94,7 +94,7 @@ export function VariablePicker({ subject, onInsert, disabled, className }: Props
           aria-label="Insert a variable"
           title="Insert a variable"
           className={cn(
-            "h-6 w-6 shrink-0 text-muted-foreground hover:text-brand",
+            "h-6 w-6 shrink-0 text-muted-foreground hover:text-brand-ink",
             className,
           )}
         >

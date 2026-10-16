@@ -83,6 +83,12 @@ export const cancelImpersonationBody = z.object({
   sessionId: z.string().min(1, "sessionId is required"),
 });
 
+/** `POST /tenants/impersonation/respond` — the tenant's answer to a visible-mode request. */
+export const respondImpersonationBody = z.object({
+  sessionId: z.string().uuid(),
+  approved: z.boolean(),
+});
+
 // ── Analytics (analytics.ts) ──────────────────────────────────────────────
 
 export const churnQuery = z.object({

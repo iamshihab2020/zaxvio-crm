@@ -23,6 +23,11 @@ import {
   JOB_PRIORITY_CHART_COLORS,
   type JobPriority,
 } from "@/lib/constants/job-options";
+import {
+  MAX_CATEGORIES,
+  OTHER_COLOR,
+  categoricalColor,
+} from "@/lib/constants/chart-palette";
 import { cn } from "@/lib/utils";
 
 interface JobsManagementPanelProps {
@@ -36,19 +41,8 @@ interface JobsManagementPanelProps {
 
 type Segment = "status" | "priority" | "service";
 
-// Brand-orange + warm neutrals palette for buckets that don't have a DB color
-// (service type). Status uses the pipeline's stored stage colors; priority uses
-// the shared map keyed off the database enum.
-const PALETTE = [
-  "hsl(var(--brand))",
-  "#fb923c",
-  "#fbbf24",
-  "#a78bfa",
-  "#60a5fa",
-  "#34d399",
-  "#f87171",
-  "#94a3b8",
-];
+/** The folded tail of the service segment. Not a service type, so it links unfiltered. */
+const OTHER_BUCKET = "__other";
 
 interface Bucket {
   key: string;
@@ -98,12 +92,38 @@ export function JobsManagementPanel({
             : "hsl(var(--brand))",
       }));
     }
-    return serviceBreakdown.map((s, i) => ({
+    // Service types have no stored colour, so they take the categorical slots
+    // in count order. That way every pair of touching slices is a pair of
+    // neighbouring slots, which is exactly the pairing the palette was
+    // validated for. Keying the colour to the type would hold steadier across
+    // date ranges, but seven types against five validated slots would put
+    // unchecked pairs side by side. The old palette cycled instead (`i % 8`),
+    // so a ninth type quietly shared the first type's colour. The tail now
+    // folds into one neutral "Other", and so does the literal "other" type.
+    const ranked = [...serviceBreakdown]
+      .filter((s) => s.key !== "other")
+      .sort((a, b) => b.count - a.count);
+    const named: Bucket[] = ranked.slice(0, MAX_CATEGORIES).map((s, i) => ({
       key: s.key,
       label: s.label,
       count: s.count,
-      color: PALETTE[i % PALETTE.length]!,
+      color: categoricalColor(i),
     }));
+    const tail = [
+      ...ranked.slice(MAX_CATEGORIES),
+      ...serviceBreakdown.filter((s) => s.key === "other"),
+    ];
+    if (tail.length === 0) return named;
+    if (tail.length === 1) return [...named, { ...tail[0]!, color: OTHER_COLOR }];
+    return [
+      ...named,
+      {
+        key: OTHER_BUCKET,
+        label: `Other (${tail.length})`,
+        count: tail.reduce((sum, s) => sum + s.count, 0),
+        color: OTHER_COLOR,
+      },
+    ];
   }, [segment, pipeline, priorityBreakdown, serviceBreakdown]);
 
   const total = buckets.reduce((sum, b) => sum + b.count, 0);
@@ -230,7 +250,7 @@ function bucketHref(
 ): string {
   const params = new URLSearchParams();
   if (segment === "priority") params.set("priority", key);
-  if (segment === "service") params.set("serviceType", key);
+  if (segment === "service" && key !== OTHER_BUCKET) params.set("serviceType", key);
   if (pipelineId) params.set("pipeline", pipelineId);
   const qs = params.toString();
   return qs ? `/jobs?${qs}` : "/jobs";
@@ -244,14 +264,14 @@ function bucketHref(
  */
 function resolveStageColor(raw: string | null | undefined, index: number): string {
   const trimmed = raw?.trim();
-  if (!trimmed) return PALETTE[index % PALETTE.length]!;
+  if (!trimmed) return categoricalColor(index);
   const preset = STAGE_COLOR_PRESETS[trimmed];
   if (preset) return preset.hex;
   // Legacy: some older stages may have stored a literal CSS color.
   if (/^(#[0-9a-f]{3,8}|hsl\(|rgb\(|hsla\(|rgba\()/i.test(trimmed)) {
     return trimmed;
   }
-  return PALETTE[index % PALETTE.length]!;
+  return categoricalColor(index);
 }
 
 /**
@@ -302,7 +322,7 @@ function BucketDonut({ buckets, total }: { buckets: Bucket[]; total: number }) {
         <span className="tnum font-heading text-2xl font-bold leading-none text-foreground">
           {total}
         </span>
-        <span className="mt-1 font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
+        <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           jobs
         </span>
       </div>

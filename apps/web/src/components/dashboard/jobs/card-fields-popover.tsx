@@ -143,7 +143,7 @@ export function DisplaySettingsPopover({
               className={cn(
                 "flex-1 h-7 rounded-md px-2.5 text-xs font-body font-medium",
                 !compact
-                  ? "bg-brand-light text-brand dark:bg-brand/20"
+                  ? "bg-brand-light text-brand-ink dark:bg-brand/20"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -156,7 +156,7 @@ export function DisplaySettingsPopover({
               className={cn(
                 "flex-1 h-7 rounded-md px-2.5 text-xs font-body font-medium",
                 compact
-                  ? "bg-brand-light text-brand dark:bg-brand/20"
+                  ? "bg-brand-light text-brand-ink dark:bg-brand/20"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -184,14 +184,14 @@ export function DisplaySettingsPopover({
                     className={cn(
                       "flex w-full items-center gap-2 h-7 rounded-md px-2 text-xs font-body justify-start",
                       viewMode === mode
-                        ? "bg-brand-light/30 text-brand dark:bg-brand/15"
+                        ? "bg-brand-light/30 text-brand-ink dark:bg-brand/15"
                         : "text-foreground hover:bg-muted/50",
                     )}
                   >
                     <Icon className="h-3.5 w-3.5 shrink-0" />
                     <span className="flex-1 text-left">{label}</span>
                     {viewMode === mode && (
-                      <IconCheck className="h-3 w-3 text-brand shrink-0" />
+                      <IconCheck className="h-3 w-3 text-brand-ink shrink-0" />
                     )}
                   </Button>
                 ))}

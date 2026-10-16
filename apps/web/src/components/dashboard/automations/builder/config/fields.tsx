@@ -288,7 +288,7 @@ export function MultiOptionsField({ property, value, onChange, disabled }: Field
                 "rounded-full border px-2.5 py-1 text-xs transition-colors font-body",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
                 active
-                  ? "border-brand bg-brand/10 text-brand"
+                  ? "border-brand bg-brand/10 text-brand-ink"
                   : "border-border text-muted-foreground hover:border-input hover:text-foreground",
                 disabled && "cursor-not-allowed opacity-50",
               )}

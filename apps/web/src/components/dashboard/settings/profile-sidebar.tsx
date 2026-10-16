@@ -41,7 +41,7 @@ export function ProfileSidebar({ user }: ProfileSidebarProps) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand font-heading text-sm font-bold shrink-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10 text-brand-ink font-heading text-sm font-bold shrink-0">
               {initials}
             </div>
             <p className="text-sm font-medium text-foreground font-body truncate">

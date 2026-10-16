@@ -14,6 +14,7 @@ import {
   JOB_PRIORITY_CHART_COLORS,
   type JobPriority,
 } from "@/lib/constants/job-options";
+import { tokenColor } from "@/lib/constants/chart-palette";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { bookingLink, jobLink } from "@/lib/entity-links";
 import { cn } from "@/lib/utils";
@@ -64,7 +65,10 @@ function eventToItem(e: DashboardAgendaEvent): AgendaItem {
     start: parseDateAt(e.eventDate, e.startTime),
     end: parseEndAt(e.eventDate, e.endTime),
     hasTime: Boolean(e.startTime),
-    color: e.color || "#6366f1",
+    // The series tokens, not Tailwind's indigo-500/teal-500: Week Ahead sits
+    // beside this widget and draws the same kinds from the tokens, so the hex
+    // made one booking two different teals on one screen.
+    color: e.color || tokenColor("series-event"),
     href: `/schedule`,
   };
 }
@@ -82,7 +86,7 @@ function bookingToItem(b: DashboardAgendaBooking): AgendaItem {
     start: parseDateAt(b.bookingDate ?? "", b.preferredTime),
     end: null,
     hasTime: Boolean(b.preferredTime),
-    color: "#14b8a6",
+    color: tokenColor("series-booking"),
     // Param name must match what bookings-page-client.tsx reads.
     href: bookingLink(b.id),
   };
@@ -182,16 +186,18 @@ const KIND_LABEL: Record<AgendaKind, string> = {
   booking: "Booking",
 };
 
+// The kind's colour is the tint; the word is ink. Printing the word in the
+// series hue measured 2.3:1 for bookings and 4.0:1 for events at 9px.
 function KindBadge({ kind }: { kind: AgendaKind }) {
   const style = {
-    event: "bg-indigo-500/10 text-indigo-500",
-    job: "bg-brand/10 text-brand",
-    booking: "bg-teal-500/10 text-teal-500",
+    event: "bg-[hsl(var(--series-event)/0.14)]",
+    job: "bg-brand/15",
+    booking: "bg-[hsl(var(--series-booking)/0.14)]",
   }[kind];
   return (
     <span
       className={cn(
-        "rounded-full px-1.5 py-0.5 text-[9px] font-body font-semibold uppercase tracking-wide",
+        "rounded-full px-1.5 py-0.5 text-[10px] font-body font-semibold uppercase tracking-wide text-foreground",
         style,
       )}
     >
@@ -232,13 +238,13 @@ function GroupedList({ items }: { items: AgendaItem[] }) {
             {/* Day marker, trimmed. The 2xl numeral plus a weekday underneath
                 took more vertical space than the entries it was labelling. */}
             <div className="flex w-10 shrink-0 flex-col items-center pt-1.5">
-              <span className="font-mono text-[9px] font-medium uppercase tracking-wider text-brand">
+              <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-brand-ink">
                 {dayAbbr}
               </span>
               <span className="tnum font-heading text-lg font-bold leading-none text-foreground">
                 {dayNum}
               </span>
-              <span className="mt-0.5 font-mono text-[9px] uppercase text-muted-foreground">
+              <span className="mt-0.5 font-mono text-[10px] uppercase text-muted-foreground">
                 {dayName.slice(0, 3)}
               </span>
             </div>

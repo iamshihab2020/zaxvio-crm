@@ -65,12 +65,14 @@ export function DashboardToolbar({
             aria-live="polite"
             className="inline-flex items-center gap-1.5 text-xs font-body text-muted-foreground"
           >
+            {/* Only "Refreshing" pulses: that is a change in progress. A fresh
+                result is a resting state, and it used to pulse forever. */}
             <span
               className={
                 isFetching
-                  ? "h-1.5 w-1.5 animate-pulse rounded-full bg-brand"
+                  ? "h-1.5 w-1.5 motion-safe:animate-pulse rounded-full bg-brand"
                   : isFresh
-                    ? "h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse"
+                    ? "h-1.5 w-1.5 rounded-full bg-status-good"
                     : "h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
               }
               aria-hidden
@@ -79,7 +81,7 @@ export function DashboardToolbar({
               "Refreshing…"
             ) : isFresh ? (
               <>
-                <IconCheck className="h-3 w-3 text-emerald-600" aria-hidden />
+                <IconCheck className="h-3 w-3 text-status-good-ink" aria-hidden />
                 {relLabel}
               </>
             ) : (

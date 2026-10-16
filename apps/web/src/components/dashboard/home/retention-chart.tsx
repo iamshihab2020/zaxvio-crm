@@ -54,7 +54,7 @@ export function RetentionChart({ data }: RetentionChartProps) {
               <span
                 className={cn(
                   "text-[11px] font-body",
-                  delta >= 0 ? "text-emerald-600" : "text-rose-600",
+                  delta >= 0 ? "text-status-good-ink" : "text-status-critical-ink",
                 )}
               >
                 {delta >= 0 ? "+" : ""}

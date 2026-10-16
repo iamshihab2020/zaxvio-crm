@@ -86,18 +86,22 @@ export function BookingFormClient({
   const [initialLoading, setInitialLoading] = useState(true);
   const [slotsLoading, setSlotsLoading] = useState(false);
 
-  // Animation state
-  const [animating, setAnimating] = useState(false);
+  // Step travel. Null until the visitor first moves, so the opening step
+  // paints at rest; after that it names the direction of the last move, and
+  // the next step arrives from that side (`.motion-step-*` in globals.css).
+  //
+  // The step changes immediately. The version this replaces faded the card out
+  // for 150ms before swapping, which put a wait in front of every step, on a
+  // phone, for a customer trying to book.
+  const [travel, setTravel] = useState<"forward" | "back" | null>(null);
 
-  // Step transition with animation
-  const goToStep = useCallback((newStep: number) => {
-    setAnimating(true);
-    // Brief fade out, then switch step, then fade in
-    setTimeout(() => {
+  const goToStep = useCallback(
+    (newStep: number) => {
+      setTravel(newStep > step ? "forward" : "back");
       setStep(newStep);
-      setTimeout(() => setAnimating(false), 30);
-    }, 150);
-  }, []);
+    },
+    [step],
+  );
 
   /* ── Prefetch three months of open dates (3 requests) ── */
   useEffect(() => {
@@ -288,14 +292,19 @@ export function BookingFormClient({
           <BookingProgressIndicator currentStep={step} totalSteps={5} />
         </div>
 
-        {/* Animated Step Container */}
-        <div
-          className={cn(
-            "rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8 transition-all duration-200",
-            animating && "opacity-0 scale-[0.98]",
-            !animating && "opacity-100 scale-100",
-          )}
-        >
+        {/* Step container. The card stays put; only its contents travel, and
+            `overflow-hidden` keeps the 24px slide inside the card's edge. */}
+        <div className="overflow-hidden rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
+          <div
+            key={step}
+            className={
+              travel === "forward"
+                ? "motion-step-forward"
+                : travel === "back"
+                  ? "motion-step-back"
+                  : undefined
+            }
+          >
           {step === 1 && (
             <BookingStepService
               serviceTypes={serviceTypes}
@@ -347,6 +356,7 @@ export function BookingFormClient({
           )}
 
           {/* Step 5: Redirects to /book/[slug]/status/[id] */}
+          </div>
         </div>
 
         {/* Trust Badge */}

@@ -1,6 +1,6 @@
 # Memory System
 
-> Related: [[workflow]] | [[todo]] | [[lessons]]
+> Related: [[workflow]] | [[todo]] | [[lessons]] | [[consolidate-memory]]
 
 Three-tier persistent memory that complements `docs/claude/todo.md`, `docs/claude/lessons.md`, and auto-memory `MEMORY.md`:
 

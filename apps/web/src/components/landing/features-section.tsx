@@ -82,7 +82,7 @@ function BookingVisual() {
           className={
             taken.has(slot)
               ? "tnum rounded-md border border-border bg-muted px-2.5 py-1.5 font-mono text-[11px] text-muted-foreground/50 line-through"
-              : "tnum rounded-md border border-brand/40 bg-brand/10 px-2.5 py-1.5 font-mono text-[11px] font-medium text-brand"
+              : "tnum rounded-md border border-brand/40 bg-brand/10 px-2.5 py-1.5 font-mono text-[11px] font-medium text-brand-ink"
           }
         >
           {slot}
@@ -148,7 +148,7 @@ export function FeaturesSection() {
           delay={0}
           icon={IconLayoutKanban}
           title="Job board"
-          description="Every job on one board: scheduled, on site, done. Drag a card to move it; the customer gets told automatically."
+          description="Every job on one board: scheduled, on site, done. Drag a card to move it, and the customer gets an email when the job is complete."
           visual={<KanbanVisual />}
         />
         <FeatureCard
@@ -163,7 +163,7 @@ export function FeaturesSection() {
           delay={120}
           icon={IconReceipt}
           title="Invoicing"
-          description="Bill on site the moment the job is done. Customers pay from the email."
+          description="Bill on site the moment the job is done. The invoice goes out by email as a PDF, and you record payments as they come in."
         />
         <FeatureCard
           className="md:col-span-2"

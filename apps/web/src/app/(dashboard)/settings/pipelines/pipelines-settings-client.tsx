@@ -301,7 +301,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                   </span>
                   <button
                     onClick={() => openStages(pipeline.id)}
-                    className="text-xs font-medium text-brand hover:underline font-body cursor-pointer"
+                    className="text-xs font-medium text-brand-ink hover:underline font-body cursor-pointer"
                   >
                     Edit Stages
                   </button>

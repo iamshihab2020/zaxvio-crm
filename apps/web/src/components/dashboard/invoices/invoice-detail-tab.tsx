@@ -242,7 +242,7 @@ export function InvoiceDetailTab({
               className={`text-sm font-bold font-body ${
                 balanceIsZero
                   ? "text-green-600 dark:text-green-400"
-                  : "text-brand"
+                  : "text-brand-ink"
               }`}
             >
               {formatCurrency(invoice.balanceDue)}

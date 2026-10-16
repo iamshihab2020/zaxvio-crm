@@ -652,9 +652,9 @@ Cancel a pending visible impersonation request. Broadcasts cancel event to tenan
 
 ### `POST /tenants/impersonation/respond`
 
-**Auth:** `requireTenant`
+**Auth:** `requireTenant`, then **owner or admin of this workspace** (`canGrantSupportAccess`, resolved against the tenant's own organisation). Refused for an admin who is impersonating — nobody can answer an access request on the business's behalf.
 
-Tenant accepts or rejects a visible impersonation request.
+Tenant accepts or rejects a visible impersonation request. Body validated by `respondImpersonationBody` (Zod). The status change is a compare-and-set on `pending`, so a request the admin cancelled in the meantime cannot be resurrected as `active`.
 
 **Request Body:**
 
@@ -669,11 +669,13 @@ Tenant accepts or rejects a visible impersonation request.
 { "success": true }
 ```
 
+**Errors:** `400` invalid body · `403` caller is a member, or an impersonating admin · `404` no pending request with that id, or it is older than 5 minutes (it is marked `expired`).
+
 ### `GET /tenants/impersonation/pending`
 
 **Auth:** `requireTenant`
 
-Check for pending visible impersonation requests targeting this tenant.
+Check for pending visible impersonation requests targeting this tenant. Answers `{ "pending": false, "request": null }` to a member or an impersonating admin — the only people who may see the request are the ones who may answer it. The web listener re-asks this endpoint when the SSE `request` event arrives rather than trusting the event, so the dialog only opens for an owner or admin.
 
 **Response** `200 OK`
 
@@ -1047,7 +1049,7 @@ open and the server pushes frames as they occur.
 
 | Param | Type | Notes |
 |---|---|---|
-| `tenantId` | uuid, optional | **Admin only.** Listen to another tenant's stream — used by the superadmin impersonation dialog. Non-admins get `403`. Omit it and the stream is scoped to your own tenant. |
+| `tenantId` | uuid, optional | **Only while awaiting an access answer.** The caller must be a `super_admin` or `support` admin with an open visible-mode impersonation session (`pending` or `active`, not ended) on that tenant — see `canWatchTenantStream`. The stream is then narrowed to the `impersonation` channel. Anyone else gets `403`. Omit it and the stream is scoped to your own tenant, all channels. |
 
 **Frame format** — the SSE `event:` field carries the *channel*, so one connection
 serves all four. The inner event name is in the JSON payload:

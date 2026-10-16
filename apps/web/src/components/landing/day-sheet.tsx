@@ -103,8 +103,12 @@ export function DaySheet() {
             <p className="truncate font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
               {now?.label ?? "Today"}
             </p>
+            {/* "Example", not "Today's". The jobs are invented, and over the
+                reader's real date with a real "now" line, "Today's schedule"
+                read as a live screenshot. PRODUCT.md requires sample data to be
+                labelled as sample data wherever it is shown. */}
             <p className="mt-0.5 font-heading text-sm font-semibold text-ink">
-              Today&rsquo;s schedule
+              Example schedule
             </p>
           </div>
           {/* The count is derived, so it cannot drift from the rows below it.
@@ -139,7 +143,9 @@ export function DaySheet() {
                 className="absolute inset-x-0 flex items-center gap-3"
                 style={{ top: `calc(${i} * var(--row))` }}
               >
-                <span className="tnum w-9 shrink-0 font-mono text-[11px] text-muted-foreground/70">
+                {/* Full muted, not `/70`: at 11px the faded value was 2.9:1,
+                    and these are the times a reader checks the jobs against. */}
+                <span className="tnum w-9 shrink-0 font-mono text-[11px] text-muted-foreground">
                   {String(hour).padStart(2, "0")}
                 </span>
                 <span aria-hidden="true" className="h-px flex-1 bg-border" />
@@ -161,18 +167,22 @@ export function DaySheet() {
                   }}
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-xs font-semibold sm:text-[13px]">
+                    <p className="truncate text-xs font-semibold sm:text-sm">
                       {job.customer}
                     </p>
-                    <span className="tnum shrink-0 font-mono text-[10px] opacity-70">
+                    <span className="tnum shrink-0 font-mono text-[10px] text-muted-foreground">
                       {formatHour(job.start)}
                     </span>
                   </div>
-                  <p className="truncate text-[11px] opacity-70">{job.service}</p>
+                  {/* Secondary lines are muted by COLOUR, not opacity (LAND-19).
+                      `opacity-70` stacked on a finished job's already-muted text
+                      came to 2.78:1; the muted token is 4.7:1 or better on all
+                      three job fills, in both themes. */}
+                  <p className="truncate text-[11px] text-muted-foreground">{job.service}</p>
                   {/* A pinging dot on invented data is a live-status cue with
                       nothing live behind it. The word alone carries the state. */}
                   {job.status === "active" ? (
-                    <span className="mt-1 inline-flex font-mono text-[10px] text-brand">
+                    <span className="mt-1 inline-flex font-mono text-[10px] text-brand-ink">
                       {STATUS_LABEL[job.status]}
                     </span>
                   ) : null}
@@ -180,15 +190,22 @@ export function DaySheet() {
               ))}
             </div>
 
-            {/* The one live element on the page: a marker on the real hour. */}
+            {/* The one live element on the page: a marker on the real hour.
+
+                It is also the page's one authored motion (`.now-marker` in
+                globals.css): the dot lands on the hour rail and the line draws
+                across the day from it, the way a clock hand would arrive. It
+                only exists after mount, so it moves over content that is
+                already painted and costs the first paint nothing. Under
+                reduced motion it is simply there. */}
             {now?.offset !== null && now?.offset !== undefined ? (
               <div
-                className="pointer-events-none absolute inset-x-0 flex items-center gap-2"
+                className="now-marker pointer-events-none absolute inset-x-0 flex items-center gap-2"
                 style={{ top: `calc(${now.offset} * ${span} * var(--row))` }}
                 aria-hidden="true"
               >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
-                <span className="h-px flex-1 bg-brand/50" />
+                <span className="now-marker-dot h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+                <span className="now-marker-line h-px flex-1 bg-brand/50" />
               </div>
             ) : null}
           </div>

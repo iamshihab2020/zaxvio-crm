@@ -104,7 +104,7 @@ export function ShareSettingsClient({ slug, appUrl }: ShareSettingsClientProps) 
                 href={bookingUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-brand hover:underline font-body"
+                className="inline-flex items-center gap-1.5 text-xs text-brand-ink hover:underline font-body"
               >
                 <IconWorld className="h-3.5 w-3.5" />
                 Preview booking page

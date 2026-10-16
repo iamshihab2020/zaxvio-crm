@@ -13,7 +13,7 @@ const entries: KnowledgeEntry[] = [
     id: "automations-schedules",
     question: "Can an automation run on a schedule instead of an event?",
     answer:
-      "Yes. Every Day and Every Week start an automation at a time you choose rather than off something happening. They run once per day or week even if the system restarts, so you will not get two of anything.\n\nThe time is local to your business, and it stays correct across daylight saving.\n\nThere are also date-based starting points that watch your records for you: Warranty Expiring, Agreement Expiring and Maintenance Visit Due. Those fire once per item \u2014 you will not be chased about the same warranty every day for two months.",
+      "Yes. Every Day and Every Week start an automation at a time you choose rather than off something happening. They run once per day or week even if the system restarts, so you will not get two of anything.\n\nEach one keeps its own time. Two daily automations at 8am and 5pm run at 8am and 5pm, and an automation with an Every Day start at 8am and another at 5pm runs twice a day, starting from whichever one is due.\n\nThe time is local to your business, and it stays correct across daylight saving.\n\nThere are also date-based starting points that watch your records for you: Warranty Expiring, Agreement Expiring and Maintenance Visit Due. Those fire once per item \u2014 you will not be chased about the same warranty every day for two months.",
     category: "automations",
     keywords: ["schedule", "daily", "weekly", "recurring", "every day", "cron", "warranty", "renewal"],
   },
@@ -285,6 +285,14 @@ const entries: KnowledgeEntry[] = [
     question: "What can you help me with?",
     answer:
       "I can help in two ways:\n\n**Ask questions** — Ask me how to use any feature: jobs, customers, invoices, quotes, bookings, schedule, equipment, catalog, checklists, settings, notifications, team management, and more.\n\n**Quick actions** — I can create things for you:\n• \"Create customer name: John Smith, phone: 555-1234, email: john@email.com\"\n• \"Create an event tomorrow at 3PM for team meeting\"\n• \"Create a job for John Smith, repair, tomorrow\"\n• \"Create an invoice for John Smith\"\n• \"Create a quote for Jane Doe\"\n• \"Add catalog item: Filter, $25, parts\"\n• \"Add equipment for John: Unit Type A, Brand X\"\n• \"Book a service for John, repair, next Monday\"",
+  },
+  {
+    id: "general-privacy-terms",
+    category: "general",
+    keywords: ["privacy", "privacy policy", "terms", "terms of service", "data", "gdpr", "who sees my data", "legal"],
+    question: "Where are the privacy policy and terms?",
+    answer:
+      "Both are linked at the bottom of every public page: **Privacy** (/privacy) and **Terms** (/terms). The privacy policy lists exactly which services your data goes to and why, how long automation run history is kept (90 days), and how support access to your workspace works. Neither one is behind a login.",
   },
   {
     id: "general-dark-mode",

@@ -92,7 +92,7 @@ export function QuoteInfoPanel({ quote }: QuoteInfoPanelProps) {
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-semibold font-body">Total</span>
-            <span className="text-sm font-bold text-brand font-body">
+            <span className="text-sm font-bold text-brand-ink font-body">
               {formatCurrency(quote.totalAmount)}
             </span>
           </div>
@@ -113,7 +113,7 @@ export function QuoteInfoPanel({ quote }: QuoteInfoPanelProps) {
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light shrink-0">
               <IconBriefcase className="h-4 w-4 text-brand" />
             </div>
-            <span className="text-sm font-medium text-foreground group-hover:text-brand transition-colors font-body">
+            <span className="text-sm font-medium text-foreground group-hover:text-brand-ink transition-colors font-body">
               View created job
             </span>
           </Link>

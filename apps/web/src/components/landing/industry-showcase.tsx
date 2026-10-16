@@ -54,10 +54,12 @@ const INDUSTRIES = [
     icon: IconBolt,
     headline: "Built for electricians",
     description:
-      "Book inspections, track panel upgrades, and run a safety checklist on every job so nothing ships out of code. Invoice from the site.",
+      "Book inspections, track panel upgrades, and make the safety checklist something a job can't be marked complete without. Invoice from the site.",
     bullets: [
       "Inspection scheduling",
-      "Panel and circuit records",
+      // Was "Panel and circuit records" (LAND-20). There is no circuit model;
+      // what exists is equipment records on the customer, for any trade.
+      "Equipment records for every customer",
       "Safety checklist templates",
       "Field invoicing",
     ],
@@ -68,12 +70,12 @@ const INDUSTRIES = [
     icon: IconSpray,
     headline: "Built for cleaning services",
     description:
-      "Recurring bookings repeat themselves, your crew sees their own day, and every property keeps its own list of what needs doing.",
+      "Regular clients run on a service agreement, your crew sees the jobs assigned to them, and a checklist makes every visit cover the same ground.",
     bullets: [
-      "Recurring booking automation",
-      "Per-property checklists",
+      "Service agreements for regular visits",
+      "A checklist on every job",
       "Team schedule management",
-      "Customer property profiles",
+      "Notes and history on every customer",
     ],
   },
   {
@@ -82,11 +84,13 @@ const INDUSTRIES = [
     icon: IconPlant2,
     headline: "Built for landscapers",
     description:
-      "Plan the season, keep maintenance contracts on schedule, and document each property with photos. Quote and invoice from the field.",
+      "Lay out the season on the calendar, keep service agreements on schedule, and photograph the work on every job. Quote and invoice from the field.",
     bullets: [
-      "Seasonal job planning",
-      "Maintenance contract tracking",
-      "Property photo documentation",
+      // Was "Seasonal job planning" (LAND-20): there is no seasonal planner.
+      // The calendar with drag-to-reschedule is what a season is planned on.
+      "Drag-and-drop calendar for the season",
+      "Service agreement tracking",
+      "Before-and-after photos on every job",
       "Quote builder",
     ],
   },

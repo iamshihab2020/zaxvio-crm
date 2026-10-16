@@ -88,7 +88,7 @@ export function KanbanCardCompact({
         </span>
         {vf.customer && (
           <span
-            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[9px] font-semibold text-brand dark:bg-brand/20 dark:text-brand"
+            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-brand-light/40 text-[9px] font-semibold text-brand-ink dark:bg-brand/20 dark:text-brand"
             title={
               job.customerFirstName || job.customerLastName
                 ? `${job.customerFirstName ?? ""} ${job.customerLastName ?? ""}`.trim()

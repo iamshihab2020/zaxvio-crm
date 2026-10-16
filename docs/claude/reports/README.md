@@ -18,6 +18,8 @@ records what shipped, what is wrong, and what to do next.
 | Invoices | [[invoices]] | 2026-07-29 | 42 (5 critical, 9 high, 20 medium, 8 low) | ✅ all fixed |
 | Quotes | [[quotes]] | 2026-08-01 | 35 (4 critical, 12 high, 13 medium, 6 low) | ✅ all fixed |
 | **Architecture** (cross-cutting) | [[architecture]] | 2026-08-02 | 21 (2 critical, 6 high, 8 medium, 5 low) | 🟡 14 fixed, 1 withdrawn, 6 open |
+| `/` landing page (design, technical) | [[landing-page]] | 2026-10-16 | 15 `LAND-*` (P0 ×1, P1 ×4, P2 ×5, P3 ×5; Impeccable scale) · health 12 → 16 → **16/20** (third audit: no P1 left) | 🟡 6 open, all P2/P3: LAND-22…25 new, LAND-09 and 17 carried; legal review pending |
+| **Codebase onboarding** (whole repo) | [[codebase-onboarding]] | 2026-10-15 | 18 `ONB-*` (1 critical, 5 high, 10 medium, 2 low; 11 verified by reading) | 🟡 ONB-01…09 closed 2026-10-16, 9 open |
 
 Bookings & Calendar covers `/bookings`, `/schedule`, `/settings/bookings` and the public
 `/book/[slug]` portal — they share one availability model and are audited together.
@@ -53,6 +55,15 @@ architecture end to end, the API's layering, and dependency reality. It exists b
 page audits kept reaching the same conclusion — fixes do not propagate — and the cause turned
 out to sit below the pages: there is no API client to fix error handling in once, and no
 service boundary in 15 of 23 domains. Read [[architecture|§4]] with [[quotes|§4]].
+
+[[codebase-onboarding]] is the whole-repo orientation written for a new engineer: what exists,
+what changed in the 2026-07-27 → 08-15 sprint, user flows from UI to table, critical files and a
+one-hour reading order. It was a read-only audit, so its `ONB-*` findings are marked by how they
+were checked: ✔ means read in the code, ◐ means reported by a sub-investigation, 📄 means taken
+from the docs. The worst finding is ONB-01: merged code queries `job_time_entries`, and the
+migration that creates it is recorded as unapplied. ONB-02 is next: the middleware sends every
+logged-out customer who clicks unsubscribe to `/login`. Both are closed as of 2026-10-16 — ONB-01 turned out to be applied already, so the
+todo was stale — and so are ONB-03…09. ONB-10…18 remain.
 
 ## Conventions
 

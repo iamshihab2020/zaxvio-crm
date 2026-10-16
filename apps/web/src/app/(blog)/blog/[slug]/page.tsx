@@ -149,7 +149,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                       aria-hidden="true"
                     />
                     <CardContent className="p-4">
-                      <h3 className="font-heading text-sm font-semibold text-ink line-clamp-2 group-hover:text-brand transition-colors">
+                      <h3 className="font-heading text-sm font-semibold text-ink line-clamp-2 group-hover:text-brand-ink transition-colors">
                         {related.title}
                       </h3>
                       <p className="mt-1 text-xs text-ink/40">

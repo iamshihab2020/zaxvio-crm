@@ -181,7 +181,7 @@ export function JobInfoPanel({ job, stages, onUpdate }: JobInfoPanelProps) {
           <div className="rounded-md bg-muted/50 p-3">
             <Link
               href={`/assets/${job.equipmentId}`}
-              className="text-sm text-foreground font-body hover:text-brand transition-colors"
+              className="text-sm text-foreground font-body hover:text-brand-ink transition-colors"
             >
               {[job.equipmentType, job.equipmentBrand, job.equipmentModel]
                 .filter(Boolean)

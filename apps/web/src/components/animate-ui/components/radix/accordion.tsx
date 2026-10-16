@@ -45,7 +45,12 @@ function AccordionTrigger({
     <AccordionHeaderPrimitive className="flex">
       <AccordionTriggerPrimitive
         className={cn(
-          'focus-visible:border-ring focus-visible:ring-ring/50 flex flex-1 items-start justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline focus-visible:ring-[3px] disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180',
+          // Full-strength ring, offset onto the page colour. It was `ring-ring/50`
+          // at 3px: 2.37:1 on the light surface, under the 3:1 a focus
+          // indicator needs (WCAG 1.4.11, LAND-16), and its paired
+          // `border-ring` drew nothing because the trigger has no border. This
+          // is 6.9:1, and the offset keeps it off the question text.
+          'focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background flex flex-1 items-start justify-between gap-4 rounded-md py-4 text-left text-sm font-medium transition-all outline-none hover:underline disabled:pointer-events-none disabled:opacity-50 [&[data-state=open]>svg]:rotate-180',
           className,
         )}
         {...props}

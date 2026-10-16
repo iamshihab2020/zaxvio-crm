@@ -34,14 +34,14 @@ export function FinalCtaSection() {
               headline and the button underneath it do not. */}
           <h2
             id="final-cta-heading"
-            className="font-heading text-[2rem] font-bold leading-[1.1] tracking-tight text-balance sm:text-4xl lg:text-5xl"
+            className="font-heading text-[1.75rem] font-bold leading-[1.15] tracking-tight text-balance sm:text-4xl lg:text-5xl"
           >
             Your next job could already be on the board.
           </h2>
 
           <p className="mt-5 max-w-lg text-base leading-relaxed text-midnight-foreground/60 sm:text-lg">
-            Set it up in ten minutes. Keep the free trial running until you know
-            it works for you.
+            Set it up in ten minutes, then run your business on it for two weeks
+            before you decide.
           </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -69,9 +69,10 @@ export function FinalCtaSection() {
               "No card required · Cancel any time · Export your data": two
               separators on one line, in the treatment this page had already
               used nine times. Same three facts, read as a sentence. */}
-          <p className="mt-6 text-sm text-midnight-foreground/50">
-            No card required. Cancel any time, and export your data whenever you
-            want it.
+          {/* "…and export your data whenever you want it" was cut here
+              (LAND-02): there is no export. */}
+          <p className="mt-6 text-sm text-midnight-foreground/60">
+            14 days free, no card required. Cancel any time.
           </p>
         </Reveal>
       </div>

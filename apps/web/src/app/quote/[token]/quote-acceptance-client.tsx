@@ -226,14 +226,17 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
             </div>
           )}
 
-          {/* Step: Respond */}
+          {/* Step: Respond. It and Confirmation only ever mount after the
+              customer acts, so their arrival (`motion-arrive`) is always an
+              answer to a click, never page-load choreography. Review, the
+              opening step, paints at rest. */}
           {step === "respond" && (
-            <div className="space-y-6">
+            <div className="motion-arrive space-y-6">
               {/* The figure the customer is deciding on is repeated here at the
                   same weight it carries on the document, so the decision screen
                   never asks "how much was it again?". */}
               <div className="border-b border-ink/15 pb-5 dark:border-border">
-                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand">
+                <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-brand-ink">
                   {quote.quoteNumber}
                 </p>
                 <div className="mt-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -261,13 +264,15 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
 
           {/* Step: Confirmation (after action) */}
           {step === "confirmation" && responseStatus && !alreadyResponded && (
-            <QuoteConfirmation
-              status={responseStatus}
-              businessName={business.name}
-              quoteNumber={quote.quoteNumber}
-              jobCreated={jobCreated}
-              bookingUrl={settings.postAcceptanceScheduling ? buildBookingUrl() : undefined}
-            />
+            <div className="motion-arrive">
+              <QuoteConfirmation
+                status={responseStatus}
+                businessName={business.name}
+                quoteNumber={quote.quoteNumber}
+                jobCreated={jobCreated}
+                bookingUrl={settings.postAcceptanceScheduling ? buildBookingUrl() : undefined}
+              />
+            </div>
           )}
         </div>
 

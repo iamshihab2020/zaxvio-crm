@@ -432,7 +432,7 @@ export function QuotesPageClient({
                     >
                       <span>{opt.label}</span>
                       {sortBy === opt.value && (
-                        <IconCheck className="h-3.5 w-3.5 text-brand" />
+                        <IconCheck className="h-3.5 w-3.5 text-brand-ink" />
                       )}
                     </Button>
                   ))}

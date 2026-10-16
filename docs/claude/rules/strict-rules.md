@@ -3,7 +3,7 @@
 > Related: [[api-rules]] | [[security-rules]] | [[todo]] | [[lessons]] | [[deferred-fixes/README|Deferred Fixes]]
 
 1. **All migration SQL must be idempotent** — use `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`. See PRD for full pattern reference.
-2. **All `.md` files except `CLAUDE.md` live in `docs/`**.
+2. **All `.md` files except `CLAUDE.md`, `README.md`, and `apps/web/PRODUCT.md` + `apps/web/DESIGN.md` live in `docs/`**. The two Impeccable files (with the `apps/web/.impeccable/design.json` sidecar) sit in `apps/web/` because Impeccable discovers them by walking up from `apps/web` to the git root, so `docs/` is invisible to it; moving either there silently strips product or visual context from every design command. The repo root is for config and tool-mandated files only.
 3. **Component Organization**:
    - **NEVER** place components inside route/page folders (e.g., `app/(dashboard)/customers/components/` is FORBIDDEN)
    - Entity-specific components: `components/dashboard/<entity>/` (e.g., `components/dashboard/customers/`)

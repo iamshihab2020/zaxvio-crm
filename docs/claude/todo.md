@@ -78,8 +78,11 @@ disagreed with nothing, so nothing could catch it being wrong.
       distinguishing member is one no caller touches and it exists solely to exclude transactions;
       and `availability.service.ts` already exported its *own* `DbClient` in the correct form, so
       two types of one name disagreed on exactly this point.
-- [ ] **Still not executed.** `20260815000002` is **not applied**; `job-time.integration.test.ts`
-      compiles but has never run; no lint or build this session.
+- [x] **Migration `20260815000002` is applied** — confirmed on Neon 2026-10-16 (ONB-01): the table,
+      all 12 columns, the `ends_after_start` CHECK, 4 FKs and all 4 indexes including the partial
+      unique `idx_job_time_entries_one_running`. 0 entries and 0 jobs with typed hours, so the
+      backfill had nothing to convert. This line said "not applied" for two months after it was.
+- [ ] `job-time.integration.test.ts` compiles but has never run.
 - [ ] Follow-up: **drop `jobs.labor_cost_rate`** once the backfill is proven on real data. Nothing
       reads it now; it survives only because the backfill is the one thing that can reconstruct a
       historic entry's rate. A live column nothing reads is the exact "declared with no consumer"
@@ -1342,6 +1345,26 @@ Migrating all dashboard list pages to the Unified List Page Pattern (see `docs/d
 
 ## Backlog
 
+### Onboarding Audit Findings (2026-10-15)
+Read-only whole-repo audit: [[codebase-onboarding]]. ONB-01…09 closed 2026-10-16 (see Completed);
+these remain.
+- [ ] **ONB-10** Decide in-tenant role gating — a `member` can still reach every owner/admin screen
+      except the handful behind `requireOrgRole`. Product decision first.
+- [ ] **ONB-11** `redact()` in `engine/node-executor.ts` is top-level only, so `http.request`
+      headers (nested) are stored unredacted in `node_execution_logs.resolved_params`.
+- [ ] **ONB-12…18** — see the report's table: `db:push` vs migration-only indexes,
+      `isUniqueViolation` missing wrapped Drizzle errors, cascading deletes, engine operational gaps,
+      non-atomic E-09/E-10 crons, chatbot issues, middleware loses the query string on redirect.
+- [ ] Add `pnpm test` to CI, and add guard + middleware tests.
+
+### Landing Page — Remaining After the 2026-10-16 Pass
+[[landing-page]] §7. 14 of 15 `LAND-*` fixed; these are what is left.
+- [ ] **Before launch: the legal pages.** `/privacy` and `/terms` are drafts written from the code. They need a legal review, a governing-law clause (deliberately absent, since nothing records where the business is established), and a real inbox in `LEGAL_CONTACT_EMAIL` (`apps/web/src/lib/legal.ts`). Until it's set, both pages say no contact address is published.
+- [ ] **When billing lands:** add Lemon Squeezy to `DATA_PROCESSORS`, and re-read the Trial and price section of `/terms`.
+- [ ] **LAND-09 (half done)** `MotionProvider` moved off the root into the five route groups that use motion, so the booking, quote, auth and unsubscribe pages no longer load it. Still on the landing page, through `ui/sheet.tsx` (mobile menu) and the animate-ui tabs and accordion. Removing it needs all three replaced or the Sheet lazy-loaded; measure a build before and after.
+- [ ] **Render check, never done:** 360/375/390px `scrollWidth` (the mobile header row is about 400px of `nowrap` content), touch-scroll of the trust and industry strips, and a keyboard pass in both themes for the new `--brand-ink` ring.
+- [ ] **Third audit 2026-10-16: 16/20, no P1 left** ([[landing-page]] §10). LAND-22 fixed (`ui/tabs` underline now `bg-brand-ink`, 6.47:1). Open: **LAND-23 (P2)** the two blog posts the landing links to promise online payment and cite unsourced figures (`lib/blog/posts.ts:32,66,74`); LAND-24 the `ui/sheet` close button is a 16px target; LAND-25 the check-mark list markers are bright orange, outside `DESIGN.md`'s exceptions. Plus LAND-09 and LAND-17, carried.
+
 ### Post-Neon Cleanup (2026-07-26)
 
 - [ ] **Provision Cloudflare R2 and fill in the credentials** — code is done and the API boots without it, but uploads fail until set. Create two buckets (public + private; see [[decisions|ADR-001]] for why two), then set `R2_*` in the root `.env` and `NEXT_PUBLIC_R2_PUBLIC_URL` in `apps/web/.env.local`. The startup banner reports whether it is configured.
@@ -1366,6 +1389,65 @@ _(Add items here as they come up)_
 
 ## Completed
 
+- [x] **Motion pass: every page** (2026-10-16) — one motion vocabulary for all 55 routes, built on DESIGN.md's "Motion Explains a Change" rule (the MOTION SYSTEM block in `globals.css`: one curve, four durations). **Route arrival** on every dashboard, superadmin, blog and legal route from one hook (`useRouteArrival`, used by `PageContent` and the new `RouteStage`): WAAPI in a layout effect, never on first paint, no remount, no lingering transform. **Booking portal** steps slide in from the direction of travel, and the old 150ms fade-out wait before every step is gone; quote Respond and Confirmation arrive. The **running-timer bar** drops in once per timer, tracked at module scope because its `<main>` remounts per route. `EmptyState`/`LoadErrorState` fade in, and every `Button` presses to 98%. **DESIGN.md violations fixed:** 0 `animate-spin` left (6 spinners replaced with still states), 0 `animate-bounce` (typing dots now a sequenced fade, the scroll hint a two-play nudge), the under-development rings stopped, the chatbot launcher pulses 3 times instead of forever, and the impersonation ping is `motion-safe`. **Reduced motion:** arrivals become fades; tailwindcss-animate overlays keep the fade and lose the zoom and slide via `--tw-enter-*`/`--tw-exit-*`; overrides added for `card-enter`, `settings-enter` and `pulse-emergency` (a steady ring), and chatbot keyframes are redefined under the media query. DESIGN.md has a Motion vocabulary section. Not checked in a browser.
+- [x] **Landing page: six Impeccable passes, 14 of 15 LAND findings** (2026-10-16) — clarify, colorize, optimize, harden, animate, polish, in that order ([[landing-page]] §7). The invented testimonials are deleted (LAND-01). Every claim PRODUCT.md lists as not built is gone, including from the FAQ JSON-LD (LAND-02). Primary-button labels are dark ink on the unchanged orange, so they pass AA in both themes, and the 6 hard-coded white-on-orange sites are fixed app-wide (LAND-03). New `--brand-ink` for orange text and the focus ring (LAND-06). The hero no longer waits on hydration to appear (LAND-04). `/privacy` and `/terms` are drafted from the code, public, and linked from the footer and signup (LAND-05). Root `MotionProvider` for reduced motion (LAND-07). Skip link (LAND-08). Found on the way: the navbar's section links were dead on every page except `/`. Not checked in a browser.
+- [x] **Repo root cleanup** (2026-10-16) — root is now config and tool-mandated files only
+      (32 → 25 items). `.playwright-mcp/` (3 stale April snapshots) deleted and gitignored;
+      `prd.md` → `docs/project_docs/PRD_Data_Fetching_Architecture.md`; `skills/` →
+      `docs/claude/workflow/consolidate-memory.md` (CLAUDE.md path updated); PRODUCT.md,
+      DESIGN.md and `.impeccable/` → `apps/web/`, beside the live config (Impeccable discovery
+      verified from `apps/web`); `.impeccable/hook.cache.json` gitignored. [[strict-rules]] §2
+      and REPO_MAP updated. `supabase/` deliberately left as is (backlog item stands). Plain
+      moves, nothing staged.
+- [x] **Dashboard home polish: the data palette** (2026-10-16) — six widgets hand-rolled hex,
+      two copies of one palette cycled by index, Revenue by Service coloured bars by rank, the
+      Agenda drew bookings and events in a different teal and indigo from Week Ahead beside it,
+      and every coloured status label failed AA (1.59–4.13:1). Underneath, `--chart-3`/`--chart-4`
+      failed the dataviz checks and there were no status colours. Now: chart tokens re-stepped
+      (rust and blue; dark mode has its own steps), `--status-*`, `--status-*-ink` and
+      `--overdue-1..4` added, every value validated in both themes, and one module
+      (`lib/constants/chart-palette.ts`) as the only way a chart gets a colour. KPI pills are
+      brand only (accent prop and hover glow deleted), aging is green then darkening red, and
+      the "fresh" dot no longer pulses. **`/reports` and superadmin charts change colour too**
+      (slots 3 and 4). Not compiled or rendered.
+- [x] **Orange text contrast, dashboard half of LAND-03/06** (2026-10-16) — the token fix could
+      not reach 213 `text-brand` utilities still printing 2.7:1 orange as text. Converted 131 lines
+      in 76 files to `text-brand-ink` by a keep-list codemod: text, plus icons that carry meaning
+      on their own. 70 stay bright on purpose: decorative glyphs beside a heading (user's call),
+      the logotype, the Night Shift slab, and the landing/booking files the other session owns.
+      The conversations unread badge had become a dark pill when `--brand-foreground` flipped →
+      `bg-card text-brand-ink`. DESIGN.md (The Fill, Not the Text Rule, nav and badge tokens) and
+      the sidecar updated. Also LAND-22: the shared `ui/tabs.tsx` selected underline was the
+      state's main cue at 2.56:1 → `bg-brand-ink`. Light mode only; dark is unchanged. Not
+      compiled or rendered.
+- [x] **Impeccable document — `DESIGN.md`** (2026-10-16) — the incumbent system recorded, not
+      changed: North Star "The Work Order", token frontmatter copied from `globals.css` (HSL kept
+      canonical, dark values as `-dark` keys), 10 named rules, and a sidecar with 10 drop-in
+      components. Drift recorded but **not** fixed: `animate-spin` in 6 files and raw `gray-*` in
+      11, against the no-spinners and warm-neutrals rules; `[[design]]` still describes the removed
+      aurora and `fade-in-up`.
+- [x] **Impeccable init — `PRODUCT.md`** (2026-10-16) — product record at the repo root (an
+      exception to [[strict-rules]] §2, recorded there): any trade with HVAC as the beachhead, four
+      confirmed positioning edges, a **not built — never claim** list from LAND-02, and **no
+      evidence on hand**, so nothing may be invented. Live-mode config at
+      `apps/web/.impeccable/live/config.json`. No DESIGN.md yet; the incumbent system is in
+      [[design]].
+- [x] **Onboarding audit fixes ONB-01…09** (2026-10-16) — **ONB-01** needed no change: the
+      time-entries migration was applied, the todo was stale (verified on Neon). **ONB-02/03**
+      `middleware.ts` now lets logged-out visitors reach `/unsubscribe`, `/invite`, `/blog`,
+      `/robots.txt`, `/sitemap.xml`, `/widget.js` and `/api/chat`. **ONB-04** `/book/*` sends
+      `frame-ancestors *` instead of `DENY`, so the widget and iframe embed render; everything else
+      gains `frame-ancestors 'none'` ([[security-rules]] §8 updated). **ONB-05** the SSRF validator
+      parses IPv6 into groups and judges every v4-carrying form by its v4 — 32/32 in a throwaway
+      harness, plus a new unit test file. **ONB-06** schedule events are addressed to one trigger
+      step (`workflowId` + `triggerNodeId` in the payload, per-step claim and dedup keys, claim and
+      emit in one transaction). **ONB-07** the matcher passes `triggerNodeId` to `execute()`, and the
+      fallback reads `triggerEvents` from the definition. **ONB-08** the impersonation guard requires
+      `status = 'active'`; `/respond` has a Zod schema, owner/admin only, refuses an impersonating
+      admin, compare-and-sets on `pending` and honours the 5-minute expiry; the dialog only opens for
+      people who can answer it and no longer toasts success on a refusal. **ONB-09** `?tenantId` on
+      `/events` needs a super_admin/support admin with an open visible session on that tenant and
+      carries only the `impersonation` channel. Not compiled, linted or test-run.
 - [x] **Template gallery redesigned — index and sheet** (2026-08-15) — the gallery was one scrolling
       column of cards, each carrying its full description, so **two and a half templates fit on
       screen** and choosing between ten of them meant scrolling past nine paragraphs. Now an index

@@ -60,7 +60,7 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
                   className="group flex items-center gap-3 rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5 hover:shadow-sm cursor-pointer"
                 >
                   {/* Rank + initials */}
-                  <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 font-heading text-xs font-semibold text-brand">
+                  <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 font-heading text-xs font-semibold text-brand-ink">
                     {initials(c.name) || "?"}
                     <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-foreground px-1 font-heading text-[10px] font-bold text-background">
                       {i + 1}

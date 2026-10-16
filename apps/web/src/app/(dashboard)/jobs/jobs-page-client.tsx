@@ -862,7 +862,7 @@ export function JobsPageClient({
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
                     viewType === "board"
-                      ? "text-brand"
+                      ? "text-brand-ink"
                       : "text-foreground/80 hover:text-foreground",
                   )}
                 >
@@ -878,7 +878,7 @@ export function JobsPageClient({
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
                     viewType === "list"
-                      ? "text-brand"
+                      ? "text-brand-ink"
                       : "text-foreground/80 hover:text-foreground",
                   )}
                 >
@@ -894,7 +894,7 @@ export function JobsPageClient({
                   className={cn(
                     "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
                     viewType === "table"
-                      ? "text-brand"
+                      ? "text-brand-ink"
                       : "text-foreground/80 hover:text-foreground",
                   )}
                 >

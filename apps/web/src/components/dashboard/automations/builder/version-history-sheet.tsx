@@ -138,7 +138,7 @@ export function VersionHistorySheet({
                             number — they differ the moment somebody restores an
                             older version and publishes it. */}
                         {version.isActive && (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand font-body">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2 py-0.5 text-[11px] font-medium text-brand-ink font-body">
                             <IconCheck className="h-3 w-3" />
                             Live
                           </span>

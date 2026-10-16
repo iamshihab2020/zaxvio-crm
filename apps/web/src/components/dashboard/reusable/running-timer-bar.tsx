@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
 import { IconPlayerStop, IconClock } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
@@ -36,6 +37,17 @@ interface RunningTimerBarProps {
   offsetClass?: string;
 }
 
+/**
+ * The timer entry this bar last announced, kept at module scope on purpose.
+ *
+ * The bar lives inside the dashboard's `<main>`, which is keyed by pathname,
+ * so it remounts on every navigation. Component state would forget it had
+ * already shown this timer and drop the bar in again on each page. A module
+ * variable survives the remount, so the drop-in plays once per timer: when one
+ * starts, or the first time a running one is seen this session.
+ */
+let announcedTimerId: string | null = null;
+
 export function RunningTimerBar({
   offsetClass = "top-14",
 }: RunningTimerBarProps) {
@@ -43,13 +55,18 @@ export function RunningTimerBar({
   const running = data?.data ?? null;
   const stop = useStopJobTimer(running?.jobId ?? "");
 
+  const isNew = running !== null && running.id !== announcedTimerId;
+  useEffect(() => {
+    if (running) announcedTimerId = running.id;
+  }, [running]);
+
   if (!running) return null;
 
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`sticky ${offsetClass} z-10 -mx-4 flex items-center gap-3 border-b border-brand/25 bg-brand/10 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6`}
+      className={`sticky ${offsetClass} z-10 -mx-4 flex items-center gap-3 border-b border-brand/25 bg-brand/10 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6 ${isNew ? "motion-drop-in" : ""}`}
     >
       <IconClock className="h-4 w-4 shrink-0 text-brand" aria-hidden />
 
@@ -63,7 +80,7 @@ export function RunningTimerBar({
 
       <ElapsedTime
         since={running.startedAt}
-        className="tnum shrink-0 font-mono text-sm font-semibold text-brand"
+        className="tnum shrink-0 font-mono text-sm font-semibold text-brand-ink"
       />
 
       <Button
@@ -71,7 +88,7 @@ export function RunningTimerBar({
         variant="outline"
         disabled={stop.isPending}
         onClick={() => stop.mutate(undefined)}
-        className="h-7 shrink-0 cursor-pointer border-brand/40 px-2 text-xs text-brand hover:bg-brand/10 hover:text-brand"
+        className="h-7 shrink-0 cursor-pointer border-brand/40 px-2 text-xs text-brand-ink hover:bg-brand/10 hover:text-brand-ink"
       >
         <IconPlayerStop className="mr-1 h-3.5 w-3.5" aria-hidden />
         {stop.isPending ? "Stopping…" : "Stop"}

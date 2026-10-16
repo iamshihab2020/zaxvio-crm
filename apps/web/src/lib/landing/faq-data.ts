@@ -1,8 +1,17 @@
+/**
+ * The landing FAQ, and the `FAQPage` structured data built from it in
+ * `components/landing/json-ld.tsx`, so every answer here is also handed to
+ * search engines as a statement of fact.
+ *
+ * Answer only with what the product does today. PRODUCT.md keeps the list of
+ * things that are NOT built (online payments, spreadsheet import, data export,
+ * recurring bookings, billing). Four answers claimed some of them until LAND-02.
+ */
 export const FAQ_ITEMS = [
   {
     question: "Do I need to be tech-savvy to use Zaxvio?",
     answer:
-      "Not at all. If you can text and browse the web on your phone, you can use Zaxvio. Most service professionals are fully set up within 10 minutes.",
+      "Not at all. If you can text and browse the web on your phone, you can use Zaxvio. Setting up takes about ten minutes.",
   },
   {
     question: "What industries does Zaxvio support?",
@@ -17,22 +26,22 @@ export const FAQ_ITEMS = [
   {
     question: "What happens after my free trial ends?",
     answer:
-      "Your account stays active at $49/month. No annual contracts — cancel anytime with one click. Your data is always exportable.",
+      "The trial runs for 14 days and needs no card. After that, Zaxvio is $49 a month for the whole business, with no annual contract, and you can cancel at any time.",
   },
   {
     question: "Can I send invoices from the field?",
     answer:
-      "Absolutely. Create and send professional invoices right from your phone as soon as a job is done. Customers can pay online instantly.",
+      "Yes. Create the invoice on your phone as soon as the job is done and it goes to the customer by email as a PDF. When they pay, you record it against the invoice, including part payments.",
   },
   {
     question: "Is my data secure?",
     answer:
-      "Your data is stored in SOC 2-compliant cloud infrastructure with encryption at rest and in transit. We never share your customer data.",
+      "Your data is stored with SOC 2 audited providers and encrypted in transit and at rest. We don't sell it, and it only goes to the services the app needs in order to run, which the privacy policy lists by name.",
   },
   {
     question: "Does it work for teams of 2–3 people?",
     answer:
-      "Yes. You can invite a helper or office manager to your account. Everyone sees the same schedule and job statuses in real time.",
+      "Yes. Invite a helper or an office manager at no extra cost, and everyone works from the same schedule and job board.",
   },
   {
     question: "Can I customize job types for my industry?",
@@ -42,6 +51,6 @@ export const FAQ_ITEMS = [
   {
     question: "Can I import my existing customer list?",
     answer:
-      "Yes. During setup you can import customers from a spreadsheet (CSV/Excel). We also offer free migration help if you need it.",
+      "Not from a file yet. You add customers as you go, and anyone who books through your booking page is added as a customer automatically.",
   },
 ] as const;

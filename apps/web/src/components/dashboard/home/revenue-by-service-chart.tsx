@@ -6,22 +6,17 @@ import { IconChartBar } from "@tabler/icons-react";
 import type { DashboardServiceRevenue } from "@hvac-saas/types";
 import { formatCurrency } from "@/lib/format";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
+import { OTHER_COLOR, tokenColor } from "@/lib/constants/chart-palette";
 
 interface RevenueByServiceChartProps {
   data: DashboardServiceRevenue[];
 }
 
-// Brand-aligned palette for non-brand services. First bar always uses brand.
-const PALETTE = [
-  "hsl(var(--brand))",
-  "#fb923c",
-  "#fbbf24",
-  "#a78bfa",
-  "#60a5fa",
-  "#34d399",
-  "#f87171",
-  "#94a3b8",
-];
+// One series, so one hue. The bars used to take a different colour each, in
+// rank order, which spent the colour channel re-encoding what bar length and
+// the axis labels already say, and repainted a service whenever its rank
+// changed. The folded "Other" bar is neutral so it never reads as a service.
+const BAR_COLOR = tokenColor("chart-1");
 
 const MAX_VISIBLE = 6;
 
@@ -64,9 +59,9 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
         amount: rest.reduce((s, r) => s + r.amount, 0),
       });
     }
-    const withColor = visible.map((r, i) => ({
+    const withColor = visible.map((r) => ({
       ...r,
-      color: PALETTE[i % PALETTE.length]!,
+      color: r.serviceType === "other" ? OTHER_COLOR : BAR_COLOR,
     }));
     return {
       rows: withColor,
@@ -126,7 +121,7 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
                 cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
                 content={<ServiceTooltip total={total} />}
               />
-              <Bar dataKey="amount" radius={[0, 6, 6, 0]} maxBarSize={24}>
+              <Bar dataKey="amount" radius={[0, 4, 4, 0]} maxBarSize={24}>
                 {rows.map((r, i) => (
                   <Cell key={i} fill={r.color} />
                 ))}

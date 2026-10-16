@@ -12,12 +12,32 @@ import { z } from "zod";
 import { isoDateField, isoDateTimeField, userIdField, uuidField } from "./shared.js";
 
 /**
+ * Which trigger step a schedule event was fired FOR.
+ *
+ * Every other event is a broadcast: it describes something that happened and
+ * the matcher asks every listening automation whether it cares. A schedule is
+ * not something that happened — it is one trigger step's own alarm going off,
+ * decided by the clock reading THAT step's `atTime` and `weekday`. Broadcast,
+ * it was wrong twice over (ONB-06): every daily automation in the workspace
+ * ran at the time of whichever one fired first, because `atTime` is not a
+ * filter the matcher can evaluate; and the later ones never fired at all,
+ * because the outbox dedup key was per tenant per day and swallowed them.
+ *
+ * So the event names its step, and the matcher hands it to that step alone.
+ */
+const scheduleTarget = {
+  workflowId: uuidField,
+  triggerNodeId: z.string().min(1),
+};
+
+/**
  * P9. Fired at the configured local time in the **workflow's** zone, which is
  * not necessarily the tenant's — a tenant may run one automation on a
  * customer's schedule and another on their own.
  */
 export const scheduleDailyPayload = z
   .object({
+    ...scheduleTarget,
     /** The local calendar date that fired, in the workflow's zone. This is the
      *  dedup key's date component and the thing a message means by "today". */
     localDate: isoDateField,
@@ -29,6 +49,7 @@ export const scheduleDailyPayload = z
 /** P9. Same, keyed on ISO week so a restart cannot double-fire. */
 export const scheduleWeeklyPayload = z
   .object({
+    ...scheduleTarget,
     localDate: isoDateField,
     /** ISO-8601: `2026-W32`. Not "week of the month", which is ambiguous. */
     isoWeek: z

@@ -160,7 +160,7 @@ function AutomationEdgeComponent({
             }}
             aria-label="Insert a step here"
             title="Insert a step here"
-            className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            className="flex h-5 w-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <IconPlus className="h-3 w-3" />
           </button>

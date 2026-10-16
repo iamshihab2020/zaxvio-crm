@@ -73,6 +73,11 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen font-body antialiased">
+        {/* No MotionProvider here, on purpose (LAND-09). The booking portal,
+            quote page, auth pages and unsubscribe page import nothing from
+            `motion/react`, and a provider at the root put it into all of their
+            bundles anyway. It sits in the five route-group layouts that do
+            use motion instead; see components/motion-provider.tsx. */}
         <ThemeProvider>
           <QueryProvider>
             {children}

@@ -167,8 +167,8 @@ export function RevenueRangeChart({
               className={cn(
                 "rounded-full px-2 py-0.5 text-[11px] font-medium font-body",
                 isPositive
-                  ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                  : "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+                  ? "bg-status-good/10 text-status-good-ink"
+                  : "bg-status-critical/10 text-status-critical-ink",
               )}
             >
               {isPositive ? "+" : ""}

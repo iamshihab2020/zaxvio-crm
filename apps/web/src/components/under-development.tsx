@@ -50,11 +50,13 @@ export default function UnderDev() {
           In progress
         </span>
 
-        {/* Orbital icon */}
+        {/* Orbital icon. The rings used to spin forever (8s and 5s). This is a
+            placeholder, and a decorative loop on a resting screen is the motion
+            DESIGN.md rules out, so they stand still. */}
         <div className="relative flex h-36 w-36 items-center justify-center">
           {/* Outer ring */}
           <div
-            className="absolute inset-0 animate-spin rounded-full [animation-duration:8s]"
+            className="absolute inset-0 rounded-full"
             style={{ border: "1px solid hsl(var(--brand) / 0.3)" }}
           >
             <div
@@ -68,7 +70,7 @@ export default function UnderDev() {
 
           {/* Inner ring */}
           <div
-            className="absolute inset-4 animate-spin rounded-full [animation-direction:reverse] [animation-duration:5s]"
+            className="absolute inset-4 rounded-full"
             style={{ border: "1px solid hsl(var(--midnight-light) / 0.6)" }}
           >
             <div

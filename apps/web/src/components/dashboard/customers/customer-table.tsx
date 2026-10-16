@@ -216,7 +216,7 @@ export function CustomerTable({
               <TableCell>
                 <div className="flex items-center gap-2.5">
                   <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-brand-light text-brand text-xs font-heading">
+                    <AvatarFallback className="bg-brand-light text-brand-ink text-xs font-heading">
                       {getInitials(customer.firstName, customer.lastName)}
                     </AvatarFallback>
                   </Avatar>
@@ -232,7 +232,7 @@ export function CustomerTable({
                       href={`/customers/${customer.id}`}
                       onClick={(e) => e.stopPropagation()}
                       onFocus={() => prefetchCustomer(customer.id)}
-                      className="font-medium text-foreground hover:text-brand hover:underline focus-visible:underline focus-visible:outline-none"
+                      className="font-medium text-foreground hover:text-brand-ink hover:underline focus-visible:underline focus-visible:outline-none"
                     >
                       {customer.firstName} {customer.lastName}
                     </Link>

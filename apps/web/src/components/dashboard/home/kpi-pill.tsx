@@ -37,7 +37,6 @@ interface KpiPillProps {
   comparisonLabel?: string;
   trendInverted?: boolean;
   href?: string;
-  accent?: "brand" | "indigo" | "emerald" | "teal";
   /** Supporting line under the value, e.g. "5 unpaid invoices". */
   footnote?: string;
   footnoteTone?: "muted" | "danger";
@@ -63,33 +62,14 @@ function computeTrend(current: number, previous: number): Trend {
   return { kind: "pct", pct: Math.abs(pct), direction: pct > 0 ? "up" : "down" };
 }
 
-const ACCENT_STYLES: Record<
-  NonNullable<KpiPillProps["accent"]>,
-  { iconBg: string; iconColor: string; glow: string }
-> = {
-  brand: {
-    iconBg: "bg-brand/10",
-    iconColor: "text-brand",
-    glow: "hsl(var(--brand))",
-  },
-  indigo: {
-    iconBg: "bg-indigo-500/10",
-    iconColor: "text-indigo-500",
-    glow: "rgb(99 102 241)",
-  },
-  emerald: {
-    iconBg: "bg-emerald-500/10",
-    iconColor: "text-emerald-500",
-    glow: "rgb(16 185 129)",
-  },
-  // Keyed to the scheduled-work series token so the four pills and the Week
-  // Ahead strip draw from one set of hues rather than two.
-  teal: {
-    iconBg: "bg-[hsl(var(--series-booking)/0.12)]",
-    iconColor: "text-[hsl(var(--series-booking))]",
-    glow: "hsl(var(--series-booking))",
-  },
-};
+/*
+ * There is no per-card accent. The pills used to take four: booking-teal on
+ * "Active Customers" and event-indigo on "Quote Conversion" sat beside Week
+ * Ahead, where teal means a booking and indigo an event, and "Outstanding" (money
+ * owed) was green, which reads as good news. The icon is a decorative glyph next
+ * to the label, so it is Safety Orange on every card, and the blurred hover glow
+ * that existed to carry those accents is gone with them.
+ */
 
 export function KpiPill({
   label,
@@ -100,7 +80,6 @@ export function KpiPill({
   comparisonLabel = "vs last period",
   trendInverted = false,
   href,
-  accent = "brand",
   footnote,
   footnoteTone = "muted",
   windowLabel,
@@ -116,8 +95,6 @@ export function KpiPill({
         ? trend.direction === "down"
         : trend.direction === "up"
       : true;
-
-  const accentStyle = ACCENT_STYLES[accent];
 
   /**
    * One supporting line for every card, whatever it is made of. The trend's
@@ -148,29 +125,17 @@ export function KpiPill({
     <div
       aria-label={ariaLabel}
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all",
+        "relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all",
         href && "cursor-pointer hover:-translate-y-0.5 hover:border-foreground/20 hover:shadow-lg",
       )}
     >
-      {/* Subtle accent glow on hover */}
-      <div
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-0 blur-3xl transition-opacity group-hover:opacity-40"
-        style={{ background: accentStyle.glow }}
-        aria-hidden
-      />
-
       {/* Row 1 — icon and the chip. The label moves BELOW the value: a KPI card
           is read number-first, and putting the label above it makes the eye
           parse a caption before the thing it captions. */}
       <div className="relative flex items-start justify-between gap-3">
         {Icon ? (
-          <div
-            className={cn(
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
-              accentStyle.iconBg,
-            )}
-          >
-            <Icon className={cn("h-[18px] w-[18px]", accentStyle.iconColor)} aria-hidden />
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10">
+            <Icon className="h-[18px] w-[18px] text-brand" aria-hidden />
           </div>
         ) : (
           <span />
@@ -181,8 +146,8 @@ export function KpiPill({
             className={cn(
               "inline-flex shrink-0 items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium font-body",
               isPositive
-                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                : "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+                ? "bg-status-good/10 text-status-good-ink"
+                : "bg-status-critical/10 text-status-critical-ink",
             )}
           >
             {trend.direction === "up" ? (
@@ -193,7 +158,7 @@ export function KpiPill({
             {trend.pct}%
           </span>
         ) : trend.kind === "new" ? (
-          <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium font-body text-emerald-600 dark:text-emerald-400">
+          <span className="inline-flex shrink-0 items-center rounded-full bg-status-good/10 px-2 py-0.5 text-[11px] font-medium font-body text-status-good-ink">
             New
           </span>
         ) : windowLabel ? (
@@ -219,7 +184,7 @@ export function KpiPill({
             className={cn(
               "truncate text-[11px] font-body",
               footnoteTone === "danger"
-                ? "font-medium text-rose-600 dark:text-rose-400"
+                ? "font-medium text-status-critical-ink"
                 : "text-muted-foreground",
             )}
           >

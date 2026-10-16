@@ -261,7 +261,6 @@ export function DashboardPageClient({
               <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiPill
                   icon={IconBriefcase}
-                  accent="brand"
                   label="Jobs Today"
                   value={String(kpis.jobsToday.count)}
                   currentValue={kpis.jobsToday.count}
@@ -277,7 +276,6 @@ export function DashboardPageClient({
                 />
                 <KpiPill
                   icon={IconCashBanknote}
-                  accent="emerald"
                   label="Outstanding"
                   value={formatCurrency(kpis.outstandingBalance.amount)}
                   windowLabel="All open"
@@ -288,7 +286,6 @@ export function DashboardPageClient({
                 />
                 <KpiPill
                   icon={IconTrendingUp}
-                  accent="indigo"
                   label="Quote Conversion"
                   value={`${stats.quoteSummary.conversionRate}%`}
                   href="/quotes"
@@ -299,7 +296,6 @@ export function DashboardPageClient({
                     book of business rather than this week's work. */}
                 <KpiPill
                   icon={IconUsers}
-                  accent="teal"
                   label="Active Customers"
                   value={String(kpis.activeCustomers.count)}
                   windowLabel="Last 90 days"

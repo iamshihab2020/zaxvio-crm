@@ -92,7 +92,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
       <form onSubmit={handleSave} className="space-y-4">
         {/* Avatar */}
         <div className="flex items-center gap-4">
-          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand/20 bg-brand/10 text-brand font-heading text-2xl font-bold">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand/20 bg-brand/10 text-brand-ink font-heading text-2xl font-bold">
             {initials}
           </div>
           <div>

@@ -117,7 +117,7 @@ export function Navbar() {
               className="gap-2 px-2 rounded-lg"
             >
               <Avatar className="h-7 w-7">
-                <AvatarFallback className="bg-brand text-[10px] font-bold text-white">
+                <AvatarFallback className="bg-brand text-[10px] font-bold text-brand-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>

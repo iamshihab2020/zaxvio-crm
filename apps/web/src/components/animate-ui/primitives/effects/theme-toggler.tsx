@@ -91,7 +91,14 @@ function ThemeToggler({
         return;
       }
 
-      if (!document.startViewTransition) {
+      // The 700ms full-viewport clip-path wipe below is the largest motion in
+      // the app and runs on demand. Under reduced motion the theme simply
+      // changes, which is the state change the reader asked for (LAND-07).
+      const reduceMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)',
+      ).matches;
+
+      if (!document.startViewTransition || reduceMotion) {
         flushSync(() => {
           setPreview({ effective: theme, resolved });
         });

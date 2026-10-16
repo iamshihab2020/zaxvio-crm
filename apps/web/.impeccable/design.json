@@ -1,0 +1,1012 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-16T10:30:02.200Z",
+  "title": "Design System: Zaxvio CRM",
+  "extensions": {
+    "colorMeta": {
+      "safety-orange": {
+        "role": "primary",
+        "displayName": "Safety Orange",
+        "canonical": "hsl(24 95% 53%)",
+        "tonalRamp": [
+          "hsl(24 95% 15%)",
+          "hsl(24 95% 25%)",
+          "hsl(24 95% 35%)",
+          "hsl(24 95% 45%)",
+          "hsl(24 95% 55%)",
+          "hsl(24 95% 65%)",
+          "hsl(24 95% 80%)",
+          "hsl(24 95% 95%)"
+        ]
+      },
+      "safety-orange-tint": {
+        "role": "primary",
+        "displayName": "Safety Orange Tint",
+        "canonical": "hsl(24 100% 96%)",
+        "tonalRamp": [
+          "hsl(24 100% 15%)",
+          "hsl(24 100% 25%)",
+          "hsl(24 100% 35%)",
+          "hsl(24 100% 45%)",
+          "hsl(24 100% 55%)",
+          "hsl(24 100% 65%)",
+          "hsl(24 100% 80%)",
+          "hsl(24 100% 95%)"
+        ]
+      },
+      "orange-wash": {
+        "role": "primary",
+        "displayName": "Orange Wash",
+        "canonical": "hsl(24 100% 95%)",
+        "tonalRamp": [
+          "hsl(24 100% 15%)",
+          "hsl(24 100% 25%)",
+          "hsl(24 100% 35%)",
+          "hsl(24 100% 45%)",
+          "hsl(24 100% 55%)",
+          "hsl(24 100% 65%)",
+          "hsl(24 100% 80%)",
+          "hsl(24 100% 95%)"
+        ]
+      },
+      "orange-deep": {
+        "role": "primary",
+        "displayName": "Orange Deep",
+        "canonical": "hsl(24 90% 30%)",
+        "tonalRamp": [
+          "hsl(24 90% 15%)",
+          "hsl(24 90% 25%)",
+          "hsl(24 90% 35%)",
+          "hsl(24 90% 45%)",
+          "hsl(24 90% 55%)",
+          "hsl(24 90% 65%)",
+          "hsl(24 90% 80%)",
+          "hsl(24 90% 95%)"
+        ]
+      },
+      "work-order-paper": {
+        "role": "neutral",
+        "displayName": "Work Order Paper",
+        "canonical": "hsl(32 24% 98%)",
+        "tonalRamp": [
+          "hsl(32 24% 15%)",
+          "hsl(32 24% 25%)",
+          "hsl(32 24% 35%)",
+          "hsl(32 24% 45%)",
+          "hsl(32 24% 55%)",
+          "hsl(32 24% 65%)",
+          "hsl(32 24% 80%)",
+          "hsl(32 24% 95%)"
+        ]
+      },
+      "second-sheet": {
+        "role": "neutral",
+        "displayName": "Second Sheet",
+        "canonical": "hsl(32 18% 95%)",
+        "tonalRamp": [
+          "hsl(32 18% 15%)",
+          "hsl(32 18% 25%)",
+          "hsl(32 18% 35%)",
+          "hsl(32 18% 45%)",
+          "hsl(32 18% 55%)",
+          "hsl(32 18% 65%)",
+          "hsl(32 18% 80%)",
+          "hsl(32 18% 95%)"
+        ]
+      },
+      "card-white": {
+        "role": "neutral",
+        "displayName": "Card White",
+        "canonical": "hsl(0 0% 100%)",
+        "tonalRamp": [
+          "hsl(32 24% 15%)",
+          "hsl(32 24% 25%)",
+          "hsl(32 24% 35%)",
+          "hsl(32 24% 45%)",
+          "hsl(32 24% 55%)",
+          "hsl(32 24% 65%)",
+          "hsl(32 24% 80%)",
+          "hsl(32 24% 95%)"
+        ]
+      },
+      "carbon-ink": {
+        "role": "neutral",
+        "displayName": "Carbon Ink",
+        "canonical": "hsl(25 20% 12%)",
+        "tonalRamp": [
+          "hsl(25 20% 15%)",
+          "hsl(25 20% 25%)",
+          "hsl(25 20% 35%)",
+          "hsl(25 20% 45%)",
+          "hsl(25 20% 55%)",
+          "hsl(25 20% 65%)",
+          "hsl(25 20% 80%)",
+          "hsl(25 20% 95%)"
+        ]
+      },
+      "pencil": {
+        "role": "neutral",
+        "displayName": "Pencil",
+        "canonical": "hsl(28 8% 42%)",
+        "tonalRamp": [
+          "hsl(28 8% 15%)",
+          "hsl(28 8% 25%)",
+          "hsl(28 8% 35%)",
+          "hsl(28 8% 45%)",
+          "hsl(28 8% 55%)",
+          "hsl(28 8% 65%)",
+          "hsl(28 8% 80%)",
+          "hsl(28 8% 95%)"
+        ]
+      },
+      "rule-line": {
+        "role": "neutral",
+        "displayName": "Rule Line",
+        "canonical": "hsl(30 14% 89%)",
+        "tonalRamp": [
+          "hsl(30 14% 15%)",
+          "hsl(30 14% 25%)",
+          "hsl(30 14% 35%)",
+          "hsl(30 14% 45%)",
+          "hsl(30 14% 55%)",
+          "hsl(30 14% 65%)",
+          "hsl(30 14% 80%)",
+          "hsl(30 14% 95%)"
+        ]
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "Field Line",
+        "canonical": "hsl(30 12% 80%)",
+        "tonalRamp": [
+          "hsl(30 12% 15%)",
+          "hsl(30 12% 25%)",
+          "hsl(30 12% 35%)",
+          "hsl(30 12% 45%)",
+          "hsl(30 12% 55%)",
+          "hsl(30 12% 65%)",
+          "hsl(30 12% 80%)",
+          "hsl(30 12% 95%)"
+        ]
+      },
+      "night-shift": {
+        "role": "neutral",
+        "displayName": "Night Shift",
+        "canonical": "hsl(25 14% 9%)",
+        "tonalRamp": [
+          "hsl(25 14% 15%)",
+          "hsl(25 14% 25%)",
+          "hsl(25 14% 35%)",
+          "hsl(25 14% 45%)",
+          "hsl(25 14% 55%)",
+          "hsl(25 14% 65%)",
+          "hsl(25 14% 80%)",
+          "hsl(25 14% 95%)"
+        ]
+      },
+      "night-shift-raised": {
+        "role": "neutral",
+        "displayName": "Night Shift Raised",
+        "canonical": "hsl(25 12% 14%)",
+        "tonalRamp": [
+          "hsl(25 12% 15%)",
+          "hsl(25 12% 25%)",
+          "hsl(25 12% 35%)",
+          "hsl(25 12% 45%)",
+          "hsl(25 12% 55%)",
+          "hsl(25 12% 65%)",
+          "hsl(25 12% 80%)",
+          "hsl(25 12% 95%)"
+        ]
+      },
+      "night-shift-text": {
+        "role": "neutral",
+        "displayName": "Night Shift Text",
+        "canonical": "hsl(30 20% 94%)",
+        "tonalRamp": [
+          "hsl(30 20% 15%)",
+          "hsl(30 20% 25%)",
+          "hsl(30 20% 35%)",
+          "hsl(30 20% 45%)",
+          "hsl(30 20% 55%)",
+          "hsl(30 20% 65%)",
+          "hsl(30 20% 80%)",
+          "hsl(30 20% 95%)"
+        ]
+      },
+      "stop-red": {
+        "role": "semantic",
+        "displayName": "Stop Red",
+        "canonical": "hsl(0 78% 51%)",
+        "tonalRamp": [
+          "hsl(0 78% 15%)",
+          "hsl(0 78% 25%)",
+          "hsl(0 78% 35%)",
+          "hsl(0 78% 45%)",
+          "hsl(0 78% 55%)",
+          "hsl(0 78% 65%)",
+          "hsl(0 78% 80%)",
+          "hsl(0 78% 95%)"
+        ]
+      },
+      "booking-teal": {
+        "role": "data",
+        "displayName": "Booking Teal",
+        "canonical": "hsl(175 77% 32%)",
+        "tonalRamp": [
+          "hsl(175 77% 15%)",
+          "hsl(175 77% 25%)",
+          "hsl(175 77% 35%)",
+          "hsl(175 77% 45%)",
+          "hsl(175 77% 55%)",
+          "hsl(175 77% 65%)",
+          "hsl(175 77% 80%)",
+          "hsl(175 77% 95%)"
+        ]
+      },
+      "event-indigo": {
+        "role": "data",
+        "displayName": "Event Indigo",
+        "canonical": "hsl(243 75% 59%)",
+        "tonalRamp": [
+          "hsl(243 75% 15%)",
+          "hsl(243 75% 25%)",
+          "hsl(243 75% 35%)",
+          "hsl(243 75% 45%)",
+          "hsl(243 75% 55%)",
+          "hsl(243 75% 65%)",
+          "hsl(243 75% 80%)",
+          "hsl(243 75% 95%)"
+        ]
+      },
+      "chart-teal": {
+        "role": "data",
+        "displayName": "Chart Teal",
+        "canonical": "hsl(173 58% 39%)",
+        "tonalRamp": [
+          "hsl(173 58% 15%)",
+          "hsl(173 58% 25%)",
+          "hsl(173 58% 35%)",
+          "hsl(173 58% 45%)",
+          "hsl(173 58% 55%)",
+          "hsl(173 58% 65%)",
+          "hsl(173 58% 80%)",
+          "hsl(173 58% 95%)"
+        ]
+      },
+      "chart-rust": {
+        "role": "data",
+        "displayName": "Chart Rust",
+        "canonical": "hsl(18 62% 38%)",
+        "tonalRamp": [
+          "hsl(18 62% 15%)",
+          "hsl(18 62% 25%)",
+          "hsl(18 62% 35%)",
+          "hsl(18 62% 45%)",
+          "hsl(18 62% 55%)",
+          "hsl(18 62% 65%)",
+          "hsl(18 62% 80%)",
+          "hsl(18 62% 95%)"
+        ]
+      },
+      "chart-blue": {
+        "role": "data",
+        "displayName": "Chart Blue",
+        "canonical": "hsl(212 70% 48%)",
+        "tonalRamp": [
+          "hsl(212 70% 15%)",
+          "hsl(212 70% 25%)",
+          "hsl(212 70% 35%)",
+          "hsl(212 70% 45%)",
+          "hsl(212 70% 55%)",
+          "hsl(212 70% 65%)",
+          "hsl(212 70% 80%)",
+          "hsl(212 70% 95%)"
+        ]
+      },
+      "chart-green": {
+        "role": "data",
+        "displayName": "Chart Green",
+        "canonical": "hsl(142 65% 40%)",
+        "tonalRamp": [
+          "hsl(142 65% 15%)",
+          "hsl(142 65% 25%)",
+          "hsl(142 65% 35%)",
+          "hsl(142 65% 45%)",
+          "hsl(142 65% 55%)",
+          "hsl(142 65% 65%)",
+          "hsl(142 65% 80%)",
+          "hsl(142 65% 95%)"
+        ]
+      },
+      "status-good": {
+        "role": "semantic",
+        "displayName": "Status Good",
+        "canonical": "hsl(152 62% 36%)",
+        "tonalRamp": [
+          "hsl(152 62% 15%)",
+          "hsl(152 62% 25%)",
+          "hsl(152 62% 35%)",
+          "hsl(152 62% 45%)",
+          "hsl(152 62% 55%)",
+          "hsl(152 62% 65%)",
+          "hsl(152 62% 80%)",
+          "hsl(152 62% 95%)"
+        ]
+      },
+      "status-warning": {
+        "role": "semantic",
+        "displayName": "Status Warning",
+        "canonical": "hsl(40 95% 48%)",
+        "tonalRamp": [
+          "hsl(40 95% 15%)",
+          "hsl(40 95% 25%)",
+          "hsl(40 95% 35%)",
+          "hsl(40 95% 45%)",
+          "hsl(40 95% 55%)",
+          "hsl(40 95% 65%)",
+          "hsl(40 95% 80%)",
+          "hsl(40 95% 95%)"
+        ]
+      },
+      "status-critical": {
+        "role": "semantic",
+        "displayName": "Status Critical",
+        "canonical": "hsl(0 72% 48%)",
+        "tonalRamp": [
+          "hsl(0 72% 15%)",
+          "hsl(0 72% 25%)",
+          "hsl(0 72% 35%)",
+          "hsl(0 72% 45%)",
+          "hsl(0 72% 55%)",
+          "hsl(0 72% 65%)",
+          "hsl(0 72% 80%)",
+          "hsl(0 72% 95%)"
+        ]
+      },
+      "status-good-ink": {
+        "role": "semantic",
+        "displayName": "Status Good Ink",
+        "canonical": "hsl(152 70% 27%)",
+        "tonalRamp": [
+          "hsl(152 70% 15%)",
+          "hsl(152 70% 25%)",
+          "hsl(152 70% 35%)",
+          "hsl(152 70% 45%)",
+          "hsl(152 70% 55%)",
+          "hsl(152 70% 65%)",
+          "hsl(152 70% 80%)",
+          "hsl(152 70% 95%)"
+        ]
+      },
+      "status-critical-ink": {
+        "role": "semantic",
+        "displayName": "Status Critical Ink",
+        "canonical": "hsl(0 72% 40%)",
+        "tonalRamp": [
+          "hsl(0 72% 15%)",
+          "hsl(0 72% 25%)",
+          "hsl(0 72% 35%)",
+          "hsl(0 72% 45%)",
+          "hsl(0 72% 55%)",
+          "hsl(0 72% 65%)",
+          "hsl(0 72% 80%)",
+          "hsl(0 72% 95%)"
+        ]
+      },
+      "overdue-1": {
+        "role": "data",
+        "displayName": "Overdue 1",
+        "canonical": "hsl(4 80% 66%)",
+        "tonalRamp": [
+          "hsl(4 80% 15%)",
+          "hsl(4 80% 25%)",
+          "hsl(4 80% 35%)",
+          "hsl(4 80% 45%)",
+          "hsl(4 80% 55%)",
+          "hsl(4 80% 65%)",
+          "hsl(4 80% 80%)",
+          "hsl(4 80% 95%)"
+        ]
+      },
+      "overdue-2": {
+        "role": "data",
+        "displayName": "Overdue 2",
+        "canonical": "hsl(2 75% 55%)",
+        "tonalRamp": [
+          "hsl(2 75% 15%)",
+          "hsl(2 75% 25%)",
+          "hsl(2 75% 35%)",
+          "hsl(2 75% 45%)",
+          "hsl(2 75% 55%)",
+          "hsl(2 75% 65%)",
+          "hsl(2 75% 80%)",
+          "hsl(2 75% 95%)"
+        ]
+      },
+      "overdue-3": {
+        "role": "data",
+        "displayName": "Overdue 3",
+        "canonical": "hsl(0 72% 45%)",
+        "tonalRamp": [
+          "hsl(0 72% 15%)",
+          "hsl(0 72% 25%)",
+          "hsl(0 72% 35%)",
+          "hsl(0 72% 45%)",
+          "hsl(0 72% 55%)",
+          "hsl(0 72% 65%)",
+          "hsl(0 72% 80%)",
+          "hsl(0 72% 95%)"
+        ]
+      },
+      "overdue-4": {
+        "role": "data",
+        "displayName": "Overdue 4",
+        "canonical": "hsl(358 75% 34%)",
+        "tonalRamp": [
+          "hsl(358 75% 15%)",
+          "hsl(358 75% 25%)",
+          "hsl(358 75% 35%)",
+          "hsl(358 75% 45%)",
+          "hsl(358 75% 55%)",
+          "hsl(358 75% 65%)",
+          "hsl(358 75% 80%)",
+          "hsl(358 75% 95%)"
+        ]
+      },
+      "admin-red": {
+        "role": "semantic",
+        "displayName": "Admin Red",
+        "canonical": "hsl(0 72% 51%)",
+        "tonalRamp": [
+          "hsl(0 72% 15%)",
+          "hsl(0 72% 25%)",
+          "hsl(0 72% 35%)",
+          "hsl(0 72% 45%)",
+          "hsl(0 72% 55%)",
+          "hsl(0 72% 65%)",
+          "hsl(0 72% 80%)",
+          "hsl(0 72% 95%)"
+        ]
+      },
+      "admin-sidebar": {
+        "role": "semantic",
+        "displayName": "Admin Sidebar",
+        "canonical": "hsl(0 55% 14%)",
+        "tonalRamp": [
+          "hsl(0 55% 15%)",
+          "hsl(0 55% 25%)",
+          "hsl(0 55% 35%)",
+          "hsl(0 55% 45%)",
+          "hsl(0 55% 55%)",
+          "hsl(0 55% 65%)",
+          "hsl(0 55% 80%)",
+          "hsl(0 55% 95%)"
+        ]
+      },
+      "safety-orange-dark": {
+        "role": "primary",
+        "displayName": "Safety Orange (dark)",
+        "canonical": "hsl(24 95% 56%)",
+        "tonalRamp": [
+          "hsl(24 95% 15%)",
+          "hsl(24 95% 25%)",
+          "hsl(24 95% 35%)",
+          "hsl(24 95% 45%)",
+          "hsl(24 95% 55%)",
+          "hsl(24 95% 65%)",
+          "hsl(24 95% 80%)",
+          "hsl(24 95% 95%)"
+        ]
+      },
+      "orange-wash-dark": {
+        "role": "primary",
+        "displayName": "Orange Wash (dark)",
+        "canonical": "hsl(24 40% 16%)",
+        "tonalRamp": [
+          "hsl(24 40% 15%)",
+          "hsl(24 40% 25%)",
+          "hsl(24 40% 35%)",
+          "hsl(24 40% 45%)",
+          "hsl(24 40% 55%)",
+          "hsl(24 40% 65%)",
+          "hsl(24 40% 80%)",
+          "hsl(24 40% 95%)"
+        ]
+      },
+      "orange-wash-text-dark": {
+        "role": "primary",
+        "displayName": "Orange Wash Text (dark)",
+        "canonical": "hsl(24 90% 82%)",
+        "tonalRamp": [
+          "hsl(24 90% 15%)",
+          "hsl(24 90% 25%)",
+          "hsl(24 90% 35%)",
+          "hsl(24 90% 45%)",
+          "hsl(24 90% 55%)",
+          "hsl(24 90% 65%)",
+          "hsl(24 90% 80%)",
+          "hsl(24 90% 95%)"
+        ]
+      },
+      "background-dark": {
+        "role": "neutral",
+        "displayName": "Background (dark)",
+        "canonical": "hsl(25 12% 6%)",
+        "tonalRamp": [
+          "hsl(25 12% 15%)",
+          "hsl(25 12% 25%)",
+          "hsl(25 12% 35%)",
+          "hsl(25 12% 45%)",
+          "hsl(25 12% 55%)",
+          "hsl(25 12% 65%)",
+          "hsl(25 12% 80%)",
+          "hsl(25 12% 95%)"
+        ]
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Surface (dark)",
+        "canonical": "hsl(25 12% 7%)",
+        "tonalRamp": [
+          "hsl(25 12% 15%)",
+          "hsl(25 12% 25%)",
+          "hsl(25 12% 35%)",
+          "hsl(25 12% 45%)",
+          "hsl(25 12% 55%)",
+          "hsl(25 12% 65%)",
+          "hsl(25 12% 80%)",
+          "hsl(25 12% 95%)"
+        ]
+      },
+      "second-sheet-dark": {
+        "role": "neutral",
+        "displayName": "Second Sheet (dark)",
+        "canonical": "hsl(25 11% 10%)",
+        "tonalRamp": [
+          "hsl(25 11% 15%)",
+          "hsl(25 11% 25%)",
+          "hsl(25 11% 35%)",
+          "hsl(25 11% 45%)",
+          "hsl(25 11% 55%)",
+          "hsl(25 11% 65%)",
+          "hsl(25 11% 80%)",
+          "hsl(25 11% 95%)"
+        ]
+      },
+      "card-dark": {
+        "role": "neutral",
+        "displayName": "Card (dark)",
+        "canonical": "hsl(25 10% 13%)",
+        "tonalRamp": [
+          "hsl(25 10% 15%)",
+          "hsl(25 10% 25%)",
+          "hsl(25 10% 35%)",
+          "hsl(25 10% 45%)",
+          "hsl(25 10% 55%)",
+          "hsl(25 10% 65%)",
+          "hsl(25 10% 80%)",
+          "hsl(25 10% 95%)"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Ink (dark)",
+        "canonical": "hsl(30 20% 94%)",
+        "tonalRamp": [
+          "hsl(30 20% 15%)",
+          "hsl(30 20% 25%)",
+          "hsl(30 20% 35%)",
+          "hsl(30 20% 45%)",
+          "hsl(30 20% 55%)",
+          "hsl(30 20% 65%)",
+          "hsl(30 20% 80%)",
+          "hsl(30 20% 95%)"
+        ]
+      },
+      "pencil-dark": {
+        "role": "neutral",
+        "displayName": "Pencil (dark)",
+        "canonical": "hsl(28 8% 64%)",
+        "tonalRamp": [
+          "hsl(28 8% 15%)",
+          "hsl(28 8% 25%)",
+          "hsl(28 8% 35%)",
+          "hsl(28 8% 45%)",
+          "hsl(28 8% 55%)",
+          "hsl(28 8% 65%)",
+          "hsl(28 8% 80%)",
+          "hsl(28 8% 95%)"
+        ]
+      },
+      "rule-line-dark": {
+        "role": "neutral",
+        "displayName": "Rule Line (dark)",
+        "canonical": "hsl(25 9% 19%)",
+        "tonalRamp": [
+          "hsl(25 9% 15%)",
+          "hsl(25 9% 25%)",
+          "hsl(25 9% 35%)",
+          "hsl(25 9% 45%)",
+          "hsl(25 9% 55%)",
+          "hsl(25 9% 65%)",
+          "hsl(25 9% 80%)",
+          "hsl(25 9% 95%)"
+        ]
+      },
+      "field-line-dark": {
+        "role": "neutral",
+        "displayName": "Field Line (dark)",
+        "canonical": "hsl(25 9% 24%)",
+        "tonalRamp": [
+          "hsl(25 9% 15%)",
+          "hsl(25 9% 25%)",
+          "hsl(25 9% 35%)",
+          "hsl(25 9% 45%)",
+          "hsl(25 9% 55%)",
+          "hsl(25 9% 65%)",
+          "hsl(25 9% 80%)",
+          "hsl(25 9% 95%)"
+        ]
+      },
+      "night-shift-dark": {
+        "role": "neutral",
+        "displayName": "Night Shift (dark)",
+        "canonical": "hsl(25 13% 10%)",
+        "tonalRamp": [
+          "hsl(25 13% 15%)",
+          "hsl(25 13% 25%)",
+          "hsl(25 13% 35%)",
+          "hsl(25 13% 45%)",
+          "hsl(25 13% 55%)",
+          "hsl(25 13% 65%)",
+          "hsl(25 13% 80%)",
+          "hsl(25 13% 95%)"
+        ]
+      },
+      "stop-red-dark": {
+        "role": "semantic",
+        "displayName": "Stop Red (dark)",
+        "canonical": "hsl(0 62% 42%)",
+        "tonalRamp": [
+          "hsl(0 62% 15%)",
+          "hsl(0 62% 25%)",
+          "hsl(0 62% 35%)",
+          "hsl(0 62% 45%)",
+          "hsl(0 62% 55%)",
+          "hsl(0 62% 65%)",
+          "hsl(0 62% 80%)",
+          "hsl(0 62% 95%)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The landing page <h1> only; steps 2.5rem → 3rem → 3.75rem."
+      },
+      "display-phone": {
+        "displayName": "Display (phone)",
+        "purpose": "The 2.5rem step of the landing <h1> below sm."
+      },
+      "section": {
+        "displayName": "Section",
+        "purpose": "Landing section headings, 1.75rem → 2.25rem at sm."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Dashboard page titles."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles, the navbar page name, empty-state headings."
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Headings inside cards and panels; the most-used heading size."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The app's default text, controls and table cells."
+      },
+      "body-lead": {
+        "displayName": "Body Lead",
+        "purpose": "Landing page ledes, max-w-xl."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Uppercase sidebar group headers and section labels."
+      },
+      "eyebrow": {
+        "displayName": "Eyebrow",
+        "purpose": "Mono uppercase kickers on the landing page and the day sheet's date field."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Times, money, counts and IDs, with tabular figures (.tnum)."
+      },
+      "data-dense": {
+        "displayName": "Data (dense)",
+        "purpose": "10–11px tabular mono inside job cards and the day sheet."
+      }
+    },
+    "shadows": [
+      {
+        "name": "resting-card",
+        "value": "0 1px 2px 0 rgb(0 0 0 / 0.05)",
+        "purpose": "Cards, stats cards, detail panels, outline and secondary buttons."
+      },
+      {
+        "name": "button",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "The filled primary button."
+      },
+      {
+        "name": "grab-glow",
+        "value": "0 6px 24px 0 hsl(var(--brand) / 0.25)",
+        "purpose": "Job card hover (0.35 in dark). Only on things you can pick up."
+      },
+      {
+        "name": "lifted",
+        "value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
+        "purpose": "A dragged job card, with a 2px orange ring at 30%, 2° tilt, 1.03 scale."
+      },
+      {
+        "name": "showcase",
+        "value": "0 20px 25px -5px hsl(var(--ink) / 0.05), 0 8px 10px -6px hsl(var(--ink) / 0.05)",
+        "purpose": "The landing day sheet only."
+      },
+      {
+        "name": "emergency-pulse",
+        "value": "0 0 0 4px rgba(239, 68, 68, 0.15)",
+        "purpose": "Peak of the 2s emergency-priority pulse."
+      }
+    ],
+    "motion": [
+      {
+        "name": "reveal",
+        "value": "550ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Landing scroll reveal: 14px rise and fade, scoped to html.js."
+      },
+      {
+        "name": "card-enter",
+        "value": "300ms ease-out",
+        "purpose": "Kanban cards rise 8px in, staggered via --enter-delay."
+      },
+      {
+        "name": "node-enter",
+        "value": "180ms cubic-bezier(0.2, 0, 0.13, 1.4)",
+        "purpose": "An automation step arriving on the canvas, scaling from 0.92."
+      },
+      {
+        "name": "panel-item",
+        "value": "220ms ease-out",
+        "purpose": "Palette rows and config fields slide 6px along the panel's axis."
+      },
+      {
+        "name": "filter-pill",
+        "value": "300ms ease-in-out",
+        "purpose": "The active filter pill sliding between options."
+      },
+      {
+        "name": "sidebar",
+        "value": "300ms ease-in-out",
+        "purpose": "Sidebar width between 224px and 64px."
+      },
+      {
+        "name": "state-color",
+        "value": "200ms ease",
+        "purpose": "Hover and active colour changes on nav items and tabs."
+      },
+      {
+        "name": "placeholder-breathe",
+        "value": "3.2s ease-in-out infinite",
+        "purpose": "The empty automation canvas's trigger placeholder; a breath, not a pulse."
+      },
+      {
+        "name": "pulse-emergency",
+        "value": "2s ease-in-out infinite",
+        "purpose": "Emergency-priority indicators only."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      },
+      {
+        "name": "2xl",
+        "value": "1536px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one next action on a screen: New job, Save, Send quote.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M12 5v14\"/><path d=\"M5 12h14\"/></svg>New job</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 8px 16px; border: 0; border-radius: 6px; background: hsl(var(--brand, 24 95% 53%)); color: hsl(var(--brand-foreground, 25 20% 12%)); font: 500 14px/20px var(--font-body, 'DM Sans'), sans-serif; box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1); cursor: pointer; transition: background-color 150ms ease; } .ds-btn-primary:hover { background: hsl(var(--brand, 24 95% 53%) / 0.9); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring, 24 90% 30%)); } .ds-btn-primary:active { background: hsl(var(--brand, 24 95% 53%) / 0.85); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions beside a primary one: Cancel, Export, Filters.",
+      "html": "<button class=\"ds-btn-outline\">Export CSV</button>",
+      "css": ".ds-btn-outline { display: inline-flex; align-items: center; gap: 8px; height: 36px; padding: 8px 16px; border: 1px solid hsl(var(--input, 30 12% 80%)); border-radius: 6px; background: hsl(var(--background, 32 24% 98%)); color: hsl(var(--ink, 25 20% 12%)); font: 500 14px/20px var(--font-body, 'DM Sans'), sans-serif; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: pointer; transition: background-color 150ms ease, color 150ms ease; } .ds-btn-outline:hover { background: hsl(var(--accent, 24 100% 95%)); color: hsl(var(--accent-foreground, 24 90% 30%)); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring, 24 90% 30%)); }"
+    },
+    {
+      "name": "Ghost Icon Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Row actions and toolbar icons; invisible until hovered.",
+      "html": "<button class=\"ds-btn-ghost\" aria-label=\"Row actions\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"5\" cy=\"12\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"19\" cy=\"12\" r=\"1\"/></svg></button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 6px; background: transparent; color: hsl(var(--ink, 25 20% 12%)); cursor: pointer; transition: background-color 150ms ease, color 150ms ease; } .ds-btn-ghost:hover { background: hsl(var(--accent, 24 100% 95%)); color: hsl(var(--accent-foreground, 24 90% 30%)); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring, 24 90% 30%)); }"
+    },
+    {
+      "name": "Search Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "The search field on the right of every list's single toolbar row.",
+      "html": "<label class=\"ds-search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"10\" cy=\"10\" r=\"7\"/><path d=\"M21 21l-6-6\"/></svg><input class=\"ds-input\" type=\"search\" placeholder=\"Search customers…\" /></label>",
+      "css": ".ds-search { position: relative; display: inline-flex; align-items: center; width: 260px; color: hsl(var(--muted-foreground, 28 8% 42%)); } .ds-search svg { position: absolute; left: 12px; pointer-events: none; } .ds-input { width: 100%; height: 40px; padding: 8px 12px 8px 36px; border: 1px solid hsl(var(--input, 30 12% 80%)); border-radius: 6px; background: hsl(var(--background, 32 24% 98%)); color: hsl(var(--ink, 25 20% 12%)); font: 400 14px/20px var(--font-body, 'DM Sans'), sans-serif; transition: box-shadow 150ms ease; } .ds-input::placeholder { color: hsl(var(--muted-foreground, 28 8% 42%)); } .ds-input:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--background, 32 24% 98%)), 0 0 0 4px hsl(var(--ring, 24 90% 30%)); }"
+    },
+    {
+      "name": "Sidebar Navigation",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "The dashboard's left rail: Label group header, 40px items, active item in orange on its tint.",
+      "html": "<nav class=\"ds-nav\"><p class=\"ds-nav-label\">Work</p><a class=\"ds-nav-item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M5 12H3l9-9 9 9h-2\"/><path d=\"M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7\"/></svg>Dashboard</a><a class=\"ds-nav-item is-active\" href=\"#\" aria-current=\"page\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"3\" y=\"7\" width=\"18\" height=\"13\" rx=\"2\"/><path d=\"M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/></svg>Jobs</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"9\" cy=\"7\" r=\"4\"/><path d=\"M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2\"/></svg>Customers</a><a class=\"ds-nav-item\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><rect x=\"4\" y=\"5\" width=\"16\" height=\"16\" rx=\"2\"/><path d=\"M16 3v4\"/><path d=\"M8 3v4\"/><path d=\"M4 11h16\"/></svg>Schedule</a></nav>",
+      "css": ".ds-nav { display: flex; flex-direction: column; gap: 2px; width: 224px; padding: 12px; background: hsl(var(--card, 0 0% 100%)); border-right: 1px solid hsl(var(--border, 30 14% 89%)); } .ds-nav-label { margin: 0 0 4px; padding: 4px 12px; font: 600 11px/1 var(--font-heading, 'Space Grotesk'), sans-serif; letter-spacing: 0.05em; text-transform: uppercase; color: hsl(var(--muted-foreground, 28 8% 42%)); } .ds-nav-item { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 6px; color: hsl(var(--muted-foreground, 28 8% 42%)); font: 500 14px/20px var(--font-body, 'DM Sans'), sans-serif; text-decoration: none; transition: color 200ms ease, background-color 200ms ease; } .ds-nav-item:hover { color: hsl(var(--brand-ink, 24 90% 30%)); background: hsl(var(--brand-light, 24 100% 96%) / 0.5); } .ds-nav-item.is-active { color: hsl(var(--brand-ink, 24 90% 30%)); background: hsl(var(--brand-light, 24 100% 96%)); } .ds-nav-item:focus-visible { outline: none; box-shadow: 0 0 0 1px hsl(var(--ring, 24 90% 30%)); }"
+    },
+    {
+      "name": "Status Filter Tabs",
+      "kind": "chip",
+      "refersTo": "filter-tabs",
+      "description": "Pill tabs on the left of a list's toolbar row; the orange pill marks the active filter.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab is-active\" role=\"tab\" aria-selected=\"true\">All</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">Draft</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">Sent</button><button class=\"ds-tab\" role=\"tab\" aria-selected=\"false\">Overdue</button></div>",
+      "css": ".ds-tabs { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 9999px; background: hsl(var(--muted, 32 18% 95%) / 0.6); } .ds-tab { height: auto; padding: 4px 12px; border: 0; border-radius: 9999px; background: transparent; color: hsl(var(--muted-foreground, 28 8% 42%)); font: 500 12px/16px var(--font-body, 'DM Sans'), sans-serif; cursor: pointer; transition: color 200ms ease, background-color 300ms ease-in-out; } .ds-tab:hover { color: hsl(var(--ink, 25 20% 12%)); } .ds-tab.is-active { background: hsl(var(--brand, 24 95% 53%)); color: hsl(var(--brand-foreground, 25 20% 12%)); } .ds-tab:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring, 24 90% 30%)); }"
+    },
+    {
+      "name": "Status and Priority Pills",
+      "kind": "chip",
+      "refersTo": "badge-brand",
+      "description": "Full-round pills carry state: brand badge, outline badge, and the three job priorities.",
+      "html": "<div class=\"ds-pills\"><span class=\"ds-pill ds-pill-brand\">New</span><span class=\"ds-pill ds-pill-outline\">Draft</span><span class=\"ds-pill ds-pill-standard\">Standard</span><span class=\"ds-pill ds-pill-urgent\">Urgent</span><span class=\"ds-pill ds-pill-emergency\">Emergency</span></div>",
+      "css": ".ds-pills { display: flex; flex-wrap: wrap; gap: 8px; } .ds-pill { display: inline-flex; align-items: center; padding: 2px 10px; border: 1px solid transparent; border-radius: 9999px; font: 600 12px/16px var(--font-body, 'DM Sans'), sans-serif; } .ds-pill-brand { background: hsl(var(--brand-light, 24 100% 96%)); color: hsl(var(--brand-ink, 24 90% 30%)); } .ds-pill-outline { border-color: hsl(var(--border, 30 14% 89%)); color: hsl(var(--ink, 25 20% 12%)); } .ds-pill-standard { background: #eff6ff; color: #1d4ed8; font-weight: 500; } .ds-pill-urgent { background: #fffbeb; color: #b45309; font-weight: 500; } .ds-pill-emergency { background: #fef2f2; color: #b91c1c; font-weight: 500; animation: ds-pulse 2s ease-in-out infinite; } @keyframes ds-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } 50% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); } } @media (prefers-reduced-motion: reduce) { .ds-pill-emergency { animation: none; } }"
+    },
+    {
+      "name": "Stats Card",
+      "kind": "card",
+      "refersTo": "stats-card",
+      "description": "Count cards above a list; clickable ones filter it, and the active one gets an orange border and ring.",
+      "html": "<div class=\"ds-stats\"><button class=\"ds-stat is-active\"><span class=\"ds-stat-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M14 3v4a1 1 0 0 0 1 1h4\"/><path d=\"M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z\"/></svg></span><span><span class=\"ds-stat-count\">12</span><span class=\"ds-stat-label\">Overdue</span></span></button><button class=\"ds-stat\"><span class=\"ds-stat-icon\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 3\"/></svg></span><span><span class=\"ds-stat-count\">38</span><span class=\"ds-stat-label\">Sent</span></span></button></div>",
+      "css": ".ds-stats { display: flex; gap: 16px; } .ds-stat { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid hsl(var(--border, 30 14% 89%)); border-radius: 8px; background: hsl(var(--card, 0 0% 100%)); text-align: left; cursor: pointer; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); transition: border-color 150ms ease, box-shadow 150ms ease; } .ds-stat:hover { border-color: hsl(var(--brand, 24 95% 53%) / 0.4); } .ds-stat.is-active { border-color: hsl(var(--brand, 24 95% 53%)); box-shadow: 0 0 0 1px hsl(var(--brand, 24 95% 53%) / 0.2); } .ds-stat:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring, 24 90% 30%)); } .ds-stat-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 9999px; background: hsl(var(--brand-light, 24 100% 96%)); color: hsl(var(--brand, 24 95% 53%)); } .ds-stat-count { display: block; font: 700 18px/28px var(--font-heading, 'Space Grotesk'), sans-serif; color: hsl(var(--ink, 25 20% 12%)); font-variant-numeric: tabular-nums; } .ds-stat-label { display: block; font: 400 12px/16px var(--font-body, 'DM Sans'), sans-serif; color: hsl(var(--muted-foreground, 28 8% 42%)); }"
+    },
+    {
+      "name": "Job Card",
+      "kind": "card",
+      "refersTo": "job-card",
+      "description": "The kanban card. Signature: pills on top, title, customer and time, and the orange grab glow on hover.",
+      "html": "<article class=\"ds-job\" tabindex=\"0\"><div class=\"ds-job-pills\"><span class=\"ds-job-pill ds-job-urgent\">Urgent</span><span class=\"ds-job-pill ds-job-stage\">Scheduled</span></div><h3 class=\"ds-job-title\">Replace condenser fan motor</h3><p class=\"ds-job-num\">JOB-0142</p><div class=\"ds-job-who\"><span class=\"ds-job-avatar\">MR</span><span>Maria Reyes · 14 Elm St</span></div><div class=\"ds-job-foot\"><span class=\"ds-job-time\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3 3\"/></svg><span class=\"ds-tnum\">09:30 – 11:00</span></span><span class=\"ds-job-money ds-tnum\">$486.00</span></div></article>",
+      "css": ".ds-job { width: 280px; padding: 14px; border: 1px solid hsl(var(--border, 30 14% 89%) / 0.6); border-radius: 12px; background: hsl(var(--card, 0 0% 100%)); color: hsl(var(--ink, 25 20% 12%)); box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); cursor: grab; transition: box-shadow 200ms ease, border-color 200ms ease; } .ds-job:hover { border-color: hsl(var(--brand, 24 95% 53%) / 0.3); box-shadow: 0 6px 24px 0 hsl(var(--brand, 24 95% 53%) / 0.25); } .ds-job:focus-visible { outline: none; box-shadow: 0 0 0 2px hsl(var(--ring, 24 90% 30%)); } .ds-job-pills { display: flex; gap: 6px; margin-bottom: 10px; } .ds-job-pill { padding: 2px 8px; border-radius: 9999px; font: 500 10px/14px var(--font-body, 'DM Sans'), sans-serif; letter-spacing: 0.05em; text-transform: uppercase; } .ds-job-urgent { background: #fffbeb; color: #b45309; } .ds-job-stage { background: #eff6ff; color: #1d4ed8; } .ds-job-title { margin: 0 0 6px; font: 500 14px/20px var(--font-body, 'DM Sans'), sans-serif; } .ds-job-num { margin: 0 0 8px; font: 400 11px/16px var(--font-mono, 'DM Mono'), ui-monospace, monospace; color: hsl(var(--muted-foreground, 28 8% 42%) / 0.7); } .ds-job-who { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; font: 400 12px/16px var(--font-body, 'DM Sans'), sans-serif; color: hsl(var(--muted-foreground, 28 8% 42%)); } .ds-job-avatar { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 9999px; background: hsl(var(--brand-light, 24 100% 96%) / 0.4); color: hsl(var(--brand-ink, 24 90% 30%)); font: 600 10px/1 var(--font-body, 'DM Sans'), sans-serif; } .ds-job-foot { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid hsl(var(--border, 30 14% 89%) / 0.5); font: 400 12px/16px var(--font-mono, 'DM Mono'), ui-monospace, monospace; color: hsl(var(--muted-foreground, 28 8% 42%)); } .ds-job-time { display: inline-flex; align-items: center; gap: 6px; } .ds-job-money { color: hsl(var(--ink, 25 20% 12%)); font-weight: 500; } .ds-tnum { font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Day Sheet",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Landing signature: one working day on ruled rows, an hour column in tabular mono, jobs at their real times, an orange now-line.",
+      "html": "<figure class=\"ds-day\"><header class=\"ds-day-head\"><span class=\"ds-day-date\">Tue · 14 Oct</span><span class=\"ds-day-count ds-tnum\">4 jobs</span></header><div class=\"ds-day-body\"><div class=\"ds-day-row\"><span class=\"ds-tnum\">08:00</span></div><div class=\"ds-day-row\"><span class=\"ds-tnum\">09:00</span></div><div class=\"ds-day-row\"><span class=\"ds-tnum\">10:00</span></div><div class=\"ds-day-row\"><span class=\"ds-tnum\">11:00</span></div><div class=\"ds-day-job\" style=\"top: 52px; height: 70px;\"><strong>AC tune-up</strong><span class=\"ds-tnum\">08:30 – 10:00</span></div><div class=\"ds-day-now\" style=\"top: 128px;\"><span></span></div></div></figure>",
+      "css": ".ds-day { width: 320px; margin: 0; overflow: hidden; border: 1px solid hsl(var(--border, 30 14% 89%)); border-radius: 8px; background: hsl(var(--card, 0 0% 100%)); box-shadow: 0 20px 25px -5px hsl(var(--ink, 25 20% 12%) / 0.05), 0 8px 10px -6px hsl(var(--ink, 25 20% 12%) / 0.05); } .ds-day-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-bottom: 1px solid hsl(var(--border, 30 14% 89%)); } .ds-day-date { font: 500 11px/1 var(--font-mono, 'DM Mono'), ui-monospace, monospace; letter-spacing: 0.16em; text-transform: uppercase; color: hsl(var(--muted-foreground, 28 8% 42%)); } .ds-day-count { font: 400 11px/1 var(--font-mono, 'DM Mono'), ui-monospace, monospace; color: hsl(var(--brand-ink, 24 90% 30%)); } .ds-day-body { position: relative; padding: 8px 16px; } .ds-day-row { height: 48px; border-top: 1px solid hsl(var(--border, 30 14% 89%)); font: 400 11px/1 var(--font-mono, 'DM Mono'), ui-monospace, monospace; color: hsl(var(--muted-foreground, 28 8% 42%) / 0.7); padding-top: 4px; } .ds-day-job { position: absolute; left: 64px; right: 16px; display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; border-left: 3px solid hsl(var(--brand, 24 95% 53%)); border-radius: 6px; background: hsl(var(--brand-light, 24 100% 96%)); color: hsl(var(--ink, 25 20% 12%)); font: 600 12px/16px var(--font-body, 'DM Sans'), sans-serif; } .ds-day-job span { font: 400 10px/14px var(--font-mono, 'DM Mono'), ui-monospace, monospace; opacity: 0.7; } .ds-day-now { position: absolute; left: 56px; right: 0; height: 1px; background: hsl(var(--brand, 24 95% 53%)); } .ds-day-now span { position: absolute; left: -3px; top: -3px; width: 6px; height: 6px; border-radius: 9999px; background: hsl(var(--brand, 24 95% 53%)); } .ds-tnum { font-variant-numeric: tabular-nums; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Work Order",
+    "overview": "Field service runs on paper: the work order, the day sheet, the estimate pad. Zaxvio is the digital version of that paper, and the system keeps its manners. Surfaces are warm off-white paper. Text is near-black carbon ink. Times, money and counts are typed figures that line up in columns. One Safety Orange mark shows what to do next or where you are, the way a marker circles the job that matters on a printed sheet. On the landing page the ruling is literal: hairlines every 3rem behind the headline and the closing band, and a time-ruled day sheet as the hero. Inside the app the same idea shows up as order: bordered cards, one-row toolbars, mono figures and pill-shaped status.\n\nThe density is a working tool's, not a brochure's. Body text is 14px, and toolbars, filter tabs and table rows are compact so a day's worth of jobs fits on one screen. Expression lives in the details: the orange hairline across the top of the navbar, the orange glow when you pick up a job card, a status pill's colour. Dark mode is a full peer, not an inversion: the warm neutral ladder is restepped so every surface still rises in the right order.\n\nRejected on purpose, and recorded in the code where each was removed: \"AI startup\" gloss (purple-on-white gradients, aurora or nebula backdrops, glow used as decoration), device mockups around the product, spinners, and cool blue-slate greys or generic system fonts.",
+    "keyCharacteristics": [
+      "Warm paper neutrals (hue 25–32, low saturation) that rise in four tonal steps.",
+      "One accent, Safety Orange, used for action, location and the current hour.",
+      "Three faces with fixed jobs: Space Grotesk for headings and labels, DM Sans for prose and controls, DM Mono for anything read as data.",
+      "Hairline borders and gentle corners. Pills mean state, rectangles mean containers and actions.",
+      "Motion that explains a change and then stops. Under `prefers-reduced-motion` the movement goes and the fade stays."
+    ],
+    "rules": [
+      {
+        "name": "The Motion Explains a Change Rule",
+        "body": "Things animate when they appear, move or change state, then stop. A resting screen is still. Nothing animates while it's being dragged or panned, and every keyframe has a `prefers-reduced-motion` override. The only continuous motions allowed are signals: the emergency-priority pulse, the empty automation canvas's slow breath, the help assistant's typing dots while a reply is pending, and the impersonation bar's live dot. Each of the last two stops for reduced motion.",
+        "section": "overview"
+      },
+      {
+        "name": "The Validated Data Colour Rule",
+        "body": "Data colours come from `lib/constants/chart-palette.ts`, which reads only tokens: categorical slots in fixed order and never cycled (past the fifth, a bucket folds into a neutral \"Other\"), status for good or bad, overdue for age. A single series is one hue, not a colour per bar. No hex in a chart: a colour that is not a token is a colour nobody validated.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Mark Rule",
+        "body": "Safety Orange is the only accent. It marks the next action, the current place, or now. If a screen has orange in more than a handful of places, one of them is lying.",
+        "section": "colors"
+      },
+      {
+        "name": "The Rising Sheet Rule",
+        "body": "Surfaces must rise in this order in both themes: background ≤ surface < second sheet < card. In dark mode borders stay lighter than cards (19% against 13%), or the borders vanish. Any neutral change has to keep this order.",
+        "section": "colors"
+      },
+      {
+        "name": "The Same-Hue Rule",
+        "body": "Neutrals stay on the orange's side of the colour wheel (hue 25–32, under 25% saturation). A cool grey makes the orange read as an intrusion instead of an accent.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fill, Not the Text Rule",
+        "body": "Safety Orange is a fill. On it, labels are Carbon Ink (`--brand-foreground`/`--primary-foreground`): 5.8:1 in light and 6.2:1 in dark, where white was 2.85:1 and 2.68:1. When orange has to be read, it is Orange Deep through `text-brand-ink`, never `text-brand` (2.7:1 on light surfaces). \"Read\" means words and numbers, the focus ring, and any icon that carries meaning on its own: a selection check, an icon-only button, a toggled toolbar icon, a scroll hint (WCAG 1.4.11 asks 3:1 of those). Bright `text-brand` is kept for exactly three things: a decorative glyph beside a heading that names the same thing (section-header, empty-state and activity-type icons, icon tiles), the logotype, and orange on the always-dark Night Shift slab, where Orange Deep would fail instead. In dark mode `--brand-ink` is Safety Orange, so the split only shows in light mode. Fixed in the tokens and swept through the product on 2026-10-16 (landing audit LAND-03/06).",
+        "section": "colors"
+      },
+      {
+        "name": "The Figures Rule",
+        "body": "Anything read as a number (a time, an amount, a count, a job number) is set in DM Mono with tabular figures (the `.tnum` utility), so columns line up and values don't jitter as they change.",
+        "section": "typography"
+      },
+      {
+        "name": "The Three Faces Rule",
+        "body": "Space Grotesk, DM Sans and DM Mono, each with its own job. There is no fourth face, and Inter, Roboto, Arial or system defaults are never used.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Row Rule",
+        "body": "A list's filter tabs, search and extra controls share one header row: tabs on the left, everything else pushed right. Never two stacked toolbars.",
+        "section": "layout"
+      },
+      {
+        "name": "The Tonal-First Rule",
+        "body": "Separate things with the surface ladder and a hairline before reaching for a shadow. A shadow at rest never goes above \"resting card\".",
+        "section": "elevation"
+      },
+      {
+        "name": "The Grab Glow Rule",
+        "body": "The orange glow means \"you can pick this up\". It belongs on draggable or grabbable objects (job cards), never on static cards for decoration.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Pill Means State Rule",
+        "body": "Full-round shapes carry state, filters, counts and people. Containers and actions are gently cornered rectangles. A pill-shaped container or a square status tag breaks the reading.",
+        "section": "shapes"
+      }
+    ],
+    "dos": [
+      "Do take every colour from the tokens (`bg-card`, `text-ink`, `border-border`, `bg-brand`) so both themes stay correct. Status colours always get an explicit `dark:` pair.",
+      "Do keep Safety Orange to action, location and now (The One Mark Rule).",
+      "Do set times, money and counts in DM Mono with tabular figures (The Figures Rule).",
+      "Do keep the surface ladder rising in both themes when touching any neutral (The Rising Sheet Rule).",
+      "Do use the Night Shift slab for customer-facing portals and the auth shell, and keep printed quotes ink-on-white with no dark band and no buttons.",
+      "Do use skeletons shaped like the content for every loading state.",
+      "Do use the motion vocabulary's curve and durations, and attach new arrivals to a shell or a shared primitive rather than to one page.",
+      "Do give every animation a `prefers-reduced-motion` override, and stop motion while the user drags or pans.",
+      "Do write orange text and meaningful orange icons with `text-brand-ink`, put Carbon Ink labels on orange fills, and keep bright `text-brand` for decorative glyphs beside a heading, the logo and the Night Shift slab (The Fill, Not the Text Rule)."
+    ],
+    "donts": [
+      "Don't use \"AI startup\" gloss: no purple-on-white gradients, aurora or nebula backdrops, or glow as decoration.",
+      "Don't put the product in a laptop or phone frame. Show the real object, like the day sheet.",
+      "Don't use spinners (`animate-spin`, `Loader2`) for loading, or for \"working\". A busy control changes its label and disables itself, and a wait on a person shows an hourglass. The last six spinners were removed on 2026-10-16.",
+      "Don't loop anything that isn't a signal. A hint nudges twice and rests, and an attention cue pulses three times and rests.",
+      "Don't use cool blue-slate neutrals or raw `gray-*` classes, and never Inter, Roboto, Arial or system defaults.",
+      "Don't add a second accent colour. Teal, indigo and the chart hues are data identity, not UI chrome.",
+      "Don't put the orange grab glow on anything that can't be picked up.",
+      "Don't stack two toolbars on a list page (The One Row Rule).",
+      "Don't put white text on Safety Orange, or use `text-brand` for anything that has to be read (LAND-03, LAND-06)."
+    ]
+  }
+}

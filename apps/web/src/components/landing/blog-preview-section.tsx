@@ -3,50 +3,32 @@ import { IconArrowRight } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BLOG_POSTS } from "@/lib/blog/posts";
+import { formatDateOnly } from "@/lib/format";
 import { Reveal } from "./reveal";
 import { Section, SectionHeading } from "./section";
 
-const PREVIEW_POSTS = [
-  {
-    slug: "streamline-service-business-operations",
-    title: "5 ways to streamline your service business operations",
-    excerpt:
-      "From digital scheduling to automated invoicing, and how busy service businesses win back hours every week.",
-    category: "Business tips",
-    date: "Mar 28, 2026",
-    readingTime: "6 min",
-  },
-  {
-    slug: "complete-guide-digital-invoicing",
-    title: "The complete guide to digital invoicing for field service",
-    excerpt:
-      "Stop chasing payments. How field service pros use on-site invoicing to get paid the same day.",
-    category: "Guides",
-    date: "Mar 22, 2026",
-    readingTime: "9 min",
-  },
-  {
-    slug: "paper-to-digital-service-businesses",
-    title: "Why service businesses are switching from paper to digital",
-    excerpt:
-      "The clipboard-and-carbon-copy era is ending. Why the switch is happening, and how to make it.",
-    category: "Industry",
-    date: "Mar 15, 2026",
-    readingTime: "5 min",
-  },
-] as const;
-
 /**
- * Post cards lost their 160px gradient cover blocks.
+ * The three newest posts, read from `lib/blog/posts.ts`.
  *
- * Those covers carried no information — the gradient was picked per post at
- * random and the icon inside it repeated the category badge printed directly
- * underneath. Removing them lets the headline lead, which is the only part a
- * reader actually chooses on, and takes a third off the card height.
+ * This used to be a second, hand-typed copy of those three posts, and it had
+ * already drifted from the real ones: different title casing, different
+ * excerpts, and "6 min" against the post's own "5 min read" (LAND-12). One
+ * declaration cannot disagree with itself.
+ *
+ * Post cards lost their 160px gradient cover blocks earlier. Those covers
+ * carried no information, since the gradient was picked per post and the icon
+ * inside it repeated the category badge printed directly underneath. Removing
+ * them lets the headline lead, which is the only part a reader actually chooses
+ * on.
  */
+const PREVIEW_POSTS = [...BLOG_POSTS]
+  .sort((a, b) => b.date.localeCompare(a.date))
+  .slice(0, 3);
+
 export function BlogPreviewSection() {
   return (
-    <Section surface="base" labelledBy="blog-heading">
+    <Section surface="alt" labelledBy="blog-heading">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <SectionHeading
           id="blog-heading"
@@ -70,11 +52,11 @@ export function BlogPreviewSection() {
             <Card className="group relative h-full transition-colors duration-200 hover:border-brand/40">
               <CardContent className="flex h-full flex-col p-6">
                 <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="font-mono text-[11px]">
-                    {post.category}
+                  <Badge variant="secondary" className="text-[11px]">
+                    {post.categoryLabel}
                   </Badge>
                   <span className="tnum font-mono text-[11px] text-muted-foreground">
-                    {post.readingTime}
+                    {post.readTime}
                   </span>
                 </div>
 
@@ -83,7 +65,7 @@ export function BlogPreviewSection() {
                       the title is announced as the link. */}
                   <Link
                     href={`/blog/${post.slug}`}
-                    className="after:absolute after:inset-0 group-hover:text-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="after:absolute after:inset-0 group-hover:text-brand-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     {post.title}
                   </Link>
@@ -93,9 +75,12 @@ export function BlogPreviewSection() {
                   {post.excerpt}
                 </p>
 
-                <p className="tnum mt-5 font-mono text-[11px] text-muted-foreground">
-                  {post.date}
-                </p>
+                <time
+                  dateTime={post.date}
+                  className="tnum mt-5 font-mono text-[11px] text-muted-foreground"
+                >
+                  {formatDateOnly(post.date)}
+                </time>
               </CardContent>
             </Card>
           </Reveal>

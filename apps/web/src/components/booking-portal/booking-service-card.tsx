@@ -63,7 +63,7 @@ export function BookingServiceCard({
       <div
         className={cn(
           "flex h-12 w-12 items-center justify-center rounded-full transition-colors",
-          selected ? "bg-brand text-white" : "bg-muted text-muted-foreground",
+          selected ? "bg-brand text-brand-foreground" : "bg-muted text-muted-foreground",
         )}
       >
         <Icon className="h-6 w-6" />

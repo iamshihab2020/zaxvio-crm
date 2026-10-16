@@ -61,8 +61,11 @@ export function ScrollFadeArea({ children, className }: ScrollFadeAreaProps) {
         )}
       >
         <div className="h-8 w-full bg-gradient-to-t from-card to-transparent" />
-        <div className="absolute bottom-0 animate-bounce">
-          <IconChevronDown className="h-4 w-4 text-brand" />
+        {/* Nudges twice, then rests (`.motion-nudge`). It bounced forever,
+            which is a screen that never goes still (DESIGN.md). Off under
+            reduced motion. */}
+        <div className="motion-nudge absolute bottom-0">
+          <IconChevronDown className="h-4 w-4 text-brand-ink" />
         </div>
       </div>
     </div>

@@ -45,17 +45,15 @@ export function ImpersonationRequestListener() {
     };
   }, []);
 
-  useEventStream<{ sessionId: string; adminName?: string; reason?: string }>(
-    "impersonation",
-    "request",
-    (payload) => {
-      setRequest({
-        sessionId: payload.sessionId,
-        adminName: payload.adminName ?? "Admin",
-        reason: payload.reason ?? "",
-      });
-    },
-  );
+  // The event reaches every tab in the workspace, but only an owner or admin
+  // may answer it. Re-asking the server rather than opening the dialog from the
+  // payload means a member never sees a choice that is not theirs to make —
+  // `/pending` answers `pending: false` to them.
+  useEventStream("impersonation", "request", () => {
+    void getPendingImpersonationRequest().then(({ data }) => {
+      if (data?.pending && data.request) setRequest(data.request);
+    });
+  });
 
   useEventStream("impersonation", "exit", () => {
     toast.info("Admin support session has ended", {
@@ -71,10 +69,19 @@ export function ImpersonationRequestListener() {
     if (!request) return;
     setResponding(true);
 
-    await respondToImpersonation(request.sessionId, approved);
+    const result = await respondToImpersonation(request.sessionId, approved);
 
     setRequest(null);
     setResponding(false);
+
+    // The result used to be ignored, so a refused or expired request still
+    // toasted "Access granted" — telling the owner support was in when it was not.
+    if (!result.success) {
+      toast.error("Couldn't respond to the request", {
+        description: result.error ?? undefined,
+      });
+      return;
+    }
 
     if (approved) {
       toast.success("Access granted", {

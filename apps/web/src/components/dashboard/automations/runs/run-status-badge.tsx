@@ -2,8 +2,8 @@ import {
   IconAlertTriangle,
   IconBan,
   IconCircleCheck,
+  IconActivity,
   IconClock,
-  IconLoader2,
   IconMinus,
   IconPlayerSkipForward,
 } from "@tabler/icons-react";
@@ -32,23 +32,21 @@ import { cn } from "@/lib/utils";
  * The two maps were `as const` and the lookup was typed off `typeof RUN_STYLES`,
  * which does not compile: `as const` makes every `label` a literal type, so
  * `skipped` — a state only a step has — is assignable to nothing in the run
- * union. One named shape both maps satisfy is the fix, and it is also what lets
- * `spin` be optional rather than present-on-one-member.
+ * union. One named shape both maps satisfy is the fix.
  */
 interface BadgeStyle {
   label: string;
   icon: typeof IconMinus;
   className: string;
-  /** Only the in-flight states. */
-  spin?: boolean;
 }
 
 const RUN_STYLES: Record<string, BadgeStyle> = {
   running: {
     label: "Running",
-    icon: IconLoader2,
+    // A still activity mark, not a spinning loader: DESIGN.md has no spinners,
+    // and a run list full of them is a screen that never rests.
+    icon: IconActivity,
     className: "border-sky-500/30 bg-sky-500/10 text-sky-600 dark:text-sky-400",
-    spin: true,
   },
   waiting: {
     label: "Waiting",
@@ -113,7 +111,7 @@ export function RunStatusBadge({ status, kind = "run", className }: Props) {
       )}
     >
       <Icon
-        className={cn("h-3.5 w-3.5 shrink-0", style.spin && "motion-safe:animate-spin")}
+        className="h-3.5 w-3.5 shrink-0"
       />
       {style.label}
     </span>

@@ -434,7 +434,7 @@ function Canvas({ readOnly = false }: Props) {
         <button
           type="button"
           onClick={openForTrigger}
-          className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-md border border-dashed border-input bg-card/90 px-2.5 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:border-brand hover:text-brand focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30 font-body"
+          className="absolute left-4 top-4 z-10 flex items-center gap-1.5 rounded-md border border-dashed border-input bg-card/90 px-2.5 py-1.5 text-[11px] text-muted-foreground shadow-sm backdrop-blur-sm transition-colors hover:border-brand hover:text-brand-ink focus-visible:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30 font-body"
         >
           <IconPlus className="h-3.5 w-3.5" />
           Add trigger

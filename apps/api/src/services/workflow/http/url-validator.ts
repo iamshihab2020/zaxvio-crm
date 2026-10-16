@@ -88,21 +88,98 @@ function isBlockedV4(address: string): UrlRejection | null {
   return null;
 }
 
+/**
+ * An IPv6 address as its eight 16-bit groups, or null if it is not one.
+ *
+ * Parsed for the same reason `isBlockedV4` parses octets: an IPv6 address has
+ * many spellings and a pattern matches exactly one of them. The one that
+ * mattered (ONB-05) is that **`new URL()` rewrites an embedded dotted quad into
+ * hex** — `http://[::ffff:169.254.169.254]/` comes out of the parser with the
+ * hostname `[::ffff:a9fe:a9fe]`, so a regex looking for `::ffff:d.d.d.d` never
+ * saw the one form a literal URL can actually produce, and the metadata
+ * endpoint was reachable. Zero-padding (`0:0:0:0:0:ffff:…`) and a trailing
+ * dotted quad are both normalised away here.
+ */
+function parseV6(address: string): number[] | null {
+  let value = address.toLowerCase().split("%")[0];
+
+  // A trailing dotted quad is the last two groups written in decimal.
+  const dotted = value.match(/^(.*:)(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
+  if (dotted) {
+    const octets = dotted.slice(2).map(Number);
+    if (octets.some((n) => n > 255)) return null;
+    const hi = ((octets[0] << 8) | octets[1]).toString(16);
+    const lo = ((octets[2] << 8) | octets[3]).toString(16);
+    value = `${dotted[1]}${hi}:${lo}`;
+  }
+
+  const halves = value.split("::");
+  if (halves.length > 2) return null;
+
+  const groups = (part: string) =>
+    part === ""
+      ? []
+      : part.split(":").map((h) => (/^[0-9a-f]{1,4}$/.test(h) ? parseInt(h, 16) : NaN));
+
+  const head = groups(halves[0]);
+  const tail = halves.length === 2 ? groups(halves[1]) : [];
+  if ([...head, ...tail].some(Number.isNaN)) return null;
+
+  if (halves.length === 1) return head.length === 8 ? head : null;
+  const gap = 8 - head.length - tail.length;
+  if (gap < 1) return null;
+  return [...head, ...new Array<number>(gap).fill(0), ...tail];
+}
+
+/** Two 16-bit groups as the dotted quad they carry. */
+function embeddedV4(hi: number, lo: number): string {
+  return `${hi >> 8}.${hi & 0xff}.${lo >> 8}.${lo & 0xff}`;
+}
+
 function isBlockedV6(address: string): UrlRejection | null {
-  const value = address.toLowerCase().split("%")[0];
+  const g = parseV6(address);
+  // `isIP` already said this is IPv6. Failing to parse it means this function
+  // and Node disagree about the address — refuse rather than guess.
+  if (!g) return "private_address";
 
-  if (value === "::" ) return "unspecified";
-  if (value === "::1") return "loopback";
-  // fc00::/7 — unique local.
-  if (/^f[cd]/.test(value)) return "private_address";
-  // fe80::/10 — link-local, and the IPv6 metadata endpoint.
-  if (/^fe[89ab]/.test(value)) return "link_local";
+  const zeroThrough = (n: number) => g.slice(0, n).every((x) => x === 0);
+
+  if (zeroThrough(8)) return "unspecified"; // ::
+  if (zeroThrough(7) && g[7] === 1) return "loopback"; // ::1
+
+  // Every form that carries an IPv4 address inside it is judged by THAT
+  // address. `::ffff:169.254.169.254` is the metadata endpoint wearing a hat,
+  // and so is each of these.
+  // ::ffff:0:0/96 — IPv4-mapped. The one the kernel will actually route.
+  if (zeroThrough(5) && g[5] === 0xffff) return isBlockedV4(embeddedV4(g[6], g[7]));
+  // ::ffff:0:0:0/96 — IPv4-translated (SIIT).
+  if (zeroThrough(4) && g[4] === 0xffff && g[5] === 0) {
+    return isBlockedV4(embeddedV4(g[6], g[7]));
+  }
+  // ::/96 — IPv4-compatible. Deprecated, but deprecated is not unreachable.
+  if (zeroThrough(6)) return isBlockedV4(embeddedV4(g[6], g[7]));
+  // 64:ff9b::/96 — NAT64. On a network with a NAT64 gateway this IS the IPv4
+  // address, so a private one behind it is private.
+  if (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((x) => x === 0)) {
+    return isBlockedV4(embeddedV4(g[6], g[7]));
+  }
+  // 64:ff9b:1::/48 — local-use NAT64, by definition not the internet.
+  if (g[0] === 0x64 && g[1] === 0xff9b && g[2] === 1) return "private_address";
+  // 2002::/16 — 6to4. The IPv4 address is groups 1–2.
+  if (g[0] === 0x2002) return isBlockedV4(embeddedV4(g[1], g[2]));
+  // 2001::/32 — Teredo. Its client address is obfuscated, so it cannot be
+  // judged; and no webhook receiver anybody means to call lives on a Teredo
+  // tunnel.
+  if (g[0] === 0x2001 && g[1] === 0) return "private_address";
+
+  // fc00::/7 — unique local. AWS's IPv6 metadata endpoint, fd00:ec2::254, is here.
+  if ((g[0] & 0xfe00) === 0xfc00) return "private_address";
+  // fe80::/10 — link-local.
+  if ((g[0] & 0xffc0) === 0xfe80) return "link_local";
+  // fec0::/10 — site-local. Deprecated, still private.
+  if ((g[0] & 0xffc0) === 0xfec0) return "private_address";
   // ff00::/8 — multicast.
-  if (/^ff/.test(value)) return "private_address";
-
-  // IPv4-mapped (`::ffff:169.254.169.254`) is the same address wearing a hat.
-  const mapped = value.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (mapped) return isBlockedV4(mapped[1]);
+  if ((g[0] & 0xff00) === 0xff00) return "private_address";
 
   return null;
 }
@@ -133,11 +210,18 @@ const MESSAGES: Record<UrlRejection, string> = {
  *
  * `dnsLookup` is injectable for tests only. A guard whose behaviour cannot be
  * exercised for `169.254.169.254` without an attacker-controlled domain is a
- * guard nobody will ever write a test for.
+ * guard nobody will ever write a test for. It is typed as the one overload this
+ * module calls rather than `typeof lookup`, so a test can pass a plain function
+ * instead of casting one into the shape of all five.
  */
+export type ResolveAll = (
+  hostname: string,
+  options: { all: true },
+) => Promise<{ address: string }[]>;
+
 export async function validateOutboundUrl(
   raw: string,
-  dnsLookup: typeof lookup = lookup,
+  dnsLookup: ResolveAll = lookup,
 ): Promise<UrlCheck> {
   let url: URL;
   try {

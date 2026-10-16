@@ -5,6 +5,7 @@ import { IconFileInvoice } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import type { DashboardAgingBucket } from "@hvac-saas/types";
 import { formatCurrency } from "@/lib/format";
+import { OVERDUE_COLORS, STATUS_COLORS } from "@/lib/constants/chart-palette";
 import { WidgetWindowBadge } from "./widget-window-badge";
 
 interface InvoiceAgingProps {
@@ -17,13 +18,19 @@ type BucketKey = DashboardAgingBucket["bucket"];
  * Standard AR aging. `"90"` is 61-90 days and `"90plus"` is over 90 — the backend
  * previously had no 61-90 bucket, so a 61-day-old invoice was reported under a key
  * called `90plus`.
+ *
+ * Colour is an ordinal scale, not five unrelated hues. Current is good; every
+ * overdue bucket is the same red, darker the older the debt, so the order reads
+ * from the colour alone. The old scale ran green → amber → brand orange → orange
+ * → red, which spent the brand on "31–60 days overdue" and made 31–60 and 61–90
+ * near-identical oranges.
  */
 const BUCKET_CONFIG: Record<BucketKey, { label: string; color: string }> = {
-  current: { label: "Current", color: "#22c55e" },
-  "30": { label: "1–30 days", color: "#fbbf24" },
-  "60": { label: "31–60 days", color: "hsl(var(--brand))" },
-  "90": { label: "61–90 days", color: "#f97316" },
-  "90plus": { label: "90+ days", color: "#ef4444" },
+  current: { label: "Current", color: STATUS_COLORS.good },
+  "30": { label: "1–30 days", color: OVERDUE_COLORS[0] },
+  "60": { label: "31–60 days", color: OVERDUE_COLORS[1] },
+  "90": { label: "61–90 days", color: OVERDUE_COLORS[2] },
+  "90plus": { label: "90+ days", color: OVERDUE_COLORS[3] },
 };
 
 const BUCKET_ORDER: BucketKey[] = ["current", "30", "60", "90", "90plus"];

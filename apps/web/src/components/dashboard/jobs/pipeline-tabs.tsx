@@ -65,13 +65,13 @@ export function PipelineTabs({
             className={cn(
               "flex w-full items-center gap-2 h-8 rounded-md px-2 text-sm font-body justify-start",
               pipeline.id === selectedId
-                ? "bg-brand-light/30 text-brand dark:bg-brand/15"
+                ? "bg-brand-light/30 text-brand-ink dark:bg-brand/15"
                 : "text-foreground",
             )}
           >
             <span className="flex-1 text-left truncate">{pipeline.label}</span>
             {pipeline.id === selectedId && (
-              <IconCheck className="h-3.5 w-3.5 text-brand shrink-0" />
+              <IconCheck className="h-3.5 w-3.5 text-brand-ink shrink-0" />
             )}
           </Button>
         ))}
