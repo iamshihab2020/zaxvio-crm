@@ -11,7 +11,8 @@ import {
   IconFileInvoice,
   IconNote,
 } from "@tabler/icons-react";
-import { getInvoices, createInvoiceFromJob } from "@/actions/invoices";
+import { getInvoices } from "@/lib/client-reads/invoices";
+import { createInvoiceFromJob } from "@/actions/invoices";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface JobSidebarPanelProps {

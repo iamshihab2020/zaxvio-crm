@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconPhoto } from "@tabler/icons-react";
-import { getJobPhotos } from "@/actions/jobs";
+import { getJobPhotos } from "@/lib/client-reads/jobs";
 import { getStorageUrl } from "@/lib/storage-url";
 import { PhotoTagPill } from "@/components/dashboard/jobs/photo-tag-pill";
 import { JobPhotoLightbox } from "@/components/dashboard/jobs/job-photo-lightbox";

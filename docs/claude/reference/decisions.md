@@ -51,7 +51,9 @@ Drop Supabase completely. No component of it remains.
 ## ADR-002 — One data-access pattern: `api-fetch` → server action → TanStack Query
 
 **Date**: 2026-08-02
-**Status**: Accepted — migration in progress
+**Status**: Accepted — migration in progress. The read transport ("Why the transport
+stays a Server Action, for now") is superseded by [[decisions#ADR-004 — Reads leave server actions|ADR-004]]: reads now
+travel over a browser `fetch`; mutations still follow this ADR.
 
 ### Context
 
@@ -271,3 +273,57 @@ that forgets to be inside a scope is not a thing that can happen.
 - Cost: more indirection than a direct implementation, and a service signature
   shaped by its second caller before that caller exists.
 
+
+---
+
+## ADR-004 — Reads leave server actions
+
+**Date**: 2026-10-16
+**Status**: Accepted — done for the dashboard; see exceptions
+
+### Context
+
+The app was slow on every page, and the cause was measured, not assumed. Every
+TanStack Query read was a server action, and Next 14.2's router runs server
+actions **strictly one at a time** (`next/dist/shared/lib/router/action-queue.js`:
+an action that arrives while one is pending waits for it). A page's reads took
+the *sum* of their latencies. The calendar's five reads at ~2s each from a dev
+machine took ~10s to fill, and the jobs board fired twelve in a row. A server
+action also cannot pass the API's `Set-Cookie` back to the browser, so Better
+Auth's session cookie cache was never renewed. ADR-002 named this cost (ARC-01)
+and deferred the fix.
+
+### Decision
+
+**Reads go browser → `/api/v1/*` (a Next rewrite to the API) → Fastify.
+Mutations stay server actions.**
+
+| Layer | Rule |
+|---|---|
+| `lib/api-client.ts` | The browser transport: `readJson`, plus `readResult`/`readListResult`, which mirror `apiGet`/`apiList`. `pickQuery` sends only the keys an action sent; `buildQuery` is an exact copy of api-fetch's. 15s timeout. Never throws. |
+| `lib/client-reads/<domain>.ts` | One mirror per read action: same name, params, path, query keys, error text and return shape. Types come from the action via `import type` only. |
+| `hooks/queries/*.ts` | Import reads from `client-reads`, mutations from `actions`. Switching a read is an import change. |
+| `actions/*.ts` | Keep their read functions for server components (`page.tsx` initial data) and server-to-server callers. |
+| `middleware.ts` | Excludes `api/v1`, so a missing session gets the API's 401, not a 307 to an HTML login page. |
+
+Measured on the calendar's five reads: 4.7s sequential → about 2.0s concurrent
+on a warm pool. That is a single endpoint's latency instead of the sum.
+
+### Exceptions, deliberately still server actions
+
+- **The public booking portal** (`getPublicSlots`, `getPublicAvailability`,
+  `getPublicBookingStatus`). Its rate limits key on the visitor's IP. A server
+  action forwards it (`INTERNAL_PROXY_SECRET` + `x-client-ip`, BOOK-02), but a
+  rewrite cannot, so every anonymous visitor would share one bucket.
+- Superadmin pages, PDF downloads, and anything that sends a body (POST
+  "reads" such as `previewWorkflowNode`, `getOrCreateConversation`).
+
+### Consequences
+
+- Two definitions of each read: the server action and its mirror. The mirror
+  must change whenever the action does. A `false` boolean is the trap: `pickQuery`
+  drops it, so `getCustomers` (`optedOut`) and `getMaintenanceContracts`
+  (`isActive`) build that key by hand.
+- Authenticated reads come through the Next server's address, as server actions
+  always did, so rate-limit buckets are unchanged. Moving the public portal would
+  need the IP review ADR-002 described first.

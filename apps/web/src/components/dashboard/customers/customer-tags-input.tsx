@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/popover";
 import { IconPlus, IconX, IconCheck } from "@tabler/icons-react";
 import { toast } from "sonner";
-import { getTags, createTag } from "@/actions/tags";
+import { getTags } from "@/lib/client-reads/tags";
+import { createTag } from "@/actions/tags";
 import { useAddCustomerTag, useRemoveCustomerTag } from "@/hooks/queries";
 
 interface TagData {

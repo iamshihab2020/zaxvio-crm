@@ -242,21 +242,25 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const { id } = request.params;
       const db = getDb();
 
-      const booking = await db
-        .select()
-        .from(bookings)
-        .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
-        .then((r) => r[0]);
+      // One round trip: the booking and its linked job load together. The job
+      // query is tenant-filtered and keyed on the URL id, so starting it before
+      // the 404 check reads nothing outside this tenant.
+      const [booking, linkedJob] = await Promise.all([
+        db
+          .select()
+          .from(bookings)
+          .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
+          .then((r) => r[0]),
+        db
+          .select({ id: jobs.id, jobNumber: jobs.jobNumber, status: jobs.status })
+          .from(jobs)
+          .where(and(eq(jobs.bookingId, id), eq(jobs.tenantId, tenantId)))
+          .then((r) => r[0]),
+      ]);
 
       if (!booking) {
         return reply.status(404).send({ message: "Booking not found" });
       }
-
-      const linkedJob = await db
-        .select({ id: jobs.id, jobNumber: jobs.jobNumber, status: jobs.status })
-        .from(jobs)
-        .where(and(eq(jobs.bookingId, id), eq(jobs.tenantId, tenantId)))
-        .then((r) => r[0]);
 
       return reply.send({
         data: {
@@ -289,22 +293,19 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const offset = (page - 1) * limit;
       const db = getDb();
 
-      const booking = await db
-        .select({ id: bookings.id })
-        .from(bookings)
-        .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
-        .then((r) => r[0]);
-
-      if (!booking) {
-        return reply.status(404).send({ message: "Booking not found" });
-      }
-
       const whereClause = and(
         eq(bookingActivities.tenantId, tenantId),
         eq(bookingActivities.bookingId, id),
       );
 
-      const [rows, totalResult] = await Promise.all([
+      // One round trip: the existence check runs alongside the page and count,
+      // which are tenant-filtered and keyed on the URL id.
+      const [booking, rows, totalResult] = await Promise.all([
+        db
+          .select({ id: bookings.id })
+          .from(bookings)
+          .where(and(eq(bookings.id, id), eq(bookings.tenantId, tenantId)))
+          .then((r) => r[0]),
         db
           .select({
             id: bookingActivities.id,
@@ -323,6 +324,10 @@ const bookingRoutes: FastifyPluginAsyncZod = async (fastify) => {
           .offset(offset),
         db.select({ total: count() }).from(bookingActivities).where(whereClause),
       ]);
+
+      if (!booking) {
+        return reply.status(404).send({ message: "Booking not found" });
+      }
 
       const total = Number(totalResult[0]?.total ?? 0);
 

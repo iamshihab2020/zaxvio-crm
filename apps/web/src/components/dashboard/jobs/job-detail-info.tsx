@@ -28,7 +28,8 @@ import {
   EditableTime,
 } from "@/components/reusable/editable-field";
 import { createInvoiceFromJob } from "@/actions/invoices";
-import { getJobAssignees, updateJob } from "@/actions/jobs";
+import { getJobAssignees } from "@/lib/client-reads/jobs";
+import { updateJob } from "@/actions/jobs";
 import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 import type { JobDetail } from "./job-detail-sheet";
 

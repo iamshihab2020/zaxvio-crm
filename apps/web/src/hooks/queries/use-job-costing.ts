@@ -1,9 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
+import { getJobCosts, getJobExpenses } from "@/lib/client-reads/job-costing";
 import {
-  getJobCosts,
-  getJobExpenses,
   addJobExpense,
   updateJobExpense,
   deleteJobExpense,

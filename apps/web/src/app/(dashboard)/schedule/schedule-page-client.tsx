@@ -19,8 +19,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from "date-fns";
 
-import { getJobs, updateJob, deleteJob } from "@/actions/jobs";
-import { getPipelineStages } from "@/actions/pipeline-stages";
+import { updateJob, deleteJob } from "@/actions/jobs";
+// Reads go through the browser path so they run in parallel; see lib/api-client.ts.
+import { getJobs } from "@/lib/client-reads/jobs";
+import { getPipelineStages } from "@/lib/client-reads/pipeline-stages";
 import { type CalendarEventData } from "@/actions/calendar-events";
 import type { JobCardData } from "@/components/dashboard/jobs/kanban-card";
 import { JobDetailSheet, type JobDetail } from "@/components/dashboard/jobs/job-detail-sheet";

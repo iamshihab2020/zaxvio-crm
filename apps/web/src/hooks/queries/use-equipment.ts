@@ -6,6 +6,8 @@ import {
   getEquipment,
   getEquipmentItem,
   getEquipmentHistory,
+} from "@/lib/client-reads/equipment";
+import {
   createEquipment,
   updateEquipment,
   deleteEquipment,

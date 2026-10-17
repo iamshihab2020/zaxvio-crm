@@ -15,14 +15,14 @@ import {
   IconX,
   IconLayoutColumns,
 } from "@tabler/icons-react";
+import { getPipelines } from "@/lib/client-reads/pipelines";
 import {
-  getPipelines,
   updatePipeline,
   deletePipeline,
 } from "@/actions/pipelines";
 import { PipelineCreateDialog } from "@/components/dashboard/pipelines/pipeline-create-dialog";
 import { PipelineStagesDialog } from "@/components/dashboard/jobs/pipeline-stages-dialog";
-import { getPipelineStages } from "@/actions/pipeline-stages";
+import { getPipelineStages } from "@/lib/client-reads/pipeline-stages";
 import { SettingsPageHeader } from "@/components/dashboard/settings/settings-page-header";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { Input } from "@/components/ui/input";

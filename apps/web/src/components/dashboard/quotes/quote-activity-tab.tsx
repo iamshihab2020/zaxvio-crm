@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getQuoteActivities } from "@/actions/quotes";
+import { getQuoteActivities } from "@/lib/client-reads/quotes";
 import {
   IconFilePlus,
   IconEdit,

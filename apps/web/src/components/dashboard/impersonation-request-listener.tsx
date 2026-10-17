@@ -11,10 +11,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import {
-  respondToImpersonation,
-  getPendingImpersonationRequest,
-} from "@/actions/tenants";
+import { respondToImpersonation } from "@/actions/tenants";
+import { getPendingImpersonationRequest } from "@/lib/client-reads/tenants";
 import { useEventStream } from "@/hooks/use-event-stream";
 
 interface ImpersonationRequest {

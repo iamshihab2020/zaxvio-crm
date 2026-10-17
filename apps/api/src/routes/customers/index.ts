@@ -426,17 +426,17 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      const customer = await db
-        .select({ id: customers.id })
-        .from(customers)
-        .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
-        .then((r) => r[0]);
-
-      if (!customer) {
-        return reply.status(404).send({ message: "Customer not found" });
-      }
-
-      const [jobStats, invoiceStats, assetStats, agreementStats] = await Promise.all([
+      // One round trip, not three in sequence (existence check, these four,
+      // then "last seen"). Every query is tenant-filtered and keyed on the URL
+      // id, so running them before the 404 check reads nothing outside this
+      // tenant.
+      const [customer, jobStats, invoiceStats, assetStats, agreementStats, lastJob] =
+        await Promise.all([
+        db
+          .select({ id: customers.id })
+          .from(customers)
+          .where(and(eq(customers.tenantId, tenantId), eq(customers.id, id)))
+          .then((r) => r[0]),
         db
           .select({
             total: sql<number>`COUNT(*)`,
@@ -487,23 +487,26 @@ const customerRoutes: FastifyPluginAsyncZod = async (fastify) => {
             ),
           )
           .then((r) => r[0]),
+        // "Last seen" — the most recent job actually on the books. Drives the
+        // lapsed-customer view; null means they have never been scheduled.
+        db
+          .select({ scheduledDate: jobs.scheduledDate })
+          .from(jobs)
+          .where(
+            and(
+              eq(jobs.tenantId, tenantId),
+              eq(jobs.customerId, id),
+              isNull(jobs.archivedAt),
+            ),
+          )
+          .orderBy(desc(jobs.scheduledDate))
+          .limit(1)
+          .then((r) => r[0]),
       ]);
 
-      // "Last seen" — the most recent job actually on the books. Drives the
-      // lapsed-customer view; null means they have never been scheduled.
-      const lastJob = await db
-        .select({ scheduledDate: jobs.scheduledDate })
-        .from(jobs)
-        .where(
-          and(
-            eq(jobs.tenantId, tenantId),
-            eq(jobs.customerId, id),
-            isNull(jobs.archivedAt),
-          ),
-        )
-        .orderBy(desc(jobs.scheduledDate))
-        .limit(1)
-        .then((r) => r[0]);
+      if (!customer) {
+        return reply.status(404).send({ message: "Customer not found" });
+      }
 
       return reply.send({
         data: {

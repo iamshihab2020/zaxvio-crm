@@ -8,6 +8,41 @@ Task tracking for the Zaxvio CRM project.
 
 ## In Progress
 
+### App-wide slowness (2026-10-16)
+
+Reported: "the whole application is slow — clicking the calendar doesn't go immediately".
+Measured, not guessed (dev, logged-in curl against the running servers):
+- **~0.3s per DB round trip** from the dev machine to Neon `us-east-2` (2.7s to open a
+  connection). Geography, but every layer below multiplies it.
+- **~1.2s of every API call is the session check.** Better Auth's cookie cache is 10s and the
+  API never sends the refreshed `session_data` cookie back, so nearly every call does the full
+  DB lookup: `/tenants/current` 1.23s inside the cache window vs 2.5s outside. Then one more
+  round trip resolves org → tenant.
+- **Reads queue.** Every TanStack read is a server action, and Next 14.2.35's action queue runs
+  them strictly one at a time (`shared/lib/router/action-queue.js`): Calendar's 5 reads take
+  the *sum*, not the max (~10–12s); Jobs fires ~12.
+- `staleTimes.dynamic: 0` re-renders every page on the server on every click, revisits included.
+- Dev only: first visit compiles 4–7k modules per route (21.7s for `/customers`).
+- Production: Render **free** plan in **oregon** vs Neon in **ohio** (cross-country per query,
+  plus sleep).
+
+User decisions: all four fixes below, session cache 5 min, plus a sweep for anything else.
+Measure after each, one at a time. **Done; still open:**
+- [ ] Look at it in a browser. Everything above was measured with curl against the running dev
+      servers, plus static import checks and a compile of every dashboard route. `tsc` and the
+      UI itself are unverified.
+- [ ] `/jobs/:id/time-entries` and `/tenants/impersonation/pending` are still 2 sequential round
+      trips (role check, then the main query); they could share a `Promise.all`.
+- [ ] Remaining audit items: `GET /customers` tags follow-up and `GET /bookings` linked-job
+      follow-up (2 RT → 1 via LATERAL/json_agg); `/customers/stats` and `/jobs/assignees`
+      (2 → 1); PATCH /notifications/preferences N+1 (~2N round trips).
+- [ ] Indexes, not applied (latency-bound today, matter at scale): `tenants.organization_id`,
+      `member(organization_id, user_id)`, `job_photos(job_id)`, `jobs(tenant_id, customer_id)`;
+      `job_line_items(tenant_id, job_id)` exists only in a migration (ONB-12 drift).
+- [ ] Infra (user's call): Render API is **free** plan in **oregon**, Neon is **ohio**: move
+      the API to ohio (Render needs a new service for a region change) and off the sleeping plan.
+      For dev, a Neon branch can't change region; a dev project nearer the developer would.
+
 ### Job Time Tracking (2026-08-15) — **written, nothing executed**
 
 The Job Costing feature shipped on 2026-08-07 resting on a field nobody filled in.
@@ -1172,8 +1207,11 @@ nothing to propagate into.** [[decisions|ADR-002]] now names the one data-access
 - [x] **ARC-08 withdrawn** — all 16 schema-less handlers read no input at all. The original count
       came from a regex that missed multi-line options objects. See [[architecture|§7.2]]
 - [ ] **ARC-02 (rest)** — 19 action files still to migrate onto `api-fetch`. Mechanical
-- [ ] **ARC-01** — reads off Server Actions. Needs the `/api/*` rewrite **and** a rate-limiter IP
-      review (`req.ip` → `x-forwarded-for`). One file now that the client exists
+- [x] **ARC-01 (2026-10-16, ADR-004)** — dashboard reads moved to `lib/client-reads` over the
+      `/api/v1/*` rewrite. The public booking portal deliberately stays on actions: through a
+      rewrite every anonymous visitor would share one rate-limit bucket.
+- [ ] **ARC-01 (rest)** — the public portal's reads, after a rate-limiter IP review
+      (`req.ip` → a trusted `x-forwarded-for` through the rewrite).
 - [ ] **ARC-05** — extract services for `jobs` (2,497 lines) and `customers` (1,316). Own pass
 - [ ] **ARC-07** — 16 pages with no error state. Wants a shared list shell, not 16 copies
 - [ ] **ARC-09** — 6 components with inline `useQuery`; this is also the fix for the ~37 remaining

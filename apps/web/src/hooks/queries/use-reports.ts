@@ -2,11 +2,8 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
-import {
-  getReportStats,
-  type ReportStatsParams,
-  type ReportStatsResult,
-} from "@/actions/reports";
+import { getReportStats } from "@/lib/client-reads/reports";
+import type { ReportStatsParams, ReportStatsResult } from "@/actions/reports";
 
 interface UseReportStatsOptions {
   /** Server-rendered payload. Only seeded when it matches the requested params. */

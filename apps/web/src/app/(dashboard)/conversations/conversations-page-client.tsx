@@ -11,8 +11,8 @@ import { ComposeBar } from "@/components/dashboard/conversations/compose-bar";
 import { NewConversationDialog } from "@/components/dashboard/conversations/new-conversation-dialog";
 import { useConversationRealtime } from "@/hooks/use-conversation-realtime";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
+import { getConversationMessages } from "@/lib/client-reads/conversations";
 import {
-  getConversationMessages,
   sendMessage,
   markConversationRead,
   getOrCreateConversation,

@@ -7,7 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/reusable/pagination";
-import { getJobs } from "@/actions/jobs";
+import { getJobs } from "@/lib/client-reads/jobs";
 import {
   JOB_STATUS_COLORS,
   JOB_PRIORITY_LABELS,

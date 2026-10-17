@@ -68,7 +68,7 @@ packages/types/     @hvac-saas/types — inferred from Drizzle schema
 packages/email/     @hvac-saas/email — React Email templates
 ```
 
-**Frontend data flow**: `Component → Server Action (actions/) → Fastify API`. Never call the API directly from client components.
+**Frontend data flow** (ADR-004): **reads** go `hook → lib/client-reads/<domain> → /api/v1/* rewrite → Fastify API` and run in parallel. **Mutations** go `hook → Server Action (actions/) → Fastify API`. Next 14 runs server actions one at a time, so never route a read through one. Server components (`page.tsx`) still await actions for initial data. Components never call `fetch` themselves.
 
 **API route pattern**: Route handlers are thin (validate → call service → respond). Business logic lives in `services/`. All routes use `FastifyPluginAsyncZod` with Zod schemas in `lib/schemas/<domain>.ts`.
 

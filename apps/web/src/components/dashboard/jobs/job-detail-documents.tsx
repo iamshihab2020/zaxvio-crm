@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconFile, IconTrash, IconUpload, IconDownload } from "@tabler/icons-react";
-import { getJobDocuments, deleteJobDocument } from "@/actions/jobs";
+import { deleteJobDocument } from "@/actions/jobs";
+import { getJobDocuments } from "@/lib/client-reads/jobs";
 import { getStorageUrl } from "@/lib/storage-url";
 import { JobPhotoUploadModal } from "./job-photo-upload-modal";
 

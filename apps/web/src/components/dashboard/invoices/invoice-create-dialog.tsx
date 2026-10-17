@@ -42,7 +42,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useViewPreference } from "@/hooks/use-view-preference";
-import { getCustomers } from "@/actions/customers";
+import { getCustomers } from "@/lib/client-reads/customers";
 
 export interface InvoiceFormData {
   customerId: string;

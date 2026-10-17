@@ -3,26 +3,28 @@ import { toast } from "sonner";
 import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
 import {
-  getCustomerStats,
-  getCustomers,
-  getCustomer,
-  getCustomerSummary,
   createCustomer,
   updateCustomer,
   deleteCustomer,
   bulkArchiveCustomers,
   bulkRestoreCustomers,
   bulkDeleteCustomers,
-  getCustomerNotes,
   createCustomerNote,
   updateCustomerNote,
   deleteCustomerNote,
-  getCustomerActivities,
-  getCustomerTags,
   addCustomerTag,
   removeCustomerTag,
-  getCustomerPhotos,
 } from "@/actions/customers";
+import {
+  getCustomerStats,
+  getCustomers,
+  getCustomer,
+  getCustomerSummary,
+  getCustomerNotes,
+  getCustomerActivities,
+  getCustomerTags,
+  getCustomerPhotos,
+} from "@/lib/client-reads/customers";
 
 // ── Queries ──────────────────────────────────────────────────
 

@@ -41,20 +41,19 @@ import {
   useCardFieldVisibility,
 } from "@/components/dashboard/jobs/card-fields-popover";
 import type { JobCardData } from "@/components/dashboard/jobs/kanban-card";
+import { getJobs, getJobAssignees } from "@/lib/client-reads/jobs";
 import {
-  getJobs,
   createJob,
   updateJob,
   deleteJob,
   addJobLineItem,
-  getJobAssignees,
 } from "@/actions/jobs";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
 import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import type { AssigneeMember } from "@/components/dashboard/jobs/assignee-picker";
-import { getPipelines } from "@/actions/pipelines";
-import { getPipelineStages } from "@/actions/pipeline-stages";
+import { getPipelines } from "@/lib/client-reads/pipelines";
+import { getPipelineStages } from "@/lib/client-reads/pipeline-stages";
 import { rememberJobsPipeline, readJobsPipeline } from "@/lib/jobs-pipeline-preference";
 import { PipelineTabs } from "@/components/dashboard/jobs/pipeline-tabs";
 import { JobTable } from "@/components/dashboard/jobs/job-table";

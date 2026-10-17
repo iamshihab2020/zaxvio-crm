@@ -2,10 +2,8 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tansta
 import { toast } from "sonner";
 import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
+import { getInvoiceStats, getInvoices, getInvoice } from "@/lib/client-reads/invoices";
 import {
-  getInvoiceStats,
-  getInvoices,
-  getInvoice,
   createInvoice,
   updateInvoice,
   deleteInvoice,

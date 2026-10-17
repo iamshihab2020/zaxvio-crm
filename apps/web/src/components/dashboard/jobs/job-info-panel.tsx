@@ -24,7 +24,8 @@ import {
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import type { JobDetail } from "./job-detail-sheet";
 import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
-import { getJobAssignees, updateJob } from "@/actions/jobs";
+import { getJobAssignees } from "@/lib/client-reads/jobs";
+import { updateJob } from "@/actions/jobs";
 import { toast } from "sonner";
 
 interface PipelineStage {

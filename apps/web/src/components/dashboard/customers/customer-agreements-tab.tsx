@@ -16,8 +16,8 @@ import {
   ServiceAgreementDialog,
   type AgreementSaveData,
 } from "@/components/dashboard/service-agreements/service-agreement-dialog";
+import { getMaintenanceContracts } from "@/lib/client-reads/maintenance-contracts";
 import {
-  getMaintenanceContracts,
   createMaintenanceContract,
   updateMaintenanceContract,
   deleteMaintenanceContract,

@@ -35,9 +35,20 @@ export const auth = betterAuth({
     minPasswordLength: 12,
   },
   session: {
+    // A session check that misses this cache is several sequential queries:
+    // ~1.2s per API call from a dev machine to Neon, ~0.2s from Render. At 10s
+    // the cache was nearly always cold, so almost every request paid it.
+    //
+    // The cost of 5 minutes is revocation lag: a ban or role change reaches a
+    // live cookie after at most 5 minutes. Sign-out still clears it at once.
+    // Accepted on 2026-10-16. Nothing that must be live reads from this cache:
+    // admin tier, org role and impersonation status are each queried fresh.
+    // `refreshCache` stays off, so a cookie is never extended without a DB read.
+    //
+    // requireAuth forwards the refreshed cookie, or the cache is never renewed.
     cookieCache: {
       enabled: true,
-      maxAge: 10, // 10 seconds — fast permission revocation
+      maxAge: 5 * 60,
     },
   },
   user: {

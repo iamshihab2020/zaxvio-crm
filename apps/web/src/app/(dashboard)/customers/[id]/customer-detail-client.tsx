@@ -22,7 +22,7 @@ import {
 import { createJob } from "@/actions/jobs";
 import { createInvoice } from "@/actions/invoices";
 import { createQuote } from "@/actions/quotes";
-import { getTenant } from "@/actions/tenants";
+import { getTenant } from "@/lib/client-reads/tenants";
 
 interface CustomerDetailClientProps {
   customer: Customer;

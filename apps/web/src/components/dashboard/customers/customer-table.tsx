@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { getCustomer } from "@/actions/customers";
+import { getCustomer } from "@/lib/client-reads/customers";
 import { formatPhoneDisplay } from "@/lib/phone";
 import {
   Table,

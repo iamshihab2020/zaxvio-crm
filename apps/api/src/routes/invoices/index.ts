@@ -305,23 +305,21 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      const invoiceRow = await db
-        .select({
-          ...LIST_COLUMNS,
-          customerEmail: customers.email,
-          customerPhone: customers.phone,
-          customerAddress: customers.address,
-        })
-        .from(invoices)
-        .leftJoin(customers, eq(invoices.customerId, customers.id))
-        .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, id)))
-        .then((r) => r[0]);
-
-      if (!invoiceRow) {
-        return reply.status(404).send({ message: "Invoice not found" });
-      }
-
-      const [lineItems, payments] = await Promise.all([
+      // One round trip: the invoice and its children load together. The child
+      // queries are tenant-filtered and keyed on the URL id, so starting them
+      // before the 404 check reads nothing outside this tenant.
+      const [invoiceRow, lineItems, payments] = await Promise.all([
+        db
+          .select({
+            ...LIST_COLUMNS,
+            customerEmail: customers.email,
+            customerPhone: customers.phone,
+            customerAddress: customers.address,
+          })
+          .from(invoices)
+          .leftJoin(customers, eq(invoices.customerId, customers.id))
+          .where(and(eq(invoices.tenantId, tenantId), eq(invoices.id, id)))
+          .then((r) => r[0]),
         db
           .select()
           .from(invoiceLineItems)
@@ -343,6 +341,10 @@ const invoiceRoutes: FastifyPluginAsyncZod = async (fastify) => {
           )
           .orderBy(desc(invoicePayments.paymentDate)),
       ]);
+
+      if (!invoiceRow) {
+        return reply.status(404).send({ message: "Invoice not found" });
+      }
 
       return reply.send({
         data: { ...invoiceRow, lineItems, payments },

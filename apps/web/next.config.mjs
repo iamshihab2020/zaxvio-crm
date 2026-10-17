@@ -72,11 +72,19 @@ const config = {
       // Server-sent events. EventSource sends credentials, so it has the same
       // first-party requirement as auth.
       { source: "/events", destination: `${apiOrigin}/events` },
+      // Browser reads (lib/api-client.ts). Server actions run one at a time, so
+      // reads that went through them queued behind each other; a fetch through
+      // this rewrite runs concurrently and stays first-party for the cookie.
+      { source: "/api/v1/:path*", destination: `${apiOrigin}/:path*` },
     ];
   },
   experimental: {
+    // Next's default. At 0, every click, back/forward included, re-rendered the
+    // page on the server, and each of those renders awaits the API. Page data
+    // lives in TanStack Query, which ignores a seeded `initialData` once it holds
+    // fresher data for that key, so a 30s-old RSC payload cannot show stale rows.
     staleTimes: {
-      dynamic: 0,
+      dynamic: 30,
     },
     // Required on Next.js 14 for src/instrumentation.ts to run at boot.
     // Without it register() is never called and env validation is dead code.

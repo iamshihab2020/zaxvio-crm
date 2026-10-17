@@ -9,7 +9,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { InvoiceStatusBadge } from "@/components/dashboard/invoices/invoice-status-badge";
-import { getInvoices } from "@/actions/invoices";
+import { getInvoices } from "@/lib/client-reads/invoices";
 // ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
 // timezone rendered the previous day. These are all `date` columns.
 import { formatDateOnly as formatDate } from "@/lib/format";

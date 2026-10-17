@@ -1,9 +1,8 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
+import { getChecklistTemplates, getChecklistTemplate } from "@/lib/client-reads/checklists";
 import {
-  getChecklistTemplates,
-  getChecklistTemplate,
   createChecklistTemplate,
   updateChecklistTemplate,
   deleteChecklistTemplate,

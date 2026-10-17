@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { getInvoice } from "@/actions/invoices";
+import { getInvoice } from "@/lib/client-reads/invoices";
 import { Checkbox } from "@/components/ui/checkbox";
 import { IconArrowUp, IconArrowDown, IconArrowsSort } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";

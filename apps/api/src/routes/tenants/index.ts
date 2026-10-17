@@ -1,6 +1,11 @@
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
 import type { ZodTypeProvider } from "fastify-type-provider-zod";
-import { requireAuth, requireTenant, requireOrgRole } from "../../lib/auth-middleware.js";
+import {
+  forgetTenant,
+  requireAuth,
+  requireTenant,
+  requireOrgRole,
+} from "../../lib/auth-middleware.js";
 import {
   getDb,
   tenants,
@@ -147,6 +152,9 @@ const tenantRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .set(updates)
         .where(eq(tenants.id, request.authUser.tenantId!))
         .returning();
+
+      // requireTenant memoises the timezone; a change must reach the next request.
+      forgetTenant(request.authUser.tenantId!);
 
       return reply.send({ data: updated });
     },

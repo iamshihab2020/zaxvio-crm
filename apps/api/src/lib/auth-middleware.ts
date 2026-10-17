@@ -56,9 +56,18 @@ export async function requireAuth(
   request: FastifyRequest,
   reply: FastifyReply,
 ) {
-  const session = await auth.api.getSession({
+  const { headers: authHeaders, response: session } = await auth.api.getSession({
     headers: fromNodeHeaders(request.headers),
+    returnHeaders: true,
   });
+
+  // When the cookie cache has expired, getSession reads the DB and writes a
+  // fresh `session_data` cookie. Calling it through `auth.api` swallowed that
+  // cookie, so the cache was only ever set at sign-in and every request after
+  // its first window paid the full lookup. Forwarding it lets the browser
+  // (reaching the API through the Next rewrite) renew the cache.
+  const refreshed = authHeaders?.getSetCookie() ?? [];
+  if (refreshed.length > 0) reply.header("set-cookie", refreshed);
 
   if (!session) {
     return reply.status(401).send({ message: "Unauthorized" });
@@ -171,6 +180,30 @@ export async function canWatchTenantStream(
   return session !== undefined;
 }
 
+/**
+ * Organisation → tenant, memoised per process.
+ *
+ * Every tenant-scoped request resolved this with its own query, one more round
+ * trip on top of the session check (~0.3s from a dev machine to Neon). The
+ * mapping never changes and the timezone only changes through
+ * PATCH /tenants/current, which calls `forgetTenant`; the TTL bounds staleness
+ * on any other instance. Only the plain lookup is memoised. Impersonation,
+ * org roles and admin tiers stay live reads: a stale "yes" there is a grant.
+ * A miss ("tenant not initialized") is never memoised.
+ */
+const TENANT_MEMO_TTL_MS = 60_000;
+const TENANT_MEMO_MAX = 1_000;
+const tenantMemo = new Map<
+  string,
+  { id: string; timezone: string | null; expiresAt: number }
+>();
+
+export function forgetTenant(tenantId: string): void {
+  for (const [orgId, entry] of tenantMemo) {
+    if (entry.id === tenantId) tenantMemo.delete(orgId);
+  }
+}
+
 export async function requireTenant(
   request: FastifyRequest,
   reply: FastifyReply,
@@ -251,17 +284,24 @@ export async function requireTenant(
       .send({ message: "Forbidden: no active organization" });
   }
 
-  const db = getDb();
-  const tenant = await db
-    .select({ id: tenants.id, timezone: tenants.timezone })
-    .from(tenants)
-    .where(eq(tenants.organizationId, orgId))
-    .then((r) => r[0]);
+  const now = Date.now();
+  let tenant = tenantMemo.get(orgId);
+  if (!tenant || tenant.expiresAt <= now) {
+    const row = await getDb()
+      .select({ id: tenants.id, timezone: tenants.timezone })
+      .from(tenants)
+      .where(eq(tenants.organizationId, orgId))
+      .then((r) => r[0]);
 
-  if (!tenant) {
-    return reply
-      .status(403)
-      .send({ message: "Tenant not initialized. Call POST /tenants/initialize first." });
+    if (!row) {
+      return reply
+        .status(403)
+        .send({ message: "Tenant not initialized. Call POST /tenants/initialize first." });
+    }
+
+    if (tenantMemo.size >= TENANT_MEMO_MAX) tenantMemo.clear();
+    tenant = { ...row, expiresAt: now + TENANT_MEMO_TTL_MS };
+    tenantMemo.set(orgId, tenant);
   }
 
   request.authUser.tenantId = tenant.id;

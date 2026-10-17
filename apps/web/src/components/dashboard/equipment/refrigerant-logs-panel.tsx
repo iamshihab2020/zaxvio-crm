@@ -13,7 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconDroplet, IconPlus } from "@tabler/icons-react";
-import { getEquipmentRefrigerantLogs, createRefrigerantLog } from "@/actions/equipment";
+import { createRefrigerantLog } from "@/actions/equipment";
+import { getEquipmentRefrigerantLogs } from "@/lib/client-reads/equipment";
 import {
   RefrigerantLogDialog,
   type RefrigerantLogFormData,

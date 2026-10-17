@@ -2,12 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/lib/auth-client";
-import {
-  getNotifications,
-  getUnreadNotificationCount,
-  markNotificationRead,
-  markAllNotificationsRead,
-} from "@/actions/notifications";
+import { getNotifications, getUnreadNotificationCount } from "@/lib/client-reads/notifications";
+import { markNotificationRead, markAllNotificationsRead } from "@/actions/notifications";
 import { useEventStream } from "./use-event-stream";
 
 interface NotificationItem {

@@ -12,6 +12,7 @@ import {
   count,
   isNull,
   sql,
+  type SQL,
 } from "@hvac-saas/database";
 import {
   idParam,
@@ -132,6 +133,23 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
       //
       // Seeding now happens only when there is genuinely nothing to return,
       // which is the one situation where the write is the caller's intent.
+      //
+      // One round trip in the common case. This used to be three in sequence
+      // (default-pipeline lookup, a "has any stages" probe, then the read),
+      // ~0.9s from a dev machine to Neon on every board and calendar load, for
+      // the sake of a branch that runs once per tenant. The read now resolves
+      // the default pipeline in a subquery; only an empty result falls through
+      // to the original get-or-create-and-seed path, and returns what it did.
+      const pipelineFilter = queryPipelineId
+        ? eq(jobPipelineStages.pipelineId, queryPipelineId)
+        : eq(
+            jobPipelineStages.pipelineId,
+            sql`(SELECT p.id FROM pipelines p WHERE p.tenant_id = ${tenantId} AND p.is_default LIMIT 1)`,
+          );
+
+      const firstRead = await selectStages(db, tenantId, pipelineFilter);
+      if (firstRead.length > 0) return reply.send({ data: firstRead });
+
       let pipelineId = queryPipelineId;
       if (!pipelineId) {
         const existingDefault = await db
@@ -146,23 +164,29 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
           (await getOrCreateDefaultPipeline(db, tenantId)).id;
       }
 
-      const hasStages = await db
-        .select({ id: jobPipelineStages.id })
-        .from(jobPipelineStages)
-        .where(
-          and(
-            eq(jobPipelineStages.tenantId, tenantId),
-            eq(jobPipelineStages.pipelineId, pipelineId),
-          ),
-        )
-        .limit(1)
-        .then((r) => r.length > 0);
+      // Nothing came back, so this pipeline has no stages yet (or the default
+      // pipeline did not exist until a moment ago): seed, then read.
+      await ensureDefaultStages(db, tenantId, pipelineId);
 
-      if (!hasStages) {
-        await ensureDefaultStages(db, tenantId, pipelineId);
-      }
+      const data = await selectStages(
+        db,
+        tenantId,
+        eq(jobPipelineStages.pipelineId, pipelineId),
+      );
 
-      const data = await db
+      return reply.send({ data });
+    },
+  );
+
+  /**
+   * Stages of one pipeline, with the live job count per column.
+   */
+  async function selectStages(
+    db: ReturnType<typeof getDb>,
+    tenantId: string,
+    pipelineFilter: SQL,
+  ) {
+    return db
         .select({
           id: jobPipelineStages.id,
           tenantId: jobPipelineStages.tenantId,
@@ -199,17 +223,9 @@ const pipelineStagesRoutes: FastifyPluginAsyncZod = async (fastify) => {
           )`,
         })
         .from(jobPipelineStages)
-        .where(
-          and(
-            eq(jobPipelineStages.tenantId, tenantId),
-            eq(jobPipelineStages.pipelineId, pipelineId),
-          ),
-        )
+        .where(and(eq(jobPipelineStages.tenantId, tenantId), pipelineFilter))
         .orderBy(asc(jobPipelineStages.sortOrder));
-
-      return reply.send({ data });
-    },
-  );
+  }
 
   /**
    * POST /pipeline-stages

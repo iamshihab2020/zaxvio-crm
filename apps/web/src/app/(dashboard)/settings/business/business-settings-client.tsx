@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BusinessForm } from "@/components/dashboard/settings/business-form";
 import { BusinessSidebar } from "@/components/dashboard/settings/business-sidebar";
-import { getTenant } from "@/actions/tenants";
+import { getTenant } from "@/lib/client-reads/tenants";
 
 export interface TenantData {
   id: string;

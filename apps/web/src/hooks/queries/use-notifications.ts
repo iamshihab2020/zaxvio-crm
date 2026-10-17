@@ -4,9 +4,11 @@ import { queryKeys } from "@/lib/query-keys";
 import {
   getNotifications,
   getUnreadNotificationCount,
+  getNotificationPreferences,
+} from "@/lib/client-reads/notifications";
+import {
   markNotificationRead,
   markAllNotificationsRead,
-  getNotificationPreferences,
   updateNotificationPreferences,
 } from "@/actions/notifications";
 

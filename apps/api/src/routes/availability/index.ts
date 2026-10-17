@@ -39,21 +39,16 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      // Load tenant timezone (DF-BK-02)
-      const tenantRow = await db
-        .select({
-          timezone: tenants.timezone,
-          slotCapacity: tenants.bookingSlotCapacity,
-        })
-        .from(tenants)
-        .where(eq(tenants.id, tenantId))
-        .then((r) => r[0]);
-      const tz = tenantRow?.timezone ?? "America/Chicago";
+      // Tenant timezone (DF-BK-02). requireTenant has already resolved it, so
+      // it is not read again; the slot capacity rides in the same round trip as
+      // the schedule instead of costing one of its own before it (~0.3s each
+      // from a dev machine to Neon).
+      const tz = request.authUser.tenantTimezone;
 
       // `weeklySchedule` is reassigned below when the tenant has none yet;
       // `overrides` never is, so they are declared apart rather than both being
       // `let` for the sake of one.
-      const [initialSchedule, overrides] = await Promise.all([
+      const [initialSchedule, overrides, tenantRow] = await Promise.all([
         db
           .select()
           .from(availabilitySchedules)
@@ -69,6 +64,11 @@ const availabilityRoutes: FastifyPluginAsyncZod = async (fastify) => {
             ),
           )
           .orderBy(asc(scheduleOverrides.overrideDate)),
+        db
+          .select({ slotCapacity: tenants.bookingSlotCapacity })
+          .from(tenants)
+          .where(eq(tenants.id, tenantId))
+          .then((r) => r[0]),
       ]);
 
       // Lazy-seed default schedule for existing tenants

@@ -847,3 +847,28 @@
   — so a canvas with two triggers always started from the first (ONB-07). The matcher already knew
   which node matched; it now passes `triggerNodeId` to `execute()`. When the caller has the answer,
   hand it over rather than letting the callee re-derive it.
+
+## Round trips are the cost, not queries (2026-10-16, app-wide slowness)
+
+- **From a dev machine, every Neon round trip is ~0.3s, and opening a connection
+  is ~2.7s.** Neon is in `us-east-2`. Query complexity barely registers; the
+  number of *sequential* awaits per request is the whole story. Count those first.
+- **`auth.api.getSession()` swallows the refreshed cookie unless you ask for it.**
+  With the cookie cache expired it reads the DB (~1.2s, several queries) and
+  writes a fresh `session_data` cookie onto *its* response headers. Called from
+  a Fastify preHandler, that cookie went nowhere, so the cache was set at
+  sign-in and never again: nearly every request paid the full lookup. Use
+  `returnHeaders: true` and forward `headers.getSetCookie()`; see `requireAuth`.
+  `maxAge` is now 5 min (revocation lag accepted), and `refreshCache` stays off,
+  so a cookie is never extended without a DB read.
+- **Memoise what never changes, nothing that grants.** Org → tenant is cached
+  for 60s in `requireTenant` and cleared by `forgetTenant` on PATCH
+  /tenants/current. Impersonation status, org roles and admin tiers stay live
+  reads on every request: a stale "yes" there is a grant.
+- **"Load the parent, then its children" is two round trips for no reason** when
+  the children only need the URL id and are tenant-filtered. Put the parent in
+  the same `Promise.all` and 404 afterwards. Done for jobs, invoices, quotes,
+  bookings, booking activities and the customer summary (3 → 1).
+- **Two hops can be one join, and still be live.** `resolveOrgRole` went
+  tenant-then-member to a single `tenants ⋈ member`. It's still read fresh each
+  call, as the impersonation guards require.

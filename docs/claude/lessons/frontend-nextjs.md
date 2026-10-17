@@ -853,3 +853,32 @@ From [[bookings-calendar|the report]] — the front-end half.
   decorative rings spinning forever, a scroll hint bouncing forever, and a chatbot launcher that
   pulsed forever on every page load, because its "has opened" flag is not persisted. Give each a
   finite iteration count or stop it.
+
+## Server actions are a queue, not a transport (2026-10-16, app-wide slowness)
+
+- **Next 14.2 runs server actions strictly one at a time.** That's
+  `next/dist/shared/lib/router/action-queue.js`: an action that arrives while one
+  is pending waits for it. So a page whose TanStack queries call server actions
+  loads its data in sequence. The calendar's five reads took the *sum* of their
+  latencies (~10s), and the jobs board fired twelve back to back; the dev log
+  showed it as a run of `POST /jobs?pipeline=…`. Reads now go through
+  `lib/client-reads` → `/api/v1/*` (ADR-004). Only mutations belong on actions.
+- **A navigation does not wait behind the queue. It discards the pending action
+  and flags a refresh.** So "the click doesn't go" was never the queue itself. It
+  was the reads it fills in behind, plus `staleTimes.dynamic: 0`, which
+  re-rendered every page on the server on every click, back/forward included.
+  The Next default is 30s, and it's safe here because TanStack ignores a seeded
+  `initialData` that is older than its cache.
+- **A server action can't hand the API's `Set-Cookie` to the browser.** Any
+  cookie the API sets on a read (Better Auth's refreshed session cache) dies at
+  the Next server. A fetch through a rewrite passes it straight through.
+- **A mirrored read must send exactly what the action sent.** `pickQuery` skips
+  `false`, as the raw actions did, but `getCustomers` sends `optedOut=false` and
+  `getMaintenanceContracts` sends `isActive=false`. Dropping those silently
+  turns "inactive" into "all". And `useBookings` passes a `schedule` key that
+  `getBookings` never forwarded, so a generic params-to-query would have
+  started sending it. List the keys; don't spread the object.
+- **Measure concurrency on a warm pool.** The first concurrent burst after
+  sequential traffic paid for new Neon connections (~2.7s each from the dev
+  machine), so it looked no faster than sequential. Three more rounds showed
+  the real number (~2.0s against 4.7s).

@@ -2,11 +2,8 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
-import {
-  getDashboardStats,
-  getDashboardPipeline,
-  type DashboardStatsParams,
-} from "@/actions/dashboard";
+import { getDashboardStats, getDashboardPipeline } from "@/lib/client-reads/dashboard";
+import type { DashboardStatsParams } from "@/actions/dashboard";
 
 type StatsResult = Awaited<ReturnType<typeof getDashboardStats>>;
 

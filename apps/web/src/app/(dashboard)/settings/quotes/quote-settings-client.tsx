@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { Switch } from "@/components/ui/switch";
 import { IconAlertTriangle, IconFileDescription, IconInfoCircle, IconLink } from "@tabler/icons-react";
-import { getTenant, updateTenant } from "@/actions/tenants";
+import { getTenant } from "@/lib/client-reads/tenants";
+import { updateTenant } from "@/actions/tenants";
 
 interface TenantData {
   id: string;

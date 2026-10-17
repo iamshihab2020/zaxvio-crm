@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { IconHeadset } from "@tabler/icons-react";
-import { getActiveImpersonationViewer } from "@/actions/tenants";
+import { getActiveImpersonationViewer } from "@/lib/client-reads/tenants";
 import { useEventStream } from "@/hooks/use-event-stream";
 
 export function ImpersonationActiveIndicator() {

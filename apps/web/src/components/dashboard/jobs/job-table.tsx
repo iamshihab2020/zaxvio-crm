@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { getJob } from "@/actions/jobs";
+import { getJob } from "@/lib/client-reads/jobs";
 import {
   IconArrowUp,
   IconArrowDown,

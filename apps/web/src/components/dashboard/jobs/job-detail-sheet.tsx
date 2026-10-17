@@ -18,7 +18,8 @@ import {
   type JobPriority,
 } from "@/lib/constants/job-options";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
-import { getJob, updateJob, updateJobStatus } from "@/actions/jobs";
+import { getJob } from "@/lib/client-reads/jobs";
+import { updateJob, updateJobStatus } from "@/actions/jobs";
 import {
   EditableText,
   EditableSelect,

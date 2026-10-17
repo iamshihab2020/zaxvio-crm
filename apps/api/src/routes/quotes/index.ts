@@ -226,7 +226,10 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const timezone = request.authUser.tenantTimezone;
       const db = getDb();
 
-      const quoteRow = await db
+      // One round trip: the quote and its line items load together. The
+      // line-item query is tenant-filtered and keyed on the URL id, so starting
+      // it before the 404 check reads nothing outside this tenant.
+      const quoteRowQuery = db
         .select({
           id: quotes.id,
           tenantId: quotes.tenantId,
@@ -264,20 +267,23 @@ const quoteRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(quotes.tenantId, tenantId), eq(quotes.id, id)))
         .then((r) => r[0]);
 
+      const [quoteRow, lineItems] = await Promise.all([
+        quoteRowQuery,
+        db
+          .select()
+          .from(quoteLineItems)
+          .where(
+            and(
+              eq(quoteLineItems.tenantId, tenantId),
+              eq(quoteLineItems.quoteId, id),
+            ),
+          )
+          .orderBy(asc(quoteLineItems.sortOrder)),
+      ]);
+
       if (!quoteRow) {
         return reply.status(404).send({ message: "Quote not found" });
       }
-
-      const lineItems = await db
-        .select()
-        .from(quoteLineItems)
-        .where(
-          and(
-            eq(quoteLineItems.tenantId, tenantId),
-            eq(quoteLineItems.quoteId, id),
-          ),
-        )
-        .orderBy(asc(quoteLineItems.sortOrder));
 
       return reply.send({
         data: {

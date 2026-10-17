@@ -327,7 +327,12 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
       const tenantId = request.authUser.tenantId!;
       const db = getDb();
 
-      const jobRow = await db
+      // The job and its children load in ONE round trip. They used to load in
+      // two (the job, then the children once it was found), ~0.3s more per
+      // detail open from a dev machine to Neon. Every child query is
+      // tenant-filtered and keyed on the URL id, so starting them before the
+      // 404 check can read nothing that is not this tenant's.
+      const jobRowQuery = db
         .select({
           id: jobs.id,
           tenantId: jobs.tenantId,
@@ -369,11 +374,8 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
         .where(and(eq(jobs.tenantId, tenantId), eq(jobs.id, id)))
         .then((r) => r[0]);
 
-      if (!jobRow) {
-        return reply.status(404).send({ message: "Job not found" });
-      }
-
-      const [lineItems, checklist, photoCountResult] = await Promise.all([
+      const [jobRow, lineItems, checklist, photoCountResult] = await Promise.all([
+        jobRowQuery,
         db
           .select()
           .from(jobLineItems)
@@ -424,6 +426,10 @@ const jobRoutes: FastifyPluginAsyncZod = async (fastify) => {
             and(eq(jobPhotos.tenantId, tenantId), eq(jobPhotos.jobId, id)),
           ),
       ]);
+
+      if (!jobRow) {
+        return reply.status(404).send({ message: "Job not found" });
+      }
 
       return reply.send({
         data: {

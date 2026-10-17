@@ -7,9 +7,6 @@ import {
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
 import {
-  archiveWorkflow,
-  createWorkflow,
-  createWorkflowFromTemplate,
   getBuilderContext,
   getWorkflow,
   getWorkflowQuota,
@@ -17,6 +14,12 @@ import {
   getWorkflowRuns,
   getWorkflows,
   getWorkflowVersions,
+  validateWorkflow,
+} from "@/lib/client-reads/workflows";
+import {
+  archiveWorkflow,
+  createWorkflow,
+  createWorkflowFromTemplate,
   previewWorkflowNode,
   publishWorkflow,
   restoreWorkflowVersion,
@@ -24,7 +27,6 @@ import {
   saveWorkflowGraph,
   setWorkflowActive,
   updateWorkflow,
-  validateWorkflow,
   type CreateWorkflowInput,
   type SaveGraphInput,
   type UpdateWorkflowInput,

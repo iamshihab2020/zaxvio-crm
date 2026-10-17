@@ -120,21 +120,19 @@ export async function resolveOrgRole(
   tenantId: string,
   userId: string,
 ): Promise<string | null> {
-  const [tenant] = await db
-    .select({ organizationId: tenants.organizationId })
-    .from(tenants)
-    .where(eq(tenants.id, tenantId));
-  if (!tenant?.organizationId) return null;
-
+  // One query, not two hops in sequence: the impersonation-pending check runs
+  // this on every dashboard load, and each round trip is ~0.3s from a dev
+  // machine to Neon. Still a live read every time, never cached: a role that
+  // was just revoked must not approve anything. A tenant with no organisation
+  // joins to nothing, so the fail-closed `null` is unchanged.
   const [row] = await db
     .select({ role: member.role })
-    .from(member)
-    .where(
-      and(
-        eq(member.organizationId, tenant.organizationId),
-        eq(member.userId, userId),
-      ),
-    );
+    .from(tenants)
+    .innerJoin(
+      member,
+      and(eq(member.organizationId, tenants.organizationId), eq(member.userId, userId)),
+    )
+    .where(eq(tenants.id, tenantId));
   return row?.role ?? null;
 }
 

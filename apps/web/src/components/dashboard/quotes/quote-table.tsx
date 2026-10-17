@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
-import { getQuote } from "@/actions/quotes";
+import { getQuote } from "@/lib/client-reads/quotes";
 import { Checkbox } from "@/components/ui/checkbox";
 // QUO-10: `new Date("2026-08-01")` is UTC midnight, so these printed the
 // previous day for every US tenant while the customer portal — which anchors

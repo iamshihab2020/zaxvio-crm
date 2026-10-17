@@ -24,7 +24,8 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { FieldWrapper } from "./field-wrapper";
 import type { PickerFieldProps } from "./fields";
-import { searchWorkflowRecords, type RecordOption } from "@/actions/workflows";
+import { searchWorkflowRecords } from "@/lib/client-reads/workflows";
+import type { RecordOption } from "@/actions/workflows";
 import { cn } from "@/lib/utils";
 
 /**

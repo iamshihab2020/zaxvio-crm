@@ -17,7 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { IconUser, IconMapPin, IconAlertCircle, IconNote, IconInfoCircle } from "@tabler/icons-react";
 import { formatPhoneInput, normalizePhone } from "@/lib/phone";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
-import { checkDuplicateCustomer } from "@/actions/customers";
+import { checkDuplicateCustomer } from "@/lib/client-reads/customers";
 import type { Customer } from "@hvac-saas/types";
 
 interface CustomerDialogProps {

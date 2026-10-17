@@ -8,7 +8,7 @@ import {
 } from "@/components/dashboard/settings/invoice-form";
 import { InvoicePreview } from "@/components/dashboard/settings/invoice-preview";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
-import { getTenant } from "@/actions/tenants";
+import { getTenant } from "@/lib/client-reads/tenants";
 import { IconInfoCircle } from "@tabler/icons-react";
 
 interface TenantData {

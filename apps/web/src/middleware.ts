@@ -122,6 +122,10 @@ export const config = {
     // This only became reachable when browser traffic moved to the same origin.
     // Previously these calls went straight to the API's own domain, where
     // Next.js middleware never saw them.
-    "/((?!_next/static|_next/image|favicon.ico|api/auth|events|equipment/[^/]+/history|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    //
+    // `api/v1` is the same case for browser reads (lib/api-client.ts): the API
+    // answers a missing session with a 401 the caller can read, not a 307 to
+    // an HTML login page.
+    "/((?!_next/static|_next/image|favicon.ico|api/auth|api/v1|events|equipment/[^/]+/history|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

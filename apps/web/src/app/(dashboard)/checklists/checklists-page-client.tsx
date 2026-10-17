@@ -30,8 +30,8 @@ import {
   useUpdateChecklistTemplate,
   useDeleteChecklistTemplate,
 } from "@/hooks/queries";
+import { getChecklistTemplate } from "@/lib/client-reads/checklists";
 import {
-  getChecklistTemplate,
   addChecklistItem,
   updateChecklistItem,
   deleteChecklistItem,

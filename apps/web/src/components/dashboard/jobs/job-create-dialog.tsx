@@ -72,7 +72,7 @@ import { CatalogPriceHint } from "@/components/dashboard/reusable/catalog-price-
 import { resolveLineItemDescription } from "@/lib/line-items";
 import { QuickPriceInput } from "@/components/dashboard/reusable/quick-price-input";
 import { createCustomer } from "@/actions/customers";
-import { getJobAssignees } from "@/actions/jobs";
+import { getJobAssignees } from "@/lib/client-reads/jobs";
 import { AssetPicker } from "@/components/dashboard/equipment/asset-picker";
 import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 import { toast } from "sonner";

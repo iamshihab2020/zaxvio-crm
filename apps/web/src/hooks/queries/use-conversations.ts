@@ -1,9 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
+import { getConversations, getConversationMessages } from "@/lib/client-reads/conversations";
 import {
-  getConversations,
-  getConversationMessages,
   sendMessage,
   markConversationRead,
   archiveConversation,

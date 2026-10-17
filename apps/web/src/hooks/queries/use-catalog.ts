@@ -6,6 +6,8 @@ import {
   getCatalogItems,
   getCatalogCategories,
   getCatalogItem,
+} from "@/lib/client-reads/catalog";
+import {
   createCatalogItem,
   updateCatalogItem,
   deleteCatalogItem,

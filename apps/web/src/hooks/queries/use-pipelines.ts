@@ -1,14 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
+import { getPipelines } from "@/lib/client-reads/pipelines";
+import { getPipelineStages } from "@/lib/client-reads/pipeline-stages";
 import {
-  getPipelines,
   createPipeline,
   updatePipeline,
   deletePipeline,
 } from "@/actions/pipelines";
 import {
-  getPipelineStages,
   createPipelineStage,
   updatePipelineStage,
   deletePipelineStage,

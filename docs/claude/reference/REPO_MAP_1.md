@@ -763,6 +763,17 @@ apps/web/
     |       +-- use-admin.ts                   # Admin panel queries & mutations
     |
     +-- lib/
+    |   +-- api-client.ts            # The BROWSER read transport (ADR-004): readJson / readResult /
+    |   |                            # readListResult over the /api/v1/* rewrite, pickQuery (only the
+    |   |                            # keys an action sent; false is dropped) and an exact buildQuery
+    |   |                            # copy. Exists because Next 14 runs server actions one at a time,
+    |   |                            # so reads through them queued: calendar ~10s → ~2s
+    |   +-- client-reads/            # One mirror per read action, same name/params/path/errors/shape;
+    |   |                            # hooks import reads from here, mutations from actions/. 21 files:
+    |   |                            # bookings, calendar-events, catalog, checklists, conversations,
+    |   |                            # customers, dashboard, equipment, invoices, job-costing, job-time,
+    |   |                            # jobs, maintenance-contracts, notifications, pipeline-stages,
+    |   |                            # pipelines, quotes, reports, tags, tenants, workflows
     |   +-- workflow/
     |   |   +-- store.ts            # The builder's Zustand store. NOTHING mutates React Flow state
     |   |   |                       # directly — every change comes through an action here, which is

@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { IconBriefcase } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
-import { getPipelineStages } from "@/actions/pipeline-stages";
+import { getPipelineStages } from "@/lib/client-reads/pipeline-stages";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 
 interface PipelineStage {

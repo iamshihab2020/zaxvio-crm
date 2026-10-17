@@ -14,8 +14,8 @@ import {
   type AssetFormData,
 } from "@/components/dashboard/equipment/asset-dialog";
 import { RefrigerantLogsPanel } from "@/components/dashboard/equipment/refrigerant-logs-panel";
+import { getEquipment } from "@/lib/client-reads/equipment";
 import {
-  getEquipment,
   createEquipment,
   updateEquipment,
   deleteEquipment,

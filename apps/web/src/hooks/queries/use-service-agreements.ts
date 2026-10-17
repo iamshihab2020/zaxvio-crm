@@ -5,6 +5,8 @@ import { queryKeys } from "@/lib/query-keys";
 import {
   getMaintenanceContracts,
   getMaintenanceContract,
+} from "@/lib/client-reads/maintenance-contracts";
+import {
   createMaintenanceContract,
   updateMaintenanceContract,
   deleteMaintenanceContract,

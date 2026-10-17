@@ -2,9 +2,8 @@ import { useQuery, useMutation, useQueryClient, type QueryClient } from "@tansta
 import { toast } from "sonner";
 import { bulkToast } from "@/lib/bulk-toast";
 import { queryKeys } from "@/lib/query-keys";
+import { getJobs, getJob } from "@/lib/client-reads/jobs";
 import {
-  getJobs,
-  getJob,
   createJob,
   updateJob,
   updateJobStatus,

@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
-import { getTags, createTag, updateTag, deleteTag } from "@/actions/tags";
+import { createTag, updateTag, deleteTag } from "@/actions/tags";
+import { getTags } from "@/lib/client-reads/tags";
 
 // ── Queries ──────────────────────────────────────────────────
 

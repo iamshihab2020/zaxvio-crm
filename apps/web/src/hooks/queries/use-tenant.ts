@@ -1,13 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { queryKeys } from "@/lib/query-keys";
-import {
-  getTenant,
-  updateTenant,
-  getMemberRates,
-  setMemberRate,
-  clearMemberRate,
-} from "@/actions/tenants";
+import { getTenant, getMemberRates } from "@/lib/client-reads/tenants";
+import { updateTenant, setMemberRate, clearMemberRate } from "@/actions/tenants";
 
 // ── Queries ──────────────────────────────────────────────────
 

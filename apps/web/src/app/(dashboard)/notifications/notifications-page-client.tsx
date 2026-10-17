@@ -5,11 +5,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { NotificationItem } from "@/components/dashboard/notifications/notification-item";
-import {
-  getNotifications,
-  markNotificationRead,
-  markAllNotificationsRead,
-} from "@/actions/notifications";
+import { getNotifications } from "@/lib/client-reads/notifications";
+import { markNotificationRead, markAllNotificationsRead } from "@/actions/notifications";
 import { queryKeys } from "@/lib/query-keys";
 import type { NotificationWithReadStatus } from "@hvac-saas/types";
 

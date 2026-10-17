@@ -18,8 +18,8 @@ import { WidgetErrorBoundary } from "@/components/reusable/widget-error-boundary
 import { queryKeys } from "@/lib/query-keys";
 import { jobLink, invoiceLink } from "@/lib/entity-links";
 import { tenantToday } from "@/lib/tenant-time";
-import { getJobs } from "@/actions/jobs";
-import { getInvoices } from "@/actions/invoices";
+import { getJobs } from "@/lib/client-reads/jobs";
+import { getInvoices } from "@/lib/client-reads/invoices";
 import { useCustomerSummary, useCustomerActivities } from "@/hooks/queries";
 import { useTenantSettings } from "@/hooks/queries/use-tenant";
 

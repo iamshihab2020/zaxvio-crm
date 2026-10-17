@@ -9,7 +9,7 @@ import { queryKeys } from "@/lib/query-keys";
 import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { QuoteStatusBadge } from "@/components/dashboard/quotes/quote-status-badge";
-import { getQuotes } from "@/actions/quotes";
+import { getQuotes } from "@/lib/client-reads/quotes";
 // ARC-12: issuedDate/expiryDate are `date` columns; `new Date(col)` is UTC
 // midnight and rendered the previous day west of UTC.
 import { formatDateOnly as formatDate } from "@/lib/format";

@@ -12,7 +12,7 @@ import {
   IconPhoto,
   IconPackage,
 } from "@tabler/icons-react";
-import { getJobActivities } from "@/actions/jobs";
+import { getJobActivities } from "@/lib/client-reads/jobs";
 
 interface Activity {
   id: string;

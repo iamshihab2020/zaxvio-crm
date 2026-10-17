@@ -9,8 +9,10 @@ import { ConversationThread } from "@/components/dashboard/conversations/convers
 import { ComposeBar } from "@/components/dashboard/conversations/compose-bar";
 import {
   getConversations,
-  getOrCreateConversation,
   getConversationMessages,
+} from "@/lib/client-reads/conversations";
+import {
+  getOrCreateConversation,
   sendMessage,
   type Conversation,
   type Message,
