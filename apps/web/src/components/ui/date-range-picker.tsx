@@ -23,6 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
 
 // Annotated rather than `as const`. A readonly tuple of readonly objects is not
 // a `DatePreset[]`, which is what forced two casts through `unknown` at the only
@@ -101,6 +102,14 @@ export function DateRangePicker({
 }: DateRangePickerProps) {
   const [open, setOpen] = React.useState(false);
   /**
+   * The presets column plus two months is about 640px of popover: more than a
+   * phone has, and the whole width of a small tablet. The cut-off is `md`, not
+   * `sm`, because `Calendar` only lays its months out in a row from `md`
+   * (`md:flex-row` in ui/calendar.tsx); between the two they would stack and
+   * make the popover taller than a landscape phone.
+   */
+  const showTwoMonths = useMediaQuery(MEDIA.md);
+  /**
    * The half-finished selection, held here instead of being pushed to the page.
    *
    * `onSelect` fires on *every* click, and the first click of a range carries
@@ -144,6 +153,12 @@ export function DateRangePicker({
     }
   };
 
+  const triggerLabel = dateRange?.from
+    ? dateRange.to
+      ? `${format(dateRange.from, "MMM d, yyyy")} – ${format(dateRange.to, "MMM d, yyyy")}`
+      : format(dateRange.from, "MMM d, yyyy")
+    : "Select date range";
+
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
@@ -151,38 +166,36 @@ export function DateRangePicker({
           variant="outline"
           size="sm"
           className={cn(
-            "h-8 justify-start gap-2 text-left font-body text-xs font-normal",
+            // 40px on a phone, 32px from `sm`. `max-w-full` + the truncating
+            // label keep a long range from pushing the page sideways.
+            "h-10 max-w-full justify-start gap-2 text-left font-body text-xs font-normal sm:h-8",
             !dateRange && "text-muted-foreground",
             className
           )}
         >
           <IconCalendar className="h-3.5 w-3.5 text-muted-foreground" />
-          {dateRange?.from ? (
-            dateRange.to ? (
-              <>
-                {format(dateRange.from, "MMM d, yyyy")} –{" "}
-                {format(dateRange.to, "MMM d, yyyy")}
-              </>
-            ) : (
-              format(dateRange.from, "MMM d, yyyy")
-            )
-          ) : (
-            "Select date range"
-          )}
+          <span className="truncate">{triggerLabel}</span>
           <IconChevronDown className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="end">
-        <div className="flex">
-          {/* Presets sidebar */}
-          <div className="flex flex-col gap-0.5 border-r border-border p-2">
+      <PopoverContent
+        className="w-auto max-w-[calc(100vw-1rem)] p-0"
+        align="end"
+        collisionPadding={8}
+      >
+        <div className="flex flex-col sm:flex-row">
+          {/* Presets: a wrapping row above the calendar on a phone, a column
+              beside it from `sm`. `w-0 min-w-full` stops the single long row of
+              presets from setting the popover's width — the calendar does that —
+              while still filling it. */}
+          <div className="flex w-0 min-w-full flex-row flex-wrap gap-1 border-b border-border p-2 sm:w-auto sm:min-w-0 sm:flex-col sm:gap-0.5 sm:border-b-0 sm:border-r">
             {allPresets.map((preset) => (
               <Button
                 key={preset.label}
                 variant="ghost"
                 size="sm"
                 onClick={() => handlePreset(preset)}
-                className="justify-start text-xs font-body whitespace-nowrap"
+                className="h-10 justify-start text-xs font-body whitespace-nowrap sm:h-8"
               >
                 {preset.label}
               </Button>
@@ -192,6 +205,9 @@ export function DateRangePicker({
           <div className="p-2">
             <Calendar
               mode="range"
+              // 40px day cells on a phone (seven of them fit the popover), the
+              // original 32px from `sm`.
+              className="[--cell-size:2.5rem] sm:[--cell-size:2rem]"
               /**
                * A click starts a NEW range instead of stretching the applied
                * one. Without this, react-day-picker folds every click into the
@@ -205,13 +221,17 @@ export function DateRangePicker({
               resetOnSelect
               // Open on the month the range *ends* in, not the one it starts
               // in: a Jan–Aug range used to open on January and February, two
-              // panels away from anything the user was about to adjust.
+              // panels away from anything the user was about to adjust. With
+              // two panels the end month is the right-hand one; with one it is
+              // the only one.
               defaultMonth={
-                dateRange?.to ? subMonths(dateRange.to, 1) : subMonths(new Date(), 1)
+                showTwoMonths
+                  ? subMonths(dateRange?.to ?? new Date(), 1)
+                  : (dateRange?.to ?? new Date())
               }
               selected={draft}
               onSelect={handleSelect}
-              numberOfMonths={2}
+              numberOfMonths={showTwoMonths ? 2 : 1}
               disabled={{ after: new Date() }}
             />
           </div>

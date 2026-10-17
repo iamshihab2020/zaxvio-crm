@@ -215,13 +215,13 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
       {/* Two-column: Upcoming + Outstanding */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
             <CardTitle className="flex items-center gap-2 font-heading text-sm">
               <IconCalendarEvent className="h-4 w-4 text-brand" />
               Upcoming Jobs
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             {jobsFailed ? (
               <p className="py-4 text-center text-sm text-destructive" role="alert">
                 Couldn&rsquo;t load jobs.{" "}
@@ -243,7 +243,7 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
                   <Link
                     key={job.id}
                     href={jobLink(job.id)}
-                    className="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
                   >
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-foreground">{job.title}</p>
@@ -263,13 +263,13 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
         </Card>
 
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
             <CardTitle className="flex items-center gap-2 font-heading text-sm">
               <IconCurrencyDollar className="h-4 w-4 text-brand" />
               Outstanding Invoices
             </CardTitle>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             {invoicesFailed ? (
               <p className="py-4 text-center text-sm text-destructive" role="alert">
                 Couldn&rsquo;t load invoices.{" "}
@@ -291,13 +291,15 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
                   <Link
                     key={inv.id}
                     href={invoiceLink(inv.id)}
-                    className="flex cursor-pointer items-center justify-between rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
+                    className="flex cursor-pointer items-center justify-between gap-3 rounded-md px-3 py-2 transition-colors hover:bg-muted/50"
                   >
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-foreground">{inv.invoiceNumber}</p>
                       <p className="text-xs text-muted-foreground">{formatDate(inv.issueDate)}</p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    {/* Amount over status on a phone: side by side they came to
+                        ~180px beside the invoice number and spilled the card. */}
+                    <div className="flex shrink-0 flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-2">
                       <span className="text-sm font-medium text-foreground">
                         {formatCurrency(inv.balanceDue || inv.totalAmount)}
                       </span>
@@ -315,13 +317,13 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
 
       {/* Recent Activity */}
       <Card>
-        <CardHeader className="pb-3">
+        <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
           <CardTitle className="flex items-center gap-2 font-heading text-sm">
             <IconActivity className="h-4 w-4 text-brand" />
             Recent Activity
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
           {activitiesFailed ? (
             <p className="py-4 text-center text-sm text-destructive" role="alert">
               Couldn&rsquo;t load activity.{" "}

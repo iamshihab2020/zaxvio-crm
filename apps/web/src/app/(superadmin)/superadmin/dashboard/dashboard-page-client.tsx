@@ -57,12 +57,15 @@ function KpiCard({
 }) {
   return (
     <Card>
-      <CardContent className="p-6">
+      {/* 16px padding and a smaller figure on phones, where the tiles sit two
+          across at about 160px each; a seven-character MRR at 30px would not
+          fit the 128px inside. */}
+      <CardContent className="p-4 sm:p-6">
         <div className="flex items-center gap-2 text-muted-foreground">
-          <Icon className={`h-4 w-4 ${iconColor}`} />
+          <Icon className={`h-4 w-4 shrink-0 ${iconColor}`} />
           <span className="text-sm font-body">{label}</span>
         </div>
-        <p className="mt-2 font-heading text-3xl font-bold text-foreground">
+        <p className="mt-2 font-heading text-2xl font-bold text-foreground sm:text-3xl">
           {value}
         </p>
         {trendLabel && (
@@ -101,9 +104,11 @@ export function DashboardPageClient({
   const recentSignups = signups?.slice(-7).reduce((sum, d) => sum + d.count, 0) ?? 0;
 
   return (
-    <section className="p-6 space-y-6">
-      {/* KPI Grid — no page title needed, navbar shows "Dashboard" */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section className="p-4 sm:p-6 space-y-6">
+      {/* KPI Grid — no page title needed, navbar shows "Dashboard". Two by two
+          on a phone, as on the tenant dashboard, so four tiles do not push the
+          charts a screen down. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           label="Total Tenants"
           value={String(totalTenants)}
@@ -147,12 +152,12 @@ export function DashboardPageClient({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* MRR Breakdown */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
             <CardTitle className="font-heading text-base font-semibold">
               MRR by Plan
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             {mrr?.breakdown && mrr.breakdown.length > 0 ? (
               <div className="space-y-3">
                 {mrr.breakdown.map((plan) => (
@@ -192,12 +197,12 @@ export function DashboardPageClient({
 
         {/* Trial Conversion Funnel */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
             <CardTitle className="font-heading text-base font-semibold">
               Trial Conversion Funnel
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             {trialConversion ? (
               <div className="space-y-3">
                 {[
@@ -237,18 +242,18 @@ export function DashboardPageClient({
 
       {/* Recent Signups */}
       <Card>
-        <CardHeader className="pb-3 flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-row items-center justify-between gap-2 p-4 pb-3 sm:p-6 sm:pb-3">
           <CardTitle className="font-heading text-base font-semibold">
             Recent Signups (Last 90 Days)
           </CardTitle>
-          <Button variant="ghost" size="sm" asChild>
+          <Button variant="ghost" size="sm" className="shrink-0 max-sm:h-10" asChild>
             <Link href="/superadmin/analytics" className="gap-1 text-xs">
               View Analytics
               <IconArrowRight className="h-3.5 w-3.5" />
             </Link>
           </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
           {signups && signups.length > 0 ? (
             <div className="flex items-end gap-[3px] h-32">
               {(() => {

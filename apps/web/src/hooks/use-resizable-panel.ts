@@ -20,6 +20,7 @@ interface Options {
   /** `localStorage` key. Namespaced by the caller. */
   storageKey: string;
   defaultWidth: number;
+  /** Yields to the viewport cap on a window too narrow to honour both. */
   minWidth: number;
   /** Absolute cap. Also clamped to a share of the viewport — see `resolveMax`. */
   maxWidth: number;
@@ -62,7 +63,15 @@ export function useResizablePanel({
   }, [maxWidth]);
 
   const clamp = useCallback(
-    (value: number) => Math.max(minWidth, Math.min(resolveMax(), value)),
+    (value: number) => {
+      const max = resolveMax();
+      // The cap beats the minimum. With the minimum winning, a 600px window got
+      // a 320px panel — more than half of it — and a narrower one got a panel
+      // wider than the screen itself. The minimum only exists so the fields stay
+      // readable, and a panel too wide for the window is the worse failure.
+      const min = Math.min(minWidth, max);
+      return Math.max(min, Math.min(max, value));
+    },
     [minWidth, resolveMax],
   );
 

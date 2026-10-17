@@ -16,6 +16,8 @@ export type WidgetKey =
   | "overdueAlert"
   | "activity";
 
+// Keys are persisted in localStorage, so a rename changes the label only: the
+// "Up next" widget is still stored under `agenda`.
 export const ALL_WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "kpis", label: "KPI Pills" },
   { key: "revenue", label: "Revenue Chart" },
@@ -26,7 +28,7 @@ export const ALL_WIDGETS: { key: WidgetKey; label: string }[] = [
   { key: "quoteFunnel", label: "Quote Funnel" },
   { key: "revenueByService", label: "Revenue by Service" },
   { key: "topCustomers", label: "Top Customers" },
-  { key: "agenda", label: "Agenda" },
+  { key: "agenda", label: "Up next" },
   { key: "overdueAlert", label: "Overdue Alert" },
   { key: "activity", label: "Activity Feed" },
 ];

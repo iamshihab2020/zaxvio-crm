@@ -241,7 +241,7 @@ function LaborPanel({
               size="sm"
               variant="outline"
               onClick={onOpenTime}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               {actualHours ? "View time" : "Log time"}
             </Button>
@@ -366,7 +366,7 @@ function ExpensesPanel({
             variant="outline"
             size="sm"
             onClick={() => setShowAdd(true)}
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             <IconPlus className="mr-1.5 h-3.5 w-3.5" />
             Add expense
@@ -388,78 +388,88 @@ function ExpensesPanel({
 
       {expenses.length > 0 && (
         <div className="overflow-hidden rounded-md border border-border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-3 py-2 text-left font-body font-medium text-muted-foreground">
-                  What
-                </th>
-                <th className="w-24 px-3 py-2 text-left font-body font-medium text-muted-foreground">
-                  Date
-                </th>
-                <th className="w-24 px-3 py-2 text-right font-body font-medium text-muted-foreground">
-                  Amount
-                </th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.map((expense) => (
-                <tr
-                  key={expense.id}
-                  className="border-b border-border last:border-0"
-                >
-                  <td className="px-3 py-2">
-                    <div className="font-body text-foreground">
-                      {expense.description}
-                    </div>
-                    <div className="font-body text-xs text-muted-foreground">
-                      {EXPENSE_CATEGORY_LABELS[
-                        expense.category as ExpenseCategory
-                      ] ?? expense.category}
-                      {expense.vendor ? ` · ${expense.vendor}` : ""}
-                    </div>
-                  </td>
-                  <td className="px-3 py-2 font-body text-xs text-muted-foreground">
-                    {formatDateOnly(expense.incurredOn)}
-                  </td>
-                  <td className="tnum px-3 py-2 text-right font-mono font-medium text-foreground">
-                    {formatMoney(expense.amount)}
-                  </td>
-                  <td className="px-2 py-2">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7"
-                          aria-label={`Actions for ${expense.description}`}
-                        >
-                          <IconDots className="h-3.5 w-3.5 text-muted-foreground" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => startEdit(expense)}
-                          className="cursor-pointer"
-                        >
-                          <IconEdit className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setConfirmingId(expense.id)}
-                          className="cursor-pointer text-destructive focus:text-destructive"
-                        >
-                          <IconTrash className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
+          {/* Rounded corners stay on the clipping parent; the table scrolls
+              inside its own wrapper rather than being cut off by it. */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-3 py-2 text-left font-body font-medium text-muted-foreground">
+                    What
+                  </th>
+                  <th className="hidden w-24 px-3 py-2 text-left font-body font-medium text-muted-foreground sm:table-cell">
+                    Date
+                  </th>
+                  <th className="w-24 px-3 py-2 text-right font-body font-medium text-muted-foreground">
+                    Amount
+                  </th>
+                  <th className="w-10" />
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {expenses.map((expense) => (
+                  <tr
+                    key={expense.id}
+                    className="border-b border-border last:border-0"
+                  >
+                    <td className="px-3 py-2">
+                      <div className="font-body text-foreground">
+                        {expense.description}
+                      </div>
+                      <div className="font-body text-xs text-muted-foreground">
+                        {EXPENSE_CATEGORY_LABELS[
+                          expense.category as ExpenseCategory
+                        ] ?? expense.category}
+                        {expense.vendor ? ` · ${expense.vendor}` : ""}
+                        {/* The date column is hidden below `sm`, where three
+                            fixed columns would leave this one about 90px. */}
+                        <span className="sm:hidden">
+                          {" · "}
+                          {formatDateOnly(expense.incurredOn)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="hidden px-3 py-2 font-body text-xs text-muted-foreground sm:table-cell">
+                      {formatDateOnly(expense.incurredOn)}
+                    </td>
+                    <td className="tnum px-3 py-2 text-right font-mono font-medium text-foreground">
+                      {formatMoney(expense.amount)}
+                    </td>
+                    <td className="px-2 py-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-10 w-10 sm:h-7 sm:w-7"
+                            aria-label={`Actions for ${expense.description}`}
+                          >
+                            <IconDots className="h-3.5 w-3.5 text-muted-foreground" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => startEdit(expense)}
+                            className="cursor-pointer"
+                          >
+                            <IconEdit className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setConfirmingId(expense.id)}
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                          >
+                            <IconTrash className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           <div className="flex justify-between border-t border-border bg-muted/30 px-3 py-2">
             <span className="font-body text-sm font-medium text-muted-foreground">
@@ -482,7 +492,7 @@ function ExpensesPanel({
               variant="ghost"
               size="sm"
               onClick={() => setConfirmingId(null)}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               Keep it
             </Button>
@@ -495,7 +505,7 @@ function ExpensesPanel({
                   onSuccess: () => setConfirmingId(null),
                 })
               }
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               {remove.isPending ? "Deleting…" : "Delete"}
             </Button>
@@ -520,7 +530,10 @@ function ExpensesPanel({
                 setForm((f) => ({ ...f, category: v as ExpenseCategory }))
               }
             >
-              <SelectTrigger className="h-9 flex-1 font-body text-sm">
+              {/* `min-w-full` puts the category on a line of its own on a phone
+                  (flex-wrap breaks on the clamped size); from `sm` it shares
+                  the row with the date and amount. */}
+              <SelectTrigger className="h-10 min-w-full flex-1 font-body text-sm sm:h-9 sm:min-w-0">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -541,7 +554,7 @@ function ExpensesPanel({
               onChange={(e) =>
                 setForm((f) => ({ ...f, incurredOn: e.target.value }))
               }
-              className="w-40 text-sm"
+              className="min-w-0 flex-1 text-sm sm:w-40 sm:flex-none"
               aria-label="Date the cost was incurred"
             />
             <Input
@@ -551,7 +564,7 @@ function ExpensesPanel({
               onChange={(e) =>
                 setForm((f) => ({ ...f, amount: e.target.value }))
               }
-              className="tnum w-28 text-sm"
+              className="tnum min-w-0 flex-1 text-sm sm:w-28 sm:flex-none"
               aria-label="Amount"
             />
           </div>
@@ -566,7 +579,7 @@ function ExpensesPanel({
               variant="outline"
               size="sm"
               onClick={cancel}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               Cancel
             </Button>
@@ -574,7 +587,7 @@ function ExpensesPanel({
               size="sm"
               onClick={handleSubmit}
               disabled={saving}
-              className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               {saving
                 ? "Saving…"

@@ -216,9 +216,9 @@ export function InvoicePaymentsTab({
           {payments.map((p) => (
             <div
               key={p.id}
-              className="flex items-center justify-between rounded-md border border-border px-3 py-2"
+              className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
             >
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium text-foreground font-body">
                     {formatMoney(p.amount)}
@@ -244,7 +244,7 @@ export function InvoicePaymentsTab({
                   // DF-INV-05: this fired on click. Line items get a dialog; the
                   // action that reverses recorded money did not.
                   onClick={() => setDeletingPayment(p)}
-                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  className="h-10 w-10 shrink-0 text-muted-foreground hover:text-destructive sm:h-7 sm:w-7"
                   title="Remove payment"
                 >
                   <IconTrash className="h-3.5 w-3.5" />
@@ -258,7 +258,7 @@ export function InvoicePaymentsTab({
       {/* Add payment form */}
       {canTakePayment && showAdd && (
         <div className="mt-3 space-y-3 rounded-md border border-border p-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs font-body" htmlFor="payment-amount">
                 Amount ($)
@@ -275,7 +275,7 @@ export function InvoicePaymentsTab({
             <div className="space-y-1">
               <Label className="text-xs font-body">Method</Label>
               <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger className="h-9 font-body">
+                <SelectTrigger className="h-10 font-body sm:h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -288,7 +288,7 @@ export function InvoicePaymentsTab({
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs font-body">Date</Label>
               <DatePicker
@@ -324,14 +324,14 @@ export function InvoicePaymentsTab({
             />
           </div>
           <div className="flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={resetForm} className="cursor-pointer">
+            <Button variant="outline" size="sm" onClick={resetForm} className="h-10 cursor-pointer sm:h-8">
               Cancel
             </Button>
             <Button
               size="sm"
               onClick={handleAdd}
               disabled={recordMutation.isPending}
-              className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               {recordMutation.isPending ? "Recording..." : "Record Payment"}
             </Button>
@@ -348,7 +348,7 @@ export function InvoicePaymentsTab({
           <Button
             size="sm"
             onClick={() => setPayInFullOpen(true)}
-            className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
+            className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
           >
             <IconCheck className="mr-1.5 h-3.5 w-3.5" />
             Mark paid in full
@@ -357,7 +357,7 @@ export function InvoicePaymentsTab({
             variant="outline"
             size="sm"
             onClick={() => setShowAdd(true)}
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             <IconPlus className="mr-1.5 h-3.5 w-3.5" />
             Record partial payment

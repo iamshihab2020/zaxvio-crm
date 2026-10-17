@@ -92,62 +92,75 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
 
   return (
     <>
+      {/* The rounded card clips; the table scrolls inside it. `overflow-hidden`
+          alone cut the right-hand columns off on a phone with no way to reach
+          them. Below `sm` the status folds under the invoice number and the
+          total under the balance; the date arrives at `md`. */}
       <div className="rounded-md border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/30">
-            <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-              Invoice #
-            </th>
-            <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-              Status
-            </th>
-            <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-              Date
-            </th>
-            <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body">
-              Total
-            </th>
-            <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body">
-              Balance
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {invoices.map((inv) => (
-            <tr
-              key={inv.id}
-              className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
-              onClick={() => router.push(`/invoices/${inv.id}`)}
-            >
-              <td className="px-3 py-2 font-medium font-body">
-                {inv.invoiceNumber}
-              </td>
-              <td className="px-3 py-2">
-                <InvoiceStatusBadge status={inv.status} />
-              </td>
-              <td className="px-3 py-2 text-muted-foreground font-body">
-                {formatDate(inv.issuedDate)}
-              </td>
-              <td className="px-3 py-2 text-right font-medium font-body">
-                {formatCurrency(inv.totalAmount)}
-              </td>
-              <td className="px-3 py-2 text-right font-body">
-                <span
-                  className={
-                    parseFloat(inv.balanceDue) > 0
-                      ? "text-amber-600 dark:text-amber-400 font-medium"
-                      : "text-muted-foreground"
-                  }
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
+                  Invoice #
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body sm:table-cell">
+                  Status
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body md:table-cell">
+                  Date
+                </th>
+                <th className="hidden px-3 py-2 text-right font-medium text-muted-foreground font-body sm:table-cell">
+                  Total
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body">
+                  Balance
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {invoices.map((inv) => (
+                <tr
+                  key={inv.id}
+                  className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
+                  onClick={() => router.push(`/invoices/${inv.id}`)}
                 >
-                  {formatCurrency(inv.balanceDue)}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+                  <td className="px-3 py-2 font-medium font-body">
+                    {inv.invoiceNumber}
+                    <div className="mt-1 sm:hidden">
+                      <InvoiceStatusBadge status={inv.status} />
+                    </div>
+                  </td>
+                  <td className="hidden px-3 py-2 sm:table-cell">
+                    <InvoiceStatusBadge status={inv.status} />
+                  </td>
+                  <td className="hidden px-3 py-2 text-muted-foreground font-body md:table-cell">
+                    {formatDate(inv.issuedDate)}
+                  </td>
+                  <td className="hidden px-3 py-2 text-right font-medium font-body sm:table-cell">
+                    {formatCurrency(inv.totalAmount)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-body">
+                    <span
+                      className={
+                        parseFloat(inv.balanceDue) > 0
+                          ? "text-amber-600 dark:text-amber-400 font-medium"
+                          : "text-muted-foreground"
+                      }
+                    >
+                      {formatCurrency(inv.balanceDue)}
+                    </span>
+                    {/* A paid invoice reads $0.00; the total says what it was. */}
+                    <span className="mt-0.5 block text-xs text-muted-foreground sm:hidden">
+                      of {formatCurrency(inv.totalAmount)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {pagination && pagination.totalPages > 1 && (
         <Pagination
           page={pagination.page}

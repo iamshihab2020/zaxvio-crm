@@ -353,10 +353,10 @@ export function JobDetailSheet({
                   <Button
                     size="sm"
                     onClick={() => handleStatusAction(nextStage.name)}
-                    className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+                    className="h-10 max-w-full bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer sm:h-8"
                   >
-                    <IconArrowRight className="mr-1.5 h-3.5 w-3.5" />
-                    Move to {nextStage.label}
+                    <IconArrowRight className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">Move to {nextStage.label}</span>
                   </Button>
                 )}
                 {otherStages.length > 0 && (
@@ -365,7 +365,7 @@ export function JobDetailSheet({
                       <Button
                         size="sm"
                         variant="outline"
-                        className="cursor-pointer"
+                        className="h-10 cursor-pointer sm:h-8"
                       >
                         More
                         <IconChevronDown className="ml-1 h-3.5 w-3.5" />

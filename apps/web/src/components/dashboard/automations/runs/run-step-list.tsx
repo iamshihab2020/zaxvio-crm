@@ -120,7 +120,7 @@ function StepRow({ step, onSelectNode }: { step: WorkflowRunStep } & Pick<Props,
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-xs"
+                  className="h-10 px-2 text-xs sm:h-7"
                   onClick={() => setOpen((prev) => !prev)}
                   aria-expanded={open}
                 >
@@ -137,7 +137,7 @@ function StepRow({ step, onSelectNode }: { step: WorkflowRunStep } & Pick<Props,
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 px-2 text-xs"
+                  className="h-10 px-2 text-xs sm:h-7"
                   onClick={() => onSelectNode(step.nodeId)}
                 >
                   Show on canvas

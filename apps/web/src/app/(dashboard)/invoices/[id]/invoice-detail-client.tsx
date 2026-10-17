@@ -80,17 +80,22 @@ export function InvoiceDetailClient({
         )}
       </InvoiceDetailHeader>
       <div className="flex-1 p-4 sm:p-6">
-        <div className="flex flex-col gap-4 sm:gap-5 lg:flex-row lg:items-start">
+        {/* One column on a phone; the 320px info panel beside the tabs from `lg`;
+            the 288px sidebar as a third column from `xl`. Between those the
+            sidebar is not dropped but runs under both as a full-width card —
+            it holds the customer's phone and address, the linked job and the
+            notes, and nothing else on this page shows them. */}
+        <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
           {/* Left Panel */}
-          <div className="w-full shrink-0 rounded-lg border border-border bg-card shadow-sm lg:w-80">
+          <div className="rounded-lg border border-border bg-card shadow-sm">
             <InvoiceInfoPanel invoice={invoice} />
           </div>
           {/* Center Panel */}
-          <div className="min-w-0 flex-1 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+          <div className="min-w-0 rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
             <InvoiceTabsPanel invoice={invoice} onUpdate={refreshInvoice} />
           </div>
           {/* Right Sidebar */}
-          <div className="hidden w-72 shrink-0 rounded-lg border border-border bg-card shadow-sm xl:block">
+          <div className="rounded-lg border border-border bg-card shadow-sm lg:col-span-2 xl:col-span-1">
             <InvoiceSidebarPanel invoice={invoice} />
           </div>
         </div>

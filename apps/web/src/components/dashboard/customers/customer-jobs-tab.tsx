@@ -99,89 +99,104 @@ export function CustomerJobsTab({ customerId }: CustomerJobsTabProps) {
 
   return (
     <div>
+      {/* The rounded card clips; the table scrolls inside it. `overflow-hidden`
+          alone cut the right-hand columns off on a phone with no way to reach
+          them. Title, date and priority arrive at `md`, `lg` and `xl`, with
+          title, date and status folded under the job number until then. */}
       <div className="rounded-md border border-border overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border bg-muted/30">
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-                Job #
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-                Title
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-                Status
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-                Priority
-              </th>
-              <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-                Date
-              </th>
-              <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body">
-                Total
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => {
-              const statusColors =
-                JOB_STATUS_COLORS[job.status] ?? JOB_STATUS_COLORS.scheduled;
-              const priorityColors =
-                JOB_PRIORITY_COLORS[job.priority as JobPriority] ??
-                JOB_PRIORITY_COLORS.standard;
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
+                  Job #
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body md:table-cell">
+                  Title
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body sm:table-cell">
+                  Status
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body xl:table-cell">
+                  Priority
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body lg:table-cell">
+                  Date
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {jobs.map((job) => {
+                const statusColors =
+                  JOB_STATUS_COLORS[job.status] ?? JOB_STATUS_COLORS.scheduled;
+                const priorityColors =
+                  JOB_PRIORITY_COLORS[job.priority as JobPriority] ??
+                  JOB_PRIORITY_COLORS.standard;
+                const statusBadge = (
+                  <Badge
+                    className={cn(
+                      "gap-1.5 px-2 py-0.5 font-medium",
+                      statusColors.bg,
+                      statusColors.text,
+                    )}
+                  >
+                    <span
+                      className={cn("h-1.5 w-1.5 rounded-full", statusColors.dot)}
+                    />
+                    {job.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </Badge>
+                );
 
-              return (
-                <tr
-                  key={job.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
-                  onClick={() => router.push(`/jobs/${job.id}`)}
-                >
-                  <td className="px-3 py-2 font-medium font-body">
-                    {job.jobNumber}
-                  </td>
-                  <td className="px-3 py-2 text-foreground font-body max-w-[200px] truncate">
-                    {job.title}
-                  </td>
-                  <td className="px-3 py-2">
-                    <Badge
-                      className={cn(
-                        "gap-1.5 px-2 py-0.5 font-medium",
-                        statusColors.bg,
-                        statusColors.text,
-                      )}
-                    >
-                      <span
-                        className={cn("h-1.5 w-1.5 rounded-full", statusColors.dot)}
-                      />
-                      {job.status.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2">
-                    <Badge
-                      className={cn(
-                        "px-2 py-0.5 font-medium",
-                        priorityColors.bg,
-                        priorityColors.text,
-                      )}
-                    >
-                      {JOB_PRIORITY_LABELS[job.priority as JobPriority] ?? job.priority}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground font-body">
-                    <span className="flex items-center gap-1">
-                      <IconCalendar className="h-3.5 w-3.5" />
-                      {formatDate(job.scheduledDate)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-right font-medium font-body">
-                    {formatCurrency(job.totalAmount)}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                return (
+                  <tr
+                    key={job.id}
+                    className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
+                    onClick={() => router.push(`/jobs/${job.id}`)}
+                  >
+                    <td className="px-3 py-2 font-medium font-body">
+                      {job.jobNumber}
+                      <div className="mt-0.5 max-w-[9rem] truncate text-xs font-normal text-foreground md:hidden">
+                        {job.title}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-1 text-xs font-normal text-muted-foreground lg:hidden">
+                        <IconCalendar className="h-3 w-3" />
+                        {formatDate(job.scheduledDate)}
+                      </div>
+                      <div className="mt-1 sm:hidden">{statusBadge}</div>
+                    </td>
+                    <td className="hidden px-3 py-2 text-foreground font-body max-w-[200px] truncate md:table-cell">
+                      {job.title}
+                    </td>
+                    <td className="hidden px-3 py-2 sm:table-cell">{statusBadge}</td>
+                    <td className="hidden px-3 py-2 xl:table-cell">
+                      <Badge
+                        className={cn(
+                          "px-2 py-0.5 font-medium",
+                          priorityColors.bg,
+                          priorityColors.text,
+                        )}
+                      >
+                        {JOB_PRIORITY_LABELS[job.priority as JobPriority] ?? job.priority}
+                      </Badge>
+                    </td>
+                    <td className="hidden px-3 py-2 text-muted-foreground font-body lg:table-cell">
+                      <span className="flex items-center gap-1">
+                        <IconCalendar className="h-3.5 w-3.5" />
+                        {formatDate(job.scheduledDate)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-right font-medium font-body">
+                      {formatCurrency(job.totalAmount)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
       {pagination.totalPages > 1 && (
         <Pagination

@@ -57,7 +57,8 @@ export function JobPhotoLightbox({
         <Button
           variant="ghost"
           size="icon"
-          className="absolute top-3 right-3 z-10 text-white hover:bg-white/20"
+          className="absolute top-3 right-3 z-10 h-10 w-10 text-white hover:bg-white/20"
+          aria-label="Close"
           onClick={() => onOpenChange(false)}
         >
           <IconX className="h-5 w-5" />
@@ -68,7 +69,8 @@ export function JobPhotoLightbox({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 text-white hover:bg-white/20"
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 text-white hover:bg-white/20"
+            aria-label="Previous photo"
             onClick={() => onIndexChange(currentIndex - 1)}
           >
             <IconChevronLeft className="h-6 w-6" />
@@ -78,7 +80,8 @@ export function JobPhotoLightbox({
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 text-white hover:bg-white/20"
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-10 h-10 w-10 text-white hover:bg-white/20"
+            aria-label="Next photo"
             onClick={() => onIndexChange(currentIndex + 1)}
           >
             <IconChevronRight className="h-6 w-6" />
@@ -86,23 +89,23 @@ export function JobPhotoLightbox({
         )}
 
         {/* Image */}
-        <div className="flex items-center justify-center bg-black min-h-[60vh] max-h-[80vh]">
+        <div className="flex items-center justify-center bg-black min-h-[40vh] max-h-[70vh] sm:min-h-[60vh] sm:max-h-[80vh]">
           <img
             src={photo.publicUrl}
             alt={photo.caption ?? "Photo"}
-            className="max-w-full max-h-[80vh] object-contain"
+            className="max-w-full max-h-[70vh] object-contain sm:max-h-[80vh]"
           />
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between gap-3 bg-black/90 px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 bg-black/90 px-4 py-3">
           <div className="flex items-center gap-2">
             <PhotoTagPill tag={photo.tag} />
             {photo.caption && (
               <span className="text-sm text-white/80 font-body">{photo.caption}</span>
             )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-white/50 font-body">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-white/50 font-body">
             {photo.uploaderName && <span>{photo.uploaderName}</span>}
             <span>{new Date(photo.createdAt).toLocaleDateString()}</span>
             <span>{currentIndex + 1} / {photos.length}</span>

@@ -17,6 +17,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { IconPlugConnectedX, IconRefresh } from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
+import { getSheetWidth } from "@/hooks/use-view-preference";
 import { useDetailShell } from "./use-detail-shell";
 import { EntityDetailShellHeader } from "./entity-detail-shell-header";
 import { EntityDetailShellSkeleton } from "./entity-detail-shell-skeleton";
@@ -110,7 +112,7 @@ export function EntityDetailShell({
           )}
           <div
             role="alert"
-            className="flex flex-col items-center justify-center gap-3 p-10 text-center"
+            className="flex flex-col items-center justify-center gap-3 p-6 text-center sm:p-10"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
               <IconPlugConnectedX
@@ -178,7 +180,7 @@ export function EntityDetailShell({
               onValueChange={setActiveTab}
               className="flex-1"
             >
-              <TabsList className="w-full justify-start overflow-x-auto px-6 pt-2">
+              <TabsList className="w-full justify-start px-4 pt-2 sm:px-6">
                 {tabs.map((tab) => (
                   <TabsTrigger key={tab.value} value={tab.value}>
                     {tab.label}
@@ -194,7 +196,7 @@ export function EntityDetailShell({
                 ))}
               </TabsList>
 
-              <div className="px-6 py-5">
+              <div className="px-4 py-4 sm:px-6 sm:py-5">
                 {tabs.map((tab) => (
                   <TabsContent key={tab.value} value={tab.value} className="mt-0">
                     {activeTab === tab.value && tab.content}
@@ -206,7 +208,7 @@ export function EntityDetailShell({
 
           {/* Direct content (non-tabbed) */}
           {!tabs && children && (
-            <div className="px-6 py-5">{children}</div>
+            <div className="px-4 py-4 sm:px-6 sm:py-5">{children}</div>
           )}
         </>
       )}
@@ -225,19 +227,19 @@ export function EntityDetailShell({
   }
 
   /* ── Sidebar mode (default) ──────────────────────────────── */
+  const sheetWidth = getSheetWidth(liveSidebarWidth);
+
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="overflow-y-auto p-0"
-        style={{
-          maxWidth: liveSidebarWidth,
-          width: "100%",
-        }}
+        className={cn("overflow-y-auto p-0", sheetWidth.className)}
+        style={sheetWidth.style}
       >
-        {/* Drag handle — left edge resize */}
+        {/* Drag handle — left edge resize. Mouse-only, and below md the sheet
+            is the whole screen, so there is no edge to drag. */}
         <div
-          className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
+          className="absolute left-0 top-0 bottom-0 z-10 hidden w-1.5 cursor-col-resize group md:block"
           onMouseDown={handleDragStart}
         >
           <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-brand/40 transition-colors" />

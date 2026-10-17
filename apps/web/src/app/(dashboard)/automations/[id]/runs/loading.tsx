@@ -14,7 +14,7 @@ import { TableSkeleton } from "@/components/reusable/table-skeleton";
  */
 export default function RunsLoading() {
   return (
-    <section className="space-y-6 p-4 md:p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       <div className="space-y-3">
         <Skeleton className="h-8 w-40" />
         <Skeleton className="h-7 w-24" />

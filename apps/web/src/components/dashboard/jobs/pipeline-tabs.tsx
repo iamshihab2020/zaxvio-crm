@@ -40,13 +40,15 @@ export function PipelineTabs({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
+      {/* Full-width and left-aligned on a phone, where it is a line of its own
+          and reads as a select field; a compact button from `sm`. */}
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 px-2.5 text-xs font-semibold font-body rounded-lg hover:bg-muted/60"
+          className="h-10 w-full justify-between gap-1.5 px-2.5 text-xs font-semibold font-body rounded-lg hover:bg-muted/60 sm:h-7 sm:w-auto sm:justify-center"
         >
-          <span className="truncate max-w-[140px]">
+          <span className="min-w-0 truncate sm:max-w-[140px]">
             {selected?.label ?? "Select Pipeline"}
           </span>
           <IconChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -63,7 +65,7 @@ export function PipelineTabs({
               setOpen(false);
             }}
             className={cn(
-              "flex w-full items-center gap-2 h-8 rounded-md px-2 text-sm font-body justify-start",
+              "flex w-full items-center gap-2 h-10 sm:h-8 rounded-md px-2 text-sm font-body justify-start",
               pipeline.id === selectedId
                 ? "bg-brand-light/30 text-brand-ink dark:bg-brand/15"
                 : "text-foreground",
@@ -86,7 +88,7 @@ export function PipelineTabs({
                 setOpen(false);
                 onManageStages();
               }}
-              className="flex w-full items-center gap-2 h-7 rounded-md px-2 text-xs font-body text-muted-foreground hover:text-foreground justify-start"
+              className="flex w-full items-center gap-2 h-10 sm:h-7 rounded-md px-2 text-xs font-body text-muted-foreground hover:text-foreground justify-start"
             >
               <IconAdjustments className="h-3.5 w-3.5" />
               Manage Stages

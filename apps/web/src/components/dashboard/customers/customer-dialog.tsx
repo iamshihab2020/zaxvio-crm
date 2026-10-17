@@ -180,7 +180,7 @@ export function CustomerDialog({
               <IconUser className="h-4 w-4 text-muted-foreground" />
               Contact Info
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="firstName" className="font-body text-muted-foreground">
                   First Name <span className="text-destructive">*</span>
@@ -306,8 +306,8 @@ export function CustomerDialog({
                   placeholder="e.g. 4521 Oak Creek Dr"
                 />
               </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+                <div className="col-span-2 space-y-2 sm:col-span-1">
                   <Label htmlFor="city" className="font-body text-muted-foreground">
                     City
                   </Label>
@@ -376,12 +376,13 @@ export function CustomerDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="h-10 sm:h-9"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="min-w-[140px] bg-brand text-brand-foreground hover:bg-brand/90"
+              className="h-10 min-w-[140px] bg-brand text-brand-foreground hover:bg-brand/90 sm:h-9"
               disabled={loading}
             >
               {loading ? "Saving..." : isEditing ? "Save Changes" : "Add Customer"}

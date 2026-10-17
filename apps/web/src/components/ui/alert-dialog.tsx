@@ -43,7 +43,10 @@ const AlertDialogContent = React.forwardRef<
       <AlertDialogPrimitive.Content ref={ref} asChild {...props}>
         <motion.div
           className={cn(
-            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-2xl sm:rounded-lg",
+            // Same box as DialogContent: inset from the screen edges and
+            // capped at the viewport height, so a long confirmation scrolls
+            // inside itself instead of pushing its buttons off a phone.
+            "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-2xl",
             className,
           )}
           style={{ x: "-50%", y: "-50%" }}

@@ -4,16 +4,9 @@ import { useRef, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  IconLayoutDashboard,
-  IconBuilding,
-  IconChartBar,
-  IconHeadset,
-  IconUsers,
-  IconServer,
   IconChevronsLeft,
   IconChevronsRight,
   IconShieldLock,
-  IconUserShield,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,17 +17,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useSuperadminSidebar } from "./superadmin-sidebar-provider";
+import {
+  isSuperadminNavActive,
+  superadminNavItems as navItems,
+} from "./superadmin-nav-items";
 
-const navItems = [
-  { href: "/superadmin/dashboard", label: "Dashboard", icon: IconLayoutDashboard },
-  { href: "/superadmin/tenants", label: "Tenants", icon: IconBuilding },
-  { href: "/superadmin/analytics", label: "Analytics", icon: IconChartBar },
-  { href: "/superadmin/support", label: "Support", icon: IconHeadset },
-  { href: "/superadmin/affiliates", label: "Affiliates", icon: IconUsers },
-  { href: "/superadmin/system", label: "System", icon: IconServer },
-  { href: "/superadmin/admins", label: "Admins", icon: IconUserShield },
-];
-
+/**
+ * The desktop rail. Hidden below `lg`: there the same navigation opens from the
+ * navbar's menu button instead (`SuperadminMobileNav`), because a fixed 240px
+ * column leaves a phone about 135px for the page.
+ */
 export function SuperadminSidebar() {
   const pathname = usePathname();
   const { isCollapsed, isHoverExpanded, toggleCollapsed, setHoverExpanded } =
@@ -48,10 +40,8 @@ export function SuperadminSidebar() {
 
   const getActiveHref = useCallback(() => {
     return (
-      navItems.find(
-        (item) =>
-          pathname === item.href || pathname.startsWith(item.href + "/"),
-      )?.href ?? null
+      navItems.find((item) => isSuperadminNavActive(pathname, item.href))
+        ?.href ?? null
     );
   }, [pathname]);
 
@@ -106,7 +96,7 @@ export function SuperadminSidebar() {
           setHoveredHref(null);
         }}
         className={cn(
-          "fixed inset-y-0 left-0 z-30 flex flex-col border-r border-red-900/20 bg-admin-sidebar-bg transition-[width] duration-300 ease-in-out dark:border-red-800/20",
+          "fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-red-900/20 bg-admin-sidebar-bg transition-[width] duration-300 ease-in-out dark:border-red-800/20 lg:flex",
           isExpanded ? "w-60" : "w-16",
           isHoverExpanded && "shadow-xl",
         )}
@@ -152,8 +142,7 @@ export function SuperadminSidebar() {
         {/* Nav items */}
         <nav className="flex flex-1 flex-col gap-1 p-3" aria-label="Admin navigation">
           {navItems.map((item) => {
-            const isActive =
-              pathname === item.href || pathname.startsWith(item.href + "/");
+            const isActive = isSuperadminNavActive(pathname, item.href);
             const link = (
               <Link
                 ref={setItemRef(item.href)}

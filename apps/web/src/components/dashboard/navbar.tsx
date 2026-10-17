@@ -2,14 +2,21 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { IconSettings, IconLogout } from "@tabler/icons-react";
+import { useTheme } from "next-themes";
+import {
+  IconSettings,
+  IconLogout,
+  IconSun,
+  IconMoon,
+} from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
+import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
 import { PageActionsSlot } from "@/components/dashboard/page-actions";
 import { useSession, signOut } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useSidebar } from "@/components/dashboard/sidebar-provider";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +55,7 @@ export function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
-  const { isCollapsed } = useSidebar();
+  const { resolvedTheme, setTheme } = useTheme();
 
   // Shift navbar down when impersonation bar is visible
   const [isImpersonating, setIsImpersonating] = useState(false);
@@ -82,14 +89,24 @@ export function Navbar() {
 
   return (
     <header
-      className={`fixed right-0 z-20 flex h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-md px-6 transition-[left,top] duration-300 ease-in-out ${isImpersonating ? "top-10" : "top-0"}`}
-      style={{ left: isCollapsed ? "4rem" : "14rem" }}
+      className={cn(
+        // The sidebar offset is a class, not an inline style: `--sidebar-w` is
+        // published by DashboardShell (this renders inside it) and is 0 below
+        // `lg`, where the sidebar is a drawer. `left-0` first so the bar spans
+        // the phone instead of starting 224px in.
+        "fixed right-0 z-20 flex h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-md px-4 transition-[left,top] duration-300 ease-in-out sm:px-6",
+        "left-0 lg:left-[var(--sidebar-w)]",
+        isImpersonating ? "top-10" : "top-0",
+      )}
     >
       {/* Brand accent line */}
       <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-brand to-transparent opacity-50" />
 
-      {/* Page title — the only <h1> on the page now that PageHeader is gone. */}
-      <div className="flex min-w-0 items-center">
+      {/* Menu button (below `lg`) and page title. The title is the only <h1>
+          on the page now that PageHeader is gone. `min-w-0 flex-1` lets it
+          truncate instead of pushing the account controls off a 375px screen. */}
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        <MobileNav />
         {pageTitle && (
           <h1 className="truncate font-heading text-lg font-semibold text-foreground">
             {pageTitle}
@@ -97,14 +114,18 @@ export function Navbar() {
         )}
       </div>
 
-      {/* Page-supplied controls, portalled up from the page body. Sits between
+      {/* Page-supplied controls, portalled up from the page body from `md` up
+          (below that PageActions renders them in the page itself). Sits between
           the title and the account controls, so per-page actions and global
-          ones never mix. */}
-      <PageActionsSlot className="ml-auto flex min-w-0 items-center justify-end gap-2 overflow-x-auto pl-4" />
+          ones never mix. `empty:hidden` drops the left padding when a page, or
+          a phone, puts nothing here. */}
+      <PageActionsSlot className="ml-auto flex min-w-0 items-center justify-end gap-2 overflow-x-auto pl-4 empty:hidden" />
 
       {/* Account controls */}
       <div className="ml-3 flex shrink-0 items-center gap-0.5 rounded-xl bg-muted/50 px-1.5 py-1">
-        <ThemeToggle />
+        {/* Below `sm` the toggle moves into the account menu to give the title
+            room. */}
+        <ThemeToggle className="hidden sm:inline-flex" />
 
         <NotificationBell />
 
@@ -114,14 +135,15 @@ export function Navbar() {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="gap-2 px-2 rounded-lg"
+              className="h-10 gap-2 rounded-lg px-2 sm:h-9"
+              aria-label={userName}
             >
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-brand text-[10px] font-bold text-brand-foreground">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="font-body text-sm font-medium text-foreground">
+              <span className="hidden font-body text-sm font-medium text-foreground md:inline">
                 {userName}
               </span>
             </Button>
@@ -138,15 +160,26 @@ export function Navbar() {
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={() => router.push("/settings")}
-              className="cursor-pointer gap-2"
+              className="cursor-pointer gap-2 max-sm:min-h-10"
             >
               <IconSettings className="h-4 w-4" />
               Settings
             </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="cursor-pointer gap-2 max-sm:min-h-10 sm:hidden"
+            >
+              {resolvedTheme === "dark" ? (
+                <IconSun className="h-4 w-4" />
+              ) : (
+                <IconMoon className="h-4 w-4" />
+              )}
+              {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onClick={handleLogout}
-              className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+              className="cursor-pointer gap-2 text-destructive focus:text-destructive max-sm:min-h-10"
             >
               <IconLogout className="h-4 w-4" />
               Log out

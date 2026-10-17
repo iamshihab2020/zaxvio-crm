@@ -59,22 +59,23 @@ export function AffiliatesPageClient({
     : 0;
 
   return (
-    <section className="p-6 space-y-6">
-      {/* KPI Cards */}
+    <section className="p-4 sm:p-6 space-y-6">
+      {/* KPI Cards. Padding is 16px on phones (24px from `sm`), the card rule
+          in DESIGN.md; the three stack on a phone and sit in a row from `sm`. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <IconUsers className="h-4 w-4 text-admin-accent" />
+              <IconUsers className="h-4 w-4 shrink-0 text-admin-accent" />
               <span className="text-sm font-body">Referred Tenants</span>
             </div>
             <p className="mt-2 font-heading text-3xl font-bold">{tenants.length}</p>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <IconCurrencyDollar className="h-4 w-4 text-admin-accent" />
+              <IconCurrencyDollar className="h-4 w-4 shrink-0 text-admin-accent" />
               <span className="text-sm font-body">Affiliate MRR</span>
             </div>
             <p className="mt-2 font-heading text-3xl font-bold text-emerald-600 dark:text-emerald-400">
@@ -83,9 +84,9 @@ export function AffiliatesPageClient({
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-2 text-muted-foreground">
-              <IconPercentage className="h-4 w-4 text-admin-accent" />
+              <IconPercentage className="h-4 w-4 shrink-0 text-admin-accent" />
               <span className="text-sm font-body">Affiliate Rate</span>
             </div>
             <p className="mt-2 font-heading text-3xl font-bold">{affiliateRate}%</p>
@@ -101,15 +102,17 @@ export function AffiliatesPageClient({
         <div className="border-b border-border px-4 py-3">
           <h3 className="font-heading text-sm font-semibold">Referred Tenants</h3>
         </div>
+        {/* Below `md`: Business, Status and MRR, with Owner and Plan folded
+            under the business name and the sign-up date dropped. */}
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="font-body">Business</TableHead>
-              <TableHead className="font-body">Owner</TableHead>
-              <TableHead className="font-body">Plan</TableHead>
+              <TableHead className="font-body hidden md:table-cell">Owner</TableHead>
+              <TableHead className="font-body hidden md:table-cell">Plan</TableHead>
               <TableHead className="font-body">Status</TableHead>
               <TableHead className="font-body text-right">MRR</TableHead>
-              <TableHead className="font-body">Signed Up</TableHead>
+              <TableHead className="font-body hidden md:table-cell">Signed Up</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -124,9 +127,17 @@ export function AffiliatesPageClient({
             ) : (
               tenants.map((tenant) => (
                 <TableRow key={tenant.id}>
-                  <TableCell className="font-body font-medium">{tenant.businessName}</TableCell>
-                  <TableCell className="font-body text-muted-foreground text-sm">{tenant.ownerName}</TableCell>
-                  <TableCell>
+                  <TableCell className="font-body font-medium">
+                    {tenant.businessName}
+                    <p className="mt-0.5 text-xs font-normal text-muted-foreground md:hidden">
+                      {tenant.ownerName}
+                      {tenant.planName && (
+                        <span className="capitalize"> · {tenant.planName}</span>
+                      )}
+                    </p>
+                  </TableCell>
+                  <TableCell className="font-body text-muted-foreground text-sm hidden md:table-cell">{tenant.ownerName}</TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <Badge variant="outline" className="font-body text-xs capitalize">
                       {tenant.planName ?? "—"}
                     </Badge>
@@ -137,7 +148,7 @@ export function AffiliatesPageClient({
                   <TableCell className="text-right font-heading font-semibold text-sm">
                     {formatCurrency(tenant.mrr)}
                   </TableCell>
-                  <TableCell className="font-body text-sm text-muted-foreground">
+                  <TableCell className="font-body text-sm text-muted-foreground hidden md:table-cell">
                     {formatDate(tenant.createdAt)}
                   </TableCell>
                 </TableRow>

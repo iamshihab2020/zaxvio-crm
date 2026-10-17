@@ -109,14 +109,18 @@ export function BookingTable({
               />
             </TableHead>
           )}
+          {/* Eleven columns' worth of fixed widths came to ~1000px. A phone gets
+              the customer with when and status folded under the name; date,
+              time and status arrive at `md`, service and job at `lg`, phone and
+              source at `xl`. Widths apply only from where a column appears. */}
           <TableHead>Customer</TableHead>
-          <TableHead className="w-[140px]">Phone</TableHead>
-          <TableHead className="w-[120px]">Service</TableHead>
-          <TableHead className="w-[120px]">Date</TableHead>
-          <TableHead className="w-[90px]">Time</TableHead>
-          <TableHead className="w-[110px]">Status</TableHead>
-          <TableHead className="w-[90px]">Source</TableHead>
-          <TableHead className="w-[130px]">Job</TableHead>
+          <TableHead className="hidden w-[140px] xl:table-cell">Phone</TableHead>
+          <TableHead className="hidden w-[120px] lg:table-cell">Service</TableHead>
+          <TableHead className="hidden w-[120px] md:table-cell">Date</TableHead>
+          <TableHead className="hidden w-[90px] md:table-cell">Time</TableHead>
+          <TableHead className="hidden w-[110px] md:table-cell">Status</TableHead>
+          <TableHead className="hidden w-[90px] xl:table-cell">Source</TableHead>
+          <TableHead className="hidden w-[130px] lg:table-cell">Job</TableHead>
           <TableHead className="w-[48px]" />
         </TableRow>
       </TableHeader>
@@ -144,26 +148,35 @@ export function BookingTable({
                     {getInitials(booking.customerName)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="min-w-0">
                   <p className="font-medium text-sm">{booking.customerName}</p>
                   {booking.customerEmail && (
-                    <p className="text-xs text-muted-foreground">{booking.customerEmail}</p>
+                    <p className="hidden max-w-[13rem] truncate text-xs text-muted-foreground md:block">{booking.customerEmail}</p>
                   )}
+                  {/* When and state, in place of the email, where the Date, Time
+                      and Status columns are hidden. */}
+                  <p className="mt-0.5 text-xs text-muted-foreground md:hidden">
+                    {formatDate(booking.bookingDate)}
+                    {booking.preferredTime ? ` · ${formatTime(booking.preferredTime)}` : ""}
+                  </p>
+                  <div className="mt-1 md:hidden">
+                    <BookingStatusBadge status={booking.status} />
+                  </div>
                 </div>
               </div>
             </TableCell>
-            <TableCell className="text-sm text-muted-foreground">
+            <TableCell className="hidden text-sm text-muted-foreground xl:table-cell">
               {booking.customerPhone || "—"}
             </TableCell>
-            <TableCell className="text-sm">
+            <TableCell className="hidden text-sm lg:table-cell">
               {SERVICE_TYPE_LABELS[booking.serviceType as keyof typeof SERVICE_TYPE_LABELS] ?? booking.serviceType}
             </TableCell>
-            <TableCell className="text-sm">{formatDate(booking.bookingDate)}</TableCell>
-            <TableCell className="text-sm">{formatTime(booking.preferredTime)}</TableCell>
-            <TableCell>
+            <TableCell className="hidden text-sm md:table-cell">{formatDate(booking.bookingDate)}</TableCell>
+            <TableCell className="hidden text-sm md:table-cell">{formatTime(booking.preferredTime)}</TableCell>
+            <TableCell className="hidden md:table-cell">
               <BookingStatusBadge status={booking.status} />
             </TableCell>
-            <TableCell>
+            <TableCell className="hidden xl:table-cell">
               {(() => {
                 const cfg = SOURCE_CONFIG[(booking.source ?? "portal") as string] ?? SOURCE_CONFIG.portal;
                 return (
@@ -174,7 +187,7 @@ export function BookingTable({
                 );
               })()}
             </TableCell>
-            <TableCell>
+            <TableCell className="hidden lg:table-cell">
               {booking.convertedToJobId ? (
                 <Link
                   href={`/jobs/${booking.convertedToJobId}`}
@@ -193,13 +206,13 @@ export function BookingTable({
                 <span className="text-xs text-muted-foreground/40">—</span>
               )}
             </TableCell>
-            <TableCell>
+            <TableCell className="px-2 sm:px-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-10 w-10 sm:h-8 sm:w-8"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <IconDots className="h-4 w-4" />

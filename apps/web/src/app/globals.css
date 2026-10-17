@@ -325,6 +325,25 @@
   }
 }
 
+/* Phones: every text field at 16px. iOS Safari zooms the whole page when a
+   focused field's text is under 16px, and the app's inputs are 14px (DESIGN.md
+   Body), so tapping a search box on a job site threw the layout sideways.
+
+   A rule here rather than `text-base md:text-sm` in ui/input: about 70 call
+   sites pass their own `text-xs`/`text-sm`, and tailwind-merge does not see
+   `md:text-sm` as conflicting with an unprefixed `text-xs`, so the primitive
+   change would have turned every small desktop input into 14px. `!important`
+   because those same utilities would otherwise beat an element selector; it is
+   scoped to under 768px, so desktop sizing is untouched. */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+  textarea,
+  select,
+  [cmdk-input] {
+    font-size: 16px !important;
+  }
+}
+
 /* ─────────────────────────────────────────────────────────────────────
    RULED SHEET — the landing page's structural motif.
 
@@ -760,16 +779,24 @@
   color: hsl(var(--card-foreground)) !important;
 }
 
-/* Allow vertical scrolling inside kanban columns despite dnd-kit touch-action: none */
+/* Let a finger scroll the board from on top of a card, in both directions,
+   despite dnd-kit's inline `touch-action: none`. This was `pan-y`, which was
+   right while touch drags started after 8px of movement: allowing pan-x then
+   would have turned every sideways drag into a scroll. Touch now has its own
+   sensor that needs a 250ms press first (kanban-board.tsx), so a swipe is a
+   scroll and a hold is a drag. `pan-y` alone also blocked the sideways swipe
+   that is the only way to reach the other columns on a phone, because a
+   gesture is limited by every element between the finger and its scroll
+   container. */
 .kanban-column-scroll [style*="touch-action"] {
-  touch-action: pan-y !important;
+  touch-action: manipulation !important;
 }
 
 /* Thin scrollbar for kanban columns */
 .kanban-column-scroll {
   scrollbar-width: thin;
   scrollbar-color: hsl(var(--muted-foreground) / 0.25) transparent;
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }

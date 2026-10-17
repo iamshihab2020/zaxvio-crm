@@ -78,12 +78,19 @@ export function KanbanColumn({
         )}>
           {jobs.length}
         </span>
+        {/* 40px target on a phone without making the header taller: the
+            negative margin takes back the height the larger button adds. */}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => onAddJob(stage.name)}
-          className={cn("h-6 w-6", colors.text, "opacity-60 hover:opacity-100")}
+          className={cn(
+            "-my-2 h-10 w-10 sm:my-0 sm:h-6 sm:w-6",
+            colors.text,
+            "opacity-60 hover:opacity-100",
+          )}
           title={`Add job to ${stage.label}`}
+          aria-label={`Add job to ${stage.label}`}
         >
           <IconPlus className="h-3.5 w-3.5" />
         </Button>
@@ -96,6 +103,9 @@ export function KanbanColumn({
           shrink below its content without `min-h-0`, which is why the old
           `maxHeight: calc(100vh - 12.5rem - 60px)` existed — and why it had to
           be kept in step with the board by hand. */}
+      {/* `.kanban-column-scroll` lets a swipe on a card pan both ways (see
+          globals.css): dragging a card is a press-and-hold on touch (the
+          sensors in kanban-board), so plain swipes belong to scrolling. */}
       <div className="min-h-0 flex-1 overflow-y-auto kanban-column-scroll px-1">
         <SortableContext items={jobIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2.5">
@@ -154,7 +164,7 @@ export function KanbanColumn({
               variant="ghost"
               size="sm"
               onClick={() => onAddJob(stage.name)}
-              className="w-full h-8 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand-ink font-body rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
+              className="w-full h-10 sm:h-8 text-xs text-muted-foreground/70 dark:text-muted-foreground/60 hover:text-brand-ink font-body rounded-lg hover:bg-muted/40 dark:hover:bg-muted/30"
             >
               <IconPlus className="h-3 w-3 mr-1" />
               Add Job

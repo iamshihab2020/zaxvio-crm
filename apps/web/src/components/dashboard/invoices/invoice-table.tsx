@@ -53,17 +53,21 @@ interface InvoiceTableProps {
   onSortChange?: (key: InvoiceSortKey) => void;
 }
 
+// `hide` is the breakpoint a column appears at. On a phone the table is the
+// invoice number (with customer and status folded under it) and the balance
+// (with the total folded under it); the rest arrive as the screen widens.
 const COLUMNS: Array<{
   key: InvoiceSortKey | null;
   label: string;
   align?: "right";
+  hide?: string;
 }> = [
   { key: "invoiceNumber", label: "Invoice #" },
-  { key: null, label: "Customer" },
-  { key: "status", label: "Status" },
-  { key: "issuedDate", label: "Issued" },
-  { key: "dueDate", label: "Due" },
-  { key: "totalAmount", label: "Total", align: "right" },
+  { key: null, label: "Customer", hide: "hidden md:table-cell" },
+  { key: "status", label: "Status", hide: "hidden md:table-cell" },
+  { key: "issuedDate", label: "Issued", hide: "hidden lg:table-cell" },
+  { key: "dueDate", label: "Due", hide: "hidden lg:table-cell" },
+  { key: "totalAmount", label: "Total", align: "right", hide: "hidden md:table-cell" },
   { key: "balanceDue", label: "Balance", align: "right" },
 ];
 
@@ -102,7 +106,11 @@ export function InvoiceTable({
               return (
                 <TableHead
                   key={col.label}
-                  className={cn("font-body", col.align === "right" && "text-right")}
+                  className={cn(
+                    "font-body",
+                    col.align === "right" && "text-right",
+                    col.hide,
+                  )}
                   // INV-35: no `aria-sort` anywhere, so a screen reader could not
                   // tell which column ordered the table.
                   aria-sort={
@@ -153,6 +161,8 @@ export function InvoiceTable({
             // "$400 of $1,200 paid", which is the whole story on a partial.
             const showProgress = paid > 0 && balance > 0 && total > 0;
             const pctPaid = showProgress ? Math.min(100, (paid / total) * 100) : 0;
+            const customerName =
+              [inv.customerFirstName, inv.customerLastName].filter(Boolean).join(" ") || "—";
 
             return (
               <TableRow
@@ -190,22 +200,29 @@ export function InvoiceTable({
                 )}
                 <TableCell className="font-medium font-body">
                   {inv.invoiceNumber}
+                  {/* Customer and status fold under the number where their
+                      columns are hidden. The name is capped because a nowrap
+                      line in an auto-layout cell would widen the column. */}
+                  <div className="mt-0.5 max-w-[8rem] truncate text-xs font-normal text-muted-foreground md:hidden">
+                    {customerName}
+                  </div>
+                  <div className="mt-1 md:hidden">
+                    <InvoiceStatusBadge status={inv.status} />
+                  </div>
                 </TableCell>
-                <TableCell className="font-body">
-                  {[inv.customerFirstName, inv.customerLastName]
-                    .filter(Boolean)
-                    .join(" ") || "—"}
+                <TableCell className="hidden font-body md:table-cell">
+                  {customerName}
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell">
                   <InvoiceStatusBadge status={inv.status} />
                 </TableCell>
-                <TableCell className="text-muted-foreground font-body">
+                <TableCell className="hidden text-muted-foreground font-body lg:table-cell">
                   {formatDateOnly(inv.issuedDate)}
                 </TableCell>
-                <TableCell className="text-muted-foreground font-body">
+                <TableCell className="hidden text-muted-foreground font-body lg:table-cell">
                   {formatDateOnly(inv.dueDate)}
                 </TableCell>
-                <TableCell className="text-right font-medium font-body">
+                <TableCell className="hidden text-right font-medium font-body md:table-cell">
                   {formatMoney(inv.totalAmount)}
                 </TableCell>
                 <TableCell className="text-right font-body">
@@ -217,6 +234,12 @@ export function InvoiceTable({
                     }
                   >
                     {formatMoney(inv.balanceDue)}
+                  </span>
+                  {/* A paid invoice shows a $0.00 balance, which says nothing
+                      about what it was for — so the total rides along here
+                      while its own column is hidden. */}
+                  <span className="mt-0.5 block text-xs text-muted-foreground md:hidden">
+                    of {formatMoney(inv.totalAmount)}
                   </span>
                   {showProgress && (
                     <span className="mt-1 block">

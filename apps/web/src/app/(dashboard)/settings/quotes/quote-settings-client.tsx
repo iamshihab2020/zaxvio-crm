@@ -130,7 +130,7 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-lg border bg-card p-6">
+        <div className="lg:col-span-2 rounded-lg border bg-card p-4 sm:p-6">
           <div className="mb-4 flex items-center gap-2">
             <Skeleton className="h-5 w-5 rounded" />
             <Skeleton className="h-5 w-32" />
@@ -141,7 +141,7 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
             <Skeleton className="h-10 w-24" />
           </div>
         </div>
-        <div className="rounded-lg border bg-card p-6">
+        <div className="rounded-lg border bg-card p-4 sm:p-6">
           <Skeleton className="mb-3 h-5 w-32" />
           <Skeleton className="h-[200px] w-full" />
         </div>
@@ -289,7 +289,7 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
               <Button
                 onClick={handleSaveText}
                 disabled={saving}
-                className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+                className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer sm:h-9"
               >
                 {saving ? "Saving..." : "Save Changes"}
               </Button>

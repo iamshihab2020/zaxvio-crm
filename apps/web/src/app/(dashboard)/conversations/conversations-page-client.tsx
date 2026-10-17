@@ -184,7 +184,7 @@ export function ConversationsPageClient({
 
   return (
     <>
-      <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+      <div className="flex h-[calc(100dvh-3.5rem)] overflow-hidden">
         {/* Left panel — conversation list */}
         <div
           className={`w-full lg:w-80 shrink-0 border-r border-border flex flex-col bg-card ${
@@ -211,7 +211,7 @@ export function ConversationsPageClient({
               <Button
                 variant="ghost"
                 size="sm"
-                className="gap-1.5 h-8 text-xs"
+                className="h-10 gap-1.5 text-xs sm:h-8"
                 onClick={() => {
                   setShowThread(false);
                   setActiveId(null);

@@ -33,6 +33,7 @@ import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import {
@@ -347,7 +348,7 @@ export function BookingsPageClient({
   // Failed is not empty — an expired session must not read as "no bookings".
   if (!loading && !hasBookings && listError) {
     return (
-      <section className="p-6">
+      <section className="p-4 sm:p-6">
         <LoadErrorState
           title="Couldn't load your bookings"
           message={listError}
@@ -359,7 +360,7 @@ export function BookingsPageClient({
   }
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Booking Link Card */}
       <div className="mb-4 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -380,13 +381,18 @@ export function BookingsPageClient({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Three labelled buttons are ~330px, more than a phone's 311px
+              inside this card, and `shrink-0` kept them from giving way. They
+              wrap instead, each growing to share its line (the `<a>` and `<Link>`
+              are the flex items, so the grow goes on them), and are 40px tall. */}
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button
               size="sm"
               variant="secondary"
               onClick={handleCopyLink}
               disabled={!bookingUrl}
               className={cn(
+                "h-10 flex-1 sm:h-8 sm:flex-none",
                 copied && "bg-green-600 text-white hover:bg-green-600 dark:bg-green-600 dark:text-white",
               )}
             >
@@ -403,15 +409,23 @@ export function BookingsPageClient({
               )}
             </Button>
             {bookingUrl && (
-              <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
-                <Button size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90">
+              <a
+                href={bookingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 sm:flex-none"
+              >
+                <Button
+                  size="sm"
+                  className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8 sm:w-auto"
+                >
                   <IconExternalLink className="mr-2 h-4 w-4" />
                   Preview
                 </Button>
               </a>
             )}
-            <Link href="/settings/bookings">
-              <Button size="sm" variant="secondary">
+            <Link href="/settings/bookings" className="flex-1 sm:flex-none">
+              <Button size="sm" variant="secondary" className="h-10 w-full sm:h-8 sm:w-auto">
                 <IconSettings className="mr-2 h-4 w-4" />
                 Availability
               </Button>
@@ -448,28 +462,32 @@ export function BookingsPageClient({
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Search + status pills inside card header */}
-          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-            {/* Active/Archived — the API has had archive and restore since the
-                bulk-actions work; the page exposed only hard Delete (BOOK-19). */}
-            <StatusFilterTabs
-              options={VIEW_OPTIONS}
-              value={view}
-              onChange={handleViewChange}
-            />
-            <span className="h-5 w-px bg-border" aria-hidden />
-            <StatusFilterTabs
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-            />
-            <div className="ml-auto flex items-center gap-2">
+          <ListToolbar
+            filters={
+              <>
+                {/* Active/Archived — the API has had archive and restore since the
+                    bulk-actions work; the page exposed only hard Delete (BOOK-19). */}
+                <StatusFilterTabs
+                  options={VIEW_OPTIONS}
+                  value={view}
+                  onChange={handleViewChange}
+                />
+                <span className="h-5 w-px bg-border" aria-hidden />
+                <StatusFilterTabs
+                  options={STATUS_OPTIONS}
+                  value={statusFilter}
+                  onChange={handleStatusFilterChange}
+                />
+              </>
+            }
+            actions={
               <SearchInput
                 value={search}
                 onChange={handleSearchChange}
                 placeholder="Search bookings..."
               />
-            </div>
-          </div>
+            }
+          />
 
           {/* Loading skeleton */}
           {loading && (

@@ -113,7 +113,7 @@ export function TeamPendingInvitations({
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        className="h-10 w-10 text-muted-foreground hover:text-destructive sm:h-8 sm:w-8"
                         onClick={() => handleCancel(inv.id)}
                         disabled={cancelling === inv.id}
                       >

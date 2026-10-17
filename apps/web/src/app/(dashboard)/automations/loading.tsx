@@ -13,13 +13,16 @@ import { TableSkeleton } from "@/components/reusable/table-skeleton";
  */
 export default function AutomationsLoading() {
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <div className="rounded-lg border border-border bg-card overflow-hidden">
-        <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-          <Skeleton className="h-8 w-64" />
-          <div className="ml-auto flex items-center gap-2">
-            <Skeleton className="h-8 w-56" />
-            <Skeleton className="h-8 w-36" />
+        {/* Stacks like `ListToolbar` does on a phone: tabs, then search, then
+            the button. Fixed 256 + 224 + 144px widths side by side would run
+            past a 343px card. */}
+        <div className="flex flex-col gap-3 border-b border-border px-4 py-3 sm:flex-row sm:items-center">
+          <Skeleton className="h-10 w-full sm:h-8 sm:w-64" />
+          <div className="flex flex-wrap items-center gap-2 sm:ml-auto sm:flex-nowrap">
+            <Skeleton className="h-10 w-full sm:h-8 sm:w-56" />
+            <Skeleton className="ml-auto h-10 w-10 sm:ml-0 sm:h-8 sm:w-36" />
           </div>
         </div>
         <TableSkeleton columns={6} />

@@ -84,18 +84,20 @@ export function SupportPageClient({
   impersonationPagination: Pagination;
 }) {
   return (
-    <section className="p-6 space-y-6">
+    <section className="p-4 sm:p-6 space-y-6">
       <Tabs defaultValue="audit">
+        {/* The icons go below `sm`: with both labels and their counts the
+            tabs are about 335px, which is the whole 343px phone content. */}
         <TabsList>
           <TabsTrigger value="audit" className="font-body gap-1.5">
-            <IconShieldCheck className="h-4 w-4" />
+            <IconShieldCheck className="h-4 w-4 max-sm:hidden" />
             Audit Log
             <Badge variant="secondary" className="ml-1 text-xs">
               {auditPagination.total}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="impersonation" className="font-body gap-1.5">
-            <IconEye className="h-4 w-4" />
+            <IconEye className="h-4 w-4 max-sm:hidden" />
             Impersonation Log
             <Badge variant="secondary" className="ml-1 text-xs">
               {impersonationPagination.total}
@@ -106,14 +108,17 @@ export function SupportPageClient({
         {/* Audit Log Tab */}
         <TabsContent value="audit" className="mt-4">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Below `md` the log is two columns: when, and what, with the
+                admin, the target tenant and the IP folded under the action.
+                Nothing is dropped; five columns of a log do not fit 343px. */}
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="font-body">Timestamp</TableHead>
-                  <TableHead className="font-body">Admin</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Admin</TableHead>
                   <TableHead className="font-body">Action</TableHead>
-                  <TableHead className="font-body">Target Tenant</TableHead>
-                  <TableHead className="font-body">IP</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Target Tenant</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">IP</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -128,10 +133,12 @@ export function SupportPageClient({
                 ) : (
                   auditLog.map((entry) => (
                     <TableRow key={entry.id}>
-                      <TableCell className="text-sm text-muted-foreground font-body whitespace-nowrap">
+                      {/* Allowed to wrap on a phone, where the date and the
+                          action have to share the row. */}
+                      <TableCell className="text-sm text-muted-foreground font-body md:whitespace-nowrap">
                         {formatDate(entry.createdAt)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <div>
                           <p className="text-sm font-medium font-body">
                             {entry.adminName ?? "Unknown"}
@@ -147,11 +154,22 @@ export function SupportPageClient({
                         >
                           {formatAction(entry.action)}
                         </Badge>
+                        <div className="mt-1 space-y-0.5 md:hidden">
+                          <p className="text-xs text-muted-foreground font-body">
+                            {entry.adminName ?? "Unknown"}
+                            {entry.targetTenantName && ` · ${entry.targetTenantName}`}
+                          </p>
+                          {entry.ipAddress && (
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {entry.ipAddress}
+                            </p>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm font-body">
+                      <TableCell className="hidden md:table-cell text-sm font-body">
                         {entry.targetTenantName ?? "—"}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
+                      <TableCell className="hidden md:table-cell text-xs text-muted-foreground font-mono">
                         {entry.ipAddress ?? "—"}
                       </TableCell>
                     </TableRow>
@@ -165,13 +183,15 @@ export function SupportPageClient({
         {/* Impersonation Log Tab */}
         <TabsContent value="impersonation" className="mt-4">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Below `md`: Started, Tenant (with the admin and the reason folded
+                under it) and Duration. */}
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="font-body">Started</TableHead>
-                  <TableHead className="font-body">Admin</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Admin</TableHead>
                   <TableHead className="font-body">Tenant</TableHead>
-                  <TableHead className="font-body">Reason</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Reason</TableHead>
                   <TableHead className="font-body">Duration</TableHead>
                 </TableRow>
               </TableHeader>
@@ -196,19 +216,23 @@ export function SupportPageClient({
                         : null;
                     return (
                       <TableRow key={entry.id}>
-                        <TableCell className="text-sm text-muted-foreground font-body whitespace-nowrap">
+                        <TableCell className="text-sm text-muted-foreground font-body md:whitespace-nowrap">
                           {formatDate(entry.startedAt)}
                         </TableCell>
-                        <TableCell className="text-sm font-body">
+                        <TableCell className="hidden md:table-cell text-sm font-body">
                           {entry.adminName ?? "Unknown"}
                         </TableCell>
                         <TableCell className="text-sm font-body font-medium">
                           {entry.tenantName ?? "—"}
+                          <div className="mt-0.5 text-xs font-normal text-muted-foreground md:hidden">
+                            <p>{entry.adminName ?? "Unknown"}</p>
+                            <p className="line-clamp-2">{entry.reason}</p>
+                          </div>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground font-body max-w-[200px] truncate">
+                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground font-body max-w-[200px] truncate">
                           {entry.reason}
                         </TableCell>
-                        <TableCell className="text-sm font-body">
+                        <TableCell className="text-sm font-body whitespace-nowrap">
                           {entry.endedAt ? (
                             `${duration}m`
                           ) : (

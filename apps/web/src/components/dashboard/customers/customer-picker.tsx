@@ -137,7 +137,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                 variant="outline"
                 tabIndex={isNewMode ? -1 : 0}
                 className={cn(
-                  "h-9 w-full justify-between font-body",
+                  "h-10 w-full justify-between font-body sm:h-9",
                   error && !isNewMode ? "border-destructive" : "",
                   !selectedLabel && "text-muted-foreground",
                 )}
@@ -157,7 +157,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                     placeholder="Search customers..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-8 h-8"
+                    className="h-10 pl-8 sm:h-8"
                   />
                 </div>
               </div>
@@ -176,7 +176,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                     variant="ghost"
                     size="sm"
                     onClick={() => handleSelect(c)}
-                    className="w-full justify-start gap-2 font-body"
+                    className="h-10 w-full justify-start gap-2 font-body sm:h-8"
                   >
                     {selectedId === c.id && (
                       <IconCheck className="h-4 w-4 text-brand-ink shrink-0" />
@@ -193,7 +193,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   variant="ghost"
                   size="sm"
                   onClick={handleNewCustomer}
-                  className="w-full justify-start gap-2 font-body text-brand-ink"
+                  className="h-10 w-full justify-start gap-2 font-body text-brand-ink sm:h-8"
                 >
                   <IconPlus className="h-4 w-4 shrink-0" />
                   New Customer
@@ -221,13 +221,13 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                 size="sm"
                 onClick={handleSwitchToExisting}
                 tabIndex={isNewMode ? 0 : -1}
-                className="gap-1 text-xs text-brand-ink hover:underline font-body h-auto p-0"
+                className="h-10 gap-1 px-2 text-xs text-brand-ink hover:underline font-body sm:h-auto sm:p-0"
               >
                 <IconArrowBack className="h-3 w-3" />
                 Select existing
               </Button>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <div className="space-y-1">
                 <Label className="text-xs font-body text-muted-foreground">
                   First Name <span className="text-destructive">*</span>
@@ -236,7 +236,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   value={isNewMode ? value.firstName : ""}
                   onChange={(e) => updateNewField("firstName", e.target.value)}
                   placeholder="John"
-                  className="h-8 text-sm"
+                  className="h-10 text-sm sm:h-8"
                   tabIndex={isNewMode ? 0 : -1}
                 />
                 {error && isNewMode && !value.firstName.trim() && (
@@ -254,7 +254,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   value={isNewMode ? value.lastName : ""}
                   onChange={(e) => updateNewField("lastName", e.target.value)}
                   placeholder="Doe"
-                  className="h-8 text-sm"
+                  className="h-10 text-sm sm:h-8"
                   tabIndex={isNewMode ? 0 : -1}
                 />
                 {error && isNewMode && !value.lastName.trim() && (
@@ -272,7 +272,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   value={isNewMode ? value.phone : ""}
                   onChange={(e) => updateNewField("phone", formatPhoneInput(e.target.value))}
                   placeholder="(555) 123-4567"
-                  className="h-8 text-sm"
+                  className="h-10 text-sm sm:h-8"
                   tabIndex={isNewMode ? 0 : -1}
                 />
               </div>
@@ -285,7 +285,7 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   value={isNewMode ? value.email : ""}
                   onChange={(e) => updateNewField("email", e.target.value)}
                   placeholder="john@example.com"
-                  className="h-8 text-sm"
+                  className="h-10 text-sm sm:h-8"
                   tabIndex={isNewMode ? 0 : -1}
                 />
               </div>

@@ -184,7 +184,7 @@ function GroupTable({
 }: GroupTableProps) {
   return (
     <Card className="h-full">
-      <CardHeader className="pb-2">
+      <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
         <CardTitle className="font-heading text-sm font-semibold">
           {title}
         </CardTitle>
@@ -193,7 +193,7 @@ function GroupTable({
       <CardContent className="px-0 pb-0">
         <WidgetErrorBoundary name={title}>
           {rows.length === 0 ? (
-            <div className="flex h-24 items-center justify-center px-6 pb-4">
+            <div className="flex h-24 items-center justify-center px-4 pb-4 sm:px-6">
               <p className="font-body text-sm text-muted-foreground">
                 {emptyMessage}
               </p>
@@ -298,7 +298,7 @@ function GroupTable({
 function SetUpCosting() {
   return (
     <Card>
-      <CardContent className="flex flex-col items-center px-6 py-12 text-center">
+      <CardContent className="flex flex-col items-center px-4 py-12 sm:px-6 text-center">
         <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-lg bg-brand-light">
           <IconChartPie className="h-5 w-5 text-brand" aria-hidden />
         </div>

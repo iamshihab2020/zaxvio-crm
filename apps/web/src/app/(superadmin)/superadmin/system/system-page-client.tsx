@@ -72,14 +72,15 @@ export function SystemPageClient({
   crons: CronJob[];
 }) {
   return (
-    <section className="p-6 space-y-6">
-      {/* Health Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <section className="p-4 sm:p-6 space-y-6">
+      {/* Health Cards. Two by two on a phone, with 16px card padding and a
+          smaller figure so "128.4 MB" fits the ~130px inside a half-width card. */}
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
             <CardTitle className="font-body text-sm text-muted-foreground">Database</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             <Badge
               className={`border-0 ${
                 health?.database === "healthy"
@@ -93,11 +94,11 @@ export function SystemPageClient({
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
             <CardTitle className="font-body text-sm text-muted-foreground">Uptime</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="font-heading text-2xl font-bold">
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <p className="font-heading text-xl font-bold sm:text-2xl">
               {health?.uptime
                 ? `${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m`
                 : "—"}
@@ -106,11 +107,11 @@ export function SystemPageClient({
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
             <CardTitle className="font-body text-sm text-muted-foreground">Memory (Heap)</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="font-heading text-2xl font-bold">
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            <p className="font-heading text-xl font-bold sm:text-2xl">
               {health?.memory?.heapUsedMB ?? "—"} MB
             </p>
             <p className="text-xs text-muted-foreground font-body">
@@ -120,10 +121,10 @@ export function SystemPageClient({
         </Card>
 
         <Card>
-          <CardHeader className="pb-2">
+          <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
             <CardTitle className="font-body text-sm text-muted-foreground">Node.js</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             <p className="font-heading text-lg font-bold">{health?.nodeVersion ?? "—"}</p>
           </CardContent>
         </Card>
@@ -151,14 +152,16 @@ export function SystemPageClient({
         {/* Webhook Logs */}
         <TabsContent value="webhooks" className="mt-4">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Below `md`: Timestamp, Event (provider folded under it) and
+                Status (response code folded under it). */}
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="font-body">Timestamp</TableHead>
-                  <TableHead className="font-body">Provider</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Provider</TableHead>
                   <TableHead className="font-body">Event</TableHead>
                   <TableHead className="font-body">Status</TableHead>
-                  <TableHead className="font-body">Code</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Code</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -177,14 +180,21 @@ export function SystemPageClient({
                 ) : (
                   webhooks.map((log) => (
                     <TableRow key={log.id}>
-                      <TableCell className="text-sm text-muted-foreground font-body whitespace-nowrap">
+                      {/* Allowed to wrap on a phone, where the date, the event
+                          and the status share the row. */}
+                      <TableCell className="text-sm text-muted-foreground font-body md:whitespace-nowrap">
                         {formatDate(log.createdAt)}
                       </TableCell>
-                      <TableCell className="font-body text-sm font-medium">
+                      <TableCell className="hidden md:table-cell font-body text-sm font-medium">
                         {log.provider}
                       </TableCell>
-                      <TableCell className="font-body text-sm">
+                      {/* Event types are one long snake_case word; `anywhere`
+                          lets it break instead of widening the table. */}
+                      <TableCell className="font-body text-sm [overflow-wrap:anywhere]">
                         {log.eventType}
+                        <p className="mt-0.5 text-xs font-medium text-muted-foreground md:hidden">
+                          {log.provider}
+                        </p>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -192,8 +202,11 @@ export function SystemPageClient({
                         >
                           {log.status}
                         </Badge>
+                        <p className="mt-1 font-mono text-xs text-muted-foreground md:hidden">
+                          {log.responseCode ?? "—"}
+                        </p>
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-muted-foreground">
+                      <TableCell className="hidden md:table-cell font-mono text-xs text-muted-foreground">
                         {log.responseCode ?? "—"}
                       </TableCell>
                     </TableRow>
@@ -207,14 +220,16 @@ export function SystemPageClient({
         {/* Cron Job History */}
         <TabsContent value="crons" className="mt-4">
           <div className="rounded-lg border border-border bg-card overflow-hidden">
+            {/* Below `md`: Started, Job Name (duration and any error folded
+                under it) and Status. */}
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="font-body">Started</TableHead>
                   <TableHead className="font-body">Job Name</TableHead>
                   <TableHead className="font-body">Status</TableHead>
-                  <TableHead className="font-body">Duration</TableHead>
-                  <TableHead className="font-body">Error</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Duration</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Error</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -242,11 +257,19 @@ export function SystemPageClient({
                         : null;
                     return (
                       <TableRow key={job.id}>
-                        <TableCell className="text-sm text-muted-foreground font-body whitespace-nowrap">
+                        <TableCell className="text-sm text-muted-foreground font-body md:whitespace-nowrap">
                           {formatDate(job.startedAt)}
                         </TableCell>
-                        <TableCell className="font-body text-sm font-medium">
+                        <TableCell className="font-body text-sm font-medium [overflow-wrap:anywhere]">
                           {job.jobName}
+                          <div className="mt-0.5 text-xs font-normal md:hidden">
+                            <p className="text-muted-foreground">
+                              {duration !== null ? `${duration}s` : "running..."}
+                            </p>
+                            {job.error && (
+                              <p className="line-clamp-2 text-destructive">{job.error}</p>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <Badge
@@ -255,10 +278,10 @@ export function SystemPageClient({
                             {job.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="font-body text-sm text-muted-foreground">
+                        <TableCell className="hidden md:table-cell font-body text-sm text-muted-foreground">
                           {duration !== null ? `${duration}s` : "running..."}
                         </TableCell>
-                        <TableCell className="font-body text-xs text-destructive max-w-[200px] truncate">
+                        <TableCell className="hidden md:table-cell font-body text-xs text-destructive max-w-[200px] truncate">
                           {job.error ?? "—"}
                         </TableCell>
                       </TableRow>

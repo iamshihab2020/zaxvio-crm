@@ -60,15 +60,16 @@ export function JobFilters({
     (priority ? 1 : 0) + (serviceType ? 1 : 0) + (assigneeId ? 1 : 0);
 
   return (
-    <div className="flex items-center gap-1.5">
-      {/* Compact search */}
-      <div className="relative">
-        <IconSearch className="absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground/60" />
+    <div className="flex w-full items-center gap-1.5 sm:w-auto">
+      {/* Compact search. Fluid on a phone, where it has a line to itself; the
+          fixed 180px comes back from `sm`, where it shares the toolbar row. */}
+      <div className="relative min-w-0 flex-1 sm:flex-none">
+        <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/60 sm:left-2 sm:h-3.5 sm:w-3.5" />
         <Input
           placeholder="Search jobs..."
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="h-7 w-[180px] pl-7 pr-2 text-xs font-body bg-transparent border-border/40 rounded-md placeholder:text-muted-foreground/40"
+          className="h-10 w-full pl-9 pr-2 text-sm font-body bg-transparent border-border/40 rounded-md placeholder:text-muted-foreground/40 sm:h-7 sm:w-[180px] sm:pl-7 sm:text-xs"
         />
       </div>
 
@@ -79,12 +80,13 @@ export function JobFilters({
             variant="ghost"
             size="icon"
             className={cn(
-              "h-7 w-7 rounded-md relative",
+              "h-10 w-10 rounded-md relative sm:h-7 sm:w-7",
               activeFilterCount > 0
                 ? "text-brand-ink"
                 : "text-muted-foreground hover:text-foreground",
             )}
             title="Filters"
+            aria-label="Filters"
           >
             <IconFilter className="h-3.5 w-3.5" />
             {activeFilterCount > 0 && (
@@ -94,7 +96,13 @@ export function JobFilters({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-52 p-2" align="start">
+        {/* Capped to the room Radix measures: four priorities, seven service
+            types and the assignees are taller than a phone screen once every
+            row is a 40px target. */}
+        <PopoverContent
+          className="w-52 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto p-2"
+          align="start"
+        >
           {/* Priority section */}
           <div className="mb-2">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground font-heading mb-1 px-1">
@@ -106,7 +114,7 @@ export function JobFilters({
                   key={p ?? "all"}
                   onClick={() => onPriorityChange(p)}
                   className={cn(
-                    "flex w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors",
+                    "flex min-h-10 w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors sm:min-h-0",
                     priority === p
                       ? "bg-brand-light/20 text-brand-ink"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -132,7 +140,7 @@ export function JobFilters({
                   key={st ?? "all"}
                   onClick={() => onServiceTypeChange(st)}
                   className={cn(
-                    "flex w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors",
+                    "flex min-h-10 w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors sm:min-h-0",
                     serviceType === st
                       ? "bg-brand-light/20 text-brand-ink"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -158,7 +166,7 @@ export function JobFilters({
                       key={id ?? "all"}
                       onClick={() => onAssigneeChange?.(id)}
                       className={cn(
-                        "flex w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors",
+                        "flex min-h-10 w-full items-center rounded-md px-2 py-1 text-xs font-body transition-colors sm:min-h-0",
                         assigneeId === id
                           ? "bg-brand-light/20 text-brand-ink"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground",
@@ -184,7 +192,7 @@ export function JobFilters({
                   onServiceTypeChange(null);
                   onAssigneeChange?.(null);
                 }}
-                className="flex w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                className="flex min-h-10 w-full items-center justify-center gap-1 rounded-md px-2 py-1 text-xs font-body text-muted-foreground hover:text-foreground hover:bg-muted transition-colors sm:min-h-0"
               >
                 <IconX className="h-3 w-3" />
                 Clear all filters

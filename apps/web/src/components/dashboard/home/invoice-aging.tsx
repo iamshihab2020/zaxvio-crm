@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { IconFileInvoice } from "@tabler/icons-react";
+import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import type { DashboardAgingBucket } from "@hvac-saas/types";
 import { formatCurrency } from "@/lib/format";
 import { OVERDUE_COLORS, STATUS_COLORS } from "@/lib/constants/chart-palette";
+import { WidgetHeader } from "./widget-header";
 import { WidgetWindowBadge } from "./widget-window-badge";
 
 interface InvoiceAgingProps {
@@ -48,23 +50,22 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
   }));
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="whitespace-nowrap font-heading text-sm font-semibold text-foreground">
-            Invoice Aging
-          </h3>
-          <WidgetWindowBadge label="All open" />
-        </div>
-        {totalCount > 0 && (
-          <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
-            {totalCount} invoices · {formatCurrency(totalAmount)}
-          </span>
-        )}
-      </div>
+    <Card className="flex h-full flex-col p-4 sm:p-6">
+      <WidgetHeader
+        title="Invoice Aging"
+        badge={<WidgetWindowBadge label="All open" />}
+        action={
+          totalCount > 0 && (
+            <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
+              <span className="tnum font-mono">{totalCount}</span> invoices ·{" "}
+              <span className="tnum font-mono">{formatCurrency(totalAmount)}</span>
+            </span>
+          )
+        }
+      />
 
       {totalCount === 0 ? (
-        <div className="mt-4 flex-1 rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconFileInvoice className="h-5 w-5 text-brand" aria-hidden />
           </div>
@@ -120,7 +121,7 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
                     }
                     aria-label={`${row.config.label}: ${formatCurrency(row.amount)} across ${row.count} ${row.count === 1 ? "invoice" : "invoices"}`}
                     className={cn(
-                      "grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1.5 rounded-lg px-2 py-2 transition-colors hover:bg-brand/5",
+                      "grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1.5 rounded-md px-2 py-2 transition-colors hover:bg-brand/5",
                       row.amount === 0 && "opacity-50",
                     )}
                   >
@@ -130,13 +131,13 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: row.config.color }}
                       />
-                      <span className="truncate text-[13px] font-body text-muted-foreground">
+                      <span className="truncate text-sm font-body text-muted-foreground">
                         {row.config.label}
                       </span>
                     </span>
 
                     <span className="flex shrink-0 items-baseline gap-2">
-                      <span className="tnum font-heading text-[15px] font-semibold text-foreground">
+                      <span className="tnum font-mono text-sm font-medium text-foreground">
                         {formatCurrency(row.amount)}
                       </span>
                       <span className="tnum w-16 text-right font-mono text-[10px] text-muted-foreground">
@@ -166,6 +167,6 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
           </ul>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

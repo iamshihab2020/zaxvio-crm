@@ -4,7 +4,6 @@ import { useState, useMemo } from "react";
 import { seeded } from "@/hooks/queries/seed";
 import { toast } from "sonner";
 import {
-  IconPlus,
   IconChecklist,
   IconCircleCheck,
   IconCircleOff,
@@ -13,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
 import {
@@ -236,7 +236,7 @@ export function ChecklistsPageClient({
   const showNoResults = !loading && !hasTemplates && (!!search || !!statusFilter || !!filterServiceType);
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -263,79 +263,80 @@ export function ChecklistsPageClient({
       {/* Card wrapper */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <StatusFilterTabs
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-              onChange={setStatusFilter}
-            />
-            <div className="ml-auto flex items-center gap-2">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search templates..."
+          <ListToolbar
+            filters={
+              <StatusFilterTabs
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={setStatusFilter}
               />
+            }
+            actions={
+              <>
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search templates..."
+                />
 
-              {/* Service Type Filter */}
-              <Popover open={filterOpen} onOpenChange={setFilterOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 shrink-0">
-                    {filterServiceType
-                      ? SERVICE_TYPE_LABELS[filterServiceType as ServiceType]
-                      : "All Service Types"}
-                    <IconSelector className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[200px] p-1" align="end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setFilterServiceType("");
-                      setFilterOpen(false);
-                    }}
-                    className="w-full justify-start gap-2 font-body"
-                  >
-                    {!filterServiceType && (
-                      <IconCheck className="h-4 w-4 text-brand-ink shrink-0" />
-                    )}
-                    <span className={cn(!filterServiceType ? "" : "pl-6")}>
-                      All Types
-                    </span>
-                  </Button>
-                  {SERVICE_TYPES.map((st) => (
+                {/* Service Type Filter */}
+                <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-10 shrink-0 gap-1.5 sm:h-8">
+                      {filterServiceType
+                        ? SERVICE_TYPE_LABELS[filterServiceType as ServiceType]
+                        : "All Service Types"}
+                      <IconSelector className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-1" align="end">
                     <Button
-                      key={st}
                       type="button"
                       variant="ghost"
                       size="sm"
                       onClick={() => {
-                        setFilterServiceType(st);
+                        setFilterServiceType("");
                         setFilterOpen(false);
                       }}
                       className="w-full justify-start gap-2 font-body"
                     >
-                      {filterServiceType === st && (
+                      {!filterServiceType && (
                         <IconCheck className="h-4 w-4 text-brand-ink shrink-0" />
                       )}
-                      <span className={cn(filterServiceType !== st && "pl-6")}>
-                        {SERVICE_TYPE_LABELS[st]}
+                      <span className={cn(!filterServiceType ? "" : "pl-6")}>
+                        All Types
                       </span>
                     </Button>
-                  ))}
-                </PopoverContent>
-              </Popover>
+                    {SERVICE_TYPES.map((st) => (
+                      <Button
+                        key={st}
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setFilterServiceType(st);
+                          setFilterOpen(false);
+                        }}
+                        className="w-full justify-start gap-2 font-body"
+                      >
+                        {filterServiceType === st && (
+                          <IconCheck className="h-4 w-4 text-brand-ink shrink-0" />
+                        )}
+                        <span className={cn(filterServiceType !== st && "pl-6")}>
+                          {SERVICE_TYPE_LABELS[st]}
+                        </span>
+                      </Button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
 
-              <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
-                {filteredTemplates.length} {filteredTemplates.length === 1 ? "Template" : "Templates"}
-              </span>
-              <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                New Template
-              </Button>
-            </div>
-          </div>
+                <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
+                  {filteredTemplates.length} {filteredTemplates.length === 1 ? "Template" : "Templates"}
+                </span>
+                <ListToolbarCreateButton label="New Template" onClick={openCreateDialog} />
+              </>
+            }
+          />
 
           {/* List */}
           {!loading && hasTemplates && (

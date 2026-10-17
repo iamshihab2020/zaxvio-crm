@@ -12,8 +12,11 @@ import { cn } from "@/lib/utils";
 /**
  * The step picker.
  *
- * **A panel, not a modal.** It sits in the builder's layout and pushes the
- * canvas aside rather than covering it, and it **stays open after a pick**.
+ * **A panel, not a modal.** From `lg` it sits in the builder's layout and
+ * pushes the canvas aside rather than covering it (between `md` and `lg` there
+ * is no room to give 300px away, so it floats over the canvas instead; below
+ * `md` the builder is view-only and it is not rendered), and it **stays open
+ * after a pick**.
  * Building an automation is a run of several steps, and a sheet that dismissed
  * itself on every choice turned a five-step build into five open/close cycles —
  * which is what a first pass here got wrong.
@@ -70,6 +73,8 @@ export function NodePalettePanel() {
       aria-hidden={!open}
       className={cn(
         "flex shrink-0 flex-col overflow-hidden border-r border-border bg-card",
+        // Floats over the canvas, anchored to the builder's row, until `lg`.
+        "max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-20",
         "transition-[width] duration-200 ease-out motion-reduce:transition-none",
         open ? "w-[300px]" : "w-0 border-r-0",
       )}

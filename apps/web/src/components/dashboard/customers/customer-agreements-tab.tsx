@@ -171,7 +171,7 @@ export function CustomerAgreementsTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground font-body">
           {/* Reports the cap rather than hiding it (CUST-15). */}
           {totalAgreements > agreements.length
@@ -181,7 +181,7 @@ export function CustomerAgreementsTab({
         <Button
           size="sm"
           onClick={openCreateDialog}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
+          className="h-10 shrink-0 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
         >
           <IconPlus className="h-4 w-4 mr-1" />
           Add Agreement

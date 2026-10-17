@@ -98,7 +98,7 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-body font-medium text-foreground">
           {photos.length > 0
             ? `${photos.length} photo${photos.length !== 1 ? "s" : ""}`
@@ -110,7 +110,7 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
               variant="outline"
               size="sm"
               onClick={() => setCompareOpen(true)}
-              className="gap-1.5 text-xs"
+              className="h-10 gap-1.5 text-xs sm:h-8"
             >
               <IconLayoutColumns className="h-3.5 w-3.5" />
               Compare
@@ -119,7 +119,7 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
           <Button
             size="sm"
             onClick={() => setUploadOpen(true)}
-            className="gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90 text-xs"
+            className="h-10 gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90 text-xs sm:h-8"
           >
             <IconUpload className="h-3.5 w-3.5" />
             Upload Photo
@@ -152,11 +152,15 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
               <div className="absolute top-1.5 left-1.5">
                 <PhotoTagPill tag={photo.tag} />
               </div>
-              {/* Delete button */}
+              {/* Delete button. Only a pointer that can hover gets it hidden
+                  until hover or focus; on touch it is always there, as a 40px
+                  target. The uploader overlay below stays hover-only, because
+                  the lightbox shows the same name one tap away. */}
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); handleDelete(photo.id); }}
-                className="absolute top-1.5 right-1.5 rounded-md bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-red-600/80"
+                aria-label="Delete photo"
+                className="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-md bg-black/60 text-white transition-opacity hover:bg-red-600/80 focus-visible:opacity-100 md:right-1.5 md:top-1.5 md:h-7 md:w-7 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100"
               >
                 <IconTrash className="h-3.5 w-3.5" />
               </button>

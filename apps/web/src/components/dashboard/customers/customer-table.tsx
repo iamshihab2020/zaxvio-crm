@@ -39,6 +39,7 @@ import {
   IconArrowsSort,
 } from "@tabler/icons-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import type { Customer } from "@hvac-saas/types";
 
 type SortKey = "createdAt" | "firstName" | "lastName" | "email";
@@ -94,20 +95,23 @@ function SortableHead({
   sortBy,
   sortOrder,
   onSortChange,
+  className,
 }: {
   label: string;
   sortKey: SortKey;
   sortBy?: SortKey;
   sortOrder?: "asc" | "desc";
   onSortChange?: (key: SortKey) => void;
+  /** Where the column hides — a hidden column takes its sort button with it. */
+  className?: string;
 }) {
   if (!onSortChange) {
-    return <TableHead className="font-body">{label}</TableHead>;
+    return <TableHead className={cn("font-body", className)}>{label}</TableHead>;
   }
   const active = sortBy === sortKey;
   const Icon = !active ? IconArrowsSort : sortOrder === "asc" ? IconArrowUp : IconArrowDown;
   return (
-    <TableHead className="font-body p-0">
+    <TableHead className={cn("font-body p-0", className)}>
       <Button
         type="button"
         variant="ghost"
@@ -177,21 +181,25 @@ export function CustomerTable({
               sortOrder={sortOrder}
               onSortChange={onSortChange}
             />
+            {/* Phone and email fold under the name below `md`; location and
+                the added date are the least-asked-for and go at `lg`. */}
             <SortableHead
               label="Email"
               sortKey="email"
               sortBy={sortBy}
               sortOrder={sortOrder}
               onSortChange={onSortChange}
+              className="hidden md:table-cell"
             />
-            <TableHead className="font-body">Phone</TableHead>
-            <TableHead className="font-body">Location</TableHead>
+            <TableHead className="hidden font-body md:table-cell">Phone</TableHead>
+            <TableHead className="hidden font-body lg:table-cell">Location</TableHead>
             <SortableHead
               label="Added"
               sortKey="createdAt"
               sortBy={sortBy}
               sortOrder={sortOrder}
               onSortChange={onSortChange}
+              className="hidden lg:table-cell"
             />
             <TableHead className="w-12" />
           </TableRow>
@@ -241,6 +249,14 @@ export function CustomerTable({
                         Archived
                       </span>
                     )}
+                    {/* The number to call, where the Phone column is hidden. A
+                        capped width, because a nowrap line in an auto-layout
+                        cell would otherwise widen the whole column. */}
+                    {(customer.phone || customer.email) && (
+                      <p className="mt-0.5 max-w-[10rem] truncate text-xs text-muted-foreground md:hidden">
+                        {formatPhoneDisplay(customer.phone) || customer.email}
+                      </p>
+                    )}
                     {customer.tags && customer.tags.length > 0 && (
                       <div className="mt-1 flex flex-wrap gap-1">
                         {customer.tags.map((tag) => (
@@ -266,7 +282,7 @@ export function CustomerTable({
                   </div>
                 </div>
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden md:table-cell">
                 {customer.email ? (
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -280,22 +296,22 @@ export function CustomerTable({
                   <span className="text-muted-foreground">—</span>
                 )}
               </TableCell>
-              <TableCell className="text-muted-foreground">
+              <TableCell className="hidden text-muted-foreground md:table-cell">
                 {formatPhoneDisplay(customer.phone) || "—"}
               </TableCell>
-              <TableCell className="text-muted-foreground">
+              <TableCell className="hidden text-muted-foreground lg:table-cell">
                 {[customer.city, customer.state].filter(Boolean).join(", ") || "—"}
               </TableCell>
-              <TableCell className="text-muted-foreground">
+              <TableCell className="hidden text-muted-foreground lg:table-cell">
                 {formatDate(customer.createdAt)}
               </TableCell>
-              <TableCell>
+              <TableCell className="px-2 sm:px-4">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8"
+                      className="h-10 w-10 sm:h-8 sm:w-8"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <IconDots className="h-4 w-4" />

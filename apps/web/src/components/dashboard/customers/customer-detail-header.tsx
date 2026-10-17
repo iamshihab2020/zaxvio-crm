@@ -126,7 +126,7 @@ function EditableText({
             }}
             aria-invalid={!!error}
             aria-label={placeholder}
-            className={`h-7 w-36 text-sm ${error ? "border-destructive" : ""}`}
+            className={`h-10 w-36 text-sm sm:h-7 ${error ? "border-destructive" : ""}`}
             placeholder={placeholder}
           />
           <Button
@@ -134,7 +134,7 @@ function EditableText({
             variant="ghost"
             size="icon"
             onMouseDown={(e) => { e.preventDefault(); handleSave(); }}
-            className="h-6 w-6 shrink-0 text-brand-ink hover:text-brand-ink/80"
+            className="h-10 w-10 shrink-0 text-brand-ink hover:text-brand-ink/80 sm:h-6 sm:w-6"
             aria-label="Save"
           >
             <IconCheck className="h-3.5 w-3.5" />
@@ -152,6 +152,8 @@ function EditableText({
 
   const shown = display ?? value;
 
+  // `self-stretch`: inside a contact chip the chip is 40px tall on a phone, and
+  // this makes the whole height of it the tap target rather than one text line.
   if (!shown) {
     return (
       <Button
@@ -159,7 +161,7 @@ function EditableText({
         variant="ghost"
         size="sm"
         onClick={() => setEditing(true)}
-        className="h-auto p-0 text-sm italic text-muted-foreground/40 hover:text-brand-ink"
+        className="h-auto self-stretch p-0 text-sm italic text-muted-foreground/40 hover:text-brand-ink"
       >
         {placeholder}
       </Button>
@@ -172,10 +174,12 @@ function EditableText({
       variant="ghost"
       size="sm"
       onClick={() => setEditing(true)}
-      className={`group inline-flex h-auto items-center gap-1 p-0 hover:text-brand-ink ${className ?? ""}`}
+      className={`group inline-flex h-auto items-center gap-1 self-stretch p-0 hover:text-brand-ink ${className ?? ""}`}
     >
       <span>{shown}</span>
-      <IconPencil className="h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" />
+      {/* The pencil is the only sign a value is editable. Hover-only meant a
+          touch screen never showed it. */}
+      <IconPencil className="h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-50 [@media(hover:none)]:opacity-50" />
     </Button>
   );
 }
@@ -269,16 +273,19 @@ export function CustomerDetailHeader({
     <>
       <div className="border-b border-border bg-card">
         {/* Top bar: breadcrumb + actions */}
-        <div className="flex items-center justify-between px-4 pb-2 pt-3 sm:px-6">
-          <nav className="flex items-center gap-1 font-body text-sm">
+        {/* Wraps: the breadcrumb and four buttons came to ~450px, so on a phone
+            the actions drop to a line of their own instead of squeezing the
+            customer's name to a sliver. */}
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 pb-2 pt-3 sm:px-6">
+          <nav className="flex min-w-0 items-center gap-1 font-body text-sm">
             <Link
               href="/customers"
               className="text-muted-foreground transition-colors hover:text-foreground"
             >
               Customers
             </Link>
-            <IconChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="font-medium text-foreground">
+            <IconChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 truncate font-medium text-foreground">
               {customer.firstName} {customer.lastName}
             </span>
           </nav>
@@ -286,23 +293,23 @@ export function CustomerDetailHeader({
           <div className="flex items-center gap-1.5">
             <Button
               size="sm"
-              className="h-8 bg-brand text-xs text-brand-foreground hover:bg-brand/90"
+              className="h-10 bg-brand text-xs text-brand-foreground hover:bg-brand/90 sm:h-8"
               onClick={onNewJob}
             >
               <IconBriefcase className="mr-1.5 h-3.5 w-3.5" />
               New Job
             </Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onNewQuote}>
+            <Button size="sm" variant="outline" className="h-10 text-xs sm:h-8" onClick={onNewQuote}>
               <IconFileDescription className="mr-1.5 h-3.5 w-3.5" />
               Quote
             </Button>
-            <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onNewInvoice}>
+            <Button size="sm" variant="outline" className="h-10 text-xs sm:h-8" onClick={onNewInvoice}>
               <IconReceipt className="mr-1.5 h-3.5 w-3.5" />
               Invoice
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
+                <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8">
                   <IconDots className="h-4 w-4" />
                   <span className="sr-only">More actions</span>
                 </Button>
@@ -337,7 +344,7 @@ export function CustomerDetailHeader({
               </h1>
 
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground">
+                <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground sm:min-h-0">
                   <IconPhone className="h-3 w-3" />
                   {/*
                     `value` is the stored number; `display` is the pretty one.
@@ -355,7 +362,7 @@ export function CustomerDetailHeader({
                     className="text-xs text-foreground"
                   />
                 </span>
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground">
+                <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground sm:min-h-0">
                   <IconMail className="h-3 w-3" />
                   <EditableText
                     value={customer.email ?? ""}
@@ -386,7 +393,7 @@ export function CustomerDetailHeader({
                 {/* Address is editable here now. It was read-only while name,
                     phone and email were not — and a service address is the field
                     a dispatcher corrects most often (CUST report §5.5). */}
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground">
+                <span className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-muted/60 px-2.5 py-0.5 text-xs text-muted-foreground sm:min-h-0">
                   <IconMapPin className="h-3 w-3" />
                   <EditableText
                     value={customer.address ?? ""}

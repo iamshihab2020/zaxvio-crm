@@ -46,7 +46,7 @@ export function ComposeBar({
   }
 
   return (
-    <div className="border-t border-border px-4 py-3 shrink-0 bg-card">
+    <div className="border-t border-border px-3 py-2 shrink-0 bg-card sm:px-4 sm:py-3">
       <div className="flex items-end gap-2">
         <Textarea
           ref={textareaRef}
@@ -54,7 +54,7 @@ export function ComposeBar({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={`Type a message… (Ctrl+Enter to send)`}
-          className="resize-none flex-1 min-h-[36px] max-h-[120px] overflow-y-auto leading-relaxed text-sm"
+          className="min-h-10 max-h-[120px] flex-1 resize-none overflow-y-auto text-base leading-relaxed sm:min-h-[36px] sm:text-sm"
           rows={1}
           disabled={isSending}
         />
@@ -65,14 +65,15 @@ export function ComposeBar({
             <Button
               variant="outline"
               size="sm"
-              className="gap-1.5 h-9 shrink-0"
+              className="h-10 shrink-0 gap-1.5 sm:h-9"
+              aria-label={`Channel: ${channel === "email" ? "Email" : "SMS"}`}
             >
               {channel === "email" ? (
                 <IconMail className="h-3.5 w-3.5" />
               ) : (
                 <IconMessage className="h-3.5 w-3.5" />
               )}
-              <span className="text-xs">
+              <span className="hidden text-xs sm:inline">
                 {channel === "email" ? "Email" : "SMS"}
               </span>
               <IconChevronDown className="h-3 w-3 text-muted-foreground" />
@@ -98,16 +99,16 @@ export function ComposeBar({
         {/* Send button */}
         <Button
           size="sm"
-          className="h-9 px-3 shrink-0 gap-1.5"
+          className="h-10 w-10 shrink-0 gap-1.5 px-0 sm:h-9 sm:w-auto sm:px-3"
           onClick={onSend}
           disabled={!value.trim() || isSending}
         >
           <IconSend className="h-3.5 w-3.5" />
-          <span className="text-xs">Send</span>
+          <span className="text-xs max-sm:sr-only">Send</span>
         </Button>
       </div>
 
-      <p className="text-[10px] text-muted-foreground mt-1.5">
+      <p className="mt-1.5 hidden text-[10px] text-muted-foreground sm:block">
         Press Ctrl+Enter to send
       </p>
     </div>

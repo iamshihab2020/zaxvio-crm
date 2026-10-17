@@ -72,7 +72,7 @@ export function CatalogFilters({
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
       {/* Search */}
-      <div className="relative max-w-sm">
+      <div className="relative w-full sm:w-auto sm:max-w-sm">
         <IconSearch className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           placeholder="Search catalog..."
@@ -85,7 +85,7 @@ export function CatalogFilters({
       {/* Item Type Filter */}
       <Popover open={typeOpen} onOpenChange={setTypeOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5">
+          <Button variant="outline" size="sm" className="h-10 gap-1.5 sm:h-8">
             <IconFilter className="h-4 w-4" />
             {selectedTypeLabel}
             <IconChevronDown className="h-3.5 w-3.5" />
@@ -102,7 +102,7 @@ export function CatalogFilters({
                 setTypeOpen(false);
               }}
               className={cn(
-                "w-full justify-start",
+                "h-10 w-full justify-start sm:h-8",
                 filterItemType === option.value && "bg-muted font-medium",
               )}
             >
@@ -115,7 +115,7 @@ export function CatalogFilters({
       {/* Category Filter */}
       <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="gap-1.5" role="combobox" aria-expanded={categoryOpen}>
+          <Button variant="outline" size="sm" className="h-10 gap-1.5 sm:h-8" role="combobox" aria-expanded={categoryOpen}>
             {selectedCategoryLabel}
             <IconChevronDown className="h-3.5 w-3.5" />
           </Button>
@@ -170,7 +170,7 @@ export function CatalogFilters({
         variant={showArchived ? "secondary" : "outline"}
         size="sm"
         onClick={() => onShowArchivedChange(!showArchived)}
-        className="gap-1.5"
+        className="h-10 gap-1.5 sm:h-8"
       >
         <IconArchive className="h-4 w-4" />
         {showArchived ? "Showing archived" : "Show archived"}

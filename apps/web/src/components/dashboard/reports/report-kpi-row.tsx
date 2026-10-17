@@ -86,15 +86,15 @@ function KpiItem({
     : "text-red-600 dark:text-red-400";
 
   return (
-    <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+    <div className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
       <div className="flex items-center gap-2">
         <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-light">
           <Icon className="h-3.5 w-3.5 text-brand" aria-hidden />
         </div>
-        <span className="text-xs font-body text-muted-foreground">{label}</span>
+        <span className="min-w-0 text-xs font-body text-muted-foreground">{label}</span>
       </div>
-      <div className="mt-2 flex items-end gap-2">
-        <span className="font-heading text-xl font-bold text-foreground">
+      <div className="mt-2 flex flex-wrap items-end gap-x-2">
+        <span className="font-heading text-lg font-bold text-foreground [overflow-wrap:anywhere] sm:text-xl">
           {value}
           {suffix && (
             <span className="ml-0.5 text-sm font-normal text-muted-foreground">

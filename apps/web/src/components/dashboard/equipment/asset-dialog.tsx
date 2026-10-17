@@ -184,13 +184,14 @@ export function AssetDialog({
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={loading}
+            className="h-10 sm:h-9"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
             disabled={loading}
-            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-9"
           >
             {loading ? "Saving..." : isEditing ? "Update" : "Create"}
           </Button>

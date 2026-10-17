@@ -147,7 +147,7 @@ export function JobPhotoUploadModal({
           <button
             type="button"
             onClick={() => { setMode("photo"); setFile(null); setPreview(null); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-body transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-body transition-colors sm:py-2 ${
               mode === "photo" ? "bg-brand text-brand-foreground" : "bg-background text-muted-foreground hover:bg-muted"
             }`}
           >
@@ -157,7 +157,7 @@ export function JobPhotoUploadModal({
           <button
             type="button"
             onClick={() => { setMode("document"); setFile(null); setPreview(null); }}
-            className={`flex-1 flex items-center justify-center gap-2 py-2 text-sm font-body transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-sm font-body transition-colors sm:py-2 ${
               mode === "document" ? "bg-brand text-brand-foreground" : "bg-background text-muted-foreground hover:bg-muted"
             }`}
           >
@@ -194,7 +194,8 @@ export function JobPhotoUploadModal({
           {file && (
             <button
               type="button"
-              className="absolute top-2 right-2 rounded-full bg-muted p-1 text-muted-foreground hover:text-foreground"
+              className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground sm:h-6 sm:w-6"
+              aria-label="Remove file"
               onClick={(e) => { e.stopPropagation(); setFile(null); setPreview(null); }}
             >
               <IconX className="h-3.5 w-3.5" />
@@ -221,7 +222,7 @@ export function JobPhotoUploadModal({
                   key={opt.value}
                   type="button"
                   onClick={() => setTag(opt.value)}
-                  className={`flex-1 rounded-md border py-1.5 text-xs font-body transition-all ${
+                  className={`flex-1 rounded-md border py-3 text-xs font-body transition-all sm:py-1.5 ${
                     tag === opt.value
                       ? opt.color + " font-medium"
                       : "border-border bg-background text-muted-foreground hover:bg-muted"
@@ -235,11 +236,11 @@ export function JobPhotoUploadModal({
         )}
 
         <div className="flex gap-2 pt-1">
-          <Button variant="outline" className="flex-1" onClick={handleClose} disabled={uploading}>
+          <Button variant="outline" className="h-10 flex-1 sm:h-9" onClick={handleClose} disabled={uploading}>
             Cancel
           </Button>
           <Button
-            className="flex-1 bg-brand text-brand-foreground hover:bg-brand/90"
+            className="h-10 flex-1 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-9"
             onClick={handleUpload}
             disabled={!file || uploading}
           >

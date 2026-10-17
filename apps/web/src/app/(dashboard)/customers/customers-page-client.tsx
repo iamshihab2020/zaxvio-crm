@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { IconPlus, IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff, IconX } from "@tabler/icons-react";
+import { IconUsers, IconMail, IconPhone, IconMapPin, IconArchive, IconTrash, IconArchiveOff, IconX } from "@tabler/icons-react";
 import { queryKeys } from "@/lib/query-keys";
 import { Badge } from "@/components/ui/badge";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { CustomerTable } from "@/components/dashboard/customers/customer-table";
 import { CustomerDialog, type CustomerFormData } from "@/components/dashboard/customers/customer-dialog";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
@@ -282,7 +283,7 @@ export function CustomersPageClient({
   const showNoResults = !loading && !loadFailed && !hasCustomers && isFiltered;
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {error && (
         <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
@@ -315,44 +316,50 @@ export function CustomersPageClient({
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Filter tabs + search in card header */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <StatusFilterTabs
-              options={[
-                { value: "", label: "Active" },
-                { value: "archived", label: "Archived" },
-                { value: "unsubscribed", label: "Unsubscribed" },
-              ]}
-              value={viewFilter}
-              onChange={handleViewFilterChange}
-            />
-            {/* Tag filter chip — set by clicking a tag in the table (CUST-12). */}
-            {tagFilter && (
-              <Badge variant="secondary" className="gap-1 pr-1">
-                Tagged &ldquo;{tagFilter.name}&rdquo;
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleTagFilter(null)}
-                  className="ml-0.5 h-4 w-4 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
-                  aria-label="Clear tag filter"
-                >
-                  <IconX className="h-2.5 w-2.5" />
-                </Button>
-              </Badge>
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <SearchInput
-                value={search}
-                onChange={handleSearchChange}
-                placeholder="Search by name, email, or phone..."
-              />
-              <Button onClick={openCreateDialog} size="sm" className="shrink-0 bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                Add Customer
-              </Button>
-            </div>
-          </div>
+          <ListToolbar
+            filters={
+              <>
+                <StatusFilterTabs
+                  options={[
+                    { value: "", label: "Active" },
+                    { value: "archived", label: "Archived" },
+                    { value: "unsubscribed", label: "Unsubscribed" },
+                  ]}
+                  value={viewFilter}
+                  onChange={handleViewFilterChange}
+                />
+                {/* Tag filter chip — set by clicking a tag in the table (CUST-12). */}
+                {tagFilter && (
+                  <Badge variant="secondary" className="gap-1 whitespace-nowrap pr-1">
+                    Tagged &ldquo;{tagFilter.name}&rdquo;
+                    {/* The visible target stays 16px. The pseudo-element is the
+                        phone's 28×40px hit area, dropped from `sm` where a
+                        pointer is precise enough to need no help. */}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleTagFilter(null)}
+                      className="relative ml-0.5 h-4 w-4 rounded-full after:absolute after:-inset-x-1.5 after:-inset-y-3 after:content-[''] hover:bg-black/10 sm:after:hidden dark:hover:bg-white/10"
+                      aria-label="Clear tag filter"
+                    >
+                      <IconX className="h-2.5 w-2.5" />
+                    </Button>
+                  </Badge>
+                )}
+              </>
+            }
+            actions={
+              <>
+                <SearchInput
+                  value={search}
+                  onChange={handleSearchChange}
+                  placeholder="Search by name, email, or phone..."
+                />
+                <ListToolbarCreateButton label="Add Customer" onClick={openCreateDialog} />
+              </>
+            }
+          />
 
           {loading && (
             <div className="p-4">

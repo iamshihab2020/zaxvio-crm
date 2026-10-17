@@ -70,7 +70,7 @@ export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
         {Array.from({ length: 2 }).map((_, i) => (
           <div key={i} className="space-y-2">
             <Skeleton className="h-5 w-40" />
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {Array.from({ length: 4 }).map((_, j) => (
                 <Skeleton key={j} className="aspect-square rounded-md" />
               ))}
@@ -120,7 +120,7 @@ export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
 
         return (
           <div key={meta.jobId}>
-            <div className="mb-2 flex items-baseline gap-2">
+            <div className="mb-2 flex flex-wrap items-baseline gap-x-2">
               <p className="text-sm font-body font-medium text-foreground">
                 {meta.jobTitle}
               </p>
@@ -133,7 +133,7 @@ export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
                 })}
               </span>
             </div>
-            <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
               {items.map((photo, idx) => (
                 <div
                   key={photo.id}

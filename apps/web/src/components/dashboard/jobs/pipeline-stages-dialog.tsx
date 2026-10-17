@@ -144,7 +144,7 @@ function StageMarkMenu({
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+          className="h-10 w-10 shrink-0 text-muted-foreground hover:text-foreground sm:h-7 sm:w-7"
           title="What this stage means"
         >
           <IconDots className="h-4 w-4" />
@@ -246,12 +246,14 @@ function SortableStageRow({
         isDragging && "shadow-lg ring-2 ring-brand/30",
       )}
     >
-      <div className="flex items-center gap-3">
-      {/* Drag handle */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap sm:gap-3">
+      {/* Drag handle. `touch-none` is what lets a finger drag it: the
+          PointerSensor needs the browser not to claim the gesture for
+          scrolling. The pseudo-element is a 40px target without a 40px box. */}
       <button
         {...attributes}
         {...listeners}
-        className="cursor-grab text-muted-foreground hover:text-foreground active:cursor-grabbing"
+        className="relative cursor-grab touch-none text-muted-foreground hover:text-foreground active:cursor-grabbing after:absolute after:-inset-x-1 after:-inset-y-3 after:content-[''] sm:after:hidden"
       >
         <IconGripVertical className="h-4 w-4" />
       </button>
@@ -261,13 +263,13 @@ function SortableStageRow({
         <PopoverTrigger asChild>
           <button
             className={cn(
-              "h-4 w-4 rounded-full shrink-0 cursor-pointer ring-1 ring-border hover:ring-2 hover:ring-brand/40 transition-shadow",
+              "relative h-4 w-4 rounded-full shrink-0 cursor-pointer ring-1 ring-border hover:ring-2 hover:ring-brand/40 transition-shadow after:absolute after:-inset-3 after:content-[''] sm:after:hidden",
               colors.dot,
             )}
           />
         </PopoverTrigger>
         <PopoverContent className="w-auto p-2" align="start">
-          <div className="flex gap-1.5">
+          <div className="flex max-w-[calc(100vw-4rem)] flex-wrap justify-center gap-1.5">
             {STAGE_COLOR_KEYS.map((key) => {
               const preset = STAGE_COLOR_PRESETS[key];
               return (
@@ -275,7 +277,7 @@ function SortableStageRow({
                   key={key}
                   onClick={() => onUpdate(stage.id, { color: key })}
                   className={cn(
-                    "h-6 w-6 rounded-full cursor-pointer ring-1 ring-border transition-all",
+                    "h-10 w-10 rounded-full cursor-pointer ring-1 ring-border transition-all sm:h-6 sm:w-6",
                     preset.dot,
                     stage.color === key && "ring-2 ring-brand scale-110",
                   )}
@@ -300,13 +302,13 @@ function SortableStageRow({
                 setEditing(false);
               }
             }}
-            className="h-7 text-sm"
+            className="h-10 text-sm sm:h-7"
           />
           <Button
             variant="ghost"
             size="icon"
             onClick={handleSaveLabel}
-            className="h-7 w-7 text-green-600 hover:text-green-700"
+            className="h-10 w-10 text-green-600 hover:text-green-700 sm:h-7 sm:w-7"
           >
             <IconCheck className="h-4 w-4" />
           </Button>
@@ -317,7 +319,7 @@ function SortableStageRow({
               setEditLabel(stage.label);
               setEditing(false);
             }}
-            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            className="h-10 w-10 text-muted-foreground hover:text-foreground sm:h-7 sm:w-7"
           >
             <IconX className="h-4 w-4" />
           </Button>
@@ -327,7 +329,7 @@ function SortableStageRow({
           variant="ghost"
           size="sm"
           onClick={() => setEditing(true)}
-          className="flex-1 justify-start text-sm font-medium text-foreground font-body hover:text-brand-ink truncate"
+          className="h-10 min-w-[6rem] flex-1 justify-start text-sm font-medium text-foreground font-body hover:text-brand-ink truncate sm:h-8 sm:min-w-0"
         >
           {stage.label}
         </Button>
@@ -361,7 +363,7 @@ function SortableStageRow({
         onClick={() => onDelete(stage.id)}
         disabled={stage.jobCount > 0}
         className={cn(
-          "shrink-0 h-7 w-7",
+          "shrink-0 h-10 w-10 sm:h-7 sm:w-7",
           stage.jobCount > 0
             ? "text-muted-foreground/30"
             : "text-muted-foreground hover:text-destructive",
@@ -577,7 +579,7 @@ export function PipelineStagesDialog({
           </div>
         )}
 
-        <div className="space-y-2 max-h-[400px] overflow-y-auto py-2">
+        <div className="space-y-2 max-h-[min(400px,45dvh)] overflow-y-auto py-2">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -603,25 +605,25 @@ export function PipelineStagesDialog({
         {/* Add stage form */}
         {adding ? (
           <div className="space-y-2 pt-1">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
             {/* Color picker for new stage */}
             <Popover>
               <PopoverTrigger asChild>
                 <button
                   className={cn(
-                    "h-4 w-4 rounded-full shrink-0 cursor-pointer ring-1 ring-border",
+                    "relative h-4 w-4 rounded-full shrink-0 cursor-pointer ring-1 ring-border after:absolute after:-inset-3 after:content-[''] sm:after:hidden",
                     getStageColors(newColor).dot,
                   )}
                 />
               </PopoverTrigger>
               <PopoverContent className="w-auto p-2" align="start">
-                <div className="flex gap-1.5">
+                <div className="flex max-w-[calc(100vw-4rem)] flex-wrap justify-center gap-1.5">
                   {STAGE_COLOR_KEYS.map((key) => (
                     <button
                       key={key}
                       onClick={() => setNewColor(key)}
                       className={cn(
-                        "h-6 w-6 rounded-full cursor-pointer ring-1 ring-border transition-all",
+                        "h-10 w-10 rounded-full cursor-pointer ring-1 ring-border transition-all sm:h-6 sm:w-6",
                         STAGE_COLOR_PRESETS[key].dot,
                         newColor === key && "ring-2 ring-brand scale-110",
                       )}
@@ -643,13 +645,13 @@ export function PipelineStagesDialog({
                 }
               }}
               placeholder="Stage name..."
-              className="h-8 text-sm flex-1"
+              className="h-10 min-w-[8rem] flex-1 text-sm sm:h-8 sm:min-w-0"
             />
             <Button
               size="sm"
               onClick={handleAdd}
               disabled={!newLabel.trim()}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 h-8 cursor-pointer"
+              className="bg-brand text-brand-foreground hover:bg-brand/90 h-10 cursor-pointer sm:h-8"
             >
               Add
             </Button>
@@ -660,7 +662,7 @@ export function PipelineStagesDialog({
                 setAdding(false);
                 setNewLabel("");
               }}
-              className="h-8 cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               Cancel
             </Button>
@@ -676,7 +678,7 @@ export function PipelineStagesDialog({
             variant="outline"
             size="sm"
             onClick={() => setAdding(true)}
-            className="w-full cursor-pointer"
+            className="h-10 w-full cursor-pointer sm:h-8"
           >
             <IconPlus className="mr-2 h-4 w-4" />
             Add Stage

@@ -259,7 +259,7 @@ export function EventCreateDialog({
 
   /* ── Header ── */
   const header = (
-    <div className="flex items-center justify-between px-6 pt-5 pb-3">
+    <div className="flex items-center justify-between px-4 pt-4 pb-3 sm:px-6 sm:pt-5">
       <div className="flex items-center gap-3">
         <div className={cn("flex items-center justify-center h-9 w-9 rounded-lg", selectedColor.class)}>
           <IconCalendarEvent className="h-4.5 w-4.5 text-white" />
@@ -282,7 +282,7 @@ export function EventCreateDialog({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
+                className="h-10 w-10 cursor-pointer text-muted-foreground hover:text-foreground sm:h-7 sm:w-7"
                 onClick={toggleMode}
                 type="button"
               >
@@ -302,7 +302,7 @@ export function EventCreateDialog({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
+                className="h-10 w-10 cursor-pointer text-muted-foreground hover:text-foreground sm:h-7 sm:w-7"
                 onClick={() => onOpenChange(false)}
                 type="button"
               >
@@ -323,7 +323,7 @@ export function EventCreateDialog({
     <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
       <ScrollFadeArea className="flex-1">
         <div className={cn(
-          "px-6 pb-4 space-y-5",
+          "px-4 pb-4 space-y-5 sm:px-6",
           !isSidebar && "lg:grid lg:grid-cols-[1fr_280px] lg:gap-6 lg:space-y-0",
         )}>
           {/* ── Left column ── */}
@@ -360,8 +360,10 @@ export function EventCreateDialog({
 
             {/* Date & Time section */}
             <FormSection icon={IconClock} label="Date & Time">
-              <div className={cn("grid gap-3", isSidebar ? "grid-cols-1" : "grid-cols-3")}>
-                <div className="space-y-1.5">
+              {/* Dialog mode: the date takes a row of its own on a phone, with
+                  Start and End side by side under it; three across is ~90px each. */}
+              <div className={cn("grid gap-3", isSidebar ? "grid-cols-1" : "grid-cols-2 sm:grid-cols-3")}>
+                <div className={cn("space-y-1.5", !isSidebar && "col-span-2 sm:col-span-1")}>
                   <Label htmlFor="event-date" className="text-xs text-muted-foreground">
                     Date <span className="text-destructive">*</span>
                   </Label>
@@ -465,7 +467,7 @@ export function EventCreateDialog({
 
             {/* Color picker */}
             <FormSection icon={IconPalette} label="Color">
-              <div className="flex items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
                 {EVENT_COLORS.map((c) => {
                   const isSelected = form.color === c.value;
                   return (
@@ -474,7 +476,7 @@ export function EventCreateDialog({
                       type="button"
                       onClick={() => updateField("color", c.value)}
                       className={cn(
-                        "relative h-7 w-7 rounded-full cursor-pointer transition-all duration-200",
+                        "relative h-10 w-10 rounded-full cursor-pointer transition-all duration-200 sm:h-7 sm:w-7",
                         c.class,
                         isSelected
                           ? `ring-2 ${c.ring} ring-offset-2 ring-offset-background scale-110`
@@ -505,7 +507,7 @@ export function EventCreateDialog({
       </ScrollFadeArea>
 
       {/* ── Footer ── */}
-      <div className="flex items-center justify-between px-6 pb-5 pt-3 border-t border-border">
+      <div className="flex items-center justify-between border-t border-border px-4 pb-4 pt-3 sm:px-6 sm:pb-5">
         <p className="text-[0.65rem] text-muted-foreground/50 hidden sm:block">
           Press <kbd className="px-1 py-0.5 rounded bg-muted text-[0.6rem] font-mono">Enter</kbd> to save
         </p>
@@ -515,7 +517,7 @@ export function EventCreateDialog({
             variant="ghost"
             size="sm"
             onClick={() => onOpenChange(false)}
-            className="cursor-pointer text-muted-foreground"
+            className="h-10 cursor-pointer text-muted-foreground sm:h-8"
           >
             Cancel
           </Button>
@@ -523,7 +525,7 @@ export function EventCreateDialog({
             type="submit"
             size="sm"
             disabled={loading || creatingCustomer}
-            className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 gap-1.5 min-w-[110px]"
+            className="h-10 min-w-[110px] cursor-pointer gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
           >
             {creatingCustomer ? (
               "Creating contact..."
@@ -567,7 +569,7 @@ export function EventCreateDialog({
   /* ── Dialog mode ── */
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[820px] !grid-rows-[auto_1fr] max-h-[85vh] overflow-hidden p-0">
+      <DialogContent className="sm:max-w-[820px] !grid-rows-[auto_1fr] max-h-[85dvh] overflow-hidden p-0">
         {header}
         {formContent}
       </DialogContent>

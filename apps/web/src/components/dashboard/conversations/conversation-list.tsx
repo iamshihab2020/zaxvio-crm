@@ -39,7 +39,7 @@ export function ConversationList({
         <Button
           size="sm"
           variant="ghost"
-          className="h-7 gap-1 text-xs"
+          className="h-10 gap-1 text-xs sm:h-7"
           onClick={onNew}
         >
           <IconPlus className="h-3.5 w-3.5" />
@@ -55,7 +55,7 @@ export function ConversationList({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search conversations…"
-            className="pl-8 h-8 text-sm"
+            className="h-10 pl-8 text-base sm:h-8 sm:text-sm"
           />
         </div>
       </div>

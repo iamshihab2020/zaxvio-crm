@@ -180,7 +180,7 @@ export function JobDetailInfo({ job, onFieldSave, onJobUpdate }: JobDetailInfoPr
       {/* Time */}
       <InfoRow icon={IconClock} label="Time">
         {editable ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <EditableTime
               value={job.scheduledStart}
               onSave={(v) => saveField("scheduledStart", v)}
@@ -273,7 +273,7 @@ export function JobDetailInfo({ job, onFieldSave, onJobUpdate }: JobDetailInfoPr
             size="sm"
             onClick={handleGenerateInvoice}
             disabled={generatingInvoice}
-            className="mt-3 w-full bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+            className="mt-3 h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer sm:h-8"
           >
             <IconFileInvoice className="mr-1.5 h-3.5 w-3.5" />
             {generatingInvoice ? "Generating..." : "Generate Invoice"}

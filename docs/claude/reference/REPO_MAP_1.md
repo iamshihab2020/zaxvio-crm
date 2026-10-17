@@ -727,6 +727,8 @@ apps/web/
     |   +-- use-fill-viewport-height.ts   # Measured height so a panel runs to the fold (Kanban board)
     |   +-- use-route-arrival.ts     # Route arrival: content rises 8px on navigation, never on first
     |   |                            # paint; WAAPI with no fill, no remount (DESIGN.md motion vocabulary)
+    |   +-- use-media-query.ts       # useMediaQuery + MEDIA (Tailwind breakpoints); false during SSR.
+    |   |                            # Only where CSS can't decide: portal vs inline, calendar month count
     |   +-- queries/                 # TanStack Query hooks (one file per domain)
     |       +-- index.ts                       # Barrel export for all query hooks
     |       +-- use-customers.ts               # Customer queries & mutations
@@ -908,8 +910,9 @@ apps/web/
     |   |   +-- booking-step-confirmation.tsx   # Step 5: success screen
     |   |
     |   +-- dashboard/               # Dashboard-specific components (by entity)
-    |   |   +-- page-actions.tsx    # Portal: pages render action buttons into the navbar
-    |   |   +-- dashboard-shell.tsx  # Shell layout (sidebar + navbar + content)
+    |   |   +-- page-actions.tsx    # Portal: pages render action buttons into the navbar (inline below md)
+    |   |   +-- dashboard-shell.tsx  # Content offset + --sidebar-w, from lg only (0 below)
+    |   |   +-- mobile-nav.tsx       # Below lg: menu button + left Sheet holding SidebarNav
     |   |   +-- global-fetch-indicator.tsx  # Background refetch progress bar (TanStack Query isFetching)
     |   |   +-- navbar.tsx           # Top navigation bar
     |   |   +-- impersonation-bar.tsx # Admin-only floating bar during impersonation (exit button + timer)
@@ -920,15 +923,17 @@ apps/web/
     |   |   |   +-- notification-item.tsx    # Single notification row with icon, title, time, unread dot
     |   |   |   +-- notification-header.tsx  # Header with "Mark all as read" button
     |   |   |   +-- notification-empty.tsx   # Empty state (IconBellOff)
-    |   |   +-- sidebar.tsx          # Side navigation (incl. Bookings link)
+    |   |   +-- sidebar.tsx          # Desktop side navigation (lg+): collapse, hover-expand, tooltip modes
+    |   |   +-- sidebar-nav.tsx      # Nav groups + items, shared by sidebar.tsx and mobile-nav.tsx
     |   |   +-- sidebar-provider.tsx # Sidebar state context
     |   |   +-- sidebar-nav-item.tsx # Nav item component
     |   |   |
     |   |   +-- home/               # KPI Dashboard components
-    |   |   |   +-- agenda-timeline.tsx          # Grouped 7-day agenda (events + jobs + bookings)
+    |   |   |   +-- agenda-timeline.tsx          # "Up next": today-first day sheet, kind-coloured rows, 10-row cap
+    |   |   |   +-- chart-tooltip.tsx            # ChartTooltipBox: popover-styled recharts tooltip
     |   |   |   +-- customize-widgets-popover.tsx # Show/hide widget toggles
     |   |   |   +-- dashboard-skeleton.tsx       # Single skeleton; also used by loading.tsx
-    |   |   |   +-- dashboard-toolbar.tsx        # Ask AI + Customize + Last updated
+    |   |   |   +-- dashboard-toolbar.tsx        # Today (tenant tz) + freshness; Customize + Ask AI
     |   |   |   +-- invoice-aging.tsx            # 5 AR buckets, each links to filtered invoices
     |   |   |   +-- jobs-management-panel.tsx    # Status/Priority/Service tabs, own pipeline query
     |   |   |   +-- kpi-pill.tsx                 # KPI pill: value, label, trend chip, window badge
@@ -941,6 +946,7 @@ apps/web/
     |   |   |   +-- week-ahead.tsx               # Per-day stacked load strip (jobs/bookings/events)
     |   |   |   +-- top-customers-card.tsx       # Ranked list of top 5 customers by revenue
     |   |   |   +-- widget-window-badge.tsx      # Marks widgets that ignore the date picker
+    |   |   |   +-- widget-header.tsx            # WidgetHeader (h2 + badge + action, wraps) + WidgetLink
     |   |   |   # chart-data-table / widget-error-boundary / dashboard-load-error moved
     |   |   |   # to components/reusable/ on 2026-07-27 — /reports uses them too
     |   |   |
@@ -1127,9 +1133,10 @@ apps/web/
     |   |   +-- delete-confirm-dialog.tsx
     |   |   +-- editable-field.tsx         # Inline editable text field
     |   |   +-- empty-state.tsx
+    |   |   +-- list-toolbar.tsx           # ListToolbar (tabs left, controls right; stacks below sm) + ListToolbarCreateButton
     |   |   +-- pagination.tsx
     |   |   +-- scroll-fade-area.tsx
-    |   |   +-- search-input.tsx           # Search input with icon (no built-in debounce)
+    |   |   +-- search-input.tsx           # Search input with icon (no built-in debounce); own line on phones
     |   |   +-- status-filter-tabs.tsx     # Animated sliding pill filter tabs
     |   |   +-- table-skeleton.tsx
     |   |   +-- view-mode-toggle.tsx
@@ -1144,9 +1151,11 @@ apps/web/
     |   |                                  #   loading.tsx or it inherits the LIST page's skeleton
     |   |
     |   +-- superadmin/             # Super admin components (red-themed admin panel)
-    |       +-- superadmin-sidebar.tsx          # Red-accented collapsible sidebar (6 nav items)
+    |       +-- superadmin-sidebar.tsx          # Red-accented collapsible sidebar (lg+ only)
+    |       +-- superadmin-nav-items.ts         # Nav list + isSuperadminNavActive, shared by sidebar and drawer
+    |       +-- superadmin-mobile-nav.tsx       # Below lg: menu button + admin-red left Sheet
     |       +-- superadmin-sidebar-provider.tsx # Sidebar state context (localStorage)
-    |       +-- superadmin-shell.tsx            # Content wrapper with sidebar padding
+    |       +-- superadmin-shell.tsx            # Content wrapper; sidebar padding + --sidebar-w from lg
     |       +-- superadmin-navbar.tsx           # Navbar with ADMIN badge, Cmd+K search, user dropdown
     |       +-- global-search.tsx               # Cmd+K command palette (Dialog + Command)
     |       +-- reauth-dialog.tsx               # Password re-entry for destructive actions

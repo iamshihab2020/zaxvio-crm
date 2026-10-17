@@ -152,7 +152,7 @@ export function ReportsPageClient({
 
   if (isLoading && !report) {
     return (
-      <section className="p-6">
+      <section className="p-4 sm:p-6">
         <ReportsSkeleton />
       </section>
     );
@@ -163,7 +163,7 @@ export function ReportsPageClient({
   // answer on a page about money.
   if (!current && errorMessage) {
     return (
-      <section className="p-6">
+      <section className="p-4 sm:p-6">
         <LoadErrorState
           title="Couldn't load your reports"
           message={errorMessage}
@@ -175,8 +175,11 @@ export function ReportsPageClient({
   }
 
   return (
-    <section className="p-6">
-      <Fade inView inViewOnce delay={0}>
+    <section className="p-4 sm:p-6">
+      {/* `max-md:mb-4`: below `md` PageActions renders the picker here instead
+          of in the navbar, and it needs the same gap the tab row keeps. From
+          `md` this wrapper is empty, so it must not add space. */}
+      <Fade inView inViewOnce delay={0} className="max-md:mb-4">
         {/* The range governs every tab, so it stays with the page title.
             Export produces the *current* tab's CSV, so it sits with the tabs. */}
         <PageActions>
@@ -193,7 +196,7 @@ export function ReportsPageClient({
         onValueChange={(v) => setActiveTab(v as ReportSection)}
       >
         <Fade inView inViewOnce delay={80}>
-          <div className="mb-4 flex items-center justify-between gap-4">
+          <div className="mb-4 flex items-center justify-between gap-2 sm:gap-4">
             <div className="min-w-0 flex-1 overflow-x-auto">
               <TabsList>
                 {TABS.map((tab) => (

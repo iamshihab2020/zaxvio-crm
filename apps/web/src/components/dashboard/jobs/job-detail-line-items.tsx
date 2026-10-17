@@ -213,170 +213,181 @@ export function JobDetailLineItems({
 
       {lineItems.length > 0 && (
         <div className="rounded-md border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-                  Description
-                </th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body w-16">
-                  Qty
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
-                  Price
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
-                  Total
-                </th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody>
-              {lineItems.map((li) =>
-                editingId === li.id ? (
-                  <tr key={li.id} className="border-b border-border">
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={editForm.description}
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            description: e.target.value,
-                          }))
-                        }
-                        className="h-8 text-sm"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={editForm.quantity}
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            quantity: e.target.value,
-                          }))
-                        }
-                        className="h-8 text-sm w-16"
-                      />
-                    </td>
-                    <td className="px-2 py-1.5">
-                      <Input
-                        value={editForm.unitPrice}
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            unitPrice: e.target.value,
-                          }))
-                        }
-                        className="h-8 text-sm w-20 text-right tnum"
-                        aria-label="Unit price"
-                      />
-                      <Input
-                        value={editForm.unitCost}
-                        placeholder="cost"
-                        onChange={(e) =>
-                          setEditForm((f) => ({
-                            ...f,
-                            unitCost: e.target.value,
-                          }))
-                        }
-                        className="mt-1 h-7 text-xs w-20 text-right tnum"
-                        aria-label="Unit cost"
-                      />
-                    </td>
-                    <td />
-                    <td className="px-2 py-1.5">
-                      <div className="flex gap-1">
-                        <Button
-                          size="sm"
-                          onClick={handleSaveEdit}
-                          disabled={saving}
-                          className="h-7 text-xs cursor-pointer"
-                        >
-                          Save
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setEditingId(null)}
-                          className="h-7 text-xs cursor-pointer"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr key={li.id} className="border-b border-border last:border-0">
-                    <td className="px-3 py-2 font-body">
-                      <div className="flex items-center gap-1.5 text-foreground">
-                        {li.description}
-                        {li.catalogItemId && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            <IconLink className="h-2.5 w-2.5" />
-                            Catalog
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground font-body">
-                      {li.quantity}
-                    </td>
-                    {/* Cost sits under the price rather than in a fifth column:
-                        it is only ever read *against* the price, and the sheet
-                        has no room for another money column. "No cost" is
-                        stated rather than left blank — a blank cell reads as
-                        zero, and zero cost reads as pure profit. */}
-                    <td className="px-3 py-2 text-right font-body">
-                      <div className="text-muted-foreground">
-                        ${parseFloat(li.unitPrice).toFixed(2)}
-                      </div>
-                      {li.unitCost ? (
-                        <div className="tnum font-mono text-[11px] text-muted-foreground">
-                          cost ${parseFloat(li.unitCost).toFixed(2)}
-                        </div>
-                      ) : (
-                        <div className="text-[11px] text-muted-foreground/70">
-                          no cost
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium text-foreground font-body">
-                      ${parseFloat(li.total ?? "0").toFixed(2)}
-                    </td>
-                    <td className="px-2 py-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-7 w-7">
-                            <IconDots className="h-3.5 w-3.5 text-muted-foreground" />
+          {/* The border and rounded corners stay on the clipping parent; the
+              table scrolls inside its own wrapper, so the edit row (a 160px
+              description field, two money fields and Save/Cancel) can be wider
+              than a phone without taking the page sideways with it. */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
+                    Description
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body w-16">
+                    Qty
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
+                    Price
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
+                    Total
+                  </th>
+                  <th className="w-10" />
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((li) =>
+                  editingId === li.id ? (
+                    <tr key={li.id} className="border-b border-border">
+                      <td className="px-2 py-1.5">
+                        <Input
+                          value={editForm.description}
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              description: e.target.value,
+                            }))
+                          }
+                          className="h-10 min-w-[9rem] text-sm sm:h-8"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          value={editForm.quantity}
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              quantity: e.target.value,
+                            }))
+                          }
+                          className="h-10 text-sm w-16 sm:h-8"
+                        />
+                      </td>
+                      <td className="px-2 py-1.5">
+                        <Input
+                          value={editForm.unitPrice}
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              unitPrice: e.target.value,
+                            }))
+                          }
+                          className="h-10 text-sm w-20 text-right tnum sm:h-8"
+                          aria-label="Unit price"
+                        />
+                        <Input
+                          value={editForm.unitCost}
+                          placeholder="cost"
+                          onChange={(e) =>
+                            setEditForm((f) => ({
+                              ...f,
+                              unitCost: e.target.value,
+                            }))
+                          }
+                          className="mt-1 h-10 text-xs w-20 text-right tnum sm:h-7"
+                          aria-label="Unit cost"
+                        />
+                      </td>
+                      <td />
+                      <td className="px-2 py-1.5">
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            onClick={handleSaveEdit}
+                            disabled={saving}
+                            className="h-10 text-xs cursor-pointer sm:h-7"
+                          >
+                            Save
                           </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => startEdit(li)}
-                            className="cursor-pointer"
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setEditingId(null)}
+                            className="h-10 text-xs cursor-pointer sm:h-7"
                           >
-                            <IconEdit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(li.id)}
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                          >
-                            <IconTrash className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
+                            Cancel
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={li.id} className="border-b border-border last:border-0">
+                      <td className="px-3 py-2 font-body">
+                        <div className="flex flex-wrap items-center gap-1.5 break-words text-foreground">
+                          {li.description}
+                          {li.catalogItemId && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              <IconLink className="h-2.5 w-2.5" />
+                              Catalog
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground font-body">
+                        {li.quantity}
+                      </td>
+                      {/* Cost sits under the price rather than in a fifth column:
+                          it is only ever read *against* the price, and the sheet
+                          has no room for another money column. "No cost" is
+                          stated rather than left blank — a blank cell reads as
+                          zero, and zero cost reads as pure profit. */}
+                      <td className="px-3 py-2 text-right font-body">
+                        <div className="text-muted-foreground">
+                          ${parseFloat(li.unitPrice).toFixed(2)}
+                        </div>
+                        {li.unitCost ? (
+                          <div className="tnum font-mono text-[11px] text-muted-foreground">
+                            cost ${parseFloat(li.unitCost).toFixed(2)}
+                          </div>
+                        ) : (
+                          <div className="text-[11px] text-muted-foreground/70">
+                            no cost
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-foreground font-body">
+                        ${parseFloat(li.total ?? "0").toFixed(2)}
+                      </td>
+                      <td className="px-2 py-2">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-10 w-10 sm:h-7 sm:w-7"
+                              aria-label={`Actions for ${li.description}`}
+                            >
+                              <IconDots className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => startEdit(li)}
+                              className="cursor-pointer"
+                            >
+                              <IconEdit className="mr-2 h-4 w-4" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleDelete(li.id)}
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                            >
+                              <IconTrash className="mr-2 h-4 w-4" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
 
           <div className="flex justify-between px-3 py-2 bg-muted/30 border-t border-border">
             <span className="text-sm font-medium text-muted-foreground font-body">
@@ -433,9 +444,11 @@ export function JobDetailLineItems({
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             className="text-sm"
           />
-          <div className="flex gap-2">
+          {/* Type on its own line on a phone, then qty and the two money fields
+              sharing the next; one row from `sm`, as before. */}
+          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
             <Select value={form.itemType} onValueChange={(v) => setForm((f) => ({ ...f, itemType: v }))}>
-              <SelectTrigger className="h-9 text-sm font-body">
+              <SelectTrigger className="h-10 text-sm font-body sm:h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -456,13 +469,13 @@ export function JobDetailLineItems({
               placeholder="Unit price"
               value={form.unitPrice}
               onChange={(e) => setForm((f) => ({ ...f, unitPrice: e.target.value }))}
-              className="w-28 text-sm tnum"
+              className="min-w-0 flex-1 text-sm tnum sm:w-28 sm:flex-none"
             />
             <Input
               placeholder="Your cost"
               value={form.unitCost}
               onChange={(e) => setForm((f) => ({ ...f, unitCost: e.target.value }))}
-              className="w-28 text-sm tnum"
+              className="min-w-0 flex-1 text-sm tnum sm:w-28 sm:flex-none"
               aria-label="Your cost per unit"
             />
           </div>
@@ -478,7 +491,7 @@ export function JobDetailLineItems({
                 setShowAdd(false);
                 setForm(emptyForm);
               }}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               Cancel
             </Button>
@@ -486,7 +499,7 @@ export function JobDetailLineItems({
               size="sm"
               onClick={handleAdd}
               disabled={saving}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer sm:h-8"
             >
               {saving ? "Adding..." : "Add"}
             </Button>
@@ -499,7 +512,7 @@ export function JobDetailLineItems({
           variant="outline"
           size="sm"
           onClick={() => setShowAdd(true)}
-          className="mt-3 cursor-pointer"
+          className="mt-3 h-10 cursor-pointer sm:h-8"
         >
           <IconPlus className="mr-1.5 h-3.5 w-3.5" />
           Add Line Item

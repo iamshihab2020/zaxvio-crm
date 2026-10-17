@@ -2,9 +2,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ConversationsSkeleton() {
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex h-[calc(100dvh-3.5rem)] overflow-hidden">
       {/* Left panel skeleton */}
-      <div className="w-80 shrink-0 border-r border-border flex flex-col">
+      <div className="w-full shrink-0 border-r border-border flex flex-col lg:w-80">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <Skeleton className="h-5 w-32" />
           <Skeleton className="h-8 w-8 rounded-md" />
@@ -29,7 +29,7 @@ export function ConversationsSkeleton() {
       </div>
 
       {/* Right panel skeleton */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="hidden min-w-0 flex-1 flex-col lg:flex">
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
           <Skeleton className="w-8 h-8 rounded-full" />

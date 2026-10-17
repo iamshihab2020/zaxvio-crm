@@ -102,7 +102,7 @@ export function InvoiceForm({ tenant, onFormChange, onSaved }: InvoiceFormProps)
         description="Customize what appears on your invoices. Leave a field empty to hide it from the PDF."
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="licenseNumber" className="font-body">
                 License Number
@@ -196,7 +196,7 @@ export function InvoiceForm({ tenant, onFormChange, onSaved }: InvoiceFormProps)
       <div className="flex justify-end">
         <Button
           type="submit"
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
+          className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-9"
           disabled={!hasChanges || saving}
         >
           {saving ? "Saving..." : "Save Changes"}

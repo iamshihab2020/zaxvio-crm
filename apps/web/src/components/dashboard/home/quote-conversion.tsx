@@ -3,8 +3,11 @@
 import Link from "next/link";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { IconFileDescription } from "@tabler/icons-react";
+import { Card } from "@/components/ui/card";
 import { tokenColor } from "@/lib/constants/chart-palette";
 import type { DashboardQuoteSummary } from "@hvac-saas/types";
+import { ChartTooltipBox } from "./chart-tooltip";
+import { WidgetHeader } from "./widget-header";
 
 interface QuoteConversionProps {
   data: DashboardQuoteSummary;
@@ -22,17 +25,18 @@ function FunnelTooltip({ active, payload }: { active?: boolean; payload?: Array<
   if (!active || !payload?.length) return null;
   const p = payload[0]!.payload;
   return (
-    <div className="rounded-xl bg-foreground/95 px-3 py-2 text-background shadow-lg ring-1 ring-border">
+    <ChartTooltipBox>
       <div className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-        <span className="text-[11px] font-body uppercase tracking-wide opacity-70">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
           {p.name}
         </span>
       </div>
-      <div className="mt-0.5 font-heading text-sm font-semibold">
-        {p.value} {p.value === 1 ? "quote" : "quotes"}
+      <div className="mt-0.5 text-sm">
+        <span className="tnum font-heading font-semibold">{p.value}</span>{" "}
+        {p.value === 1 ? "quote" : "quotes"}
       </div>
-    </div>
+    </ChartTooltipBox>
   );
 }
 
@@ -44,18 +48,19 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
   })).filter((d) => d.value > 0);
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-heading text-sm font-semibold text-foreground">
-          Quote Funnel
-        </h3>
-        <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
-          {data.totalQuotes} {data.totalQuotes === 1 ? "quote" : "quotes"}
-        </span>
-      </div>
+    <Card className="flex h-full flex-col p-4 sm:p-6">
+      <WidgetHeader
+        title="Quote Funnel"
+        action={
+          <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
+            <span className="tnum font-mono">{data.totalQuotes}</span>{" "}
+            {data.totalQuotes === 1 ? "quote" : "quotes"}
+          </span>
+        }
+      />
 
       {data.totalQuotes === 0 ? (
-        <div className="mt-4 flex-1 rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconFileDescription className="h-5 w-5 text-brand" />
           </div>
@@ -67,7 +72,12 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
           </p>
         </div>
       ) : (
-        <div className="mt-4 flex flex-1 items-center gap-5">
+        /* Wraps rather than switching at a breakpoint. The donut is a fixed
+           140px and the legend needs about 200px, and this card is anywhere
+           from 280px (a phone, or half of the two-up grid) to 400px+ inside, so
+           no viewport breakpoint says whether they fit side by side. Letting the
+           legend wrap below the ring when it cannot sit beside it does. */
+        <div className="mt-4 flex flex-1 flex-wrap items-center justify-center gap-5">
           {/* Donut chart with centered conversion % — values repeated in the legend */}
           <div className="relative h-[140px] w-[140px] shrink-0" aria-hidden>
             <ResponsiveContainer width="100%" height="100%">
@@ -90,7 +100,7 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-              <span className="font-heading text-2xl font-semibold tracking-tight text-foreground">
+              <span className="tnum font-heading text-2xl font-bold tracking-tight text-foreground">
                 {data.conversionRate}%
               </span>
               <span className="text-[10px] font-body uppercase tracking-wide text-muted-foreground">
@@ -100,7 +110,7 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
           </div>
 
           {/* Legend with counts */}
-          <ul className="flex-1 space-y-2">
+          <ul className="grow basis-[12.5rem] space-y-2">
             {SEGMENT_CONFIG.map((s) => {
               const value = data[s.key];
               const pct = data.totalQuotes > 0 ? Math.round((value / data.totalQuotes) * 100) : 0;
@@ -109,7 +119,7 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
                   <Link
                     href={`/quotes?status=${s.key === "pending" ? "sent" : s.key}`}
                     aria-label={`${s.label}: ${value} of ${data.totalQuotes} quotes, ${pct} percent`}
-                    className="block rounded-xl border border-border bg-background/40 p-2.5 transition-all hover:border-brand/40 hover:bg-brand/5"
+                    className="block rounded-md border border-border bg-background/40 p-2.5 transition-colors hover:border-brand/40 hover:bg-brand/5"
                   >
                     <div className="flex items-center gap-2">
                       <span
@@ -117,7 +127,7 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: s.color }}
                       />
-                      <span className="flex-1 text-[11px] font-body text-muted-foreground">
+                      <span className="flex-1 text-xs font-body text-muted-foreground">
                         {s.label}
                       </span>
                       {/* Ink on a tint of the status hue. The number used to be
@@ -125,13 +135,13 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
                           and 2.1:1 for accepted; the dot beside the label
                           already carries the colour. */}
                       <span
-                        className="tnum rounded-full px-1.5 py-0.5 text-[10px] font-medium font-body text-foreground"
+                        className="tnum rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium text-foreground"
                         style={{ backgroundColor: tokenColor(s.token, 0.14) }}
                       >
                         {pct}%
                       </span>
                     </div>
-                    <div className="mt-0.5 font-heading text-lg font-semibold text-foreground">
+                    <div className="tnum mt-0.5 font-mono text-lg font-medium text-foreground">
                       {value}
                     </div>
                   </Link>
@@ -141,6 +151,6 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
           </ul>
         </div>
       )}
-    </div>
+    </Card>
   );
 }

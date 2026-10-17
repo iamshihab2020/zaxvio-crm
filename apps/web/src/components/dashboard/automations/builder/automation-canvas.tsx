@@ -120,6 +120,7 @@ function Canvas({ readOnly = false }: Props) {
           outputs: def ? outputsFor(def, node.nodeConfig.parameters ?? {}) : [],
           connectedHandles: handles.get(node.id) ?? [],
           incomingCount: incoming.get(node.id) ?? 0,
+          readOnly,
           onAddFromHandle: (handleId: string) => openForAction(node.id, handleId),
         },
       };
@@ -151,6 +152,7 @@ function Canvas({ readOnly = false }: Props) {
           branchLabel: branching
             ? (sourceOutputs.find((o) => o.id === edge.sourceHandle)?.label ?? null)
             : null,
+          readOnly,
         },
       };
     });
@@ -160,6 +162,7 @@ function Canvas({ readOnly = false }: Props) {
     storeNodes,
     storeEdges,
     selectedNodeId,
+    readOnly,
     openForAction,
     openForEdgeInsert,
     deleteEdge,
@@ -305,8 +308,14 @@ function Canvas({ readOnly = false }: Props) {
         edges={edges}
         nodeTypes={NODE_TYPES}
         edgeTypes={EDGE_TYPES}
-        onNodesChange={readOnly ? undefined : onNodesChange}
-        onEdgesChange={readOnly ? undefined : onEdgesChange}
+        // Wired even when read-only, unlike the handlers below. It is also how
+        // React Flow hands each node's measured size back, and this view is
+        // re-seeded from the store on every selection: without it every tap
+        // leaves the nodes unmeasured until React Flow re-observes them, and an
+        // unmeasured node is drawn `visibility: hidden`. Nothing here writes to
+        // the store — a drag does, and `nodesDraggable` is off.
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
         onNodeDragStop={readOnly ? undefined : onNodeDragStop}
         onConnect={readOnly ? undefined : onConnect}
         onConnectEnd={readOnly ? undefined : onConnectEnd}
@@ -315,6 +324,10 @@ function Canvas({ readOnly = false }: Props) {
         onEdgesDelete={
           readOnly ? undefined : (deleted) => deleted.forEach((e) => deleteEdge(e.id))
         }
+        // Read-only keeps pan, zoom and selection: tapping a step is how its
+        // settings are read. A node that cannot be dragged also drops React
+        // Flow's `nopan` class, so a swipe that starts on a step pans the
+        // canvas instead of being swallowed by it.
         nodesDraggable={!readOnly}
         nodesConnectable={!readOnly}
         elementsSelectable
@@ -350,7 +363,10 @@ function Canvas({ readOnly = false }: Props) {
         {/* Controls live outside <ReactFlow> — see below. */}
         {/* `bgColor` and `maskColor` are SVG attributes on the minimap's own
             canvas — a Tailwind class on the wrapper does not reach them, which
-            is why it rendered as a light panel sitting in a dark UI. */}
+            is why it rendered as a light panel sitting in a dark UI.
+
+            Hidden below `md`: at 375px it is 200px of a 343px canvas, sitting
+            on the zoom controls, and a view-only graph is panned by hand. */}
         <MiniMap
           pannable
           zoomable
@@ -364,7 +380,7 @@ function Canvas({ readOnly = false }: Props) {
           }}
           nodeStrokeWidth={0}
           nodeBorderRadius={3}
-          className="!bottom-4 !right-4 !m-0 !rounded-md !border !border-border !shadow-sm"
+          className="!hidden !bottom-4 !right-4 !m-0 !rounded-md !border !border-border !shadow-sm md:!block"
         />
       </ReactFlow>
 
@@ -416,6 +432,17 @@ function Canvas({ readOnly = false }: Props) {
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* A view-only canvas with nothing on it would otherwise be a bare grid
+          with no hint that anything is missing or why it cannot be filled. */}
+      {isEmpty && readOnly && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6">
+          <p className="max-w-[260px] text-center text-sm text-muted-foreground font-body">
+            Nothing has been added to this automation yet. Open it on a larger
+            screen to build it.
+          </p>
         </div>
       )}
 

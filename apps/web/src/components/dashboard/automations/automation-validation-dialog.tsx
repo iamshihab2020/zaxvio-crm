@@ -57,7 +57,7 @@ export function AutomationValidationDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[50vh] space-y-4 overflow-y-auto py-2">
+        <div className="max-h-[50dvh] space-y-4 overflow-y-auto py-2">
           {errors.length > 0 && (
             <IssueList
               issues={errors}

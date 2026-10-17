@@ -5,9 +5,16 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
   IconPlus,
   IconCalendarEvent,
   IconClipboardList,
+  IconX,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { format, addDays } from "date-fns";
@@ -29,7 +36,15 @@ interface TaskItem {
 }
 
 interface ScheduleTaskPanelProps {
+  /**
+   * Where the panel lives. From `lg` it is a 288px column beside the calendar.
+   * Below that the same column would take most of the calendar's width (a phone
+   * is left with about 40px of it), so it opens as a sheet over the calendar.
+   */
+  inline: boolean;
   open: boolean;
+  /** Only the sheet closes itself (overlay tap, Escape, the close button). */
+  onOpenChange: (open: boolean) => void;
   jobs: Array<{
     id: string;
     title: string;
@@ -95,7 +110,9 @@ function formatTime(time: string | null): string {
 }
 
 export function ScheduleTaskPanel({
+  inline,
   open,
+  onOpenChange,
   jobs,
   bookings,
   calEvents,
@@ -156,6 +173,178 @@ export function ScheduleTaskPanel({
       return (a.time ?? "99:99").localeCompare(b.time ?? "99:99");
     });
 
+  const inSheet = !inline;
+
+  // The sheet covers the calendar, so choosing something has to uncover it: a
+  // job opens its own sheet and an event its dialog, and either would otherwise
+  // stack on top of this one.
+  function handleItemClick(type: "job" | "booking" | "event", id: string) {
+    if (inSheet) onOpenChange(false);
+    onItemClick(type, id);
+  }
+
+  function handleCreateEvent() {
+    if (inSheet) onOpenChange(false);
+    onCreateEvent();
+  }
+
+  const panel = (
+    <div
+      className={cn(
+        "flex flex-col bg-card",
+        inSheet ? "min-h-0 flex-1" : "h-full w-72 rounded-lg border border-border",
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
+        <div className="flex items-center gap-2">
+          <IconClipboardList className="h-4 w-4 text-muted-foreground" />
+          {inSheet ? (
+            <SheetTitle className="font-heading text-sm font-semibold">Tasks</SheetTitle>
+          ) : (
+            <span className="font-heading text-sm font-semibold">Tasks</span>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="New event"
+            className={cn(
+              "cursor-pointer",
+              inSheet ? "h-10 w-10 sm:h-8 sm:w-8" : "h-7 w-7",
+            )}
+            onClick={handleCreateEvent}
+          >
+            <IconPlus className="h-3.5 w-3.5" />
+          </Button>
+          {inSheet && (
+            <SheetClose asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Close tasks"
+                className="h-10 w-10 cursor-pointer sm:h-8 sm:w-8"
+              >
+                <IconX className="h-4 w-4" />
+              </Button>
+            </SheetClose>
+          )}
+        </div>
+      </div>
+
+      {/* Filter tabs with animated pill */}
+      <div className="flex items-center gap-0.5 border-b border-border px-2 py-1.5">
+        {FILTER_OPTIONS.map((opt) => (
+          <Button
+            key={opt.value}
+            variant="ghost"
+            size="sm"
+            onClick={() => onFilterChange(opt.value)}
+            className={cn(
+              "relative z-10 cursor-pointer rounded-full font-medium",
+              inSheet ? "h-10 px-4 text-xs sm:h-8" : "h-6 px-2.5 text-[0.7rem]",
+              filter === opt.value
+                ? "text-brand-foreground hover:text-brand-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {filter === opt.value && (
+              <motion.div
+                layoutId="task-filter-pill"
+                className="absolute inset-0 rounded-full bg-brand"
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+              />
+            )}
+            <span className="relative z-10">{opt.label}</span>
+          </Button>
+        ))}
+      </div>
+
+      {/* Task list */}
+      <ScrollArea className="flex-1 min-h-0">
+        <div className="p-2 space-y-0.5">
+          <AnimatePresence mode="popLayout">
+            {filteredItems.length === 0 && (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="flex flex-col items-center justify-center py-8 text-center"
+              >
+                <IconCalendarEvent className="h-8 w-8 text-muted-foreground/40 mb-2" />
+                <p className="text-xs text-muted-foreground">
+                  {filter === "today" && "No tasks for today"}
+                  {filter === "upcoming" && "No upcoming tasks"}
+                  {filter === "completed" && "No completed tasks"}
+                </p>
+              </motion.div>
+            )}
+            {filteredItems.map((item, index) => {
+              return (
+                <motion.div
+                  key={item.id}
+                  layout
+                  initial={{ opacity: 0, x: -8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -12 }}
+                  transition={{ delay: index * 0.02, duration: 0.2 }}
+                >
+                  <button
+                    onClick={() => handleItemClick(item.type, item.id)}
+                    className="flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-colors hover:bg-muted/50 cursor-pointer"
+                  >
+                    <span
+                      className={cn(
+                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                        getEventDot(item),
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate text-foreground">
+                        {item.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        {formatTime(item.time)}
+                        {item.customerName && ` · ${item.customerName}`}
+                      </p>
+                      {filter === "upcoming" && (
+                        <p className="text-[0.65rem] text-muted-foreground/70 mt-0.5">
+                          {format(new Date(`${item.date}T00:00:00`), "EEE, MMM d")}
+                        </p>
+                      )}
+                    </div>
+                    <Badge variant="secondary" className="text-[0.6rem] shrink-0 mt-0.5">
+                      {item.type === "job" ? "Job" : item.type === "booking" ? "Booking" : "Event"}
+                    </Badge>
+                  </button>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      </ScrollArea>
+    </div>
+  );
+
+  if (inSheet) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent
+          side="right"
+          aria-describedby={undefined}
+          // `dvh`, not the sheet's `h-full`: on a phone the address bar slides
+          // over the bottom of a fixed full-height panel.
+          className="flex h-dvh w-80 max-w-[85vw] flex-col gap-0 bg-card p-0 sm:max-w-80"
+        >
+          {panel}
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
   return (
     <motion.div
       animate={{
@@ -169,116 +358,7 @@ export function ScheduleTaskPanel({
       }}
       className="shrink-0 overflow-hidden"
     >
-      <div className="flex h-full w-72 flex-col rounded-lg border border-border bg-card">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-3 py-2.5">
-          <div className="flex items-center gap-2">
-            <IconClipboardList className="h-4 w-4 text-muted-foreground" />
-            <span className="font-heading text-sm font-semibold">Tasks</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7 cursor-pointer"
-            onClick={onCreateEvent}
-          >
-            <IconPlus className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-
-        {/* Filter tabs with animated pill */}
-        <div className="flex items-center gap-0.5 border-b border-border px-2 py-1.5">
-          {FILTER_OPTIONS.map((opt) => (
-            <Button
-              key={opt.value}
-              variant="ghost"
-              size="sm"
-              onClick={() => onFilterChange(opt.value)}
-              className={cn(
-                "relative h-6 cursor-pointer px-2.5 text-[0.7rem] font-medium rounded-full z-10",
-                filter === opt.value
-                  ? "text-brand-foreground hover:text-brand-foreground"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {filter === opt.value && (
-                <motion.div
-                  layoutId="task-filter-pill"
-                  className="absolute inset-0 rounded-full bg-brand"
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                />
-              )}
-              <span className="relative z-10">{opt.label}</span>
-            </Button>
-          ))}
-        </div>
-
-        {/* Task list */}
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="p-2 space-y-0.5">
-            <AnimatePresence mode="popLayout">
-              {filteredItems.length === 0 && (
-                <motion.div
-                  key="empty"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex flex-col items-center justify-center py-8 text-center"
-                >
-                  <IconCalendarEvent className="h-8 w-8 text-muted-foreground/40 mb-2" />
-                  <p className="text-xs text-muted-foreground">
-                    {filter === "today" && "No tasks for today"}
-                    {filter === "upcoming" && "No upcoming tasks"}
-                    {filter === "completed" && "No completed tasks"}
-                  </p>
-                </motion.div>
-              )}
-              {filteredItems.map((item, index) => {
-                return (
-                  <motion.div
-                    key={item.id}
-                    layout
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -12 }}
-                    transition={{ delay: index * 0.02, duration: 0.2 }}
-                  >
-                    <button
-                      onClick={() => onItemClick(item.type, item.id)}
-                      className="flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-colors hover:bg-muted/50 cursor-pointer"
-                    >
-                      <span
-                        className={cn(
-                          "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                          getEventDot(item),
-                        )}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate text-foreground">
-                          {item.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
-                          {formatTime(item.time)}
-                          {item.customerName && ` · ${item.customerName}`}
-                        </p>
-                        {filter === "upcoming" && (
-                          <p className="text-[0.65rem] text-muted-foreground/70 mt-0.5">
-                            {format(new Date(`${item.date}T00:00:00`), "EEE, MMM d")}
-                          </p>
-                        )}
-                      </div>
-                      <Badge variant="secondary" className="text-[0.6rem] shrink-0 mt-0.5">
-                        {item.type === "job" ? "Job" : item.type === "booking" ? "Booking" : "Event"}
-                      </Badge>
-                    </button>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
-          </div>
-        </ScrollArea>
-      </div>
+      {panel}
     </motion.div>
   );
 }

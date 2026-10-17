@@ -146,7 +146,10 @@ export function CustomerTagsInput({
               variant="ghost"
               size="icon"
               onClick={() => handleRemoveTag(tag.id)}
-              className="ml-0.5 h-4 w-4 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+              // The chip is 20px tall, so on a phone the button's tap area is
+              // grown invisibly with a pseudo-element instead of fattening the chip.
+              className="relative ml-0.5 h-4 w-4 rounded-full before:absolute before:-inset-3 sm:before:hidden hover:bg-black/10 dark:hover:bg-white/10"
+              aria-label={`Remove ${tag.name}`}
             >
               <IconX className="h-2.5 w-2.5" />
             </Button>
@@ -158,7 +161,7 @@ export function CustomerTagsInput({
               type="button"
               variant="ghost"
               size="sm"
-              className="h-6 gap-1 px-2 text-xs text-muted-foreground"
+              className="h-10 gap-1 px-2 text-xs text-muted-foreground sm:h-6"
             >
               <IconPlus className="h-3 w-3" />
               Add Tag
@@ -169,7 +172,7 @@ export function CustomerTagsInput({
               placeholder="Search or create..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="mb-2 h-8 text-sm"
+              className="mb-2 h-10 text-sm sm:h-8"
               onKeyDown={(e) => {
                 if (e.key === "Enter" && showCreateOption) {
                   e.preventDefault();
@@ -186,7 +189,7 @@ export function CustomerTagsInput({
                   variant="ghost"
                   size="sm"
                   onClick={() => handleAssignTag(tag)}
-                  className="w-full justify-start gap-2"
+                  className="h-10 w-full justify-start gap-2 sm:h-8"
                 >
                   {tag.color && (
                     <span
@@ -224,7 +227,7 @@ export function CustomerTagsInput({
                   size="sm"
                   onClick={handleCreateAndAssign}
                   disabled={creating}
-                  className="w-full justify-start gap-2 text-brand-ink"
+                  className="h-10 w-full justify-start gap-2 text-brand-ink sm:h-8"
                 >
                   <IconPlus className="h-3.5 w-3.5" />
                   Create &quot;{search.trim()}&quot;

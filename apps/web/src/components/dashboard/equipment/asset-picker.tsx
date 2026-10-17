@@ -105,7 +105,7 @@ export function AssetPicker({
           aria-expanded={open}
           disabled={disabled || !customerId}
           className={cn(
-            "w-full justify-between font-normal",
+            "h-10 w-full justify-between font-normal sm:h-9",
             !value && "text-muted-foreground",
           )}
         >
@@ -116,7 +116,7 @@ export function AssetPicker({
           <IconSelector className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[300px] p-0" align="start">
+      <PopoverContent className="w-[min(300px,calc(100vw_-_2rem))] p-0" align="start">
         <Command>
           <CommandInput placeholder="Search assets..." />
           <CommandList>

@@ -53,7 +53,7 @@ export function ExportCsvButton({ report }: ExportCsvButtonProps) {
     <Button
       variant="outline"
       size="sm"
-      className="h-8 gap-1.5 font-body text-xs"
+      className="h-10 gap-1.5 font-body text-xs max-sm:w-10 max-sm:px-0 sm:h-8"
       onClick={handleExport}
       disabled={!report}
       title={
@@ -63,7 +63,7 @@ export function ExportCsvButton({ report }: ExportCsvButtonProps) {
       }
     >
       <IconDownload className="h-3.5 w-3.5" />
-      Export
+      <span className="max-sm:sr-only">Export</span>
     </Button>
   );
 }

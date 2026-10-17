@@ -112,7 +112,7 @@ export function EditTenantDialog({
         {error && (
           <p className="text-sm text-destructive font-body">{error}</p>
         )}
-        <DialogFooter>
+        <DialogFooter className="max-sm:[&>button]:h-10">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

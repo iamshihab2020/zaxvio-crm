@@ -97,7 +97,8 @@ export function ReauthDialog({
               <p className="text-sm text-destructive font-body">{error}</p>
             )}
           </div>
-          <DialogFooter className="mt-4">
+          {/* Footer buttons are 40px on phones, where they stack full width. */}
+          <DialogFooter className="mt-4 max-sm:[&>button]:h-10">
             <Button
               type="button"
               variant="outline"

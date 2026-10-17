@@ -122,9 +122,9 @@ export function AutomationRunsPageClient({
   }
 
   return (
-    <section className="space-y-6 p-4 md:p-6">
+    <section className="space-y-6 p-4 sm:p-6">
       <header className="space-y-3">
-        <Button asChild variant="ghost" size="sm" className="-ml-2 h-8 px-2">
+        <Button asChild variant="ghost" size="sm" className="-ml-2 h-10 px-2 sm:h-8">
           <Link href={`/automations/${id}`}>
             <IconArrowLeft className="mr-1.5 h-4 w-4" />
             Back to the builder
@@ -144,7 +144,13 @@ export function AutomationRunsPageClient({
 
       {data?.stats && <RunStatsRow stats={data.stats} />}
 
-      <StatusFilterTabs options={FILTERS} value={status} onChange={changeStatus} />
+      {/* The four labels are about 310px wide: they fit a 375px phone and not a
+          320px one, where the track would push the page sideways. Scrolling
+          inside this wrapper is what `StatusFilterTabs` expects of its parent
+          (it scrolls the chosen tab into view there), as in `ListToolbar`. */}
+      <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 [&::-webkit-scrollbar]:hidden [&>*]:shrink-0">
+        <StatusFilterTabs options={FILTERS} value={status} onChange={changeStatus} />
+      </div>
 
       {/* Failed is not empty. A 500 here must never render as "this automation
           has never run" — the distinction LoadErrorState exists to preserve. */}
@@ -215,11 +221,11 @@ function EmptyRuns({
       </p>
       <div className="mt-4">
         {filtered ? (
-          <Button variant="outline" size="sm" onClick={onClear}>
+          <Button variant="outline" size="sm" className="h-10 sm:h-8" onClick={onClear}>
             Show all runs
           </Button>
         ) : (
-          <Button asChild size="sm">
+          <Button asChild size="sm" className="h-10 sm:h-8">
             <Link href={`/automations/${id}`}>Open the builder</Link>
           </Button>
         )}

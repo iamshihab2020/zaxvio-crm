@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function EntityDetailShellSkeleton() {
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 sm:p-6 space-y-4">
       {/* Title + badge */}
       <div className="space-y-2">
         <Skeleton className="h-7 w-40" />

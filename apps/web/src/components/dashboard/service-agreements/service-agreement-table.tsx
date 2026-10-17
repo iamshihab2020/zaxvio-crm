@@ -135,19 +135,28 @@ export function ServiceAgreementTable({
               />
             </TableHead>
           )}
+          {/* Below `sm` the customer, frequency and status fold under the
+              agreement name; the visible columns summed past a phone's width. */}
           <TableHead>Agreement</TableHead>
-          {showCustomer && <TableHead>Customer</TableHead>}
+          {showCustomer && <TableHead className="hidden sm:table-cell">Customer</TableHead>}
           <TableHead className="hidden md:table-cell">Asset</TableHead>
           <TableHead className="hidden lg:table-cell">Period</TableHead>
-          <TableHead>Frequency</TableHead>
+          <TableHead className="hidden sm:table-cell">Frequency</TableHead>
           <TableHead className="hidden md:table-cell">Price/Year</TableHead>
-          <TableHead>Status</TableHead>
+          <TableHead className="hidden sm:table-cell">Status</TableHead>
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
       <TableBody>
         {agreements.map((agreement) => {
           const status = getStatus(agreement.isActive, agreement.endDate);
+          const customerName =
+            agreement.customerFirstName && agreement.customerLastName
+              ? `${agreement.customerFirstName} ${agreement.customerLastName}`
+              : null;
+          const frequency = agreement.frequency
+            ? frequencyLabels[agreement.frequency] ?? agreement.frequency
+            : null;
 
           return (
             <TableRow
@@ -167,12 +176,17 @@ export function ServiceAgreementTable({
                 <span className="font-medium text-foreground">
                   {agreement.contractName}
                 </span>
+                <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground sm:hidden">
+                  {showCustomer && customerName && <p>{customerName}</p>}
+                  {frequency && <p>{frequency}</p>}
+                  <Badge variant="outline" className={`${status.className} mt-0.5`}>
+                    {status.label}
+                  </Badge>
+                </div>
               </TableCell>
               {showCustomer && (
-                <TableCell className="text-muted-foreground">
-                  {agreement.customerFirstName && agreement.customerLastName
-                    ? `${agreement.customerFirstName} ${agreement.customerLastName}`
-                    : "—"}
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
+                  {customerName ?? "—"}
                 </TableCell>
               )}
               <TableCell className="hidden md:table-cell text-muted-foreground">
@@ -185,23 +199,21 @@ export function ServiceAgreementTable({
               <TableCell className="hidden lg:table-cell text-muted-foreground text-sm">
                 {formatDate(agreement.startDate)} — {formatDate(agreement.endDate)}
               </TableCell>
-              <TableCell className="text-muted-foreground">
-                {agreement.frequency
-                  ? frequencyLabels[agreement.frequency] ?? agreement.frequency
-                  : "—"}
+              <TableCell className="hidden text-muted-foreground sm:table-cell">
+                {frequency ?? "—"}
               </TableCell>
               <TableCell className="hidden md:table-cell text-muted-foreground">
                 {formatCurrency(agreement.annualPrice)}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden sm:table-cell">
                 <Badge variant="outline" className={status.className}>
                   {status.label}
                 </Badge>
               </TableCell>
-              <TableCell onClick={(e) => e.stopPropagation()}>
+              <TableCell className="px-2 sm:px-4" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8">
                       <IconDots className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>

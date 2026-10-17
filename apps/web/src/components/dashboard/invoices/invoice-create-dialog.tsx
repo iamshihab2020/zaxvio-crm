@@ -41,7 +41,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useViewPreference } from "@/hooks/use-view-preference";
+import { useViewPreference, getSheetWidth } from "@/hooks/use-view-preference";
 import { getCustomers } from "@/lib/client-reads/customers";
 
 export interface InvoiceFormData {
@@ -228,7 +228,7 @@ export function InvoiceCreateDialog({
   );
 
   const header = (
-    <div className="flex items-center justify-between px-6 pt-6 pb-2">
+    <div className="flex items-center justify-between px-4 sm:px-6 pt-6 pb-2">
       <div>
         <h2 className="font-heading text-lg font-semibold">Create Invoice</h2>
         <p className="text-sm text-muted-foreground font-body">
@@ -266,7 +266,7 @@ export function InvoiceCreateDialog({
       className="flex flex-col gap-4 min-h-0 flex-1"
     >
       <ScrollFadeArea className="flex-1">
-        <div className="space-y-4 px-6 pb-3">
+        <div className="space-y-4 px-4 sm:px-6 pb-3">
               {/* Section 1: Customer */}
               <div className="flex items-center gap-2 text-muted-foreground">
                 <IconUser className="h-4 w-4" />
@@ -454,7 +454,7 @@ export function InvoiceCreateDialog({
               </div>
             </div>
           </ScrollFadeArea>
-          <div className="flex justify-end gap-2 px-6 pb-6 pt-2 border-t border-border">
+          <div className="flex justify-end gap-2 px-4 sm:px-6 pb-6 pt-2 border-t border-border">
             <Button
               type="button"
               variant="outline"
@@ -476,15 +476,18 @@ export function InvoiceCreateDialog({
   );
 
   if (isSidebar) {
+    const sheetWidth = getSheetWidth(liveSidebarWidth);
+
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="p-0 overflow-hidden flex flex-col w-full"
-          style={{ maxWidth: liveSidebarWidth, width: "100%" }}
+          className={cn("p-0 overflow-hidden flex flex-col", sheetWidth.className)}
+          style={sheetWidth.style}
         >
+          {/* Mouse-only resize edge; below md the sheet is the whole screen. */}
           <div
-            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
+            className="absolute left-0 top-0 bottom-0 hidden w-1.5 cursor-col-resize z-10 group md:block"
             onMouseDown={handleDragStart}
           >
             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-brand/40 transition-colors" />

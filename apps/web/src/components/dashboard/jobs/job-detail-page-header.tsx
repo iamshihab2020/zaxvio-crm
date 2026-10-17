@@ -99,7 +99,7 @@ export function JobDetailPageHeader({
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6 py-3 sm:py-4">
         {/* Left: breadcrumb + job info */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 max-w-full items-center gap-3">
           <nav className="flex items-center gap-1 text-sm font-body">
             <Link
               href="/jobs"
@@ -109,7 +109,7 @@ export function JobDetailPageHeader({
             </Link>
             <IconChevronRight className="h-4 w-4 text-muted-foreground" />
           </nav>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-medium text-foreground font-heading text-sm">
                 {job.jobNumber}
@@ -125,33 +125,34 @@ export function JobDetailPageHeader({
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-muted-foreground font-body">
+            <p className="break-words text-xs text-muted-foreground font-body">
               {job.title}
             </p>
           </div>
         </div>
 
-        {/* Right: action buttons */}
-        <div className="flex items-center gap-2">
+        {/* Right: action buttons. A line of their own on a phone, wrapping if
+            the stage names are long; the one right-hand cluster from `sm`. */}
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
           {children}
           {/* Before the stage actions on purpose. Clocking in is what a tech
               does when they arrive; moving the stage is what happens after. */}
-          <JobTimerButton jobId={job.id} size="sm" />
+          <JobTimerButton jobId={job.id} size="sm" className="h-10 sm:h-8" />
           {nextStage && (
             <Button
               size="sm"
               onClick={() => handleStatusAction(nextStage.name)}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              className="h-10 max-w-full bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer sm:h-8"
             >
-              <IconArrowRight className="mr-1.5 h-3.5 w-3.5" />
-              Move to {nextStage.label}
+              <IconArrowRight className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Move to {nextStage.label}</span>
             </Button>
           )}
 
           {otherStages.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="cursor-pointer">
+                <Button size="sm" variant="outline" className="h-10 cursor-pointer sm:h-8">
                   More
                   <IconChevronDown className="ml-1 h-3.5 w-3.5" />
                 </Button>
@@ -181,7 +182,8 @@ export function JobDetailPageHeader({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 cursor-pointer"
+                className="h-10 w-10 cursor-pointer sm:h-8 sm:w-8"
+                aria-label="More job actions"
               >
                 <IconDots className="h-4 w-4" />
               </Button>

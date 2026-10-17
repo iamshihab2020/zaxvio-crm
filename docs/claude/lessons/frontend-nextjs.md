@@ -882,3 +882,67 @@ From [[bookings-calendar|the report]] — the front-end half.
   sequential traffic paid for new Neon connections (~2.7s each from the dev
   machine), so it looked no faster than sequential. Three more rounds showed
   the real number (~2.0s against 4.7s).
+
+## Responsive shell + dashboard redesign (2026-10-18)
+
+- **The chatbot said "fully responsive" while the shell had no breakpoint at all.** The
+  sidebar was always fixed at 224/64px and every page was always padded by it, so a phone
+  got ~150px of content, yet `tips-mobile` promised a hamburger menu and tables that adapt.
+  A knowledge-base answer is a product claim: check it against the code, not against what
+  the feature was meant to be.
+- **Never build a translucent colour by appending hex alpha to a colour string.**
+  `` `${color}10` `` only works when `color` is six-digit hex; `hsl(var(--brand))10` is not a
+  colour, the browser drops the declaration, and the element silently loses its background.
+  `agenda-hover-card.tsx` broke this way the moment the agenda moved from hex to tokens. Use
+  `color-mix(in srgb, ${color} 6%, transparent)`, which takes any colour form.
+- **`h-full` on a card inside a flex stack inside a grid cell stretches the card.** A grid
+  item stretched by its row has a definite height, so the child's `height: 100%` resolves
+  against it and the card grows to the bottom of the taller neighbouring zone. `h-full` is
+  right for row-mates in a two-up grid and wrong in a stacked column.
+- **DM Mono ships only 400 and 500.** `font-mono font-semibold` or `font-bold` gets a
+  browser-synthesised bold. Pair `font-mono` with `font-medium` at most.
+- **Recharts tick text inherits the container's font.** Put `font-mono` on the chart wrapper
+  to set axis figures in DM Mono, then reset the tooltip (it mounts inside the same
+  wrapper) with `font-body`.
+- **A portal-or-inline switch on a media query does not flash on desktop.** `PageActions`
+  returns null until the navbar slot exists, and the slot is set from a ref during commit.
+  The re-render that follows is an update, where `useSyncExternalStore` reads the real
+  snapshot rather than the server one, so the first render with a slot already knows the
+  width. Keep the `if (!slot) return null` before any branching on the query.
+
+## Responsive pass across the app (2026-10-18, Phase 3)
+
+- **A motion `layout` element only animates a position that actually changes.** `ui/switch.tsx`
+  swapped shadcn's `translate-x` thumb for `<motion.span layout>` and moved nothing, so every
+  switch in the app changed colour and kept its thumb on the left (reported by the user). The
+  track has to move the thumb (`data-[state=checked]:justify-end`); `layout` then springs it.
+  Don't add `translate-x` instead: motion writes `transform` inline and fights it.
+- **`text-base md:text-sm` in a primitive is not a safe mobile-font fix.** About 70 call sites
+  pass their own `text-xs`, and tailwind-merge does not treat `md:text-sm` as conflicting with an
+  unprefixed `text-xs`, so desktop inputs would have grown. iOS zoom-on-focus is fixed once in
+  `globals.css` (16px for fields below `md`, `!important` to beat the utilities).
+- **Same rule for any responsive default in a shared primitive.** tailwind-merge resolves
+  conflicts per variant: an unprefixed caller class never removes a prefixed base class.
+  `SheetContent`'s `sm:max-w-lg` survives a caller's `max-w-full`, so the caller needs
+  `sm:max-w-full` too.
+- **A `fixed` box at `left: 50%` shrink-wraps into the right half of the screen** unless it has
+  `w-max` (bulk-action bar). Its labels then overflow on a phone.
+- **A focus ring with `ring-offset` is clipped inside an `overflow-x-auto` list.** Scrollable
+  tab lists use an inset ring.
+- **`touch-action` is limited by every element between the finger and its scroll container.**
+  `pan-y` on kanban cards blocked the sideways swipe that is the only way to reach other columns
+  on a phone, whatever the board allowed. With a press-and-hold `TouchSensor`, cards can be
+  `manipulation` and swipes belong to scrolling.
+- **dnd-kit's `MouseSensor` fails when children stop `mousedown` propagation** (the kanban
+  card's inline editors do). A `PointerSensor` subclass that ignores `pointerType === "touch"`
+  keeps mouse/pen behaviour, and a separate `TouchSensor` with a delay takes touch.
+- **React Flow: never pass `undefined` for `onNodesChange` to make a canvas read-only.**
+  `adoptUserNodes` drops `measured` on every re-seed, and an unmeasured node is drawn hidden, so
+  nodes flash or vanish on tap. Keep the handlers and turn off dragging and connecting instead.
+- **A breakpoint read in JS is `false` during hydration.** Anything that would shift the layout
+  on desktop (hiding editing buttons, choosing a column count) goes in CSS (`max-md:hidden`); JS
+  decides only what the server never renders (a sheet's open state, a default view chosen after
+  mount, a portal target).
+- **`hidden xl:block` on a detail page's sidebar hid real data below 1280px**: the customer's
+  contact details, the linked job and Generate Invoice on every laptop. Never hide a panel to
+  save width; stack it.

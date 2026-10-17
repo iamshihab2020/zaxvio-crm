@@ -75,13 +75,13 @@ export function InvoiceDetailTab({
   return (
     <div className="space-y-6">
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         {canSend && (
           <Button
             size="sm"
             onClick={onSend}
             disabled={sendLoading}
-            className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+            className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
           >
             <IconSend className="mr-1.5 h-3.5 w-3.5" />
             {sendLoading ? "Sending..." : "Send Invoice"}
@@ -95,7 +95,7 @@ export function InvoiceDetailTab({
             variant="outline"
             onClick={onRemind}
             disabled={remindLoading}
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             <IconBellRinging className="mr-1.5 h-3.5 w-3.5" />
             {remindLoading ? "Sending..." : "Send reminder"}
@@ -105,7 +105,7 @@ export function InvoiceDetailTab({
           size="sm"
           variant="outline"
           onClick={onDownloadPdf}
-          className="cursor-pointer"
+          className="h-10 cursor-pointer sm:h-8"
         >
           <IconDownload className="mr-1.5 h-3.5 w-3.5" />
           Download PDF
@@ -115,7 +115,7 @@ export function InvoiceDetailTab({
             size="sm"
             variant="outline"
             onClick={onVoid}
-            className="cursor-pointer text-destructive hover:text-destructive"
+            className="h-10 cursor-pointer text-destructive hover:text-destructive sm:h-8"
           >
             <IconBan className="mr-1.5 h-3.5 w-3.5" />
             Void

@@ -99,7 +99,7 @@ export function MemberCostRates() {
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className="font-body text-sm text-muted-foreground">
                   $
                 </span>
@@ -111,7 +111,7 @@ export function MemberCostRates() {
                   onChange={(e) =>
                     setDrafts((d) => ({ ...d, [member.userId]: e.target.value }))
                   }
-                  className="tnum h-9 w-24 text-right"
+                  className="tnum h-10 w-24 text-right sm:h-9"
                 />
                 <span className="font-body text-xs text-muted-foreground">
                   / hr
@@ -120,7 +120,7 @@ export function MemberCostRates() {
                 <Button
                   size="sm"
                   disabled={!dirty || busy}
-                  className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
+                  className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
                   onClick={() => {
                     const value = draft.trim();
                     if (value === "") {
@@ -139,7 +139,7 @@ export function MemberCostRates() {
                     size="sm"
                     variant="ghost"
                     disabled={busy}
-                    className="cursor-pointer"
+                    className="h-10 cursor-pointer sm:h-8"
                     onClick={() => {
                       setDrafts((d) => ({ ...d, [member.userId]: "" }));
                       clear.mutate(member.userId);

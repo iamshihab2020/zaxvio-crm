@@ -1,13 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { IconUsersGroup, IconArrowRight } from "@tabler/icons-react";
+import { IconUsersGroup } from "@tabler/icons-react";
 import type { DashboardTopCustomer } from "@hvac-saas/types";
+import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
+import { tokenColor } from "@/lib/constants/chart-palette";
+import { WidgetHeader, WidgetLink } from "./widget-header";
 
 interface TopCustomersCardProps {
   data: DashboardTopCustomer[];
 }
+
+// The meter is a one-series bar chart, so it takes the series colour, not the
+// UI brand (which runs brighter than `--chart-1` in dark mode).
+const METER_COLOR = tokenColor("chart-1");
 
 function initials(name: string): string {
   return name
@@ -23,22 +30,14 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
   const max = top[0]?.revenue ?? 0;
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-heading text-sm font-semibold text-foreground">
-          Top Customers
-        </h3>
-        <Link
-          href="/customers"
-          className="inline-flex items-center gap-1 text-[11px] font-body text-muted-foreground hover:text-foreground cursor-pointer"
-        >
-          View all
-          <IconArrowRight className="h-3 w-3" />
-        </Link>
-      </div>
+    <Card className="flex h-full flex-col p-4 sm:p-6">
+      <WidgetHeader
+        title="Top Customers"
+        action={<WidgetLink href="/customers">View all →</WidgetLink>}
+      />
 
       {top.length === 0 ? (
-        <div className="mt-4 flex-1 rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconUsersGroup className="h-5 w-5 text-brand" />
           </div>
@@ -57,12 +56,14 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
               <li key={c.id}>
                 <Link
                   href={`/customers/${c.id}`}
-                  className="group flex items-center gap-3 rounded-xl border border-border bg-background/40 p-3 transition-all hover:border-brand/40 hover:bg-brand/5 hover:shadow-sm cursor-pointer"
+                  className="flex items-center gap-3 rounded-md border border-border bg-background/40 p-3 transition-colors hover:border-brand/40 hover:bg-brand/5"
                 >
-                  {/* Rank + initials */}
-                  <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand/10 font-heading text-xs font-semibold text-brand-ink">
+                  {/* Rank + initials. The avatar is round (people are, in this
+                      system) and the rank is a count, so it is a round badge on
+                      its rim. */}
+                  <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand/10 font-heading text-xs font-semibold text-brand-ink">
                     {initials(c.name) || "?"}
-                    <span className="absolute -top-1 -right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-foreground px-1 font-heading text-[10px] font-bold text-background">
+                    <span className="tnum absolute -right-1 -top-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-foreground px-1 font-mono text-[10px] font-medium text-background">
                       {i + 1}
                     </span>
                   </div>
@@ -73,19 +74,20 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
                       <span className="truncate font-heading text-sm font-semibold text-foreground">
                         {c.name}
                       </span>
-                      <span className="whitespace-nowrap font-heading text-sm font-semibold text-foreground">
+                      <span className="tnum whitespace-nowrap font-mono text-sm font-medium text-foreground">
                         {formatCurrency(c.revenue)}
                       </span>
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/50">
                         <div
-                          className="h-full rounded-full bg-brand transition-all"
-                          style={{ width: `${rel}%` }}
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${rel}%`, backgroundColor: METER_COLOR }}
                         />
                       </div>
                       <span className="whitespace-nowrap text-[10px] font-body text-muted-foreground">
-                        {c.jobCount} {c.jobCount === 1 ? "job" : "jobs"}
+                        <span className="tnum font-mono">{c.jobCount}</span>{" "}
+                        {c.jobCount === 1 ? "job" : "jobs"}
                       </span>
                     </div>
                   </div>
@@ -95,6 +97,6 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
           })}
         </ul>
       )}
-    </div>
+    </Card>
   );
 }

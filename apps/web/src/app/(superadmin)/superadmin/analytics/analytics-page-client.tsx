@@ -11,6 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -90,23 +91,28 @@ export function AnalyticsPageClient({
   // Prepare signup data for chart — aggregate by week for cleaner visuals
   const signupData = signups ?? [];
 
+  // Recharts takes tick spacing as a prop, so CSS cannot decide it. A label
+  // every 7th day is 13 labels over ~280px on a phone, which collides; every
+  // 15th is 6.
+  const isSm = useMediaQuery(MEDIA.sm);
+
   return (
-    <section className="p-6 space-y-6">
+    <section className="p-4 sm:p-6 space-y-6">
       {/* Row 1: MRR Breakdown + Active Users */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* MRR Breakdown Bar Chart */}
         <Card className="flex flex-col">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
+            <div className="flex items-center justify-between gap-2">
               <CardTitle className="font-heading text-base font-semibold">
                 MRR by Plan
               </CardTitle>
-              <span className="font-heading text-lg font-bold text-blue-600 dark:text-blue-400">
+              <span className="shrink-0 font-heading text-lg font-bold text-blue-600 dark:text-blue-400">
                 {formatCurrency(mrr?.currentMRR ?? 0)}
               </span>
             </div>
           </CardHeader>
-          <CardContent className="flex-1 flex items-center">
+          <CardContent className="flex flex-1 items-center p-4 pt-0 sm:p-6 sm:pt-0">
             {mrr?.breakdown && mrr.breakdown.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" minHeight={180}>
                 <BarChart data={mrr.breakdown}>
@@ -145,13 +151,15 @@ export function AnalyticsPageClient({
 
         {/* Active Users Card */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
             <CardTitle className="font-heading text-base font-semibold">
               Active Tenants
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+            {/* One column on a phone: three boxes with a 30px figure each do not
+                fit side by side in the ~95px a 343px card leaves them. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               {[
                 { label: "DAT", sublabel: "Daily", value: activeUsers?.dat ?? 0, color: "text-green-600 dark:text-green-400" },
                 { label: "WAT", sublabel: "Weekly", value: activeUsers?.wat ?? 0, color: "text-blue-600 dark:text-blue-400" },
@@ -208,17 +216,17 @@ export function AnalyticsPageClient({
 
       {/* Row 2: Signup Trend Area Chart */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+        <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
+          <div className="flex items-center justify-between gap-2">
             <CardTitle className="font-heading text-base font-semibold">
               Signups (Last 90 Days)
             </CardTitle>
-            <Badge variant="secondary" className="font-body text-xs">
+            <Badge variant="secondary" className="shrink-0 font-body text-xs">
               {signupData.reduce((sum, d) => sum + d.count, 0)} total
             </Badge>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
           {signupData.length > 0 ? (
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={signupData}>
@@ -238,7 +246,7 @@ export function AnalyticsPageClient({
                     const date = new Date(d);
                     return `${date.getMonth() + 1}/${date.getDate()}`;
                   }}
-                  interval={6}
+                  interval={isSm ? 6 : 14}
                 />
                 <YAxis
                   tick={{ fontSize: 12, className: "fill-muted-foreground" }}
@@ -275,25 +283,27 @@ export function AnalyticsPageClient({
 
       {/* Row 3: Churn Table */}
       <Card>
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+        <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
+          <div className="flex items-center justify-between gap-2">
             <CardTitle className="font-heading text-base font-semibold">
               Churned Tenants (Last 90 Days)
             </CardTitle>
-            <Badge variant="secondary" className="font-body text-xs">
+            <Badge variant="secondary" className="shrink-0 font-body text-xs">
               {churnList?.length ?? 0} churned
             </Badge>
           </div>
         </CardHeader>
         <CardContent className="p-0">
+          {/* Below `md`: Business and MRR Lost. Plan, days active and the
+              cancel date fold under the business name. */}
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead className="font-body">Business</TableHead>
-                <TableHead className="font-body">Plan</TableHead>
+                <TableHead className="font-body hidden md:table-cell">Plan</TableHead>
                 <TableHead className="font-body text-right">MRR Lost</TableHead>
-                <TableHead className="font-body">Days Active</TableHead>
-                <TableHead className="font-body">Cancelled</TableHead>
+                <TableHead className="font-body hidden md:table-cell">Days Active</TableHead>
+                <TableHead className="font-body hidden md:table-cell">Cancelled</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -310,8 +320,13 @@ export function AnalyticsPageClient({
                   <TableRow key={item.tenantId}>
                     <TableCell className="font-body font-medium">
                       {item.businessName}
+                      <p className="mt-0.5 text-xs font-normal text-muted-foreground md:hidden">
+                        <span className="capitalize">{item.planName ?? "—"}</span>
+                        {item.daysActive !== null && ` · active ${item.daysActive}d`}
+                        {item.cancelledAt && ` · cancelled ${formatDate(item.cancelledAt)}`}
+                      </p>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="hidden md:table-cell">
                       <Badge variant="outline" className="font-body text-xs capitalize">
                         {item.planName ?? "—"}
                       </Badge>
@@ -319,10 +334,10 @@ export function AnalyticsPageClient({
                     <TableCell className="text-right font-heading font-semibold text-destructive text-sm">
                       -{formatCurrency(item.mrrLost)}
                     </TableCell>
-                    <TableCell className="font-body text-sm text-muted-foreground">
+                    <TableCell className="hidden md:table-cell font-body text-sm text-muted-foreground">
                       {item.daysActive !== null ? `${item.daysActive}d` : "—"}
                     </TableCell>
-                    <TableCell className="font-body text-sm text-muted-foreground">
+                    <TableCell className="hidden md:table-cell font-body text-sm text-muted-foreground">
                       {formatDate(item.cancelledAt)}
                     </TableCell>
                   </TableRow>
@@ -337,12 +352,12 @@ export function AnalyticsPageClient({
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Feature Adoption */}
         <Card>
-          <CardHeader className="pb-3">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
             <CardTitle className="font-heading text-base font-semibold">
               Feature Adoption
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             {featureAdoption?.features && featureAdoption.features.length > 0 ? (
               <div className="space-y-3">
                 {featureAdoption.features.map((f, i) => {
@@ -355,9 +370,9 @@ export function AnalyticsPageClient({
                   ];
                   return (
                     <div key={f.feature}>
-                      <div className="flex items-center justify-between text-sm font-body mb-1">
+                      <div className="flex items-center justify-between gap-2 text-sm font-body mb-1">
                         <span className="text-foreground font-medium">{f.feature}</span>
-                        <span className="text-muted-foreground">
+                        <span className="shrink-0 text-muted-foreground">
                           {f.tenants} of {featureAdoption.totalTenants} ({f.percentage}%)
                         </span>
                       </div>
@@ -381,24 +396,27 @@ export function AnalyticsPageClient({
 
         {/* Inactive Alerts */}
         <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
+          <CardHeader className="p-4 pb-3 sm:p-6 sm:pb-3">
+            <div className="flex items-center justify-between gap-2">
               <CardTitle className="font-heading text-base font-semibold">
                 Inactive Alerts (14+ days)
               </CardTitle>
               {inactiveAlerts && inactiveAlerts.length > 0 && (
-                <Badge className="bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-0 text-xs">
+                <Badge className="shrink-0 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-0 text-xs">
                   {inactiveAlerts.length} at risk
                 </Badge>
               )}
             </div>
           </CardHeader>
           <CardContent className="p-0">
+            {/* Plan folds under the business below `md`: the email is the long
+                cell, and beside a plan badge and an amount it would push the
+                table past the card on a phone. */}
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead className="font-body">Business</TableHead>
-                  <TableHead className="font-body">Plan</TableHead>
+                  <TableHead className="font-body hidden md:table-cell">Plan</TableHead>
                   <TableHead className="font-body text-right">MRR</TableHead>
                 </TableRow>
               </TableHeader>
@@ -418,9 +436,12 @@ export function AnalyticsPageClient({
                         <div>
                           <p className="font-body text-sm font-medium">{t.businessName}</p>
                           <p className="font-body text-xs text-muted-foreground">{t.email}</p>
+                          <p className="mt-0.5 font-body text-xs capitalize text-muted-foreground md:hidden">
+                            {t.planName ?? "—"}
+                          </p>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant="outline" className="font-body text-xs capitalize">
                           {t.planName ?? "—"}
                         </Badge>

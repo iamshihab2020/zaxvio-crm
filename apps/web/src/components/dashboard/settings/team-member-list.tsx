@@ -203,7 +203,7 @@ export function TeamMemberList({
                       {canEditThis && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8" aria-label="Member actions">
                               <IconDotsVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>

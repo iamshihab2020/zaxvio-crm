@@ -67,6 +67,35 @@ function formatDate(dateStr: string): string {
   });
 }
 
+// Secondary columns step in with the width, as `automations-table.tsx` does.
+// Written out whole so Tailwind can see them.
+const COLUMN_FROM_MD = "hidden md:table-cell";
+const COLUMN_FROM_XL = "hidden xl:table-cell";
+
+function TierBadge({ tier }: { tier: string }) {
+  const config = TIER_CONFIG[tier];
+  if (!config) return null;
+  const Icon = config.icon;
+  return (
+    <Badge
+      variant="outline"
+      className={`inline-flex items-center gap-1.5 ${config.className}`}
+    >
+      <Icon className="h-3 w-3" />
+      {config.label}
+    </Badge>
+  );
+}
+
+function OwnerBadge() {
+  return (
+    <Badge className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
+      <IconCrown className="h-3 w-3" />
+      Owner
+    </Badge>
+  );
+}
+
 export function AdminsPageClient({
   initialData,
   currentUserId,
@@ -100,12 +129,12 @@ export function AdminsPageClient({
   };
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Card wrapper */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Header */}
         <div className="border-b border-border px-4 py-3 flex items-center justify-between gap-4">
-          <div>
+          <div className="min-w-0">
             <h2 className="font-heading text-lg font-semibold text-foreground">
               Admin Users
             </h2>
@@ -114,7 +143,7 @@ export function AdminsPageClient({
             </p>
           </div>
           <Button
-            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            className="shrink-0 bg-brand text-brand-foreground hover:bg-brand/90 max-sm:h-10"
             onClick={() => setAddOpen(true)}
           >
             <IconPlus className="mr-2 h-4 w-4" />
@@ -122,15 +151,19 @@ export function AdminsPageClient({
           </Button>
         </div>
 
-        {/* Table */}
+        {/* Table. Below `md` it is Name and the row menu: email, tier and the
+            Owner mark fold under the name, because who an admin is and what
+            they can do is the point of this list. The added date is the first
+            thing to go and comes back at `xl`: the full row is about 810px,
+            more than the content area at `md` or `lg`. */}
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="font-body">Name</TableHead>
-              <TableHead className="font-body">Email</TableHead>
-              <TableHead className="font-body">Tier</TableHead>
-              <TableHead className="font-body">Role</TableHead>
-              <TableHead className="font-body">Added</TableHead>
+              <TableHead className={`font-body ${COLUMN_FROM_MD}`}>Email</TableHead>
+              <TableHead className={`font-body ${COLUMN_FROM_MD}`}>Tier</TableHead>
+              <TableHead className={`font-body ${COLUMN_FROM_MD}`}>Role</TableHead>
+              <TableHead className={`font-body ${COLUMN_FROM_XL}`}>Added</TableHead>
               <TableHead className="w-12 font-body" />
             </TableRow>
           </TableHeader>
@@ -146,10 +179,6 @@ export function AdminsPageClient({
               </TableRow>
             ) : (
               admins.map((admin) => {
-                const tierConfig = admin.adminTier
-                  ? TIER_CONFIG[admin.adminTier]
-                  : null;
-                const TierIcon = tierConfig?.icon;
                 const isSelf = admin.id === currentUserId;
 
                 return (
@@ -166,30 +195,28 @@ export function AdminsPageClient({
                           </Badge>
                         )}
                       </div>
+                      <div className="md:hidden">
+                        <p className="mt-0.5 break-all text-xs font-normal text-muted-foreground">
+                          {admin.email}
+                        </p>
+                        {(admin.adminTier || admin.isOwner) && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                            {admin.adminTier && <TierBadge tier={admin.adminTier} />}
+                            {admin.isOwner && <OwnerBadge />}
+                          </div>
+                        )}
+                      </div>
                     </TableCell>
-                    <TableCell className="font-body text-muted-foreground">
+                    <TableCell className={`font-body text-muted-foreground ${COLUMN_FROM_MD}`}>
                       {admin.email}
                     </TableCell>
-                    <TableCell>
-                      {tierConfig && (
-                        <Badge
-                          variant="outline"
-                          className={`inline-flex items-center gap-1.5 ${tierConfig.className}`}
-                        >
-                          {TierIcon && <TierIcon className="h-3 w-3" />}
-                          {tierConfig.label}
-                        </Badge>
-                      )}
+                    <TableCell className={COLUMN_FROM_MD}>
+                      {admin.adminTier && <TierBadge tier={admin.adminTier} />}
                     </TableCell>
-                    <TableCell>
-                      {admin.isOwner && (
-                        <Badge className="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-50 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800">
-                          <IconCrown className="h-3 w-3" />
-                          Owner
-                        </Badge>
-                      )}
+                    <TableCell className={COLUMN_FROM_MD}>
+                      {admin.isOwner && <OwnerBadge />}
                     </TableCell>
-                    <TableCell className="font-body text-muted-foreground">
+                    <TableCell className={`font-body text-muted-foreground ${COLUMN_FROM_XL}`}>
                       {formatDate(admin.createdAt)}
                     </TableCell>
                     <TableCell>
@@ -199,7 +226,8 @@ export function AdminsPageClient({
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="h-8 w-8"
+                              className="h-8 w-8 max-sm:h-10 max-sm:w-10"
+                              aria-label={`Actions for ${admin.name}`}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <IconDotsVertical className="h-4 w-4" />
@@ -207,13 +235,14 @@ export function AdminsPageClient({
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem
+                              className="max-sm:min-h-10"
                               onClick={() => setEditTarget(admin)}
                             >
                               <IconEdit className="mr-2 h-4 w-4" />
                               Edit Tier
                             </DropdownMenuItem>
                             <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
+                              className="text-destructive focus:text-destructive max-sm:min-h-10"
                               onClick={() => setRemoveTarget(admin)}
                             >
                               <IconTrash className="mr-2 h-4 w-4" />

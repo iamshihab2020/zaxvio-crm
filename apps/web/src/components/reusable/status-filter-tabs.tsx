@@ -14,6 +14,13 @@ interface StatusFilterTabsProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  /**
+   * On phones the track spans its row and the options share it equally, so a
+   * row of short labels (1D / 1W / 1M …) is a full-width control with roughly
+   * 44px targets instead of a small pill hugging the left edge. From `sm` it
+   * is the usual content-sized track.
+   */
+  fullWidthOnMobile?: boolean;
 }
 
 export function StatusFilterTabs({
@@ -21,6 +28,7 @@ export function StatusFilterTabs({
   value,
   onChange,
   className,
+  fullWidthOnMobile = false,
 }: StatusFilterTabsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -39,12 +47,36 @@ export function StatusFilterTabs({
         left: tabRect.left - containerRect.left,
         width: tabRect.width,
       });
+    } else {
+      // `value` can match no option (the dashboard's revenue range is null
+      // once a custom date range is picked). Without this the pill stayed
+      // parked on the last tab that matched and kept claiming it was selected.
+      setIndicator(null);
     }
   }, [value]);
 
   useEffect(() => {
     updateIndicator();
   }, [updateIndicator]);
+
+  // In a list page's header (`ListToolbar`) the tabs sit in a row that scrolls
+  // sideways on a phone, so a tab chosen by a link (`?status=overdue`) can start
+  // off-screen with nothing saying which one is selected. Only that row is
+  // scrolled: `scrollIntoView` would move the page as well. The jump is instant,
+  // so there is no motion for reduced-motion users to opt out of.
+  useEffect(() => {
+    const tab = tabRefs.current.get(value);
+    const scroller = containerRef.current?.parentElement;
+    if (!tab || !scroller || scroller.scrollWidth <= scroller.clientWidth) return;
+    const tabRect = tab.getBoundingClientRect();
+    const scrollerRect = scroller.getBoundingClientRect();
+    const margin = 16;
+    if (tabRect.left < scrollerRect.left + margin) {
+      scroller.scrollBy({ left: tabRect.left - scrollerRect.left - margin });
+    } else if (tabRect.right > scrollerRect.right - margin) {
+      scroller.scrollBy({ left: tabRect.right - scrollerRect.right + margin });
+    }
+  }, [value]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -61,7 +93,13 @@ export function StatusFilterTabs({
     <div
       ref={containerRef}
       className={cn(
-        "relative inline-flex items-center gap-0.5 rounded-full bg-muted/60 p-1",
+        // `shrink-0`: the track is as wide as its labels or it is wrong. A
+        // parent that is too narrow scrolls it (ListToolbar) or wraps around it;
+        // squeezing it would clip the last label.
+        "relative shrink-0 items-center gap-0.5 rounded-full bg-muted/60 p-1",
+        // `flex` and `inline-flex` are both `display`, so the choice is made
+        // here rather than layered, where one would silently cancel the other.
+        fullWidthOnMobile ? "flex w-full sm:inline-flex sm:w-auto" : "inline-flex",
         className,
       )}
     >
@@ -92,7 +130,13 @@ export function StatusFilterTabs({
             size="sm"
             onClick={() => onChange(opt.value)}
             className={cn(
-              "relative z-10 rounded-full px-3 py-1 text-xs font-medium font-body h-auto transition-colors duration-200",
+              "relative z-10 whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium font-body h-auto transition-colors duration-200",
+              // 36px + the track's 4px padding is the 44px thumb target; `sm`
+              // returns to the compact pointer size. Tabs that don't span the
+              // row still get 32px + 8px = a 40px track on a phone.
+              fullWidthOnMobile
+                ? "min-h-9 flex-1 sm:min-h-0 sm:flex-none"
+                : "min-h-8 sm:min-h-0",
               isActive
                 ? "text-brand-foreground hover:bg-transparent hover:text-brand-foreground"
                 : "text-muted-foreground hover:bg-transparent hover:text-foreground",

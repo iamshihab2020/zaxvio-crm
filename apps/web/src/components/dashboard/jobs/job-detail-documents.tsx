@@ -91,7 +91,7 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
   return (
     <div className="space-y-3">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-body font-medium text-foreground">
           {documents.length > 0
             ? `${documents.length} document${documents.length !== 1 ? "s" : ""}`
@@ -100,7 +100,7 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
         <Button
           size="sm"
           onClick={() => setUploadOpen(true)}
-          className="gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90 text-xs"
+          className="h-10 gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90 text-xs sm:h-8"
         >
           <IconUpload className="h-3.5 w-3.5" />
           Upload Document
@@ -129,7 +129,7 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
                 <p className="text-sm font-body font-medium text-foreground truncate">
                   {doc.fileName}
                 </p>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
                     {getMimeLabel(doc.mimeType)}
                   </Badge>
@@ -148,18 +148,21 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Hidden until hover or focus only for a pointer that can hover;
+                  on touch the actions are always there, as 40px targets. */}
+              <div className="flex shrink-0 items-center gap-1 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 [@media(hover:hover)]:group-focus-within:opacity-100">
                 <Button
                   variant="ghost"
                   size="icon"
                   asChild
-                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  className="h-10 w-10 text-muted-foreground hover:text-foreground md:h-7 md:w-7"
                 >
                   <a
                     href={getDocumentUrl(doc.storagePath)}
                     target="_blank"
                     rel="noopener noreferrer"
                     download={doc.fileName}
+                    aria-label={`Download ${doc.fileName}`}
                     onClick={(e) => e.stopPropagation()}
                   >
                     <IconDownload className="h-3.5 w-3.5" />
@@ -168,7 +171,8 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                  className="h-10 w-10 text-muted-foreground hover:text-destructive md:h-7 md:w-7"
+                  aria-label={`Delete ${doc.fileName}`}
                   onClick={() => handleDelete(doc.id)}
                 >
                   <IconTrash className="h-3.5 w-3.5" />

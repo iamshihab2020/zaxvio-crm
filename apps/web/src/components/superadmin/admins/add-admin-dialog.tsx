@@ -164,7 +164,7 @@ export function AddAdminDialog({
               Admin Tier
             </Label>
             <Select value={adminTier} onValueChange={setAdminTier}>
-              <SelectTrigger className="font-body">
+              <SelectTrigger className="font-body max-sm:h-10">
                 <SelectValue placeholder="Select a tier" />
               </SelectTrigger>
               <SelectContent>
@@ -199,7 +199,8 @@ export function AddAdminDialog({
             <p className="text-sm text-destructive font-body">{error}</p>
           )}
         </div>
-        <DialogFooter>
+        {/* Footer buttons are 40px on phones, where they stack full width. */}
+        <DialogFooter className="max-sm:[&>button]:h-10">
           <Button
             variant="outline"
             onClick={() => handleOpenChange(false)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, type CSSProperties } from "react";
 
 export type ViewMode = "sidebar" | "dialog" | "page";
 export type EntityType = "quotes" | "jobs" | "invoices" | "bookings" | "events";
@@ -15,10 +15,41 @@ const MAX_WIDTH = 1200;
 
 const VALID_MODES: ViewMode[] = ["sidebar", "dialog", "page"];
 
-/** Default sidebar width = 40% of the viewport */
+function clampWidth(width: number): number {
+  return Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, width));
+}
+
+/**
+ * Default sidebar width = 40% of the viewport, inside [MIN_WIDTH, MAX_WIDTH].
+ * Unclamped, a 375px phone defaulted to 150px and a 768px tablet to 307px. The
+ * floor is safe because a sheet only uses this width from `md` (768px) up,
+ * where 400px always fits; below that `getSheetWidth` ignores it.
+ */
 function getDefaultWidth(): number {
   if (typeof window === "undefined") return 520;
-  return Math.round(window.innerWidth * 0.4);
+  return clampWidth(Math.round(window.innerWidth * 0.4));
+}
+
+/**
+ * Sizing for a right-hand sheet whose width the user can drag: the detail
+ * sheets and the three create sheets. Below `md` it is the whole screen, since
+ * a width picked on a desktop means nothing at 375px; from `md` it is the
+ * preference, never wider than the window. The width travels as a CSS variable
+ * rather than an inline `maxWidth` so the breakpoint stays in CSS and a stored
+ * 1200px on a narrowed window can't overflow it.
+ *
+ * `sm:max-w-full` is not redundant: `SheetContent` carries `sm:max-w-lg`, and
+ * tailwind-merge only replaces a class that has the same variant prefix.
+ */
+export function getSheetWidth(width: number): {
+  className: string;
+  style: CSSProperties;
+} {
+  return {
+    className:
+      "w-full max-w-full sm:max-w-full md:max-w-[min(var(--sheet-w),100vw)]",
+    style: { "--sheet-w": `${width}px` } as CSSProperties,
+  };
 }
 
 function getStorageKey(entity: EntityType): string {
@@ -32,9 +63,8 @@ function loadPrefs(entity: EntityType): ViewPreference {
       const parsed = JSON.parse(raw);
       return {
         mode: VALID_MODES.includes(parsed.mode) ? parsed.mode : "sidebar",
-        sidebarWidth: Math.max(
-          MIN_WIDTH,
-          Math.min(MAX_WIDTH, Number(parsed.sidebarWidth) || getDefaultWidth()),
+        sidebarWidth: clampWidth(
+          Number(parsed.sidebarWidth) || getDefaultWidth(),
         ),
       };
     }
@@ -77,7 +107,7 @@ export function useViewPreference(entity: EntityType) {
 
   const setSidebarWidth = useCallback(
     (sidebarWidth: number) => {
-      const clamped = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, sidebarWidth));
+      const clamped = clampWidth(sidebarWidth);
       setPrefs((prev) => {
         const next = { ...prev, sidebarWidth: clamped };
         savePrefs(entity, next);

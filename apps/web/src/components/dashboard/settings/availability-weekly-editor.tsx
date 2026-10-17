@@ -54,7 +54,7 @@ export function AvailabilityWeeklyEditor({
           size="sm"
           onClick={onSave}
           disabled={saving || !dirty}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
+          className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
         >
           <IconDeviceFloppy className="mr-2 h-4 w-4" />
           {saving ? "Saving..." : "Save Schedule"}
@@ -63,9 +63,12 @@ export function AvailabilityWeeklyEditor({
     >
       <div className="space-y-3">
         {sortedSchedule.map((entry) => (
+          // Wraps: day and switch on the first line, the two pickers on a second
+          // one that spans the row. One line is ~520px, which a phone does not
+          // have; from `sm` everything shares a single line again.
           <div
             key={entry.dayOfWeek}
-            className="flex items-center gap-4 rounded-md border border-border px-4 py-3"
+            className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md border border-border px-3 py-3 sm:px-4"
           >
             <div className="w-24 shrink-0">
               <span className="text-sm font-medium font-body">
@@ -81,8 +84,8 @@ export function AvailabilityWeeklyEditor({
             />
 
             {entry.isActive ? (
-              <div className="flex items-center gap-2">
-                <div className="w-36">
+              <div className="flex w-full items-center gap-2 sm:w-auto">
+                <div className="min-w-0 flex-1 sm:w-36 sm:flex-none">
                   <TimePicker
                     value={entry.startTime}
                     onChange={(v) => updateDay(entry.dayOfWeek, { startTime: v })}
@@ -90,7 +93,7 @@ export function AvailabilityWeeklyEditor({
                   />
                 </div>
                 <span className="text-sm text-muted-foreground">to</span>
-                <div className="w-36">
+                <div className="min-w-0 flex-1 sm:w-36 sm:flex-none">
                   <TimePicker
                     value={entry.endTime}
                     onChange={(v) => updateDay(entry.dayOfWeek, { endTime: v })}

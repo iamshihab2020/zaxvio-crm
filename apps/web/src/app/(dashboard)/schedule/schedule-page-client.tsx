@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
@@ -13,6 +13,7 @@ import {
 } from "@/hooks/queries";
 import { bookingLink, scheduleJobLink } from "@/lib/entity-links";
 import { tenantNow } from "@/lib/tenant-time";
+import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Card } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -63,6 +64,23 @@ interface PipelineStage {
 }
 
 /* ── Helpers ── */
+
+/**
+ * The view for someone who has never picked one. Week and month are seven
+ * columns, about 45px each on a phone, so below `md` the day is the readable
+ * default. It is read where the state is created rather than in an effect: the
+ * date range (and so the queries) follow the view, and switching after mount
+ * would fetch a week nobody looks at. The render before data arrives is the
+ * skeleton on server and client alike, so nothing here can mismatch on
+ * hydration or flicker on a desktop.
+ */
+function defaultCalendarView(): CalendarView {
+  if (typeof window !== "undefined" && !window.matchMedia(MEDIA.md).matches) {
+    return "day";
+  }
+  return "week";
+}
+
 function getDateRange(date: Date, view: CalendarView): { dateFrom: string; dateTo: string } {
   switch (view) {
     case "month": {
@@ -211,7 +229,7 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
       const stored = localStorage.getItem("schedule-calendar-view");
       if (stored === "month" || stored === "week" || stored === "day") return stored;
     }
-    return "week";
+    return defaultCalendarView();
   });
 
   // Filter state
@@ -232,7 +250,12 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   // Navigation direction for calendar transitions (-1 = prev, 0 = view change, 1 = next)
   const navigationDirection = useRef<-1 | 0 | 1>(0);
 
-  // Task sidebar state
+  // Task panel. From `lg` it is a column beside the calendar and the saved
+  // choice below decides whether it is open; under `lg` it is a sheet over the
+  // calendar, which always starts shut and never reads that choice, so a desktop
+  // preference of "open" cannot squeeze the calendar on a phone.
+  const isDesktop = useMediaQuery(MEDIA.lg);
+  const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("schedule-sidebar-open");
@@ -244,7 +267,17 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   });
   const [sidebarFilter, setSidebarFilter] = useState<TaskFilter>("today");
 
+  // Rotating or resizing past `lg` swaps the sheet for the column; a sheet left
+  // "open" in state would otherwise reappear when the window narrows again.
+  useEffect(() => {
+    if (isDesktop) setTaskSheetOpen(false);
+  }, [isDesktop]);
+
   function handleToggleSidebar() {
+    if (!isDesktop) {
+      setTaskSheetOpen((prev) => !prev);
+      return;
+    }
     setSidebarOpen((prev) => {
       const next = !prev;
       if (typeof window !== "undefined") {
@@ -685,8 +718,9 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      {/* Full-height flex column: navbar is h-14 (3.5rem) */}
-      <section className="flex flex-col h-[calc(100vh-3.5rem)] p-4 gap-0">
+      {/* Full-height flex column: navbar is h-14 (3.5rem). `dvh`, so a phone's
+          address bar does not push the calendar's bottom edge off screen. */}
+      <section className="flex flex-col h-[calc(100dvh-3.5rem)] p-4 gap-0">
         {/* Partial failure: some sources loaded, at least one didn't. */}
         {loadError && (
           <div
@@ -717,7 +751,9 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
         <div className="flex flex-1 min-h-0 gap-3">
           {/* Collapsible task sidebar */}
           <ScheduleTaskPanel
-            open={sidebarOpen}
+            inline={isDesktop}
+            open={isDesktop ? sidebarOpen : taskSheetOpen}
+            onOpenChange={setTaskSheetOpen}
             jobs={filteredJobs}
             bookings={bookings}
             calEvents={calEvents}
@@ -739,7 +775,7 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
               onPrev={handlePrev}
               onNext={handleNext}
               onCreateEvent={handleNewEventButton}
-              sidebarOpen={sidebarOpen}
+              sidebarOpen={isDesktop ? sidebarOpen : taskSheetOpen}
               onToggleSidebar={handleToggleSidebar}
             />
 

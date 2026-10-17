@@ -126,7 +126,7 @@ export function InvoiceDetailHeader({
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6 py-3 sm:py-4">
         {/* Left: breadcrumb + invoice info */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <nav className="flex items-center gap-1 text-sm font-body">
             <Link
               href="/invoices"
@@ -136,28 +136,29 @@ export function InvoiceDetailHeader({
             </Link>
             <IconChevronRight className="h-4 w-4 text-muted-foreground" />
           </nav>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground font-heading text-sm">
                 {invoice.invoiceNumber}
               </span>
               <InvoiceStatusBadge status={invoice.status} />
             </div>
-            <p className="text-xs text-muted-foreground font-body">
+            <p className="truncate text-xs text-muted-foreground font-body">
               {customerName}
             </p>
           </div>
         </div>
 
-        {/* Right: action buttons */}
-        <div className="flex items-center gap-2">
+        {/* Right: action buttons. Wraps: up to six controls came to ~450px, so on
+            a phone they used to run off the edge of the page. */}
+        <div className="flex flex-wrap items-center gap-2">
           {children}
           {canSend && (
             <Button
               size="sm"
               onClick={handleSend}
               disabled={sendMutation.isPending}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               <IconSend className="mr-1.5 h-3.5 w-3.5" />
               {sendMutation.isPending ? "Sending..." : "Send"}
@@ -169,7 +170,7 @@ export function InvoiceDetailHeader({
               size="sm"
               onClick={() => setPayOpen(true)}
               disabled={payInFullMutation.isPending}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               <IconCheck className="mr-1.5 h-3.5 w-3.5" />
               Mark paid
@@ -182,7 +183,7 @@ export function InvoiceDetailHeader({
               variant="outline"
               onClick={() => remindMutation.mutate(invoice.id)}
               disabled={remindMutation.isPending}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               <IconBellRinging className="mr-1.5 h-3.5 w-3.5" />
               Remind
@@ -192,7 +193,7 @@ export function InvoiceDetailHeader({
             size="sm"
             variant="outline"
             onClick={handleDownloadPdf}
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             <IconDownload className="mr-1.5 h-3.5 w-3.5" />
             PDF
@@ -202,7 +203,7 @@ export function InvoiceDetailHeader({
               size="sm"
               variant="outline"
               onClick={() => setVoidOpen(true)}
-              className="cursor-pointer text-destructive hover:text-destructive"
+              className="h-10 cursor-pointer text-destructive hover:text-destructive sm:h-8"
             >
               <IconBan className="mr-1.5 h-3.5 w-3.5" />
               Void
@@ -213,7 +214,7 @@ export function InvoiceDetailHeader({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 cursor-pointer"
+                className="h-10 w-10 cursor-pointer sm:h-8 sm:w-8"
               >
                 <IconDots className="h-4 w-4" />
               </Button>

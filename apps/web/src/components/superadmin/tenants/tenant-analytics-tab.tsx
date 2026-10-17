@@ -123,8 +123,8 @@ function RateCard({ label, rate, color }: { label: string; rate: number; color: 
 function AnalyticsSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3">
+        {Array.from({ length: 7 }).map((_, i) => (
           <Skeleton key={i} className="h-20 rounded-lg" />
         ))}
       </div>
@@ -132,7 +132,8 @@ function AnalyticsSkeleton() {
         <Skeleton className="h-64 rounded-lg" />
         <Skeleton className="h-64 rounded-lg" />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Skeleton className="h-28 rounded-lg" />
         <Skeleton className="h-28 rounded-lg" />
         <Skeleton className="h-28 rounded-lg" />
         <Skeleton className="h-28 rounded-lg" />
@@ -218,8 +219,10 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
   return (
     <TooltipProvider>
       <div className="space-y-4">
-        {/* Section 1: Usage KPIs */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+        {/* Section 1: Usage KPIs. Seven across needs ~170px a tile (icon, gap
+            and the longest label), which only `2xl` has once the rail takes
+            240px; below that they wrap into rows of four. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7 gap-3">
           <KpiMini icon={IconUsers} label="Customers" value={data.usage.customers} color="bg-blue-500" />
           <KpiMini icon={IconBriefcase} label="Jobs" value={data.usage.jobs.total} color="bg-emerald-500" />
           <KpiMini icon={IconFileText} label="Quotes" value={data.usage.quotes.total} color="bg-purple-500" />
@@ -253,7 +256,10 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
                       contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "0.5rem", fontSize: "12px" }}
                       cursor={{ fill: "hsl(var(--muted))", opacity: 0.5 }}
                     />
-                    <Bar dataKey="total" fill="hsl(var(--chart-5))" radius={[6, 6, 0, 0]} barSize={40} />
+                    {/* `maxBarSize`, not `barSize`: twelve fixed 40px bars are
+                        480px, wider than a phone's plot area. This is still 40
+                        wherever the months have room for it. */}
+                    <Bar dataKey="total" fill="hsl(var(--chart-5))" radius={[6, 6, 0, 0]} maxBarSize={40} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -362,14 +368,16 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
         </div>
 
         {/* Section 3: Operational Health */}
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        {/* Two across on a phone and a tablet; four from `lg`. At `sm` four was
+            ~136px a card, too narrow for a 30px "$12,345". */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <RateCard label="Job Completion" rate={data.operational.jobCompletionRate} color="text-emerald-600 dark:text-emerald-400" />
           <RateCard label="Quote Acceptance" rate={data.operational.quoteAcceptanceRate} color="text-blue-600 dark:text-blue-400" />
           <RateCard label="Checklist Completion" rate={data.operational.checklistCompletionRate} color="text-purple-600 dark:text-purple-400" />
           <Card>
             <CardContent className="p-4 text-center">
               <p className="text-xs text-muted-foreground font-body uppercase tracking-wider mb-2">Avg Job Value</p>
-              <p className="font-heading text-3xl font-bold text-amber-600 dark:text-amber-400">{formatCurrency(data.financial.avgJobValue)}</p>
+              <p className="font-heading text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">{formatCurrency(data.financial.avgJobValue)}</p>
               <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground font-body">
                 <IconCurrencyDollar className="h-3.5 w-3.5" />
                 <span>{formatCurrency(data.financial.outstandingBalance)} outstanding</span>

@@ -14,39 +14,40 @@ import { Skeleton } from "@/components/ui/skeleton";
  * Every other route under (dashboard) already has one of these; settings was
  * the only segment without.
  *
- * Renders inside `SettingsContent`, which supplies the `p-6` — do not add
- * padding here. The shape mirrors the 2/3 form + 1/3 sidebar grid that
- * business, invoices, quotes and profile all use.
+ * Renders inside `SettingsContent`, which supplies the `p-4 sm:p-6` — do not
+ * add page padding here. The shape mirrors the 2/3 form + 1/3 sidebar grid that
+ * business, invoices, quotes and profile all use, and its field grids start at
+ * one column like theirs.
  */
 export default function SettingsLoading() {
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       <div className="space-y-6 lg:col-span-2">
-        <div className="rounded-lg border border-border bg-card p-6">
+        <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
           <Skeleton className="mb-2 h-5 w-40" />
-          <Skeleton className="mb-6 h-4 w-72" />
+          <Skeleton className="mb-6 h-4 w-72 max-w-full" />
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
             <Skeleton className="h-10 w-full" />
           </div>
         </div>
-        <div className="rounded-lg border border-border bg-card p-6">
+        <div className="rounded-lg border border-border bg-card p-4 sm:p-6">
           <Skeleton className="mb-6 h-5 w-48" />
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
           </div>
         </div>
       </div>
-      <div className="rounded-lg border border-border bg-card p-6 self-start">
+      <div className="rounded-lg border border-border bg-card p-4 sm:p-6 self-start">
         <Skeleton className="mb-4 h-4 w-32" />
         <div className="space-y-4">
           <Skeleton className="h-4 w-full" />

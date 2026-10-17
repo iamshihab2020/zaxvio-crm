@@ -400,10 +400,23 @@ fourth face, and Inter, Roboto, Arial or system defaults are never used.
 
 ## Layout
 
-**App shell.** A fixed left sidebar on Card White: 224px expanded, 64px collapsed, with its width
-animating over 300ms. Nav groups have collapsible Label headers. A 56px top navbar carries the
-page name in Title and a 2px Safety Orange hairline that fades out toward both edges. Page
-content sits in a 24px gutter.
+**App shell.** From `lg` (1024px) up, a fixed left sidebar on Card White: 224px expanded, 64px
+collapsed, with its width animating over 300ms. Nav groups have collapsible Label headers. Below
+`lg` the sidebar leaves the flow: the same navigation opens as a left sheet (288px, at most 85% of
+the screen) from a 40px menu button at the navbar's left edge, and closes when a page is picked.
+A 56px top navbar carries the page name in Title and a 2px Safety Orange hairline that fades out
+toward both edges; below `lg` it spans the full width, the user's name appears from `md`, and the
+theme toggle moves into the account menu below `sm`. Page actions that portal into the navbar
+render at the top of the page instead below `md`, where the navbar has no room for them. Page
+content sits in a 16px gutter on phones and 24px from `sm`.
+
+**Dashboard.** An overdue banner, then four KPI tiles (two by two on a phone, four across from
+`lg`), then two zones. The side zone (Up next, Week Ahead) comes first in the DOM so a phone reads
+today's work before the money; from `xl` it takes the right third and the main zone (Revenue, then
+a two-up grid of everything else) the left two. Zones are stacks, so hiding a widget in Customize
+never leaves a hole, and an odd last widget in the grid spans its row. Up next is a day sheet:
+today first, an hour column in DM Mono, and each row marked by its kind (job orange, booking teal,
+event indigo).
 
 **List pages** (customers, invoices, quotes, bookings, assets, catalog, checklists, agreements)
 share one structure: page header (Headline title, Pencil subtitle, action on the right) → a row
@@ -411,8 +424,16 @@ of stats cards that double as filters → one bordered card whose single header 
 tabs on the left and search plus controls on the right → the table → pagination below the card.
 
 **Detail pages** use three panels on Work Order Paper: a 320px left panel, flexible tabs in the
-middle, and a 288px right sidebar from `xl` up, each a bordered card. The same record can open as
-a 520px side sheet, a dialog, or a full page, depending on the user's preference.
+middle, and a 288px right sidebar from `xl` up, each a bordered card. Below `xl` the sidebar is
+never hidden: it runs as a full-width card under the tabs (its sections side by side at `lg`),
+and on phones every panel stacks in reading order. The same record can open as a 520px side
+sheet, a dialog, or a full page, depending on the user's preference; below `md` the side sheet is
+full width and loses its resize handle.
+
+**Tables on phones.** Secondary columns hide below `md` (the least important below `lg` or `xl`)
+on both the header and the cell, and what a phone still needs folds under the first cell as a
+`md:hidden` sub-line. The selection checkbox, the identifier, status, the money figure and the row
+menu always stay. Line-item tables keep every column and scroll sideways inside their card.
 
 **Settings** use a two-thirds form column and a one-third side column at `lg`, under a settings
 sub-nav.
@@ -420,11 +441,20 @@ sub-nav.
 **Landing page.** A 72rem container with 20 / 24 / 32px gutters, a 12-column grid at `lg`, and
 generous vertical rhythm (96–128px above the hero). The ruling repeats every 48px.
 
-**Rhythm.** A 4px base. 16px gaps between cards, 24px padding inside them, 12px between a toolbar's
-controls. Breakpoints follow Tailwind (640 / 768 / 1024 / 1280 / 1536px).
+**Rhythm.** A 4px base. 16px gaps between cards, 24px padding inside them (16px on phones), 12px
+between a toolbar's controls. Breakpoints follow Tailwind (640 / 768 / 1024 / 1280 / 1536px), and
+classes are written phone-first: the base class is the phone, `sm:` and up add to it.
+
+**The Phone Is a Peer Rule.** The work happens on job sites, on a phone. Every screen has to work at
+375px with no horizontal page scroll. On phones, touch targets are at least 40px and step back to
+their dense desktop size from `sm`. Anything shown on hover (a hover card, a tooltip) has to be
+reachable another way too, through a label, a link or a screen-reader table.
 
 **The One Row Rule.** A list's filter tabs, search and extra controls share one header row:
-tabs on the left, everything else pushed right. Never two stacked toolbars.
+tabs on the left, everything else pushed right. Never two stacked toolbars. The row is one
+component, `ListToolbar` (`components/reusable/list-toolbar.tsx`), and below `sm` it is the one
+place the row may stack: the tabs scroll sideways on their own line, then search at full width,
+then the buttons. It is still one toolbar, laid out for a narrow screen, not a second one.
 
 ## Elevation & Depth
 
@@ -498,7 +528,8 @@ the one thing to do next.
 
 ### Inputs / Fields
 - **Style:** 40px tall, 1px Field Line border, Work Order Paper fill, 6px corners, 14px DM Sans
-  text, Pencil placeholder.
+  text (16px below `md`, set once in `globals.css`, because iOS Safari zooms the page on focus
+  under 16px), Pencil placeholder.
 - **Focus:** a 2px Safety Orange ring offset 2px from the field.
 - **Disabled:** 50% opacity, not-allowed cursor. Forms lay out as one column, two from `sm` up.
 

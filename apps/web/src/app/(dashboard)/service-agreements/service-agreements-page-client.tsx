@@ -4,7 +4,6 @@ import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconFileCheck,
-  IconPlus,
   IconCircleCheck,
   IconClock,
   IconAlertTriangle,
@@ -12,9 +11,9 @@ import {
   IconTrash,
   IconPower,
 } from "@tabler/icons-react";
-import { Button } from "@/components/ui/button";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
@@ -270,7 +269,7 @@ export function ServiceAgreementsPageClient({
     !loading && !hasAgreements && (!!search || !!statusFilter);
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -324,28 +323,25 @@ export function ServiceAgreementsPageClient({
       {/* Card wrapper — search + filters + table */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <StatusFilterTabs
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-              onChange={handleStatusFilterChange}
-            />
-            <div className="ml-auto flex items-center gap-2">
-              <SearchInput
-                value={search}
-                onChange={handleSearchChange}
-                placeholder="Search agreements..."
+          <ListToolbar
+            filters={
+              <StatusFilterTabs
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={handleStatusFilterChange}
               />
-              <Button
-                onClick={openCreateDialog}
-                size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
-              >
-                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                Add Agreement
-              </Button>
-            </div>
-          </div>
+            }
+            actions={
+              <>
+                <SearchInput
+                  value={search}
+                  onChange={handleSearchChange}
+                  placeholder="Search agreements..."
+                />
+                <ListToolbarCreateButton label="Add Agreement" onClick={openCreateDialog} />
+              </>
+            }
+          />
 
           {/* Loading skeleton */}
           {loading && (

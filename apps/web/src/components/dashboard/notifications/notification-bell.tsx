@@ -23,7 +23,11 @@ export function NotificationBell() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative h-10 w-10 sm:h-9 sm:w-9"
+        >
           <IconBell className="h-[18px] w-[18px]" stroke={1.5} />
           {unreadCount > 0 && (
             <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground">

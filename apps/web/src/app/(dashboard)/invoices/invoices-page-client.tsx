@@ -7,7 +7,6 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import {
-  IconPlus,
   IconFileInvoice,
   IconFileText,
   IconSend,
@@ -18,8 +17,8 @@ import {
   IconTrash,
   IconBan,
 } from "@tabler/icons-react";
-import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
@@ -377,7 +376,7 @@ export function InvoicesPageClient({
     !loading && !listError && !hasInvoices && (!!search || !!statusFilter || showingArchived);
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && !statsError && (
         <>
@@ -403,7 +402,9 @@ export function InvoicesPageClient({
                 {formatMoney(stats.outstanding)}
               </p>
             </div>
-            <div className="border-l border-border pl-4">
+            {/* The dividers only read as dividers while the three figures share
+                a line; wrapped on a phone they would stand at a row's start. */}
+            <div className="sm:border-l sm:border-border sm:pl-4">
               <p className="text-xs text-muted-foreground font-body">Overdue</p>
               <p
                 className={`font-heading text-lg font-semibold ${
@@ -416,7 +417,7 @@ export function InvoicesPageClient({
               </p>
             </div>
             {stats.partially_paid > 0 && (
-              <div className="border-l border-border pl-4">
+              <div className="sm:border-l sm:border-border sm:pl-4">
                 <p className="text-xs text-muted-foreground font-body">Partially paid</p>
                 <p className="font-heading text-lg font-semibold text-foreground">
                   {stats.partially_paid}
@@ -454,38 +455,40 @@ export function InvoicesPageClient({
       {/* Card wrapper — search + filters + table */}
       {!showEmptyState && !listError && (
         <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-            <StatusFilterTabs
-              options={VIEW_OPTIONS}
-              value={viewFilter}
-              onChange={setViewFilter}
-            />
-            {!showingArchived && (
-              <StatusFilterTabs
-                options={STATUS_OPTIONS}
-                value={statusFilter}
-                onChange={setStatusFilter}
-              />
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search invoices..."
-              />
-              {viewMounted && (
-                <ViewModeToggle value={viewMode} onChange={setViewMode} />
-              )}
-              <Button
-                onClick={() => setCreateDialogOpen(true)}
-                size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
-              >
-                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                New Invoice
-              </Button>
-            </div>
-          </div>
+          <ListToolbar
+            filters={
+              <>
+                <StatusFilterTabs
+                  options={VIEW_OPTIONS}
+                  value={viewFilter}
+                  onChange={setViewFilter}
+                />
+                {!showingArchived && (
+                  <StatusFilterTabs
+                    options={STATUS_OPTIONS}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                  />
+                )}
+              </>
+            }
+            actions={
+              <>
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search invoices..."
+                />
+                {viewMounted && (
+                  <ViewModeToggle value={viewMode} onChange={setViewMode} />
+                )}
+                <ListToolbarCreateButton
+                  label="New Invoice"
+                  onClick={() => setCreateDialogOpen(true)}
+                />
+              </>
+            }
+          />
 
           {loading && (
             <div className="p-4">

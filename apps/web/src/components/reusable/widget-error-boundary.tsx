@@ -43,8 +43,10 @@ export class WidgetErrorBoundary extends Component<
     if (!this.state.hasError) return this.props.children;
 
     return (
-      <div className="flex h-full min-h-[140px] flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-muted/10 p-6 text-center">
-        <IconAlertTriangle className="h-5 w-5 text-amber-500" aria-hidden />
+      <div className="flex h-full min-h-[140px] flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/10 p-6 text-center">
+        {/* The warning token, not amber-500. It is 2.15:1 on white by design, so
+            it only ever appears beside words, and this card has them. */}
+        <IconAlertTriangle className="h-5 w-5 text-status-warning" aria-hidden />
         <p className="mt-2 font-heading text-sm font-semibold text-foreground">
           {this.props.name} couldn&apos;t load
         </p>

@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function JobsLoading() {
   return (
-    <section className="px-5 pt-2.5 pb-0">
+    <section className="px-4 pt-3 pb-0 sm:px-5 sm:pt-2.5">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <Skeleton className="h-8 w-32" />

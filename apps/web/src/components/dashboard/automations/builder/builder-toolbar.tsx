@@ -39,7 +39,26 @@ import { cn } from "@/lib/utils";
  * An automation can be published and off, or edited and live-on-an-old-version.
  * Collapsing these into one "status" is how "why isn't it running" becomes a
  * support ticket.
+ *
+ * ## Below `md` the graph is view-only
+ *
+ * Undo, redo and Save go (`max-md:hidden`, in CSS, not on `readOnly`: that
+ * arrives a render after hydration and a wide screen would see the editing
+ * controls pop in). What stays is what works on a graph nobody can change:
+ * history, versions, Run once, the on/off switch and Publish. Publish stays on
+ * purpose: it changes nothing in the graph, it puts live a draft that was
+ * finished on a laptop, and doing that from the job site is the point of
+ * having the page on a phone at all.
+ *
+ * The width budget is deliberate. The sidebar takes 224px from `lg`, so a 1024px
+ * window has an 800px builder: one row there (and at 768px) needs the back link
+ * and Run once to be icon-only until `xl`, and "Unpublished changes" to shrink
+ * to its dot. A row that wraps costs the canvas a second toolbar of height.
  */
+
+/** Grows a 20px switch's hit area to 40px on a phone without growing the switch. */
+const SWITCH_TOUCH =
+  "relative before:absolute before:-inset-x-1 before:-inset-y-2.5 sm:before:hidden";
 
 interface Props {
   /** The automation's id — the Runs link is the only thing that needs it. */
@@ -60,6 +79,8 @@ interface Props {
   publishing: boolean;
   togglingActive: boolean;
   running: boolean;
+  /** The graph cannot be edited here, so the name is shown rather than offered. */
+  readOnly?: boolean;
 }
 
 export function BuilderToolbar({
@@ -78,6 +99,7 @@ export function BuilderToolbar({
   publishing,
   togglingActive,
   running,
+  readOnly = false,
 }: Props) {
   // Local draft so typing does not fire a mutation per keystroke; committed on
   // blur or Enter, abandoned on Escape.
@@ -110,10 +132,16 @@ export function BuilderToolbar({
 
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
-      <Button asChild variant="ghost" size="sm" className="font-body -ml-2">
-        <Link href="/automations">
-          <IconArrowLeft className="mr-1.5 h-4 w-4" />
-          <span className="hidden sm:inline">Automations</span>
+      <Button
+        asChild
+        variant="ghost"
+        size="sm"
+        className="font-body -ml-2 h-10 sm:h-8"
+      >
+        {/* Named for assistive tech because the word is hidden until `xl`. */}
+        <Link href="/automations" aria-label="Automations" title="Automations">
+          <IconArrowLeft className="h-4 w-4 xl:mr-1.5" />
+          <span className="hidden xl:inline">Automations</span>
         </Link>
       </Button>
 
@@ -137,12 +165,17 @@ export function BuilderToolbar({
           }
         }}
         maxLength={120}
+        readOnly={readOnly}
         aria-label="Automation name"
         placeholder={DEFAULT_WORKFLOW_NAME}
         className={cn(
-          "min-w-0 max-w-[22ch] rounded border border-transparent bg-transparent px-1.5 py-0.5",
-          "font-heading text-sm font-semibold outline-none transition-colors",
-          "hover:border-border focus:border-input focus:bg-background sm:max-w-[36ch]",
+          // On a phone the name takes whatever the row has left (the actions
+          // wrap beneath it), and is 16px so iOS does not zoom the page when it
+          // is tapped. From `sm` it goes back to its content-sized field.
+          "min-w-[9rem] max-w-none flex-1 rounded border border-transparent bg-transparent px-1.5 py-0.5",
+          "font-heading text-base font-semibold outline-none transition-colors",
+          "sm:min-w-0 sm:max-w-[36ch] sm:flex-none sm:text-sm",
+          !readOnly && "hover:border-border focus:border-input focus:bg-background",
           // Unnamed is a state worth seeing before Publish refuses. Amber, not
           // red: nothing is wrong yet.
           !isNamedWorkflow(draftName) && "text-muted-foreground",
@@ -192,16 +225,25 @@ export function BuilderToolbar({
       )}
 
       {unpublished && published && (
-        <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-body">
+        // The words give way to the dot from `md` to `xl`, where the editing
+        // controls are back and the row has no room for them; `title` names it
+        // for a pointer. Phones have the room (the row wraps), so they keep it.
+        <span
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-body"
+          title="Unpublished changes"
+        >
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />
-          Unpublished changes
+          <span className="md:max-xl:sr-only">Unpublished changes</span>
         </span>
       )}
 
       <div className="ml-auto flex items-center gap-1">
+        {/* Undo and redo go with the other editing controls below `md`. On the
+            wrapper rather than the button: the tooltip trigger is what owns the
+            layout box. */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex">
+            <span className="inline-flex max-md:hidden">
               <Button
                 variant="ghost"
                 size="icon"
@@ -219,7 +261,7 @@ export function BuilderToolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <span className="inline-flex">
+            <span className="inline-flex max-md:hidden">
               <Button
                 variant="ghost"
                 size="icon"
@@ -240,7 +282,12 @@ export function BuilderToolbar({
             the state this feature shipped in until the run history existed. */}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button asChild variant="ghost" size="icon" className="ml-1 h-8 w-8">
+            <Button
+              asChild
+              variant="ghost"
+              size="icon"
+              className="ml-1 h-10 w-10 sm:h-8 sm:w-8"
+            >
               <Link href={`/automations/${id}/runs`} aria-label="Run history">
                 <IconHistory className="h-4 w-4" />
               </Link>
@@ -258,7 +305,7 @@ export function BuilderToolbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-10 w-10 sm:h-8 sm:w-8"
                 disabled={!published}
                 onClick={onOpenVersions}
                 aria-label="Version history"
@@ -272,21 +319,25 @@ export function BuilderToolbar({
           </TooltipContent>
         </Tooltip>
 
+        {/* Icon-only until `xl` (the word costs 60px an 800px row does not
+            have), so it carries its own name. */}
         <Button
           variant="outline"
           size="sm"
-          className="font-body"
+          className="h-10 font-body sm:h-8"
           disabled={!published || running}
           onClick={onRun}
+          aria-label="Run once"
+          title="Run once"
         >
-          <IconPlayerPlay className="mr-1.5 h-3.5 w-3.5" />
-          <span className="hidden sm:inline">Run once</span>
+          <IconPlayerPlay className="h-3.5 w-3.5 xl:mr-1.5" />
+          <span className="hidden xl:inline">Run once</span>
         </Button>
 
         <Button
           variant="outline"
           size="sm"
-          className="font-body"
+          className="font-body max-md:hidden"
           disabled={!localDirty || saving}
           onClick={onSave}
         >
@@ -295,7 +346,7 @@ export function BuilderToolbar({
 
         <Button
           size="sm"
-          className="bg-brand text-brand-foreground hover:bg-brand/90 font-body"
+          className="bg-brand text-brand-foreground hover:bg-brand/90 font-body max-md:h-10"
           disabled={publishing}
           onClick={onPublish}
         >
@@ -314,6 +365,7 @@ export function BuilderToolbar({
                   disabled={!published || togglingActive}
                   onCheckedChange={onToggleActive}
                   aria-label={isActive ? "Switch off" : "Switch on"}
+                  className={SWITCH_TOUCH}
                 />
               </span>
             </TooltipTrigger>

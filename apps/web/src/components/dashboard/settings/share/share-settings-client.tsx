@@ -32,7 +32,7 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
       variant="outline"
       size="sm"
       onClick={handleCopy}
-      className={cn("shrink-0 gap-1.5", className)}
+      className={cn("h-10 shrink-0 gap-1.5 sm:h-8", className)}
     >
       {copied ? (
         <>
@@ -71,8 +71,8 @@ export function ShareSettingsClient({ slug, appUrl }: ShareSettingsClientProps) 
   return (
     <div className="space-y-6">
       {/* Direct Link */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-start gap-4">
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+        <div className="flex items-start gap-3 sm:gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950">
             <IconLink className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           </div>
@@ -115,8 +115,8 @@ export function ShareSettingsClient({ slug, appUrl }: ShareSettingsClientProps) 
       </div>
 
       {/* iFrame Embed */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-start gap-4">
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+        <div className="flex items-start gap-3 sm:gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-purple-50 dark:bg-purple-950">
             <IconBrandWix className="h-5 w-5 text-purple-600 dark:text-purple-400" />
           </div>
@@ -156,8 +156,8 @@ export function ShareSettingsClient({ slug, appUrl }: ShareSettingsClientProps) 
       </div>
 
       {/* Script Widget */}
-      <div className="rounded-xl border border-border bg-card p-6">
-        <div className="flex items-start gap-4">
+      <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
+        <div className="flex items-start gap-3 sm:gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orange-50 dark:bg-orange-950">
             <IconBrandWordpress className="h-5 w-5 text-orange-600 dark:text-orange-400" />
           </div>

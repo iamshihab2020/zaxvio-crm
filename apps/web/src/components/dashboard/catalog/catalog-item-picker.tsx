@@ -99,7 +99,7 @@ export function CatalogItemPicker({
           type="button"
           variant="outline"
           className={cn(
-            "h-9 w-full justify-between font-body",
+            "h-10 w-full justify-between font-body sm:h-9",
             !selectedId && "text-muted-foreground",
           )}
         >
@@ -123,7 +123,7 @@ export function CatalogItemPicker({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[320px] p-0" align="start">
+      <PopoverContent className="w-[min(320px,calc(100vw_-_2rem))] p-0" align="start">
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Search catalog..."

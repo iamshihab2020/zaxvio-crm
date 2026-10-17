@@ -9,7 +9,6 @@ import { queryKeys } from "@/lib/query-keys";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import {
-  IconPlus,
   IconFileText,
   IconSortDescending,
   IconSortAscending,
@@ -24,6 +23,7 @@ import {
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import {
   Popover,
@@ -322,7 +322,7 @@ export function QuotesPageClient({
 
   if (loadFailed) {
     return (
-      <section className="p-6">
+      <section className="p-4 sm:p-6">
         <LoadErrorState
           title="Couldn't load your quotes"
           message={quotesQuery.data?.error ?? undefined}
@@ -337,7 +337,7 @@ export function QuotesPageClient({
   }
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Empty state */}
       {showEmptyState && (
         <EmptyState
@@ -370,83 +370,93 @@ export function QuotesPageClient({
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* View toggle (Active/Archived) + Status tabs + search */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <StatusFilterTabs
-              options={VIEW_OPTIONS}
-              value={viewFilter}
-              onChange={(next) => {
-                // The status tabs are hidden while Archived is showing, so a
-                // status left applied here filters the list by a control the
-                // user can no longer see — which reads as "the filters don't
-                // work". Switching views clears it.
-                if (next === "archived") setStatusFilter("");
-                setViewFilter(next);
-              }}
-            />
-            {!showingArchived && (
-              <StatusFilterTabs
-                options={STATUS_OPTIONS}
-                value={statusFilter}
-                onChange={setStatusFilter}
-              />
-            )}
-            <div className="ml-auto flex items-center gap-2">
-              <SearchInput
-                value={search}
-                onChange={setSearch}
-                placeholder="Search quotes..."
-              />
-              <Popover open={sortPopoverOpen} onOpenChange={setSortPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5 cursor-pointer shrink-0"
-                  >
-                    {sortOrder === "desc" ? (
-                      <IconSortDescending className="h-4 w-4" />
-                    ) : (
-                      <IconSortAscending className="h-4 w-4" />
-                    )}
-                    <span className="hidden sm:inline text-xs font-body">
-                      {SORT_OPTIONS.find((s) => s.value === sortBy)?.label ?? "Sort"}
-                    </span>
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-48 p-1" align="end">
-                  {SORT_OPTIONS.map((opt) => (
+          <ListToolbar
+            filters={
+              <>
+                <StatusFilterTabs
+                  options={VIEW_OPTIONS}
+                  value={viewFilter}
+                  onChange={(next) => {
+                    // The status tabs are hidden while Archived is showing, so a
+                    // status left applied here filters the list by a control the
+                    // user can no longer see — which reads as "the filters don't
+                    // work". Switching views clears it.
+                    if (next === "archived") setStatusFilter("");
+                    setViewFilter(next);
+                  }}
+                />
+                {!showingArchived && (
+                  <StatusFilterTabs
+                    options={STATUS_OPTIONS}
+                    value={statusFilter}
+                    onChange={setStatusFilter}
+                  />
+                )}
+              </>
+            }
+            actions={
+              <>
+                <SearchInput
+                  value={search}
+                  onChange={setSearch}
+                  placeholder="Search quotes..."
+                />
+                {/* The sort trigger is icon-only below `sm` (its label is
+                    `hidden sm:inline`), so it is a 40px square there instead
+                    of a stretched pill. */}
+                <Popover open={sortPopoverOpen} onOpenChange={setSortPopoverOpen}>
+                  <PopoverTrigger asChild>
                     <Button
-                      key={opt.value}
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => {
-                        if (sortBy === opt.value) {
-                          setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
-                        } else {
-                          setSortBy(opt.value);
-                          setSortOrder("desc");
-                        }
-                        setSortPopoverOpen(false);
-                      }}
-                      className="w-full justify-between font-body"
+                      className="h-10 w-10 shrink-0 cursor-pointer gap-1.5 px-0 sm:h-8 sm:w-auto sm:px-3"
                     >
-                      <span>{opt.label}</span>
-                      {sortBy === opt.value && (
-                        <IconCheck className="h-3.5 w-3.5 text-brand-ink" />
+                      {sortOrder === "desc" ? (
+                        <IconSortDescending className="h-4 w-4" />
+                      ) : (
+                        <IconSortAscending className="h-4 w-4" />
                       )}
+                      <span className="sr-only sm:hidden">Sort quotes</span>
+                      <span className="hidden sm:inline text-xs font-body">
+                        {SORT_OPTIONS.find((s) => s.value === sortBy)?.label ?? "Sort"}
+                      </span>
                     </Button>
-                  ))}
-                </PopoverContent>
-              </Popover>
-              {viewMounted && (
-                <ViewModeToggle value={viewMode} onChange={setViewMode} />
-              )}
-              <Button onClick={() => setCreateDialogOpen(true)} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                New Quote
-              </Button>
-            </div>
-          </div>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-48 p-1" align="end">
+                    {SORT_OPTIONS.map((opt) => (
+                      <Button
+                        key={opt.value}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (sortBy === opt.value) {
+                            setSortOrder((o) => (o === "asc" ? "desc" : "asc"));
+                          } else {
+                            setSortBy(opt.value);
+                            setSortOrder("desc");
+                          }
+                          setSortPopoverOpen(false);
+                        }}
+                        className="w-full justify-between font-body"
+                      >
+                        <span>{opt.label}</span>
+                        {sortBy === opt.value && (
+                          <IconCheck className="h-3.5 w-3.5 text-brand-ink" />
+                        )}
+                      </Button>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+                {viewMounted && (
+                  <ViewModeToggle value={viewMode} onChange={setViewMode} />
+                )}
+                <ListToolbarCreateButton
+                  label="New Quote"
+                  onClick={() => setCreateDialogOpen(true)}
+                />
+              </>
+            }
+          />
 
           {/* Loading skeleton */}
           {loading && (

@@ -202,7 +202,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
         title="Business Logo"
         description="Your logo appears on invoices, quotes, emails, and your booking page."
       >
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4 sm:gap-6">
           {/* Preview */}
           <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 border-dashed border-border bg-muted/50">
             {logoPreview ? (
@@ -219,8 +219,8 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
           </div>
 
           {/* Actions */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -265,7 +265,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
         description="Your business details appear on invoices, quotes, and customer communications."
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="businessName" className="font-body">
                 Business Name
@@ -290,7 +290,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="bizEmail" className="font-body">
                 Email
@@ -328,7 +328,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
             />
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label htmlFor="city" className="font-body">
                 City
@@ -371,7 +371,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
         title="Defaults & Integrations"
         description="Configure default values and third-party integrations."
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="defaultTaxRate" className="font-body">
               Default Tax Rate (%)
@@ -427,7 +427,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
       <div className="flex justify-end">
         <Button
           type="submit"
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
+          className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-9"
           disabled={!hasChanges || saving}
         >
           {saving ? "Saving..." : "Save Changes"}

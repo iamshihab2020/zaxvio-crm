@@ -56,6 +56,12 @@ export type AutomationNodeData = {
   connectedHandles: string[];
   /** More than one means a join, which the node has to explain (N-8). */
   incomingCount: number;
+  /**
+   * The canvas is view-only (a phone). Drops the `+` on open outputs: it is the
+   * one control on a node that edits the graph, and the canvas's other
+   * read-only switches (no dragging, no connecting) do not reach it.
+   */
+  readOnly: boolean;
   onAddFromHandle: (handleId: string) => void;
 };
 
@@ -175,7 +181,7 @@ function AutomationNodeComponent({ data, selected }: NodeProps<AutomationFlowNod
                 {/* H-1: a `+` on every UNCONNECTED output. People build by
                     clicking, not by dragging a wire into empty space — the
                     single highest-return affordance in the builder. */}
-                {!connected && (
+                {!connected && !data.readOnly && (
                   <button
                     type="button"
                     onClick={(event) => {
@@ -297,6 +303,7 @@ export const AutomationNode = memo(AutomationNodeComponent, (prev, next) => {
     prev.data.label === next.data.label &&
     prev.data.nodeType === next.data.nodeType &&
     prev.data.disabled === next.data.disabled &&
+    prev.data.readOnly === next.data.readOnly &&
     prev.data.summary === next.data.summary &&
     prev.data.incomingCount === next.data.incomingCount &&
     prev.data.missingFields.join("|") === next.data.missingFields.join("|") &&

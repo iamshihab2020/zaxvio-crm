@@ -40,6 +40,20 @@ interface Pagination {
   totalPages: number;
 }
 
+// Secondary columns step in with the width, as `automations-table.tsx` does.
+// Written out whole so Tailwind can see them.
+const COLUMN_FROM_MD = "hidden md:table-cell";
+const COLUMN_FROM_XL = "hidden xl:table-cell";
+// One entry per column, in order, for the loading rows.
+const SKELETON_COLUMN_CLASSES = [
+  "",
+  COLUMN_FROM_MD,
+  COLUMN_FROM_MD,
+  "",
+  "",
+  COLUMN_FROM_XL,
+];
+
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -92,7 +106,7 @@ export function TenantsPageClient({
   };
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Card wrapper */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Search bar */}
@@ -111,24 +125,29 @@ export function TenantsPageClient({
           </Badge>
         </div>
 
-        {/* Table */}
+        {/* Table. Below `md` it keeps Business, Status and MRR; Owner and Plan
+            fold under the business name. The sign-up date waits for `xl`: all
+            six columns are about 740px and the content area at `lg` is 736px
+            (it is on the tenant's page either way). The skeleton cells hide
+            with the same classes, or six of them would make the loading table
+            wider than the real one. */}
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="font-body">Business</TableHead>
-              <TableHead className="font-body">Owner</TableHead>
-              <TableHead className="font-body">Plan</TableHead>
+              <TableHead className={`font-body ${COLUMN_FROM_MD}`}>Owner</TableHead>
+              <TableHead className={`font-body ${COLUMN_FROM_MD}`}>Plan</TableHead>
               <TableHead className="font-body">Status</TableHead>
               <TableHead className="font-body text-right">MRR</TableHead>
-              <TableHead className="font-body">Signed Up</TableHead>
+              <TableHead className={`font-body ${COLUMN_FROM_XL}`}>Signed Up</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <TableCell key={j}>
+                  {SKELETON_COLUMN_CLASSES.map((columnClass, j) => (
+                    <TableCell key={j} className={columnClass}>
                       <div className="h-4 w-24 animate-pulse rounded bg-muted" />
                     </TableCell>
                   ))}
@@ -152,14 +171,20 @@ export function TenantsPageClient({
                 >
                   <TableCell className="font-medium font-body text-foreground">
                     {tenant.businessName}
+                    <p className="mt-0.5 text-xs font-normal text-muted-foreground md:hidden">
+                      {tenant.ownerName}
+                      {tenant.planName && (
+                        <span className="capitalize"> · {tenant.planName}</span>
+                      )}
+                    </p>
                   </TableCell>
-                  <TableCell className="font-body text-muted-foreground">
+                  <TableCell className={`font-body text-muted-foreground ${COLUMN_FROM_MD}`}>
                     <div>
                       <p className="text-sm">{tenant.ownerName}</p>
                       <p className="text-xs text-muted-foreground">{tenant.email}</p>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className={COLUMN_FROM_MD}>
                     <Badge variant="outline" className="font-body text-xs capitalize">
                       {tenant.planName ?? "—"}
                     </Badge>
@@ -173,7 +198,7 @@ export function TenantsPageClient({
                   <TableCell className="text-right font-heading font-semibold text-sm">
                     {formatCurrency(tenant.mrr)}
                   </TableCell>
-                  <TableCell className="font-body text-sm text-muted-foreground">
+                  <TableCell className={`font-body text-sm text-muted-foreground ${COLUMN_FROM_XL}`}>
                     {formatDate(tenant.createdAt)}
                   </TableCell>
                 </TableRow>
@@ -193,6 +218,7 @@ export function TenantsPageClient({
             <Button
               variant="outline"
               size="sm"
+              className="max-sm:h-10"
               disabled={pagination.page <= 1}
               onClick={() => fetchTenants({ page: pagination.page - 1 })}
             >
@@ -201,6 +227,7 @@ export function TenantsPageClient({
             <Button
               variant="outline"
               size="sm"
+              className="max-sm:h-10"
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => fetchTenants({ page: pagination.page + 1 })}
             >

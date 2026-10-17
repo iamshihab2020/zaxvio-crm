@@ -2,7 +2,7 @@ import { DashboardSkeleton } from "@/components/dashboard/home/dashboard-skeleto
 
 export default function DashboardLoading() {
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       <DashboardSkeleton />
     </section>
   );

@@ -92,7 +92,7 @@ export function EditAdminTierDialog({
               Admin Tier
             </Label>
             <Select value={tier} onValueChange={setTier}>
-              <SelectTrigger className="font-body">
+              <SelectTrigger className="font-body max-sm:h-10">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -127,7 +127,7 @@ export function EditAdminTierDialog({
             <p className="text-sm text-destructive font-body">{error}</p>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="max-sm:[&>button]:h-10">
           <Button
             variant="outline"
             onClick={() => handleOpenChange(false)}

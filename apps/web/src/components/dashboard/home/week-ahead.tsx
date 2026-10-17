@@ -10,11 +10,13 @@ import {
   parseISO,
 } from "date-fns";
 import type { DashboardAgenda } from "@hvac-saas/types";
+import { Card } from "@/components/ui/card";
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@/components/ui/hover-card";
+import { WidgetHeader, WidgetLink } from "./widget-header";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { cn } from "@/lib/utils";
 
@@ -114,56 +116,53 @@ export function WeekAhead({ agenda }: WeekAheadProps) {
   const openDays = days.filter((d) => d.total === 0).length;
 
   return (
-    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-heading text-sm font-semibold text-foreground">
-              Week Ahead
-            </h3>
-            <WidgetWindowBadge
-              label={days.length > 0 ? `Next ${days.length} days` : "Next 7 days"}
-            />
-          </div>
-          <p className="mt-1 text-[11px] font-body text-muted-foreground">
-            {total === 0
-              ? "Nothing booked yet — every day is open."
-              : busiest
-                ? `${total} scheduled · busiest ${format(busiest.date, "EEEE")} with ${busiest.total}${
-                    openDays > 0
-                      ? ` · ${openDays} open ${openDays === 1 ? "day" : "days"}`
-                      : ""
-                  }`
-                : `${total} scheduled`}
-          </p>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <Legend />
-          <Link
-            href="/schedule"
-            className="whitespace-nowrap rounded text-[11px] font-body text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            View schedule →
-          </Link>
-        </div>
-      </div>
+    <Card className="p-4 sm:p-6">
+      <WidgetHeader
+        title="Week Ahead"
+        badge={
+          <WidgetWindowBadge
+            label={days.length > 0 ? `Next ${days.length} days` : "Next 7 days"}
+          />
+        }
+        action={<WidgetLink href="/schedule">Schedule →</WidgetLink>}
+      />
+      <p className="mt-1 text-[11px] font-body text-muted-foreground">
+        {total === 0
+          ? "Nothing booked yet — every day is open."
+          : busiest
+            ? `${total} scheduled · busiest ${format(busiest.date, "EEEE")} with ${busiest.total}${
+                openDays > 0
+                  ? ` · ${openDays} open ${openDays === 1 ? "day" : "days"}`
+                  : ""
+              }`
+            : `${total} scheduled`}
+      </p>
 
       {/* `grid-flow-col auto-cols-fr` so the column count follows the window
-          rather than a hardcoded seven.
+          rather than a hardcoded seven. On a 343px phone that is eight columns
+          of about 35px, which is why the gap is 4px there and why the labels
+          inside them are three letters and a bare figure.
 
           Not `aria-hidden`, unlike the SVG charts elsewhere on this page: every
           column is a link, and hiding focusable content from assistive tech
           while leaving it in the tab order is worse than no chart at all. The
           bars themselves are hidden per column and each link carries the same
-          numbers as a label, so there is no separate table to keep in sync. */}
-      <div className="mt-5 grid auto-cols-fr grid-flow-col gap-2 sm:gap-3">
+          numbers as a label, so there is no separate table to keep in sync. The
+          label is also what a phone user has, since a hover card never opens
+          on touch. */}
+      <div className="mt-5 grid auto-cols-fr grid-flow-col gap-1 sm:gap-2">
         {days.map((day) => (
           <DayColumn key={day.key} day={day} peak={peak} />
         ))}
       </div>
 
-    </div>
+      {/* Below the bars, not beside the title: with the badge and the link
+          already in the header, a third group there ran past the card's edge
+          on a phone. */}
+      <div className="mt-4">
+        <Legend />
+      </div>
+    </Card>
   );
 }
 
@@ -179,7 +178,7 @@ function dayLabel(day: DayLoad): string {
 
 function Legend() {
   return (
-    <ul className="flex items-center gap-3">
+    <ul className="flex flex-wrap items-center gap-x-4 gap-y-1">
       {SERIES.map((s) => (
         <li key={s.key} className="flex items-center gap-1.5">
           <span
@@ -210,8 +209,8 @@ function DayColumn({ day, peak }: { day: DayLoad; peak: number }) {
           href="/schedule"
           aria-label={dayLabel(day)}
           className={cn(
-            "group flex flex-col items-center gap-2 rounded-xl border border-transparent px-1 py-2 transition-colors",
-            "hover:border-border hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "group flex flex-col items-center gap-2 rounded-md border border-transparent px-0.5 py-2 transition-colors",
+            "hover:border-border hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
             day.isToday && "border-brand/30 bg-brand/[0.06]",
           )}
         >
@@ -250,11 +249,26 @@ function DayColumn({ day, peak }: { day: DayLoad; peak: number }) {
                 day.isToday ? "text-brand-ink" : "text-muted-foreground",
               )}
             >
-              {day.isToday ? "Today" : format(day.date, "EEE")}
+              {day.isToday ? (
+                <>
+                  {/* "Today" is five letters of 10px mono, about 33px, and a
+                      column is only that wide when the card has room. On a
+                      phone (eight columns in 343px) and at `xl`, where this
+                      card is a third of the page, it would spill over its
+                      neighbours, so those widths keep the weekday and let the
+                      tinted column and orange label mark the day instead. */}
+                  <span className="sm:hidden xl:inline 2xl:hidden">
+                    {format(day.date, "EEE")}
+                  </span>
+                  <span className="hidden sm:inline xl:hidden 2xl:inline">Today</span>
+                </>
+              ) : (
+                format(day.date, "EEE")
+              )}
             </span>
             <span
               className={cn(
-                "tnum font-heading text-sm font-semibold leading-none",
+                "tnum font-mono text-xs font-medium leading-none",
                 day.total > 0 ? "text-foreground" : "text-muted-foreground/50",
               )}
             >
@@ -287,7 +301,7 @@ function DayColumn({ day, peak }: { day: DayLoad; peak: number }) {
                   />
                   {s.label}
                 </span>
-                <span className="tnum font-medium text-foreground">
+                <span className="tnum font-mono font-medium text-foreground">
                   {day.counts[s.key]}
                 </span>
               </li>

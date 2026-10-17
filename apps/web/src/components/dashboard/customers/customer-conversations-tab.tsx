@@ -131,7 +131,7 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
         <p className="text-xs text-muted-foreground mt-1 mb-4">
           Start an email conversation with this customer
         </p>
-        <Button size="sm" onClick={handleStartConversation} disabled={isCreating}>
+        <Button size="sm" onClick={handleStartConversation} disabled={isCreating} className="h-10 sm:h-8">
           <IconMail className="h-4 w-4 mr-1.5" />
           Start Email Conversation
         </Button>
@@ -141,7 +141,7 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
 
   // ── Chat UI ──────────────────────────────────────────────────────────────
   return (
-    <div className="flex flex-col rounded-lg border border-border overflow-hidden" style={{ height: 520 }}>
+    <div className="flex h-[520px] max-h-[75dvh] flex-col rounded-lg border border-border overflow-hidden">
       {/* Conversation selector — shown when multiple threads exist */}
       {convos.length > 1 && (
         <div className="flex gap-1.5 items-center overflow-x-auto px-3 py-2 border-b border-border bg-muted/30 shrink-0">
@@ -149,7 +149,7 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
             <button
               key={c.id}
               onClick={() => selectConversation(c)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 transition-colors ${
+              className={`flex min-h-10 items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium shrink-0 transition-colors sm:min-h-0 ${
                 activeConvo?.id === c.id
                   ? "bg-brand text-brand-foreground"
                   : "bg-muted text-muted-foreground hover:text-foreground"
@@ -167,7 +167,7 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
           <button
             onClick={handleStartConversation}
             disabled={isCreating}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground bg-muted shrink-0 transition-colors"
+            className="flex min-h-10 items-center gap-1 px-2.5 py-1 rounded-full text-xs text-muted-foreground hover:text-foreground bg-muted shrink-0 transition-colors sm:min-h-0"
           >
             {/* The label says it is working; the button is disabled meanwhile. */}
             {isCreating ? (

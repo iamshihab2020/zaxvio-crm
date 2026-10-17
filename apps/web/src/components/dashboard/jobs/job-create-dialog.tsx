@@ -52,7 +52,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useViewPreference } from "@/hooks/use-view-preference";
+import { useViewPreference, getSheetWidth } from "@/hooks/use-view-preference";
 import {
   SERVICE_TYPES,
   SERVICE_TYPE_LABELS,
@@ -476,7 +476,7 @@ export function JobCreateDialog({
 
   /* ── Header ── */
   const header = (
-    <div className="flex items-center justify-between px-6 pt-5 pb-3">
+    <div className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-3">
       <div className="flex items-center gap-3">
         <div className={cn(
           "flex items-center justify-center h-9 w-9 rounded-lg",
@@ -523,7 +523,7 @@ export function JobCreateDialog({
     <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
       <ScrollFadeArea className="flex-1">
         <div className={cn(
-          "px-6 pb-4",
+          "px-4 pb-4 sm:px-6",
           !isSidebar && !isEditing
             ? "lg:grid lg:grid-cols-[1fr_280px] lg:gap-6"
             : "space-y-5",
@@ -994,7 +994,7 @@ export function JobCreateDialog({
       </ScrollFadeArea>
 
       {/* ── Footer ── */}
-      <div className="flex items-center justify-between px-6 pb-5 pt-3 border-t border-border">
+      <div className="flex items-center justify-between px-4 sm:px-6 pb-5 pt-3 border-t border-border">
         <p className="text-[0.65rem] text-muted-foreground/50 hidden sm:block">
           Press <kbd className="px-1 py-0.5 rounded bg-muted text-[0.6rem] font-mono">Enter</kbd> to save
         </p>
@@ -1025,15 +1025,18 @@ export function JobCreateDialog({
   );
 
   if (isSidebar) {
+    const sheetWidth = getSheetWidth(liveSidebarWidth);
+
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="right"
-          className="p-0 overflow-hidden flex flex-col w-full"
-          style={{ maxWidth: liveSidebarWidth, width: "100%" }}
+          className={cn("p-0 overflow-hidden flex flex-col", sheetWidth.className)}
+          style={sheetWidth.style}
         >
+          {/* Mouse-only resize edge; below md the sheet is the whole screen. */}
           <div
-            className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize z-10 group"
+            className="absolute left-0 top-0 bottom-0 hidden w-1.5 cursor-col-resize z-10 group md:block"
             onMouseDown={handleDragStart}
           >
             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-transparent group-hover:bg-brand/40 transition-colors" />

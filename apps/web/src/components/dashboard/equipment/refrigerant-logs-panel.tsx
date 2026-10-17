@@ -115,7 +115,7 @@ export function RefrigerantLogsPanel({
           variant="ghost"
           size="sm"
           onClick={() => setDialogOpen(true)}
-          className="h-7 text-xs"
+          className="h-10 text-xs sm:h-7"
         >
           <IconPlus className="h-3.5 w-3.5 mr-1" />
           Add Log

@@ -42,6 +42,11 @@ export type AutomationEdgeData = {
   onDelete: (edgeId: string) => void;
   /** The source handle's display label. Only set on multi-output steps. */
   branchLabel?: string | null;
+  /**
+   * The canvas is view-only (a phone). The insert/delete pill is dropped; the
+   * wire itself still highlights when tapped, so it can be traced.
+   */
+  readOnly?: boolean;
 };
 
 export type AutomationFlowEdge = Edge<AutomationEdgeData, "automation">;
@@ -74,7 +79,8 @@ function AutomationEdgeComponent({
   const branchLabel = data?.branchLabel;
   // Selected keeps the controls up so they can be clicked without holding the
   // pointer steady on a 1px line; hover is what makes them discoverable.
-  const showControls = hovered || !!selected;
+  const highlighted = hovered || !!selected;
+  const showControls = highlighted && !data?.readOnly;
 
   return (
     <>
@@ -92,10 +98,10 @@ function AutomationEdgeComponent({
         id={id}
         path={path}
         style={{
-          strokeWidth: showControls ? 2 : 1.25,
+          strokeWidth: highlighted ? 2 : 1.25,
           // The tokens are raw HSL triplets, so they need wrapping — a bare
           // `var(--border)` is not a colour and the wire renders black.
-          stroke: showControls ? "hsl(var(--brand))" : "hsl(var(--border))",
+          stroke: highlighted ? "hsl(var(--brand))" : "hsl(var(--border))",
           transition: "stroke 120ms, stroke-width 120ms",
         }}
       />

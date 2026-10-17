@@ -8,7 +8,8 @@ import type {
   Pipeline,
 } from "@hvac-saas/types";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Card } from "@/components/ui/card";
+import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ import {
   categoricalColor,
 } from "@/lib/constants/chart-palette";
 import { cn } from "@/lib/utils";
+import { WidgetHeader } from "./widget-header";
 
 interface JobsManagementPanelProps {
   /** Default-pipeline distribution that came with the main dashboard payload. */
@@ -40,6 +42,12 @@ interface JobsManagementPanelProps {
 }
 
 type Segment = "status" | "priority" | "service";
+
+const SEGMENT_OPTIONS: { value: Segment; label: string }[] = [
+  { value: "status", label: "Status" },
+  { value: "priority", label: "Priority" },
+  { value: "service", label: "Service" },
+];
 
 /** The folded tail of the service segment. Not a service type, so it links unfiltered. */
 const OTHER_BUCKET = "__other";
@@ -135,103 +143,109 @@ export function JobsManagementPanel({
   const selectValue = pipelineId ?? defaultPipelineId;
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="whitespace-nowrap font-heading text-sm font-semibold text-foreground">
-          Jobs Management
-        </h3>
-        <div className="flex items-center gap-2">
-          {pipelines.length > 0 && (
-            <Select
-              value={selectValue}
-              onValueChange={(v) => onPipelineChange(v || null)}
-            >
-              <SelectTrigger className="h-7 w-auto max-w-[160px] rounded-full border-border/60 bg-muted/40 px-3 text-xs">
-                <SelectValue placeholder="Pipeline" />
-              </SelectTrigger>
-              <SelectContent align="end">
-                {pipelines.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="text-xs">
-                    {p.label ?? p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <span
-            className={cn(
-              "whitespace-nowrap text-xs font-body text-muted-foreground transition-opacity",
-              isPipelineFetching && "opacity-50",
+    <Card className="flex h-full flex-col p-4 sm:p-6">
+      <WidgetHeader
+        title="Jobs Management"
+        action={
+          <>
+            {pipelines.length > 0 && (
+              <Select
+                value={selectValue}
+                onValueChange={(v) => onPipelineChange(v || null)}
+              >
+                <SelectTrigger className="h-9 w-auto max-w-[160px] px-3 text-xs sm:h-7">
+                  <SelectValue placeholder="Pipeline" />
+                </SelectTrigger>
+                <SelectContent align="end">
+                  {pipelines.map((p) => (
+                    <SelectItem key={p.id} value={p.id} className="text-xs">
+                      {p.label ?? p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
-          >
-            {total} total
-          </span>
-        </div>
+            <span
+              className={cn(
+                "whitespace-nowrap text-xs font-body text-muted-foreground transition-opacity",
+                isPipelineFetching && "opacity-50",
+              )}
+            >
+              <span className="tnum font-mono">{total}</span> total
+            </span>
+          </>
+        }
+      />
+
+      <div role="group" aria-label="Group jobs by" className="mt-3">
+        <StatusFilterTabs
+          options={SEGMENT_OPTIONS}
+          value={segment}
+          onChange={(v) => {
+            const next = SEGMENT_OPTIONS.find((o) => o.value === v);
+            if (next) setSegment(next.value);
+          }}
+          fullWidthOnMobile
+        />
       </div>
 
-      <Tabs
-        value={segment}
-        onValueChange={(v) => setSegment(v as Segment)}
-        className="mt-3 flex flex-1 flex-col"
-      >
-        <TabsList className="h-8 bg-muted/40">
-          <TabsTrigger value="status" className="text-xs">Status</TabsTrigger>
-          <TabsTrigger value="priority" className="text-xs">Priority</TabsTrigger>
-          <TabsTrigger value="service" className="text-xs">Service</TabsTrigger>
-        </TabsList>
-        <TabsContent value={segment} className="mt-4 min-h-0 flex-1 overflow-y-auto">
-          {/*
-            A donut with a legend, not a 2x2 grid of count tiles.
+      <div className="mt-4 min-h-0 flex-1 overflow-y-auto">
+        {/*
+          A donut with a legend, not a 2x2 grid of count tiles.
 
-            The tiles were the wrong chart for the question. This data is a
-            composition — how the 19 jobs split across four states — and four
-            separate numbers make the reader do the division themselves. A ring
-            shows the split at a glance and keeps the total in the middle, and
-            because it is one fixed-size object plus a list, it fills the card
-            at any height instead of leaving a hole under a short grid.
-          */}
-          {buckets.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center text-xs font-body text-muted-foreground">
-              No data in current range.
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-5 sm:flex-row sm:gap-6">
-              <BucketDonut buckets={buckets} total={total} />
+          The tiles were the wrong chart for the question. This data is a
+          composition — how the 19 jobs split across four states — and four
+          separate numbers make the reader do the division themselves. A ring
+          shows the split at a glance and keeps the total in the middle, and
+          because it is one fixed-size object plus a list, it fills the card
+          at any height instead of leaving a hole under a short grid.
+        */}
+        {buckets.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border bg-muted/10 p-4 text-center text-xs font-body text-muted-foreground sm:p-6">
+            No data in current range.
+          </div>
+        ) : (
+          /* Wraps instead of switching at `sm`: this card is full width on a
+             phone and a tablet but only ~280px inside once the dashboard goes
+             two-up, and beside a 132px ring that leaves a legend row about 17px
+             for its label. The legend needs ~190px, so it sits beside the ring
+             when there is room and drops below it when there is not. */
+          <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6">
+            <BucketDonut buckets={buckets} total={total} />
 
-              <ul className="w-full min-w-0 flex-1 space-y-0.5">
-                {buckets.map((b) => {
-                  const pct = total > 0 ? Math.round((b.count / total) * 100) : 0;
-                  return (
-                    <li key={b.key}>
-                      <Link
-                        href={bucketHref(segment, b.key, pipelineId)}
-                        aria-label={`${b.label}: ${b.count} jobs, ${pct}% of ${total}`}
-                        className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 transition-colors hover:bg-brand/5"
-                      >
-                        <span
-                          aria-hidden
-                          className="h-2 w-2 shrink-0 rounded-full"
-                          style={{ backgroundColor: b.color }}
-                        />
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-body text-muted-foreground">
-                          {b.label}
-                        </span>
-                        <span className="tnum shrink-0 font-heading text-[15px] font-semibold text-foreground">
-                          {b.count}
-                        </span>
-                        <span className="tnum w-9 shrink-0 text-right font-mono text-[10px] text-muted-foreground">
-                          {pct}%
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
-    </div>
+            <ul className="min-w-0 grow basis-[12rem] space-y-0.5">
+              {buckets.map((b) => {
+                const pct = total > 0 ? Math.round((b.count / total) * 100) : 0;
+                return (
+                  <li key={b.key}>
+                    <Link
+                      href={bucketHref(segment, b.key, pipelineId)}
+                      aria-label={`${b.label}: ${b.count} jobs, ${pct}% of ${total}`}
+                      className="flex min-h-10 items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-brand/5 sm:min-h-0"
+                    >
+                      <span
+                        aria-hidden
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: b.color }}
+                      />
+                      <span className="min-w-0 flex-1 truncate text-sm font-body text-muted-foreground">
+                        {b.label}
+                      </span>
+                      <span className="tnum shrink-0 font-mono text-sm font-medium text-foreground">
+                        {b.count}
+                      </span>
+                      <span className="tnum w-9 shrink-0 text-right font-mono text-[10px] text-muted-foreground">
+                        {pct}%
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+      </div>
+    </Card>
   );
 }
 

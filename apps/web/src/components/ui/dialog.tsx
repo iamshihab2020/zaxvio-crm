@@ -73,8 +73,14 @@ const DialogContent = React.forwardRef<
       <DialogOverlay />
       <DialogPrimitive.Content ref={ref} asChild {...props}>
         <motion.div
+          /* Inset 1rem from the screen edge and capped to it, scrolling inside
+             when a form is taller. `dvh` rather than `vh`: on a phone `vh` is
+             the screen with the browser bars retracted, so a tall form's footer
+             sat under them. A caller's own `max-h-*` / `overflow-*` / `w-*`
+             wins (tailwind-merge); the template gallery and the create
+             dialogs set theirs. */
           className={cn(
-            "fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg gap-4 border bg-background p-6 shadow-2xl sm:rounded-lg",
+            "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-2xl",
             className,
           )}
           style={{ x: "-50%", y: "-50%" }}

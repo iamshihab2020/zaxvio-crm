@@ -55,19 +55,19 @@ export function BusinessSettingsClient({ initialTenant }: BusinessSettingsClient
   if (loading) {
     return (
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2 rounded-lg border bg-card p-6">
+        <div className="lg:col-span-2 rounded-lg border bg-card p-4 sm:p-6">
           <Skeleton className="mb-4 h-6 w-40" />
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
             </div>
             <Skeleton className="h-10 w-full" />
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-10 w-full" />
@@ -75,7 +75,7 @@ export function BusinessSettingsClient({ initialTenant }: BusinessSettingsClient
           </div>
         </div>
         <div className="space-y-4">
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-lg border bg-card p-4 sm:p-6">
             <Skeleton className="mb-3 h-5 w-32" />
             <div className="space-y-3">
               <Skeleton className="h-4 w-full" />

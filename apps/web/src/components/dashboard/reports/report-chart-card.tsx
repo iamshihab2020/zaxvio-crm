@@ -45,7 +45,7 @@ export function ReportChartCard({
 }: ReportChartCardProps) {
   return (
     <Card className={cn("h-full", className)}>
-      <CardHeader className="pb-2">
+      <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
         <CardTitle className="font-heading text-sm font-semibold">
           {title}
         </CardTitle>
@@ -55,7 +55,7 @@ export function ReportChartCard({
           </CardDescription>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
         <WidgetErrorBoundary name={title}>
           {dataTable ? (
             <>

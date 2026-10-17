@@ -149,7 +149,7 @@ export function CustomerEquipmentTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground font-body">
           {/* Says so when the list is capped, instead of presenting the first
               100 as though they were all of them (CUST-15). */}
@@ -160,7 +160,7 @@ export function CustomerEquipmentTab({
         <Button
           size="sm"
           onClick={openCreateDialog}
-          className="bg-brand text-brand-foreground hover:bg-brand/90"
+          className="h-10 shrink-0 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
         >
           <IconPlus className="h-4 w-4 mr-1" />
           Add Asset

@@ -32,7 +32,7 @@ export function ViewModeToggle({ value, onChange, className }: ViewModeTogglePro
     <TooltipProvider delayDuration={300}>
       <div
         className={cn(
-          "flex items-center gap-0.5 rounded-md border border-border p-0.5",
+          "flex shrink-0 items-center gap-0.5 rounded-md border border-border p-0.5",
           className,
         )}
       >
@@ -45,7 +45,9 @@ export function ViewModeToggle({ value, onChange, className }: ViewModeTogglePro
                 size="icon"
                 onClick={() => onChange(mode)}
                 className={cn(
-                  "h-7 w-7 rounded-sm",
+                  // 40px on a phone (the whole control is ~130px, which a
+                  // 311px toolbar row holds), 28px from `sm`.
+                  "h-10 w-10 rounded-sm sm:h-7 sm:w-7",
                   value === mode
                     ? "bg-muted text-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-muted/50",

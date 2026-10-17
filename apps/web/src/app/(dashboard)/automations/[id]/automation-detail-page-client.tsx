@@ -20,6 +20,7 @@ import {
   useRunWorkflow,
 } from "@/hooks/queries";
 import { useBuilderStore } from "@/lib/workflow/store";
+import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
 import type { WorkflowDetail, WorkflowValidation } from "@/actions/workflows";
 
 /**
@@ -56,6 +57,18 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
 
   const [validation, setValidation] = useState<WorkflowValidation | null>(null);
   const [versionsOpen, setVersionsOpen] = useState(false);
+
+  /**
+   * Below 768px the graph can be looked at but not changed (§8.12).
+   *
+   * `false` while hydrating, so a wide screen starts out "read-only" for one
+   * commit. Nothing it gates is visible in that commit: the canvas is a dynamic
+   * import that has not arrived, the palette is not mounted yet (and mounts
+   * closed, at zero width), and no step is selected. Anything that WOULD show —
+   * the toolbar's editing buttons — is hidden by CSS at the same breakpoint
+   * instead.
+   */
+  const readOnly = !useMediaQuery(MEDIA.md);
 
   const detail = query.data?.data ?? initialDetail;
   const loadError = query.isError
@@ -108,7 +121,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
 
   if (loadError || !detail) {
     return (
-      <section className="p-6">
+      <section className="p-4 sm:p-6">
         <LoadErrorState
           title="Couldn't load this automation"
           message={loadError}
@@ -215,6 +228,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
           publishing={publishMutation.isPending || saveMutation.isPending}
           togglingActive={activeMutation.isPending}
           running={runMutation.isPending}
+          readOnly={readOnly}
         />
 
         {/* S-5: an automation that is published and switched off must say so
@@ -232,25 +246,33 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
         {/* §8.12: below 768px the builder is view-only. A node-graph editor on a
             phone is a bad experience users blame on the product, so it is not
             offered — but the graph is still readable, which is what someone on a
-            phone actually wants. */}
+            phone actually wants. Steps can be tapped to read their settings;
+            nothing can be added, moved, connected, deleted, edited, saved or
+            published, and the two lifecycle controls that do not touch the
+            graph — Run once and the on/off switch — stay in the toolbar.
+
+            CSS, not `readOnly`: the copy has to be right in the server HTML. */}
         <div className="border-b border-border bg-muted/40 px-4 py-2 md:hidden">
           <p className="text-xs text-muted-foreground font-body">
-            Open this on a larger screen to edit. You can still publish, run it
-            and switch it on here.
+            Open this on a larger screen to edit. You can still look at every
+            step, publish, run it and switch it on here.
           </p>
         </div>
 
-        {/* The palette is a column beside the canvas, not an overlay on top of
-            it — so the step you just added stays visible while you pick the
-            next. It is deliberately outside the dynamic import: it does not
-            touch React Flow, so it can render immediately while the canvas
-            bundle is still arriving. */}
-        <div className="flex min-h-0 flex-1">
-          <NodePalettePanel />
+        {/* The palette is a column beside the canvas from `lg`, not an overlay
+            on top of it — so the step you just added stays visible while you
+            pick the next. Between `md` and `lg` there is no room for a column
+            and both panels float over the canvas; below `md` the palette is not
+            rendered at all. `relative` is what they float against. It is
+            deliberately outside the dynamic import: it does not touch React
+            Flow, so it can render immediately while the canvas bundle is still
+            arriving. */}
+        <div className="relative flex min-h-0 flex-1">
+          {!readOnly && <NodePalettePanel />}
           <div className="min-w-0 flex-1">
-            <AutomationCanvas />
+            <AutomationCanvas readOnly={readOnly} />
           </div>
-          <ConfigPanel workflowId={id} />
+          <ConfigPanel workflowId={id} readOnly={readOnly} />
         </div>
 
         {/* X-4. Rendered once here rather than in the two places that delete —
@@ -263,6 +285,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
           open={versionsOpen}
           onOpenChange={setVersionsOpen}
           expectedUpdatedAt={tokenRef.current}
+          readOnly={readOnly}
           // Restoring wrote a new draft, and the store will not pick it up on
           // its own: `load` is keyed on workflow id and this is the same
           // workflow, so the guard that stops a background refetch discarding

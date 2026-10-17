@@ -14,7 +14,7 @@ export function ProfileSettingsPageClient() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           {/* Profile Information skeleton */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-lg border bg-card p-4 sm:p-6">
             <div className="mb-4 flex items-center gap-2">
               <Skeleton className="h-5 w-5 rounded" />
               <Skeleton className="h-5 w-40" />
@@ -32,7 +32,7 @@ export function ProfileSettingsPageClient() {
             </div>
           </div>
           {/* Security skeleton */}
-          <div className="rounded-lg border bg-card p-6">
+          <div className="rounded-lg border bg-card p-4 sm:p-6">
             <div className="mb-4 flex items-center gap-2">
               <Skeleton className="h-5 w-5 rounded" />
               <Skeleton className="h-5 w-24" />
@@ -45,7 +45,7 @@ export function ProfileSettingsPageClient() {
           </div>
         </div>
         <div className="space-y-4">
-          <div className="rounded-lg border bg-muted/50 p-6">
+          <div className="rounded-lg border bg-muted/50 p-4 sm:p-6">
             <Skeleton className="mb-3 h-5 w-32" />
             <div className="space-y-3">
               <Skeleton className="h-4 w-full" />

@@ -51,7 +51,7 @@ export function AvailabilityOverrideList({
       title="Schedule Overrides"
       description="Override specific dates for holidays, closures, or custom hours."
       action={
-        <Button size="sm" variant="outline" onClick={onAdd}>
+        <Button size="sm" variant="outline" onClick={onAdd} className="h-10 sm:h-8">
           <IconPlus className="mr-2 h-4 w-4" />
           Add Override
         </Button>
@@ -67,9 +67,9 @@ export function AvailabilityOverrideList({
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Reason</TableHead>
+                <TableHead className="hidden sm:table-cell">Reason</TableHead>
                 <TableHead>Available</TableHead>
-                <TableHead>Hours</TableHead>
+                <TableHead className="hidden sm:table-cell">Hours</TableHead>
                 <TableHead className="w-[48px]" />
               </TableRow>
             </TableHeader>
@@ -78,8 +78,16 @@ export function AvailabilityOverrideList({
                 <TableRow key={override.id}>
                   <TableCell className="text-sm font-medium">
                     {formatDate(override.overrideDate)}
+                    {/* Reason and Hours are their own columns from `sm`; under
+                        it they ride along here and under the badge, so the
+                        delete button stays on screen instead of past the edge. */}
+                    {override.reason && (
+                      <span className="mt-0.5 block text-xs font-normal text-muted-foreground sm:hidden">
+                        {override.reason}
+                      </span>
+                    )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
                     {override.reason || "—"}
                   </TableCell>
                   <TableCell>
@@ -92,8 +100,13 @@ export function AvailabilityOverrideList({
                         Closed
                       </Badge>
                     )}
+                    {override.isAvailable && override.startTime && override.endTime && (
+                      <span className="mt-1 block text-xs text-muted-foreground sm:hidden">
+                        {formatTime(override.startTime)} - {formatTime(override.endTime)}
+                      </span>
+                    )}
                   </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
+                  <TableCell className="hidden text-sm text-muted-foreground sm:table-cell">
                     {override.isAvailable && override.startTime && override.endTime
                       ? `${formatTime(override.startTime)} - ${formatTime(override.endTime)}`
                       : "—"}
@@ -102,7 +115,8 @@ export function AvailabilityOverrideList({
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 text-destructive hover:text-destructive"
+                      aria-label="Delete override"
+                      className="h-10 w-10 text-destructive hover:text-destructive sm:h-8 sm:w-8"
                       onClick={() => onDelete(override.id)}
                     >
                       <IconTrash className="h-4 w-4" />

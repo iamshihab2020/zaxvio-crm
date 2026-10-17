@@ -112,12 +112,12 @@ export function SettingsNav({ orgRole }: SettingsNavProps) {
   return (
     <>
       {/* Mobile: Select dropdown */}
-      <div className="md:hidden px-6 pt-6">
+      <div className="md:hidden px-4 pt-4 sm:px-6 sm:pt-6">
         <Select
           value={activeHref}
           onValueChange={(value) => router.push(value)}
         >
-          <SelectTrigger className="w-full">
+          <SelectTrigger className="h-10 w-full sm:h-9">
             <SelectValue>
               {activeItem && (
                 <span className="flex items-center gap-2 font-body text-sm">
@@ -152,7 +152,7 @@ export function SettingsNav({ orgRole }: SettingsNavProps) {
         className="hidden md:block w-56 shrink-0 border-r border-border"
         aria-label="Settings navigation"
       >
-        <ScrollArea className="h-[calc(100vh-3.5rem)]">
+        <ScrollArea className="h-[calc(100dvh-3.5rem)]">
           <div className="relative p-4 space-y-5">
             {filteredGroups.map((group) => (
               <div key={group.label}>

@@ -92,54 +92,63 @@ export function CustomerQuotesTab({ customerId }: CustomerQuotesTabProps) {
 
   return (
     <>
+      {/* The rounded card clips; the table scrolls inside it. `overflow-hidden`
+          alone cut the right-hand columns off on a phone with no way to reach
+          them. Below `sm` the status folds under the quote number; the two
+          dates arrive at `md`. */}
       <div className="rounded-md border border-border overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border bg-muted/30">
-            <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-              Quote #
-            </th>
-            <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-              Status
-            </th>
-            <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-              Date
-            </th>
-            <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-              Expiry
-            </th>
-            <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body">
-              Total
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {quotes.map((q) => (
-            <tr
-              key={q.id}
-              className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
-              onClick={() => router.push(`/quotes/${q.id}`)}
-            >
-              <td className="px-3 py-2 font-medium font-body">
-                {q.quoteNumber}
-              </td>
-              <td className="px-3 py-2">
-                <QuoteStatusBadge status={q.status} />
-              </td>
-              <td className="px-3 py-2 text-muted-foreground font-body">
-                {formatDate(q.issuedDate)}
-              </td>
-              <td className="px-3 py-2 text-muted-foreground font-body">
-                {formatDate(q.expiryDate)}
-              </td>
-              <td className="px-3 py-2 text-right font-medium font-body">
-                {formatCurrency(q.totalAmount)}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/30">
+                <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
+                  Quote #
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body sm:table-cell">
+                  Status
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body md:table-cell">
+                  Date
+                </th>
+                <th className="hidden px-3 py-2 text-left font-medium text-muted-foreground font-body md:table-cell">
+                  Expiry
+                </th>
+                <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {quotes.map((q) => (
+                <tr
+                  key={q.id}
+                  className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
+                  onClick={() => router.push(`/quotes/${q.id}`)}
+                >
+                  <td className="px-3 py-2 font-medium font-body">
+                    {q.quoteNumber}
+                    <div className="mt-1 sm:hidden">
+                      <QuoteStatusBadge status={q.status} />
+                    </div>
+                  </td>
+                  <td className="hidden px-3 py-2 sm:table-cell">
+                    <QuoteStatusBadge status={q.status} />
+                  </td>
+                  <td className="hidden px-3 py-2 text-muted-foreground font-body md:table-cell">
+                    {formatDate(q.issuedDate)}
+                  </td>
+                  <td className="hidden px-3 py-2 text-muted-foreground font-body md:table-cell">
+                    {formatDate(q.expiryDate)}
+                  </td>
+                  <td className="px-3 py-2 text-right font-medium font-body">
+                    {formatCurrency(q.totalAmount)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
       {pagination && pagination.totalPages > 1 && (
         <Pagination
           page={pagination.page}

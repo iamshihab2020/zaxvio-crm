@@ -48,6 +48,11 @@ interface Props {
    * closed it again.
    */
   onRestored: () => void;
+  /**
+   * The builder is view-only here, so no Restore: it rewrites the draft, which
+   * is an edit like any other. The history itself is still worth reading.
+   */
+  readOnly?: boolean;
 }
 
 export function VersionHistorySheet({
@@ -56,6 +61,7 @@ export function VersionHistorySheet({
   onOpenChange,
   expectedUpdatedAt,
   onRestored,
+  readOnly = false,
 }: Props) {
   const query = useWorkflowVersions(workflowId, open);
   const restoreMutation = useRestoreWorkflowVersion();
@@ -90,8 +96,9 @@ export function VersionHistorySheet({
           <SheetHeader className="border-b border-border px-6 py-4 text-left">
             <SheetTitle className="font-heading">Version history</SheetTitle>
             <SheetDescription className="font-body">
-              Every time this automation was published. Restoring puts a version
-              back on your canvas — it doesn&apos;t make it live on its own.
+              {readOnly
+                ? "Every time this automation was published. Open it on a larger screen to restore one."
+                : "Every time this automation was published. Restoring puts a version back on your canvas — it doesn't make it live on its own."}
             </SheetDescription>
           </SheetHeader>
 
@@ -159,11 +166,11 @@ export function VersionHistorySheet({
                     {/* No Restore on the live version: it is already what the
                         engine runs, and offering the action would imply it is
                         not. */}
-                    {!version.isActive && (
+                    {!version.isActive && !readOnly && (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="shrink-0"
+                        className="h-10 shrink-0 sm:h-8"
                         disabled={!expectedUpdatedAt || restoreMutation.isPending}
                         onClick={() =>
                           setConfirming({ id: version.id, version: version.version })

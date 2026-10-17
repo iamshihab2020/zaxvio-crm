@@ -69,7 +69,7 @@ export function ExtendTrialDialog({
                 key={preset}
                 variant={days === preset ? "default" : "outline"}
                 size="sm"
-                className={days === preset ? "bg-admin-accent hover:bg-admin-accent/90 text-white" : ""}
+                className={`max-sm:h-10 ${days === preset ? "bg-admin-accent hover:bg-admin-accent/90 text-white" : ""}`}
                 onClick={() => setDays(preset)}
               >
                 {preset}d
@@ -94,7 +94,7 @@ export function ExtendTrialDialog({
             <p className="text-sm text-destructive font-body">{error}</p>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="max-sm:[&>button]:h-10">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

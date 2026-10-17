@@ -133,7 +133,7 @@ export function QuoteDetailHeader({
     <>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6 py-3 sm:py-4">
         {/* Left: breadcrumb + quote info */}
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <nav className="flex items-center gap-1 text-sm font-body">
             <Link
               href="/quotes"
@@ -143,14 +143,14 @@ export function QuoteDetailHeader({
             </Link>
             <IconChevronRight className="h-4 w-4 text-muted-foreground" />
           </nav>
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="font-medium text-foreground font-heading text-sm">
                 {quote.quoteNumber}
               </span>
               <QuoteStatusBadge status={quote.status} />
             </div>
-            <p className="text-xs text-muted-foreground font-body">
+            <p className="truncate text-xs text-muted-foreground font-body">
               {customerName}
             </p>
           </div>
@@ -164,7 +164,7 @@ export function QuoteDetailHeader({
               size="sm"
               onClick={handleSend}
               disabled={sendLoading}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               <IconSend className="mr-1.5 h-3.5 w-3.5" />
               {sendLoading ? "Sending..." : "Send"}
@@ -174,7 +174,7 @@ export function QuoteDetailHeader({
             size="sm"
             variant="outline"
             onClick={handleDownloadPdf}
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             <IconDownload className="mr-1.5 h-3.5 w-3.5" />
             PDF
@@ -184,7 +184,7 @@ export function QuoteDetailHeader({
               <Button
                 size="sm"
                 onClick={handleAccept}
-                className="bg-green-600 text-white hover:bg-green-700 cursor-pointer"
+                className="h-10 cursor-pointer bg-green-600 text-white hover:bg-green-700 sm:h-8"
               >
                 <IconCheck className="mr-1.5 h-3.5 w-3.5" />
                 Accept
@@ -193,7 +193,7 @@ export function QuoteDetailHeader({
                 size="sm"
                 variant="outline"
                 onClick={handleDecline}
-                className="cursor-pointer text-destructive hover:text-destructive"
+                className="h-10 cursor-pointer text-destructive hover:text-destructive sm:h-8"
               >
                 <IconX className="mr-1.5 h-3.5 w-3.5" />
                 Decline
@@ -205,7 +205,7 @@ export function QuoteDetailHeader({
               size="sm"
               onClick={() => setConvertDialogOpen(true)}
               disabled={convertLoading}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               <IconTransform className="mr-1.5 h-3.5 w-3.5" />
               {convertLoading ? "Converting..." : "Convert to Job"}
@@ -216,7 +216,7 @@ export function QuoteDetailHeader({
               size="sm"
               variant="outline"
               onClick={() => router.push(`/jobs/${quote.convertedToJobId}`)}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               <IconExternalLink className="mr-1.5 h-3.5 w-3.5" />
               View Job
@@ -228,7 +228,7 @@ export function QuoteDetailHeader({
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 cursor-pointer"
+                  className="h-10 w-10 cursor-pointer sm:h-8 sm:w-8"
                 >
                   <IconDots className="h-4 w-4" />
                 </Button>

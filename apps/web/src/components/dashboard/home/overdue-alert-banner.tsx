@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { DashboardOverdueInvoices } from "@hvac-saas/types";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { formatCurrencyPrecise } from "@/lib/format";
 
 interface OverdueAlertBannerProps {
@@ -25,6 +26,9 @@ interface OverdueAlertBannerProps {
  *
  * Now: card surface with one destructive accent rule, the amount leading in
  * tabular figures, and the count as supporting detail.
+ *
+ * On a phone the button drops under the text at full width: beside the amount
+ * it squeezed the figure into a wrap, and a 32px button is under a thumb target.
  */
 export function OverdueAlertBanner({ overdueInvoices }: OverdueAlertBannerProps) {
   if (overdueInvoices.count === 0) return null;
@@ -32,9 +36,9 @@ export function OverdueAlertBanner({ overdueInvoices }: OverdueAlertBannerProps)
   const { count, totalAmount } = overdueInvoices;
 
   return (
-    <div
+    <Card
       role="status"
-      className="flex items-center gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:gap-5 sm:px-5"
+      className="flex flex-wrap items-center gap-3 p-4 sm:flex-nowrap sm:gap-5 sm:px-5"
     >
       <span
         aria-hidden
@@ -55,9 +59,14 @@ export function OverdueAlertBanner({ overdueInvoices }: OverdueAlertBannerProps)
         </p>
       </div>
 
-      <Button asChild variant="outline" size="sm" className="shrink-0">
+      <Button
+        asChild
+        variant="outline"
+        size="sm"
+        className="min-h-10 w-full shrink-0 sm:min-h-0 sm:w-auto"
+      >
         <Link href="/invoices?status=overdue">View overdue</Link>
       </Button>
-    </div>
+    </Card>
   );
 }

@@ -128,7 +128,7 @@ export function JobDetailActivities({ jobId }: JobDetailActivitiesProps) {
                 <div className="w-px flex-1 bg-border/60 mt-1" />
               )}
             </div>
-            <div className="flex-1 pb-1">
+            <div className="min-w-0 flex-1 break-words pb-1">
               <p className="text-sm text-foreground font-body">
                 {activity.description}
               </p>
@@ -150,7 +150,7 @@ export function JobDetailActivities({ jobId }: JobDetailActivitiesProps) {
             size="sm"
             onClick={loadMore}
             disabled={loadingMore}
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             {loadingMore ? "Loading..." : "Load more"}
           </Button>

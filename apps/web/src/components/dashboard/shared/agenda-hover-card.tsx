@@ -12,6 +12,12 @@ import {
   IconArrowRight,
 } from "@tabler/icons-react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import {
+  JOB_PRIORITIES,
+  JOB_PRIORITY_COLORS,
+  JOB_PRIORITY_LABELS,
+  type JobPriority,
+} from "@/lib/constants/job-options";
 import { cn } from "@/lib/utils";
 
 export type AgendaKind = "event" | "job" | "booking";
@@ -31,11 +37,19 @@ export interface AgendaDetails {
   color: string;
 }
 
+/*
+ * The kind's series token is the tint and the border; the word is ink. Indigo
+ * and teal text measured 4.0:1 and 2.3:1 at this size, and Tailwind's
+ * indigo-500/teal-500 were not the validated series hues, so the badge here and
+ * the row beside it were two different teals. Orange keeps `text-brand-ink`,
+ * which is the readable orange.
+ */
 const KIND_META: Record<AgendaKind, { label: string; icon: typeof IconUser; style: string }> = {
   event: {
     label: "Event",
     icon: IconCalendarEvent,
-    style: "bg-indigo-500/10 text-indigo-500 border-indigo-500/20",
+    style:
+      "bg-[hsl(var(--series-event)/0.1)] text-foreground border-[hsl(var(--series-event)/0.25)]",
   },
   job: {
     label: "Job",
@@ -45,9 +59,23 @@ const KIND_META: Record<AgendaKind, { label: string; icon: typeof IconUser; styl
   booking: {
     label: "Booking",
     icon: IconBookmark,
-    style: "bg-teal-500/10 text-teal-500 border-teal-500/20",
+    style:
+      "bg-[hsl(var(--series-booking)/0.1)] text-foreground border-[hsl(var(--series-booking)/0.25)]",
   },
 };
+
+/**
+ * `details.color` at a given strength, whatever form the colour is in.
+ *
+ * This used to append a hex alpha (`${color}10`), which only works when the
+ * colour is a six-digit hex. The schedule passes hex, but the dashboard's Up
+ * next passes `hsl(var(--brand))`, and `hsl(var(--brand))10` is not a colour:
+ * the browser drops the declaration and the header loses its tint without a
+ * word. `color-mix` takes any colour.
+ */
+function tint(color: string, percent: number): string {
+  return `color-mix(in srgb, ${color} ${percent}%, transparent)`;
+}
 
 interface AgendaHoverCardProps {
   details: AgendaDetails;
@@ -78,11 +106,11 @@ export function AgendaHoverCard({
         {/* Colored header */}
         <div
           className="flex items-start gap-3 border-b border-border/60 p-4"
-          style={{ backgroundColor: `${details.color}10` }}
+          style={{ backgroundColor: tint(details.color, 6) }}
         >
           <div
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-            style={{ backgroundColor: `${details.color}22`, color: details.color }}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            style={{ backgroundColor: tint(details.color, 13), color: details.color }}
           >
             <Icon className="h-4 w-4" />
           </div>
@@ -137,14 +165,15 @@ export function AgendaHoverCard({
               {details.description}
             </p>
           )}
-          {details.priority && details.kind === "job" && (
+          {details.kind === "job" && isJobPriority(details.priority) && (
             <span
               className={cn(
-                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium font-body capitalize",
-                priorityClass(details.priority),
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium font-body",
+                JOB_PRIORITY_COLORS[details.priority].bg,
+                JOB_PRIORITY_COLORS[details.priority].text,
               )}
             >
-              {details.priority}
+              {JOB_PRIORITY_LABELS[details.priority]}
             </span>
           )}
         </div>
@@ -188,16 +217,12 @@ function titleCase(s: string): string {
   return s.replace(/[_-]+/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function priorityClass(p: string): string {
-  switch (p.toLowerCase()) {
-    case "urgent":
-    case "emergency":
-      return "bg-rose-500/10 text-rose-500";
-    case "high":
-      return "bg-amber-500/10 text-amber-600";
-    case "low":
-      return "bg-slate-500/10 text-slate-500";
-    default:
-      return "bg-brand/10 text-brand-ink";
-  }
+/**
+ * The pill reads the Jobs board's own map, keyed by the database enum. Its
+ * predecessor switched on `high` and `low`, which the enum has never had, so
+ * `urgent` and `emergency` shared one rose pill and `standard` fell through to
+ * orange.
+ */
+function isJobPriority(p: string | null | undefined): p is JobPriority {
+  return JOB_PRIORITIES.some((known) => known === p);
 }

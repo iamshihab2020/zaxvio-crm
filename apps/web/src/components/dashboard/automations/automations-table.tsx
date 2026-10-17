@@ -84,7 +84,7 @@ export function AutomationsTable({
         <TableRow>
           <TableHead>Name</TableHead>
           <TableHead className="hidden md:table-cell">What starts it</TableHead>
-          <TableHead className="w-[120px]">State</TableHead>
+          <TableHead className="hidden w-[120px] sm:table-cell">State</TableHead>
           <TableHead className="w-[90px] hidden lg:table-cell">Version</TableHead>
           <TableHead className="w-[130px] hidden lg:table-cell">Last edited</TableHead>
           <TableHead className="w-[100px] text-right">
@@ -113,9 +113,20 @@ export function AutomationsTable({
                 )}
                 {/* The trigger folds under the name below `md`, where its own
                     column is hidden — dropping the information entirely on a
-                    laptop would defeat the point of showing it. */}
-                <div className="mt-1 md:hidden">
-                  <TriggerSummary workflow={workflow} />
+                    laptop would defeat the point of showing it. The state
+                    folds in with it below `sm`: it is the column this page
+                    exists for, so it goes under the name before it is ever
+                    dropped. `wrap`, because a nowrap summary sets the column's
+                    width and pushes the row past a phone. */}
+                <div className="mt-1 flex flex-col gap-1 md:hidden">
+                  <span className="sm:hidden">
+                    <StateCell
+                      published={published}
+                      isActive={workflow.isActive}
+                      archived={archived}
+                    />
+                  </span>
+                  <TriggerSummary workflow={workflow} wrap />
                 </div>
               </TableCell>
 
@@ -123,7 +134,7 @@ export function AutomationsTable({
                 <TriggerSummary workflow={workflow} />
               </TableCell>
 
-              <TableCell>
+              <TableCell className="hidden sm:table-cell">
                 <StateCell
                   published={published}
                   isActive={workflow.isActive}
@@ -153,6 +164,9 @@ export function AutomationsTable({
                       <TooltipTrigger asChild>
                         <span className="inline-flex">
                           <Switch
+                            // A 20px switch is a poor target for a thumb; the
+                            // pseudo-element grows the hit area to 40px.
+                            className="relative before:absolute before:-inset-x-1 before:-inset-y-2.5 sm:before:hidden"
                             checked={workflow.isActive}
                             disabled={!published || pending}
                             onCheckedChange={(next) => onToggleActive(workflow, next)}
@@ -176,7 +190,11 @@ export function AutomationsTable({
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-10 w-10 sm:h-8 sm:w-8"
+                      >
                         <IconDotsVertical className="h-4 w-4" />
                         <span className="sr-only">Actions for {workflow.name}</span>
                       </Button>
@@ -221,7 +239,14 @@ export function AutomationsTable({
  * than showing an em-dash, because "—" reads as missing data when the real
  * answer is "this has never been published".
  */
-function TriggerSummary({ workflow }: { workflow: AutomationRow }) {
+function TriggerSummary({
+  workflow,
+  wrap = false,
+}: {
+  workflow: AutomationRow;
+  /** Let the text wrap instead of truncating, for where the cell cannot be wider. */
+  wrap?: boolean;
+}) {
   if (workflow.activeVersionId === null) {
     return (
       <span className="text-xs text-muted-foreground font-body">
@@ -238,18 +263,37 @@ function TriggerSummary({ workflow }: { workflow: AutomationRow }) {
   const steps = workflow.nodeCount ?? 0;
 
   return (
-    <span className="flex items-center gap-1.5 text-xs text-muted-foreground font-body">
-      <IconBolt className="h-3 w-3 shrink-0 text-muted-foreground/70" aria-hidden />
-      <span className="truncate">
+    <span
+      className={cn(
+        "flex gap-1.5 text-xs text-muted-foreground font-body",
+        wrap ? "items-start" : "items-center",
+      )}
+    >
+      <IconBolt
+        className={cn(
+          "h-3 w-3 shrink-0 text-muted-foreground/70",
+          wrap && "mt-0.5",
+        )}
+        aria-hidden
+      />
+      <span className={cn(!wrap && "truncate")}>
         {names.length === 0
           ? "Run by hand"
           : names.length <= 2
             ? names.join(" or ")
             : `${names.slice(0, 2).join(", ")} +${names.length - 2}`}
+        {wrap && (
+          <span className="text-muted-foreground/60">
+            {" "}
+            · {steps} {steps === 1 ? "step" : "steps"}
+          </span>
+        )}
       </span>
-      <span className="shrink-0 text-muted-foreground/60">
-        · {steps} {steps === 1 ? "step" : "steps"}
-      </span>
+      {!wrap && (
+        <span className="shrink-0 text-muted-foreground/60">
+          · {steps} {steps === 1 ? "step" : "steps"}
+        </span>
+      )}
     </span>
   );
 }

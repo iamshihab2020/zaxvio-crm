@@ -237,13 +237,13 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <JobTimerButton jobId={jobId} size="sm" />
+        <div className="flex flex-wrap items-center gap-2">
+          <JobTimerButton jobId={jobId} size="sm" className="h-10 sm:h-8" />
           <Button
             size="sm"
             variant="outline"
             onClick={() => (showAdd ? cancelForm() : setShowAdd(true))}
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             <IconPlus className="mr-1 h-4 w-4" aria-hidden />
             Log time
@@ -266,7 +266,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
                 type="date"
                 value={form.date}
                 onChange={(e) => setForm({ ...form, date: e.target.value })}
-                className="h-9 text-sm"
+                className="h-10 text-sm sm:h-9"
               />
             </div>
             <div>
@@ -281,7 +281,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
                 type="time"
                 value={form.start}
                 onChange={(e) => setForm({ ...form, start: e.target.value })}
-                className="h-9 text-sm"
+                className="h-10 text-sm sm:h-9"
               />
             </div>
             <div>
@@ -296,7 +296,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
                 type="time"
                 value={form.end}
                 onChange={(e) => setForm({ ...form, end: e.target.value })}
-                className="h-9 text-sm"
+                className="h-10 text-sm sm:h-9"
               />
             </div>
           </div>
@@ -313,7 +313,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
               value={form.note}
               placeholder="What was this time spent on?"
               onChange={(e) => setForm({ ...form, note: e.target.value })}
-              className="h-9 text-sm"
+              className="h-10 text-sm sm:h-9"
             />
           </div>
 
@@ -322,7 +322,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
               size="sm"
               variant="ghost"
               onClick={cancelForm}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               Cancel
             </Button>
@@ -330,7 +330,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
               size="sm"
               onClick={handleSubmit}
               disabled={pending}
-              className="cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               {pending ? "Saving…" : editingId ? "Save changes" : "Add entry"}
             </Button>
@@ -412,7 +412,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
                     <Button
                       size="sm"
                       variant="destructive"
-                      className="h-7 cursor-pointer px-2 text-xs"
+                      className="h-10 cursor-pointer px-2 text-xs sm:h-7"
                       disabled={remove.isPending}
                       onClick={() =>
                         remove.mutate(entry.id, {
@@ -427,7 +427,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 cursor-pointer px-2 text-xs"
+                      className="h-10 cursor-pointer px-2 text-xs sm:h-7"
                       onClick={() => setConfirmingId(null)}
                     >
                       Cancel
@@ -439,7 +439,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7 cursor-pointer"
+                        className="h-10 w-10 cursor-pointer sm:h-7 sm:w-7"
                         aria-label="Time entry actions"
                       >
                         <IconDots className="h-4 w-4" aria-hidden />

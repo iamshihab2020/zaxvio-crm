@@ -66,11 +66,13 @@ export function QuoteTable({
                 />
               </TableHead>
             )}
+            {/* On a phone: the quote number (customer and status folded under
+                it) and the total. The rest arrive as the screen widens. */}
             <TableHead className="font-body">Quote #</TableHead>
-            <TableHead className="font-body">Customer</TableHead>
-            <TableHead className="font-body">Status</TableHead>
-            <TableHead className="font-body">Created</TableHead>
-            <TableHead className="font-body">Expiry</TableHead>
+            <TableHead className="hidden font-body md:table-cell">Customer</TableHead>
+            <TableHead className="hidden font-body md:table-cell">Status</TableHead>
+            <TableHead className="hidden font-body lg:table-cell">Created</TableHead>
+            <TableHead className="hidden font-body md:table-cell">Expiry</TableHead>
             <TableHead className="font-body text-right">Total</TableHead>
           </TableRow>
         </TableHeader>
@@ -98,17 +100,26 @@ export function QuoteTable({
               )}
               <TableCell className="font-medium font-body">
                 {q.quoteNumber}
+                {/* Customer and status fold under the number where their
+                    columns are hidden. The name is capped because a nowrap
+                    line in an auto-layout cell would widen the column. */}
+                <div className="mt-0.5 max-w-[8rem] truncate text-xs font-normal text-muted-foreground md:hidden">
+                  {q.customerFirstName} {q.customerLastName}
+                </div>
+                <div className="mt-1 md:hidden">
+                  <QuoteStatusBadge status={q.status} />
+                </div>
               </TableCell>
-              <TableCell className="font-body">
+              <TableCell className="hidden font-body md:table-cell">
                 {q.customerFirstName} {q.customerLastName}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden md:table-cell">
                 <QuoteStatusBadge status={q.status} />
               </TableCell>
-              <TableCell className="text-muted-foreground font-body">
+              <TableCell className="hidden text-muted-foreground font-body lg:table-cell">
                 {formatDate(q.issuedDate)}
               </TableCell>
-              <TableCell className="text-muted-foreground font-body">
+              <TableCell className="hidden text-muted-foreground font-body md:table-cell">
                 {formatDate(q.expiryDate)}
               </TableCell>
               <TableCell className="text-right font-medium font-body">

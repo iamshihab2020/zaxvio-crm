@@ -14,7 +14,7 @@ export default async function SettingsLayout({
   const orgRole = await getServerOrgRole();
 
   return (
-    <div className="md:flex min-h-[calc(100vh-3.5rem)]">
+    <div className="md:flex min-h-[calc(100dvh-3.5rem)]">
       <SettingsNav orgRole={orgRole} />
       <div className="flex-1 min-w-0">
         <SettingsContent>{children}</SettingsContent>

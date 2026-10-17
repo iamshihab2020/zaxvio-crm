@@ -123,13 +123,19 @@ export function DisplaySettingsPopover({
         <Button
           variant="ghost"
           size="sm"
-          className="h-7 gap-1.5 px-2 text-xs font-body text-muted-foreground hover:text-foreground rounded-lg"
+          aria-label="Display settings"
+          className="h-10 w-10 gap-1.5 px-0 text-xs font-body text-muted-foreground hover:text-foreground rounded-lg sm:h-7 sm:w-auto sm:px-2"
         >
-          <IconAdjustmentsHorizontal className="h-3.5 w-3.5" />
+          <IconAdjustmentsHorizontal className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
           <span className="hidden sm:inline">Display</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-0" align="end">
+      {/* Capped to the room Radix measures, because the three sections with
+          40px rows on a phone are taller than the screen. */}
+      <PopoverContent
+        className="w-56 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto p-0"
+        align="end"
+      >
         {/* Density section */}
         <div className="px-3 pt-3 pb-2">
           <p className="text-[11px] font-semibold text-muted-foreground font-heading uppercase tracking-wider mb-2">
@@ -141,7 +147,7 @@ export function DisplaySettingsPopover({
               size="sm"
               onClick={() => onCompactChange(false)}
               className={cn(
-                "flex-1 h-7 rounded-md px-2.5 text-xs font-body font-medium",
+                "flex-1 h-10 sm:h-7 rounded-md px-2.5 text-xs font-body font-medium",
                 !compact
                   ? "bg-brand-light text-brand-ink dark:bg-brand/20"
                   : "text-muted-foreground hover:text-foreground",
@@ -154,7 +160,7 @@ export function DisplaySettingsPopover({
               size="sm"
               onClick={() => onCompactChange(true)}
               className={cn(
-                "flex-1 h-7 rounded-md px-2.5 text-xs font-body font-medium",
+                "flex-1 h-10 sm:h-7 rounded-md px-2.5 text-xs font-body font-medium",
                 compact
                   ? "bg-brand-light text-brand-ink dark:bg-brand/20"
                   : "text-muted-foreground hover:text-foreground",
@@ -182,7 +188,7 @@ export function DisplaySettingsPopover({
                     size="sm"
                     onClick={() => onViewModeChange(mode)}
                     className={cn(
-                      "flex w-full items-center gap-2 h-7 rounded-md px-2 text-xs font-body justify-start",
+                      "flex w-full items-center gap-2 h-10 sm:h-7 rounded-md px-2 text-xs font-body justify-start",
                       viewMode === mode
                         ? "bg-brand-light/30 text-brand-ink dark:bg-brand/15"
                         : "text-foreground hover:bg-muted/50",
@@ -211,7 +217,7 @@ export function DisplaySettingsPopover({
             {CARD_FIELD_DEFS.map((def) => (
               <label
                 key={def.key}
-                className="flex items-center justify-between rounded-md px-2 py-1 text-xs font-body hover:bg-muted/50 cursor-pointer"
+                className="flex min-h-10 items-center justify-between rounded-md px-2 py-1 text-xs font-body hover:bg-muted/50 cursor-pointer sm:min-h-0"
               >
                 <span className="text-foreground">{def.label}</span>
                 <Switch
@@ -230,7 +236,7 @@ export function DisplaySettingsPopover({
             variant="ghost"
             size="sm"
             onClick={onFieldsReset}
-            className="w-full h-6 rounded-md text-[11px] text-muted-foreground hover:text-foreground font-body"
+            className="w-full h-10 sm:h-6 rounded-md text-[11px] text-muted-foreground hover:text-foreground font-body"
           >
             Reset to defaults
           </Button>

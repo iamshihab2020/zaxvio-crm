@@ -102,7 +102,7 @@ export function OverrideSubscriptionDialog({
                       setStatus(option.value);
                       setStatusOpen(false);
                     }}
-                    className="w-full justify-start font-body"
+                    className="w-full justify-start font-body max-sm:h-10"
                   >
                     {option.label}
                   </Button>
@@ -129,7 +129,7 @@ export function OverrideSubscriptionDialog({
                       setPlanName(option.value);
                       setPlanOpen(false);
                     }}
-                    className="w-full justify-start font-body"
+                    className="w-full justify-start font-body max-sm:h-10"
                   >
                     {option.label}
                   </Button>
@@ -142,7 +142,7 @@ export function OverrideSubscriptionDialog({
             <p className="text-sm text-destructive font-body">{error}</p>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="max-sm:[&>button]:h-10">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

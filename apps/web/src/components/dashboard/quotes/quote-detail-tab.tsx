@@ -87,7 +87,7 @@ export function QuoteDetailTab({
             size="sm"
             onClick={onSend}
             disabled={sendLoading}
-            className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+            className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
           >
             <IconSend className="mr-1.5 h-3.5 w-3.5" />
             {sendLoading ? "Sending..." : "Send Quote"}
@@ -97,7 +97,7 @@ export function QuoteDetailTab({
           size="sm"
           variant="outline"
           onClick={onDownloadPdf}
-          className="cursor-pointer"
+          className="h-10 cursor-pointer sm:h-8"
         >
           <IconDownload className="mr-1.5 h-3.5 w-3.5" />
           Download PDF
@@ -107,7 +107,7 @@ export function QuoteDetailTab({
             <Button
               size="sm"
               onClick={onAccept}
-              className="bg-green-600 text-white hover:bg-green-700 cursor-pointer"
+              className="h-10 cursor-pointer bg-green-600 text-white hover:bg-green-700 sm:h-8"
             >
               <IconCheck className="mr-1.5 h-3.5 w-3.5" />
               Accept
@@ -116,7 +116,7 @@ export function QuoteDetailTab({
               size="sm"
               variant="outline"
               onClick={onDecline}
-              className="cursor-pointer text-destructive hover:text-destructive"
+              className="h-10 cursor-pointer text-destructive hover:text-destructive sm:h-8"
             >
               <IconX className="mr-1.5 h-3.5 w-3.5" />
               Decline
@@ -128,7 +128,7 @@ export function QuoteDetailTab({
             size="sm"
             onClick={() => setConvertDialogOpen(true)}
             disabled={convertLoading}
-            className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+            className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
           >
             <IconTransform className="mr-1.5 h-3.5 w-3.5" />
             {convertLoading ? "Converting..." : "Convert to Job"}
@@ -139,7 +139,7 @@ export function QuoteDetailTab({
             size="sm"
             variant="outline"
             asChild
-            className="cursor-pointer"
+            className="h-10 cursor-pointer sm:h-8"
           >
             <Link href={`/jobs/${quote.convertedToJobId}`}>
               <IconExternalLink className="mr-1.5 h-3.5 w-3.5" />

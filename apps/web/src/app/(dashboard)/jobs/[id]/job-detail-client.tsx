@@ -102,13 +102,20 @@ export function JobDetailClient({
           <div className="w-full lg:w-80 shrink-0 rounded-lg border border-border bg-card shadow-sm">
             <JobInfoPanel job={job} stages={stages} onUpdate={refreshJob} />
           </div>
-          {/* Center Panel */}
-          <div className="flex-1 min-w-0 rounded-lg border border-border bg-card shadow-sm p-4 sm:p-5">
-            <JobTabsPanel job={job} onUpdate={refreshJob} />
-          </div>
-          {/* Right Sidebar */}
-          <div className="hidden xl:block w-72 shrink-0 rounded-lg border border-border bg-card shadow-sm">
-            <JobSidebarPanel job={job} />
+          {/* Centre + right. This sidebar used to be `hidden xl:block`, which
+              made the customer link, the linked invoice and Generate Invoice
+              unreachable on a phone, a tablet and any laptop under 1280px. It
+              now stacks under the tabs there; `xl:contents` dissolves the
+              wrapper so from `xl` the two are columns of the row again. */}
+          <div className="flex w-full min-w-0 flex-1 flex-col gap-4 sm:gap-5 xl:contents">
+            {/* Center Panel */}
+            <div className="flex-1 min-w-0 rounded-lg border border-border bg-card shadow-sm p-4 sm:p-5">
+              <JobTabsPanel job={job} onUpdate={refreshJob} />
+            </div>
+            {/* Right Sidebar */}
+            <div className="w-full rounded-lg border border-border bg-card shadow-sm xl:w-72 xl:shrink-0">
+              <JobSidebarPanel job={job} />
+            </div>
           </div>
         </div>
       </div>

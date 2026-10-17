@@ -85,6 +85,12 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                       : "No customer";
                   const amount = parseFloat(job.totalAmount);
 
+                  // This list is the default on a phone, and eight items in one
+                  // row do not fit 343px. Below `sm` the row is a two-column
+                  // grid: avatar and title on the first line, then the badges,
+                  // date and amount wrapped beneath the title. From `sm` the
+                  // grid becomes a flex row and the wrapper `contents`, so the
+                  // row is the flat one it always was.
                   return (
                     <motion.div
                       key={job.id}
@@ -93,7 +99,7 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                       transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
                       onClick={() => onJobClick(job.id)}
                       className={cn(
-                        "flex items-center gap-3 rounded-lg border border-border/50 dark:border-border/40 bg-card px-3 py-2.5 cursor-pointer transition-all duration-150",
+                        "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-lg border border-border/50 dark:border-border/40 bg-card px-3 py-2.5 cursor-pointer transition-all duration-150 sm:flex",
                         "hover:bg-muted/30 hover:border-border/70 dark:hover:border-border/60",
                       )}
                     >
@@ -128,33 +134,35 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                         </div>
                       </div>
 
-                      {/* Badges */}
-                      <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-1.5 py-0 text-[9px] font-medium uppercase tracking-wider border-0 shrink-0">
-                        {SERVICE_TYPE_LABELS[job.serviceType]}
-                      </Badge>
-                      <Badge className={cn("px-1.5 py-0 text-[9px] font-medium border-0 shrink-0", priorityColors.bg, priorityColors.text)}>
-                        {JOB_PRIORITY_LABELS[job.priority]}
-                      </Badge>
+                      <div className="col-start-2 flex flex-wrap items-center gap-x-2 gap-y-1 sm:contents">
+                        {/* Badges */}
+                        <Badge className="bg-muted text-muted-foreground dark:bg-muted/60 px-1.5 py-0 text-[9px] font-medium uppercase tracking-wider border-0 shrink-0">
+                          {SERVICE_TYPE_LABELS[job.serviceType]}
+                        </Badge>
+                        <Badge className={cn("px-1.5 py-0 text-[9px] font-medium border-0 shrink-0", priorityColors.bg, priorityColors.text)}>
+                          {JOB_PRIORITY_LABELS[job.priority]}
+                        </Badge>
 
-                      {/* Date/time */}
-                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
-                        <IconCalendar className="h-3 w-3" />
-                        <span className="font-body">{formatDate(job.scheduledDate)}</span>
-                        {job.scheduledStart && (
-                          <>
-                            <IconClock className="h-3 w-3" />
-                            <span className="font-body">{formatTime(job.scheduledStart)}</span>
-                          </>
+                        {/* Date/time */}
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground shrink-0">
+                          <IconCalendar className="h-3 w-3" />
+                          <span className="font-body">{formatDate(job.scheduledDate)}</span>
+                          {job.scheduledStart && (
+                            <>
+                              <IconClock className="h-3 w-3" />
+                              <span className="font-body">{formatTime(job.scheduledStart)}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Amount */}
+                        {amount > 0 && (
+                          <div className="ml-auto flex items-center gap-0.5 text-xs font-medium text-foreground font-body shrink-0">
+                            <IconCurrencyDollar className="h-3 w-3" />
+                            {amount.toFixed(2)}
+                          </div>
                         )}
                       </div>
-
-                      {/* Amount */}
-                      {amount > 0 && (
-                        <div className="flex items-center gap-0.5 text-xs font-medium text-foreground font-body shrink-0">
-                          <IconCurrencyDollar className="h-3 w-3" />
-                          {amount.toFixed(2)}
-                        </div>
-                      )}
                     </motion.div>
                   );
                 })}

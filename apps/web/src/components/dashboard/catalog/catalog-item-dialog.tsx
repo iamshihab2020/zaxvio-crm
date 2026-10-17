@@ -181,7 +181,7 @@ export function CatalogItemDialog({
           </div>
 
           {/* Row 2: Item Type + Unit Price */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label className="font-body">
                 Item Type <span className="text-destructive">*</span>
@@ -209,7 +209,7 @@ export function CatalogItemDialog({
                         setTypePopoverOpen(false);
                       }}
                       className={cn(
-                        "w-full justify-start",
+                        "h-10 w-full justify-start sm:h-8",
                         form.itemType === option.value && "bg-muted font-medium",
                       )}
                     >
@@ -286,7 +286,7 @@ export function CatalogItemDialog({
           </div>
 
           {/* Row 3: Unit + Category */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label className="font-body">Unit</Label>
               <Popover open={unitOpen} onOpenChange={setUnitOpen}>
@@ -405,12 +405,13 @@ export function CatalogItemDialog({
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={loading}
+              className="h-10 sm:h-9"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              className="bg-brand text-brand-foreground hover:bg-brand/90"
+              className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-9"
               disabled={loading}
             >
               {loading ? "Saving..." : isEditing ? "Save Changes" : "Add Item"}

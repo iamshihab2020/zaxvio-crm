@@ -170,7 +170,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
         action={
           <Button
             size="sm"
-            className="gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90"
+            className="h-10 gap-1.5 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             onClick={() => setCreateOpen(true)}
           >
             <IconPlus className="h-4 w-4" />
@@ -208,9 +208,9 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                 className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     {isRenaming ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
                         <Input
                           value={renameValue}
                           onChange={(e) => setRenameValue(e.target.value)}
@@ -218,13 +218,13 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                             if (e.key === "Enter") confirmRename(pipeline.id);
                             if (e.key === "Escape") setRenamingId(null);
                           }}
-                          className="h-7 w-48 text-sm"
+                          className="h-10 min-w-0 flex-1 text-sm sm:h-7 sm:w-48 sm:flex-none"
                           autoFocus
                         />
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-10 w-10 sm:h-7 sm:w-7"
                           onClick={() => confirmRename(pipeline.id)}
                         >
                           <IconCheck className="h-3.5 w-3.5 text-green-600" />
@@ -232,7 +232,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-7 w-7"
+                          className="h-10 w-10 sm:h-7 sm:w-7"
                           onClick={() => setRenamingId(null)}
                         >
                           <IconX className="h-3.5 w-3.5" />
@@ -256,7 +256,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-10 w-10 sm:h-7 sm:w-7"
                         title="Set as default"
                         onClick={() => handleSetDefault(pipeline.id)}
                       >
@@ -264,7 +264,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                       </Button>
                     )}
                     {pipeline.isDefault && (
-                      <div className="h-7 w-7 flex items-center justify-center" title="Default pipeline">
+                      <div className="flex h-10 w-10 items-center justify-center sm:h-7 sm:w-7" title="Default pipeline">
                         <IconStarFilled className="h-3.5 w-3.5 text-amber-500" />
                       </div>
                     )}
@@ -272,7 +272,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-7 w-7"
+                        className="h-10 w-10 sm:h-7 sm:w-7"
                         title="Rename"
                         onClick={() => startRename(pipeline)}
                       >
@@ -282,7 +282,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 text-destructive hover:text-destructive"
+                      className="h-10 w-10 text-destructive hover:text-destructive sm:h-7 sm:w-7"
                       title="Delete"
                       onClick={() => openDelete(pipeline)}
                       disabled={pipeline.isDefault || pipelines.length <= 1}
@@ -301,7 +301,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
                   </span>
                   <button
                     onClick={() => openStages(pipeline.id)}
-                    className="text-xs font-medium text-brand-ink hover:underline font-body cursor-pointer"
+                    className="-my-2 py-2 text-xs font-medium text-brand-ink hover:underline font-body cursor-pointer sm:my-0 sm:py-0"
                   >
                     Edit Stages
                   </button>

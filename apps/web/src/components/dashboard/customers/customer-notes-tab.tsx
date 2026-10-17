@@ -135,13 +135,13 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
           maxLength={MAX_NOTE}
           className="resize-none bg-card"
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3">
           <p className="font-body text-xs text-muted-foreground">Ctrl+Enter to add quickly</p>
           <Button
             onClick={handleCreate}
             disabled={!newNote.trim() || createMutation.isPending}
             size="sm"
-            className="bg-brand text-brand-foreground hover:bg-brand/90"
+            className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
           >
             {createMutation.isPending ? "Adding..." : "Add Note"}
           </Button>
@@ -176,7 +176,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
                       className="resize-none"
                     />
                     <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingId(null)}>
+                      <Button variant="ghost" size="sm" onClick={() => setEditingId(null)} className="h-10 sm:h-8">
                         <IconX className="h-4 w-4" />
                         <span className="sr-only">Cancel</span>
                       </Button>
@@ -184,7 +184,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
                         size="sm"
                         onClick={() => handleUpdate(note.id)}
                         disabled={updateMutation.isPending || !editContent.trim()}
-                        className="bg-brand text-brand-foreground hover:bg-brand/90"
+                        className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
                       >
                         <IconCheck className="h-4 w-4" />
                         <span className="sr-only">Save</span>
@@ -196,7 +196,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
                     <p className="whitespace-pre-wrap font-body text-sm text-foreground">
                       {note.content}
                     </p>
-                    <div className="flex items-center justify-between border-t border-border/40 pt-2.5">
+                    <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-2.5">
                       <p className="text-xs text-muted-foreground">
                         {authorLabel(note)} &middot;{" "}
                         {new Date(note.createdAt).toLocaleDateString()}{" "}
@@ -212,7 +212,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8"
+                          className="h-10 w-10 sm:h-8 sm:w-8"
                           onClick={() => {
                             setEditingId(note.id);
                             setEditContent(note.content);
@@ -224,7 +224,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          className="h-10 w-10 text-destructive hover:text-destructive sm:h-8 sm:w-8"
                           // Used to delete on the first click, with no
                           // confirmation and no undo — the only destructive
                           // action on the platform that did (CUST-21).

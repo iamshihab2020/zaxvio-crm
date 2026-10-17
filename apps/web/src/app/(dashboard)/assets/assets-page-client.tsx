@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
@@ -207,7 +208,7 @@ export function AssetsPageClient({
   const showNoResults = !loading && !hasAssets && (!!search || !!statusFilter);
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -235,20 +236,22 @@ export function AssetsPageClient({
       {/* Card wrapper */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <StatusFilterTabs
-              options={STATUS_OPTIONS}
-              value={statusFilter}
-              onChange={(v) => { setStatusFilter(v); clearSelection(); }}
-            />
-            <div className="ml-auto flex items-center gap-2">
+          <ListToolbar
+            filters={
+              <StatusFilterTabs
+                options={STATUS_OPTIONS}
+                value={statusFilter}
+                onChange={(v) => { setStatusFilter(v); clearSelection(); }}
+              />
+            }
+            actions={
               <SearchInput
                 value={search}
                 onChange={handleSearchChange}
                 placeholder="Search by type, brand, model, serial..."
               />
-            </div>
-          </div>
+            }
+          />
 
           {loading && (
             <div className="p-4">

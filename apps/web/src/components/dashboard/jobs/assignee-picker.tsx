@@ -150,7 +150,7 @@ export function AssigneePicker({
             size="sm"
             disabled={disabled}
             className={cn(
-              "h-7 gap-1.5 px-2 text-xs font-body rounded-lg",
+              "h-10 gap-1.5 px-2 text-xs font-body rounded-lg sm:h-7",
               selected
                 ? "text-foreground hover:bg-muted/60"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/60",
@@ -171,12 +171,15 @@ export function AssigneePicker({
           </Button>
         )}
       </PopoverTrigger>
-      <PopoverContent className="w-48 p-1" align="start">
+      <PopoverContent
+        className="w-48 max-h-[var(--radix-popover-content-available-height)] overflow-y-auto p-1"
+        align="start"
+      >
         {/* No assignee option */}
         <button
           onClick={() => handleSelect(null)}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-body hover:bg-muted/60 transition-colors",
+            "flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-body hover:bg-muted/60 transition-colors sm:min-h-0",
             !value ? "text-foreground" : "text-muted-foreground",
           )}
         >
@@ -194,7 +197,7 @@ export function AssigneePicker({
             key={m.id}
             onClick={() => handleSelect(m.id)}
             className={cn(
-              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-body hover:bg-muted/60 transition-colors",
+              "flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-body hover:bg-muted/60 transition-colors sm:min-h-0",
               value === m.id ? "text-foreground" : "text-muted-foreground",
             )}
           >

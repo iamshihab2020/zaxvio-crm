@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,8 @@ import { ElapsedTime } from "@/components/dashboard/reusable/elapsed-time";
 interface JobTimerButtonProps {
   jobId: string;
   size?: "sm" | "default";
+  /** Merged into the button, for a caller that needs a taller phone target. */
+  className?: string;
 }
 
 /**
@@ -34,7 +37,11 @@ interface JobTimerButtonProps {
  * Start here while clocked in elsewhere is a refusal. Asking first turns that
  * into a decision the user makes rather than an error they read.
  */
-export function JobTimerButton({ jobId, size = "default" }: JobTimerButtonProps) {
+export function JobTimerButton({
+  jobId,
+  size = "default",
+  className,
+}: JobTimerButtonProps) {
   const { data } = useRunningTimer();
   const running = data?.data ?? null;
 
@@ -65,7 +72,10 @@ export function JobTimerButton({ jobId, size = "default" }: JobTimerButtonProps)
         variant="outline"
         disabled={pending}
         onClick={() => stop.mutate(undefined)}
-        className="cursor-pointer border-brand/40 text-brand-ink hover:bg-brand/10 hover:text-brand-ink"
+        className={cn(
+          "cursor-pointer border-brand/40 text-brand-ink hover:bg-brand/10 hover:text-brand-ink",
+          className,
+        )}
       >
         <IconPlayerStop className="mr-1.5 h-4 w-4" aria-hidden />
         Stop
@@ -86,7 +96,7 @@ export function JobTimerButton({ jobId, size = "default" }: JobTimerButtonProps)
         onClick={() =>
           runningElsewhere ? setConfirmSwitch(true) : start.mutate(undefined)
         }
-        className="cursor-pointer"
+        className={cn("cursor-pointer", className)}
       >
         <IconPlayerPlay className="mr-1.5 h-4 w-4" aria-hidden />
         Start timer

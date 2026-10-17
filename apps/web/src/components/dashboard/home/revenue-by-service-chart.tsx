@@ -4,9 +4,12 @@ import { useMemo } from "react";
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { IconChartBar } from "@tabler/icons-react";
 import type { DashboardServiceRevenue } from "@hvac-saas/types";
+import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
 import { OTHER_COLOR, tokenColor } from "@/lib/constants/chart-palette";
+import { ChartTooltipBox } from "./chart-tooltip";
+import { WidgetHeader } from "./widget-header";
 
 interface RevenueByServiceChartProps {
   data: DashboardServiceRevenue[];
@@ -33,17 +36,17 @@ function ServiceTooltip({
   const p = payload[0]!.payload;
   const pct = total > 0 ? Math.round((p.amount / total) * 100) : 0;
   return (
-    <div className="rounded-xl bg-foreground/95 px-3 py-2 text-background shadow-lg ring-1 ring-border">
+    <ChartTooltipBox>
       <div className="flex items-center gap-1.5">
         <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />
-        <span className="text-[11px] font-body uppercase tracking-wide opacity-70">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
           {p.label}
         </span>
       </div>
-      <div className="mt-0.5 font-heading text-sm font-semibold">
+      <div className="tnum mt-0.5 font-heading text-sm font-semibold">
         {formatCurrency(p.amount)} · {pct}%
       </div>
-    </div>
+    </ChartTooltipBox>
   );
 }
 
@@ -72,20 +75,20 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
   const hasData = total > 0;
 
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="font-heading text-sm font-semibold text-foreground">
-          Revenue by Service
-        </h3>
-        {hasData && (
-          <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
-            {formatCurrency(total)} total
-          </span>
-        )}
-      </div>
+    <Card className="flex h-full flex-col p-4 sm:p-6">
+      <WidgetHeader
+        title="Revenue by Service"
+        action={
+          hasData && (
+            <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
+              <span className="tnum font-mono">{formatCurrency(total)}</span> total
+            </span>
+          )
+        }
+      />
 
       {!hasData ? (
-        <div className="mt-4 flex-1 rounded-xl border border-dashed border-border bg-muted/10 p-6 text-center">
+        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconChartBar className="h-5 w-5 text-brand" />
           </div>
@@ -140,6 +143,6 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
           `${total > 0 ? Math.round((r.amount / total) * 100) : 0}%`,
         ])}
       />
-    </div>
+    </Card>
   );
 }

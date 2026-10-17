@@ -175,7 +175,7 @@ export function ImpersonateDialog({
               </p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="max-sm:[&>button]:h-10">
             <Button variant="outline" onClick={handleCancel} className="w-full">
               Cancel Request
             </Button>
@@ -204,7 +204,7 @@ export function ImpersonateDialog({
               </p>
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="max-sm:[&>button]:h-10">
             <Button
               variant="outline"
               onClick={() => {
@@ -333,7 +333,7 @@ export function ImpersonateDialog({
             <p className="text-sm text-destructive font-body">{error}</p>
           )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="max-sm:[&>button]:h-10">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}

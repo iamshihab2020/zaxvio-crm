@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "motion/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useViewPreference } from "@/hooks/use-view-preference";
+import { MEDIA } from "@/hooks/use-media-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { queryKeys } from "@/lib/query-keys";
 import { toast } from "sonner";
@@ -86,6 +87,12 @@ import {
 
 /** The board loads every job for a pipeline at once; 500 is the API maximum. */
 const BOARD_JOB_LIMIT = 500;
+
+const VIEW_TYPE_OPTIONS = [
+  { value: "board", label: "Board", icon: IconLayoutKanban },
+  { value: "list", label: "List", icon: IconList },
+  { value: "table", label: "Table", icon: IconListDetails },
+] as const;
 
 interface PipelineData {
   id: string;
@@ -181,11 +188,17 @@ export function JobsPageClient({
   // Hydrate localStorage preferences after mount
   useEffect(() => {
     const storedType = localStorage.getItem("jobs-view-type");
-    if (storedType === "table" || storedType === "list") {
+    if (storedType === "board" || storedType === "table" || storedType === "list") {
       setViewType(storedType);
     } else {
       const legacy = localStorage.getItem("jobs-view-mode");
       if (legacy === "table") setViewType("table");
+      // No saved choice: a phone opens on the list, because a board of 290px
+      // columns shows one column and a half. Decided here, after mount, from
+      // the media query itself rather than the SSR-false `useMediaQuery`, and
+      // never written back to storage, so it stays a default and a later tap
+      // on Board (which does write "board") is respected from then on.
+      else if (!window.matchMedia(MEDIA.md).matches) setViewType("list");
     }
     const storedCompact = localStorage.getItem("jobs-compact");
     if (storedCompact === "true") {
@@ -816,9 +829,12 @@ export function JobsPageClient({
   const stagesReady = stages.length > 0;
 
   return (
-    <section className="px-5 pt-2.5 pb-0">
-      {/* Unified toolbar */}
-      <div className="mb-4 flex items-center rounded-xl border border-border/60 bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-1.5">
+    <section className="px-4 pt-3 pb-0 sm:px-5 sm:pt-2.5">
+      {/* Unified toolbar. On a phone it is three stacked lines: pipeline,
+          search, then the view switch with Display and New Job. From `sm` it is
+          the one row it always was, wrapping only when the window is too narrow
+          to hold it (about 1024px, once the sidebar takes its 224px). */}
+      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border/60 bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-0 sm:gap-y-1.5 sm:py-1.5">
         {/* Left: Pipeline selector */}
         <PipelineTabs
           pipelines={pipelinesData}
@@ -827,7 +843,7 @@ export function JobsPageClient({
           onManageStages={() => setPipelineDialogOpen(true)}
         />
 
-        <div className="h-5 w-px bg-border dark:bg-border/60 mx-2 shrink-0" />
+        <div className="mx-2 hidden h-5 w-px shrink-0 bg-border dark:bg-border/60 sm:block" />
 
         {/* Left-center: Search + Filter */}
         <JobFilters
@@ -845,87 +861,64 @@ export function JobsPageClient({
           onAssigneeChange={setAssigneeFilter}
         />
 
-        {/* Center: Board / List / Table switch */}
-        <div className="mx-auto">
-          <Highlight
-            className="rounded-md bg-brand-light dark:bg-brand/20"
-            value={viewType}
-            controlledItems
-          >
-            <div className="flex items-center rounded-lg bg-muted/80 dark:bg-muted/30 p-0.5 gap-0.5">
-              <HighlightItem value="board">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleViewTypeChange("board")}
-                  className={cn(
-                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
-                    viewType === "board"
-                      ? "text-brand-ink"
-                      : "text-foreground/80 hover:text-foreground",
-                  )}
-                >
-                  <IconLayoutKanban className="h-3.5 w-3.5" />
-                  Board
-                </Button>
-              </HighlightItem>
-              <HighlightItem value="list">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleViewTypeChange("list")}
-                  className={cn(
-                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
-                    viewType === "list"
-                      ? "text-brand-ink"
-                      : "text-foreground/80 hover:text-foreground",
-                  )}
-                >
-                  <IconList className="h-3.5 w-3.5" />
-                  List
-                </Button>
-              </HighlightItem>
-              <HighlightItem value="table">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleViewTypeChange("table")}
-                  className={cn(
-                    "relative z-10 flex items-center gap-1.5 rounded-md px-3 h-6 text-xs font-semibold font-body whitespace-nowrap",
-                    viewType === "table"
-                      ? "text-brand-ink"
-                      : "text-foreground/80 hover:text-foreground",
-                  )}
-                >
-                  <IconListDetails className="h-3.5 w-3.5" />
-                  Table
-                </Button>
-              </HighlightItem>
-            </div>
-          </Highlight>
-        </div>
+        {/* The switch and the actions share a line on a phone. `sm:contents`
+            drops this wrapper from the layout above that, so they sit in the
+            toolbar row as direct children, exactly as before. */}
+        <div className="flex items-center justify-between gap-2 sm:contents">
+          {/* Center: Board / List / Table switch. Icon-only on a phone. */}
+          <div className="sm:mx-auto">
+            <Highlight
+              className="rounded-md bg-brand-light dark:bg-brand/20"
+              value={viewType}
+              controlledItems
+            >
+              <div className="flex items-center rounded-lg bg-muted/80 dark:bg-muted/30 p-0.5 gap-0.5">
+                {VIEW_TYPE_OPTIONS.map(({ value, label, icon: Icon }) => (
+                  <HighlightItem key={value} value={value}>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleViewTypeChange(value)}
+                      aria-label={label}
+                      aria-pressed={viewType === value}
+                      className={cn(
+                        "relative z-10 flex h-10 w-11 items-center justify-center gap-1.5 rounded-md px-0 text-xs font-semibold font-body whitespace-nowrap sm:h-6 sm:w-auto sm:px-3",
+                        viewType === value
+                          ? "text-brand-ink"
+                          : "text-foreground/80 hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                      <span className="hidden sm:inline">{label}</span>
+                    </Button>
+                  </HighlightItem>
+                ))}
+              </div>
+            </Highlight>
+          </div>
 
-        {/* Right: Display settings + New Job */}
-        <div className="flex items-center gap-1">
-          <DisplaySettingsPopover
-            compact={compact}
-            onCompactChange={handleCompactChange}
-            fields={cardFields}
-            onFieldChange={setCardField}
-            onFieldsReset={resetCardFields}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            viewModeMounted={viewMounted}
-          />
+          {/* Right: Display settings + New Job */}
+          <div className="flex items-center gap-2 sm:gap-1">
+            <DisplaySettingsPopover
+              compact={compact}
+              onCompactChange={handleCompactChange}
+              fields={cardFields}
+              onFieldChange={setCardField}
+              onFieldsReset={resetCardFields}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              viewModeMounted={viewMounted}
+            />
 
-          <Button
-            onClick={openCreateDialog}
-            size="sm"
-            className="bg-brand text-brand-foreground hover:bg-brand/90 font-body h-7 text-xs px-2.5 rounded-lg"
-          >
-            <IconPlus className="mr-1 h-3.5 w-3.5" />
-            New Job
-          </Button>
+            <Button
+              onClick={openCreateDialog}
+              size="sm"
+              className="bg-brand text-brand-foreground hover:bg-brand/90 font-body h-10 px-3 text-xs rounded-lg sm:h-7 sm:px-2.5"
+            >
+              <IconPlus className="mr-1 h-3.5 w-3.5" />
+              New Job
+            </Button>
+          </div>
         </div>
       </div>
 

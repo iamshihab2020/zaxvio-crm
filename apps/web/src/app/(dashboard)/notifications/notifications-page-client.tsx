@@ -138,7 +138,7 @@ export function NotificationsPageClient({
   }, [nextCursor, loadingMore]);
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 sm:p-6">
       <div className="rounded-lg border border-border bg-card">
         {/* Card header — "Mark all as read" acts on this list, so it belongs on
             the list rather than up in the navbar. */}
@@ -151,6 +151,7 @@ export function NotificationsPageClient({
           <Button
             variant="outline"
             size="sm"
+            className="h-10 sm:h-8"
             disabled={unreadCount === 0 || markAllReadMutation.isPending}
             onClick={markAllAsRead}
           >
@@ -195,6 +196,7 @@ export function NotificationsPageClient({
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="h-10 sm:h-8"
                   onClick={loadMore}
                   disabled={loadingMore}
                 >

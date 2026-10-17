@@ -22,9 +22,13 @@ export function SettingsSection({
   action,
 }: SettingsSectionProps) {
   return (
+    // 16px of padding on a phone, 24px from `sm` (DESIGN.md, Rhythm): the card
+    // already sits in a 16px page gutter, and 24px more on each side left a
+    // 295px column for a form that needs every pixel of it.
     <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between">
+      <CardHeader className="p-4 sm:p-6">
+        {/* Wraps so a long title and its action never squeeze each other. */}
+        <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
           <div className="flex items-center gap-2">
             {Icon && <Icon className="h-5 w-5 text-brand" />}
             <CardTitle className="font-heading text-base font-semibold">
@@ -39,7 +43,7 @@ export function SettingsSection({
           </CardDescription>
         )}
       </CardHeader>
-      <CardContent>{children}</CardContent>
+      <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">{children}</CardContent>
     </Card>
   );
 }

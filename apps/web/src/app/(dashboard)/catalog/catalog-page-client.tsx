@@ -3,7 +3,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  IconPlus,
   IconListDetails,
   IconTool,
   IconSettings,
@@ -13,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TableSkeleton } from "@/components/reusable/table-skeleton";
@@ -242,7 +242,7 @@ export function CatalogPageClient({
   const showNoResults = !loading && !hasItems && (!!search || !!filterItemType);
 
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -278,94 +278,98 @@ export function CatalogPageClient({
       {/* Card wrapper */}
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-            <StatusFilterTabs
-              options={TYPE_OPTIONS}
-              value={filterItemType}
-              onChange={setFilterItemType}
-            />
-            <div className="ml-auto flex items-center gap-2">
-              <SearchInput
-                value={search}
-                onChange={handleSearchChange}
-                placeholder="Search catalog..."
+          <ListToolbar
+            filters={
+              <StatusFilterTabs
+                options={TYPE_OPTIONS}
+                value={filterItemType}
+                onChange={setFilterItemType}
               />
+            }
+            actions={
+              <>
+                <SearchInput
+                  value={search}
+                  onChange={handleSearchChange}
+                  placeholder="Search catalog..."
+                />
 
-              {/* Category Filter */}
-              <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="gap-1.5 shrink-0" role="combobox" aria-expanded={categoryOpen}>
-                    {selectedCategoryLabel}
-                    <IconChevronDown className="h-3.5 w-3.5" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[220px] p-0" align="end">
-                  <Command>
-                    <CommandInput placeholder="Search categories..." />
-                    <CommandList>
-                      <CommandEmpty>No category found.</CommandEmpty>
-                      <CommandGroup>
-                        <CommandItem
-                          value="all-categories"
-                          onSelect={() => {
-                            setFilterCategory("");
-                            setCategoryOpen(false);
-                          }}
-                        >
-                          <IconCheck
-                            className={cn(
-                              "mr-2 h-3.5 w-3.5",
-                              !filterCategory ? "opacity-100" : "opacity-0",
-                            )}
-                          />
-                          All Categories
-                        </CommandItem>
-                        {mergedCategories.map((cat) => (
+                {/* Category Filter — categories are free text, so the label is
+                    capped on a phone rather than letting a long one push the row
+                    past the card. */}
+                <Popover open={categoryOpen} onOpenChange={setCategoryOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-10 shrink-0 gap-1.5 sm:h-8" role="combobox" aria-expanded={categoryOpen}>
+                      <span className="max-w-[10rem] truncate sm:max-w-none">{selectedCategoryLabel}</span>
+                      <IconChevronDown className="h-3.5 w-3.5" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[220px] p-0" align="end">
+                    <Command>
+                      <CommandInput placeholder="Search categories..." />
+                      <CommandList>
+                        <CommandEmpty>No category found.</CommandEmpty>
+                        <CommandGroup>
                           <CommandItem
-                            key={cat}
-                            value={cat}
-                            onSelect={(val) => {
-                              setFilterCategory(val);
+                            value="all-categories"
+                            onSelect={() => {
+                              setFilterCategory("");
                               setCategoryOpen(false);
                             }}
                           >
                             <IconCheck
                               className={cn(
                                 "mr-2 h-3.5 w-3.5",
-                                filterCategory === cat ? "opacity-100" : "opacity-0",
+                                !filterCategory ? "opacity-100" : "opacity-0",
                               )}
                             />
-                            {cat}
+                            All Categories
                           </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                          {mergedCategories.map((cat) => (
+                            <CommandItem
+                              key={cat}
+                              value={cat}
+                              onSelect={(val) => {
+                                setFilterCategory(val);
+                                setCategoryOpen(false);
+                              }}
+                            >
+                              <IconCheck
+                                className={cn(
+                                  "mr-2 h-3.5 w-3.5",
+                                  filterCategory === cat ? "opacity-100" : "opacity-0",
+                                )}
+                              />
+                              {cat}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
 
-              {/* Archived Toggle */}
-              <Button
-                variant={showArchived ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setShowArchived(!showArchived)}
-                className="gap-1.5 shrink-0"
-              >
-                <IconArchive className="h-4 w-4" />
-                <span className="hidden sm:inline">
-                  {showArchived ? "Showing archived" : "Show archived"}
+                {/* Archived Toggle — icon-only below `sm`, so a 40px square */}
+                <Button
+                  variant={showArchived ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setShowArchived(!showArchived)}
+                  aria-label={showArchived ? "Showing archived" : "Show archived"}
+                  className="h-10 w-10 shrink-0 gap-1.5 px-0 sm:h-8 sm:w-auto sm:px-3"
+                >
+                  <IconArchive className="h-4 w-4" />
+                  <span className="hidden sm:inline">
+                    {showArchived ? "Showing archived" : "Show archived"}
+                  </span>
+                </Button>
+
+                <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
+                  {pagination.total} {pagination.total === 1 ? "Item" : "Items"}
                 </span>
-              </Button>
-
-              <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
-                {pagination.total} {pagination.total === 1 ? "Item" : "Items"}
-              </span>
-              <Button onClick={openCreateDialog} size="sm" className="bg-brand text-brand-foreground hover:bg-brand/90 font-body">
-                <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                Add Item
-              </Button>
-            </div>
-          </div>
+                <ListToolbarCreateButton label="Add Item" onClick={openCreateDialog} />
+              </>
+            }
+          />
 
           {/* Loading skeleton */}
           {loading && (

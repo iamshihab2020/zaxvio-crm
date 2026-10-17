@@ -39,6 +39,11 @@ import { cn } from "@/lib/utils";
  * branch is this on?", "what runs before it?") are answered by looking at it.
  * No overlay, no focus trap — the canvas stays live behind it.
  *
+ * It takes a column of its own only from `lg`. Below that it floats over the
+ * canvas — a 380px column leaves a 768px canvas 388px — and below `md`, where
+ * the graph is view-only and this is only for reading a step's settings, it
+ * covers the whole canvas and the close button is the way back.
+ *
  * Everything inside is generated from the node's definition. There is no
  * per-node component and there should not be one until a node genuinely cannot
  * be expressed as a list of fields.
@@ -110,7 +115,14 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
       aria-hidden={!open}
       style={{ width: open ? panel.width : 0 }}
       className={cn(
-        "relative flex shrink-0 flex-col overflow-hidden border-l border-border bg-card",
+        "flex shrink-0 flex-col overflow-hidden border-l border-border bg-card",
+        // `relative` from `lg` (the handle below anchors to it); an overlay
+        // anchored to the builder's row until then. The tonal border does the
+        // separating, not a shadow.
+        "lg:relative max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20",
+        // `!` because the live width is an inline style. Only while open, so
+        // the closed state still collapses to zero.
+        open && "max-md:!w-full",
         // The open/close animation is suppressed **while dragging** — a width
         // transition during a drag lags the pointer by its own duration, which
         // feels like the panel is resisting. Also suppressed until mounted, so
@@ -134,8 +146,9 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
           title="Drag to resize · double-click to reset"
           // Kept fully INSIDE the panel: the shell is `overflow-hidden` so it
           // can collapse to zero width, and a handle centred on the border
-          // would have half its grab area clipped away.
-          className="group absolute inset-y-0 left-0 z-20 w-2 cursor-col-resize"
+          // would have half its grab area clipped away. Not offered below `md`,
+          // where the panel is the whole width and there is nothing to resize.
+          className="group absolute inset-y-0 left-0 z-20 w-2 cursor-col-resize max-md:hidden"
         >
           <span
             className={cn(
@@ -149,7 +162,10 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
       {node && definition && (
         <div
           style={{ width: panel.width }}
-          className="flex flex-1 flex-col overflow-hidden"
+          // Pinned to the viewport width on a phone, as it is pinned to the
+          // saved width elsewhere, so the form does not reflow while the shell
+          // animates open.
+          className="flex flex-1 flex-col overflow-hidden max-md:!w-screen"
         >
           <Header
             label={draftLabel}
@@ -292,7 +308,7 @@ function Header({
         <Button
           variant="ghost"
           size="icon"
-          className="-mr-1 -mt-1 h-7 w-7 shrink-0"
+          className="-mr-1 -mt-1 h-10 w-10 shrink-0 sm:h-7 sm:w-7"
           onClick={onClose}
           aria-label="Close settings"
         >

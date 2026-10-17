@@ -1,11 +1,11 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { IconPlus, IconRobot } from "@tabler/icons-react";
+import { IconRobot } from "@tabler/icons-react";
 import { DEFAULT_WORKFLOW_NAME } from "@hvac-saas/workflow-nodes";
-import { Button } from "@/components/ui/button";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SearchInput } from "@/components/reusable/search-input";
+import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { EmptyState } from "@/components/reusable/empty-state";
 import { TemplateGallery } from "@/components/dashboard/automations/template-gallery";
@@ -234,7 +234,7 @@ export function AutomationsPageClient({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <section className="p-6">
+      <section className="p-4 sm:p-6">
         {loadError && (
           <LoadErrorState
             title="Couldn't load your automations"
@@ -266,48 +266,45 @@ export function AutomationsPageClient({
 
         {!loadError && !showEmptyState && (
           <div className="rounded-lg border border-border bg-card overflow-hidden">
-            <div className="flex flex-wrap items-center gap-3 border-b border-border px-4 py-3">
-              <StatusFilterTabs
-                options={STATUS_OPTIONS}
-                value={statusFilter}
-                onChange={(value) => {
-                  setStatusFilter(value);
-                  setPage(1);
-                }}
-              />
-              <div className="ml-auto flex items-center gap-2">
-                <SearchInput
-                  value={search}
+            <ListToolbar
+              filters={
+                <StatusFilterTabs
+                  options={STATUS_OPTIONS}
+                  value={statusFilter}
                   onChange={(value) => {
-                    setSearch(value);
+                    setStatusFilter(value);
                     setPage(1);
                   }}
-                  placeholder="Search automations..."
                 />
-                {/* The count, matching the other list pages. Reads the server's
-                    total rather than the rows on screen, so it does not say "3"
-                    on page two of forty. */}
-                {!loading && (
-                  <span className="hidden shrink-0 items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body sm:inline-flex">
-                    {pagination?.total ?? visible.length}{" "}
-                    {(pagination?.total ?? visible.length) === 1
-                      ? "automation"
-                      : "automations"}
-                  </span>
-                )}
-                {/* Opens the gallery, which is instant — so no pending state
-                    here any more. The wait moved to the gallery's own buttons,
-                    which are the things that now create a record. */}
-                <Button
-                  onClick={handleCreate}
-                  size="sm"
-                  className="bg-brand text-brand-foreground hover:bg-brand/90 font-body shrink-0"
-                >
-                  <IconPlus className="mr-1.5 h-3.5 w-3.5" />
-                  New automation
-                </Button>
-              </div>
-            </div>
+              }
+              actions={
+                <>
+                  <SearchInput
+                    value={search}
+                    onChange={(value) => {
+                      setSearch(value);
+                      setPage(1);
+                    }}
+                    placeholder="Search automations..."
+                  />
+                  {/* The count, matching the other list pages. Reads the server's
+                      total rather than the rows on screen, so it does not say "3"
+                      on page two of forty. */}
+                  {!loading && (
+                    <span className="hidden shrink-0 items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body sm:inline-flex">
+                      {pagination?.total ?? visible.length}{" "}
+                      {(pagination?.total ?? visible.length) === 1
+                        ? "automation"
+                        : "automations"}
+                    </span>
+                  )}
+                  {/* Opens the gallery, which is instant — so no pending state
+                      here any more. The wait moved to the gallery's own buttons,
+                      which are the things that now create a record. */}
+                  <ListToolbarCreateButton label="New automation" onClick={handleCreate} />
+                </>
+              }
+            />
 
             {loading && <TableSkeleton columns={6} />}
 

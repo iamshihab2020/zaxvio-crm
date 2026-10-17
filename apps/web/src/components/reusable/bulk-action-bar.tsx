@@ -37,7 +37,14 @@ export function BulkActionBar({
           animate={{ opacity: 1, y: 0, x: "-50%" }}
           exit={{ opacity: 0, y: 20, x: "-50%" }}
           transition={{ type: "spring", stiffness: 300, damping: 25 }}
-          className="fixed bottom-4 left-1/2 z-50 transition-[margin-left] duration-300 ease-in-out"
+          /* `w-max` is load-bearing: a fixed box with `left: 50%` otherwise
+             shrink-wraps into the right half of the screen, so on a phone the
+             nowrap labels spilled out of a 187px bar. The cap keeps it inside
+             the content area (the screen minus the sidebar, 0 below `lg`).
+             `max-md:bottom-24` lifts it over the help chatbot's launcher (a
+             56px button at bottom-6 right-6): on a phone the bar is nearly the
+             screen's width, so at bottom-4 the launcher sat on its last action. */
+          className="fixed bottom-4 left-1/2 z-50 w-max max-md:bottom-24 max-w-[calc(100vw_-_var(--sidebar-w,0px)_-_1rem)] transition-[margin-left] duration-300 ease-in-out"
           /* Nudge right by half the sidebar so the bar is centred on the
              content, not on the viewport. `--sidebar-w` is published by
              DashboardShell; the 0px fallback degrades to viewport-centring
@@ -45,37 +52,48 @@ export function BulkActionBar({
              matches the shell's, so it tracks collapse/expand. */
           style={{ marginLeft: "calc(var(--sidebar-w, 0px) / 2)" }}
         >
-          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2.5 shadow-lg">
-            <span className="text-sm font-medium text-foreground whitespace-nowrap">
-              {selectedCount} selected
-            </span>
+          {/* Two rows on a phone: the count and Clear above, the actions
+              wrapping below, labels kept (a jobs bar has one "move to stage"
+              action per stage, all on the same icon, so icons alone would be
+              indistinguishable). One row from `sm`. */}
+          <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-lg sm:flex-row sm:items-center sm:px-4 sm:py-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-medium text-foreground whitespace-nowrap">
+                {selectedCount} selected
+              </span>
 
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onClearSelection}
-              disabled={loading}
-              className="h-7 px-2 text-muted-foreground"
-            >
-              <IconX className="mr-1 h-3.5 w-3.5" />
-              Clear
-            </Button>
-
-            <Separator orientation="vertical" className="h-6" />
-
-            {actions.map((action) => (
               <Button
-                key={action.label}
-                variant={action.variant ?? "secondary"}
+                variant="ghost"
                 size="sm"
-                onClick={action.onClick}
-                disabled={loading || action.disabled}
-                className="h-7 whitespace-nowrap"
+                onClick={onClearSelection}
+                disabled={loading}
+                className="h-10 px-3 text-muted-foreground sm:h-7 sm:px-2"
               >
-                <action.icon className="mr-1.5 h-3.5 w-3.5" />
-                {loading ? "Processing..." : action.label}
+                <IconX className="mr-1 h-3.5 w-3.5" />
+                Clear
               </Button>
-            ))}
+            </div>
+
+            <Separator
+              orientation="vertical"
+              className="hidden h-6 sm:block"
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              {actions.map((action) => (
+                <Button
+                  key={action.label}
+                  variant={action.variant ?? "secondary"}
+                  size="sm"
+                  onClick={action.onClick}
+                  disabled={loading || action.disabled}
+                  className="h-10 whitespace-nowrap sm:h-7"
+                >
+                  <action.icon className="mr-1.5 h-3.5 w-3.5" />
+                  {loading ? "Processing..." : action.label}
+                </Button>
+              ))}
+            </div>
           </div>
         </motion.div>
       )}

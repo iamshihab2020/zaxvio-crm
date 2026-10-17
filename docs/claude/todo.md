@@ -9,6 +9,12 @@ file (every finding, proof and caveat up to 2026-10-17) is `git show f6327fe:doc
 
 ## In Progress
 
+### Responsive app + dashboard redesign — written 2026-10-18, never rendered
+Phases 1–4 are in Completed. Nothing here has been typechecked, linted or opened in a browser (user's call: no checks between phases).
+- [ ] `pnpm typecheck` + `pnpm lint`, then a browser pass at 375/768/1024/1440 in both themes: the dashboard, every list page, a detail page and sheet, the job board (swipe vs press-and-hold drag on a real phone), the calendar's day view and task sheet, the builder's read-only mode, superadmin.
+- [ ] Arbitrary Tailwind values to confirm in the first build: `md:max-w-[min(var(--sheet-w),100vw)]`, `max-w-[calc(100vw_-_var(--sidebar-w,0px)_-_1rem)]`, `md:max-xl:sr-only`, `[@media(hover:hover)]:group-hover:*`.
+- [ ] Known gaps: Week Ahead columns ~35px wide on a phone; Revenue by service has no visible amounts; line-item tables scroll sideways on phones; on a phone the job and invoice tables sort only by the columns that stay visible; `invoice-photos-tab.tsx` opens its lightbox on double click only; the builder's palette + config panel still squeeze the canvas between `lg` and `xl` (needs a store change).
+
 ### App-wide slowness (2026-10-16)
 Measured with curl against dev: ~0.3s per Neon round trip, ~1.2s of every call spent on the session check, and reads queued behind Next 14's one-at-a-time server-action queue. First pass is in Completed.
 - [ ] Look at it in a browser. Everything was measured with curl; `tsc` and the UI are unverified.
@@ -98,6 +104,8 @@ Tenants: Shihab Housing (`/book/shihab-housing`) and Shihab Roofing Corp (demo s
 
 ## Completed
 
+- [x] **Responsive app, Phase 3** (2026-10-18) — seven parallel passes: full-width detail/create sheets below `md` (the default was 40% of the viewport: 150px on a phone); one `ListToolbar` for nine list pages; column hiding with folded sub-lines on every wide table; dialogs capped to the screen; scrollable tab lists; jobs list view by default and press-and-hold drag on phones; calendar day view and task sheet; the builder actually read-only below `md` (it was fully editable under a banner saying it wasn't), with Publish kept; the superadmin shell given the same drawer; 16px fields on phones so iOS stops zooming. Found on the way: every `ui/switch` thumb stayed put when toggled (user report); invoice, quote and job detail sidebars were `hidden xl:block`, hiding contact details and Generate Invoice below 1280px.
+- [x] **Dashboard redesign + responsive shell, Phases 1–2** (2026-10-18) — sidebar becomes a drawer below `lg`; dashboard in two zones with today's work first on phones, **Up next** as a day sheet, every widget back on DESIGN.md (8px cards, no hover lift or glow, filter tabs, `WidgetHeader`). DESIGN.md gained The Phone Is a Peer Rule; the chatbot no longer claims a responsive app that wasn't.
 - [x] **App-wide slowness, first pass** (2026-10-16) — Better Auth cookie cache 10s → 5 min, dashboard reads moved off the server-action queue onto `lib/client-reads` (ADR-004, ARC-01), `staleTimes.dynamic` 0 → 30. Open items in In Progress.
 - [x] **Motion pass: every page** (2026-10-16) — one motion vocabulary (MOTION SYSTEM in `globals.css`, `useRouteArrival`) for all 55 routes; 0 `animate-spin`/`animate-bounce` left; reduced-motion overrides throughout. Not checked in a browser.
 - [x] **Landing page: six Impeccable passes** (2026-10-16) — 14 of 15 LAND findings: invented testimonials and unbuilt claims removed (FAQ JSON-LD too), AA button labels, `--brand-ink`, `/privacy` + `/terms` drafted, skip link.

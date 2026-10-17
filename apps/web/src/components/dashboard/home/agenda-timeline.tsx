@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { format, differenceInCalendarDays, parseISO, isValid } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parseISO,
+} from "date-fns";
 import type {
   DashboardAgenda,
   DashboardAgendaBooking,
@@ -10,12 +16,14 @@ import type {
   DashboardAgendaJob,
 } from "@hvac-saas/types";
 import { AgendaHoverCard, type AgendaDetails } from "@/components/dashboard/shared/agenda-hover-card";
+import { Card } from "@/components/ui/card";
 import {
-  JOB_PRIORITY_CHART_COLORS,
-  type JobPriority,
+  JOB_PRIORITY_COLORS,
+  JOB_PRIORITY_LABELS,
 } from "@/lib/constants/job-options";
 import { tokenColor } from "@/lib/constants/chart-palette";
 import { WidgetWindowBadge } from "./widget-window-badge";
+import { WidgetHeader, WidgetLink } from "./widget-header";
 import { bookingLink, jobLink } from "@/lib/entity-links";
 import { cn } from "@/lib/utils";
 
@@ -27,10 +35,58 @@ type AgendaKind = "event" | "job" | "booking";
 
 /**
  * `hasTime` distinguishes "scheduled for 9am" from "scheduled that day, no time".
- * `start` still carries the date in both cases so grouping and sorting work, but
- * without this flag an untimed item would print a meaningless "12:00 AM".
+ * `start` still carries the date in both cases so sorting works, but without
+ * this flag an untimed item would print a meaningless "12:00 AM".
+ *
+ * `date` is the raw yyyy-MM-dd the API sent, and it is what the day sheet
+ * groups on. `start` is a local-clock Date rebuilt from that string, and
+ * formatting it back would be one more place for a timezone to move a job to
+ * the wrong day.
  */
-type AgendaItem = AgendaDetails & { id: string; hasTime: boolean };
+type AgendaItem = AgendaDetails & {
+  id: string;
+  hasTime: boolean;
+  date: string | null;
+};
+
+/**
+ * The colour of a row is its kind, and only its kind: DESIGN.md says a job is
+ * always orange, a booking always teal and an event always indigo, here and in
+ * the type badges. Week Ahead beside this widget draws the kinds the same way,
+ * so one booking is one teal on the whole screen.
+ *
+ * Rows used to be coloured by something else. A job took its priority's hue,
+ * so a blue rule meant "standard job" in a list where indigo meant "event", and
+ * an event took its own calendar colour, so two events could be two colours.
+ * Neither says what kind of thing the row is, which is what the rule down its
+ * left edge is for. Priority is a word now (see `PriorityPill`), shown only
+ * where it needs attention.
+ *
+ * These are tokens, not Tailwind's indigo-500/teal-500, so both themes stay
+ * correct and the colours are the validated ones.
+ */
+const KIND_COLOR: Record<AgendaKind, string> = {
+  job: tokenColor("brand"),
+  booking: tokenColor("series-booking"),
+  event: tokenColor("series-event"),
+};
+
+/** The whole list, not each day: the card sets its own height (see `AgendaTimeline`). */
+const MAX_ROWS = 10;
+
+const DAY_KEY = /^\d{4}-\d{2}-\d{2}/;
+
+/** The yyyy-MM-dd prefix of a date string, or null if it isn't one. */
+function dayKey(date: string | null): string | null {
+  return date && DAY_KEY.test(date) ? date.slice(0, 10) : null;
+}
+
+/** The day after a yyyy-MM-dd key, as a key. Null if the key isn't a real date. */
+function nextDayKey(key: string | null): string | null {
+  if (!key) return null;
+  const d = parseISO(key);
+  return isValid(d) ? format(addDays(d, 1), "yyyy-MM-dd") : null;
+}
 
 /**
  * Combine a YYYY-MM-DD date with an optional HH:MM:SS time into a local Date.
@@ -65,10 +121,8 @@ function eventToItem(e: DashboardAgendaEvent): AgendaItem {
     start: parseDateAt(e.eventDate, e.startTime),
     end: parseEndAt(e.eventDate, e.endTime),
     hasTime: Boolean(e.startTime),
-    // The series tokens, not Tailwind's indigo-500/teal-500: Week Ahead sits
-    // beside this widget and draws the same kinds from the tokens, so the hex
-    // made one booking two different teals on one screen.
-    color: e.color || tokenColor("series-event"),
+    date: dayKey(e.eventDate),
+    color: KIND_COLOR.event,
     href: `/schedule`,
   };
 }
@@ -86,7 +140,8 @@ function bookingToItem(b: DashboardAgendaBooking): AgendaItem {
     start: parseDateAt(b.bookingDate ?? "", b.preferredTime),
     end: null,
     hasTime: Boolean(b.preferredTime),
-    color: tokenColor("series-booking"),
+    date: dayKey(b.bookingDate),
+    color: KIND_COLOR.booking,
     // Param name must match what bookings-page-client.tsx reads.
     href: bookingLink(b.id),
   };
@@ -112,18 +167,46 @@ function jobToItem(j: DashboardAgendaJob): AgendaItem {
     start: parseDateAt(j.scheduledDate ?? "", j.scheduledStart),
     end: parseEndAt(j.scheduledDate, j.scheduledEnd),
     hasTime: Boolean(j.scheduledStart),
-    color: priorityColor(j.priority),
+    date: dayKey(j.scheduledDate),
+    color: KIND_COLOR.job,
     // Param name must match what jobs-page-client.tsx reads (`jobId`, not `job`).
     href: jobLink(j.id),
   };
 }
 
-/** Colour by priority, from the shared map keyed off the database enum. */
-function priorityColor(priority: string | null): string {
-  if (priority && priority in JOB_PRIORITY_CHART_COLORS) {
-    return JOB_PRIORITY_CHART_COLORS[priority as JobPriority];
+/** One day of the sheet. A null key is the "Unscheduled" tail. */
+interface DayGroup {
+  key: string | null;
+  items: AgendaItem[];
+}
+
+/**
+ * Bucket the (already sorted, already capped) items by their own date string.
+ * Days come out in date order, undated items last. Today is always a section,
+ * even with nothing in it, because "nothing today" is an answer the reader
+ * came for and a list that silently starts tomorrow doesn't give it.
+ */
+function groupByDay(items: AgendaItem[], todayKey: string | null): DayGroup[] {
+  const byDay = new Map<string, AgendaItem[]>();
+  const unscheduled: AgendaItem[] = [];
+  if (todayKey) byDay.set(todayKey, []);
+
+  for (const item of items) {
+    if (!item.date) {
+      unscheduled.push(item);
+      continue;
+    }
+    const bucket = byDay.get(item.date);
+    if (bucket) bucket.push(item);
+    else byDay.set(item.date, [item]);
   }
-  return "hsl(var(--brand))";
+
+  // yyyy-MM-dd sorts as text in date order.
+  const groups: DayGroup[] = Array.from(byDay.keys())
+    .sort()
+    .map((key) => ({ key, items: byDay.get(key) ?? [] }));
+  if (unscheduled.length > 0) groups.push({ key: null, items: unscheduled });
+  return groups;
 }
 
 export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
@@ -147,36 +230,67 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
     }
   }, [from, to]);
 
+  // "Today" is the agenda window's first day. The API resolves it in the
+  // tenant's timezone, and the browser's clock can sit on a different date: a
+  // contractor travelling, or the last hours of the day in another zone, would
+  // otherwise see tomorrow's jobs under a "Today" heading.
+  const todayKey = dayKey(from);
+  const tomorrowKey = useMemo(() => nextDayKey(todayKey), [todayKey]);
+
+  const days = useMemo(
+    () => groupByDay(items.slice(0, MAX_ROWS), todayKey),
+    [items, todayKey],
+  );
+  const hiddenCount = items.length - MAX_ROWS;
+
   return (
-    <div className="flex h-full flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="font-heading text-sm font-semibold text-foreground">
-            Agenda
-          </h3>
-          <WidgetWindowBadge label={`Next ${spanDays} days`} />
-        </div>
-        <Link
-          href="/schedule"
-          className="whitespace-nowrap text-[11px] font-body text-muted-foreground hover:text-foreground"
-        >
-          View schedule →
-        </Link>
-      </div>
+    // No `h-full`: this card lives in the side zone's stack, where a percentage
+    // height resolves against the stretched zone and pulls the card down to
+    // the bottom of the main zone, leaving empty sheet under the last row.
+    <Card className="flex flex-col p-4 sm:p-6">
+      <WidgetHeader
+        title="Up next"
+        badge={<WidgetWindowBadge label={`Next ${spanDays} days`} />}
+        action={<WidgetLink href="/schedule">Schedule →</WidgetLink>}
+      />
 
       {items.length === 0 ? (
-        <div className="mt-4 rounded-xl border border-dashed border-border bg-muted/20 p-6 text-center">
+        <div className="mt-4 rounded-md border border-dashed border-border bg-muted/20 p-6 text-center">
           <div className="text-sm font-body text-muted-foreground">
             Nothing scheduled
           </div>
           <div className="mt-1 text-[11px] font-body text-muted-foreground">
-            Events, jobs, and bookings in the next 7 days will show here.
+            Jobs, bookings and events for the next {spanDays} days will show here.
           </div>
         </div>
       ) : (
-        <GroupedList items={items} />
+        <>
+          {/* No inner scroll. This card sits in the dashboard's side zone, which
+              is a stack, so the list sets its own height and nothing next to it
+              is stretched to match. A scrolling box was how it used to avoid
+              that, and on a phone it put a scroll area inside the page scroll.
+              The ten-row cap is what bounds the height instead. */}
+          <div className="mt-4 space-y-5">
+            {days.map((group) => (
+              <DaySection
+                key={group.key ?? "unscheduled"}
+                group={group}
+                todayKey={todayKey}
+                tomorrowKey={tomorrowKey}
+              />
+            ))}
+          </div>
+
+          {hiddenCount > 0 && (
+            <div className="mt-3">
+              <WidgetLink href="/schedule">
+                {hiddenCount} more on the schedule →
+              </WidgetLink>
+            </div>
+          )}
+        </>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -197,7 +311,7 @@ function KindBadge({ kind }: { kind: AgendaKind }) {
   return (
     <span
       className={cn(
-        "rounded-full px-1.5 py-0.5 text-[10px] font-body font-semibold uppercase tracking-wide text-foreground",
+        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-body font-semibold uppercase tracking-wide text-foreground",
         style,
       )}
     >
@@ -206,92 +320,129 @@ function KindBadge({ kind }: { kind: AgendaKind }) {
   );
 }
 
+/** Only these two are worth a word on a row; "standard" is the default and says nothing. */
+function flaggedPriority(
+  priority: string | null | undefined,
+): "urgent" | "emergency" | null {
+  return priority === "urgent" || priority === "emergency" ? priority : null;
+}
 
-/** `condensed` is gone — every row is compact now, so there was nothing to vary. */
-function GroupedList({ items }: { items: AgendaItem[] }) {
-  const groups = useMemo(() => {
-    const map = new Map<string, AgendaItem[]>();
-    for (const it of items) {
-      const key = it.start ? format(it.start, "yyyy-MM-dd") : "unscheduled";
-      const arr = map.get(key) ?? [];
-      arr.push(it);
-      map.set(key, arr);
-    }
-    return Array.from(map.entries());
-  }, [items]);
+/**
+ * Reuses the Jobs board's priority classes and labels, so the same job reads the
+ * same on both pages. Emergency carries the same slow pulse the kanban card
+ * gives it, which DESIGN.md allows as a signal; reduced motion turns it into a
+ * steady ring (globals.css), so the state survives without the movement.
+ */
+function PriorityPill({ priority }: { priority: "urgent" | "emergency" }) {
+  const colors = JOB_PRIORITY_COLORS[priority];
+  return (
+    <span
+      className={cn(
+        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-body font-semibold uppercase tracking-wide",
+        colors.bg,
+        colors.text,
+        priority === "emergency" && "animate-pulse-emergency",
+      )}
+    >
+      {JOB_PRIORITY_LABELS[priority]}
+    </span>
+  );
+}
+
+function dayLabel(
+  key: string | null,
+  todayKey: string | null,
+  tomorrowKey: string | null,
+): string {
+  if (key === null) return "Unscheduled";
+  if (key === todayKey) return "Today";
+  if (key === tomorrowKey) return "Tomorrow";
+  const d = parseISO(key);
+  return isValid(d) ? format(d, "EEE d MMM") : key;
+}
+
+function DaySection({
+  group,
+  todayKey,
+  tomorrowKey,
+}: {
+  group: DayGroup;
+  todayKey: string | null;
+  tomorrowKey: string | null;
+}) {
+  const isToday = group.key !== null && group.key === todayKey;
+  return (
+    <div>
+      {/* The day's Label. "Today" is the one orange word, because orange here
+          means now. */}
+      <h3
+        className={cn(
+          "border-b border-border pb-1.5 font-heading text-[11px] font-semibold uppercase tracking-wider",
+          isToday ? "text-brand-ink" : "text-muted-foreground",
+        )}
+      >
+        {dayLabel(group.key, todayKey, tomorrowKey)}
+      </h3>
+      {group.items.length === 0 ? (
+        <p className="py-3 text-sm font-body text-muted-foreground">
+          Nothing scheduled today
+        </p>
+      ) : (
+        <ul className="mt-1.5 space-y-1">
+          {group.items.map((item) => (
+            <AgendaRow key={item.id} item={item} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * One entry on the day sheet: the hour in the left column, the work on the
+ * right, with a rule in the work's kind colour between them.
+ *
+ * Two lines, 48px at least. The time is a column rather than a third line (it
+ * made every entry ~76px, and thirteen of them ran the widget past 1000px), and
+ * as a column it scans down the sheet. Tabular mono figures keep it straight.
+ * On a phone the whole row is the tap target; the hover card is a desktop
+ * preview and the link still navigates on touch.
+ */
+function AgendaRow({ item }: { item: AgendaItem }) {
+  const flagged = item.kind === "job" ? flaggedPriority(item.priority) : null;
+  const time = item.start
+    ? item.hasTime
+      ? format(item.start, "h:mm a")
+      : "All day"
+    : "—";
 
   return (
-    /* `flex-1 min-h-0` instead of `max-h-[700px]`: the list now takes whatever
-       height the row gives it and scrolls inside that, rather than *setting*
-       the row height at 700px. It was the tallest thing in the row, so its
-       neighbour — which has ~340px of content — was stretched to match and
-       carried ~450px of empty card. `min-h-0` is required, or a flex child
-       refuses to shrink below its content and scrolls the page instead. */
-    <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-      {groups.map(([key, groupItems]) => {
-        const dayDate = key === "unscheduled" ? null : parseISO(key);
-        const dayAbbr = dayDate ? format(dayDate, "MMM").toUpperCase() : "—";
-        const dayNum = dayDate ? format(dayDate, "d") : "—";
-        const dayName = dayDate ? format(dayDate, "EEEE") : "Unscheduled";
-        return (
-          <div key={key} className="flex gap-3">
-            {/* Day marker, trimmed. The 2xl numeral plus a weekday underneath
-                took more vertical space than the entries it was labelling. */}
-            <div className="flex w-10 shrink-0 flex-col items-center pt-1.5">
-              <span className="font-mono text-[10px] font-medium uppercase tracking-wider text-brand-ink">
-                {dayAbbr}
-              </span>
-              <span className="tnum font-heading text-lg font-bold leading-none text-foreground">
-                {dayNum}
-              </span>
-              <span className="mt-0.5 font-mono text-[10px] uppercase text-muted-foreground">
-                {dayName.slice(0, 3)}
-              </span>
-            </div>
-            <ul className="flex-1 space-y-1.5">
-              {groupItems.map((item) => (
-                <li key={item.id}>
-                  <AgendaHoverCard details={item} side="left">
-                    {/* Two lines, not three. The time used to sit under the
-                        subtitle as a third stacked row, which made every entry
-                        ~76px tall — thirteen of them ran the widget past 1000px.
-                        Pulled onto the title line and right-aligned, it also
-                        becomes scannable down a column instead of being buried
-                        in each card. Tabular figures keep that column true. */}
-                    <Link
-                      href={item.href}
-                      className="group flex items-center gap-2.5 rounded-lg border border-border bg-background/40 px-2.5 py-2 transition-all hover:border-brand/40 hover:bg-brand/5 cursor-pointer"
-                    >
-                      <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-1.5">
-                          <KindBadge kind={item.kind} />
-                          <span className="truncate font-heading text-[13px] font-semibold text-foreground">
-                            {item.title}
-                          </span>
-                        </div>
-                        {item.subtitle && (
-                          <div className="truncate text-[11px] font-body text-muted-foreground">
-                            {item.subtitle}
-                          </div>
-                        )}
-                      </div>
-                      <span className="tnum shrink-0 self-start pt-0.5 font-mono text-[10px] text-muted-foreground">
-                        {item.start && item.hasTime
-                          ? format(item.start, "h:mm a")
-                          : "All day"}
-                      </span>
-                    </Link>
-                  </AgendaHoverCard>
-                </li>
-              ))}
-            </ul>
+    <li className="grid grid-cols-[4rem_minmax(0,1fr)] gap-x-3">
+      <span className="tnum pt-2 font-mono text-xs text-muted-foreground">
+        {time}
+      </span>
+      <AgendaHoverCard details={item} side="left">
+        <Link
+          href={item.href}
+          style={{ borderLeftColor: item.color }}
+          className="block min-h-12 min-w-0 rounded-r-md border-l-2 px-3 py-1.5 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="min-w-0 truncate text-sm font-medium text-foreground">
+              {item.title}
+            </span>
+            {flagged && <PriorityPill priority={flagged} />}
           </div>
-        );
-      })}
-    </div>
+          <div className="mt-0.5 flex min-w-0 items-center gap-2">
+            <KindBadge kind={item.kind} />
+            {item.subtitle && (
+              <span className="truncate text-xs font-body text-muted-foreground">
+                {item.subtitle}
+              </span>
+            )}
+          </div>
+        </Link>
+      </AgendaHoverCard>
+    </li>
   );
 }

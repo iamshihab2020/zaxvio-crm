@@ -83,7 +83,7 @@ export function CanvasControls() {
           <button
             type="button"
             onClick={() => zoomTo(1, duration(ZOOM_MS))}
-            className="min-w-[3.25rem] rounded px-1.5 py-1 text-center font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            className="min-w-[3.25rem] rounded px-1.5 py-3 text-center font-mono text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand sm:py-1"
           >
             {percent}%
           </button>
@@ -125,7 +125,9 @@ function ControlButton({
           onClick={onClick}
           aria-label={label}
           className={cn(
-            "flex h-7 w-7 items-center justify-center rounded text-muted-foreground",
+            // 40px on a phone, where this is the only zoom control besides a
+            // pinch; the dense 28px from `sm`.
+            "flex h-10 w-10 items-center justify-center rounded text-muted-foreground sm:h-7 sm:w-7",
             "transition-colors hover:bg-muted hover:text-foreground",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand",
           )}

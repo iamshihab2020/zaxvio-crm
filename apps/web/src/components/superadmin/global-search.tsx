@@ -75,11 +75,15 @@ export function GlobalSearch() {
 
   return (
     <>
+      {/* A 40px icon button on phones, where the label is hidden and the
+          navbar has no room for a field; it opens the same dialog. The
+          `aria-label` is what names it while the text is hidden. */}
       <Button
         variant="outline"
         size="sm"
         onClick={() => setOpen(true)}
-        className="flex h-9 items-center gap-2 px-3 text-sm text-muted-foreground hover:bg-muted/50"
+        aria-label="Search tenants"
+        className="flex h-10 w-10 items-center gap-2 px-0 text-sm text-muted-foreground hover:bg-muted/50 sm:h-9 sm:w-auto sm:px-3"
       >
         <IconSearch className="h-4 w-4" />
         <span className="hidden sm:inline font-body">Search tenants...</span>
@@ -115,19 +119,22 @@ export function GlobalSearch() {
                       onSelect={() => handleSelect(tenant.id)}
                       className="cursor-pointer"
                     >
-                      <IconBuilding className="mr-2 h-4 w-4 text-muted-foreground" />
-                      <div className="flex flex-1 items-center justify-between">
-                        <div>
-                          <p className="font-body text-sm font-medium">
+                      <IconBuilding className="mr-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                      {/* `min-w-0` + `truncate`: the list clips sideways
+                          overflow, so a long address would hide the status
+                          badge instead of shortening. */}
+                      <div className="flex min-w-0 flex-1 items-center justify-between">
+                        <div className="min-w-0">
+                          <p className="truncate font-body text-sm font-medium">
                             {tenant.businessName}
                           </p>
-                          <p className="font-body text-xs text-muted-foreground">
+                          <p className="truncate font-body text-xs text-muted-foreground">
                             {tenant.ownerName} · {tenant.email}
                           </p>
                         </div>
                         <Badge
                           variant="outline"
-                          className="ml-2 text-xs font-body capitalize"
+                          className="ml-2 shrink-0 text-xs font-body capitalize"
                         >
                           {tenant.subscriptionStatus ?? "unknown"}
                         </Badge>

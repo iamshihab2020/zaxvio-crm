@@ -40,10 +40,10 @@ export function ConversationHeader({ conversation }: ConversationHeaderProps) {
       </div>
 
       <div className="flex items-center gap-2 shrink-0">
-        <Badge variant="secondary" className="text-[11px]">
+        <Badge variant="secondary" className="hidden text-[11px] sm:inline-flex">
           {conversation.channel === "email" ? "Email" : "SMS"}
         </Badge>
-        <Button variant="ghost" size="sm" asChild className="h-7 gap-1 text-xs">
+        <Button variant="ghost" size="sm" asChild className="h-10 gap-1 text-xs sm:h-7">
           <Link href={`/customers/${conversation.customerId}`}>
             View Customer
             <IconExternalLink className="h-3 w-3" />

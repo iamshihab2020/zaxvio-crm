@@ -230,7 +230,7 @@ export function QuoteDetailSheet({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 cursor-pointer hover:bg-muted"
+              className="h-10 w-10 cursor-pointer hover:bg-muted sm:h-7 sm:w-7"
             >
               <IconDots className="h-3.5 w-3.5" />
             </Button>

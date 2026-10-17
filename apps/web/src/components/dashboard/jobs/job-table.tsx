@@ -51,12 +51,12 @@ interface JobTableProps {
 
 function formatCurrency(val: string | null) {
   const num = parseFloat(val ?? "0");
-  if (num < 0) return `\u2212$${Math.abs(num).toFixed(2)}`;
+  if (num < 0) return `−$${Math.abs(num).toFixed(2)}`;
   return `$${num.toFixed(2)}`;
 }
 
 function formatDate(val: string | null) {
-  if (!val) return "\u2014";
+  if (!val) return "—";
   const dateStr = val.length > 10 ? val.split("T")[0] : val;
   return new Date(dateStr + "T00:00:00").toLocaleDateString("en-US", {
     month: "short",
@@ -72,6 +72,7 @@ interface SortableHeaderProps {
   sortOrder: "asc" | "desc";
   onSort: (column: string) => void;
   align?: "left" | "right";
+  className?: string;
 }
 
 function SortableHeader({
@@ -82,6 +83,7 @@ function SortableHeader({
   onSort,
   align = "left",
   compact = false,
+  className,
 }: SortableHeaderProps & { compact?: boolean }) {
   const isActive = sortBy === column;
   return (
@@ -90,6 +92,7 @@ function SortableHeader({
         "font-body cursor-pointer select-none hover:text-foreground transition-colors",
         align === "right" && "text-right",
         compact && "h-9 px-3 text-xs",
+        className,
       )}
       onClick={() => onSort(column)}
     >
@@ -131,13 +134,23 @@ export function JobTable({
     return { label: stage.label, colors: getStageColors(stage.color) };
   }
 
+  // Below `md` the table is three columns (checkbox, job, total) and every
+  // column it hides is folded into the job cell, as `automations-table` does
+  // for its trigger. Six data columns do not fit 343px, and a table that
+  // scrolled sideways would hide the amount, the one column a phone is read for.
+  // The padding steps down with it; `compact` keeps its own, tighter padding.
+  const phonePad = compact ? undefined : "px-3 md:px-4";
+
   return (
     <div className="overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
             {selectedIds !== undefined && (
-              <TableHead className={cn("w-12", compact && "h-9 px-3")} onClick={(e) => e.stopPropagation()}>
+              <TableHead
+                className={cn("w-10 md:w-12", compact && "h-9 px-3")}
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Checkbox
                   checked={isAllSelected ? true : isIndeterminate ? "indeterminate" : false}
                   onCheckedChange={onToggleSelectAll}
@@ -145,14 +158,14 @@ export function JobTable({
                 />
               </TableHead>
             )}
-            <SortableHeader label="Job #" column="jobNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} />
-            <TableHead className={cn("font-body", compact && "h-9 px-3 text-xs")}>Title</TableHead>
-            <TableHead className={cn("font-body", compact && "h-9 px-3 text-xs")}>Customer</TableHead>
-            <SortableHeader label="Status" column="status" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} />
-            <SortableHeader label="Priority" column="priority" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} />
-            <TableHead className={cn("font-body", compact && "h-9 px-3 text-xs")}>Service Type</TableHead>
-            <SortableHeader label="Scheduled" column="scheduledDate" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} />
-            <SortableHeader label="Total" column="totalAmount" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} align="right" compact={compact} />
+            <SortableHeader label="Job #" column="jobNumber" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} className="hidden md:table-cell" />
+            <TableHead className={cn("font-body", phonePad, compact && "h-9 px-3 text-xs")}>Title</TableHead>
+            <TableHead className={cn("font-body hidden md:table-cell", compact && "h-9 px-3 text-xs")}>Customer</TableHead>
+            <SortableHeader label="Status" column="status" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} className="hidden md:table-cell" />
+            <SortableHeader label="Priority" column="priority" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} className="hidden md:table-cell" />
+            <TableHead className={cn("font-body hidden md:table-cell", compact && "h-9 px-3 text-xs")}>Service Type</TableHead>
+            <SortableHeader label="Scheduled" column="scheduledDate" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} compact={compact} className="hidden md:table-cell" />
+            <SortableHeader label="Total" column="totalAmount" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} align="right" compact={compact} className={phonePad} />
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -165,6 +178,20 @@ export function JobTable({
                 : "No customer";
 
             const cellClass = compact ? "py-1.5 px-3 text-xs" : "";
+
+            const statusBadge = (
+              <Badge
+                className={cn(
+                  "gap-1.5 font-medium",
+                  compact ? "px-2 py-px text-[11px]" : "px-2.5 py-0.5",
+                  stageInfo.colors.bg,
+                  stageInfo.colors.text,
+                )}
+              >
+                <span className={cn("rounded-full", stageInfo.colors.dot, compact ? "h-1 w-1" : "h-1.5 w-1.5")} />
+                {stageInfo.label}
+              </Badge>
+            );
 
             return (
               <TableRow
@@ -189,29 +216,31 @@ export function JobTable({
                     />
                   </TableCell>
                 )}
-                <TableCell className={cn("font-medium font-body", cellClass)}>
+                <TableCell className={cn("hidden font-medium font-body md:table-cell", cellClass)}>
                   {job.jobNumber}
                 </TableCell>
-                <TableCell className={cn("max-w-[200px] truncate font-body", cellClass)}>
-                  {job.title}
+                {/* Wraps on a phone; from `md` it is the single truncated line
+                    it was, and the sub-lines (which repeat hidden columns) go. */}
+                <TableCell className={cn("whitespace-normal font-body md:max-w-[200px] md:truncate", phonePad, cellClass)}>
+                  <span className="line-clamp-2 break-words md:hidden">{job.title}</span>
+                  <span className="hidden md:inline">{job.title}</span>
+                  <div className="mt-0.5 text-xs font-normal text-muted-foreground md:hidden">
+                    {job.jobNumber} · {customerName}
+                  </div>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 md:hidden">
+                    {statusBadge}
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(job.scheduledDate)}
+                    </span>
+                  </div>
                 </TableCell>
-                <TableCell className={cn("font-body", cellClass)}>
+                <TableCell className={cn("hidden font-body md:table-cell", cellClass)}>
                   {customerName}
                 </TableCell>
-                <TableCell className={cellClass}>
-                  <Badge
-                    className={cn(
-                      "gap-1.5 font-medium",
-                      compact ? "px-2 py-px text-[11px]" : "px-2.5 py-0.5",
-                      stageInfo.colors.bg,
-                      stageInfo.colors.text,
-                    )}
-                  >
-                    <span className={cn("rounded-full", stageInfo.colors.dot, compact ? "h-1 w-1" : "h-1.5 w-1.5")} />
-                    {stageInfo.label}
-                  </Badge>
+                <TableCell className={cn("hidden md:table-cell", cellClass)}>
+                  {statusBadge}
                 </TableCell>
-                <TableCell className={cellClass}>
+                <TableCell className={cn("hidden md:table-cell", cellClass)}>
                   {priorityColors && (
                     <Badge
                       className={cn(
@@ -225,13 +254,13 @@ export function JobTable({
                     </Badge>
                   )}
                 </TableCell>
-                <TableCell className={cn("text-muted-foreground font-body", cellClass)}>
+                <TableCell className={cn("hidden text-muted-foreground font-body md:table-cell", cellClass)}>
                   {SERVICE_TYPE_LABELS[job.serviceType] ?? job.serviceType}
                 </TableCell>
-                <TableCell className={cn("text-muted-foreground font-body", cellClass)}>
+                <TableCell className={cn("hidden text-muted-foreground font-body md:table-cell", cellClass)}>
                   {formatDate(job.scheduledDate)}
                 </TableCell>
-                <TableCell className={cn("text-right font-medium font-body", cellClass)}>
+                <TableCell className={cn("whitespace-nowrap text-right font-medium font-body", phonePad, cellClass)}>
                   {formatCurrency(job.totalAmount)}
                 </TableCell>
               </TableRow>

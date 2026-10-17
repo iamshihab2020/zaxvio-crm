@@ -102,7 +102,7 @@ export function VariablePicker({ subject, onInsert, disabled, className }: Props
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="end" side="bottom" sideOffset={6} className="w-[320px] p-0">
+      <PopoverContent align="end" side="bottom" sideOffset={6} className="w-[320px] max-w-[calc(100vw-2rem)] p-0">
         <Command
           // Search the path and the description as well as the label — people
           // look for "email" and the label is "Email address", but they also

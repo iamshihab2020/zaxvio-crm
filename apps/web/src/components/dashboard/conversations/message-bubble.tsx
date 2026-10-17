@@ -19,7 +19,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   return (
     <div className={`flex flex-col gap-1 ${isOutbound ? "items-end" : "items-start"}`}>
       <div
-        className={`max-w-[75%] px-4 py-2.5 text-sm leading-relaxed ${
+        className={`max-w-[85%] px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] sm:max-w-[75%] ${
           isOutbound
             ? "ml-auto bg-brand text-brand-foreground rounded-2xl rounded-br-sm"
             : "mr-auto bg-muted text-foreground rounded-2xl rounded-bl-sm"

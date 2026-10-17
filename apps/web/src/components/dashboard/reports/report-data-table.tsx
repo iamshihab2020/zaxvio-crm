@@ -40,7 +40,7 @@ export function ReportDataTable<T extends Record<string, unknown>>({
 }: ReportDataTableProps<T>) {
   return (
     <Card>
-      <CardHeader className="pb-2">
+      <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
         <CardTitle className="font-heading text-sm font-semibold">
           {title}
         </CardTitle>
@@ -48,7 +48,7 @@ export function ReportDataTable<T extends Record<string, unknown>>({
       <CardContent className="px-0 pb-0">
         <WidgetErrorBoundary name={title}>
           {data.length === 0 ? (
-            <div className="flex h-20 items-center justify-center px-6 pb-4">
+            <div className="flex h-20 items-center justify-center px-4 pb-4 sm:px-6">
               <p className="text-sm text-muted-foreground font-body">
                 {emptyMessage}
               </p>

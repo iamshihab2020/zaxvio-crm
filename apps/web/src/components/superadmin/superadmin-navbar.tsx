@@ -1,7 +1,13 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { IconLogout, IconShieldLock } from "@tabler/icons-react";
+import { useTheme } from "next-themes";
+import {
+  IconLogout,
+  IconMoon,
+  IconShieldLock,
+  IconSun,
+} from "@tabler/icons-react";
 import { useSession, signOut } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -15,8 +21,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useSuperadminSidebar } from "./superadmin-sidebar-provider";
 import { GlobalSearch } from "./global-search";
+import { SuperadminMobileNav } from "./superadmin-mobile-nav";
 
 const pageTitles: Record<string, string> = {
   "/superadmin/dashboard": "Dashboard",
@@ -40,7 +46,7 @@ export function SuperadminNavbar() {
   const pathname = usePathname();
   const router = useRouter();
   const { data: session } = useSession();
-  const { isCollapsed } = useSuperadminSidebar();
+  const { resolvedTheme, setTheme } = useTheme();
 
   const userName = session?.user?.name ?? "Admin";
   const userEmail = session?.user?.email ?? "";
@@ -67,32 +73,48 @@ export function SuperadminNavbar() {
 
   return (
     <header
-      className="fixed top-0 right-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card px-6 transition-[left] duration-300 ease-in-out"
-      style={{ left: isCollapsed ? "4rem" : "15rem" }}
+      // The sidebar offset is a class, not an inline style: `--sidebar-w` is
+      // published by SuperadminShell (this renders inside it) and is 0 below
+      // `lg`, where the sidebar is a drawer. `left-0` first so the bar spans
+      // the phone instead of starting 240px in.
+      className="fixed left-0 right-0 top-0 z-20 flex h-14 items-center justify-between border-b border-border bg-card px-4 transition-[left] duration-300 ease-in-out sm:px-6 lg:left-[var(--sidebar-w)]"
     >
-      <div className="flex items-center gap-3">
-        <h1 className="font-heading text-lg font-semibold text-foreground">
+      {/* Menu button (below `lg`), title and the ADMIN mark. `min-w-0 flex-1`
+          lets the title truncate instead of pushing the account controls off a
+          375px screen; the badge stays whole because it is the cue that this
+          is not a tenant's workspace. */}
+      <div className="flex min-w-0 flex-1 items-center gap-1">
+        <SuperadminMobileNav />
+        <h1 className="truncate font-heading text-lg font-semibold text-foreground">
           {pageTitle}
         </h1>
-        <Badge className="bg-admin-accent/10 text-admin-accent border-admin-accent/20 text-xs font-medium">
+        <Badge className="ml-2 shrink-0 bg-admin-accent/10 text-admin-accent border-admin-accent/20 text-xs font-medium">
           <IconShieldLock className="mr-1 h-3 w-3" />
           ADMIN
         </Badge>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="ml-3 flex shrink-0 items-center gap-1 sm:gap-2">
+        {/* An icon button below `sm` (see GlobalSearch), so it is a peer of the
+            account button rather than a field with no room. */}
         <GlobalSearch />
-        <ThemeToggle />
+        {/* Below `sm` the toggle moves into the account menu to give the title
+            room. */}
+        <ThemeToggle className="hidden sm:inline-flex" />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="ml-1 gap-2 px-2">
+            <Button
+              variant="ghost"
+              className="h-10 gap-2 px-2 sm:ml-1 sm:h-9"
+              aria-label={userName}
+            >
               <Avatar className="h-7 w-7">
                 <AvatarFallback className="bg-admin-accent text-[10px] font-bold text-white">
                   {initials}
                 </AvatarFallback>
               </Avatar>
-              <span className="font-body text-sm font-medium text-foreground">
+              <span className="hidden font-body text-sm font-medium text-foreground md:inline">
                 {userName}
               </span>
             </Button>
@@ -108,8 +130,20 @@ export function SuperadminNavbar() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem
+              onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+              className="cursor-pointer gap-2 max-sm:min-h-10 sm:hidden"
+            >
+              {resolvedTheme === "dark" ? (
+                <IconSun className="h-4 w-4" />
+              ) : (
+                <IconMoon className="h-4 w-4" />
+              )}
+              {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator className="sm:hidden" />
+            <DropdownMenuItem
               onClick={handleLogout}
-              className="cursor-pointer gap-2 text-destructive focus:text-destructive"
+              className="cursor-pointer gap-2 text-destructive focus:text-destructive max-sm:min-h-10"
             >
               <IconLogout className="h-4 w-4" />
               Log out

@@ -37,7 +37,8 @@ export function JobPhotoCompare({
           <DialogTitle className="font-heading">Before / After</DialogTitle>
         </DialogHeader>
 
-        <div className="grid grid-cols-2 gap-4">
+        {/* Stacked on a phone: two 16:9 frames side by side are 150px each. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Before */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center justify-between">
@@ -61,7 +62,7 @@ export function JobPhotoCompare({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 bg-black/50 text-white hover:bg-black/70"
+                    className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 sm:h-7 sm:w-7"
                     onClick={() => setBeforeIndex((i) => Math.max(0, i - 1))}
                     disabled={beforeIndex === 0}
                   >
@@ -70,7 +71,7 @@ export function JobPhotoCompare({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 bg-black/50 text-white hover:bg-black/70"
+                    className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 sm:h-7 sm:w-7"
                     onClick={() => setBeforeIndex((i) => Math.min(beforePhotos.length - 1, i + 1))}
                     disabled={beforeIndex === beforePhotos.length - 1}
                   >
@@ -107,7 +108,7 @@ export function JobPhotoCompare({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 bg-black/50 text-white hover:bg-black/70"
+                    className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 sm:h-7 sm:w-7"
                     onClick={() => setAfterIndex((i) => Math.max(0, i - 1))}
                     disabled={afterIndex === 0}
                   >
@@ -116,7 +117,7 @@ export function JobPhotoCompare({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 bg-black/50 text-white hover:bg-black/70"
+                    className="h-10 w-10 bg-black/50 text-white hover:bg-black/70 sm:h-7 sm:w-7"
                     onClick={() => setAfterIndex((i) => Math.min(afterPhotos.length - 1, i + 1))}
                     disabled={afterIndex === afterPhotos.length - 1}
                   >

@@ -121,7 +121,7 @@ export function JobSidebarPanel({ job }: JobSidebarPanelProps) {
                 size="sm"
                 onClick={handleGenerateInvoice}
                 disabled={generating}
-                className="w-full bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+                className="h-10 w-full bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer sm:h-8"
               >
                 <IconFileInvoice className="mr-1.5 h-3.5 w-3.5" />
                 {generating ? "Generating..." : "Generate Invoice"}

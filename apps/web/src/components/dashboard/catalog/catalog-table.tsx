@@ -48,6 +48,13 @@ const itemTypeBadgeStyles: Record<string, string> = {
   other: "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300",
 };
 
+// Used by the Status column and by the same badge folded under the name on a
+// phone, so the two cannot drift apart.
+const activeBadgeStyle =
+  "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
+const archivedBadgeStyle =
+  "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300";
+
 const itemTypeLabels: Record<string, string> = {
   labor: "Labor",
   part: "Part",
@@ -88,12 +95,15 @@ export function CatalogTable({
               />
             </TableHead>
           )}
-          <TableHead>Name</TableHead>
-          <TableHead>Type</TableHead>
-          <TableHead>Category</TableHead>
-          <TableHead className="text-right">Unit Price</TableHead>
-          <TableHead>Unit</TableHead>
-          {showArchived && <TableHead>Status</TableHead>}
+          {/* A phone gets the name (type, unit and archived state folded under
+              it) and the price. Type, unit and status arrive at `md`, category
+              at `lg`. */}
+          <TableHead className="px-2 sm:px-4">Name</TableHead>
+          <TableHead className="hidden md:table-cell">Type</TableHead>
+          <TableHead className="hidden lg:table-cell">Category</TableHead>
+          <TableHead className="px-2 text-right sm:px-4">Unit Price</TableHead>
+          <TableHead className="hidden md:table-cell">Unit</TableHead>
+          {showArchived && <TableHead className="hidden md:table-cell">Status</TableHead>}
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
@@ -112,10 +122,29 @@ export function CatalogTable({
                 />
               </TableCell>
             )}
-            <TableCell className="font-medium text-foreground">
+            <TableCell className="px-2 font-medium text-foreground sm:px-4">
               {item.name}
+              <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 font-normal md:hidden">
+                <Badge
+                  variant="secondary"
+                  className={itemTypeBadgeStyles[item.itemType] ?? ""}
+                >
+                  {itemTypeLabels[item.itemType] ?? item.itemType}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  {item.unit && item.unit !== "each" ? `per ${item.unit}` : "each"}
+                </span>
+                {showArchived && (
+                  <Badge
+                    variant="secondary"
+                    className={item.isActive ? activeBadgeStyle : archivedBadgeStyle}
+                  >
+                    {item.isActive ? "Active" : "Archived"}
+                  </Badge>
+                )}
+              </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="hidden md:table-cell">
               <Badge
                 variant="secondary"
                 className={itemTypeBadgeStyles[item.itemType] ?? ""}
@@ -123,13 +152,13 @@ export function CatalogTable({
                 {itemTypeLabels[item.itemType] ?? item.itemType}
               </Badge>
             </TableCell>
-            <TableCell className="text-muted-foreground">
+            <TableCell className="hidden text-muted-foreground lg:table-cell">
               {item.category || "\u2014"}
             </TableCell>
             {/* Cost under the price, as on a job's line items. "No cost" is
                 said out loud — a blank cell reads as free, and an item costing
                 nothing reports 100% margin on every job it touches. */}
-            <TableCell className="text-right text-foreground">
+            <TableCell className="px-2 text-right text-foreground sm:px-4">
               <div className="tnum">
                 {priceFormatter.format(Number(item.unitPrice))}
               </div>
@@ -143,27 +172,23 @@ export function CatalogTable({
                 </div>
               )}
             </TableCell>
-            <TableCell className="text-muted-foreground">
+            <TableCell className="hidden text-muted-foreground md:table-cell">
               {item.unit || "each"}
             </TableCell>
             {showArchived && (
-              <TableCell>
+              <TableCell className="hidden md:table-cell">
                 <Badge
                   variant="secondary"
-                  className={
-                    item.isActive
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                      : "bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300"
-                  }
+                  className={item.isActive ? activeBadgeStyle : archivedBadgeStyle}
                 >
                   {item.isActive ? "Active" : "Archived"}
                 </Badge>
               </TableCell>
             )}
-            <TableCell onClick={(e) => e.stopPropagation()}>
+            <TableCell className="px-2 sm:px-4" onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8">
                     <IconDots className="h-4 w-4" />
                     <span className="sr-only">Actions</span>
                   </Button>

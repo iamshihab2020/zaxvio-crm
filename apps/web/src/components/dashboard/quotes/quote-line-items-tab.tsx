@@ -199,169 +199,174 @@ export function QuoteLineItemsTab({
 
       {lineItems.length > 0 && (
         <div className="rounded-md border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
-                  Description
-                </th>
-                <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body w-16">
-                  Qty
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
-                  Price
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
-                  Total
-                </th>
-                {isDraft && <th className="w-10" />}
-              </tr>
-            </thead>
-            <tbody>
-              {lineItems.map((li) =>
-                editingId === li.id ? (
-                  <tr key={li.id} className="border-b border-border">
-                    <td colSpan={isDraft ? 5 : 4} className="px-2 py-2">
-                      <div className="space-y-2">
-                        <CatalogItemPicker
-                          selectedId={editForm.catalogItemId}
-                          selectedLabel={editForm.catalogItemLabel}
-                          onSelect={(item: CatalogPickerItem | null) => {
-                            if (item) {
-                              setEditForm((f) => ({
-                                ...f,
-                                catalogItemId: item.id,
-                                catalogItemLabel: item.name,
-                                catalogUnitPrice: item.unitPrice,
-                                unitPrice: parseFloat(item.unitPrice).toFixed(2),
-                                itemType: item.itemType,
-                              }));
-                            } else {
-                              setEditForm((f) => ({
-                                ...f,
-                                catalogItemId: null,
-                                catalogItemLabel: "",
-                                catalogUnitPrice: null,
-                              }));
-                            }
-                          }}
-                        />
-                        <div className="flex gap-2">
-                          <Input
-                            value={editForm.description}
-                            onChange={(e) =>
-                              setEditForm((f) => ({
-                                ...f,
-                                description: e.target.value,
-                              }))
-                            }
-                            placeholder="Description (optional)"
-                            className="h-8 text-sm flex-1"
+          {/* The table scrolls inside the card. `overflow-hidden` alone clipped
+              the price and total on a phone, and the edit row's fixed-width
+              inputs need the room. */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body">
+                    Description
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium text-muted-foreground font-body w-16">
+                    Qty
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
+                    Price
+                  </th>
+                  <th className="px-3 py-2 text-right font-medium text-muted-foreground font-body w-20">
+                    Total
+                  </th>
+                  {isDraft && <th className="w-10" />}
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.map((li) =>
+                  editingId === li.id ? (
+                    <tr key={li.id} className="border-b border-border">
+                      <td colSpan={isDraft ? 5 : 4} className="px-2 py-2">
+                        <div className="space-y-2">
+                          <CatalogItemPicker
+                            selectedId={editForm.catalogItemId}
+                            selectedLabel={editForm.catalogItemLabel}
+                            onSelect={(item: CatalogPickerItem | null) => {
+                              if (item) {
+                                setEditForm((f) => ({
+                                  ...f,
+                                  catalogItemId: item.id,
+                                  catalogItemLabel: item.name,
+                                  catalogUnitPrice: item.unitPrice,
+                                  unitPrice: parseFloat(item.unitPrice).toFixed(2),
+                                  itemType: item.itemType,
+                                }));
+                              } else {
+                                setEditForm((f) => ({
+                                  ...f,
+                                  catalogItemId: null,
+                                  catalogItemLabel: "",
+                                  catalogUnitPrice: null,
+                                }));
+                              }
+                            }}
                           />
-                          <Input
-                            value={editForm.quantity}
-                            onChange={(e) =>
-                              setEditForm((f) => ({
-                                ...f,
-                                quantity: e.target.value,
-                              }))
-                            }
-                            placeholder="Qty"
-                            className="h-8 text-sm w-16"
-                          />
-                          <Input
-                            value={editForm.unitPrice}
-                            onChange={(e) =>
-                              setEditForm((f) => ({
-                                ...f,
-                                unitPrice: e.target.value,
-                              }))
-                            }
-                            placeholder="Price"
-                            className="h-8 text-sm w-24 text-right"
-                          />
-                        </div>
-                        <div className="flex gap-1 justify-end">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setEditingId(null)}
-                            className="h-7 text-xs cursor-pointer"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            size="sm"
-                            onClick={handleSaveEdit}
-                            disabled={saving}
-                            className="h-7 text-xs cursor-pointer"
-                          >
-                            Save
-                          </Button>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  <tr
-                    key={li.id}
-                    className="border-b border-border last:border-0"
-                  >
-                    <td className="px-3 py-2 font-body">
-                      <div className="flex items-center gap-1.5 text-foreground">
-                        {li.description}
-                        {li.catalogItemId && (
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-                            <IconLink className="h-2.5 w-2.5" />
-                            Catalog
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-muted-foreground font-body">
-                      {li.quantity}
-                    </td>
-                    <td className="px-3 py-2 text-right text-muted-foreground font-body">
-                      ${parseFloat(li.unitPrice).toFixed(2)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-medium text-foreground font-body">
-                      ${parseFloat(li.total ?? "0").toFixed(2)}
-                    </td>
-                    {isDraft && (
-                      <td className="px-2 py-2">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7">
-                              <IconDots className="h-3.5 w-3.5 text-muted-foreground" />
+                          <div className="flex flex-wrap gap-2">
+                            <Input
+                              value={editForm.description}
+                              onChange={(e) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  description: e.target.value,
+                                }))
+                              }
+                              placeholder="Description (optional)"
+                              className="h-10 min-w-[8rem] flex-1 text-sm sm:h-8"
+                            />
+                            <Input
+                              value={editForm.quantity}
+                              onChange={(e) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  quantity: e.target.value,
+                                }))
+                              }
+                              placeholder="Qty"
+                              className="h-10 w-16 text-sm sm:h-8"
+                            />
+                            <Input
+                              value={editForm.unitPrice}
+                              onChange={(e) =>
+                                setEditForm((f) => ({
+                                  ...f,
+                                  unitPrice: e.target.value,
+                                }))
+                              }
+                              placeholder="Price"
+                              className="h-10 w-24 text-right text-sm sm:h-8"
+                            />
+                          </div>
+                          <div className="flex gap-1 justify-end">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => setEditingId(null)}
+                              className="h-10 cursor-pointer text-xs sm:h-7"
+                            >
+                              Cancel
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem
-                              onClick={() => startEdit(li)}
-                              className="cursor-pointer"
+                            <Button
+                              size="sm"
+                              onClick={handleSaveEdit}
+                              disabled={saving}
+                              className="h-10 cursor-pointer text-xs sm:h-7"
                             >
-                              <IconEdit className="mr-2 h-4 w-4" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleDelete(li.id)}
-                              className="cursor-pointer text-destructive focus:text-destructive"
-                            >
-                              <IconTrash className="mr-2 h-4 w-4" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                              Save
+                            </Button>
+                          </div>
+                        </div>
                       </td>
-                    )}
-                  </tr>
-                ),
-              )}
-            </tbody>
-          </table>
+                    </tr>
+                  ) : (
+                    <tr
+                      key={li.id}
+                      className="border-b border-border last:border-0"
+                    >
+                      <td className="px-3 py-2 font-body">
+                        <div className="flex items-center gap-1.5 text-foreground">
+                          {li.description}
+                          {li.catalogItemId && (
+                            <span className="inline-flex items-center gap-0.5 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                              <IconLink className="h-2.5 w-2.5" />
+                              Catalog
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {ITEM_TYPE_LABELS[li.itemType] ?? li.itemType}
+                        </div>
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground font-body">
+                        {li.quantity}
+                      </td>
+                      <td className="px-3 py-2 text-right text-muted-foreground font-body">
+                        ${parseFloat(li.unitPrice).toFixed(2)}
+                      </td>
+                      <td className="px-3 py-2 text-right font-medium text-foreground font-body">
+                        ${parseFloat(li.total ?? "0").toFixed(2)}
+                      </td>
+                      {isDraft && (
+                        <td className="px-2 py-2">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-7 sm:w-7">
+                                <IconDots className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => startEdit(li)}
+                                className="cursor-pointer"
+                              >
+                                <IconEdit className="mr-2 h-4 w-4" />
+                                Edit
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(li.id)}
+                                className="cursor-pointer text-destructive focus:text-destructive"
+                              >
+                                <IconTrash className="mr-2 h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </td>
+                      )}
+                    </tr>
+                  ),
+                )}
+              </tbody>
+            </table>
+          </div>
 
           <div className="flex justify-between px-3 py-2 bg-muted/30 border-t border-border">
             <span className="text-sm font-medium text-muted-foreground font-body">
@@ -413,9 +418,9 @@ export function QuoteLineItemsTab({
             }
             className="text-sm"
           />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Select value={form.itemType} onValueChange={(v) => setForm((f) => ({ ...f, itemType: v }))}>
-              <SelectTrigger className="h-9 text-sm font-body">
+              <SelectTrigger className="h-10 min-w-[9rem] flex-1 text-sm font-body sm:h-9">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -455,7 +460,7 @@ export function QuoteLineItemsTab({
                 setShowAdd(false);
                 setForm(emptyForm);
               }}
-              className="cursor-pointer"
+              className="h-10 cursor-pointer sm:h-8"
             >
               Cancel
             </Button>
@@ -463,7 +468,7 @@ export function QuoteLineItemsTab({
               size="sm"
               onClick={handleAdd}
               disabled={saving}
-              className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+              className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
             >
               {saving ? "Adding..." : "Add"}
             </Button>
@@ -476,7 +481,7 @@ export function QuoteLineItemsTab({
           variant="outline"
           size="sm"
           onClick={() => setShowAdd(true)}
-          className="mt-3 cursor-pointer"
+          className="mt-3 h-10 cursor-pointer sm:h-8"
         >
           <IconPlus className="mr-1.5 h-3.5 w-3.5" />
           Add Line Item

@@ -106,7 +106,7 @@ export function JobDetailChecklist({
           <div key={item.id}>
             <label
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 cursor-pointer transition-colors",
+                "flex items-center gap-3 rounded-md px-3 py-3 cursor-pointer transition-colors sm:py-2",
                 item.isCompleted
                   ? "bg-muted/20"
                   : "hover:bg-muted/30",
@@ -118,7 +118,7 @@ export function JobDetailChecklist({
                 checked={item.isCompleted}
                 onChange={() => handleToggle(item)}
                 disabled={toggling === item.id}
-                className="h-4 w-4 rounded border-border accent-brand cursor-pointer"
+                className="h-5 w-5 rounded border-border accent-brand cursor-pointer sm:h-4 sm:w-4"
               />
               <span
                 className={cn(
@@ -131,7 +131,7 @@ export function JobDetailChecklist({
                 {item.label}
               </span>
               {item.isRequired && (
-                <span className="flex items-center gap-1 text-xs text-amber-600">
+                <span className="flex shrink-0 items-center gap-1 text-xs text-amber-600">
                   <IconLock className="h-3 w-3" />
                   Required
                 </span>

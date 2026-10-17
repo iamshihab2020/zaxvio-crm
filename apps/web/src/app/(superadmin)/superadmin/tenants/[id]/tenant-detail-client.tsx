@@ -99,9 +99,11 @@ function InfoRow({
   return (
     <div className="flex items-start gap-3">
       <Icon className="h-4 w-4 mt-0.5 text-muted-foreground shrink-0" />
-      <div>
+      {/* `min-w-0` + `break-words`: an email or address is one long word, and
+          without them it runs out of a phone-width card. */}
+      <div className="min-w-0">
         <p className="text-xs text-muted-foreground font-body">{label}</p>
-        <p className="text-sm font-body text-foreground">{value || "—"}</p>
+        <p className="text-sm font-body text-foreground break-words">{value || "—"}</p>
       </div>
     </div>
   );
@@ -118,7 +120,7 @@ function StatCard({
 }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
-      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-admin-accent/10">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-admin-accent/10">
         <Icon className="h-5 w-5 text-admin-accent" />
       </div>
       <div>
@@ -167,19 +169,27 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
     .join(", ");
 
   return (
-    <section className="flex flex-col min-h-[calc(100vh-3.5rem)] bg-surface">
-      {/* Header */}
-      <div className="border-b border-border bg-card px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" asChild>
+    <section className="flex flex-col min-h-[calc(100dvh-3.5rem)] bg-surface">
+      {/* Header. The title block and the six actions stack until `xl`: side by
+          side they need about 950px, which only the content area at `xl` and up
+          has once the rail is taking 240px. */}
+      <div className="border-b border-border bg-card px-4 py-4 sm:px-6">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 max-sm:h-10 max-sm:w-10"
+              aria-label="Back to tenants"
+              asChild
+            >
               <Link href="/superadmin/tenants">
                 <IconArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
-                <h1 className="font-heading text-xl font-bold">
+                <h1 className="truncate font-heading text-xl font-bold">
                   {tenant.businessName}
                 </h1>
                 <TenantStatusBadge
@@ -187,12 +197,14 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
                   isActive={tenant.isActive}
                 />
               </div>
-              <p className="text-sm text-muted-foreground font-body">
+              <p className="truncate text-sm text-muted-foreground font-body">
                 {tenant.slug}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          {/* Two across on a phone, so six 40px buttons are three tidy rows
+              rather than a ragged wrap; a wrapping row from `sm`. */}
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center max-sm:[&>button]:h-10">
             <Button
               variant="outline"
               size="sm"
@@ -271,7 +283,7 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
       </div>
 
       {/* Content — Tabs at top level */}
-      <div className="flex-1 p-6">
+      <div className="flex-1 p-4 sm:p-6">
         <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList>
             <TabsTrigger value="overview" className="font-body">
@@ -318,15 +330,18 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
 
               {/* Right — Stats + Trial + Subscription */}
               <div className="flex-1 min-w-0 space-y-4">
-                {/* Usage stats */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {/* Usage stats. Back to one column at `lg`, where this column
+                    sits beside the 320px info panel and is only ~400px wide;
+                    three icon tiles side by side overflow it. */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                   <StatCard icon={IconUsers} label="Customers" value={tenant.stats.customerCount} />
                   <StatCard icon={IconBriefcase} label="Jobs" value={tenant.stats.jobCount} />
                   <StatCard icon={IconFileInvoice} label="Invoices" value={tenant.stats.invoiceCount} />
                 </div>
 
-                {/* Trial + Subscription side by side */}
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {/* Trial + Subscription side by side, from `xl` for the same
+                    reason as the tiles above. */}
+                <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {/* Trial Details */}
                   <Card className="flex flex-col">
                     <CardHeader className="pb-3">

@@ -3,7 +3,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function BookingsLoading() {
   return (
-    <section className="p-6">
+    <section className="p-4 sm:p-6">
       {/* Header */}
       <div className="mb-6 flex items-center justify-between">
         <Skeleton className="h-8 w-36" />

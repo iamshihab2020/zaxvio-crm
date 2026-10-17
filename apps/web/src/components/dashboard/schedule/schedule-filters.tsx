@@ -53,7 +53,7 @@ export function ScheduleFilters({
   // rendering it, not restoring the boolean.
 
   return (
-    <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border px-3 py-1.5 sm:px-4 sm:py-2">
       {/* Priority filter */}
       <Popover open={priorityOpen} onOpenChange={setPriorityOpen}>
         <PopoverTrigger asChild>
@@ -61,7 +61,7 @@ export function ScheduleFilters({
             variant="outline"
             size="sm"
             className={cn(
-              "h-7 cursor-pointer gap-1.5 text-xs",
+              "h-10 cursor-pointer gap-1.5 text-xs sm:h-7",
               priorityFilter && "border-brand/40 bg-brand-light/20 text-brand-ink",
             )}
           >
@@ -78,7 +78,7 @@ export function ScheduleFilters({
                 setPriorityOpen(false);
               }}
               className={cn(
-                "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer transition-colors",
+                "w-full rounded-md px-2 py-2.5 text-left text-sm hover:bg-muted cursor-pointer transition-colors sm:py-1.5",
                 priorityFilter === p && "bg-brand-light/30 text-brand-ink font-medium",
               )}
             >
@@ -95,7 +95,7 @@ export function ScheduleFilters({
             variant="outline"
             size="sm"
             className={cn(
-              "h-7 cursor-pointer gap-1.5 text-xs",
+              "h-10 cursor-pointer gap-1.5 text-xs sm:h-7",
               serviceTypeFilter && "border-brand/40 bg-brand-light/20 text-brand-ink",
             )}
           >
@@ -114,7 +114,7 @@ export function ScheduleFilters({
                 setServiceTypeOpen(false);
               }}
               className={cn(
-                "w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-muted cursor-pointer transition-colors",
+                "w-full rounded-md px-2 py-2.5 text-left text-sm hover:bg-muted cursor-pointer transition-colors sm:py-1.5",
                 serviceTypeFilter === st && "bg-brand-light/30 text-brand-ink font-medium",
               )}
             >
@@ -125,7 +125,7 @@ export function ScheduleFilters({
       </Popover>
 
       {/* Bookings toggle */}
-      <div className="flex items-center gap-2 ml-2">
+      <div className="ml-1 flex min-h-10 items-center gap-2 sm:ml-2 sm:min-h-0">
         <Switch
           id="show-bookings"
           checked={showBookings}
@@ -133,7 +133,7 @@ export function ScheduleFilters({
         />
         <Label
           htmlFor="show-bookings"
-          className="text-xs text-muted-foreground cursor-pointer flex items-center gap-1"
+          className="flex cursor-pointer items-center gap-1 self-stretch text-xs text-muted-foreground"
         >
           <IconCalendarEvent className="h-3.5 w-3.5" />
           Bookings

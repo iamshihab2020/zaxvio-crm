@@ -25,10 +25,13 @@ export function QuoteSidebarPanel({ quote }: QuoteSidebarPanelProps) {
     `${quote.customerFirstName?.[0] ?? ""}${quote.customerLastName?.[0] ?? ""}`.toUpperCase() ||
     "?";
 
+  // Stacked in the 288px column from `xl`. Below that this panel runs full width
+  // under the tabs, where three sections side by side use the room instead of
+  // leaving a long, mostly empty card.
   return (
-    <div className="p-4 sm:p-5 space-y-5">
+    <div className="space-y-5 p-4 sm:p-5 lg:grid lg:grid-cols-3 lg:gap-5 lg:space-y-0 xl:block xl:space-y-5">
       {/* Customer Card */}
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading flex items-center gap-1.5">
           <IconUser className="h-3.5 w-3.5" />
           Customer
@@ -56,20 +59,20 @@ export function QuoteSidebarPanel({ quote }: QuoteSidebarPanelProps) {
           {quote.customerEmail && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-body">
               <IconMail className="h-3 w-3 shrink-0" />
-              {quote.customerEmail}
+              <span className="min-w-0 break-words">{quote.customerEmail}</span>
             </div>
           )}
           {quote.customerAddress && (
             <div className="flex items-center gap-2 text-xs text-muted-foreground font-body">
               <IconMapPin className="h-3 w-3 shrink-0" />
-              {quote.customerAddress}
+              <span className="min-w-0 break-words">{quote.customerAddress}</span>
             </div>
           )}
         </div>
       </div>
 
       {/* Converted Job */}
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading flex items-center gap-1.5">
           <IconBriefcase className="h-3.5 w-3.5" />
           Converted Job
@@ -96,7 +99,7 @@ export function QuoteSidebarPanel({ quote }: QuoteSidebarPanelProps) {
       </div>
 
       {/* Notes */}
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading flex items-center gap-1.5">
           <IconNote className="h-3.5 w-3.5" />
           Notes

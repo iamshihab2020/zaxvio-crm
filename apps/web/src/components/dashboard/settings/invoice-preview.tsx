@@ -481,7 +481,7 @@ export function InvoicePreview({
             </DialogTitle>
           </DialogHeader>
           <div
-            className="rounded border bg-white p-10 dark:bg-white"
+            className="rounded border bg-white p-5 dark:bg-white sm:p-10"
             style={{
               fontFamily: "Helvetica, Arial, sans-serif",
               fontSize: 10,

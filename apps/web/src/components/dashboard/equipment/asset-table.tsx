@@ -99,18 +99,28 @@ export function AssetTable({
               />
             </TableHead>
           )}
+          {/* Below `sm` the customer, brand/model and warranty fold under the
+              type; five visible columns came to ~500px on a 343px screen. */}
           <TableHead>Type</TableHead>
-          {showCustomer && <TableHead>Customer</TableHead>}
-          <TableHead>Brand / Model</TableHead>
+          {showCustomer && <TableHead className="hidden sm:table-cell">Customer</TableHead>}
+          <TableHead className="hidden sm:table-cell">Brand / Model</TableHead>
           <TableHead className="hidden md:table-cell">Serial #</TableHead>
           <TableHead className="hidden lg:table-cell">Install Date</TableHead>
-          <TableHead>Warranty</TableHead>
+          <TableHead className="hidden sm:table-cell">Warranty</TableHead>
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
       <TableBody>
         {assets.map((asset) => {
           const warranty = getWarrantyStatus(asset.warrantyExpiry);
+          const brandModel =
+            asset.brand || asset.model
+              ? [asset.brand, asset.model].filter(Boolean).join(" ")
+              : null;
+          const customerName =
+            asset.customerFirstName && asset.customerLastName
+              ? `${asset.customerFirstName} ${asset.customerLastName}`
+              : null;
 
           return (
             <TableRow
@@ -138,19 +148,24 @@ export function AssetTable({
                       {asset.location}
                     </p>
                   )}
+                  <div className="mt-0.5 space-y-0.5 text-xs text-muted-foreground sm:hidden">
+                    {brandModel && <p>{brandModel}</p>}
+                    {showCustomer && customerName && <p>{customerName}</p>}
+                    {warranty && (
+                      <Badge variant={warranty.variant} className="mt-0.5">
+                        {warranty.label}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </TableCell>
               {showCustomer && (
-                <TableCell className="text-muted-foreground">
-                  {asset.customerFirstName && asset.customerLastName
-                    ? `${asset.customerFirstName} ${asset.customerLastName}`
-                    : "—"}
+                <TableCell className="hidden text-muted-foreground sm:table-cell">
+                  {customerName ?? "—"}
                 </TableCell>
               )}
-              <TableCell className="text-muted-foreground">
-                {asset.brand || asset.model
-                  ? [asset.brand, asset.model].filter(Boolean).join(" ")
-                  : "—"}
+              <TableCell className="hidden text-muted-foreground sm:table-cell">
+                {brandModel ?? "—"}
               </TableCell>
               <TableCell className="hidden md:table-cell text-muted-foreground">
                 {asset.serialNumber ?? "—"}
@@ -158,17 +173,17 @@ export function AssetTable({
               <TableCell className="hidden lg:table-cell text-muted-foreground">
                 {formatDate(asset.installDate)}
               </TableCell>
-              <TableCell>
+              <TableCell className="hidden sm:table-cell">
                 {warranty ? (
                   <Badge variant={warranty.variant}>{warranty.label}</Badge>
                 ) : (
                   <span className="text-xs text-muted-foreground">—</span>
                 )}
               </TableCell>
-              <TableCell onClick={(e) => e.stopPropagation()}>
+              <TableCell className="px-2 sm:px-4" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8">
                       <IconDots className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>

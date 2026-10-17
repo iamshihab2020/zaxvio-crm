@@ -154,7 +154,7 @@ export function BookingDetailSheet({
                     onClick={() => {
                       if (booking) { onConfirm(booking.id); onOpenChange(false); }
                     }}
-                    className="bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer"
+                    className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
                   >
                     <IconCheck className="mr-1.5 h-3.5 w-3.5" />
                     Confirm
@@ -164,7 +164,7 @@ export function BookingDetailSheet({
                   <Button
                     size="sm"
                     variant="outline"
-                    className="cursor-pointer"
+                    className="h-10 cursor-pointer sm:h-8"
                     onClick={() => {
                       if (booking) { onConvert(booking.id); onOpenChange(false); }
                     }}
@@ -176,7 +176,7 @@ export function BookingDetailSheet({
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="cursor-pointer text-destructive hover:text-destructive"
+                  className="h-10 cursor-pointer text-destructive hover:text-destructive sm:h-8"
                   onClick={() => {
                     if (booking) { onCancel(booking.id); onOpenChange(false); }
                   }}
@@ -204,7 +204,7 @@ export function BookingDetailSheet({
             <Button
               size="sm"
               variant="outline"
-              className="mt-3 h-7 text-xs"
+              className="mt-3 h-10 text-xs sm:h-7"
               onClick={() => query.refetch()}
               disabled={query.isFetching}
             >
@@ -324,7 +324,7 @@ export function BookingDetailSheet({
                   onClick={handleSaveNotes}
                   disabled={savingNotes || !notesDirty}
                   className={cn(
-                    "h-7 px-3 text-xs cursor-pointer",
+                    "h-10 px-3 text-xs cursor-pointer sm:h-7",
                     notesDirty ? "bg-brand text-brand-foreground hover:bg-brand/90" : "",
                   )}
                   variant={notesDirty ? "default" : "ghost"}

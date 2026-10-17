@@ -81,6 +81,14 @@ export function AssetDetailClient({ asset }: AssetDetailClientProps) {
     asset.customerFirstName && asset.customerLastName
       ? `${asset.customerFirstName} ${asset.customerLastName}`
       : "Unknown Customer";
+  // Rendered twice, as only one of them is ever visible: under the title on a
+  // phone, where beside it the title was left ~100px wide, and at the end of the
+  // row from `sm`.
+  const warrantyBadge = warranty ? (
+    <Badge variant="outline" className={warranty.className}>
+      {warranty.label}
+    </Badge>
+  ) : null;
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
@@ -91,16 +99,17 @@ export function AssetDetailClient({ asset }: AssetDetailClientProps) {
             variant="ghost"
             size="icon"
             onClick={() => router.back()}
-            className="h-8 w-8"
+            className="h-10 w-10 shrink-0 sm:h-8 sm:w-8"
+            aria-label="Back"
           >
             <IconArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-light">
               <IconDevices2 className="h-5 w-5 text-brand" />
             </div>
-            <div>
-              <h1 className="font-heading text-lg font-bold text-foreground">
+            <div className="min-w-0">
+              <h1 className="break-words font-heading text-lg font-bold text-foreground">
                 {asset.equipmentType}
                 {asset.brand ? ` — ${asset.brand}` : ""}
                 {asset.model ? ` ${asset.model}` : ""}
@@ -110,13 +119,10 @@ export function AssetDetailClient({ asset }: AssetDetailClientProps) {
                   ? `S/N: ${asset.serialNumber}`
                   : "No serial number"}
               </p>
+              {warrantyBadge && <div className="mt-1.5 sm:hidden">{warrantyBadge}</div>}
             </div>
           </div>
-          {warranty && (
-            <Badge variant="outline" className={warranty.className}>
-              {warranty.label}
-            </Badge>
-          )}
+          {warrantyBadge && <div className="hidden sm:block">{warrantyBadge}</div>}
         </div>
       </div>
 

@@ -50,7 +50,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["navigate", "find", "where", "sidebar", "menu", "page", "go to"],
     question: "How do I navigate the app?",
     answer:
-      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Conversations** — Send emails to customers, view message history\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Automate** group — Automations\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space.",
+      "Use the **sidebar** on the left to navigate. It's organized into groups:\n\n• **Dashboard** — Your home overview\n• **Conversations** — Send emails to customers, view message history\n• **Schedule** group — Calendar, Bookings\n• **Manage** group — Customers, Jobs\n• **Finance** group — Quotes, Invoices, Service Agreements\n• **Automate** group — Automations\n• **Reference** group — Catalog, Checklists, Assets\n• **Settings** — at the bottom\n\nYou can collapse the sidebar by clicking the toggle at the top for more screen space. On a phone or tablet the sidebar is tucked away: tap the **menu** button at the top left to open it, and it closes again when you pick a page.",
   },
   {
     id: "conversations-feature",
@@ -320,7 +320,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["dashboard", "home", "overview", "stats", "metrics", "kpi"],
     question: "What does the dashboard show?",
     answer:
-      "The **Dashboard** is your home page. Six panels are shown by default:\n\n• **Overdue Alert** — A banner when any invoice is past its due date\n• **KPI Pills** — Jobs today (with an emergency count), total outstanding across unpaid invoices, and quote conversion rate\n• **Agenda** — Events, jobs, and bookings for the next 7 days with real start/end times. Hover any row for a detail preview\n• **Revenue Chart** — Area chart with **1D / 1W / 1M / 6M / 1Y / ALL** tabs\n• **Invoice Aging** — Current / 1-30 / 31-60 / 61-90 / 90+ days outstanding, with $ per bucket. Click a bucket to open the matching invoices\n• **Jobs Management** — Status / Priority / Service tabs, plus a pipeline selector. Click a bucket to open those jobs\n\nFour more are available under **Customize Widget**: Quote Funnel, Retention Rate, Revenue by Service, Top Customers, and the Activity Feed.\n\n**Ask AI** opens this chatbot. Archived jobs are excluded from every count.",
+      "The **Dashboard** is your home page. Seven panels are shown by default:\n\n• **Overdue Alert** — A banner when any invoice is past its due date\n• **KPI tiles** — Jobs today (with an emergency count), total outstanding across unpaid invoices, quote conversion rate, and active customers\n• **Up next** — Today first, then the rest of the coming week: jobs, bookings and calendar events with their start times, up to 10 at a time. Jobs are marked orange, bookings teal and events indigo, and urgent or emergency jobs carry a priority tag. On a computer, hover any row for a detail preview\n• **Week Ahead** — One column per day, showing how busy each one is\n• **Revenue Chart** — Collected vs billed, with **1D / 1W / 1M / 6M / 1Y / ALL** tabs\n• **Invoice Aging** — Current / 1-30 / 31-60 / 61-90 / 90+ days outstanding, with $ per bucket. Click a bucket to open the matching invoices\n• **Jobs Management** — Status / Priority / Service tabs, plus a pipeline selector. Click a bucket to open those jobs\n\nFive more are available under **Customize**: Quote Funnel, Retention Rate, Revenue by Service, Top Customers, and the Activity Feed.\n\nOn a phone the page reads top to bottom in order of urgency: alerts, today's numbers, what's up next, then the money charts. On a wide screen Up next and Week Ahead sit in the right-hand column. **Ask AI** opens this chatbot. Archived jobs are excluded from every count.",
   },
   {
     id: "dashboard-customize",
@@ -328,7 +328,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["customize", "hide", "show", "widget", "layout", "personalize", "preferences"],
     question: "Can I customize the dashboard?",
     answer:
-      "Yes. Click **Customize Widget** in the dashboard toolbar for a toggle list of all eleven widgets. Six are on by default (overdue alert, KPI pills, agenda, revenue chart, invoice aging, jobs management); the more analytical ones — quote funnel, retention rate, revenue by service, top customers, activity feed — are off until you turn them on. Your choices are saved in this browser and survive reloads. Click **Reset** to restore defaults.",
+      "Yes. Click **Customize** in the dashboard toolbar (an icon button on a phone) for a toggle list of every widget. Seven are on by default (overdue alert, KPI tiles, Up next, Week Ahead, revenue chart, invoice aging, jobs management); the more analytical ones — quote funnel, retention rate, revenue by service, top customers, activity feed — are off until you turn them on. Hiding a widget closes the gap rather than leaving a hole. Your choices are saved in this browser and survive reloads. Click **Reset** to restore defaults.",
   },
   {
     id: "dashboard-date-range",
@@ -336,7 +336,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["date range", "period", "filter", "picker", "window", "badge", "timezone"],
     question: "Which dashboard widgets follow the date range picker?",
     answer:
-      "Only some of them, and the ones that don't say so on the card.\n\n**Follow the picker:** Revenue chart (both the collected and the billed figure), Jobs Management, Quote Funnel, Revenue by Service, Top Customers.\n\n**Fixed window** (marked with a small grey badge): Agenda and Week Ahead (*next 7 days*), Invoice Aging and Outstanding (*All open*), Active Customers (*Last 90 days*), Retention Rate (*Last 6 months*), Activity Feed (*Latest 10*), and Jobs Today (always today).\n\nYour selection is **remembered exactly** — come back tomorrow, next week or next month and the dashboard opens on the same range you left it on, until you change it yourself. That applies to shortcuts too: clicking *Last 7 days* picks those seven days, it doesn't sign you up for a window that keeps sliding forward.\n\n\"Today\" is calculated in your business timezone from **Settings → Business**, not the server's — so the dashboard rolls over at midnight where you are.",
+      "Only some of them, and the ones that don't say so on the card.\n\n**Follow the picker:** Revenue chart (both the collected and the billed figure), Jobs Management, Quote Funnel, Revenue by Service, Top Customers.\n\n**Fixed window** (marked with a small grey badge): Up next and Week Ahead (*next 7 days*), Invoice Aging and Outstanding (*All open*), Active Customers (*Last 90 days*), Retention Rate (*Last 6 months*), Activity Feed (*Latest 10*), and Jobs Today (always today).\n\nYour selection is **remembered exactly** — come back tomorrow, next week or next month and the dashboard opens on the same range you left it on, until you change it yourself. That applies to shortcuts too: clicking *Last 7 days* picks those seven days, it doesn't sign you up for a window that keeps sliding forward.\n\n\"Today\" is calculated in your business timezone from **Settings → Business**, not the server's — so the dashboard rolls over at midnight where you are.\n\nOn a computer the date range control sits in the top bar beside the page name; on a phone it sits at the top of the page.",
   },
   {
     id: "dashboard-revenue-range",
@@ -344,7 +344,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["revenue", "1d", "1w", "1m", "6m", "1y", "all", "range", "granularity", "chart"],
     question: "How do the 1D/1W/1M/6M/1Y/ALL tabs on the revenue chart work?",
     answer:
-      "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, daily bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe big revenue figure and the chart always cover exactly the same window, so the number matches the area you see. Widgets marked with a grey badge (Agenda, Invoice Aging, Retention) keep their own fixed window.\n\nEach tab is a shortcut for **setting** a range, not a live subscription to one: pick 1W today and it stays on today's seven days next time you open the dashboard, rather than sliding forward on its own.",
+      "Those tabs change **both** the date range *and* the chart granularity at once:\n\n• **1D** — Today, daily bucket\n• **1W** — Last 7 days, daily buckets\n• **1M** — Last 30 days, daily buckets\n• **6M** — Last 6 months, weekly buckets\n• **1Y** — Last 12 months, monthly buckets\n• **ALL** — Last 3 years, monthly buckets\n\nThe big revenue figure and the chart always cover exactly the same window, so the number matches the area you see. Widgets marked with a grey badge (Up next, Invoice Aging, Retention) keep their own fixed window.\n\nEach tab is a shortcut for **setting** a range, not a live subscription to one: pick 1W today and it stays on today's seven days next time you open the dashboard, rather than sliding forward on its own.",
   },
   {
     id: "dashboard-billed-vs-collected",
@@ -360,7 +360,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["week ahead", "capacity", "busy", "load", "free day", "schedule", "strip"],
     question: "What does the Week Ahead strip show?",
     answer:
-      "One column per day for the coming week, stacked by what is on it: **jobs** (orange), **bookings** (teal) and **calendar events** (indigo). Today's column is outlined.\n\nIt answers what a list cannot — which day is stacked up and which day is empty. The header names your busiest day and counts the days still open. Hover a column for the breakdown, or click it to open the schedule.\n\nThe Agenda beside it lists the same items in time order, entry by entry.",
+      "One column per day for the coming week, stacked by what is on it: **jobs** (orange), **bookings** (teal) and **calendar events** (indigo). Today's column is tinted.\n\nIt answers what a list cannot — which day is stacked up and which day is empty. The header names your busiest day and counts the days still open. On a computer, hover a column for the breakdown; tap or click it to open the schedule.\n\n**Up next** lists the same items in time order, entry by entry.",
   },
   {
     id: "where-are-create-buttons",
@@ -601,7 +601,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["kanban", "board", "drag", "columns", "pipeline", "board view"],
     question: "How does the Kanban board work?",
     answer:
-      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of **active** jobs in that stage — archived jobs are excluded.\n\n**Filter** by priority, service type or **assignee** with the funnel icon. If a pipeline holds more jobs than the board loads at once, a banner tells you how many are hidden — use a filter or the table view to reach the rest.",
+      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of **active** jobs in that stage — archived jobs are excluded.\n\n**Filter** by priority, service type or **assignee** with the funnel icon. If a pipeline holds more jobs than the board loads at once, a banner tells you how many are hidden — use a filter or the table view to reach the rest.\n\n**On a phone** the Jobs page opens on the **list view** the first time (the board is one tap away, and your choice is remembered). On the board, **swipe** to scroll between columns and **press and hold** a card to pick it up and drag it.",
   },
   {
     id: "jobs-table",
@@ -1233,7 +1233,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["mobile", "phone", "responsive", "small screen"],
     question: "Can I use the app on my phone?",
     answer:
-      "Yes! The app is fully responsive. On mobile:\n\n• The **sidebar** collapses into a hamburger menu\n• **Tables** adapt to smaller screens\n• The **chatbot** goes full-screen on mobile\n• **Calendar** works in all views but Week/Day are most useful on mobile\n\nAll features are available on mobile — nothing is desktop-only.",
+      "Yes. On a phone or tablet:\n\n• The **sidebar** becomes a menu: tap the menu button at the top left\n• The **Dashboard** reorders for a small screen, so today's work comes before the money charts\n• **Lists** (customers, invoices, quotes, bookings and the rest) show the most important columns, with the details folded under each name; open a record for everything else\n• Records open **full screen** instead of in a side panel\n• **Jobs** opens on the list view; on the board, swipe between columns and press and hold a card to drag it\n• The **calendar** opens on the day view unless you've picked another, and its task list slides in from the side\n• The **chatbot** goes full-screen\n\nOne thing stays on the computer: **editing automations**. On a phone you can open any automation, look at every step, publish it, run it and switch it on or off, but adding or changing steps needs a larger screen. Line-item tables on quotes, invoices and jobs scroll sideways on a phone.",
   },
 ];
 

@@ -226,10 +226,10 @@ export function ChecklistsSettingsClient() {
       {!showEmptyState && (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
           {/* Filters */}
-          <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-3 py-3 sm:px-4">
             <Popover open={filterOpen} onOpenChange={setFilterOpen}>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
+                <Button variant="outline" size="sm" className="h-10 gap-1.5 sm:h-8">
                   {filterServiceType
                     ? SERVICE_TYPE_LABELS[filterServiceType as ServiceType]
                     : "All Service Types"}
@@ -281,7 +281,7 @@ export function ChecklistsSettingsClient() {
               variant={showInactive ? "secondary" : "outline"}
               size="sm"
               onClick={() => setShowInactive(!showInactive)}
-              className="gap-1.5"
+              className="h-10 gap-1.5 sm:h-8"
             >
               {showInactive ? (
                 <IconEye className="h-4 w-4" />
@@ -298,7 +298,7 @@ export function ChecklistsSettingsClient() {
               <Button
                 onClick={openCreateDialog}
                 size="sm"
-                className="bg-brand text-brand-foreground hover:bg-brand/90 shrink-0 cursor-pointer"
+                className="h-10 shrink-0 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
               >
                 <IconPlus className="mr-2 h-4 w-4" />
                 New Template

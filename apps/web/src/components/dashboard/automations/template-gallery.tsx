@@ -191,7 +191,7 @@ export function TemplateGallery({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton
-        className="flex h-[85dvh] max-h-[44rem] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
+        className="flex h-[85dvh] max-h-[44rem] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl"
         onOpenAutoFocus={(event) => {
           // Radix focuses the first tabbable control, which here is "Start from
           // blank" — a focus ring sitting on the blank option while the sheet
@@ -292,7 +292,7 @@ export function TemplateGallery({
               <button
                 type="button"
                 onClick={() => setDrilled(false)}
-                className="mb-4 -ml-1 inline-flex items-center gap-1.5 rounded-md px-1 py-0.5 font-body text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+                className="mb-2 -ml-1 inline-flex min-h-10 items-center gap-1.5 rounded-md px-1 py-0.5 font-body text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
               >
                 <IconArrowLeft className="h-3.5 w-3.5" />
                 All automations
@@ -316,7 +316,7 @@ export function TemplateGallery({
                 size="sm"
                 disabled={pending}
                 onClick={action.run}
-                className="shrink-0 bg-brand font-body text-brand-foreground hover:bg-brand/90"
+                className="h-10 shrink-0 bg-brand font-body text-brand-foreground hover:bg-brand/90 sm:h-8"
               >
                 {pending ? action.busyLabel : action.label}
               </Button>

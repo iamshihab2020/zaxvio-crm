@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
+import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   KeyboardSensor,
   closestCorners,
   useSensor,
@@ -12,6 +14,7 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  type PointerSensorOptions,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "sonner";
@@ -32,6 +35,31 @@ interface PipelineStage {
   label: string;
   color: string;
   sortOrder: number;
+}
+
+/**
+ * The stock PointerSensor, minus fingers.
+ *
+ * A pointer sensor with an 8px distance threshold treats the first 8px of any
+ * touch as a drag, so on a phone a sideways swipe on a card lifted the card
+ * instead of scrolling the board. Mouse and pen keep exactly that behaviour;
+ * touch is handed to TouchSensor below, which waits for a press-and-hold.
+ */
+class MousePenSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: "onPointerDown" as const,
+      handler: (
+        { nativeEvent: event }: ReactPointerEvent,
+        { onActivation }: PointerSensorOptions,
+      ) => {
+        if (event.pointerType === "touch") return false;
+        if (!event.isPrimary || event.button !== 0) return false;
+        onActivation?.({ event });
+        return true;
+      },
+    },
+  ];
 }
 
 interface KanbanBoardProps {
@@ -189,8 +217,13 @@ export function KanbanBoard({
     };
   }, []);
 
+  // Touch lifts a card only after a 250ms hold that stays within 8px, so a quick
+  // swipe is a scroll. Once lifted, the sensor cancels the scroll for the drag.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(MousePenSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 250, tolerance: 8 },
+    }),
     useSensor(KeyboardSensor),
   );
 

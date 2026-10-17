@@ -214,7 +214,7 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-[200px] font-body">
+                      <TableHead className="min-w-[8rem] font-body sm:w-[200px]">
                         Event
                       </TableHead>
                       <TableHead className="text-center font-body">
@@ -310,13 +310,20 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
                 </Table>
               </div>
 
+              {/* The tooltips above need a hover, and on a phone SMS and Voice
+                  sit past the table's right edge, so the same note is plain text. */}
+              <p className="mt-3 font-body text-xs text-muted-foreground">
+                SMS and Voice: coming soon — available when each channel is
+                configured.
+              </p>
+
               <SettingsFormMessage message={message} />
 
               <div className="flex justify-end pt-2">
                 <Button
                   onClick={handleSave}
                   disabled={saveMutation.isPending}
-                  className="bg-brand text-brand-foreground hover:bg-brand/90"
+                  className="h-10 bg-brand text-brand-foreground hover:bg-brand/90 sm:h-9"
                 >
                   {saveMutation.isPending ? "Saving..." : "Save Preferences"}
                 </Button>
