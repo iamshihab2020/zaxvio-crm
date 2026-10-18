@@ -102,7 +102,7 @@ const featureItemStyle: React.CSSProperties = {
 };
 
 const pricingBoxStyle: React.CSSProperties = {
-  backgroundColor: "#1A1F3C",
+  backgroundColor: "#001233",
   borderRadius: "8px",
   padding: "24px",
   margin: "0 0 24px",

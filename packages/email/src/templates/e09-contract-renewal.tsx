@@ -174,11 +174,11 @@ const benefitsBoxStyle: React.CSSProperties = {
   borderRadius: "6px",
   padding: "16px 20px",
   margin: "0 0 24px",
-  borderLeft: "3px solid #E8652D",
+  borderLeft: "3px solid #0466C8",
 };
 
 const benefitsTitleStyle: React.CSSProperties = {
-  color: "#1A1F3C",
+  color: "#001233",
   fontSize: "14px",
   fontWeight: 600,
   margin: "0 0 8px",

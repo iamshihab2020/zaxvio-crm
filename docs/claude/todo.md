@@ -9,6 +9,14 @@ file (every finding, proof and caveat up to 2026-10-17) is `git show f6327fe:doc
 
 ## In Progress
 
+### Rebrand: Deep Sea Blue + Inter (2026-10-18) — approved; tokens, fonts, charts, emails, PDFs done
+Done: `globals.css` tokens both themes (dark = near-neutral greys after the user rejected navy surfaces), `--midnight-accent` for brand text on the navy slab, Inter in `layout.tsx` + every Tailwind font slot, calendar CSS font vars, chart palette validated (light `0466C8 009C93 D2622A 8A4FD6 4A9A3C`, dark `2F7FDB 14A89C DD6E34 9670E6 53A843`), reports aging colours onto tokens, emails (Inter + blue) and PDFs (blue). Then: animate every page and component (user, same day).
+Preview: https://claude.ai/artifact/QHC2pgBbnfzXk1SwB4ujSk. User rejected the yellow "Hi-Vis" proposal; asked for Inter everywhere and a blue theme from the Coolors "Deep Sea Blue" palette (`0466C8 0353A4 023E7D 002855 001845 001233 33415C 5C677D 7D8597 979DAC`). Logo out of scope.
+- [ ] **Tokens**: new values for the existing names in `globals.css`, both themes (role map in the preview); dark mode on the palette's navies; Midnight slab to navy; input borders ≥3:1.
+- [ ] **Fonts**: Inter in `app/layout.tsx`, all Tailwind font slots (`heading`, `body`, `mono`) mapped to it; email layout to Inter.
+- [ ] **Data + states**: chart palette re-validated (slot 4 is blue today and collides with the brand), `--status-*`, `--overdue-*`, series (booking teal, event violet), priority pills, stage "brand" preset.
+- [ ] **Hard-coded orange** anywhere in components; DESIGN.md rewritten; KB colour mentions; lessons.
+
 ### Responsive app + dashboard redesign — written 2026-10-18, never rendered
 Phases 1–4 are in Completed. Nothing here has been typechecked, linted or opened in a browser (user's call: no checks between phases).
 - [ ] `pnpm typecheck` + `pnpm lint`, then a browser pass at 375/768/1024/1440 in both themes: the dashboard, every list page, a detail page and sheet, the job board (swipe vs press-and-hold drag on a real phone), the calendar's day view and task sheet, the builder's read-only mode, superadmin.

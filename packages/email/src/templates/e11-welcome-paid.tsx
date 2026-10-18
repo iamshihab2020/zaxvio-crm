@@ -120,11 +120,11 @@ const tipsBoxStyle: React.CSSProperties = {
   borderRadius: "6px",
   padding: "20px 24px",
   margin: "0 0 24px",
-  borderLeft: "3px solid #E8652D",
+  borderLeft: "3px solid #0466C8",
 };
 
 const tipsTitleStyle: React.CSSProperties = {
-  color: "#1A1F3C",
+  color: "#001233",
   fontSize: "14px",
   fontWeight: 600,
   margin: "0 0 12px",
@@ -167,7 +167,7 @@ const referralLinkBoxStyle: React.CSSProperties = {
 };
 
 const referralLinkStyle: React.CSSProperties = {
-  color: "#E8652D",
+  color: "#0466C8",
   fontSize: "14px",
   fontWeight: 600,
   wordBreak: "break-all",
@@ -181,7 +181,7 @@ const affiliateSubStyle: React.CSSProperties = {
 };
 
 const affiliateLinkStyle: React.CSSProperties = {
-  color: "#E8652D",
+  color: "#0466C8",
   textDecoration: "underline",
 };
 

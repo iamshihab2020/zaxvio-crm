@@ -14,14 +14,14 @@ import {
 import * as React from "react";
 
 // ── Brand tokens ──
-const BRAND_ORANGE = "#E8652D";
-const MIDNIGHT_NAVY = "#1A1F3C";
+const BRAND_BLUE = "#0466C8";
+const MIDNIGHT_NAVY = "#001233";
 const SURFACE_GRAY = "#F5F5F5";
 const MUTED_TEXT = "#6B7280";
 const BORDER_LIGHT = "#E5E7EB";
 
 const FONT_STACK =
-  "'DM Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif";
+  "'Inter', 'Helvetica Neue', Helvetica, Arial, sans-serif";
 
 export interface EmailLayoutProps {
   previewText: string;
@@ -60,10 +60,10 @@ export function EmailLayout({
     <Html lang="en" dir="ltr">
       <Head>
         <Font
-          fontFamily="DM Sans"
+          fontFamily="Inter"
           fallbackFontFamily={["Helvetica", "Arial", "sans-serif"]}
           webFont={{
-            url: "https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap",
+            url: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap",
             format: "woff2",
           }}
           fontWeight={400}
@@ -165,7 +165,7 @@ const logoPlaceholderStyle: React.CSSProperties = {
   width: "48px",
   height: "48px",
   borderRadius: "8px",
-  backgroundColor: BRAND_ORANGE,
+  backgroundColor: BRAND_BLUE,
   margin: "0 auto 12px",
   display: "flex",
   alignItems: "center",
@@ -192,7 +192,7 @@ const businessNameStyle: React.CSSProperties = {
 
 const accentBarStyle: React.CSSProperties = {
   height: "3px",
-  backgroundColor: BRAND_ORANGE,
+  backgroundColor: BRAND_BLUE,
   borderRadius: "3px 3px 0 0",
   margin: "0",
 };
@@ -248,7 +248,7 @@ const poweredByStyle: React.CSSProperties = {
 };
 
 const zaxvioLinkStyle: React.CSSProperties = {
-  color: BRAND_ORANGE,
+  color: BRAND_BLUE,
   textDecoration: "none",
   fontWeight: 600,
 };

@@ -162,7 +162,7 @@ const notesStyle: React.CSSProperties = {
   backgroundColor: "#F9FAFB",
   padding: "12px 16px",
   borderRadius: "6px",
-  borderLeft: "3px solid #E8652D",
+  borderLeft: "3px solid #0466C8",
 };
 
 const dividerStyle: React.CSSProperties = {

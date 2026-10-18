@@ -1,8 +1,8 @@
 import { Text } from "@react-email/components";
 import * as React from "react";
 
-const MIDNIGHT_NAVY = "#1A1F3C";
-const BRAND_ORANGE = "#E8652D";
+const MIDNIGHT_NAVY = "#001233";
+const BRAND_BLUE = "#0466C8";
 const MUTED_TEXT = "#6B7280";
 const BORDER_LIGHT = "#E5E7EB";
 const ROW_ALT = "#FAFAFA";
@@ -124,7 +124,7 @@ export function DataTable({
               ...summaryValueStyle,
               fontWeight: 700,
               fontSize: "15px",
-              color: BRAND_ORANGE,
+              color: BRAND_BLUE,
               borderTop: `2px solid ${MIDNIGHT_NAVY}`,
               paddingTop: "10px",
             }}

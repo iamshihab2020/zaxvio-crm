@@ -20,7 +20,7 @@ export const BLOG_POSTS: BlogPost[] = [
     categoryLabel: "Business Tips",
     date: "2026-03-28",
     readTime: "5 min read",
-    coverGradient: "from-brand/80 to-orange-600/80",
+    coverGradient: "from-brand/80 to-brand-ink/80",
     content: `Running a service business means juggling a lot — scheduling, customer communication, invoicing, and actually doing the work. Here are five proven ways to streamline your operations and reclaim your time.
 
 ## 1. Digitize Your Scheduling

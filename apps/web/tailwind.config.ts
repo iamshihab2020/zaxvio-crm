@@ -6,13 +6,16 @@ const config: Config = {
   content: ["./src/**/*.{ts,tsx}"],
   theme: {
     extend: {
+      // Inter everywhere (2026-10-18). The three slot names survive so no
+      // component had to change: `font-heading` and `font-body` are the same
+      // face, and `font-mono` (times, counts, money) is Inter too. Figures
+      // still line up because those places also set `tnum`; Inter's tabular
+      // figures do the job DM Mono used to.
       fontFamily: {
-        heading: ["var(--font-heading)", "sans-serif"],
-        body: ["var(--font-body)", "sans-serif"],
-        // Utility face for times, counts and money — anything read as data
-        // rather than as prose. DM Mono is DM Sans' sibling, so it pairs by
-        // lineage instead of arriving as an unrelated third typeface.
-        mono: ["var(--font-mono)", "ui-monospace", "monospace"],
+        sans: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        heading: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        body: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono: ["var(--font-sans)", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -52,14 +55,16 @@ const config: Config = {
           DEFAULT: "hsl(var(--brand))",
           foreground: "hsl(var(--brand-foreground))",
           light: "hsl(var(--brand-light))",
-          // Orange that has to be READ: text, and the focus ring. See the
-          // note on --brand-ink in globals.css.
+          // Brand blue that has to be READ: text, links and the focus ring.
+          // See the note on --brand-ink in globals.css.
           ink: "hsl(var(--brand-ink))",
         },
         midnight: {
           DEFAULT: "hsl(var(--midnight))",
           foreground: "hsl(var(--midnight-foreground))",
           light: "hsl(var(--midnight-light))",
+          // The brand as text on the always-dark slab (see globals.css).
+          accent: "hsl(var(--midnight-accent))",
         },
         surface: {
           DEFAULT: "hsl(var(--surface))",

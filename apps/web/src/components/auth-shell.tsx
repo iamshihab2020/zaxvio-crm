@@ -34,7 +34,7 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
           <h2 className="font-heading text-3xl font-bold leading-tight text-midnight-foreground">
             Run your HVAC business
             <br />
-            <span className="text-brand">without the paperwork.</span>
+            <span className="text-midnight-accent">without the paperwork.</span>
           </h2>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-midnight-foreground/60">
             Scheduling, invoicing, and customer management — all in one place.

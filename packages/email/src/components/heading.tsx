@@ -1,7 +1,7 @@
 import { Heading as EmailHeading } from "@react-email/components";
 import * as React from "react";
 
-const MIDNIGHT_NAVY = "#1A1F3C";
+const MIDNIGHT_NAVY = "#001233";
 
 type HeadingLevel = "h1" | "h2" | "h3";
 

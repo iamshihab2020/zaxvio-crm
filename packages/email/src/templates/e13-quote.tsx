@@ -173,7 +173,7 @@ const estimateBadgeStyle: React.CSSProperties = {
 };
 
 const totalBoxStyle: React.CSSProperties = {
-  backgroundColor: "#1A1F3C",
+  backgroundColor: "#001233",
   borderRadius: "8px",
   padding: "24px",
   margin: "0 0 24px",
@@ -190,7 +190,7 @@ const totalLabelStyle: React.CSSProperties = {
 };
 
 const totalValueStyle: React.CSSProperties = {
-  color: "#E8652D",
+  color: "#0466C8",
   fontSize: "32px",
   fontWeight: 700,
   margin: "0 0 4px",

@@ -17,7 +17,7 @@
 /* ── Base calendar ── */
 .rbc-calendar {
   background: hsl(var(--card));
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   border: none;
   border-radius: var(--radius);
 }
@@ -70,7 +70,7 @@
 .rbc-header {
   border: none !important;
   border-bottom: 1px solid hsl(var(--border) / 0.6) !important;
-  font-family: var(--font-heading);
+  font-family: var(--font-sans);
   font-weight: 500;
   font-size: 0.8rem;
   letter-spacing: 0.01em;
@@ -180,7 +180,7 @@
   color: hsl(var(--muted-foreground));
   font-size: 0.7rem;
   font-weight: 500;
-  font-family: var(--font-body);
+  font-family: var(--font-sans);
   padding: 0 8px;
 }
 
@@ -266,7 +266,7 @@
 }
 
 .rbc-overlay-header {
-  font-family: var(--font-heading) !important;
+  font-family: var(--font-sans) !important;
   font-weight: 600 !important;
   font-size: 0.8rem !important;
   color: hsl(var(--foreground)) !important;

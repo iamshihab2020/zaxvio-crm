@@ -174,7 +174,7 @@ const textStyle: React.CSSProperties = {
 };
 
 const amountDueBoxStyle: React.CSSProperties = {
-  backgroundColor: "#1A1F3C",
+  backgroundColor: "#001233",
   borderRadius: "8px",
   padding: "24px",
   margin: "0 0 24px",
@@ -191,7 +191,7 @@ const amountDueLabelStyle: React.CSSProperties = {
 };
 
 const amountDueValueStyle: React.CSSProperties = {
-  color: "#E8652D",
+  color: "#0466C8",
   fontSize: "32px",
   fontWeight: 700,
   margin: "0 0 4px",

@@ -1,6 +1,6 @@
 import * as React from "react";
 
-const MIDNIGHT_NAVY = "#1A1F3C";
+const MIDNIGHT_NAVY = "#001233";
 const MUTED_TEXT = "#6B7280";
 
 export interface InfoRowProps {

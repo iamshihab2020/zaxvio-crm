@@ -140,7 +140,7 @@ const whatToExpectStyle: React.CSSProperties = {
 };
 
 const whatToExpectTitleStyle: React.CSSProperties = {
-  color: "#1A1F3C",
+  color: "#001233",
   fontSize: "14px",
   fontWeight: 600,
   margin: "0 0 8px",

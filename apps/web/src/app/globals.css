@@ -99,111 +99,104 @@
   }
 
   /* ─────────────────────────────────────────────────────────────────
-     ELEVATION MODEL — read this before changing any neutral.
+     DEEP SEA BLUE — the palette, and the elevation model under it.
+
+     Built from the Coolors palette "Deep Sea Blue" (0466C8 0353A4 023E7D
+     002855 001845 001233 33415C 5C677D 7D8597 979DAC), 2026-10-18. It
+     replaced "The Work Order": warm cream paper with a safety-orange mark,
+     which had become the most common look of generated software.
 
      Four surfaces, strictly ordered by how "close" they are to the reader.
      The order must hold in BOTH themes, or cards stop reading as cards:
 
-        background  <  surface  <  surface-alt  <  card
+        background  <=  surface  <  surface-alt  <  card
 
      Light mode moves toward white as things rise; dark mode moves toward
-     light grey. That was previously broken in dark: --card sat at 10% while
-     --surface-alt was 12%, so any card placed on an alt-coloured section was
-     DARKER than the section behind it and visually sank instead of lifting.
+     grey. Dark is a true dark: near-neutral greys with a faint blue cast.
+     The palette's own navies were tried there first and rejected by the
+     user: a saturated navy page reads as a blue theme, not a dark one, and
+     leaves the blue nothing to stand out against.
 
-     Neutrals are warm (hue ~25-32, low saturation). The brand is orange
-     (hue 24); the old cool blue-slate neutrals fought it on every surface.
-     Keeping the neutrals on the same side of the wheel lets the orange read
-     as the accent rather than as an intrusion.
+     Every text pairing is WCAG AA in its theme, and --input clears 3:1
+     against a card in both, so form fields stay visible in sunlight.
      ───────────────────────────────────────────────────────────────── */
 
   :root {
     /* Elevation ramp — light */
-    --background: 32 24% 98%;
-    --surface: 32 24% 98%;
-    --surface-alt: 32 18% 95%;
+    --background: 220 37% 97%;
+    --surface: 220 37% 97%;
+    --surface-alt: 218 33% 94%;
     --card: 0 0% 100%;
-    --card-foreground: 25 20% 12%;
+    --card-foreground: 219 100% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 25 20% 12%;
+    --popover-foreground: 219 100% 10%;
 
-    /* Text */
-    --foreground: 25 20% 12%;
-    --ink: 25 20% 12%;
-    --muted: 32 18% 95%;
-    --muted-foreground: 28 8% 42%;
+    /* Text: the palette's deepest navy and its mid slate. */
+    --foreground: 219 100% 10%;
+    --ink: 219 100% 10%;
+    --muted: 218 33% 94%;
+    --muted-foreground: 220 15% 43%;
 
-    /* Lines */
-    --border: 30 14% 89%;
-    --input: 30 12% 80%;
-    /* The focus ring is --brand-ink, not --brand. The bright orange is 2.7:1
-       against the light surfaces, under the 3:1 a focus indicator needs
-       (WCAG 1.4.11, LAND-06). This is 6.9:1. */
-    --ring: 24 90% 30%;
+    /* Lines. --input is the palette's slate at 3.7:1 on a card. */
+    --border: 217 24% 87%;
+    --input: 222 11% 54%;
+    /* The ring is --brand-ink (7.6:1 on white), the same blue as links. */
+    --ring: 210 96% 33%;
     --radius: 0.5rem;
 
-    /* Brand — unchanged hue/sat/lightness. The dashboard, charts, PDFs and
-       email templates all key off this; it is the one value that must not
-       drift.
+    /* Brand. --brand is the fill (buttons, the selected tab, the current
+       hour) and takes WHITE text at 5.6:1. The orange it replaced could not,
+       which is why --brand-foreground used to be ink.
 
-       What changed is what sits ON it (LAND-03). White on this orange is
-       2.85:1, so every primary button in the product failed AA for its own
-       label. The foreground is the ink instead: 5.8:1 here, 6.2:1 in dark. The
-       fill is untouched, so the brand looks the same and its text reads.
+       --brand-ink is the blue for TEXT, links and the focus ring: the
+       palette's second step, 7.6:1 on white. In dark mode it becomes a light
+       blue derived from the palette, because the fill itself is too dark to
+       read as text on a dark card. Fills use --brand; anything read uses
+       --brand-ink. */
+    --primary: 210 96% 40%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 210 96% 40%;
+    --brand-foreground: 0 0% 100%;
+    --brand-light: 210 67% 94%;
+    --brand-ink: 210 96% 33%;
 
-       --brand-ink is the orange for TEXT and for the ring. One token was doing
-       three jobs — fill, text and focus — and the bright value can only do the
-       first. Its light value is Orange Deep, the same 24 90% 30% as
-       --accent-foreground, so the light theme has exactly one readable orange
-       (DESIGN.md, The One Mark Rule): surface 6.9, card 7.2, surface-alt 6.5,
-       brand-light 6.6. It is its own token rather than a reuse of
-       --accent-foreground because the two part ways in dark mode, where the
-       accent text is a pale peach and the readable orange is the brand itself.
-       Fills stay --brand; anything that has to be read uses --brand-ink. */
-    --primary: 24 95% 53%;
-    --primary-foreground: 25 20% 12%;
-    --brand: 24 95% 53%;
-    --brand-foreground: 25 20% 12%;
-    --brand-light: 24 100% 96%;
-    --brand-ink: 24 90% 30%;
-
-    --secondary: 32 18% 95%;
-    --secondary-foreground: 25 20% 12%;
-    --accent: 24 100% 95%;
-    --accent-foreground: 24 90% 30%;
-    --destructive: 0 78% 51%;
+    --secondary: 218 33% 94%;
+    --secondary-foreground: 219 100% 10%;
+    --accent: 210 67% 94%;
+    --accent-foreground: 210 96% 33%;
+    --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Always-dark slab. Used by the auth shell, the public booking and quote
-       portals, and the landing page's closing band — contexts that are dark
-       in both themes on purpose. Warmed to match the neutrals above. */
-    --midnight: 25 14% 9%;
-    --midnight-foreground: 30 20% 94%;
-    --midnight-light: 25 12% 14%;
+    /* Always-dark slab: the auth shell, the public booking and quote portals,
+       the landing page's closing band. The palette's navies, in both themes.
+       --midnight-accent is the brand as TEXT on the slab: the fill blue is
+       3.3:1 on this navy and --brand-ink (light) is 2.5:1, so neither can be
+       read there. This light blue is 8.5:1. */
+    --midnight: 219 100% 10%;
+    --midnight-foreground: 220 22% 92%;
+    --midnight-light: 219 100% 14%;
+    --midnight-accent: 212 82% 72%;
 
-    /* Chart palette — categorical, in this fixed order, never cycled.
-       Every value is checked with the dataviz validator against --card, in both
-       themes: lightness band, chroma floor, colour-blind separation between
-       neighbours, and contrast. The old slot 3 (umber, 25 25% 32%) had so little
-       chroma it read as grey, and slot 4 (amber, 43 96% 52%) sat above the
-       lightness band and collapsed into slot 5's green for protanopes. Slot 1
-       stays the brand; at 2.85:1 it needs labels or a table beside it, which
-       every chart here has. A sixth category folds into "Other". */
-    --chart-1: 24 95% 53%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 18 62% 38%;
-    --chart-4: 212 70% 48%;
-    --chart-5: 142 65% 40%;
+    /* Chart palette — categorical, in this fixed order, never cycled. Slot 1
+       is the brand; then teal, rust, violet, green. Validated with the dataviz
+       validator against --card in each theme: lightness band, chroma floor,
+       colour-blind separation of neighbours (worst ΔE 14.2 here), normal-vision
+       floor, 3:1 contrast. The old slot 4 was a blue, which would now have sat
+       beside the brand as a second blue. A sixth category folds into "Other". */
+    --chart-1: 210 96% 40%;
+    --chart-2: 177 100% 31%;
+    --chart-3: 20 67% 49%;
+    --chart-4: 266 62% 57%;
+    --chart-5: 111 44% 42%;
 
-    /* Status — reserved meaning, never a series colour, and never shown without
-       a label or icon (warning is 2.15:1 on white by design). The -ink pair is
-       for words: up/down deltas and danger footnotes, 5.1:1 or better even on
-       their own 10% tint. */
-    --status-good: 152 62% 36%;
-    --status-warning: 40 95% 48%;
-    --status-critical: 0 72% 48%;
-    --status-good-ink: 152 70% 27%;
-    --status-critical-ink: 0 72% 40%;
+    /* Status — reserved meaning, never a series colour, never shown without a
+       label or icon (warning is a fill, not text). The -ink pair is for words:
+       5:1 or better on white and on its own 10% tint. */
+    --status-good: 137 54% 40%;
+    --status-warning: 38 92% 50%;
+    --status-critical: 0 65% 48%;
+    --status-good-ink: 138 61% 30%;
+    --status-critical-ink: 0 69% 38%;
 
     /* Overdue age — one red, darker the older the debt (invoice aging). An
        ordinal ramp, so the order is visible in the colour itself; the light end
@@ -213,14 +206,12 @@
     --overdue-3: 0 72% 45%;
     --overdue-4: 358 75% 34%;
 
-    /* Scheduled-work series. Identity, not rank: a job is always brand, a
-       booking always teal, an event always indigo — the same three colours the
-       agenda's kind badges use, so the two widgets read as one system. Stepped
-       per mode rather than flipped: these values clear the colour-blind
-       separation and contrast floors against the light card, and the dark block
-       below re-steps them against the dark one. */
-    --series-booking: 175 77% 32%;
-    --series-event: 243 75% 59%;
+    /* Scheduled-work series. Identity, not rank: a job is always brand blue, a
+       booking always teal, an event always violet, the same three wherever
+       they appear (Up next, Week ahead, the calendar). Stepped per mode rather
+       than flipped. */
+    --series-booking: 189 85% 28%;
+    --series-event: 267 63% 51%;
 
     /* Admin accent (red theme for super admin sidebar) */
     --admin-accent: 0 72% 51%;
@@ -232,62 +223,64 @@
   }
 
   .dark {
-    /* Elevation ramp — dark. Ascending, which is the fix. */
-    --background: 25 12% 6%;
-    --surface: 25 12% 7%;
-    --surface-alt: 25 11% 10%;
-    --card: 25 10% 13%;
-    --card-foreground: 30 20% 94%;
-    --popover: 25 10% 13%;
-    --popover-foreground: 30 20% 94%;
+    /* Elevation ramp — dark. Ascending: 7%, 8%, 9%, 11%. */
+    --background: 218 22% 7%;
+    --surface: 222 24% 8%;
+    --surface-alt: 216 21% 9%;
+    --card: 218 20% 11%;
+    --card-foreground: 220 22% 92%;
+    --popover: 218 20% 11%;
+    --popover-foreground: 220 22% 92%;
 
     /* Text */
-    --foreground: 30 20% 94%;
-    --ink: 30 20% 94%;
-    --muted: 25 10% 15%;
-    --muted-foreground: 28 8% 64%;
+    --foreground: 220 22% 92%;
+    --ink: 220 22% 92%;
+    --muted: 219 21% 13%;
+    --muted-foreground: 217 12% 65%;
 
-    /* Lines — must stay above --card (13%) or borders vanish on cards. */
-    --border: 25 9% 19%;
-    --input: 25 9% 24%;
-    --ring: 24 95% 56%;
+    /* Lines — must stay above --card (11%) or borders vanish on cards.
+       --input is 3:1 against the card. */
+    --border: 219 16% 18%;
+    --input: 218 10% 41%;
+    --ring: 212 82% 72%;
 
-    /* Dark ink on the orange here too: white was 2.68:1. --brand-ink is the
-       brand itself in this theme, which already reads at 6–7:1 on the dark
-       surfaces. */
-    --primary: 24 95% 56%;
-    --primary-foreground: 25 20% 12%;
-    --brand: 24 95% 56%;
-    --brand-foreground: 25 20% 12%;
-    --brand-light: 24 40% 16%;
-    --brand-ink: 24 95% 56%;
+    /* The same blue fill in both themes, still with white text, and 3.1:1
+       against a dark card so a button reads as a button. Text and links move
+       to a light blue: 8:1 on a card. */
+    --primary: 210 96% 40%;
+    --primary-foreground: 0 0% 100%;
+    --brand: 210 96% 40%;
+    --brand-foreground: 0 0% 100%;
+    --brand-light: 214 53% 18%;
+    --brand-ink: 212 82% 72%;
 
-    --secondary: 25 10% 15%;
-    --secondary-foreground: 30 20% 94%;
-    --accent: 24 40% 16%;
-    --accent-foreground: 24 90% 82%;
-    --destructive: 0 62% 42%;
+    --secondary: 219 21% 13%;
+    --secondary-foreground: 220 22% 92%;
+    --accent: 214 53% 18%;
+    --accent-foreground: 212 82% 72%;
+    --destructive: 0 61% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    /* Slightly lifted in dark so the closing band separates from --surface. */
-    --midnight: 25 13% 10%;
-    --midnight-foreground: 30 20% 94%;
-    --midnight-light: 25 11% 15%;
+    /* The navy slab stays navy in dark mode, which also sets it apart from
+       the near-neutral page around it. */
+    --midnight: 219 100% 10%;
+    --midnight-foreground: 220 22% 92%;
+    --midnight-light: 219 100% 14%;
+    --midnight-accent: 212 82% 72%;
 
-    /* Re-stepped into the dark lightness band rather than flipped. Slot 1 is a
-       deeper orange than --brand here on purpose: the UI orange sits above the
-       band and would outweigh every other series. */
-    --chart-1: 24 88% 49%;
-    --chart-2: 173 62% 39%;
-    --chart-3: 18 55% 52%;
-    --chart-4: 212 68% 58%;
-    --chart-5: 142 55% 42%;
+    /* Re-stepped into the dark lightness band (validated against --card)
+       rather than flipped. */
+    --chart-1: 212 70% 52%;
+    --chart-2: 175 79% 37%;
+    --chart-3: 21 71% 54%;
+    --chart-4: 259 70% 67%;
+    --chart-5: 110 43% 46%;
 
-    --status-good: 150 55% 45%;
-    --status-warning: 42 92% 55%;
-    --status-critical: 0 75% 60%;
-    --status-good-ink: 150 55% 58%;
-    --status-critical-ink: 0 80% 72%;
+    --status-good: 137 50% 53%;
+    --status-warning: 39 89% 63%;
+    --status-critical: 0 100% 71%;
+    --status-good-ink: 137 63% 69%;
+    --status-critical-ink: 0 100% 78%;
 
     /* Flipped anchor: on a dark card the oldest debt is the brightest, so worse
        still reads as louder. */
@@ -296,8 +289,8 @@
     --overdue-3: 0 75% 58%;
     --overdue-4: 0 85% 70%;
 
-    --series-booking: 175 83% 35%;
-    --series-event: 239 84% 67%;
+    --series-booking: 186 67% 51%;
+    --series-event: 262 100% 77%;
 
     --admin-accent: 0 72% 57%;
     --admin-accent-foreground: 0 0% 100%;

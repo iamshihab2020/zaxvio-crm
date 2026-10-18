@@ -1,27 +1,18 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, DM_Sans, DM_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { QueryProvider } from "@/components/query-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+// One family for everything: headings, body, labels and figures. Every
+// Tailwind font slot (`font-heading`, `font-body`, `font-mono`) points at this
+// variable, so components keep their class names and all of them get Inter.
+// It is the variable font, so every weight the app uses comes from one file.
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-heading",
-  display: "swap",
-});
-
-const dmSans = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-body",
-  display: "swap",
-});
-
-const dmMono = DM_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
-  variable: "--font-mono",
+  variable: "--font-sans",
   display: "swap",
 });
 
@@ -56,7 +47,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${spaceGrotesk.variable} ${dmSans.variable} ${dmMono.variable}`}
+      className={inter.variable}
       suppressHydrationWarning
     >
       <head>

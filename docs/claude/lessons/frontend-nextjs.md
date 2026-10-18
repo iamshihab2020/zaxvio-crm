@@ -946,3 +946,28 @@ From [[bookings-calendar|the report]] — the front-end half.
 - **`hidden xl:block` on a detail page's sidebar hid real data below 1280px**: the customer's
   contact details, the linked job and Generate Invoice on every laptop. Never hide a panel to
   save width; stack it.
+
+## Rebrand: Deep Sea Blue + Inter (2026-10-18)
+
+- **A palette's navies make a blue theme, not a dark mode.** The first dark pass used the
+  palette's own #001233/#002855 as page and card; the user rejected it on sight ("doesn't look
+  like a dark mode"). Dark surfaces need low saturation (here ~20% at 7–11% lightness) so the
+  brand has something to stand out against; keep the saturated navy for the always-dark slab.
+- **A surface that is dark in both themes needs its own accent token.** `--brand-ink` flips
+  per theme, so on the navy slab in LIGHT mode it was the dark text blue at 2.5:1. Theme-agnostic
+  surfaces get theme-agnostic accents (`--midnight-accent`).
+- **Changing the font family: repoint the Tailwind slots, then grep raw CSS.** Keeping
+  `font-heading`/`font-body`/`font-mono` and pointing all three at `--font-sans` changed every
+  component with zero edits, but `calendar-styles.css` read `var(--font-body)` directly; once
+  that variable stopped existing the declaration silently fell back to inheritance. After any
+  font change, `grep -r "var(--font-"`.
+- **Flip the label colour with the fill.** Orange needed dark text (white was 2.85:1); the
+  blue takes white (5.6:1). The token `--brand-foreground` carried that, so the only risk was a
+  hard-coded `text-foreground` on `bg-brand`; grep for it before trusting a token swap.
+- **A new brand hue can collide with a data slot.** The old chart slot 4 was a blue, which
+  would have sat next to the brand blue as a second blue. Re-run the dataviz validator for the
+  whole categorical order whenever the brand changes, not only slot 1.
+- **The brand lives outside the web app too.** Emails (React Email components and nine
+  templates) and the API's react-pdf invoices/quotes hard-coded the old orange `#E8652D` in ~30
+  places. A rebrand isn't done until `grep` for the old hex across `packages/` and `apps/api`
+  is empty.

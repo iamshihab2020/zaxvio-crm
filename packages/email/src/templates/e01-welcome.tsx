@@ -98,7 +98,7 @@ const checklistStyle: React.CSSProperties = {
   borderRadius: "6px",
   padding: "20px 24px",
   margin: "0 0 24px",
-  borderLeft: "3px solid #E8652D",
+  borderLeft: "3px solid #0466C8",
 };
 
 const checkItemStyle: React.CSSProperties = {
@@ -113,7 +113,7 @@ const checkIconStyle: React.CSSProperties = {
   width: "22px",
   height: "22px",
   borderRadius: "50%",
-  backgroundColor: "#E8652D",
+  backgroundColor: "#0466C8",
   color: "#FFFFFF",
   fontSize: "12px",
   fontWeight: 700,

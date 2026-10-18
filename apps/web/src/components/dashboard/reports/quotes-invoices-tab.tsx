@@ -52,13 +52,18 @@ const INVOICE_COLORS: Record<string, string> = {
  * One colour per aging bucket. There are five buckets since the dashboard pass
  * split 61–90 out of "90+"; a four-entry list left the last one falling back to
  * grey, which read as "no data" rather than "worst".
+ *
+ * Tokens, the same ones the dashboard's Invoice Aging uses: current is good,
+ * then one red darkening with age. This list used to start on the brand
+ * (orange, then blue after the rebrand), which made "current" look like the
+ * first of the overdue buckets, and its hex steps followed no theme.
  */
 const AGING_COLORS = [
-  "hsl(var(--chart-1))",
-  "#f59e0b",
-  "#f97316",
-  "#ef4444",
-  "#b91c1c",
+  "hsl(var(--status-good))",
+  "hsl(var(--overdue-1))",
+  "hsl(var(--overdue-2))",
+  "hsl(var(--overdue-3))",
+  "hsl(var(--overdue-4))",
 ];
 
 const funnelConfig = {

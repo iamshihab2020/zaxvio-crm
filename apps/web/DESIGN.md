@@ -1,116 +1,135 @@
 ---
 name: Zaxvio CRM
-description: Field service software where the day, the job and the bill sit on one ruled sheet.
+description: Field service software in Deep Sea Blue, calm, dependable and clear, with navy ink, one blue for action and place, and a true dark mode.
 colors:
-  safety-orange: "hsl(24 95% 53%)"
-  safety-orange-tint: "hsl(24 100% 96%)"
-  orange-wash: "hsl(24 100% 95%)"
-  orange-deep: "hsl(24 90% 30%)"
-  work-order-paper: "hsl(32 24% 98%)"
-  second-sheet: "hsl(32 18% 95%)"
-  card-white: "hsl(0 0% 100%)"
-  carbon-ink: "hsl(25 20% 12%)"
-  pencil: "hsl(28 8% 42%)"
-  rule-line: "hsl(30 14% 89%)"
-  field-line: "hsl(30 12% 80%)"
-  night-shift: "hsl(25 14% 9%)"
-  night-shift-raised: "hsl(25 12% 14%)"
-  night-shift-text: "hsl(30 20% 94%)"
-  stop-red: "hsl(0 78% 51%)"
-  booking-teal: "hsl(175 77% 32%)"
-  event-indigo: "hsl(243 75% 59%)"
-  chart-teal: "hsl(173 58% 39%)"
-  chart-rust: "hsl(18 62% 38%)"
-  chart-blue: "hsl(212 70% 48%)"
-  chart-green: "hsl(142 65% 40%)"
-  status-good: "hsl(152 62% 36%)"
-  status-warning: "hsl(40 95% 48%)"
-  status-critical: "hsl(0 72% 48%)"
-  status-good-ink: "hsl(152 70% 27%)"
-  status-critical-ink: "hsl(0 72% 40%)"
+  deep-sea-blue: "hsl(210 96% 40%)"
+  on-blue: "hsl(0 0% 100%)"
+  blue-ink: "hsl(210 96% 33%)"
+  blue-tint: "hsl(210 67% 94%)"
+  page: "hsl(220 37% 97%)"
+  section: "hsl(218 33% 94%)"
+  card: "hsl(0 0% 100%)"
+  navy-ink: "hsl(219 100% 10%)"
+  slate: "hsl(220 15% 43%)"
+  rule-line: "hsl(217 24% 87%)"
+  field-line: "hsl(222 11% 54%)"
+  midnight: "hsl(219 100% 10%)"
+  midnight-raised: "hsl(219 100% 14%)"
+  midnight-text: "hsl(220 22% 92%)"
+  midnight-accent: "hsl(212 82% 72%)"
+  stop-red: "hsl(0 65% 48%)"
+  series-booking: "hsl(189 85% 28%)"
+  series-event: "hsl(267 63% 51%)"
+  chart-blue: "hsl(210 96% 40%)"
+  chart-teal: "hsl(177 100% 31%)"
+  chart-rust: "hsl(20 67% 49%)"
+  chart-violet: "hsl(266 62% 57%)"
+  chart-green: "hsl(111 44% 42%)"
+  status-good: "hsl(137 54% 40%)"
+  status-warning: "hsl(38 92% 50%)"
+  status-critical: "hsl(0 65% 48%)"
+  status-good-ink: "hsl(138 61% 30%)"
+  status-critical-ink: "hsl(0 69% 38%)"
   overdue-1: "hsl(4 80% 66%)"
   overdue-2: "hsl(2 75% 55%)"
   overdue-3: "hsl(0 72% 45%)"
   overdue-4: "hsl(358 75% 34%)"
   admin-red: "hsl(0 72% 51%)"
   admin-sidebar: "hsl(0 55% 14%)"
-  safety-orange-dark: "hsl(24 95% 56%)"
-  orange-wash-dark: "hsl(24 40% 16%)"
-  orange-wash-text-dark: "hsl(24 90% 82%)"
-  background-dark: "hsl(25 12% 6%)"
-  surface-dark: "hsl(25 12% 7%)"
-  second-sheet-dark: "hsl(25 11% 10%)"
-  card-dark: "hsl(25 10% 13%)"
-  ink-dark: "hsl(30 20% 94%)"
-  pencil-dark: "hsl(28 8% 64%)"
-  rule-line-dark: "hsl(25 9% 19%)"
-  field-line-dark: "hsl(25 9% 24%)"
-  night-shift-dark: "hsl(25 13% 10%)"
-  stop-red-dark: "hsl(0 62% 42%)"
+  blue-ink-dark: "hsl(212 82% 72%)"
+  blue-tint-dark: "hsl(214 53% 18%)"
+  page-dark: "hsl(218 22% 7%)"
+  surface-dark: "hsl(222 24% 8%)"
+  section-dark: "hsl(216 21% 9%)"
+  card-dark: "hsl(218 20% 11%)"
+  muted-dark: "hsl(219 21% 13%)"
+  ink-dark: "hsl(220 22% 92%)"
+  slate-dark: "hsl(217 12% 65%)"
+  rule-line-dark: "hsl(219 16% 18%)"
+  field-line-dark: "hsl(218 10% 41%)"
+  stop-red-dark: "hsl(0 61% 48%)"
+  series-booking-dark: "hsl(186 67% 51%)"
+  series-event-dark: "hsl(262 100% 77%)"
+  chart-blue-dark: "hsl(212 70% 52%)"
+  chart-teal-dark: "hsl(175 79% 37%)"
+  chart-rust-dark: "hsl(21 71% 54%)"
+  chart-violet-dark: "hsl(259 70% 67%)"
+  chart-green-dark: "hsl(110 43% 46%)"
+  status-good-dark: "hsl(137 50% 53%)"
+  status-warning-dark: "hsl(39 89% 63%)"
+  status-critical-dark: "hsl(0 100% 71%)"
+  status-good-ink-dark: "hsl(137 63% 69%)"
+  status-critical-ink-dark: "hsl(0 100% 78%)"
+  overdue-1-dark: "hsl(2 55% 38%)"
+  overdue-2-dark: "hsl(2 65% 48%)"
+  overdue-3-dark: "hsl(0 75% 58%)"
+  overdue-4-dark: "hsl(0 85% 70%)"
+  admin-red-dark: "hsl(0 72% 57%)"
+  admin-sidebar-dark: "hsl(0 45% 9%)"
 typography:
   display:
-    fontFamily: "Space Grotesk, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "3.75rem"
     fontWeight: 700
     lineHeight: 1.05
     letterSpacing: "-0.025em"
   display-phone:
-    fontFamily: "Space Grotesk, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "2.5rem"
     fontWeight: 700
     lineHeight: 1.05
     letterSpacing: "-0.025em"
   section:
-    fontFamily: "Space Grotesk, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.75rem"
     fontWeight: 700
     lineHeight: 1.15
     letterSpacing: "-0.025em"
   headline:
-    fontFamily: "Space Grotesk, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.5rem"
     fontWeight: 700
     lineHeight: 1.333
   title:
-    fontFamily: "Space Grotesk, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 600
     lineHeight: 1.556
   title-small:
-    fontFamily: "Space Grotesk, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: 1.429
   body:
-    fontFamily: "DM Sans, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.429
   body-lead:
-    fontFamily: "DM Sans, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1.125rem"
     fontWeight: 400
     lineHeight: 1.625
   label:
-    fontFamily: "Space Grotesk, sans-serif"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "11px"
     fontWeight: 600
     lineHeight: 1
     letterSpacing: "0.05em"
   eyebrow:
-    fontFamily: "DM Mono, ui-monospace, monospace"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "11px"
     fontWeight: 500
     lineHeight: 1
-    letterSpacing: "0.18em"
+    letterSpacing: "0.16em"
   data:
-    fontFamily: "DM Mono, ui-monospace, monospace"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: 1.333
     fontFeature: "\"tnum\""
   data-dense:
-    fontFamily: "DM Mono, ui-monospace, monospace"
+    fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif"
     fontSize: "10px"
     fontWeight: 400
     lineHeight: 1.333
@@ -130,115 +149,129 @@ spacing:
   rule-row: "48px"
 components:
   button-primary:
-    backgroundColor: "{colors.safety-orange}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.deep-sea-blue}"
+    textColor: "{colors.on-blue}"
     rounded: "{rounded.md}"
     padding: "8px 16px"
     height: "36px"
   button-primary-hover:
-    backgroundColor: "hsl(24 95% 53% / 0.9)"
+    backgroundColor: "hsl(210 96% 40% / 0.9)"
   button-hero:
-    backgroundColor: "{colors.safety-orange}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.deep-sea-blue}"
+    textColor: "{colors.on-blue}"
     rounded: "{rounded.md}"
     padding: "0 28px"
     height: "48px"
   button-outline:
-    backgroundColor: "{colors.work-order-paper}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.page}"
+    textColor: "{colors.navy-ink}"
     rounded: "{rounded.md}"
     padding: "8px 16px"
     height: "36px"
   button-outline-hover:
-    backgroundColor: "{colors.orange-wash}"
-    textColor: "{colors.orange-deep}"
+    backgroundColor: "{colors.blue-tint}"
+    textColor: "{colors.blue-ink}"
   button-ghost:
-    textColor: "{colors.carbon-ink}"
+    textColor: "{colors.navy-ink}"
     rounded: "{rounded.md}"
     height: "36px"
   button-ghost-hover:
-    backgroundColor: "{colors.orange-wash}"
-    textColor: "{colors.orange-deep}"
+    backgroundColor: "{colors.blue-tint}"
+    textColor: "{colors.blue-ink}"
   input:
-    backgroundColor: "{colors.work-order-paper}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.page}"
+    textColor: "{colors.navy-ink}"
     typography: "{typography.body}"
     rounded: "{rounded.md}"
     padding: "8px 12px"
     height: "40px"
   card:
-    backgroundColor: "{colors.card-white}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.navy-ink}"
     rounded: "{rounded.lg}"
     padding: "24px"
   job-card:
-    backgroundColor: "{colors.card-white}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.navy-ink}"
     rounded: "{rounded.xl}"
     padding: "14px"
   stats-card:
-    backgroundColor: "{colors.card-white}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.card}"
+    textColor: "{colors.navy-ink}"
     rounded: "{rounded.lg}"
     padding: "12px 16px"
   badge-brand:
-    backgroundColor: "{colors.safety-orange-tint}"
-    textColor: "{colors.orange-deep}"
+    backgroundColor: "{colors.blue-tint}"
+    textColor: "{colors.blue-ink}"
     rounded: "{rounded.full}"
     padding: "2px 10px"
   filter-tabs:
-    backgroundColor: "{colors.second-sheet}"
+    backgroundColor: "{colors.section}"
     rounded: "{rounded.full}"
     padding: "4px"
   filter-tab-active:
-    backgroundColor: "{colors.safety-orange}"
-    textColor: "{colors.carbon-ink}"
+    backgroundColor: "{colors.deep-sea-blue}"
+    textColor: "{colors.on-blue}"
     rounded: "{rounded.full}"
     padding: "4px 12px"
   nav-item:
-    textColor: "{colors.pencil}"
+    textColor: "{colors.slate}"
     typography: "{typography.body}"
     rounded: "{rounded.md}"
     padding: "0 12px"
     height: "40px"
   nav-item-active:
-    backgroundColor: "{colors.safety-orange-tint}"
-    textColor: "{colors.orange-deep}"
+    backgroundColor: "{colors.blue-tint}"
+    textColor: "{colors.blue-ink}"
   slab:
-    backgroundColor: "{colors.night-shift}"
-    textColor: "{colors.night-shift-text}"
+    backgroundColor: "{colors.midnight}"
+    textColor: "{colors.midnight-text}"
 ---
 
 # Design System: Zaxvio CRM
 
 ## Overview
 
-**Creative North Star: "The Work Order"**
+**Creative North Star: "Deep Sea Blue"**
 
-Field service runs on paper: the work order, the day sheet, the estimate pad. Zaxvio is
-the digital version of that paper, and the system keeps its manners. Surfaces are warm
-off-white paper. Text is near-black carbon ink. Times, money and counts are typed
-figures that line up in columns. One Safety Orange mark shows what to do next or where
-you are, the way a marker circles the job that matters on a printed sheet. On the landing
-page the ruling is literal: hairlines every 3rem behind the headline and the closing band,
-and a time-ruled day sheet as the hero. Inside the app the same idea shows up as order:
-bordered cards, one-row toolbars, mono figures and pill-shaped status.
+Deep water is calm, and a crew arriving at a job wants the same from a screen: steady,
+clear about what is next, never shouting. The colours come from the Coolors palette "Deep
+Sea Blue" (`0466C8 0353A4 023E7D 002855 001845 001233 33415C 5C677D 7D8597 979DAC`) and are
+used with restraint. Surfaces are cool, near-white greys in light mode and near-neutral
+charcoal in dark. Text is the palette's deepest navy; quieter text is its slate. Times,
+money and counts are tabular figures that line up in columns. One blue marks what to do
+next, where you are, and now, the way a marker circles the job that matters on a printed
+sheet. On the landing page the ruling is literal: hairlines every 3rem behind the headline
+and the closing band, and a time-ruled day sheet as the hero. Inside the app the same idea
+shows up as order: bordered cards, one-row toolbars, tabular figures and pill-shaped status.
 
 The density is a working tool's, not a brochure's. Body text is 14px, and toolbars, filter
 tabs and table rows are compact so a day's worth of jobs fits on one screen. Expression
-lives in the details: the orange hairline across the top of the navbar, the orange glow when
-you pick up a job card, a status pill's colour. Dark mode is a full peer, not an inversion:
-the warm neutral ladder is restepped so every surface still rises in the right order.
+lives in the details: the blue hairline across the top of the navbar, the blue glow when
+you pick up a job card, a status pill's colour. Dark mode is a full peer, and a real dark:
+near-neutral greys with a faint blue cast, restepped so every surface still rises in the
+right order. The palette's own navies were tried as dark surfaces first and the user
+rejected them ("doesn't look like a dark mode"): a saturated navy page reads as a blue
+theme, and leaves the blue nothing to stand out against. The navy lives where it can be
+navy: the always-dark slab used by the auth shell, the public portals and the landing
+page's closing band.
 
 Rejected on purpose, and recorded in the code where each was removed: "AI startup" gloss
 (purple-on-white gradients, aurora or nebula backdrops, glow used as decoration), device
-mockups around the product, spinners, and cool blue-slate greys or generic system fonts.
+mockups around the product, spinners, raw `gray-*` classes and generic system fonts. Also
+three palettes that were tried and set aside. The cream and orange "Work Order" system
+(warm paper, Safety Orange mark, three typefaces) was retired on 2026-10-18 because it had
+become the commonest look of generated software. A navy-surfaced dark mode was rejected for
+the reason above. A yellow "hi-vis" proposal was rejected by the user.
 
 **Key Characteristics:**
-- Warm paper neutrals (hue 25–32, low saturation) that rise in four tonal steps.
-- One accent, Safety Orange, used for action, location and the current hour.
-- Three faces with fixed jobs: Space Grotesk for headings and labels, DM Sans for prose and
-  controls, DM Mono for anything read as data.
+- Cool neutrals (hue 216–222) that rise in four tonal steps in both themes, with navy ink
+  and slate for text, and a dark mode that is actually dark.
+- One accent, Deep Sea Blue, used for action, location and the current hour. It is a fill
+  with white text; anything read in blue is Blue Ink.
+- One face, Inter, for everything. Figures use its tabular numerals so columns line up.
+- A navy slab (Midnight) for the surfaces that are dark in both themes, with its own light
+  blue for text.
 - Hairline borders and gentle corners. Pills mean state, rectangles mean containers and actions.
 - Motion that explains a change and then stops. Under `prefers-reduced-motion` the movement goes
   and the fade stays.
@@ -273,95 +306,123 @@ curve, `--ease-out` (`cubic-bezier(0.16, 1, 0.3, 1)`), and four durations: `--du
 
 ## Colors
 
-A warm, paper-and-ink palette with a single orange voice. Every other hue is data, not decoration.
+A cool, navy-and-slate palette with a single blue voice. Every other hue is data, not decoration.
+The tokens live in the DEEP SEA BLUE block of `globals.css` (`:root` and `.dark`), each with a
+comment saying why it has the value it has. The frontmatter above lists light values under the
+plain name and dark values under the same name with a `-dark` suffix. Where a colour is the same
+in both themes (the brand fill, the Midnight slab) there is one key.
 
 ### Primary
-- **Safety Orange** (`safety-orange`; `safety-orange-dark` in dark mode): the primary action
-  button, the selected filter tab, the current-hour marker, the navbar's top hairline, the
-  identifying glyph beside a card or section heading, the first chart series and the job series in
-  schedules. The brand key for the dashboard, charts, PDFs and emails. It must not drift.
-- **Safety Orange Tint** (`safety-orange-tint`): the background behind the active nav item,
-  brand badges and the empty-state icon disc.
-- **Orange Wash** (`orange-wash`) with **Orange Deep** (`orange-deep`) text: hover state for
-  outline and ghost controls. Orange Deep is the accessible way to write in orange on light
-  surfaces (about 6.6:1 on the tint). Since 2026-10-16 it is also the token `--brand-ink`
-  (`text-brand-ink`): orange **text** and the **focus ring** use it in light mode, and in dark mode
-  `--brand-ink` is Safety Orange itself, which already reads at 6–7:1 there.
+- **Deep Sea Blue** (`deep-sea-blue`, #0466C8, `--brand`; identical in dark mode): the fill. The
+  primary action button, the selected filter tab, the current-hour marker, the navbar's top
+  hairline, the avatar disc, the identifying glyph beside a card or section heading, the job
+  series in schedules and the first chart series. White text on it is 5.6:1. In dark mode it is
+  still 3.1:1 against a card, enough for a button to read as a button. The brand key for the
+  dashboard, charts, PDFs and emails. It must not drift.
+- **Blue Ink** (`blue-ink`, #0353A4; `blue-ink-dark`, #7DB3F2): the blue that is *read*. Text,
+  links, the focus ring and any icon that carries meaning on its own. It is the token
+  `--brand-ink` (`text-brand-ink`): 7.6:1 on white in light mode, and in dark mode a light blue
+  at about 8:1 on a card, because the fill itself is too dark to read as text there.
+- **Blue Tint** (`blue-tint`, #E6F0FA; `blue-tint-dark`, #152A45): the background behind the
+  active nav item, brand badges and the empty-state icon disc, and the hover state of outline and
+  ghost controls, where the text turns Blue Ink.
+- The logo image is unchanged and was not part of the rebrand. The wordmark beside it takes
+  `text-brand`, so it is blue now.
 
 ### Neutral
-- **Work Order Paper** (`work-order-paper`): the page background and the default surface.
-  The two are identical in light mode and separate by one step in dark.
-- **Second Sheet** (`second-sheet`): alternate sections, muted fills, secondary buttons and the
-  filter-tab track.
-- **Card White** (`card-white`): cards, popovers and panels. The highest surface in light mode.
-- **Carbon Ink** (`carbon-ink`): all primary text and headings.
-- **Pencil** (`pencil`): secondary text, idle nav items, timestamps and captions.
-- **Rule Line** (`rule-line`): every 1px border and divider, plus the landing page ruling.
-- **Field Line** (`field-line`): input borders and hovered scrollbar thumbs. One step darker than
-  Rule Line, so form fields read as fields.
-- **Night Shift** (`night-shift`, raised step `night-shift-raised`, text `night-shift-text`): the
-  always-dark slab used by the auth shell, the public booking portal, the quote page and the
-  landing page's closing band. It is dark in both themes on purpose.
+- **Page** (`page`, #F4F6FA; `page-dark`, #0E1116): the page background and the default surface.
+  The two are identical in light mode and separate by one step in dark (`surface-dark`, #10131A).
+- **Section** (`section`, #E9EDF4; `section-dark`, #13171D): alternate sections, muted fills,
+  secondary buttons and the filter-tab track. In dark mode the muted and secondary fills
+  (`muted-dark`, 13%) sit one step above the card so they read when placed on it.
+- **Card** (`card`, #FFFFFF; `card-dark`, #161A21): cards, popovers and panels. The highest
+  surface in both themes.
+- **Navy Ink** (`navy-ink`, #001233; `ink-dark`, #E6E9EF): all primary text and headings. The
+  palette's deepest navy in light mode, a soft off-white in dark.
+- **Slate** (`slate`, #5C677D; `slate-dark`, #9AA2AF): secondary text, idle nav items, timestamps
+  and captions.
+- **Rule Line** (`rule-line`, #D6DCE6; `rule-line-dark`, #262B34): every 1px border and divider,
+  plus the landing page ruling.
+- **Field Line** (`field-line`, #7D8597; `field-line-dark`, #5E6674): input borders and hovered
+  scrollbar thumbs. Much darker than Rule Line (3.7:1 against a card in light mode, 3:1 in dark),
+  so form fields stay visible in sunlight and read as fields.
+- **Midnight** (`midnight`, #001233; raised step `midnight-raised`, #001845; text `midnight-text`;
+  light blue `midnight-accent`, #7DB3F2): the always-dark navy slab used by the auth shell, the
+  public booking portal, the quote page and the landing page's closing band. It is the same navy
+  in both themes on purpose, which also sets it apart from the charcoal page around it in dark mode.
 
 ### Semantic and data
 - **Stop Red** (`stop-red`): destructive buttons and errors only.
-- **Booking Teal** (`booking-teal`) and **Event Indigo** (`event-indigo`): schedule series.
-  A job is always orange, a booking always teal, an event always indigo, here and in the agenda's
-  type badges. Read them through the tokens, never Tailwind's teal-500 or indigo-500.
-- **Chart Teal, Rust, Blue, Green** (`chart-teal`, `chart-rust`, `chart-blue`, `chart-green`;
-  `--chart-2..5`): categorical series 2–5 after Safety Orange, in that fixed order. Validated
-  with the dataviz script in both themes (lightness band, chroma, colour-blind separation of
-  neighbours). Dark mode has its own steps, including a deeper `--chart-1` than the UI brand.
-  Rust and Blue replaced an umber that read as grey and an amber that collapsed into the
-  green for protanopes (2026-10-16).
+- **Job blue, Booking Teal and Event Violet** (`--brand`, `series-booking`, `series-event`; each
+  has its own dark step): schedule series. A job is always the brand blue, a booking always teal,
+  an event always violet (indigo until 2026-10-18), here and in the agenda's type badges. Read
+  them through the tokens, never Tailwind's teal-500 or violet-500.
+- **Chart Blue, Teal, Rust, Violet, Green** (`chart-blue`, `chart-teal`, `chart-rust`,
+  `chart-violet`, `chart-green`; `--chart-1..5`): categorical series 1–5 in that fixed order
+  (light: #0466C8 #009C93 #D2622A #8A4FD6 #4A9A3C; dark: #2F7FDB #14A89C #DD6E34 #9670E6
+  #53A843). Validated with the dataviz validator against the card in each theme: lightness band,
+  chroma floor, colour-blind separation of neighbours (worst ΔE 14.2 in light), a normal-vision
+  floor and 3:1 contrast. Dark mode has its own steps rather than a flip, including a lighter
+  `--chart-1` than the UI brand. Violet took slot 4 from the old blue, which would now sit beside
+  the brand as a second blue.
 - **Status** (`status-good`, `status-warning`, `status-critical`): reserved meaning (accepted
-  vs declined quotes, current invoices, up vs down). Never a series colour, and never shown
-  without a label or icon (warning is 2.15:1 on white by design). Words use the `-ink` pair
-  (`text-status-good-ink`, `text-status-critical-ink`), which clear 5:1 even on their own 10%
-  tint.
+  vs declined quotes, current invoices, up vs down). Green is good, amber is warning, red is
+  critical. Never a series colour, and never shown without a label or icon. Warning is a fill,
+  never text. Words use the `-ink` pair (`text-status-good-ink`, `text-status-critical-ink`),
+  which clear 5:1 even on their own 10% tint.
 - **Overdue 1–4** (`overdue-1`…`overdue-4`): invoice aging, one red that darkens with age, so
   the order reads from the colour. In dark mode the anchor flips and the oldest is brightest.
+  Unchanged by the rebrand.
 - **Admin Red** (`admin-red`, `admin-sidebar`): the super-admin area only, so staff always know
   they are outside a tenant's workspace.
 
 ### Named Rules
 **The Validated Data Colour Rule.** Data colours come from `lib/constants/chart-palette.ts`, which
-reads only tokens: categorical slots in fixed order and never cycled (past the fifth, a bucket
-folds into a neutral "Other"), status for good or bad, overdue for age. A single series is one
-hue, not a colour per bar. No hex in a chart: a colour that is not a token is a colour nobody
-validated.
+reads only tokens: categorical slots in fixed order (brand blue, teal, rust, violet, green) and
+never cycled (past the fifth, a bucket folds into a neutral "Other"), status for good or bad,
+overdue for age. A single series is one hue, not a colour per bar. No hex in a chart: a colour
+that is not a token is a colour nobody validated.
 
-**The One Mark Rule.** Safety Orange is the only accent. It marks the next action, the current
-place, or now. If a screen has orange in more than a handful of places, one of them is lying.
+**The One Mark Rule.** Deep Sea Blue is the only accent. It marks the next action, the current
+place, or now. If a screen has blue in more than a handful of places, one of them is lying.
+Teal, violet and the other chart hues are data identity, not UI chrome.
 
 **The Rising Sheet Rule.** Surfaces must rise in this order in both themes: background ≤ surface
-< second sheet < card. In dark mode borders stay lighter than cards (19% against 13%), or the
-borders vanish. Any neutral change has to keep this order.
+< section < card. In dark mode that is 7%, 8%, 9% and 11% lightness, and borders stay lighter than
+cards (18% against 11%), or the borders vanish. Any neutral change has to keep this order.
 
-**The Same-Hue Rule.** Neutrals stay on the orange's side of the colour wheel (hue 25–32, under
-25% saturation). A cool grey makes the orange read as an intrusion instead of an accent.
+**The Cool Neutrals Rule.** Neutrals stay on the blue's side of the colour wheel: hue 216–222 in
+both themes. In light mode they carry 11–37% saturation; in dark mode they stay at 10–24%, so the
+page reads as charcoal with a faint blue cast, not as a blue theme. A warm grey beside the blue
+reads as dirt, and a saturated navy page stops reading as dark mode (rejected by the user on
+2026-10-18).
 
-**The Fill, Not the Text Rule.** Safety Orange is a fill. On it, labels are Carbon Ink
-(`--brand-foreground`/`--primary-foreground`): 5.8:1 in light and 6.2:1 in dark, where white was
-2.85:1 and 2.68:1. When orange has to be read, it is Orange Deep through `text-brand-ink`, never
-`text-brand` (2.7:1 on light surfaces). "Read" means words and numbers, the focus ring, and any icon
-that carries meaning on its own: a selection check, an icon-only button, a toggled toolbar icon, a
-scroll hint (WCAG 1.4.11 asks 3:1 of those). Bright `text-brand` is kept for exactly three things: a
-decorative glyph beside a heading that names the same thing (section-header, empty-state and
-activity-type icons, icon tiles), the logotype, and orange on the always-dark Night Shift slab,
-where Orange Deep would fail instead. In dark mode `--brand-ink` is Safety Orange, so the split
-only shows in light mode. Fixed in the tokens and swept through the product on 2026-10-16
-(landing audit LAND-03/06).
+**The Three Blues Rule.** Blue comes in three jobs and each has its own token. A **fill** is
+`--brand`, with white (`--brand-foreground`) text on it at 5.6:1; navy text on that fill is only
+3.3:1, so it never carries dark text. Anything **read** is `--brand-ink` through `text-brand-ink`:
+words and numbers, links, the focus ring, and any icon that carries meaning on its own (a
+selection check, an icon-only button, a toggled toolbar icon, a scroll hint; WCAG 1.4.11 asks 3:1
+of those). On the **navy slab**, brand text is `--midnight-accent` through `text-midnight-accent`
+(8.5:1), because the fill blue is 3.3:1 on that navy and the light-theme Blue Ink is 2.5:1. Bright
+`text-brand` is kept for exactly two things: a decorative glyph beside a heading that names the
+same thing (section-header, empty-state and activity-type icons, icon tiles), and the wordmark.
+The orange system this replaced had to put ink on its fill; blue takes white, so the labels
+flipped.
 
 ## Typography
 
-**Display Font:** Space Grotesk (with sans-serif)
-**Body Font:** DM Sans (with sans-serif)
-**Label/Mono Font:** DM Mono (with ui-monospace, monospace), weights 400 and 500
+**Font:** Inter (with `ui-sans-serif`, `system-ui`, sans-serif), for everything. One variable
+font file, so every weight the app uses comes from it (`layout.tsx`, `--font-sans`).
 
-**Character:** Space Grotesk's squared, engineered shapes give headings a workshop tone. DM Sans
-keeps prose and controls quiet. DM Mono is DM Sans's sibling, so the data face pairs with the
-body face instead of arriving as an unrelated third typeface.
+**Character:** Inter is plain on purpose. It is drawn for screens, stays legible at 11–14px on a
+phone in sunlight, and has real tabular figures, so one family does the work three used to. The
+product's character comes from the layout, the blue and the density, not from the letterforms.
+
+The Tailwind slot names `font-heading`, `font-body`, `font-mono` and `font-sans` all resolve to
+Inter. They were kept so no component had to change. `font-mono` no longer means monospace: it
+marks "this is a figure" and is paired with `tnum`. Emails use Inter too. PDFs (quote and
+invoice) take the brand blue but stay in Helvetica, because react-pdf ships only its built-in
+faces.
 
 ### Hierarchy
 - **Display** (700, 2.5rem → 3rem at `sm` → 3.75rem at `lg`, line-height 1.05, tight tracking):
@@ -383,28 +444,31 @@ body face instead of arriving as an unrelated third typeface.
   Body and Data in four components and was folded onto them.
 - **Label** (600, 11px, 0.05em tracking, uppercase): sidebar group headers and table-adjacent
   section labels.
-- **Eyebrow** (DM Mono 500, 11px, 0.18em tracking, uppercase): the day sheet's date field only.
-  The landing page carries no eyebrow above any heading; the hero's was removed on 2026-10-16 and
+- **Eyebrow** (500, 11px, 0.16em tracking, uppercase): the day sheet's date field only. The landing
+  page carries no eyebrow above any heading; the hero's was removed on 2026-10-16 and
   `SectionHeading` no longer accepts one.
-- **Data** (DM Mono 400, 12px, tabular figures): times, money, counts, IDs and the day sheet's
-  hour column. Drops to 10–11px inside dense job cards (`data-dense`), which includes the landing
+- **Data** (400, 12px, tabular figures): times, money, counts, IDs and the day sheet's hour
+  column. Drops to 10–11px inside dense job cards (`data-dense`), which includes the landing
   page's illustrative day sheet and kanban diagram.
 
 ### Named Rules
 **The Figures Rule.** Anything read as a number (a time, an amount, a count, a job number) is set
-in DM Mono with tabular figures (the `.tnum` utility), so columns line up and values don't jitter
-as they change.
+with tabular figures (the `.tnum` utility, Inter's `tnum` feature), so columns line up and values
+don't jitter as they change. Inter's default digits are proportional, so a column of money without
+`tnum` comes out ragged.
 
-**The Three Faces Rule.** Space Grotesk, DM Sans and DM Mono, each with its own job. There is no
-fourth face, and Inter, Roboto, Arial or system defaults are never used.
+**The One Face Rule.** Inter, one family, for headings, prose, controls, labels and figures.
+Hierarchy comes from size, weight, case and spacing, never from a second typeface. Roboto, Arial
+and system defaults appear only as the fallback stack while Inter loads. DM Mono, DM Sans and
+Space Grotesk, the three faces this replaced, are gone.
 
 ## Layout
 
-**App shell.** From `lg` (1024px) up, a fixed left sidebar on Card White: 224px expanded, 64px
+**App shell.** From `lg` (1024px) up, a fixed left sidebar on Card: 224px expanded, 64px
 collapsed, with its width animating over 300ms. Nav groups have collapsible Label headers. Below
 `lg` the sidebar leaves the flow: the same navigation opens as a left sheet (288px, at most 85% of
 the screen) from a 40px menu button at the navbar's left edge, and closes when a page is picked.
-A 56px top navbar carries the page name in Title and a 2px Safety Orange hairline that fades out
+A 56px top navbar carries the page name in Title and a 2px Deep Sea Blue hairline that fades out
 toward both edges; below `lg` it spans the full width, the user's name appears from `md`, and the
 theme toggle moves into the account menu below `sm`. Page actions that portal into the navbar
 render at the top of the page instead below `md`, where the navbar has no room for them. Page
@@ -415,15 +479,15 @@ content sits in a 16px gutter on phones and 24px from `sm`.
 today's work before the money; from `xl` it takes the right third and the main zone (Revenue, then
 a two-up grid of everything else) the left two. Zones are stacks, so hiding a widget in Customize
 never leaves a hole, and an odd last widget in the grid spans its row. Up next is a day sheet:
-today first, an hour column in DM Mono, and each row marked by its kind (job orange, booking teal,
-event indigo).
+today first, an hour column in tabular Inter, and each row marked by its kind (job blue, booking
+teal, event violet).
 
 **List pages** (customers, invoices, quotes, bookings, assets, catalog, checklists, agreements)
-share one structure: page header (Headline title, Pencil subtitle, action on the right) → a row
+share one structure: page header (Headline title, Slate subtitle, action on the right) → a row
 of stats cards that double as filters → one bordered card whose single header row puts filter
 tabs on the left and search plus controls on the right → the table → pagination below the card.
 
-**Detail pages** use three panels on Work Order Paper: a 320px left panel, flexible tabs in the
+**Detail pages** use three panels on the Page background: a 320px left panel, flexible tabs in the
 middle, and a 288px right sidebar from `xl` up, each a bordered card. Below `xl` the sidebar is
 never hidden: it runs as a full-width card under the tabs (its sections side by side at `lg`),
 and on phones every panel stacks in reading order. The same record can open as a 520px side
@@ -458,10 +522,10 @@ then the buttons. It is still one toolbar, laid out for a narrow screen, not a s
 
 ## Elevation & Depth
 
-Depth is tonal first. Four surfaces rise from Work Order Paper to Card White (and from 6% to 13%
-lightness in dark mode), and hairline Rule Line borders do most of the separating. Shadows are
-quiet, small and neutral at rest. The one coloured shadow is an orange glow that appears only on
-something you can pick up.
+Depth is tonal first. Four surfaces rise from Page to Card (and from 7% to 11% lightness in dark
+mode), and hairline Rule Line borders do most of the separating. Shadows are quiet, small and
+neutral at rest. The one coloured shadow is a blue glow that appears only on something you can
+pick up.
 
 ### Shadow Vocabulary
 - **Resting card** (`box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05)`): cards, stats cards and detail
@@ -469,17 +533,17 @@ something you can pick up.
 - **Button** (`box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)`): the
   filled primary button. Outline and secondary buttons use the resting-card shadow.
 - **Grab glow** (`box-shadow: 0 6px 24px 0 hsl(var(--brand) / 0.25)`, 0.35 in dark): a job card on
-  hover, together with an orange-tinted border.
+  hover, together with a blue-tinted border.
 - **Lifted** (`box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)`,
-  plus a 2px orange ring at 30%, rotated 2° and scaled 1.03): a job card while it's being dragged.
-- **Showcase** (the same extra-large shadow tinted with Carbon Ink at 5%): the landing page's
+  plus a 2px blue ring at 30%, rotated 2° and scaled 1.03): a job card while it's being dragged.
+- **Showcase** (the same extra-large shadow tinted with Navy Ink at 5%): the landing page's
   day sheet only.
 
 ### Named Rules
 **The Tonal-First Rule.** Separate things with the surface ladder and a hairline before reaching
 for a shadow. A shadow at rest never goes above "resting card".
 
-**The Grab Glow Rule.** The orange glow means "you can pick this up". It belongs on draggable or
+**The Grab Glow Rule.** The blue glow means "you can pick this up". It belongs on draggable or
 grabbable objects (job cards), never on static cards for decoration.
 
 ## Shapes
@@ -496,23 +560,22 @@ the reading.
 
 ## Components
 
-Sturdy and plain, like good work gear: solid fills, clear outlines, nothing ornamental. Orange marks
+Sturdy and plain, like good work gear: solid fills, clear outlines, nothing ornamental. Blue marks
 the one thing to do next.
 
 ### Buttons
 - **Shape:** gently rounded (6px), 36px tall (32px small, 40px large, 48px on the landing hero).
-- **Primary:** Safety Orange fill with a Carbon Ink label at 500 weight and the button shadow.
-  Hover drops to 90% opacity. Focus shows the ring in Orange Deep (`--ring`).
-- **Outline:** 1px Field Line border on Work Order Paper. Hover switches to Orange Wash with Orange
-  Deep text.
-- **Secondary / Ghost / Link:** Second Sheet fill; transparent with an Orange Wash hover for icon and
-  row actions; or orange text with an underline on hover.
-- **Destructive:** Stop Red fill, for deletes and other irreversible actions, which go through the
-  shared confirmation dialogs.
+- **Primary:** Deep Sea Blue fill with a white label at 500 weight and the button shadow. Hover
+  drops to 90% opacity. Focus shows the ring in Blue Ink (`--ring`).
+- **Outline:** 1px Field Line border on Page. Hover switches to Blue Tint with Blue Ink text.
+- **Secondary / Ghost / Link:** Section fill; transparent with a Blue Tint hover for icon and
+  row actions; or Blue Ink text with an underline on hover.
+- **Destructive:** Stop Red fill with a white label, for deletes and other irreversible actions,
+  which go through the shared confirmation dialogs.
 
 ### Chips: badges and status pills
 - **Style:** full-round, 12px text at 600 weight (500 for status pills), 2px × 10px padding.
-  The brand badge is Orange Deep on Safety Orange Tint. Outline badges use a Rule Line border.
+  The brand badge is Blue Ink on Blue Tint. Outline badges use a Rule Line border.
 - **Status and priority:** colour-mapped pills, each with an explicit dark-mode pair. Priority
   runs standard (blue) → urgent (amber) → emergency (red, with a slow 2s pulse ring). Pipeline
   stages pick from eight presets (blue, brand, green, red, purple, amber, gray, teal), each defining
@@ -520,53 +583,53 @@ the one thing to do next.
 
 ### Cards / Containers
 - **Corner Style:** 8px (12px for job cards).
-- **Background:** Card White, on Work Order Paper or Second Sheet.
+- **Background:** Card, on Page or Section.
 - **Shadow Strategy:** the resting card shadow (see Elevation & Depth).
 - **Border:** 1px Rule Line, always.
 - **Internal Padding:** 24px for content cards, 12px × 16px for stats cards, 14px for job cards, and
   16px × 12px for a list card's header row.
 
 ### Inputs / Fields
-- **Style:** 40px tall, 1px Field Line border, Work Order Paper fill, 6px corners, 14px DM Sans
-  text (16px below `md`, set once in `globals.css`, because iOS Safari zooms the page on focus
-  under 16px), Pencil placeholder.
-- **Focus:** a 2px Safety Orange ring offset 2px from the field.
+- **Style:** 40px tall, 1px Field Line border, Page fill, 6px corners, 14px Inter text (16px below
+  `md`, set once in `globals.css`, because iOS Safari zooms the page on focus under 16px), Slate
+  placeholder.
+- **Focus:** a 2px Blue Ink ring offset 2px from the field.
 - **Disabled:** 50% opacity, not-allowed cursor. Forms lay out as one column, two from `sm` up.
 
 ### Navigation
-- **Sidebar items:** 40px tall, 6px corners, 14px DM Sans at 500, 20px Tabler icon. Idle items are
-  Pencil, turning Orange Deep over a faint tint on hover. The active item is Orange Deep on Safety
-  Orange Tint, icon included.
-- **Navbar:** 56px, the page name in Title, actions in a Second Sheet cluster with 12px corners, and
-  the orange hairline across the top.
+- **Sidebar items:** 40px tall, 6px corners, 14px Inter at 500, 20px Tabler icon. Idle items are
+  Slate, turning Blue Ink over a faint tint on hover. The active item is Blue Ink on Blue Tint,
+  icon included.
+- **Navbar:** 56px, the page name in Title, actions in a Section cluster with 12px corners, and
+  the blue hairline across the top.
 - **Icons:** Tabler throughout the app (lucide only inside shadcn primitives). 14px inline, 16px in
   buttons, 20px in navigation and section headers, 32px in empty states.
 
 ### Filter Tabs
-A full-round Second Sheet track with 4px padding. The selected option sits on a Safety Orange pill
-that slides between options over 300ms, with a Carbon Ink label. Options are 12px DM Sans at 500.
+A full-round Section track with 4px padding. The selected option sits on a Deep Sea Blue pill
+that slides between options over 300ms, with a white label. Options are 12px Inter at 500.
 
 ### Stats Cards
-Compact cards (12px × 16px padding) with a 36px round icon disc, the count in Space Grotesk bold
-and a Pencil label. When used as filters, hovering tints the border orange at 40%, and the active
-card gets a Safety Orange border plus a soft 20% orange ring.
+Compact cards (12px × 16px padding) with a 36px round icon disc, the count in Inter bold and a
+Slate label. When used as filters, hovering tints the border blue at 40%, and the active card gets
+a Deep Sea Blue border plus a soft 20% blue ring.
 
 ### Job Card (signature)
-The kanban card: Card White, 12px corners, 14px padding, a Rule Line border at 60%, and the resting
-shadow. Priority and stage pills sit at the top in 10px uppercase. Then the title (14px DM Sans 500,
-two lines max), the customer and schedule in Pencil, a 24px round assignee initial on Safety Orange
-Tint, and a footer separated by a half-opacity hairline. On hover it takes the grab glow and an
-orange-tinted border. While dragged it lifts, tilts 2° and gains an orange ring. Cards enter in a
-300ms staggered rise.
+The kanban card: Card, 12px corners, 14px padding, a Rule Line border at 60%, and the resting
+shadow. Priority and stage pills sit at the top in 10px uppercase. Then the title (14px Inter 500,
+two lines max), the customer and schedule in Slate, a 24px round assignee initial on Blue Tint, and
+a footer separated by a half-opacity hairline. On hover it takes the grab glow and a blue-tinted
+border. While dragged it lifts, tilts 2° and gains a blue ring. Cards enter in a 300ms staggered
+rise.
 
 ### Day Sheet (landing signature)
-The landing hero: a time-ruled card showing one working day. A mono date field, an hour column in
-tabular DM Mono, jobs placed at their real start time and duration, and a Safety Orange dot and rule
-on the current hour. The same object at every width, never a screenshot in a device frame. It is
-titled "Example schedule", because the jobs are sample data. The current-hour rule is the landing
-page's one authored motion: after mount, the dot lands and the line draws across the day once, and
-under reduced motion it is simply there. The hero around it is never wrapped in a scroll reveal, so it
-paints with the HTML.
+The landing hero: a time-ruled card showing one working day. A date field in the eyebrow style,
+an hour column in tabular Inter, jobs placed at their real start time and duration, and a Deep Sea
+Blue dot and rule on the current hour. The same object at every width, never a screenshot in a
+device frame. It is titled "Example schedule", because the jobs are sample data. The current-hour
+rule is the landing page's one authored motion: after mount, the dot lands and the line draws
+across the day once, and under reduced motion it is simply there. The hero around it is never
+wrapped in a scroll reveal, so it paints with the HTML.
 
 ### Skeletons
 Every loading state is a skeleton shaped like the content it replaces, and every dashboard route has
@@ -577,20 +640,21 @@ a matching `loading.tsx`. No spinners.
 ### Do:
 - **Do** take every colour from the tokens (`bg-card`, `text-ink`, `border-border`, `bg-brand`) so
   both themes stay correct. Status colours always get an explicit `dark:` pair.
-- **Do** keep Safety Orange to action, location and now (The One Mark Rule).
-- **Do** set times, money and counts in DM Mono with tabular figures (The Figures Rule).
+- **Do** keep Deep Sea Blue to action, location and now (The One Mark Rule).
+- **Do** set times, money and counts with tabular figures (The Figures Rule).
 - **Do** keep the surface ladder rising in both themes when touching any neutral (The Rising Sheet
-  Rule).
-- **Do** use the Night Shift slab for customer-facing portals and the auth shell, and keep printed
+  Rule), with neutrals on the blue's side of the wheel (The Cool Neutrals Rule).
+- **Do** use the Midnight slab for customer-facing portals and the auth shell, and keep printed
   quotes ink-on-white with no dark band and no buttons.
 - **Do** use skeletons shaped like the content for every loading state.
 - **Do** use the motion vocabulary's curve and durations, and attach new arrivals to a shell or a
   shared primitive rather than to one page.
 - **Do** give every animation a `prefers-reduced-motion` override, and stop motion while the user
   drags or pans.
-- **Do** write orange text and meaningful orange icons with `text-brand-ink`, put Carbon Ink labels
-  on orange fills, and keep bright `text-brand` for decorative glyphs beside a heading, the logo
-  and the Night Shift slab (The Fill, Not the Text Rule).
+- **Do** put white labels on the blue fill, write blue text and meaningful blue icons with
+  `text-brand-ink`, write brand-coloured text on the navy slab with `text-midnight-accent`, and
+  keep bright `text-brand` for decorative glyphs beside a heading and the wordmark (The Three Blues
+  Rule).
 
 ### Don't:
 - **Don't** use "AI startup" gloss: no purple-on-white gradients, aurora or nebula backdrops, or glow
@@ -601,11 +665,15 @@ a matching `loading.tsx`. No spinners.
   last six spinners were removed on 2026-10-16.
 - **Don't** loop anything that isn't a signal. A hint nudges twice and rests, and an attention
   cue pulses three times and rests.
-- **Don't** use cool blue-slate neutrals or raw `gray-*` classes, and never Inter, Roboto, Arial or
-  system defaults.
-- **Don't** add a second accent colour. Teal, indigo and the chart hues are data identity, not UI
+- **Don't** use raw `gray-*` classes or warm greys, and never a second typeface: Inter is the one
+  face, with Roboto, Arial and system defaults only as the fallback stack.
+- **Don't** build dark surfaces out of the palette's navies. Dark mode is near-neutral charcoal;
+  navy belongs to the Midnight slab.
+- **Don't** add a second accent colour. Teal, violet and the chart hues are data identity, not UI
   chrome.
-- **Don't** put the orange grab glow on anything that can't be picked up.
+- **Don't** put the blue grab glow on anything that can't be picked up.
 - **Don't** stack two toolbars on a list page (The One Row Rule).
-- **Don't** put white text on Safety Orange, or use `text-brand` for anything that has to be read
-  (LAND-03, LAND-06).
+- **Don't** put dark text on the blue fill (navy on it is 3.3:1), or use `text-brand` for anything
+  that has to be read (LAND-03, LAND-06).
+- **Don't** use `--brand` or the light-theme `--brand-ink` as text on the navy slab (3.3:1 and
+  2.5:1). Use `text-midnight-accent`.

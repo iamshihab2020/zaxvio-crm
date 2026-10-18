@@ -27,7 +27,7 @@ const styles = StyleSheet.create({
   businessName: {
     fontSize: 18,
     fontFamily: "Helvetica-Bold",
-    color: "#E8652D",
+    color: "#0466C8",
     marginBottom: 4,
   },
   businessDetail: {
@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     textAlign: "right",
     fontFamily: "Helvetica-Bold",
     fontSize: 14,
-    color: "#E8652D",
+    color: "#0466C8",
   },
   divider: {
     borderBottomWidth: 1,

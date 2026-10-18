@@ -100,7 +100,7 @@ const alertBadgeWrapStyle: React.CSSProperties = {
 const alertBadgeStyle: React.CSSProperties = {
   display: "inline-block",
   backgroundColor: "#FFF7ED",
-  color: "#E8652D",
+  color: "#0466C8",
   fontSize: "11px",
   fontWeight: 700,
   letterSpacing: "0.08em",
