@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import dynamic from "next/dynamic";
 import { PageActions } from "@/components/dashboard/page-actions";
 import {
   differenceInCalendarDays,
@@ -51,15 +52,30 @@ import { TopCustomersCard } from "@/components/dashboard/home/top-customers-card
 import {
   ALL_WIDGETS,
   useDashboardWidgetPrefs,
-  type WidgetKey,
 } from "@/hooks/use-dashboard-widget-prefs";
 import {
   DATE_RANGE_KEYS,
   useStoredDateRange,
 } from "@/hooks/use-stored-date-range";
 import { useStagger } from "@/hooks/use-stagger";
+import {
+  DASHBOARD_GRID,
+  placeWidgets,
+  widgetSpanClasses,
+  type PlacedWidget,
+} from "@/lib/dashboard-layout";
 import { STAGGER_STEP, replayMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+// Arrange is opened now and then, and it is the only part of the dashboard that
+// needs dnd-kit, so the library loads with it rather than with every visit.
+const DashboardLayoutEditor = dynamic(
+  () =>
+    import("@/components/dashboard/home/dashboard-layout-editor").then((m) => ({
+      default: m.DashboardLayoutEditor,
+    })),
+  { ssr: false },
+);
 
 /** The same isomorphic pattern `use-route-arrival.ts` uses. */
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -105,37 +121,6 @@ function granularityForSpan(spanDays: number): DashboardRevenueGranularity {
   return "month";
 }
 
-/** The widgets that flow in the full-width grid under the top band, in order. */
-const GRID_WIDGETS: readonly WidgetKey[] = [
-  "weekAhead",
-  "invoiceAging",
-  "jobsManagement",
-  "quoteFunnel",
-  "retention",
-  "revenueByService",
-  "topCustomers",
-  "activity",
-];
-
-/**
- * Stretch the grid's last widget across whatever its row has left, so the grid
- * never ends on a hole whichever widgets are hidden: two columns from `md`,
- * three from `xl`. The `xl` value always restates the span, because an odd
- * count's `md` span would otherwise carry into a three-column row that is
- * already full. Literal strings, so Tailwind's scanner sees every class.
- */
-function fillLastRow(count: number): string {
-  const md = count % 2 === 1 ? "md:[&>*:last-child]:col-span-2" : "";
-  const rest = count % 3;
-  const xl =
-    rest === 1
-      ? "xl:[&>*:last-child]:col-span-3"
-      : rest === 2
-        ? "xl:[&>*:last-child]:col-span-2"
-        : "xl:[&>*:last-child]:col-span-1";
-  return cn(md, xl);
-}
-
 interface DashboardPageClientProps {
   initialStats?: DashboardStats | null;
   initialError?: string | null;
@@ -159,6 +144,8 @@ export function DashboardPageClient({
   const [pipelineId, setPipelineId] = useState<string | null>(null);
 
   const prefs = useDashboardWidgetPrefs();
+  // Arrange swaps the cards for a map of tiles that can be dragged around.
+  const [arranging, setArranging] = useState(false);
   const { stored: storedRange, save: saveRange } = useStoredDateRange(
     DATE_RANGE_KEYS.dashboard,
   );
@@ -313,11 +300,98 @@ export function DashboardPageClient({
   const { kpis } = stats;
   const { visible } = prefs;
 
-  // The top band is Revenue beside Up next. Everything else flows in one
-  // full-width grid below it, counted so its last row can be filled.
-  const showAgenda = visible.agenda;
-  const showRevenue = visible.revenue;
-  const gridCount = GRID_WIDGETS.filter((key) => visible[key]).length;
+  // Every card below the KPI row, in the user's order (or the default), placed
+  // into rows by `placeWidgets`.
+  const visibleOrder = prefs.order.filter((key) => visible[key]);
+  const placed = placeWidgets(visibleOrder);
+
+  // An arrow, not a function declaration: a hoisted declaration loses the
+  // narrowing of `stats` above, and this needs it.
+  const renderWidget = ({ key, sharesXlRow }: PlacedWidget) => {
+    switch (key) {
+      case "revenue":
+        return (
+          <WidgetErrorBoundary name="Revenue">
+            <RevenueRangeChart
+              data={stats.revenueTrend}
+              granularity={stats.revenueGranularity}
+              currentValue={kpis.rangeRevenue.amount}
+              previousValue={kpis.rangeRevenue.previousAmount}
+              billedValue={kpis.rangeRevenue.billedAmount}
+              range={revenueRange}
+              onRangeChange={handleRevenueRangeChange}
+            />
+          </WidgetErrorBoundary>
+        );
+      case "agenda":
+        // Beside other cards from `xl` it takes their row's height and
+        // scrolls inside it, so a busy week can't stretch the whole row.
+        // Alone on a row it sets its own height.
+        return (
+          <WidgetErrorBoundary name="Up next">
+            <AgendaTimeline agenda={stats.agenda} fitRowAtXl={sharesXlRow} />
+          </WidgetErrorBoundary>
+        );
+      case "weekAhead":
+        return (
+          <WidgetErrorBoundary name="Week ahead">
+            <WeekAhead agenda={stats.agenda} />
+          </WidgetErrorBoundary>
+        );
+      case "invoiceAging":
+        return (
+          <WidgetErrorBoundary name="Invoice aging">
+            <InvoiceAging data={stats.invoiceAging} />
+          </WidgetErrorBoundary>
+        );
+      case "jobsManagement":
+        return (
+          <WidgetErrorBoundary name="Jobs management">
+            <JobsManagementPanel
+              defaultPipeline={stats.jobPipeline}
+              priorityBreakdown={stats.priorityBreakdown}
+              serviceBreakdown={stats.serviceBreakdown}
+              pipelineId={pipelineId}
+              onPipelineChange={setPipelineId}
+            />
+          </WidgetErrorBoundary>
+        );
+      case "quoteFunnel":
+        return (
+          <WidgetErrorBoundary name="Quote funnel">
+            <QuoteConversion data={stats.quoteSummary} />
+          </WidgetErrorBoundary>
+        );
+      case "retention":
+        return (
+          <WidgetErrorBoundary name="Retention">
+            <RetentionChart data={stats.retentionTrend} />
+          </WidgetErrorBoundary>
+        );
+      case "revenueByService":
+        return (
+          <WidgetErrorBoundary name="Revenue by service">
+            <RevenueByServiceChart data={stats.serviceRevenue} />
+          </WidgetErrorBoundary>
+        );
+      case "topCustomers":
+        return (
+          <WidgetErrorBoundary name="Top customers">
+            <TopCustomersCard data={stats.topCustomers} />
+          </WidgetErrorBoundary>
+        );
+      case "activity":
+        return (
+          <WidgetErrorBoundary name="Activity feed">
+            <RecentActivityFeed activities={stats.recentActivity} />
+          </WidgetErrorBoundary>
+        );
+      default: {
+        const exhaustive: never = key;
+        throw new Error(`Unhandled dashboard widget: ${String(exhaustive)}`);
+      }
+    }
+  };
 
   return (
     <section className="p-4 sm:p-6">
@@ -338,6 +412,8 @@ export function DashboardPageClient({
           updatedAt={dataUpdatedAt}
           isFetching={isFetching}
           prefs={prefs}
+          arranging={arranging}
+          onArrangingChange={setArranging}
         />
 
         {/* Widget visibility lives in localStorage, so hold the grid until it is
@@ -413,117 +489,53 @@ export function DashboardPageClient({
             )}
 
             {/*
-              A top band, then one flowing grid. Not two zones.
+              One grid, in the user's order. Not a top band and a grid, and not
+              two zones.
 
-              The page used to be two columns from `xl`: a side zone (Up next,
-              Week ahead) and a main zone (Revenue, then a two-up grid of every
-              other widget). The side zone held two cards and the main zone
-              eight, so from about a screen down the right third was empty for
-              the rest of the page. The user caught it on the first look.
+              The page used to be two columns from `xl`, a side zone and a main
+              zone, and the side zone ran out a screen down, leaving the right
+              third empty (the user caught it on the first look). Then it was a
+              fixed band, Revenue beside Up next, over a flowing grid. Since
+              Arrange (2026-10-19) every card here is in one grid, two across
+              from `md` and three from `xl`, in whatever order the user set.
 
-              Now the only pair is Revenue beside Up next, and Up next takes
-              Revenue's height and scrolls inside it (`fitRowAtXl`), so a busy
-              week can't open a gap under Revenue either. Everything else flows
-              in a single grid, two across from `md` and three from `xl`, and
-              `fillLastRow` stretches the last widget over whatever its row has
-              left, so hiding widgets in Customize never leaves a hole. Row-mates
-              stretch to the taller card (`h-full`), so rows end flush.
+              `placeWidgets` keeps it tidy whatever that order is: a wide card
+              (Revenue, Activity) takes two columns, so two never share a row,
+              and a row that can't take the next card is closed by widening its
+              last one, so no row ends in a hole. Each card sits in a flex
+              column wrapper, so row-mates stretch to the tallest and rows end
+              flush.
 
-              Up next is first in the DOM, so on a phone the day still comes
-              before the money; from `xl` it moves to the right third of the band.
+              Until the user arranges anything, Up next is lifted to the top on
+              a phone, so the day still comes before the money there; from `xl`
+              it sits beside Revenue as it always has. Between the two, Revenue
+              has a row to itself and Up next sits beside Week Ahead under it.
             */}
-            {(showAgenda || showRevenue) && (
-              <div className="grid gap-6 xl:grid-cols-3">
-                {showAgenda && (
-                  <div
-                    className={cn(
-                      "flex min-w-0 flex-col xl:row-start-1",
-                      showRevenue ? "xl:col-start-3" : "xl:col-span-3",
-                    )}
-                  >
-                    <WidgetErrorBoundary name="Up next">
-                      <AgendaTimeline agenda={stats.agenda} fitRowAtXl={showRevenue} />
-                    </WidgetErrorBoundary>
-                  </div>
-                )}
-
-                {showRevenue && (
-                  <div
-                    className={cn(
-                      "min-w-0 xl:col-start-1 xl:row-start-1",
-                      showAgenda ? "xl:col-span-2" : "xl:col-span-3",
-                    )}
-                  >
-                    <WidgetErrorBoundary name="Revenue">
-                      <RevenueRangeChart
-                        data={stats.revenueTrend}
-                        granularity={stats.revenueGranularity}
-                        currentValue={kpis.rangeRevenue.amount}
-                        previousValue={kpis.rangeRevenue.previousAmount}
-                        billedValue={kpis.rangeRevenue.billedAmount}
-                        range={revenueRange}
-                        onRangeChange={handleRevenueRangeChange}
-                      />
-                    </WidgetErrorBoundary>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {gridCount > 0 && (
-              <div
-                className={cn(
-                  "grid gap-6 md:grid-cols-2 xl:grid-cols-3",
-                  fillLastRow(gridCount),
-                )}
-              >
-                {visible.weekAhead && (
-                  <WidgetErrorBoundary name="Week ahead">
-                    <WeekAhead agenda={stats.agenda} />
-                  </WidgetErrorBoundary>
-                )}
-                {visible.invoiceAging && (
-                  <WidgetErrorBoundary name="Invoice aging">
-                    <InvoiceAging data={stats.invoiceAging} />
-                  </WidgetErrorBoundary>
-                )}
-                {visible.jobsManagement && (
-                  <WidgetErrorBoundary name="Jobs management">
-                    <JobsManagementPanel
-                      defaultPipeline={stats.jobPipeline}
-                      priorityBreakdown={stats.priorityBreakdown}
-                      serviceBreakdown={stats.serviceBreakdown}
-                      pipelineId={pipelineId}
-                      onPipelineChange={setPipelineId}
-                    />
-                  </WidgetErrorBoundary>
-                )}
-                {visible.quoteFunnel && (
-                  <WidgetErrorBoundary name="Quote funnel">
-                    <QuoteConversion data={stats.quoteSummary} />
-                  </WidgetErrorBoundary>
-                )}
-                {visible.retention && (
-                  <WidgetErrorBoundary name="Retention">
-                    <RetentionChart data={stats.retentionTrend} />
-                  </WidgetErrorBoundary>
-                )}
-                {visible.revenueByService && (
-                  <WidgetErrorBoundary name="Revenue by service">
-                    <RevenueByServiceChart data={stats.serviceRevenue} />
-                  </WidgetErrorBoundary>
-                )}
-                {visible.topCustomers && (
-                  <WidgetErrorBoundary name="Top customers">
-                    <TopCustomersCard data={stats.topCustomers} />
-                  </WidgetErrorBoundary>
-                )}
-                {visible.activity && (
-                  <WidgetErrorBoundary name="Activity feed">
-                    <RecentActivityFeed activities={stats.recentActivity} />
-                  </WidgetErrorBoundary>
-                )}
-              </div>
+            {arranging ? (
+              <DashboardLayoutEditor
+                order={visibleOrder}
+                onMove={prefs.moveWidget}
+                onReset={prefs.resetOrder}
+                canReset={prefs.customOrder}
+                onDone={() => setArranging(false)}
+              />
+            ) : (
+              placed.length > 0 && (
+                <div className={DASHBOARD_GRID}>
+                  {placed.map((p) => (
+                    <div
+                      key={p.key}
+                      className={cn(
+                        "flex min-w-0 flex-col [&>*]:flex-1",
+                        widgetSpanClasses(p),
+                        p.key === "agenda" && !prefs.customOrder && "max-md:order-first",
+                      )}
+                    >
+                      {renderWidget(p)}
+                    </div>
+                  ))}
+                </div>
+              )
             )}
           </div>
         )}

@@ -1,11 +1,9 @@
 "use client";
 
 import { useState, useRef, useCallback, useEffect } from "react";
-import type { PointerEvent as ReactPointerEvent } from "react";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
   TouchSensor,
   KeyboardSensor,
   closestCorners,
@@ -17,7 +15,6 @@ import {
   type DragEndEvent,
   type DragOverEvent,
   type DropAnimation,
-  type PointerSensorOptions,
   defaultDropAnimationSideEffects,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
@@ -36,6 +33,7 @@ import { useFillViewportHeight } from "@/hooks/use-fill-viewport-height";
 import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
 import { useStagger } from "@/hooks/use-stagger";
 import { DUR, EASE_OUT_CSS, prefersReducedMotion } from "@/lib/motion";
+import { MousePenSensor } from "@/lib/dnd-sensors";
 
 interface PipelineStage {
   id: string;
@@ -43,31 +41,6 @@ interface PipelineStage {
   label: string;
   color: string;
   sortOrder: number;
-}
-
-/**
- * The stock PointerSensor, minus fingers.
- *
- * A pointer sensor with an 8px distance threshold treats the first 8px of any
- * touch as a drag, so on a phone a sideways swipe on a card lifted the card
- * instead of scrolling the board. Mouse and pen keep exactly that behaviour;
- * touch is handed to TouchSensor below, which waits for a press-and-hold.
- */
-class MousePenSensor extends PointerSensor {
-  static activators = [
-    {
-      eventName: "onPointerDown" as const,
-      handler: (
-        { nativeEvent: event }: ReactPointerEvent,
-        { onActivation }: PointerSensorOptions,
-      ) => {
-        if (event.pointerType === "touch") return false;
-        if (!event.isPrimary || event.button !== 0) return false;
-        onActivation?.({ event });
-        return true;
-      },
-    },
-  ];
 }
 
 /**

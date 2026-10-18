@@ -552,13 +552,21 @@ render at the top of the page instead below `md`, where the navbar has no room f
 content sits in a 16px gutter on phones and 24px from `sm`.
 
 **Dashboard.** An overdue banner, then four KPI tiles (two by two on a phone, four across from
-`lg`), then a top band and one flowing grid. The band is Up next beside Revenue: Up next comes
-first in the DOM so a phone reads today's work before the money, and from `xl` it takes the right
-third and Revenue's height, scrolling inside it, so a busy week never opens a gap under Revenue.
-Every other widget flows in one grid under the band, two across from `md` and three from `xl`;
-the last widget stretches over whatever its row has left, so hiding widgets in Customize never
-leaves a hole, and row-mates stretch to the taller card. Two zones of unequal stacks were tried
-first and left the right third empty for most of the page. Up next is a day sheet:
+`lg`), both pinned to the top, then one grid of every other card, two across from `md` and three
+from `xl`, in the order the user sets with **Arrange** (2026-10-19; default: Revenue, Up next,
+Week Ahead, Invoice Aging, Jobs Management, then the opt-in cards). Revenue and the activity feed
+are wide (two columns), so two wide cards never share a row; a row that can't take the next card
+is closed by widening its last card, so a custom order or a hidden widget never leaves a hole, and
+the order itself is never shuffled to fill one (`placeWidgets`, `lib/dashboard-layout.ts`).
+Row-mates stretch to the taller card. In the default order Up next sits beside Revenue from `xl`,
+and wherever it shares a row it takes that row's height and scrolls inside it, so a busy week
+never opens a gap beside it; until the user arranges anything, a phone lifts it to the top so
+today's work comes before the money. Two zones of unequal stacks were tried first and left the
+right third empty for most of the page. **Arrange** swaps the cards for a map of short tiles in
+the same grid and widths (dashed borders, the grab glow, the Lifted state while held), so a move
+is a short drag rather than a scroll through live charts. Nothing shifts while a tile is held;
+the tile under it shows a brand ring and a bar on the side the held card will land, and the grid
+re-packs once on the drop. A sticky bar carries **Reset layout** and **Done**. Up next is a day sheet:
 today first, an hour column in tabular Inter, and each row marked by its kind in a shade of the
 brand (job the brand, booking the strong end, event the quiet end), the same shades as Week Ahead.
 

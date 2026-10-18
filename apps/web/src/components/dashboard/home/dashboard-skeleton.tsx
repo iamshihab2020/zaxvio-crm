@@ -95,8 +95,10 @@ export function DashboardSkeleton({ hideToolbar = false }: DashboardSkeletonProp
         </div>
       </div>
 
-      {/* The flowing grid with the default three widgets: two across from `md`
-          (the third spanning the row, as `fillLastRow` does), three from `xl`. */}
+      {/* The rest of the default layout: two across from `md` (the third
+          widened to fill its row, as `placeWidgets` does), three from `xl`. It
+          can't know a custom order (Arrange) before localStorage is read, so it
+          always shows the default. */}
       <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
           <Card

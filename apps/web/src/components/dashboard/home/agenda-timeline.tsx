@@ -31,11 +31,12 @@ import { cn } from "@/lib/utils";
 interface AgendaTimelineProps {
   agenda: DashboardAgenda;
   /**
-   * From `xl`, take the height of the row it sits in (Revenue's) and scroll
-   * inside it, instead of setting that height itself. A busy week is ten rows,
-   * ~600px, and letting that set the row left a tall void under Revenue.
+   * From `xl`, take the height of the row it sits in and scroll inside it,
+   * instead of setting that height itself. A busy week is ten rows, ~600px, and
+   * letting that set the row left a tall void under the card beside it.
    * `contain: size` is what stops the list's own height from counting when the
-   * grid sizes the row. Below `xl` the card is one column and shows everything.
+   * grid sizes the row. The dashboard sets it only when another card shares the
+   * row (`placeWidgets`); alone on a row, the card shows everything.
    */
   fitRowAtXl?: boolean;
 }
@@ -264,9 +265,9 @@ export function AgendaTimeline({ agenda, fitRowAtXl = false }: AgendaTimelinePro
   );
 
   return (
-    // Below `xl` (and whenever it isn't beside Revenue) the card sets its own
-    // height. Beside Revenue at `xl` it takes the row's height instead; see
-    // `fitRowAtXl`.
+    // Below `xl` (and whenever it has a row to itself) the card sets its own
+    // height. Beside another card at `xl` it takes the row's height instead;
+    // see `fitRowAtXl`.
     <Card
       data-widget="agenda"
       className={cn(

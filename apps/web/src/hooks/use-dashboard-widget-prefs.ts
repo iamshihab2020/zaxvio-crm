@@ -1,6 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import {
+  DEFAULT_WIDGET_ORDER,
+  isDefaultWidgetOrder,
+  moveWidget as moveInOrder,
+  sanitizeWidgetOrder,
+  type ArrangeableWidget,
+} from "@/lib/dashboard-layout";
 
 export type WidgetKey =
   | "kpis"
@@ -34,6 +41,19 @@ export const ALL_WIDGETS: { key: WidgetKey; label: string }[] = [
 ];
 
 const STORAGE_KEY = "dashboard-widget-visibility";
+/** The card order from Arrange. Absent means the default order. */
+const ORDER_STORAGE_KEY = "dashboard-widget-order";
+
+function saveOrder(order: readonly ArrangeableWidget[]) {
+  try {
+    // The default is never written, so a later change to the default reaches
+    // everyone who never arranged their cards.
+    if (isDefaultWidgetOrder(order)) localStorage.removeItem(ORDER_STORAGE_KEY);
+    else localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(order));
+  } catch {
+    /* ignore */
+  }
+}
 
 /**
  * Opinionated default: the six widgets a service business opens the dashboard for.
@@ -62,6 +82,7 @@ const DEFAULT_VISIBLE: Record<WidgetKey, boolean> = {
 
 export function useDashboardWidgetPrefs() {
   const [visible, setVisible] = useState<Record<WidgetKey, boolean>>(DEFAULT_VISIBLE);
+  const [order, setOrder] = useState<ArrangeableWidget[]>([...DEFAULT_WIDGET_ORDER]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -73,9 +94,33 @@ export function useDashboardWidgetPrefs() {
       }
     } catch {
       /* ignore */
+    }
+    // Read separately, so a corrupt order cannot cost the visibility settings.
+    try {
+      const storedOrder = localStorage.getItem(ORDER_STORAGE_KEY);
+      const parsed = storedOrder ? sanitizeWidgetOrder(JSON.parse(storedOrder)) : null;
+      if (parsed) setOrder(parsed);
+    } catch {
+      /* ignore */
     } finally {
       setHydrated(true);
     }
+  }, []);
+
+  /** Put `active` where `over` is (a drop in Arrange). */
+  const moveWidget = useCallback((active: ArrangeableWidget, over: ArrangeableWidget) => {
+    setOrder((prev) => {
+      const next = moveInOrder(prev, active, over);
+      saveOrder(next);
+      return next;
+    });
+  }, []);
+
+  /** Back to the default order. Which widgets are shown is Customize's, and stays. */
+  const resetOrder = useCallback(() => {
+    const next = [...DEFAULT_WIDGET_ORDER];
+    saveOrder(next);
+    setOrder(next);
   }, []);
 
   const toggle = useCallback((key: WidgetKey) => {
@@ -99,5 +144,14 @@ export function useDashboardWidgetPrefs() {
     }
   }, []);
 
-  return { visible, toggle, reset, hydrated };
+  return {
+    visible,
+    toggle,
+    reset,
+    order,
+    moveWidget,
+    resetOrder,
+    customOrder: !isDefaultWidgetOrder(order),
+    hydrated,
+  };
 }

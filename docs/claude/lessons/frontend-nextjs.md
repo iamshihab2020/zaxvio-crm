@@ -1108,3 +1108,24 @@ From [[bookings-calendar|the report]] — the front-end half.
   it too. Recolouring the tokens would have repainted the Calendar; instead the card takes an
   optional `badgeColor`, which the dashboard passes (its `kindColor`) and the Calendar does not.
   Check `grep -rl AgendaHoverCard` before touching anything a hover card reads.
+
+## Dashboard Arrange (2026-10-19)
+
+- **Don't live-reorder a grid of mixed-width cards while one is held.** dnd-kit's
+  `rectSortingStrategy` slides the others into each other's slots (and scales them to fit), which
+  previews the wrong result once rows re-pack with different spans. Reordering the array on
+  `onDragOver` instead flips back and forth between a wide and a narrow card. The Arrange view
+  passes a strategy that returns `null` (nothing moves), marks the drop target with a ring and an
+  edge bar, and re-packs once on the drop.
+- **Pack rows yourself instead of patching the grid's last child.** `fillLastRow` only fixed the
+  last row, which was enough while the order was fixed. With a user order, any row can end short
+  (a wide card that doesn't fit wraps), so `placeWidgets` computes each card's span per breakpoint
+  and widens the last card of every short row. Each card is wrapped in a `flex flex-col
+  [&>*]:flex-1` cell, so row-mates still stretch even though the card is no longer the grid item.
+- **A `contain: size` card can't sit alone on a row.** Up next takes its row's height from
+  `xl` by contributing none of its own; on a row of its own that height is zero. `placeWidgets`
+  reports `sharesXlRow`, and the card only uses the trick when it does.
+- **A function declaration inside a component loses the narrowing of a `const` checked above
+  it.** Declarations are hoisted, so TypeScript treats `stats` as possibly null again inside
+  `function renderWidget`. An arrow assigned to a `const` after the check keeps the narrowing,
+  with no `!` needed.

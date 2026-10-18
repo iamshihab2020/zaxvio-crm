@@ -725,7 +725,7 @@ apps/web/
     |   +-- use-notifications.ts     # Real-time notification hook (SSE + server actions)
     |   +-- use-event-stream.ts      # Subscribe to one SSE channel/event; replaces .channel().on("broadcast")
     |   +-- use-debounced-value.ts   # Generic debounce hook (value + delay → debounced value)
-    |   +-- use-dashboard-widget-prefs.ts # Which dashboard widgets are visible (localStorage)
+    |   +-- use-dashboard-widget-prefs.ts # Which dashboard widgets are visible, and their order (localStorage)
     |   +-- use-stored-date-range.ts      # Remembers a page's date range as two absolute dates (one key per page: dashboard, reports)
     |   +-- use-fill-viewport-height.ts   # Measured height so a panel runs to the fold (Kanban board)
     |   +-- use-route-arrival.ts     # Route arrival: content rises 8px on navigation, never on first
@@ -785,6 +785,10 @@ apps/web/
     |   |                            # customers, dashboard, equipment, invoices, job-costing, job-time,
     |   |                            # jobs, maintenance-contracts, notifications, pipeline-stages,
     |   |                            # pipelines, quotes, reports, tags, tenants, workflows
+    |   +-- dashboard-layout.ts      # Dashboard card order + sizes; placeWidgets() packs rows (wide
+    |   |                            # cards never share one, a short row widens its last card)
+    |   +-- dnd-sensors.ts           # MousePenSensor: dnd-kit pointer sensor that ignores touch
+    |   |                            # (Pipeline board, dashboard Arrange; touch uses a hold delay)
     |   +-- workflow/
     |   |   +-- store.ts            # The builder's Zustand store. NOTHING mutates React Flow state
     |   |   |                       # directly — every change comes through an action here, which is
@@ -951,8 +955,10 @@ apps/web/
     |   |   |   +-- agenda-timeline.tsx          # "Up next": today-first day sheet, kind-coloured rows, 10-row cap
     |   |   |   +-- chart-tooltip.tsx            # ChartTooltipBox: popover-styled recharts tooltip
     |   |   |   +-- customize-widgets-popover.tsx # Show/hide widget toggles
+    |   |   |   +-- dashboard-layout-editor.tsx  # Arrange: cards as draggable tiles, Reset layout + Done
+    |   |   |   |                                # (lazy-loaded; the only dashboard code needing dnd-kit)
     |   |   |   +-- dashboard-skeleton.tsx       # Single skeleton; also used by loading.tsx
-    |   |   |   +-- dashboard-toolbar.tsx        # Today (tenant tz) + freshness; Customize + Ask AI
+    |   |   |   +-- dashboard-toolbar.tsx        # Today (tenant tz) + freshness; Arrange, Customize, Ask AI
     |   |   |   +-- invoice-aging.tsx            # 5 AR buckets, each links to filtered invoices
     |   |   |   +-- jobs-management-panel.tsx    # Status/Priority/Service tabs, own pipeline query
     |   |   |   +-- kpi-pill.tsx                 # KPI pill: value, label, trend chip, window badge
