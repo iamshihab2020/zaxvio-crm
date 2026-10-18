@@ -1129,3 +1129,37 @@ From [[bookings-calendar|the report]] — the front-end half.
   it.** Declarations are hoisted, so TypeScript treats `stats` as possibly null again inside
   `function renderWidget`. An arrow assigned to a `const` after the check keeps the narrowing,
   with no `!` needed.
+
+## Schedule on a phone and a tablet (2026-10-19)
+
+- **Lay out a panel by its own width when something besides the screen changes it.** The
+  Schedule toolbar went to one row at `md`, but the calendar card's width also depends on the
+  sidebar rail and the 288px task column: on a 1024px tablet the one-row toolbar (about 650px)
+  sat in a 470px card with the view switcher cut off. The card is now a size container
+  (`[container-type:inline-size]`) and the toolbar, the filter row and the calendar's narrow
+  forms use `@container` rules. No plugin is installed: Tailwind 3's arbitrary variants take an
+  at-rule, `[@container(min-width:42rem)]:flex`, the same way the codebase already writes
+  `[@media(hover:hover)]:`.
+- **Give each element one container threshold per property.** Tailwind 3 sorts arbitrary
+  variants in the order it first meets them, not by width, so `[@container(min-width:30rem)]:hidden`
+  and `[@container(min-width:42rem)]:inline` on one element can come out in either order. Where a
+  value needs two steps, pick one threshold or move the rule into the component's stylesheet.
+  Heights stay on the screen (`sm:`): a touch target is about fingers, not room.
+- **`container-type` is layout containment.** The element becomes the containing block for its
+  absolute and fixed descendants and starts a stacking context. Harmless on the calendar card
+  (popovers portal out; react-big-calendar's "+N more" overlay already positions against the
+  `position: relative` month view) and on each `.rbc-event`, but don't put it on anything whose
+  fixed children have to escape it.
+- **react-big-calendar ignores a quick tap on an empty slot on touch.** Its `Selection` only
+  starts after a long press (`longPressThreshold`), so a tap on an empty month cell did nothing on
+  a phone. The narrow month replaces the chips with a custom `dateHeader` that fills the cell and
+  drills down to the day. A swipe hook on the same surface has to step aside for that long press:
+  a finger that held still 250ms before moving is dragging an event or picking slots.
+- **Pass data to react-big-calendar's header components through context, not closures.**
+  The library renders `components.week.header` and `components.month.dateHeader` itself. Building
+  them inside a `useMemo` that depends on the events makes a new component type on every data
+  change, and React remounts every header. The components are module-level and read the
+  tenant's timezone and each day's items from `CalendarDayContext`.
+- **The day view now fetches its whole week.** The week strip needs every day's items, and moving
+  between days of one week no longer refetches. A side effect: the "first 200" warning can no
+  longer say "narrow to a day", because a day loads the same week.

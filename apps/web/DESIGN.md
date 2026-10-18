@@ -730,6 +730,25 @@ it exists only where the board is too narrow to summarise itself. The toolbar ab
 on a phone (pipeline, view switch and New Job; then search, filters and Display), one row from
 `sm`.
 
+### Schedule on a Phone and a Tablet
+The calendar card is a size container, and everything inside it is laid out by the card's width,
+not the screen's: the sidebar rail and the task column change that width as much as the screen
+does. Under a 42rem card the toolbar is two rows (tasks, Today, back, forward and New Event; then
+the date, a filters button and the view switch), and the filter row folds into that one button
+with a Deep Sea Blue dot while a filter is on. Labels join the icons from 30rem; the date is
+spelt out from 52rem. The task column docks from `xl`; below it the tasks open as a sheet, so a
+1024px tablet keeps a full-width week. The **day view** carries a **week strip**: seven 56px cells
+(weekday, the date in a 32px circle, Deep Sea Blue for the day shown and a ring for today, a dot
+per item underneath, up to three), and the day view loads its whole week to fill it. Week and day
+column headers put the weekday over the date, with today's date on Deep Sea Blue, and shorten to
+the initial in a column under 3.5rem. An event card under 72px wide shows the customer's name,
+wrapped, instead of a truncated job number; an all-day chip under 56px becomes a bar in its
+colour. Under a 34rem card the **month** drops its chips: each cell is one button with the date
+and a dot per item, and it opens that day. A quick sideways swipe turns the page on a touch
+screen (the strip's own swipe changes the week); a long press still belongs to the calendar, for
+dragging an event or picking a slot. The day names and the all-day row stay pinned while the
+hours scroll.
+
 ### Day Sheet (landing signature)
 The landing hero: a time-ruled card showing one working day, with an accepted quote and a paid
 invoice card overhanging it at `lg` and stacked under it below. A date field in the eyebrow style,

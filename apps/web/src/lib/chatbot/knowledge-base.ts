@@ -934,10 +934,10 @@ const entries: KnowledgeEntry[] = [
   {
     id: "schedule-views",
     category: "schedule",
-    keywords: ["view", "month", "week", "day", "calendar view", "switch"],
+    keywords: ["view", "month", "week", "day", "calendar view", "switch", "phone", "mobile", "tablet", "swipe", "filter"],
     question: "What calendar views are available?",
     answer:
-      "The **Schedule** page offers three views:\n\n• **Month** — Overview of the entire month\n• **Week** — Default, shows most detail with time slots\n• **Day** — Detailed single-day view\n\nSwitch using the view buttons in the toolbar. Your preference is **saved automatically**.",
+      "The **Schedule** page offers three views:\n\n• **Month** — Overview of the entire month\n• **Week** — The whole week with time slots. The default on a computer or tablet\n• **Day** — One day in detail, with a strip of the week above it showing a dot for each job, booking and event. Tap a day in the strip to open it. The default on a phone\n\nSwitch using the view buttons in the toolbar. Your preference is **saved automatically**. Tap a date at the top of the week view to open that day.\n\n**On a phone:** swipe left or right to go to the next or previous day, week or month (swipe the week strip to change week). The month shows dots instead of names, and tapping a day opens it. The filters sit behind the **filter** button next to the view buttons, which shows a dot while a filter is on. **Tasks** opens as a panel from the side on phones and tablets, and sits beside the calendar on a wide screen.",
   },
   {
     id: "schedule-events",
@@ -945,7 +945,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["event", "calendar", "create event", "appointment", "meeting", "reminder"],
     question: "How do I create a calendar event?",
     answer:
-      'Go to **Schedule** in the sidebar. Click on any **empty time slot** to create a quick event. Fill in title, date, time, and optionally a contact name and color.\n\nOr use the chatbot: say "Create an event tomorrow at 3PM for team meeting".\n\nEvents are lightweight — for billable work, create a **Job** instead.',
+      'Go to **Schedule** in the sidebar. Click on any **empty time slot** to create a quick event (on a phone, press and hold the slot), or use **New Event** (the **+** button on a phone). Fill in title, date, time, and optionally a contact name and color.\n\nOr use the chatbot: say "Create an event tomorrow at 3PM for team meeting".\n\nEvents are lightweight — for billable work, create a **Job** instead.',
   },
   {
     id: "schedule-drag",
@@ -953,7 +953,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["drag", "reschedule", "move", "drop", "calendar drag"],
     question: "How do I reschedule a job on the calendar?",
     answer:
-      "On the **Schedule** page, simply **drag a job card** to a new time slot or date. The scheduled date and time update automatically. Bookings are locked and cannot be dragged — open the booking to change its date or time.",
+      "On the **Schedule** page, simply **drag a job card** to a new time slot or date (on a phone, press and hold the card first, then drag). The scheduled date and time update automatically. Bookings are locked and cannot be dragged — open the booking to change its date or time.",
   },
   {
     id: "schedule-availability",

@@ -41,9 +41,10 @@ interface TaskItem {
 
 interface ScheduleTaskPanelProps {
   /**
-   * Where the panel lives. From `lg` it is a 288px column beside the calendar.
-   * Below that the same column would take most of the calendar's width (a phone
-   * is left with about 40px of it), so it opens as a sheet over the calendar.
+   * Where the panel lives. From `xl` it is a 288px column beside the calendar.
+   * Below that the same column would take too much of the calendar's width (a
+   * phone is left with about 40px of it, a 1024px tablet with a 470px week), so
+   * it opens as a sheet over the calendar.
    */
   inline: boolean;
   open: boolean;

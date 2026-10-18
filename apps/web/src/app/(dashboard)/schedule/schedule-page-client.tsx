@@ -32,7 +32,7 @@ import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog
 import { EventCreateDialog, type EventFormData } from "@/components/dashboard/schedule/event-create-dialog";
 
 import { ScheduleToolbar, type CalendarView } from "@/components/dashboard/schedule/schedule-toolbar";
-import { ScheduleFilters } from "@/components/dashboard/schedule/schedule-filters";
+import { ScheduleFilters, ScheduleFilterMenu } from "@/components/dashboard/schedule/schedule-filters";
 import { ScheduleCalendar, type CalendarEvent } from "@/components/dashboard/schedule/schedule-calendar";
 import { ScheduleSkeleton } from "@/components/dashboard/schedule/schedule-skeleton";
 import { ScheduleTaskPanel, type TaskFilter } from "@/components/dashboard/schedule/schedule-task-panel";
@@ -97,8 +97,14 @@ function getDateRange(date: Date, view: CalendarView): { dateFrom: string; dateT
       const we = endOfWeek(date, { weekStartsOn: 0 });
       return { dateFrom: format(ws, "yyyy-MM-dd"), dateTo: format(we, "yyyy-MM-dd") };
     }
-    case "day":
-      return { dateFrom: format(date, "yyyy-MM-dd"), dateTo: format(date, "yyyy-MM-dd") };
+    case "day": {
+      // The whole week, not the day: the week strip above the day view shows
+      // how full each day of it is, and stepping to another day of the same
+      // week needs no fetch.
+      const ws = startOfWeek(date, { weekStartsOn: 0 });
+      const we = endOfWeek(date, { weekStartsOn: 0 });
+      return { dateFrom: format(ws, "yyyy-MM-dd"), dateTo: format(we, "yyyy-MM-dd") };
+    }
     default:
       return { dateFrom: format(date, "yyyy-MM-dd"), dateTo: format(date, "yyyy-MM-dd") };
   }
@@ -248,24 +254,26 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   // here and were written but never read — see the note by the sheet callbacks.
   const [deletingJob, setDeletingJob] = useState<JobDetail | null>(null);
 
-  // Task panel. From `lg` it is a column beside the calendar and the saved
-  // choice below decides whether it is open; under `lg` it is a sheet over the
+  // Task panel. From `xl` it is a column beside the calendar and the saved
+  // choice below decides whether it is open; under `xl` it is a sheet over the
   // calendar, which always starts shut and never reads that choice, so a desktop
-  // preference of "open" cannot squeeze the calendar on a phone.
-  const isDesktop = useMediaQuery(MEDIA.lg);
+  // preference of "open" cannot squeeze the calendar on a phone. It was `lg`
+  // until 2026-10-19: on a 1024px tablet the sidebar rail and the 288px column
+  // left the week 470px, seven columns of about 60px.
+  const isDesktop = useMediaQuery(MEDIA.xl);
   const [taskSheetOpen, setTaskSheetOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem("schedule-sidebar-open");
       if (stored !== null) return stored === "true";
-      // Default: open on large screens, closed on small
-      return window.innerWidth >= 1024;
+      // Default: open where it is a column, closed elsewhere
+      return window.innerWidth >= 1280;
     }
     return true;
   });
   const [sidebarFilter, setSidebarFilter] = useState<TaskFilter>("today");
 
-  // Rotating or resizing past `lg` swaps the sheet for the column; a sheet left
+  // Rotating or resizing past `xl` swaps the sheet for the column; a sheet left
   // "open" in state would otherwise reappear when the window narrows again.
   useEffect(() => {
     if (isDesktop) setTaskSheetOpen(false);
@@ -714,6 +722,17 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
 
   const eventSaving = createCalEventMutation.isPending || updateCalEventSaveMutation.isPending;
 
+  // One set of filters, shown as the row under the toolbar on a wide card and
+  // as the toolbar's filter button on a narrow one.
+  const filterProps = {
+    priorityFilter,
+    serviceTypeFilter,
+    showBookings,
+    onPriorityChange: setPriorityFilter,
+    onServiceTypeChange: setServiceTypeFilter,
+    onShowBookingsChange: setShowBookings,
+  };
+
   /* ── Loading state ── */
   if (loading) {
     return <ScheduleSkeleton />;
@@ -765,8 +784,11 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
         {/* Explicit cap beats silently omitting appointments (BOOK-17). */}
         {truncatedSources.length > 0 && (
           <p className="motion-appear mb-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs font-body text-amber-700 dark:text-amber-400">
-            Showing the first {CALENDAR_FETCH_LIMIT} {truncatedSources.join(" / ")} for this
-            range. Narrow to a week or a day to see everything.
+            {/* The day view loads its whole week, so narrowing to a day no
+                longer helps once a week is over the cap. */}
+            {currentView === "month"
+              ? `Showing the first ${CALENDAR_FETCH_LIMIT} ${truncatedSources.join(" / ")} for this month. Switch to the week or day view to see everything.`
+              : `Showing the first ${CALENDAR_FETCH_LIMIT} ${truncatedSources.join(" / ")} for this week; the rest aren't on the calendar.`}
           </p>
         )}
 
@@ -786,8 +808,11 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
             currentDate={currentDate}
           />
 
-          {/* Main calendar card */}
-          <Card className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Main calendar card. A size container: the toolbar, the filter row
+              and the calendar's narrow forms (calendar-styles.css) read the
+              card's width rather than the screen's, because the sidebar rail
+              and the task column change it as much as the screen does. */}
+          <Card className="flex flex-col flex-1 min-h-0 overflow-hidden [container-type:inline-size]">
             <ScheduleToolbar
               currentDate={currentDate}
               currentView={currentView}
@@ -799,16 +824,10 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
               onCreateEvent={handleNewEventButton}
               sidebarOpen={isDesktop ? sidebarOpen : taskSheetOpen}
               onToggleSidebar={handleToggleSidebar}
+              filterMenu={<ScheduleFilterMenu {...filterProps} />}
             />
 
-            <ScheduleFilters
-              priorityFilter={priorityFilter}
-              serviceTypeFilter={serviceTypeFilter}
-              showBookings={showBookings}
-              onPriorityChange={setPriorityFilter}
-              onServiceTypeChange={setServiceTypeFilter}
-              onShowBookingsChange={setShowBookings}
-            />
+            <ScheduleFilters {...filterProps} />
 
             <ScheduleCalendar
               events={calendarEvents}
@@ -820,6 +839,8 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
               highlightedEventId={highlightedEventId}
               onNavigate={handleNavigate}
               onViewChange={handleViewChange}
+              onPrev={handlePrev}
+              onNext={handleNext}
               onSelectEvent={handleSelectEvent}
               onEventDrop={handleEventDrop}
               onSelectSlot={handleSelectSlot}

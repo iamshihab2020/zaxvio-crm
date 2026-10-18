@@ -735,6 +735,7 @@ apps/web/
     |   +-- use-table-stagger.ts     # useStagger with rise 0 for <tbody>: a rising row would flash the table's own scrollbar
     |   +-- use-row-flash.ts         # useRowFlash(): { flashId, flash(id) } for .motion-highlight on a created/edited row (3s hold)
     |   +-- use-replay-on-change.ts  # useReplayOnChange(ref, value, className): replays a CSS motion class when a value changes, never on first render
+    |   +-- use-swipe-navigation.ts  # useSwipeNavigation(ref, { onPrev, onNext }): touch-only sideways swipe (Schedule)
     |   +-- use-new-ids.ts           # useNewIds(ids): ids new since the last render, for highlighting rows that arrive by refetch
     |   +-- use-form-shake.ts        # useFormShake(): { ref, shake } — pass shake as react-hook-form's onInvalid
     |   |                            # Only where CSS can't decide: portal vs inline, calendar month count
@@ -1071,6 +1072,18 @@ apps/web/
     |   |   |   +-- booking-activity-timeline.tsx   # Reads booking_activities (written since April,
     |   |   |   |                                   # unread until 2026-07-27)
     |   |   |   +-- booking-convert-dialog.tsx
+    |   |   |
+    |   |   +-- schedule/           # /schedule components (react-big-calendar). The page's Card is a size
+    |   |   |   |                   # container: toolbar, filter row and narrow forms follow the card's width
+    |   |   |   +-- schedule-toolbar.tsx       # Nav, date, New Event, view switch; 2×2 grid under a 42rem card
+    |   |   |   +-- schedule-filters.tsx       # Filter row (42rem+ card) + ScheduleFilterMenu (one button, narrower)
+    |   |   |   +-- schedule-calendar.tsx      # DnD calendar, column headers, month date dots, swipe, week strip
+    |   |   |   +-- schedule-week-strip.tsx    # Day view: the week in one row, a dot per item, tap/swipe
+    |   |   |   +-- schedule-event.tsx         # Event cards + eventDotClass; compact forms by the card's own width
+    |   |   |   +-- schedule-task-panel.tsx    # Tasks: a column from xl, a sheet below
+    |   |   |   +-- schedule-skeleton.tsx
+    |   |   |   +-- event-create-dialog.tsx
+    |   |   |   +-- calendar-styles.css        # rbc overrides + the @container rules for narrow cards
     |   |   |
     |   |   +-- catalog/            # Service catalog components
     |   |   |   +-- catalog-filters.tsx

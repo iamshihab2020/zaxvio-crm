@@ -196,6 +196,26 @@ function getEventColors(r: CalendarEvent["resource"]) {
   return EVENT_COLORS[r.priority ?? "standard"] ?? EVENT_COLORS.standard;
 }
 
+/**
+ * The solid dot for an item: its priority for a job, teal for a booking, its
+ * own colour for an event. Shared with the week strip and the phone month view,
+ * which draw a day's items as dots.
+ */
+export function eventDotClass(r: CalendarEvent["resource"]): string {
+  if (r.type === "event") {
+    return (CALENDAR_EVENT_COLORS[r.color ?? "purple"] ?? CALENDAR_EVENT_COLORS.purple).dot;
+  }
+  if (r.type === "booking") return "bg-teal-500";
+  return PRIORITY_DOT[r.priority ?? "standard"] ?? PRIORITY_DOT.standard;
+}
+
+function eventAriaLabel(event: CalendarEvent): string {
+  const r = event.resource;
+  if (r.type === "event") return event.title;
+  if (r.type === "booking") return `Booking for ${r.customerName}`;
+  return `Job ${r.jobNumber ?? event.title} for ${r.customerName}`;
+}
+
 /** Event component for Week/Day views (timed events with more space) */
 function TimedEventContent({ event }: { event: CalendarEvent }) {
   const r = event.resource;
@@ -203,20 +223,20 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
   const isCalendarEvent = r.type === "event";
   const colors = getEventColors(r);
   const active = !event.allDay && isEventActive(event.start, event.end);
+  // What a card about 40px wide can still say (a week column on a phone, or
+  // several events side by side): who it is for, which a job number is not.
+  // calendar-styles.css swaps it in by the card's own width.
+  const compactLabel = isCalendarEvent
+    ? event.title
+    : r.customerName || (isBooking ? "Booking" : r.jobNumber ?? event.title);
 
   return (
     <div
       role="button"
       tabIndex={0}
-      aria-label={
-        isCalendarEvent
-          ? event.title
-          : isBooking
-            ? `Booking for ${r.customerName}`
-            : `Job ${r.jobNumber ?? event.title} for ${r.customerName}`
-      }
+      aria-label={eventAriaLabel(event)}
       className={cn(
-        "h-full w-full rounded-lg px-2 py-1.5 border-l-[3px] cursor-pointer overflow-hidden transition-colors duration-200",
+        "schedule-timed h-full w-full rounded-lg px-2 py-1.5 border-l-[3px] cursor-pointer overflow-hidden transition-colors duration-200",
         "shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
         colors.bg,
         colors.hover,
@@ -225,7 +245,7 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
         active && "schedule-event-active",
       )}
     >
-      <div className="flex items-center gap-1 min-w-0">
+      <div className="schedule-timed-title flex items-center gap-1 min-w-0">
         {(isBooking || isCalendarEvent) && (
           <IconCalendarEvent className={cn("h-3 w-3 shrink-0", colors.text)} />
         )}
@@ -234,13 +254,16 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
         </span>
       </div>
       {r.customerName && (
-        <div className={cn("flex items-center gap-1 mt-0.5 min-w-0", colors.subtext)}>
+        <div className={cn("schedule-timed-sub flex items-center gap-1 mt-0.5 min-w-0", colors.subtext)}>
           <IconUser className="h-2.5 w-2.5 shrink-0" />
           <span className="truncate text-[0.65rem] leading-tight font-medium">
             {r.customerName}
           </span>
         </div>
       )}
+      <span aria-hidden className={cn("schedule-timed-compact", colors.text)}>
+        {compactLabel}
+      </span>
     </div>
   );
 }
@@ -248,29 +271,24 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
 /** Event component for Month view and all-day events (compact, less space) */
 function MonthEventContent({ event }: { event: CalendarEvent }) {
   const r = event.resource;
-  const isBooking = r.type === "booking";
   const isCalendarEvent = r.type === "event";
-  const priority = r.priority ?? "standard";
   const colors = getEventColors(r);
-  const calEvtColors = isCalendarEvent ? CALENDAR_EVENT_COLORS[r.color ?? "purple"] ?? CALENDAR_EVENT_COLORS.purple : null;
 
+  // Below about 56px (an all-day item in a phone's week column) the label goes
+  // and the dot stretches into a bar: calendar-styles.css, by the chip's width.
   return (
     <div
       role="button"
       tabIndex={0}
+      aria-label={eventAriaLabel(event)}
       className={cn(
-        "flex items-center gap-1.5 px-2 py-0.5 rounded-lg cursor-pointer min-w-0 transition-colors duration-200",
+        "schedule-chip flex items-center gap-1.5 px-2 py-0.5 rounded-lg cursor-pointer min-w-0 transition-colors duration-200",
         colors.bg,
         colors.hover,
       )}
     >
-      <span
-        className={cn(
-          "h-2 w-2 shrink-0 rounded-full",
-          isCalendarEvent ? calEvtColors?.dot : isBooking ? "bg-teal-500" : PRIORITY_DOT[priority],
-        )}
-      />
-      <span className={cn("truncate text-xs font-semibold", colors.text)}>
+      <span className={cn("schedule-chip-dot h-2 w-2 shrink-0 rounded-full", eventDotClass(r))} />
+      <span className={cn("schedule-chip-label truncate text-xs font-semibold", colors.text)}>
         {isCalendarEvent ? event.title : r.jobNumber ?? event.title}
       </span>
     </div>

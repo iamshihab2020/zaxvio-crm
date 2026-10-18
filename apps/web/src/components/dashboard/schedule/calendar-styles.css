@@ -83,6 +83,84 @@
   border-left: 1px solid hsl(var(--border) / 0.6) !important;
 }
 
+/* ── Week/day column headers (DayColumnHeader in schedule-calendar.tsx) ──
+   The weekday over the date, today's date on the brand. Each header is its own
+   container, so the narrow form follows the column's width (seven columns on a
+   phone are about 42px), whatever the screen, sidebar or task column do. */
+.rbc-time-view .rbc-header {
+  container-type: inline-size;
+  padding: 6px 2px;
+}
+
+.rbc-time-view .rbc-header .rbc-button-link {
+  width: 100%;
+  border-radius: 6px;
+}
+
+.rbc-time-view .rbc-header .rbc-button-link:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: -2px;
+}
+
+.schedule-day-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  line-height: 1;
+}
+
+.schedule-day-head-weekday {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: hsl(var(--muted-foreground));
+}
+
+.schedule-day-head-short {
+  display: none;
+}
+
+.schedule-day-head-date {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+  transition: background-color var(--dur-state) var(--ease-out);
+}
+
+.schedule-day-head-today {
+  background-color: hsl(var(--brand));
+  color: hsl(var(--brand-foreground));
+}
+
+@media (hover: hover) {
+  .rbc-time-view .rbc-header .rbc-button-link:hover .schedule-day-head-date:not(.schedule-day-head-today) {
+    background-color: hsl(var(--muted) / 0.6);
+  }
+}
+
+@container (max-width: 3.5rem) {
+  .schedule-day-head-long {
+    display: none;
+  }
+
+  .schedule-day-head-short {
+    display: inline;
+  }
+
+  .schedule-day-head-date {
+    width: 1.5rem;
+    height: 1.5rem;
+    font-size: 0.8rem;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════
    DAY BACKGROUNDS
    ══════════════════════════════════════════════════════════════════ */
@@ -184,6 +262,16 @@
   padding: 0 8px;
 }
 
+/* A narrow calendar card (a phone) gives the gutter's width back to the days.
+   This and the month rule further down query the card, which the page makes a
+   container. */
+@container (max-width: 34rem) {
+  .rbc-time-gutter .rbc-label {
+    padding: 0 4px;
+    font-size: 0.65rem;
+  }
+}
+
 /* ══════════════════════════════════════════════════════════════════
    EVENTS — strip ALL default styles, add rounded card treatment
    ══════════════════════════════════════════════════════════════════ */
@@ -221,6 +309,60 @@
 /* Month view events */
 .rbc-month-view .rbc-event {
   margin: 1px 2px;
+}
+
+/* ── Narrow events ──
+   Every event is its own container, so its card reads its own width: a week
+   column on a phone, or three events side by side in a day. Two class names in
+   each selector so these beat the cards' single-class Tailwind utilities
+   whatever order the stylesheets load in; backgrounds also need !important
+   against the two- and three-class hover and dark variants. */
+.rbc-event {
+  container-type: inline-size;
+}
+
+.schedule-timed-compact {
+  display: none;
+}
+
+/* A timed card under 72px: the customer's name, wrapped, instead of a job
+   number truncated to "JO…". */
+@container (max-width: 4.5rem) {
+  .rbc-event .schedule-timed {
+    padding: 3px 3px 3px 4px;
+    border-left-width: 2px;
+  }
+
+  .rbc-event .schedule-timed-title,
+  .rbc-event .schedule-timed-sub {
+    display: none;
+  }
+
+  .rbc-event .schedule-timed-compact {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
+  }
+}
+
+/* An all-day or month chip under 56px: the dot becomes a bar in the item's
+   colour, and the label goes. */
+@container (max-width: 3.5rem) {
+  .rbc-event .schedule-chip {
+    padding: 2px 1px;
+    background-color: transparent !important;
+  }
+
+  .rbc-event .schedule-chip-label {
+    display: none;
+  }
+
+  .rbc-event .schedule-chip-dot {
+    width: 100%;
+    height: 6px;
+  }
 }
 
 .rbc-row-segment {
@@ -322,6 +464,79 @@
 .rbc-date-cell.rbc-now {
   font-weight: 700;
   color: hsl(var(--brand));
+}
+
+/* ── Month view on a narrow card (MonthDateHeader in schedule-calendar.tsx) ──
+   Seven 45px cells cannot show chips with names, so below 34rem the chips and
+   "+N more" go, the date button fills its cell, and the day's items show as
+   dots under the number. Tapping a cell opens that day. */
+.schedule-month-dots {
+  display: none;
+}
+
+.schedule-month-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+}
+
+@container (max-width: 34rem) {
+  .rbc-month-view .rbc-row-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+  }
+
+  .rbc-month-view .rbc-row-content > :not(:first-child) {
+    display: none;
+  }
+
+  .rbc-month-view .rbc-row-content > .rbc-row:first-child {
+    flex: 1 1 auto;
+  }
+
+  .rbc-month-view .rbc-date-cell {
+    display: flex;
+    padding: 0;
+    text-align: center;
+  }
+
+  .rbc-month-view .schedule-month-date {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding-top: 4px;
+  }
+
+  .rbc-month-view .schedule-month-date:focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: -2px;
+  }
+
+  .rbc-month-view .schedule-month-date-num {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.625rem;
+    height: 1.625rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .rbc-month-view .schedule-month-date-today {
+    background-color: hsl(var(--brand));
+    color: hsl(var(--brand-foreground));
+    font-weight: 600;
+  }
+
+  .rbc-month-view .schedule-month-dots {
+    display: flex;
+    gap: 2px;
+    height: 5px;
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -451,6 +666,15 @@
   overflow: visible !important;
 }
 
+/* The day names and the all-day row stay put while the hours scroll under
+   them, so a week column is still labelled at 4 PM. The ScrollArea viewport is
+   the scroller, so `top: 0` is the top of the calendar body. */
+.schedule-calendar-no-internal-scroll .rbc-time-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
 .rbc-time-view .rbc-time-header.rbc-overflowing {
   margin-right: 0 !important;
   border-right: none !important;
@@ -515,7 +739,8 @@
   }
 
   .rbc-day-slot .rbc-timeslot-group,
-  .rbc-month-view .rbc-day-bg {
+  .rbc-month-view .rbc-day-bg,
+  .schedule-day-head-date {
     transition: none;
   }
 }

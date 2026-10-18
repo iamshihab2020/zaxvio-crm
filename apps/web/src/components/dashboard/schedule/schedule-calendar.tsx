@@ -1,12 +1,15 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useEffect } from "react";
+import { createContext, useCallback, useContext, useMemo, useRef, useEffect } from "react";
 import {
   Calendar as BigCalendar,
   dateFnsLocalizer,
   type View,
   type SlotPropGetter,
   type DayPropGetter,
+  type Formats,
+  type HeaderProps,
+  type DateHeaderProps,
 } from "react-big-calendar";
 import withDragAndDrop from "react-big-calendar/lib/addons/dragAndDrop";
 
@@ -20,8 +23,10 @@ import { enUS } from "date-fns/locale/en-US";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { isTenantToday, tenantNow } from "@/lib/tenant-time";
 import { useReplayOnChange } from "@/hooks/use-replay-on-change";
+import { useSwipeNavigation } from "@/hooks/use-swipe-navigation";
 import { cn } from "@/lib/utils";
-import { ScheduleEvent, ScheduleMonthEvent } from "./schedule-event";
+import { ScheduleEvent, ScheduleMonthEvent, eventDotClass } from "./schedule-event";
+import { ScheduleWeekStrip, scheduledCountLabel } from "./schedule-week-strip";
 import type { CalendarView } from "./schedule-toolbar";
 import "./calendar-styles.css";
 
@@ -97,6 +102,9 @@ interface ScheduleCalendarProps {
   highlightedEventId?: string | null;
   onNavigate: (date: Date) => void;
   onViewChange: (view: CalendarView) => void;
+  /** A swipe on a touch screen: one day, week or month back or forward. */
+  onPrev: () => void;
+  onNext: () => void;
   onSelectEvent: (event: CalendarEvent) => void;
   onEventDrop: (args: { event: CalendarEvent; start: Date; end: Date }) => void;
   onSelectSlot?: (slotInfo: { start: Date; end: Date; action: string }) => void;
@@ -113,6 +121,80 @@ function toDateKey(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
+/**
+ * "9 AM" rather than react-big-calendar's "9:00 AM". The gutter labels every
+ * hour, so the minutes never say anything, and on a phone the width they took
+ * goes back to the day columns.
+ */
+const FORMATS: Formats = { timeGutterFormat: "h a" };
+
+/**
+ * What the header components below need from the calendar. react-big-calendar
+ * renders them itself with its own props, so this is how they reach the
+ * tenant's today and the day's items without a new component type (and a
+ * remount of every header) each time the events change.
+ */
+const CalendarDayContext = createContext<{
+  timezone: string;
+  eventsByDay: Map<string, CalendarEvent[]>;
+}>({ timezone: "UTC", eventsByDay: new Map() });
+
+/**
+ * A week or day column's header: the weekday over the date, with today's date
+ * on the brand. Under 3.5rem a column (seven of them on a phone) shows the
+ * weekday's initial instead; calendar-styles.css decides, by the column's width.
+ */
+function DayColumnHeader({ date }: HeaderProps) {
+  const { timezone } = useContext(CalendarDayContext);
+  return (
+    <span className="schedule-day-head">
+      <span className="sr-only">{format(date, "EEEE, MMMM d")}</span>
+      <span aria-hidden className="schedule-day-head-weekday">
+        <span className="schedule-day-head-long">{format(date, "EEE")}</span>
+        <span className="schedule-day-head-short">{format(date, "EEEEE")}</span>
+      </span>
+      <span
+        aria-hidden
+        className={cn("schedule-day-head-date", isTenantToday(date, timezone) && "schedule-day-head-today")}
+      >
+        {format(date, "d")}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * The month view's date. On a wide card it looks like react-big-calendar's own
+ * (the number, which opens that day). When the card is narrow, as on a phone,
+ * chips with names do not fit in a 45px cell: calendar-styles.css hides them,
+ * this button fills the cell, and the day's items show as dots under the
+ * number. Tapping anywhere in the cell then opens that day.
+ */
+function MonthDateHeader({ date, label, drilldownView, onDrillDown }: DateHeaderProps) {
+  const { timezone, eventsByDay } = useContext(CalendarDayContext);
+  if (!drilldownView) return <span>{label}</span>;
+  const items = eventsByDay.get(toDateKey(date)) ?? [];
+  return (
+    <button
+      type="button"
+      className="rbc-button-link schedule-month-date"
+      onClick={onDrillDown}
+      aria-label={`${format(date, "EEEE, MMMM d")}, ${scheduledCountLabel(items.length)}`}
+    >
+      <span
+        className={cn("schedule-month-date-num", isTenantToday(date, timezone) && "schedule-month-date-today")}
+      >
+        {label}
+      </span>
+      <span aria-hidden className="schedule-month-dots">
+        {items.slice(0, 3).map((event) => (
+          <span key={event.id} className={cn("schedule-month-dot", eventDotClass(event.resource))} />
+        ))}
+      </span>
+    </button>
+  );
+}
+
 export function ScheduleCalendar({
   events,
   currentDate,
@@ -123,10 +205,26 @@ export function ScheduleCalendar({
   highlightedEventId,
   onNavigate,
   onViewChange,
+  onPrev,
+  onNext,
   onSelectEvent,
   onEventDrop,
   onSelectSlot,
 }: ScheduleCalendarProps) {
+  // Each day's items in time order, for the week strip and the phone month's dots.
+  const eventsByDay = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    const sorted = [...events].sort((a, b) => a.start.getTime() - b.start.getTime());
+    for (const event of sorted) {
+      const key = toDateKey(event.start);
+      const list = map.get(key);
+      if (list) list.push(event);
+      else map.set(key, [event]);
+    }
+    return map;
+  }, [events]);
+  const dayContext = useMemo(() => ({ timezone, eventsByDay }), [timezone, eventsByDay]);
+
   const overrideByDate = useMemo(
     () => new Map(overrides.map((o) => [o.overrideDate, o])),
     [overrides],
@@ -218,8 +316,12 @@ export function ScheduleCalendar({
   const components = useMemo(
     () => ({
       event: ScheduleEvent,
+      week: { header: DayColumnHeader },
+      // react-big-calendar hides a single day's header itself; this is for parity.
+      day: { header: DayColumnHeader },
       month: {
         event: ScheduleMonthEvent,
+        dateHeader: MonthDateHeader,
       },
       toolbar: () => null,
     }),
@@ -258,6 +360,12 @@ export function ScheduleCalendar({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isTimeView]);
 
+  /* ── Swipe to turn the page (touch only; see the hook) ──
+     On the wrapper, which stays mounted across views, and not on the strip,
+     which has its own swipe for the week. */
+  const swipeRef = useRef<HTMLDivElement>(null);
+  useSwipeNavigation(swipeRef, { onPrev, onNext });
+
   const calendarEl = (
     <DnDCalendar
       localizer={localizer}
@@ -269,6 +377,7 @@ export function ScheduleCalendar({
       onSelectEvent={(event: CalendarEvent) => onSelectEvent(event)}
       onEventDrop={handleEventDrop}
       components={components}
+      formats={FORMATS}
       eventPropGetter={eventPropGetter}
       slotPropGetter={isTimeView ? slotPropGetter : undefined}
       dayPropGetter={dayPropGetter}
@@ -285,19 +394,31 @@ export function ScheduleCalendar({
     />
   );
 
-  if (isTimeView) {
-    return (
-      <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
-        <div ref={bodyRef} className="schedule-calendar-no-internal-scroll">
-          {calendarEl}
-        </div>
-      </ScrollArea>
-    );
-  }
-
   return (
-    <div ref={bodyRef} className="flex-1 min-h-0">
-      {calendarEl}
-    </div>
+    <CalendarDayContext.Provider value={dayContext}>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {currentView === "day" && (
+          <ScheduleWeekStrip
+            currentDate={currentDate}
+            eventsByDay={eventsByDay}
+            timezone={timezone}
+            onSelectDate={onNavigate}
+          />
+        )}
+        <div ref={swipeRef} className="flex min-h-0 flex-1 flex-col">
+          {isTimeView ? (
+            <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
+              <div ref={bodyRef} className="schedule-calendar-no-internal-scroll">
+                {calendarEl}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div ref={bodyRef} className="flex-1 min-h-0">
+              {calendarEl}
+            </div>
+          )}
+        </div>
+      </div>
+    </CalendarDayContext.Provider>
   );
 }
