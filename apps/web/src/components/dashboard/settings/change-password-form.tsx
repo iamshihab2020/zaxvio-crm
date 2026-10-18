@@ -9,6 +9,8 @@ import { SettingsSection } from "@/components/dashboard/settings/settings-sectio
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { useFormShake } from "@/hooks/use-form-shake";
+import { useRowFlash } from "@/hooks/use-row-flash";
 
 function getPasswordStrength(password: string): {
   score: number;
@@ -42,6 +44,8 @@ export function ChangePasswordForm() {
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { ref: formRef, shake } = useFormShake();
+  const { flashId, flash } = useRowFlash();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{
     type: "success" | "error";
@@ -71,7 +75,10 @@ export function ChangePasswordForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!validate()) return;
+    if (!validate()) {
+      shake();
+      return;
+    }
 
     setSaving(true);
     setMessage(null);
@@ -87,17 +94,20 @@ export function ChangePasswordForm() {
           type: "error",
           text: result.error.message ?? "Failed to change password",
         });
+        shake();
       } else {
         setMessage({
           type: "success",
           text: "Password updated successfully.",
         });
+        flash("saved");
         setCurrentPassword("");
         setNewPassword("");
         setConfirmPassword("");
       }
     } catch {
       setMessage({ type: "error", text: "An unexpected error occurred." });
+      shake();
     }
 
     setSaving(false);
@@ -108,8 +118,9 @@ export function ChangePasswordForm() {
       icon={IconLock}
       title="Security"
       description="Update your password to keep your account secure."
+      flash={flashId === "saved"}
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
         {/* Current Password */}
         <div className="space-y-2">
           <Label htmlFor="current-password" className="font-body">

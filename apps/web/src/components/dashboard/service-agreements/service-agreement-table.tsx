@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import {
   Table,
   TableBody,
@@ -18,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
 // ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
 // timezone rendered the previous day. These are all `date` columns.
 import { formatDateOnly as formatDate } from "@/lib/format";
@@ -53,6 +55,10 @@ interface ServiceAgreementTableProps {
   onToggleAll?: (items: { id: string }[]) => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just created or edited; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 
@@ -119,6 +125,8 @@ export function ServiceAgreementTable({
   onToggleAll,
   isAllSelected,
   isIndeterminate,
+  bodyRef,
+  highlightId,
 }: ServiceAgreementTableProps) {
   const selectionEnabled = !!selectedIds && !!onToggle;
 
@@ -147,7 +155,7 @@ export function ServiceAgreementTable({
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody ref={bodyRef}>
         {agreements.map((agreement) => {
           const status = getStatus(agreement.isActive, agreement.endDate);
           const customerName =
@@ -161,6 +169,7 @@ export function ServiceAgreementTable({
           return (
             <TableRow
               key={agreement.id}
+              className={cn(agreement.id === highlightId && "motion-highlight")}
               data-selected={selectionEnabled && selectedIds?.has(agreement.id)}
             >
               {selectionEnabled && (

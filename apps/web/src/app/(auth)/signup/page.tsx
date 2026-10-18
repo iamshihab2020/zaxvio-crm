@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signUp, authClient } from "@/lib/auth-client";
 import { initializeTenant } from "@/actions/tenants";
+import { replayMotion } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,10 +24,17 @@ function SignupForm() {
   const [businessName, setBusinessName] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     document.title = "Sign Up — Zaxvio";
   }, []);
+
+  // The message is shown in the banner; the shake only says "no" a moment sooner.
+  function reject(message: string) {
+    setError(message);
+    if (formRef.current) replayMotion(formRef.current, "motion-shake");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +50,7 @@ function SignupForm() {
       });
 
       if (authError) {
-        setError(authError.message ?? "Failed to create account");
+        reject(authError.message ?? "Failed to create account");
         return;
       }
 
@@ -53,7 +61,7 @@ function SignupForm() {
             invitationId: inviteId,
           });
           if (acceptResult.error) {
-            setError(acceptResult.error.message ?? "Failed to accept invitation");
+            reject(acceptResult.error.message ?? "Failed to accept invitation");
             return;
           }
           // Set the invited org as active
@@ -73,7 +81,7 @@ function SignupForm() {
           });
 
           if (orgResult.error) {
-            setError(orgResult.error.message ?? "Failed to create organization");
+            reject(orgResult.error.message ?? "Failed to create organization");
             return;
           }
 
@@ -85,7 +93,7 @@ function SignupForm() {
           // Initialize tenant (fallback in case afterCreate hook failed)
           const tenantResult = await initializeTenant();
           if (!tenantResult.success) {
-            setError(
+            reject(
               tenantResult.error ?? "Failed to set up your account. Please try again.",
             );
             return;
@@ -164,9 +172,9 @@ function SignupForm() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="motion-appear rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}

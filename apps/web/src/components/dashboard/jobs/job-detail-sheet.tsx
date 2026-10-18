@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,6 +32,7 @@ import { JobDetailDocuments } from "./job-detail-documents";
 import { JobDetailActivities } from "./job-detail-activities";
 import { JobDetailCosts } from "./job-detail-costs";
 import { EntityDetailShell } from "@/components/dashboard/reusable/entity-detail-shell";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
 
 interface PipelineStage {
   id: string;
@@ -183,8 +184,11 @@ export function JobDetailSheet({
         [field]: value || undefined,
       });
       if (result.error) {
-        toast.error(result.error);
         refreshDetail();
+        // Throw rather than toast: EditableField shows this message once and
+        // shakes the field. Toasting here and resolving made the field play
+        // its "saved" wash over a save the server had just refused.
+        throw new Error(result.error);
       } else {
         refreshDetail();
         onJobUpdate();
@@ -193,6 +197,12 @@ export function JobDetailSheet({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [job?.id, onJobUpdate],
   );
+
+  // Moving a job to another stage is the one change worth pointing at in this
+  // header, so the stage pill pops when it happens. Scoped to the job: opening a
+  // different job whose stage differs is not a change.
+  const statusPillRef = useRef<HTMLSpanElement>(null);
+  useReplayOnChange(statusPillRef, job?.status, "motion-pop", job?.id);
 
   /* ── Derived values ───────────────────────────────────────── */
   const currentStage = job
@@ -306,15 +316,17 @@ export function JobDetailSheet({
             {job!.jobNumber}
           </span>
           <div className="flex items-center gap-1.5 mt-1.5">
-            <Badge
-              className={cn(
-                "px-2 py-0.5 font-medium shrink-0",
-                statusColors?.bg,
-                statusColors?.text,
-              )}
-            >
-              {statusLabel}
-            </Badge>
+            <span ref={statusPillRef} className="inline-flex shrink-0">
+              <Badge
+                className={cn(
+                  "px-2 py-0.5 font-medium shrink-0",
+                  statusColors?.bg,
+                  statusColors?.text,
+                )}
+              >
+                {statusLabel}
+              </Badge>
+            </span>
             <EditableSelect
               value={job!.priority}
               options={PRIORITY_OPTIONS}

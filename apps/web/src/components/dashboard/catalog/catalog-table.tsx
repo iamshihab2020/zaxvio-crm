@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import {
   Table,
   TableBody,
@@ -24,6 +25,7 @@ import {
   IconArchive,
   IconArchiveOff,
 } from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
 import type { CatalogItem } from "@hvac-saas/types";
 
 interface CatalogTableProps {
@@ -38,6 +40,10 @@ interface CatalogTableProps {
   onToggleAll?: (items: { id: string }[]) => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just created or edited; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 const itemTypeBadgeStyles: Record<string, string> = {
@@ -79,6 +85,8 @@ export function CatalogTable({
   onToggleAll,
   isAllSelected,
   isIndeterminate,
+  bodyRef,
+  highlightId,
 }: CatalogTableProps) {
   const selectionEnabled = !!selectedIds && !!onToggle;
 
@@ -107,10 +115,11 @@ export function CatalogTable({
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody ref={bodyRef}>
         {items.map((item) => (
           <TableRow
             key={item.id}
+            className={cn(item.id === highlightId && "motion-highlight")}
             data-selected={selectionEnabled && selectedIds?.has(item.id)}
           >
             {selectionEnabled && (

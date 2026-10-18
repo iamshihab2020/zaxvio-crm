@@ -1,7 +1,8 @@
 "use client";
 
-import { motion } from "motion/react";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
 import { Badge } from "@/components/ui/badge";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import {
@@ -29,6 +30,14 @@ interface JobListViewProps {
   jobs: JobCardData[];
   stages: PipelineStage[];
   onJobClick: (jobId: string) => void;
+  /**
+   * Which rows are on screen: the pipeline and filters they were fetched for,
+   * `null` while the previous ones are still showing. The stage groups arrive in
+   * sequence when it changes. Never the jobs themselves.
+   */
+  arrivalKey?: string | null;
+  /** A job that was just created or edited, to wear the highlight once. */
+  highlightJobId?: string | null;
 }
 
 function formatDate(dateStr: string) {
@@ -50,9 +59,21 @@ function getInitials(first: string | null, last: string | null): string {
   return f + l || "?";
 }
 
-export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
+export function JobListView({
+  jobs,
+  stages,
+  onJobClick,
+  arrivalKey,
+  highlightJobId,
+}: JobListViewProps) {
+  // The groups are the direct children, so each stage's header and rows come in
+  // together and the groups follow one another. Per-row motion would be a
+  // hundred nodes for the same effect.
+  const groupsRef = useRef<HTMLDivElement>(null);
+  useStagger(groupsRef, arrivalKey);
+
   return (
-    <div className="space-y-5">
+    <div ref={groupsRef} className="motion-appear space-y-5">
       {stages.map((stage) => {
         const stageJobs = jobs.filter((j) => j.status === stage.name);
         const colors = getStageColors(stage.color);
@@ -77,7 +98,7 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
               </p>
             ) : (
               <div className="space-y-1">
-                {stageJobs.map((job, index) => {
+                {stageJobs.map((job) => {
                   const priorityColors = JOB_PRIORITY_COLORS[job.priority];
                   const customerName =
                     job.customerFirstName || job.customerLastName
@@ -92,15 +113,13 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                   // grid becomes a flex row and the wrapper `contents`, so the
                   // row is the flat one it always was.
                   return (
-                    <motion.div
+                    <div
                       key={job.id}
-                      initial={{ opacity: 0, x: -4 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2, delay: index * 0.03, ease: "easeOut" }}
                       onClick={() => onJobClick(job.id)}
                       className={cn(
-                        "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-lg border border-border/50 dark:border-border/40 bg-card px-3 py-2.5 cursor-pointer transition-all duration-150 sm:flex",
+                        "grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-2 rounded-lg border border-border/50 dark:border-border/40 bg-card px-3 py-2.5 cursor-pointer transition-colors duration-200 sm:flex",
                         "hover:bg-muted/30 hover:border-border/70 dark:hover:border-border/60",
+                        job.id === highlightJobId && "motion-highlight",
                       )}
                     >
                       {/* Customer avatar */}
@@ -163,7 +182,7 @@ export function JobListView({ jobs, stages, onJobClick }: JobListViewProps) {
                           </div>
                         )}
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>

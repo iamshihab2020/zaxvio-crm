@@ -36,6 +36,10 @@ export function SuperadminSidebar() {
   const sidebarRef = useRef<HTMLElement>(null);
   const itemRefs = useRef<Map<string, HTMLAnchorElement>>(new Map());
   const [indicator, setIndicator] = useState({ top: 0, height: 0, opacity: 0 });
+  // The indicator is placed under the active item without a transition, then
+  // transitions are switched on, so it does not slide down from the top of the
+  // rail on every page load. From then on it glides between items.
+  const [indicatorReady, setIndicatorReady] = useState(false);
   const [hoveredHref, setHoveredHref] = useState<string | null>(null);
 
   const getActiveHref = useCallback(() => {
@@ -72,6 +76,11 @@ export function SuperadminSidebar() {
   }, [targetHref, updateIndicator, isExpanded]);
 
   useEffect(() => {
+    const timer = setTimeout(() => setIndicatorReady(true), 100);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     const handleResize = () => updateIndicator(targetHref);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
@@ -102,10 +111,16 @@ export function SuperadminSidebar() {
         )}
       >
         {/* Active indicator */}
+        {/* Moved with a transform, not `top`: every item is the same height,
+            so only its position changes. */}
         <div
-          className="absolute left-3 right-3 rounded-md bg-admin-accent/15 transition-all duration-300 ease-in-out"
+          className={cn(
+            "absolute left-3 right-3 top-0 rounded-md bg-admin-accent/15",
+            indicatorReady &&
+              "transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+          )}
           style={{
-            top: indicator.top,
+            transform: `translateY(${indicator.top}px)`,
             height: indicator.height,
             opacity: indicator.opacity,
           }}

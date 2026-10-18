@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -32,6 +32,10 @@ import {
   useDeleteJobTimeEntry,
 } from "@/hooks/queries";
 import { JobTimerButton } from "./job-timer-button";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { replayMotion } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 interface JobDetailTimeProps {
   jobId: string;
@@ -79,6 +83,10 @@ function toTimeInput(iso: string): string {
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function formatHours(value: number): string {
+  return value.toFixed(2) + " h";
+}
+
 function formatRange(entry: JobTimeEntryView): string {
   const start = new Date(entry.startedAt);
   const opts: Intl.DateTimeFormatOptions = {
@@ -113,6 +121,14 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
   const add = useAddJobTimeEntry(jobId);
   const update = useUpdateJobTimeEntry(jobId);
   const remove = useDeleteJobTimeEntry(jobId);
+
+  // A logged entry wears the highlight once. The baseline is the first real
+  // list, so opening the tab does not flash every row.
+  const fresh = useNewIds(
+    entries.map((entry) => entry.id),
+    !query.isLoading,
+  );
+  const formRef = useRef<HTMLDivElement>(null);
 
   if (query.isLoading) {
     return (
@@ -167,6 +183,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
     const problem = validate(form);
     if (problem) {
       toast.error(problem);
+      if (formRef.current) replayMotion(formRef.current, "motion-shake");
       return;
     }
     const payload = {
@@ -225,11 +242,11 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
   const pending = add.isPending || update.isPending;
 
   return (
-    <div className="space-y-4">
+    <div className="motion-appear space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="tnum font-mono text-lg font-semibold text-foreground">
-            {totalHours.toFixed(2)} h
+            <AnimatedNumber value={totalHours} format={formatHours} />
           </p>
           <p className="font-body text-xs text-muted-foreground">
             {closed.length} {closed.length === 1 ? "entry" : "entries"}
@@ -252,7 +269,7 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
       </div>
 
       {showAdd && (
-        <div className="space-y-3 rounded-md border border-border p-3">
+        <div ref={formRef} className="motion-arrive space-y-3 rounded-md border border-border p-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <Label
@@ -351,7 +368,10 @@ export function JobDetailTime({ jobId }: JobDetailTimeProps) {
           {entries.map((entry) => (
             <li
               key={entry.id}
-              className="flex items-start justify-between gap-3 p-3"
+              className={cn(
+                "flex items-start justify-between gap-3 p-3",
+                fresh.has(entry.id) && "motion-highlight",
+              )}
             >
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">

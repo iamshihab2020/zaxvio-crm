@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 import { BLOG_POSTS, type BlogPost } from "@/lib/blog/posts";
+import { useStagger } from "@/hooks/use-stagger";
 
 const CATEGORIES = [
   { id: "all", label: "All" },
@@ -26,7 +26,7 @@ function formatDate(dateStr: string) {
 function BlogCard({ post }: { post: BlogPost }) {
   return (
     <Link href={`/blog/${post.slug}`} className="group block h-full">
-      <Card className="h-full overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-lg">
+      <Card className="h-full overflow-hidden transition-colors duration-200 group-hover:border-brand/40">
         <div
           className={`h-48 bg-gradient-to-br ${post.coverGradient}`}
           aria-hidden="true"
@@ -60,18 +60,25 @@ export function BlogListingClient() {
       ? BLOG_POSTS
       : BLOG_POSTS.filter((p) => p.category === activeCategory);
 
+  // The posts are server-rendered at rest (the cards used to start at opacity 0
+  // behind a scroll-reveal, which hid the whole list without JavaScript). Only
+  // a category change lays the new set out in turn; the key is the category,
+  // not the array, so nothing replays on its own.
+  const gridRef = useRef<HTMLDivElement>(null);
+  useStagger(gridRef, activeCategory);
+
   return (
     <div className="bg-surface py-16 sm:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Header */}
-        <Fade inView inViewOnce className="text-center">
+        <div className="text-center">
           <h1 className="font-heading text-3xl font-bold tracking-tight text-ink sm:text-4xl">
             Blog
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-ink/60">
             Tips, guides, and insights for service businesses.
           </p>
-        </Fade>
+        </div>
 
         {/* Category filter */}
         <div className="mt-10 flex flex-wrap justify-center gap-2">
@@ -93,16 +100,17 @@ export function BlogListingClient() {
         </div>
 
         {/* Post grid */}
-        <div className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {filteredPosts.map((post, i) => (
-            <Fade key={post.slug} inView inViewOnce delay={i * 80}>
-              <BlogCard post={post} />
-            </Fade>
+        <div
+          ref={gridRef}
+          className="mt-12 grid gap-8 md:grid-cols-2 lg:grid-cols-3"
+        >
+          {filteredPosts.map((post) => (
+            <BlogCard key={post.slug} post={post} />
           ))}
         </div>
 
         {filteredPosts.length === 0 && (
-          <p className="mt-16 text-center text-ink/50">
+          <p className="motion-appear mt-16 text-center text-ink/50">
             No posts in this category yet.
           </p>
         )}

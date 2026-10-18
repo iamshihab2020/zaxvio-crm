@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useShakeOnError } from "@/components/superadmin/use-shake-on-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -46,6 +47,8 @@ export function AddAdminDialog({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rejected submit shakes the form body, never the dialog (see the hook).
+  const shakeRef = useShakeOnError<HTMLDivElement>(error);
 
   const isValid = name.trim() && email.includes("@") && password.length >= 8 && adminTier;
 
@@ -100,7 +103,7 @@ export function AddAdminDialog({
         <DialogHeader>
           <DialogTitle className="font-heading">Add Admin User</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div ref={shakeRef} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="admin-name" className="font-body text-sm">
               Full Name
@@ -196,7 +199,7 @@ export function AddAdminDialog({
             </label>
           )}
           {error && (
-            <p className="text-sm text-destructive font-body">{error}</p>
+            <p className="motion-appear text-sm text-destructive font-body">{error}</p>
           )}
         </div>
         {/* Footer buttons are 40px on phones, where they stack full width. */}

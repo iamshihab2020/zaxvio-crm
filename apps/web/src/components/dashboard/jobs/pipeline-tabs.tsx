@@ -51,7 +51,12 @@ export function PipelineTabs({
           <span className="min-w-0 truncate sm:max-w-[140px]">
             {selected?.label ?? "Select Pipeline"}
           </span>
-          <IconChevronDown className="h-3 w-3 text-muted-foreground shrink-0" />
+          <IconChevronDown
+            className={cn(
+              "h-3 w-3 shrink-0 text-muted-foreground transition-transform duration-200",
+              open && "rotate-180",
+            )}
+          />
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-48 p-1" align="start">

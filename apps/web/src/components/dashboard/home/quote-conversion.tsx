@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import { IconFileDescription } from "@tabler/icons-react";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { tokenColor } from "@/lib/constants/chart-palette";
 import type { DashboardQuoteSummary } from "@hvac-saas/types";
 import { ChartTooltipBox } from "./chart-tooltip";
+import { chartAnimation } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
 
 interface QuoteConversionProps {
@@ -40,27 +43,46 @@ function FunnelTooltip({ active, payload }: { active?: boolean; payload?: Array<
   );
 }
 
+// One element for the life of the module, not `<FunnelTooltip />` inline in the
+// chart. Recharts decides whether a pie's children changed by comparing their
+// props one level deep, and a `content` element built on every render is never
+// equal to the last one, which restarts the draw-in each time the card
+// re-renders. A stable element keeps the animation for real data changes.
+const FUNNEL_TOOLTIP = <FunnelTooltip />;
+
 export function QuoteConversion({ data }: QuoteConversionProps) {
-  const chartData = SEGMENT_CONFIG.map((s) => ({
-    name: s.label,
-    value: data[s.key],
-    color: s.color,
-  })).filter((d) => d.value > 0);
+  // Memoised on purpose, now that the ring animates: Recharts restarts a
+  // `Pie`'s draw-in when its `data` changes identity, and a fresh array on
+  // every render would replay it on each refetch and widget toggle.
+  const chartData = useMemo(
+    () =>
+      SEGMENT_CONFIG.map((s) => ({
+        name: s.label,
+        value: data[s.key],
+        color: s.color,
+      })).filter((d) => d.value > 0),
+    [data],
+  );
+  const anim = chartAnimation();
 
   return (
-    <Card className="flex h-full flex-col p-4 sm:p-6">
+    <Card data-widget="quoteFunnel" className="flex h-full flex-col p-4 sm:p-6">
       <WidgetHeader
         title="Quote Funnel"
         action={
           <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
-            <span className="tnum font-mono">{data.totalQuotes}</span>{" "}
+            <AnimatedNumber
+              value={data.totalQuotes}
+              format={String}
+              className="font-mono"
+            />{" "}
             {data.totalQuotes === 1 ? "quote" : "quotes"}
           </span>
         }
       />
 
       {data.totalQuotes === 0 ? (
-        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
+        <div className="motion-appear mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconFileDescription className="h-5 w-5 text-brand" />
           </div>
@@ -91,17 +113,21 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
                   outerRadius={66}
                   paddingAngle={2}
                   strokeWidth={0}
+                  {...anim}
                 >
                   {chartData.map((entry, i) => (
                     <Cell key={i} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip content={<FunnelTooltip />} />
+                <Tooltip content={FUNNEL_TOOLTIP} />
               </PieChart>
             </ResponsiveContainer>
             <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
               <span className="tnum font-heading text-2xl font-bold tracking-tight text-foreground">
-                {data.conversionRate}%
+                <AnimatedNumber
+                  value={data.conversionRate}
+                  format={(n) => `${n}%`}
+                />
               </span>
               <span className="text-[10px] font-body uppercase tracking-wide text-muted-foreground">
                 conversion
@@ -141,8 +167,8 @@ export function QuoteConversion({ data }: QuoteConversionProps) {
                         {pct}%
                       </span>
                     </div>
-                    <div className="tnum mt-0.5 font-mono text-lg font-medium text-foreground">
-                      {value}
+                    <div className="mt-0.5 font-mono text-lg font-medium text-foreground">
+                      <AnimatedNumber value={value} format={String} />
                     </div>
                   </Link>
                 </li>

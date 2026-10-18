@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconListDetails,
@@ -11,6 +11,7 @@ import {
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { SearchInput } from "@/components/reusable/search-input";
 import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
@@ -21,6 +22,8 @@ import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog
 import { CatalogTable } from "@/components/dashboard/catalog/catalog-table";
 import { CatalogItemDialog, type CatalogItemFormData } from "@/components/dashboard/catalog/catalog-item-dialog";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { seeded } from "@/hooks/queries/seed";
 import {
   useCatalogItems,
@@ -120,6 +123,19 @@ export function CatalogPageClient({
   const loading = itemsQuery.isLoading;
   const categories = categoriesQuery.data?.data ?? [];
 
+  // The rows replay when WHICH rows are shown changes: page, type tab, archived
+  // toggle, search. `null` while loading, and while the previous list is held
+  // over as placeholder data for the next one, so the rows about to be replaced
+  // are never the ones that animate.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || itemsQuery.isPlaceholderData
+      ? null
+      : `${page}:${filterItemType}:${showArchived}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
+
   // Prefetch next page
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -193,12 +209,14 @@ export function CatalogPageClient({
       description: data.description || undefined,
     };
     if (editingItem) {
+      const id = editingItem.id;
       updateMutation.mutate(
-        { id: editingItem.id, data: payload },
+        { id, data: payload },
         {
           onSuccess: (res) => {
             if (res.error) { setError(res.error); return; }
             setDialogOpen(false);
+            flash(id);
           },
         },
       );
@@ -208,6 +226,8 @@ export function CatalogPageClient({
           if (res.error) { setError(res.error); return; }
           setDialogOpen(false);
           setPage(1);
+          const newId = res.data?.id;
+          if (typeof newId === "string") flash(newId);
         },
       });
     }
@@ -220,6 +240,10 @@ export function CatalogPageClient({
       {
         onSuccess: (res) => {
           if (res.error) setError(res.error);
+          // Only when the row stays (its Status badge changes in place). In the
+          // default view an archived item leaves the list, and a wash on a row
+          // that is about to vanish is noise.
+          else if (showArchived) flash(item.id);
         },
       },
     );
@@ -242,7 +266,7 @@ export function CatalogPageClient({
   const showNoResults = !loading && !hasItems && (!!search || !!filterItemType);
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -259,7 +283,7 @@ export function CatalogPageClient({
       )}
 
       {error && (
-        <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
+        <div className="motion-appear mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
         </div>
       )}
@@ -301,7 +325,12 @@ export function CatalogPageClient({
                   <PopoverTrigger asChild>
                     <Button variant="outline" size="sm" className="h-10 shrink-0 gap-1.5 sm:h-8" role="combobox" aria-expanded={categoryOpen}>
                       <span className="max-w-[10rem] truncate sm:max-w-none">{selectedCategoryLabel}</span>
-                      <IconChevronDown className="h-3.5 w-3.5" />
+                      <IconChevronDown
+                        className={cn(
+                          "h-3.5 w-3.5 transition-transform duration-200",
+                          categoryOpen && "rotate-180",
+                        )}
+                      />
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[220px] p-0" align="end">
@@ -364,7 +393,10 @@ export function CatalogPageClient({
                 </Button>
 
                 <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
-                  {pagination.total} {pagination.total === 1 ? "Item" : "Items"}
+                  <AnimatedNumber
+                    value={pagination.total}
+                    format={(n) => `${n} ${n === 1 ? "Item" : "Items"}`}
+                  />
                 </span>
                 <ListToolbarCreateButton label="Add Item" onClick={openCreateDialog} />
               </>
@@ -380,7 +412,7 @@ export function CatalogPageClient({
 
           {/* No results */}
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               No catalog items found matching your filters.
             </p>
           )}
@@ -393,6 +425,8 @@ export function CatalogPageClient({
               onEdit={openEditDialog}
               onArchiveToggle={handleArchiveToggle}
               onDelete={openDeleteDialog}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
         </div>

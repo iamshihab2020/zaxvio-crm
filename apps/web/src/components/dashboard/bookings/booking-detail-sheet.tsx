@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { replayMotion } from "@/lib/motion";
 import { BookingStatusBadge } from "./booking-status-badge";
 import { BookingActivityTimeline } from "./booking-activity-timeline";
 import { SERVICE_TYPE_LABELS } from "@/lib/constants/booking-options";
@@ -95,6 +96,7 @@ export function BookingDetailSheet({
   const loadError = query.data?.error ?? (query.isError ? "Failed to load booking" : null);
 
   const [notes, setNotes] = useState("");
+  const notesCardRef = useRef<HTMLDivElement>(null);
 
   // Reset the draft whenever a different booking loads, or the server value
   // changes underneath (e.g. after a successful save).
@@ -104,7 +106,17 @@ export function BookingDetailSheet({
 
   const handleSaveNotes = () => {
     if (!bookingId) return;
-    updateMutation.mutate({ id: bookingId, data: { notes } });
+    updateMutation.mutate(
+      { id: bookingId, data: { notes } },
+      {
+        // The wash says the notes were stored; the hook's toast says it in words.
+        onSuccess: (res) => {
+          if (!res.error && notesCardRef.current) {
+            replayMotion(notesCardRef.current, "motion-highlight");
+          }
+        },
+      },
+    );
   };
 
   const savingNotes = updateMutation.isPending;
@@ -307,7 +319,7 @@ export function BookingDetailSheet({
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
               Internal Notes
             </h3>
-            <div className="rounded-lg border border-border overflow-hidden">
+            <div ref={notesCardRef} className="rounded-lg border border-border overflow-hidden">
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}

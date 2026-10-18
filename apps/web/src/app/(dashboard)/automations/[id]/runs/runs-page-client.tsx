@@ -122,7 +122,7 @@ export function AutomationRunsPageClient({
   }
 
   return (
-    <section className="space-y-6 p-4 sm:p-6">
+    <section data-stagger className="space-y-6 p-4 sm:p-6">
       <header className="space-y-3">
         <Button asChild variant="ghost" size="sm" className="-ml-2 h-10 px-2 sm:h-8">
           <Link href={`/automations/${id}`}>
@@ -167,7 +167,15 @@ export function AutomationRunsPageClient({
         <EmptyRuns filtered={status !== "all"} onClear={() => changeStatus("all")} id={id} />
       ) : data ? (
         <>
-          <RunListTable runs={data.runs} onOpen={openRun} />
+          <RunListTable
+            runs={data.runs}
+            onOpen={openRun}
+            // Which rows are shown: the filter and the page. `null` while the
+            // previous ones are still on screen (placeholder data), so the
+            // sequence plays when the right rows replace them, and the 10s
+            // refresh of an in-progress run never replays it.
+            arrivalKey={query.isPlaceholderData ? null : `${status}:${page}`}
+          />
           {data.pagination.totalPages > 1 && (
             <Pagination
               page={data.pagination.page}
@@ -209,7 +217,7 @@ function EmptyRuns({
   id: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed border-border px-6 py-12 text-center">
+    <div className="motion-appear rounded-lg border border-dashed border-border px-6 py-12 text-center">
       <IconHistory className="mx-auto h-8 w-8 text-muted-foreground" />
       <h2 className="mt-3 font-heading text-base font-semibold">
         {filtered ? "Nothing matches this filter" : "This automation hasn't run yet"}

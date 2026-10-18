@@ -123,10 +123,11 @@ function AutomationNodeComponent({ data, selected }: NodeProps<AutomationFlowNod
         : null;
 
   return (
-    // `animate-node-enter` runs once on mount — when the step is placed. React
-    // Flow keeps mounted nodes across drags and pans, so this fires on arrival
-    // and never again, which is the only moment the motion means anything.
-    <div className="relative animate-node-enter" style={{ width: TILE }}>
+    // `motion-pop` runs once on mount — when the step is placed. React Flow
+    // keeps mounted nodes across drags and pans, so this fires on arrival and
+    // never again, which is the only moment the motion means anything. It is the
+    // system's pop (200ms, the one curve), not a bespoke overshoot.
+    <div className="motion-pop relative" style={{ width: TILE }}>
       {/* Only a trigger is labelled by role. An action needs no word for
           "action" — it is the unmarked case, and labelling both would make the
           canvas twice as noisy to say half as much. */}
@@ -210,11 +211,12 @@ function AutomationNodeComponent({ data, selected }: NodeProps<AutomationFlowNod
           })}
         </div>
 
-        {/* The tile. */}
+        {/* The tile. `data-node-tile` is how the publish dialog finds it to shake. */}
         <div
+          data-node-tile
           className={cn(
             "relative flex h-full w-full items-center justify-center border bg-card",
-            "transition-[border-color,box-shadow] duration-150",
+            "transition-[border-color,box-shadow] duration-200",
             // The one shape difference: a trigger's left edge is rounded off.
             isTrigger ? "rounded-l-[28px] rounded-r-xl" : "rounded-xl",
             selected

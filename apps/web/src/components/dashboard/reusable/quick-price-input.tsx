@@ -126,7 +126,7 @@ export function QuickPriceInput({
       </div>
 
       {value.trim() !== "" && (
-        <p className="text-[11px] font-body text-muted-foreground">
+        <p className="motion-appear text-[11px] font-body text-muted-foreground">
           Press Enter to add it as a line
         </p>
       )}

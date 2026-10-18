@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { authClient, useSession } from "@/lib/auth-client";
 import { IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { TeamMemberList } from "@/components/dashboard/settings/team-member-list
 import { TeamPendingInvitations } from "@/components/dashboard/settings/team-pending-invitations";
 import { TeamInviteDialog } from "@/components/dashboard/settings/team-invite-dialog";
 import { MemberCostRates } from "@/components/dashboard/settings/member-cost-rates";
+import { useStagger } from "@/hooks/use-stagger";
 
 interface MemberData {
   id: string;
@@ -69,6 +70,11 @@ export function TeamSettingsClient() {
   const canManage = currentUserRole === "owner" || currentUserRole === "admin";
   const currentUserId = session?.user?.id ?? "";
 
+  // The cards arrive in turn once the team has loaded (`data-stagger` covers
+  // arriving with the page when the data is already there).
+  const stackRef = useRef<HTMLDivElement>(null);
+  useStagger(stackRef, loading ? null : "team");
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -94,7 +100,7 @@ export function TeamSettingsClient() {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="space-y-6">
+      <div ref={stackRef} data-stagger className="space-y-6">
         {/* Member list */}
         <TeamMemberList
           members={members}

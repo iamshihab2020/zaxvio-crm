@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconFileInvoice } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,7 @@ import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { InvoiceStatusBadge } from "@/components/dashboard/invoices/invoice-status-badge";
 import { getInvoices } from "@/lib/client-reads/invoices";
+import { useStagger } from "@/hooks/use-stagger";
 // ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
 // timezone rendered the previous day. These are all `date` columns.
 import { formatDateOnly as formatDate } from "@/lib/format";
@@ -53,6 +54,12 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
   const loading = invoicesQuery.isLoading;
   const loadFailed = invoicesQuery.isError || !!invoicesQuery.data?.error;
 
+  // `placeholderData` keeps the old page on screen while the next one loads, so
+  // the key waits for the real rows; animating the placeholder would replay the
+  // rows the reader is already looking at.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, loading || loadFailed || invoicesQuery.isPlaceholderData ? null : page);
+
   if (loadFailed && !loading) {
     return (
       <LoadErrorState
@@ -76,7 +83,7 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
 
   if (invoices.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
           <IconFileInvoice className="h-5 w-5 text-brand" />
         </div>
@@ -118,11 +125,11 @@ export function CustomerInvoicesTab({ customerId }: CustomerInvoicesTabProps) {
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={bodyRef}>
               {invoices.map((inv) => (
                 <tr
                   key={inv.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
+                  className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer transition-colors duration-200"
                   onClick={() => router.push(`/invoices/${inv.id}`)}
                 >
                   <td className="px-3 py-2 font-medium font-body">

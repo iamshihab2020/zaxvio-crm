@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { useFormShake } from "@/hooks/use-form-shake";
 import {
   IconPlus,
   IconTrash,
@@ -94,6 +95,10 @@ export function ChecklistTemplateDialog({
   const [items, setItems] = useState<TemplateItemFormData[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serviceTypeOpen, setServiceTypeOpen] = useState(false);
+  // The row added last, so it arrives while the rest of the list stays put.
+  // Rows are keyed by position, which makes "which one is new" the index.
+  const [addedIdx, setAddedIdx] = useState<number | null>(null);
+  const { ref: formRef, shake } = useFormShake();
 
   const isEditing = !!template;
 
@@ -119,9 +124,11 @@ export function ChecklistTemplateDialog({
       setItems([]);
     }
     setErrors({});
+    setAddedIdx(null);
   }, [template, open]);
 
   function addItem() {
+    setAddedIdx(items.length);
     setItems((prev) => [
       ...prev,
       { ...emptyItem, sortOrder: prev.length },
@@ -129,6 +136,7 @@ export function ChecklistTemplateDialog({
   }
 
   function removeItem(index: number) {
+    setAddedIdx(null);
     setItems((prev) => prev.filter((_, i) => i !== index));
   }
 
@@ -154,6 +162,7 @@ export function ChecklistTemplateDialog({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      shake();
       return;
     }
 
@@ -181,7 +190,7 @@ export function ChecklistTemplateDialog({
               : "Define a checklist that auto-attaches to jobs by service type."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="tpl-name" className="font-body">
               Template Name <span className="text-destructive">*</span>
@@ -265,7 +274,10 @@ export function ChecklistTemplateDialog({
               {items.map((item, idx) => (
                 <div
                   key={idx}
-                  className="rounded-md border border-border p-3 space-y-2"
+                  className={cn(
+                    "rounded-md border border-border p-3 space-y-2",
+                    idx === addedIdx && "motion-arrive",
+                  )}
                 >
                   <div className="flex items-center gap-2">
                     <IconGripVertical className="h-4 w-4 text-muted-foreground shrink-0" />

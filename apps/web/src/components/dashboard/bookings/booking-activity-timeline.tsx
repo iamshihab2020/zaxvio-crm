@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import { useBookingActivities } from "@/hooks/queries";
+import { useStagger } from "@/hooks/use-stagger";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
@@ -70,6 +72,10 @@ export function BookingActivityTimeline({ bookingId }: BookingActivityTimelinePr
   const activities = (query.data?.data ?? []) as BookingActivity[];
   const error = query.data?.error ?? (query.isError ? "Failed to load activity" : null);
 
+  // Entries are laid down in turn when the timeline finishes loading.
+  const listRef = useRef<HTMLOListElement>(null);
+  useStagger(listRef, query.isLoading || error ? null : bookingId);
+
   return (
     <div>
       <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">
@@ -89,18 +95,18 @@ export function BookingActivityTimeline({ bookingId }: BookingActivityTimelinePr
           ))}
         </div>
       ) : error ? (
-        <p role="alert" className="text-sm text-muted-foreground font-body">
+        <p role="alert" className="motion-appear text-sm text-muted-foreground font-body">
           {error}
         </p>
       ) : activities.length === 0 ? (
-        <div className="flex items-center gap-2.5 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-5">
+        <div className="motion-appear flex items-center gap-2.5 rounded-lg border border-dashed border-border bg-muted/20 px-4 py-5">
           <IconHistory className="h-4 w-4 shrink-0 text-muted-foreground/60" aria-hidden />
           <p className="text-sm text-muted-foreground font-body">
             No activity recorded yet.
           </p>
         </div>
       ) : (
-        <ol className="space-y-3">
+        <ol ref={listRef} className="space-y-3">
           {activities.map((activity) => {
             const style = ACTIVITY_STYLES[activity.type];
             const Icon = style?.icon ?? IconHistory;

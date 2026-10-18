@@ -18,6 +18,7 @@ import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Card } from "@/components/ui/card";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addMonths, subMonths, addWeeks, subWeeks, addDays, subDays } from "date-fns";
 
 import { updateJob, deleteJob } from "@/actions/jobs";
@@ -247,9 +248,6 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   // here and were written but never read — see the note by the sheet callbacks.
   const [deletingJob, setDeletingJob] = useState<JobDetail | null>(null);
 
-  // Navigation direction for calendar transitions (-1 = prev, 0 = view change, 1 = next)
-  const navigationDirection = useRef<-1 | 0 | 1>(0);
-
   // Task panel. From `lg` it is a column beside the calendar and the saved
   // choice below decides whether it is open; under `lg` it is a sheet over the
   // calendar, which always starts shut and never reads that choice, so a desktop
@@ -294,6 +292,21 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
 
   // Cooldown ref to prevent slot click from reopening dialog immediately after close
   const dialogClosedAtRef = useRef(0);
+
+  // The event just dragged or edited, so its card can wear the highlight once.
+  const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flashEvent(eventId: string | null) {
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    setHighlightedEventId(eventId);
+    if (eventId) highlightTimer.current = setTimeout(() => setHighlightedEventId(null), 1600);
+  }
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    [],
+  );
 
   /* ── Queries ── */
   const { dateFrom, dateTo } = getDateRange(currentDate, currentView);
@@ -349,6 +362,10 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   const overrides = availabilityQuery.data?.overrides ?? [];
   const stages = stagesQuery.data ?? [];
   const loading = jobsQuery.isLoading || bookingsQuery.isLoading || calEventsQuery.isLoading;
+  // Whether this visit began on the skeleton. Only then does the page fade in
+  // when its data lands: a visit with cached data is already covered by the
+  // route arrival (`data-stagger` below), and doing both would be two entrances.
+  const [coldStart] = useState(loading);
 
   // A failed query used to be unwrapped with `?? []` and paint an empty week —
   // on a scheduling tool that reads as "you have nothing on" (BOOK-13).
@@ -428,7 +445,6 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
 
   /* ── View persistence ── */
   function handleViewChange(view: CalendarView) {
-    navigationDirection.current = 0;
     setCurrentView(view);
     if (typeof window !== "undefined") {
       localStorage.setItem("schedule-calendar-view", view);
@@ -437,18 +453,14 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
 
   /* ── Navigation ── */
   function handleNavigate(date: Date) {
-    navigationDirection.current = date > currentDate ? 1 : date < currentDate ? -1 : 0;
     setCurrentDate(date);
   }
 
   function handleToday() {
-    const now = tenantNow(timezone);
-    navigationDirection.current = now > currentDate ? 1 : now < currentDate ? -1 : 0;
-    setCurrentDate(now);
+    setCurrentDate(tenantNow(timezone));
   }
 
   function handlePrev() {
-    navigationDirection.current = -1;
     switch (currentView) {
       case "month":
         setCurrentDate((d) => subMonths(d, 1));
@@ -463,7 +475,6 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
   }
 
   function handleNext() {
-    navigationDirection.current = 1;
     switch (currentView) {
       case "month":
         setCurrentDate((d) => addMonths(d, 1));
@@ -528,10 +539,12 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
         }),
       );
 
+      flashEvent(event.id);
       try {
         await updateCalEventMutation.mutateAsync({ id: event.id, data: { eventDate, startTime, endTime } });
         toast.success(`Event moved to ${format(start, "MMM d, h:mm a")}`);
       } catch (error) {
+        flashEvent(null);
         // Revert optimistic update by refetching
         queryClient.invalidateQueries({ queryKey: queryKeys.calendar.all });
         toast.error(error instanceof Error ? error.message : "Failed to move event");
@@ -557,10 +570,12 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
           : old,
     );
 
+    flashEvent(event.id);
     try {
       await updateJobMutation.mutateAsync({ id: event.id, data: { scheduledDate, scheduledStart, scheduledEnd } });
       toast.success(`Job rescheduled to ${format(start, "MMM d, h:mm a")}`);
     } catch (error) {
+      flashEvent(null);
       // Revert optimistic update by refetching
       queryClient.invalidateQueries({ queryKey: queryKeys.jobs.all });
       toast.error(error instanceof Error ? error.message : "Failed to reschedule job");
@@ -658,12 +673,14 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
     };
 
     if (editingEvent) {
+      const editedId = editingEvent.id;
       updateCalEventSaveMutation.mutate(
-        { id: editingEvent.id, data: eventPayload },
+        { id: editedId, data: eventPayload },
         {
           onSuccess: (res) => {
             if (!res.error) {
               toast.success("Event updated");
+              flashEvent(editedId);
               closeEventDialog();
             }
           },
@@ -720,12 +737,17 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
     <TooltipProvider delayDuration={300}>
       {/* Full-height flex column: navbar is h-14 (3.5rem). `dvh`, so a phone's
           address bar does not push the calendar's bottom edge off screen. */}
-      <section className="flex flex-col h-[calc(100dvh-3.5rem)] p-4 gap-0">
+      <section
+        className={cn(
+          "flex flex-col h-[calc(100dvh-3.5rem)] p-4 gap-0",
+          coldStart && "motion-appear",
+        )}
+      >
         {/* Partial failure: some sources loaded, at least one didn't. */}
         {loadError && (
           <div
             role="alert"
-            className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2"
+            className="motion-appear mb-2 flex items-center justify-between gap-3 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2"
           >
             <p className="text-xs font-body text-destructive">
               Some items may be missing — {loadError}
@@ -742,13 +764,13 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
 
         {/* Explicit cap beats silently omitting appointments (BOOK-17). */}
         {truncatedSources.length > 0 && (
-          <p className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs font-body text-amber-700 dark:text-amber-400">
+          <p className="motion-appear mb-2 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs font-body text-amber-700 dark:text-amber-400">
             Showing the first {CALENDAR_FETCH_LIMIT} {truncatedSources.join(" / ")} for this
             range. Narrow to a week or a day to see everything.
           </p>
         )}
 
-        <div className="flex flex-1 min-h-0 gap-3">
+        <div data-stagger className="flex flex-1 min-h-0 gap-3">
           {/* Collapsible task sidebar */}
           <ScheduleTaskPanel
             inline={isDesktop}
@@ -795,7 +817,7 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
               availability={weeklySchedule}
               overrides={overrides}
               timezone={timezone}
-              navigationDirection={navigationDirection}
+              highlightedEventId={highlightedEventId}
               onNavigate={handleNavigate}
               onViewChange={handleViewChange}
               onSelectEvent={handleSelectEvent}

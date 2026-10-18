@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { Icon } from "@tabler/icons-react";
+import { useMarkSettingsHydrated } from "@/components/dashboard/settings/use-arrival-stagger";
 
 interface NavItem {
   label: string;
@@ -92,6 +93,8 @@ interface SettingsNavProps {
 }
 
 export function SettingsNav({ orgRole }: SettingsNavProps) {
+  // Tells the pages beneath that a click, not the URL, brought them in.
+  useMarkSettingsHydrated();
   const pathname = usePathname();
   const router = useRouter();
 

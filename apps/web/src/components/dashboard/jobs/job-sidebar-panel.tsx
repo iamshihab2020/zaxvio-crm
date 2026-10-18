@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   IconUser,
   IconFileInvoice,
@@ -94,13 +95,13 @@ export function JobSidebarPanel({ job }: JobSidebarPanelProps) {
           Invoice
         </h3>
         {invoiceLoading ? (
-          <div className="rounded-md bg-muted/50 p-3 animate-pulse">
-            <div className="h-4 w-32 bg-muted rounded" />
+          <div className="rounded-md bg-muted/50 p-3">
+            <Skeleton className="h-4 w-32" />
           </div>
         ) : linkedInvoice ? (
           <Link
             href={`/invoices/${linkedInvoice.id}`}
-            className="flex items-center gap-2 rounded-md bg-muted/50 p-3 hover:bg-muted transition-colors group"
+            className="motion-appear group flex items-center gap-2 rounded-md bg-muted/50 p-3 transition-colors duration-200 hover:bg-muted"
           >
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-light shrink-0">
               <IconFileInvoice className="h-4 w-4 text-brand" />
@@ -110,7 +111,7 @@ export function JobSidebarPanel({ job }: JobSidebarPanelProps) {
             </span>
           </Link>
         ) : (
-          <div className="space-y-2">
+          <div className="motion-appear space-y-2">
             <div className="rounded-md bg-muted/50 p-3">
               <p className="text-xs text-muted-foreground font-body">
                 No invoice yet

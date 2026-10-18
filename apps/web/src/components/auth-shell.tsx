@@ -1,9 +1,29 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Logo } from "@/components/logo";
+import { cn } from "@/lib/utils";
+
+/**
+ * Whether an auth page has already mounted in this tab. Each auth page renders
+ * its own `AuthShell` (there is no `(auth)` layout), so moving between them
+ * remounts the shell, and that remount is the only signal a navigation
+ * happened. The first auth page of a visit is the one the reader asked for and
+ * is already on screen, so it must not animate; every one after it came from a
+ * click and arrives. The server never runs effects, so this stays `false`
+ * there and the server HTML always matches the first client render.
+ */
+let authPageSeen = false;
 
 export function AuthShell({ children }: { children: React.ReactNode }) {
+  const [arrives] = useState(() => authPageSeen);
+  useEffect(() => {
+    authPageSeen = true;
+  }, []);
+
   return (
     <div className="grid min-h-screen md:grid-cols-2">
       {/* Left: Brand panel */}
@@ -66,7 +86,9 @@ export function AuthShell({ children }: { children: React.ReactNode }) {
 
         {/* Centered form */}
         <div className="flex flex-1 items-center justify-center px-6 pb-8">
-          <div className="w-full max-w-sm">{children}</div>
+          <div className={cn("w-full max-w-sm", arrives && "motion-arrive")}>
+            {children}
+          </div>
         </div>
 
         {/* Back to home */}

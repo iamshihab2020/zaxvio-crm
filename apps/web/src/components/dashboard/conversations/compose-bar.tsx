@@ -46,7 +46,7 @@ export function ComposeBar({
   }
 
   return (
-    <div className="border-t border-border px-3 py-2 shrink-0 bg-card sm:px-4 sm:py-3">
+    <div className="motion-appear border-t border-border px-3 py-2 shrink-0 bg-card sm:px-4 sm:py-3">
       <div className="flex items-end gap-2">
         <Textarea
           ref={textareaRef}

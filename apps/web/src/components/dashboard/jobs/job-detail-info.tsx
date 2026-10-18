@@ -32,6 +32,9 @@ import { getJobAssignees } from "@/lib/client-reads/jobs";
 import { updateJob } from "@/actions/jobs";
 import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 import type { JobDetail } from "./job-detail-sheet";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+
+const formatDollars = (value: number) => "$" + value.toFixed(2);
 
 interface JobDetailInfoProps {
   job: JobDetail;
@@ -254,17 +257,23 @@ export function JobDetailInfo({ job, onFieldSave, onJobUpdate }: JobDetailInfoPr
         <div className="bg-muted/30 rounded-md p-3 space-y-1">
           <div className="flex justify-between text-sm font-body">
             <span className="text-muted-foreground">Subtotal</span>
-            <span className="text-foreground">${subtotal.toFixed(2)}</span>
+            <span className="text-foreground">
+              <AnimatedNumber value={subtotal} format={formatDollars} />
+            </span>
           </div>
           {taxAmount > 0 && (
             <div className="flex justify-between text-sm font-body">
               <span className="text-muted-foreground">Tax</span>
-              <span className="text-foreground">${taxAmount.toFixed(2)}</span>
+              <span className="text-foreground">
+                <AnimatedNumber value={taxAmount} format={formatDollars} />
+              </span>
             </div>
           )}
           <div className="flex justify-between text-sm font-semibold font-body border-t border-border/50 pt-1">
             <span className="text-foreground">Total</span>
-            <span className="text-foreground">${total.toFixed(2)}</span>
+            <span className="text-foreground">
+              <AnimatedNumber value={total} format={formatDollars} />
+            </span>
           </div>
         </div>
 

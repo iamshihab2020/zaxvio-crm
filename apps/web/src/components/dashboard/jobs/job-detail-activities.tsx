@@ -101,7 +101,7 @@ export function JobDetailActivities({ jobId }: JobDetailActivitiesProps) {
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
         <IconActivity className="h-8 w-8 text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground font-body">
           No activity yet
@@ -111,12 +111,12 @@ export function JobDetailActivities({ jobId }: JobDetailActivitiesProps) {
   }
 
   return (
-    <div>
+    <div className="motion-appear">
       <div className="space-y-0">
         {activities.map((activity, idx) => (
           <div
             key={activity.id}
-            className="flex gap-3 py-3 px-2 -mx-2 rounded-md hover:bg-muted/30 transition-colors"
+            className="flex gap-3 py-3 px-2 -mx-2 rounded-md transition-colors duration-200 hover:bg-muted/30"
           >
             <div className="relative flex flex-col items-center">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted ring-2 ring-card">

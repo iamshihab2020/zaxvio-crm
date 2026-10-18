@@ -10,6 +10,8 @@ import { ConversationEmpty } from "@/components/dashboard/conversations/conversa
 import { ComposeBar } from "@/components/dashboard/conversations/compose-bar";
 import { NewConversationDialog } from "@/components/dashboard/conversations/new-conversation-dialog";
 import { useConversationRealtime } from "@/hooks/use-conversation-realtime";
+import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
+import { cn } from "@/lib/utils";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
 import { getConversationMessages } from "@/lib/client-reads/conversations";
 import {
@@ -39,6 +41,11 @@ export function ConversationsPageClient({
   const [isCreatingConversation, setIsCreatingConversation] = useState(false);
   // Mobile: show thread or list
   const [showThread, setShowThread] = useState(false);
+  // Which way the phone view last moved, so the panel that appears comes in from
+  // the side it logically belongs to: the thread from the end, the list from
+  // the start. Both panels are always on screen from `lg`, where nothing slides.
+  const [direction, setDirection] = useState<"forward" | "back" | null>(null);
+  const isDesktop = useMediaQuery(MEDIA.lg);
 
   const { notify } = useDesktopNotifications();
 
@@ -84,6 +91,7 @@ export function ConversationsPageClient({
 
   async function handleSelectConversation(id: string) {
     setActiveId(id);
+    setDirection("forward");
     setShowThread(true);
     setMessages([]);
     setIsLoadingMessages(true);
@@ -184,12 +192,14 @@ export function ConversationsPageClient({
 
   return (
     <>
-      <div className="flex h-[calc(100dvh-3.5rem)] overflow-hidden">
+      <div data-stagger className="flex h-[calc(100dvh-3.5rem)] overflow-hidden">
         {/* Left panel — conversation list */}
         <div
-          className={`w-full lg:w-80 shrink-0 border-r border-border flex flex-col bg-card ${
-            showThread ? "hidden lg:flex" : "flex"
-          }`}
+          className={cn(
+            "w-full lg:w-80 shrink-0 border-r border-border flex flex-col bg-card",
+            showThread ? "hidden lg:flex" : "flex",
+            !showThread && direction === "back" && !isDesktop && "motion-step-back",
+          )}
         >
           <ConversationList
             conversations={conversations}
@@ -201,9 +211,11 @@ export function ConversationsPageClient({
 
         {/* Right panel — thread */}
         <div
-          className={`flex-1 flex flex-col min-w-0 bg-background ${
-            showThread ? "flex" : "hidden lg:flex"
-          }`}
+          className={cn(
+            "flex-1 flex flex-col min-w-0 bg-background",
+            showThread ? "flex" : "hidden lg:flex",
+            showThread && direction === "forward" && !isDesktop && "motion-step-forward",
+          )}
         >
           {/* Mobile back button */}
           {showThread && (
@@ -213,6 +225,7 @@ export function ConversationsPageClient({
                 size="sm"
                 className="h-10 gap-1.5 text-xs sm:h-8"
                 onClick={() => {
+                  setDirection("back");
                   setShowThread(false);
                   setActiveId(null);
                 }}
@@ -229,6 +242,7 @@ export function ConversationsPageClient({
               <ConversationThread
                 messages={messages}
                 isLoading={isLoadingMessages}
+                conversationId={activeConversation.id}
               />
               <ComposeBar
                 value={inputText}

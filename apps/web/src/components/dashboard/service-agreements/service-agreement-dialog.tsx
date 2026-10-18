@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useFormShake } from "@/hooks/use-form-shake";
 import {
   Select,
   SelectContent,
@@ -84,6 +85,7 @@ export function ServiceAgreementDialog({
     useState<CustomerSelection | null>(null);
 
   const isEditing = !!agreement;
+  const { ref: fieldsRef, shake } = useFormShake<HTMLDivElement>();
   const needsCustomerPicker = !customerId && !isEditing;
 
   useEffect(() => {
@@ -128,7 +130,10 @@ export function ServiceAgreementDialog({
   }
 
   function handleSubmit() {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      shake();
+      return;
+    }
 
     let resolvedCustomerId = customerId ?? "";
     if (customerSelection?.type === "existing") {
@@ -147,7 +152,7 @@ export function ServiceAgreementDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div ref={fieldsRef} className="space-y-4">
           {/* Customer picker — only shown on standalone page for new agreements */}
           {needsCustomerPicker && (
             <div className="space-y-1">

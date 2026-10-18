@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import {
   addDays,
   differenceInCalendarDays,
@@ -22,6 +22,7 @@ import {
   JOB_PRIORITY_LABELS,
 } from "@/lib/constants/job-options";
 import { tokenColor } from "@/lib/constants/chart-palette";
+import { useStagger } from "@/hooks/use-stagger";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { WidgetHeader, WidgetLink } from "./widget-header";
 import { bookingLink, jobLink } from "@/lib/entity-links";
@@ -243,11 +244,23 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
   );
   const hiddenCount = items.length - MAX_ROWS;
 
+  // Which rows are on the sheet, not the agenda objects: a refetch that returns
+  // the same work keeps the key, so the sheet only re-lays itself out when a
+  // job, booking or event is added, removed or moves day, or when the window
+  // rolls over to a new today.
+  const rowsKey = useMemo(
+    () =>
+      `${from}:${days
+        .flatMap((day) => day.items.map((item) => item.id))
+        .join("|")}`,
+    [from, days],
+  );
+
   return (
     // No `h-full`: this card lives in the side zone's stack, where a percentage
     // height resolves against the stretched zone and pulls the card down to
     // the bottom of the main zone, leaving empty sheet under the last row.
-    <Card className="flex flex-col p-4 sm:p-6">
+    <Card data-widget="agenda" className="flex flex-col p-4 sm:p-6">
       <WidgetHeader
         title="Up next"
         badge={<WidgetWindowBadge label={`Next ${spanDays} days`} />}
@@ -277,12 +290,13 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
                 group={group}
                 todayKey={todayKey}
                 tomorrowKey={tomorrowKey}
+                rowsKey={rowsKey}
               />
             ))}
           </div>
 
           {hiddenCount > 0 && (
-            <div className="mt-3">
+            <div className="motion-appear mt-3">
               <WidgetLink href="/schedule">
                 {hiddenCount} more on the schedule →
               </WidgetLink>
@@ -365,12 +379,20 @@ function DaySection({
   group,
   todayKey,
   tomorrowKey,
+  rowsKey,
 }: {
   group: DayGroup;
   todayKey: string | null;
   tomorrowKey: string | null;
+  /** Identifies the rows on the whole sheet; every day re-lays its rows together. */
+  rowsKey: string;
 }) {
   const isToday = group.key !== null && group.key === todayKey;
+  // Each day staggers its own rows from zero, all on the same key, so the sheet
+  // fills top-down together and no day waits on the one above it.
+  const listRef = useRef<HTMLUListElement>(null);
+  useStagger(listRef, rowsKey);
+
   return (
     <div>
       {/* The day's Label. "Today" is the one orange word, because orange here
@@ -388,7 +410,7 @@ function DaySection({
           Nothing scheduled today
         </p>
       ) : (
-        <ul className="mt-1.5 space-y-1">
+        <ul ref={listRef} className="mt-1.5 space-y-1">
           {group.items.map((item) => (
             <AgendaRow key={item.id} item={item} />
           ))}

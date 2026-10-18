@@ -8,6 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { formatMoney } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { replayMotion } from "@/lib/motion";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import {
   useMemberRates,
   useSetMemberRate,
@@ -28,6 +31,8 @@ export function MemberCostRates() {
   const clear = useClearMemberRate();
 
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // The row whose rate was just stored is washed; the toast says it in words.
+  const { flashId, flash } = useRowFlash();
 
   const payload = query.data?.data ?? null;
 
@@ -77,6 +82,10 @@ export function MemberCostRates() {
         {payload.members.map((member) => {
           const draft = drafts[member.userId] ?? member.hourlyCostRate ?? "";
           const dirty = draft.trim() !== (member.hourlyCostRate ?? "");
+          // Shown as a border as well as the shake, because the shake is nothing
+          // at all under reduced motion.
+          const malformed =
+            draft.trim() !== "" && !/^\d{1,8}(\.\d{1,2})?$/.test(draft.trim());
           const busy =
             (save.isPending && save.variables?.userId === member.userId) ||
             (clear.isPending && clear.variables === member.userId);
@@ -84,7 +93,10 @@ export function MemberCostRates() {
           return (
             <li
               key={member.userId}
-              className="flex flex-wrap items-center gap-3 p-3"
+              className={cn(
+                "flex flex-wrap items-center gap-3 p-3",
+                member.userId === flashId && "motion-highlight",
+              )}
             >
               <div className="min-w-0 flex-1">
                 <p className="truncate font-body text-sm font-medium text-foreground">
@@ -108,10 +120,14 @@ export function MemberCostRates() {
                   inputMode="decimal"
                   placeholder={fallback ?? "0.00"}
                   aria-label={`Hourly cost rate for ${member.name || member.email}`}
+                  aria-invalid={malformed}
                   onChange={(e) =>
                     setDrafts((d) => ({ ...d, [member.userId]: e.target.value }))
                   }
-                  className="tnum h-10 w-24 text-right sm:h-9"
+                  className={cn(
+                    "tnum h-10 w-24 text-right sm:h-9",
+                    malformed && "border-destructive",
+                  )}
                 />
                 <span className="font-body text-xs text-muted-foreground">
                   / hr
@@ -121,14 +137,25 @@ export function MemberCostRates() {
                   size="sm"
                   disabled={!dirty || busy}
                   className="h-10 cursor-pointer bg-brand text-brand-foreground hover:bg-brand/90 sm:h-8"
-                  onClick={() => {
+                  onClick={(e) => {
                     const value = draft.trim();
                     if (value === "") {
                       clear.mutate(member.userId);
                       return;
                     }
-                    if (!/^\d{1,8}(\.\d{1,2})?$/.test(value)) return;
-                    save.mutate({ userId: member.userId, hourlyCostRate: value });
+                    if (!/^\d{1,8}(\.\d{1,2})?$/.test(value)) {
+                      const row = e.currentTarget.closest("li");
+                      if (row) replayMotion(row, "motion-shake");
+                      return;
+                    }
+                    save.mutate(
+                      { userId: member.userId, hourlyCostRate: value },
+                      {
+                        onSuccess: (res) => {
+                          if (!res.error) flash(member.userId);
+                        },
+                      },
+                    );
                   }}
                 >
                   {busy ? "Saving…" : "Save"}

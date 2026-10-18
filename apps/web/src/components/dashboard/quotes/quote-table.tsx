@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import {
   Table,
   TableBody,
@@ -12,6 +13,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query-keys";
 import { getQuote } from "@/lib/client-reads/quotes";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 // QUO-10: `new Date("2026-08-01")` is UTC midnight, so these printed the
 // previous day for every US tenant while the customer portal — which anchors
 // at local midnight — printed the right one. `formatDateOnly` is the shared
@@ -39,6 +41,10 @@ interface QuoteTableProps {
   onToggleSelectAll?: () => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just created or edited; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 export function QuoteTable({
@@ -49,6 +55,8 @@ export function QuoteTable({
   onToggleSelectAll,
   isAllSelected,
   isIndeterminate,
+  bodyRef,
+  highlightId,
 }: QuoteTableProps) {
   const queryClient = useQueryClient();
   const hasSelection = !!selectedIds && !!onToggleSelect;
@@ -76,11 +84,14 @@ export function QuoteTable({
             <TableHead className="font-body text-right">Total</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody ref={bodyRef}>
           {quotes.map((q) => (
             <TableRow
               key={q.id}
-              className="cursor-pointer hover:bg-muted/50"
+              className={cn(
+                "cursor-pointer hover:bg-muted/50",
+                q.id === highlightId && "motion-highlight",
+              )}
               onClick={() => onRowClick(q.id)}
               onMouseEnter={() => {
                 queryClient.prefetchQuery({

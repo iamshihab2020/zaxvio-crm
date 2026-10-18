@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { PageActions } from "@/components/dashboard/page-actions";
 import {
   differenceInCalendarDays,
@@ -41,12 +48,24 @@ import { InvoiceAging } from "@/components/dashboard/home/invoice-aging";
 import { QuoteConversion } from "@/components/dashboard/home/quote-conversion";
 import { RevenueByServiceChart } from "@/components/dashboard/home/revenue-by-service-chart";
 import { TopCustomersCard } from "@/components/dashboard/home/top-customers-card";
-import { useDashboardWidgetPrefs } from "@/hooks/use-dashboard-widget-prefs";
+import {
+  ALL_WIDGETS,
+  useDashboardWidgetPrefs,
+} from "@/hooks/use-dashboard-widget-prefs";
 import {
   DATE_RANGE_KEYS,
   useStoredDateRange,
 } from "@/hooks/use-stored-date-range";
+import { useStagger } from "@/hooks/use-stagger";
+import { STAGGER_STEP, replayMotion } from "@/lib/motion";
 import { cn } from "@/lib/utils";
+
+/** The same isomorphic pattern `use-route-arrival.ts` uses. */
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+/** How a KPI figure reads while it counts. Module-level so the tiles share them. */
+const formatCount = (n: number) => String(n);
+const formatPercent = (n: number) => `${n}%`;
 
 function rangeFromPreset(preset: RevenueRange): {
   range: DateRange;
@@ -203,6 +222,41 @@ export function DashboardPageClient({
     [saveRange],
   );
 
+  // The widget stack is the page's arrival, and it is not a `data-stagger`
+  // block on purpose. The grid is held back until localStorage has been read
+  // (`prefs.hydrated`), so when a route change fires `useRouteArrival` the DOM
+  // holds the skeleton, and a marked block would stagger that and then swap it
+  // for the real thing unanimated. The skeleton-to-widgets swap is the moment
+  // the content arrives, so that is what is sequenced: banner, KPI row and the
+  // zones rise in turn, at the route arrival's own 40ms step. The key is null
+  // until both the stats and the prefs exist, and a date-range change keeps it
+  // "ready", so only the first appearance plays, never a refetch.
+  const stackRef = useRef<HTMLDivElement>(null);
+  const ready = stats !== null && prefs.hydrated;
+  useStagger(stackRef, ready ? "ready" : null, { step: STAGGER_STEP, rise: 8 });
+
+  // A widget switched on from Customize fades in where it lands. It mounts
+  // inside the stack with the rest of the page, so the diff is against what was
+  // visible on the previous commit. `data-widget` is how the widget's element is
+  // found: it is a card the page does not hold a ref to, and wrapping each one
+  // would break the grid (`:last-child:nth-child(odd)` spans the odd one out,
+  // and a row-mate stretches to its neighbour's height).
+  const shownRef = useRef<typeof prefs.visible | null>(null);
+  useIsoLayoutEffect(() => {
+    // `ready` is a dependency so this runs on the commit that mounts the stack
+    // even when the saved prefs equal the defaults and `visible` never changed.
+    const stack = ready ? stackRef.current : null;
+    const before = shownRef.current;
+    shownRef.current = stack ? prefs.visible : null;
+    // The first commit with a stack is the page arriving, not a toggle.
+    if (!stack || !before) return;
+    for (const { key } of ALL_WIDGETS) {
+      if (!prefs.visible[key] || before[key]) continue;
+      const el = stack.querySelector<HTMLElement>(`[data-widget="${key}"]`);
+      if (el) replayMotion(el, "motion-appear");
+    }
+  }, [prefs.visible, ready]);
+
   if (isLoading && !stats) {
     return (
       <section className="p-4 sm:p-6">
@@ -267,7 +321,7 @@ export function DashboardPageClient({
         {!prefs.hydrated ? (
           <DashboardSkeleton hideToolbar />
         ) : (
-          <div className="space-y-6">
+          <div ref={stackRef} className="space-y-6">
             {visible.overdueAlert && (
               <WidgetErrorBoundary name="Overdue alert">
                 <OverdueAlertBanner overdueInvoices={stats.overdueInvoices} />
@@ -276,11 +330,16 @@ export function DashboardPageClient({
 
             {/* Four tiles: two across on a phone, four from `lg`. */}
             {visible.kpis && (
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              <div
+                data-widget="kpis"
+                className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4"
+              >
                 <KpiPill
                   icon={IconBriefcase}
                   label="Jobs Today"
                   value={String(kpis.jobsToday.count)}
+                  numericValue={kpis.jobsToday.count}
+                  format={formatCount}
                   currentValue={kpis.jobsToday.count}
                   previousValue={kpis.jobsToday.yesterdayCount}
                   comparisonLabel="vs yesterday"
@@ -296,6 +355,8 @@ export function DashboardPageClient({
                   icon={IconCashBanknote}
                   label="Outstanding"
                   value={formatCurrency(kpis.outstandingBalance.amount)}
+                  numericValue={kpis.outstandingBalance.amount}
+                  format={formatCurrency}
                   windowLabel="All open"
                   href="/invoices"
                   footnote={`${kpis.outstandingBalance.invoiceCount} unpaid ${
@@ -306,6 +367,8 @@ export function DashboardPageClient({
                   icon={IconTrendingUp}
                   label="Quote Conversion"
                   value={`${stats.quoteSummary.conversionRate}%`}
+                  numericValue={stats.quoteSummary.conversionRate}
+                  format={formatPercent}
                   href="/quotes"
                   footnote={`${stats.quoteSummary.accepted} of ${stats.quoteSummary.totalQuotes} accepted`}
                 />
@@ -316,6 +379,8 @@ export function DashboardPageClient({
                   icon={IconUsers}
                   label="Active Customers"
                   value={String(kpis.activeCustomers.count)}
+                  numericValue={kpis.activeCustomers.count}
+                  format={formatCount}
                   windowLabel="Last 90 days"
                   href="/customers"
                   footnote="with a job booked"

@@ -128,7 +128,7 @@ export function AssetDetailClient({ asset }: AssetDetailClientProps) {
 
       {/* Content */}
       <div className="flex-1 p-4 sm:p-6">
-        <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 lg:items-start">
+        <div data-stagger className="flex flex-col lg:flex-row gap-4 sm:gap-5 lg:items-start">
           {/* Left Panel — Info */}
           <div className="w-full lg:w-80 shrink-0 rounded-lg border border-border bg-card shadow-sm p-4 sm:p-5 space-y-5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground font-heading">

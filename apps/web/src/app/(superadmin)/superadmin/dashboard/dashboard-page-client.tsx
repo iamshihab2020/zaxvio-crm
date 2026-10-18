@@ -12,6 +12,9 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { BarFill } from "@/components/superadmin/bar-fill";
+import { useArrivedByNavigation } from "@/components/superadmin/use-arrived-by-navigation";
 
 interface DashboardPageClientProps {
   mrr: {
@@ -40,16 +43,28 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function formatCount(n: number): string {
+  return String(n);
+}
+
+/** The API rounds the rate to one decimal, so a step of the count must too. */
+function formatPercent(n: number): string {
+  return `${Math.round(n * 10) / 10}%`;
+}
+
 function KpiCard({
   label,
   value,
+  format,
   icon: Icon,
   trend,
   trendLabel,
   iconColor = "text-admin-accent",
 }: {
   label: string;
-  value: string;
+  value: number;
+  /** Turns the number into its text; also used for every step of a count. */
+  format: (value: number) => string;
   icon: React.ComponentType<{ className?: string }>;
   trend?: "up" | "down" | "neutral";
   trendLabel?: string;
@@ -66,7 +81,7 @@ function KpiCard({
           <span className="text-sm font-body">{label}</span>
         </div>
         <p className="mt-2 font-heading text-2xl font-bold text-foreground sm:text-3xl">
-          {value}
+          <AnimatedNumber value={value} format={format} />
         </p>
         {trendLabel && (
           <div className="mt-1 flex items-center gap-1">
@@ -102,16 +117,20 @@ export function DashboardPageClient({
   totalTenants,
 }: DashboardPageClientProps) {
   const recentSignups = signups?.slice(-7).reduce((sum, d) => sum + d.count, 0) ?? 0;
+  // The signup columns draw up from the baseline only when the page was reached
+  // by navigation; on the load of the URL they are part of the page already.
+  const drawBars = useArrivedByNavigation();
 
   return (
-    <section className="p-4 sm:p-6 space-y-6">
+    <section data-stagger className="p-4 sm:p-6 space-y-6">
       {/* KPI Grid — no page title needed, navbar shows "Dashboard". Two by two
           on a phone, as on the tenant dashboard, so four tiles do not push the
           charts a screen down. */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <KpiCard
           label="Total Tenants"
-          value={String(totalTenants)}
+          value={totalTenants}
+          format={formatCount}
           icon={IconBuilding}
           iconColor="text-blue-500 dark:text-blue-400"
           trend={recentSignups > 0 ? "up" : "neutral"}
@@ -119,7 +138,8 @@ export function DashboardPageClient({
         />
         <KpiCard
           label="MRR"
-          value={formatCurrency(mrr?.currentMRR ?? 0)}
+          value={mrr?.currentMRR ?? 0}
+          format={formatCurrency}
           icon={IconCurrencyDollar}
           iconColor="text-emerald-500 dark:text-emerald-400"
           trend="up"
@@ -127,14 +147,16 @@ export function DashboardPageClient({
         />
         <KpiCard
           label="Active Tenants (DAT)"
-          value={String(activeUsers?.dat ?? 0)}
+          value={activeUsers?.dat ?? 0}
+          format={formatCount}
           icon={IconUsers}
           iconColor="text-purple-500 dark:text-purple-400"
           trendLabel={`WAT: ${activeUsers?.wat ?? 0} · MAT: ${activeUsers?.mat ?? 0}`}
         />
         <KpiCard
           label="Conversion Rate"
-          value={`${trialConversion?.conversionRate ?? 0}%`}
+          value={trialConversion?.conversionRate ?? 0}
+          format={formatPercent}
           icon={IconTrendingUp}
           iconColor="text-amber-500 dark:text-amber-400"
           trend={
@@ -210,7 +232,7 @@ export function DashboardPageClient({
                   { label: "Active Trials", value: trialConversion.activeTrials, color: "bg-amber-500 dark:bg-amber-400" },
                   { label: "Converted", value: trialConversion.converted, color: "bg-green-500 dark:bg-green-400" },
                   { label: "Cancelled", value: trialConversion.cancelled, color: "bg-red-500 dark:bg-red-400" },
-                ].map((stage) => {
+                ].map((stage, index) => {
                   const maxVal = trialConversion.totalTrials || 1;
                   const pct = Math.round((stage.value / maxVal) * 100);
                   return (
@@ -222,10 +244,7 @@ export function DashboardPageClient({
                         </span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted">
-                        <div
-                          className={`h-full rounded-full transition-all ${stage.color}`}
-                          style={{ width: `${pct}%` }}
-                        />
+                        <BarFill percent={pct} index={index} className={stage.color} />
                       </div>
                     </div>
                   );
@@ -264,17 +283,24 @@ export function DashboardPageClient({
                 const paddedData = data.length < minBars
                   ? [...Array.from({ length: minBars - data.length }, (_, i) => ({ date: `pad-${i}`, count: 0 })), ...data]
                   : data;
-                return paddedData.map((day) => {
+                return paddedData.map((day, index) => {
                   const height = day.count > 0 ? Math.max((day.count / maxCount) * 100, 8) : 2;
+                  // A sweep left to right, capped so 60 columns do not take
+                  // a second to finish.
+                  const style: React.CSSProperties & Record<"--enter-delay", string> = {
+                    height: `${height}%`,
+                    maxWidth: "12px",
+                    "--enter-delay": `${Math.min(index, 30) * 12}ms`,
+                  };
                   return (
                     <div
                       key={day.date}
-                      className={`flex-1 rounded-t transition-colors cursor-default ${
+                      className={`flex-1 rounded-t transition-colors cursor-default ${drawBars ? "motion-grow-y " : ""}${
                         day.count > 0
                           ? "bg-blue-500/80 hover:bg-blue-500 dark:bg-blue-400/80 dark:hover:bg-blue-400"
                           : "bg-muted/40"
                       }`}
-                      style={{ height: `${height}%`, maxWidth: "12px" }}
+                      style={style}
                       title={day.count > 0 ? `${day.date}: ${day.count} signups` : ""}
                     />
                   );

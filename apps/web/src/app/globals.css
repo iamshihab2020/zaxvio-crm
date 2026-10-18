@@ -383,7 +383,7 @@
    DESIGN.md's rule: things move when they appear, move or change state, then
    stop. A resting screen is still. These are the only durations and the one
    curve new motion uses; the 8px rise is the language the app already spoke
-   (kanban `card-enter`, settings `settings-enter`, the landing reveal).
+   (the landing reveal, and once the kanban cards and the settings pages).
 
    Fill mode is `backwards`, never `both`. A filling transform would leave
    the element with an active transform after it lands, and that makes it the
@@ -397,6 +397,7 @@
   --dur-state: 200ms; /* something changed in place */
   --dur-arrive: 280ms; /* something new arrived */
   --dur-focal: 700ms; /* the one authored moment */
+  --dur-exit: 150ms; /* something leaving: quicker than it arrived */
 }
 
 @keyframes motion-rise {
@@ -494,25 +495,180 @@
   animation: motion-dot 1.2s ease-in-out infinite;
 }
 
+/* ── Small, single-purpose moments (2026-10-18) ──────────────────────────
+   Each plays once when its class is applied and leaves nothing behind. They
+   are CSS so a server-rendered element carries them with no script; to play
+   one again on an element that already has it, use `replayMotion()` from
+   `lib/motion.ts` rather than remounting the element with a `key`.
+
+   `--enter-delay` (the same variable `.animate-panel-item` reads) holds the
+   start back, so a row of bars or badges can arrive in order:
+   `style={{ "--enter-delay": `${i * 40}ms` }}`. The first frame is held
+   through the delay (`backwards`), so nothing shows early. */
+
+/* A badge, counter or chip that appeared. 90% to full size, fading in. Needs a
+   box a transform can act on: block, inline-block, flex or grid, not a bare
+   inline span. */
+@keyframes motion-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.motion-pop {
+  animation: motion-pop var(--dur-state) var(--ease-out)
+    var(--enter-delay, 0ms) backwards;
+}
+
+/* A rejected submit: one 300ms shake, +-4px, decaying. A signal, not a loop.
+   The reason must also be in text and a field border, because under reduced
+   motion this does nothing at all. */
+@keyframes motion-shake {
+  0%,
+  100% {
+    transform: none;
+  }
+  20% {
+    transform: translateX(-4px);
+  }
+  40% {
+    transform: translateX(4px);
+  }
+  60% {
+    transform: translateX(-3px);
+  }
+  80% {
+    transform: translateX(2px);
+  }
+}
+
+.motion-shake {
+  animation: motion-shake 300ms var(--ease-out);
+}
+
+/* A row that was just created or changed: a brand-tinted wash that settles
+   into the row's own background over 1.2s. There is no `to` keyframe on
+   purpose: the end of the animation is whatever the element's background
+   already is, so a row with a card or hover background does not flash
+   transparent and snap back. For a row with no background that is the same as
+   fading to transparent. It is a colour change with no movement, so reduced
+   motion keeps it. */
+@keyframes motion-highlight {
+  from {
+    background-color: hsl(var(--brand) / 0.12);
+  }
+}
+
+.motion-highlight {
+  animation: motion-highlight 1200ms var(--ease-out);
+}
+
+/* A bar or meter drawing itself in, once: from nothing along its own axis.
+   `-x` grows rightward from the left edge (progress, horizontal bars); `-y`
+   grows upward from the bottom (columns). Transform only, so the element's
+   real width and height are laid out from the start and nothing reflows. */
+@keyframes motion-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes motion-grow-y {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.motion-grow-x {
+  transform-origin: left center;
+  animation: motion-grow-x var(--dur-focal) var(--ease-out)
+    var(--enter-delay, 0ms) backwards;
+}
+
+.motion-grow-y {
+  transform-origin: center bottom;
+  animation: motion-grow-y var(--dur-focal) var(--ease-out)
+    var(--enter-delay, 0ms) backwards;
+}
+
+/* ── Overlay timing ──────────────────────────────────────────────────────
+   Popover, dropdown, select, tooltip, hover card, dialog, alert dialog and
+   sheet all run on tailwindcss-animate's `animate-in` / `animate-out` (which
+   Radix waits on before it unmounts, so the exit actually plays). That plugin
+   defaults to 150ms and the browser's own easing; this puts every one of them
+   on the system's curve, 200ms in and 150ms out, from one place.
+
+   `:not([data-state="closed"])` rather than `[data-state="open"]` because a
+   tooltip's states are `delayed-open` and `instant-open`. The duration rules
+   carry an attribute selector (specificity 0,2,0) on purpose: the plugin's
+   `data-[state=open]:animate-in` variant sets its own 150ms at that
+   specificity, and a bare class would lose to it.
+
+   `.motion-overlay-far` is for panels that travel a long way (a sheet crossing
+   up to 512px): the same curve at `--dur-arrive`, because 200ms of an
+   expo-out curve lands most of the distance in the first frame or two. */
+.motion-overlay {
+  animation-timing-function: var(--ease-out);
+}
+
+.motion-overlay:not([data-state="closed"]) {
+  animation-duration: var(--dur-state);
+}
+
+.motion-overlay[data-state="closed"] {
+  animation-duration: var(--dur-exit);
+}
+
+.motion-overlay-far:not([data-state="closed"]) {
+  animation-duration: var(--dur-arrive);
+}
+
+/* An accordion panel opening and closing. `height` is animated, which nothing
+   else in the app may do, because Radix publishes the panel's measured height
+   as `--radix-accordion-content-height` and the `accordion-down` / `-up`
+   keyframes (below, with the other Radix keyframes) run between 0 and that
+   value, so nothing is measured per frame. Radix keeps the panel mounted until
+   the close animation ends. Add the Collapsible equivalent here when one
+   exists. */
+.motion-accordion[data-state="open"] {
+  animation: accordion-down var(--dur-state) var(--ease-out);
+}
+
+.motion-accordion[data-state="closed"] {
+  animation: accordion-up var(--dur-exit) var(--ease-out) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   /* Fewer and gentler, not none. Every arrival keeps its fade so the change
      still reads as a change; only the movement goes. */
   .motion-arrive,
   .motion-drop-in,
   .motion-step-forward,
-  .motion-step-back {
+  .motion-step-back,
+  .motion-pop,
+  .motion-grow-x,
+  .motion-grow-y {
     animation-name: motion-fade;
     animation-duration: var(--dur-state);
   }
 
-  .motion-nudge {
+  .motion-nudge,
+  .motion-shake {
     animation: none;
   }
 
-  /* Existing keyframes that had no override, against DESIGN.md's rule. */
-  .animate-card-enter,
-  .animate-settings-enter {
-    animation-name: motion-fade !important;
+  /* `.motion-highlight` is deliberately not overridden: a background wash is
+     not movement, and it is how a changed row is found. */
+
+  /* Height is movement of everything below the panel. Opening becomes a fade;
+     closing is instant (no animation, so Radix unmounts at once). */
+  .motion-accordion[data-state="open"] {
+    animation: motion-fade var(--dur-state) var(--ease-out) backwards;
+  }
+
+  .motion-accordion[data-state="closed"] {
+    animation: none;
   }
 
   /* The emergency pulse is a signal, so the state must survive without the
@@ -634,25 +790,6 @@
   }
 }
 
-/* Kanban card entrance — staggered via inline --delay */
-@keyframes card-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@layer utilities {
-  .animate-card-enter {
-    animation: card-enter 0.3s ease-out both;
-    animation-delay: var(--enter-delay, 0ms);
-  }
-}
-
 /* ─────────────────────────────────────────────────────────────────
    AUTOMATION BUILDER — motion
 
@@ -667,20 +804,6 @@
       the bottom of this block. A canvas that scales and slides is
       exactly the kind of motion that triggers vestibular symptoms.
    ───────────────────────────────────────────────────────────────── */
-
-/* A step arriving on the canvas. Scales from slightly small so it reads
-   as "placed", and starts from the point it was added rather than
-   sliding in from an edge it has no relationship to. */
-@keyframes node-enter {
-  from {
-    opacity: 0;
-    transform: scale(0.92);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
 
 /* Rows in the palette and fields in the config panel. Travels along the
    axis the panel opened from, so the motion agrees with the layout. */
@@ -720,10 +843,6 @@
 }
 
 @layer utilities {
-  .animate-node-enter {
-    animation: node-enter 0.18s cubic-bezier(0.2, 0, 0.13, 1.4) both;
-  }
-
   .animate-panel-item {
     animation: panel-item-enter 0.22s ease-out both;
     animation-delay: var(--enter-delay, 0ms);
@@ -740,7 +859,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-node-enter,
   .animate-panel-item,
   .animate-panel-item-right,
   .animate-placeholder-breathe {

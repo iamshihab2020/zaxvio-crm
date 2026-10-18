@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { IconDevices2, IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,6 +15,8 @@ import {
 } from "@/components/dashboard/equipment/asset-dialog";
 import { RefrigerantLogsPanel } from "@/components/dashboard/equipment/refrigerant-logs-panel";
 import { getEquipment } from "@/lib/client-reads/equipment";
+import { useStagger } from "@/hooks/use-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import {
   createEquipment,
   updateEquipment,
@@ -65,6 +67,12 @@ export function CustomerEquipmentTab({
     fetchAssets();
   }, [fetchAssets]);
 
+  // Rows rise in when the list arrives (the tab shows a skeleton on every
+  // reload, so the key is `null` across it); a row just saved is washed.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, loading || loadError ? null : "assets");
+  const { flashId, flash } = useRowFlash();
+
   function openCreateDialog() {
     setEditingAsset(null);
     setDialogOpen(true);
@@ -86,6 +94,7 @@ export function CustomerEquipmentTab({
       const result = await updateEquipment(editingAsset.id, data);
       if (!result.error) {
         setDialogOpen(false);
+        flash(editingAsset.id);
         await fetchAssets();
       }
     } else {
@@ -95,6 +104,7 @@ export function CustomerEquipmentTab({
       });
       if (!result.error) {
         setDialogOpen(false);
+        if (typeof result.data?.id === "string") flash(result.data.id);
         await fetchAssets();
       }
     }
@@ -149,7 +159,7 @@ export function CustomerEquipmentTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="motion-appear flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground font-body">
           {/* Says so when the list is capped, instead of presenting the first
               100 as though they were all of them (CUST-15). */}
@@ -170,6 +180,8 @@ export function CustomerEquipmentTab({
       <Card className="overflow-hidden">
         <AssetTable
           assets={assets}
+          bodyRef={bodyRef}
+          highlightId={flashId}
           onEdit={openEditDialog}
           onDelete={openDeleteDialog}
           onRowClick={(asset) =>
@@ -182,7 +194,7 @@ export function CustomerEquipmentTab({
 
       {/* Expanded refrigerant logs panel */}
       {expandedAssetId && (
-        <Card className="p-4">
+        <Card className="motion-arrive p-4">
           <RefrigerantLogsPanel equipmentId={expandedAssetId} />
         </Card>
       )}

@@ -66,7 +66,7 @@ function PreviewResult({ result }: { result: NodePreview }) {
   );
 
   return (
-    <div className="mt-3 space-y-3">
+    <div className="motion-arrive mt-3 space-y-3">
       {/*
         Diagnostics first, and they are the reason this feature exists. An
         unresolved `{{token}}` renders as an empty string at run time — a blank

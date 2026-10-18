@@ -14,6 +14,13 @@ interface SidebarState {
   isCollapsed: boolean;
   mode: SidebarMode;
   isHoverExpanded: boolean;
+  /**
+   * False until the saved collapsed state has been applied and painted. The
+   * shell's width and offset transitions are only switched on after that, so a
+   * reader who keeps the rail collapsed does not watch it close on every page
+   * load; the transition is for clicking the toggle.
+   */
+  animated: boolean;
   toggleCollapsed: () => void;
   setMode: (mode: SidebarMode) => void;
   setHoverExpanded: (expanded: boolean) => void;
@@ -57,6 +64,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mode, setModeState] = useState<SidebarMode>("hover-expand");
   const [isHoverExpanded, setHoverExpanded] = useState(false);
+  const [animated, setAnimated] = useState(false);
 
   // Hydrate from localStorage after mount
   useEffect(() => {
@@ -65,6 +73,22 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     setModeState(saved.mode);
     setMounted(true);
   }, []);
+
+  // The saved state lands one render after the server's expanded default, so a
+  // collapsed rail would otherwise animate shut on every full page load. Wait
+  // two frames, enough for the collapsed layout to be painted, before the
+  // shell's width and offset transitions exist; from then on the toggle animates.
+  useEffect(() => {
+    if (!mounted) return;
+    let second = 0;
+    const first = requestAnimationFrame(() => {
+      second = requestAnimationFrame(() => setAnimated(true));
+    });
+    return () => {
+      cancelAnimationFrame(first);
+      cancelAnimationFrame(second);
+    };
+  }, [mounted]);
 
   // Persist to localStorage on change
   useEffect(() => {
@@ -87,6 +111,7 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
     isCollapsed: mounted ? isCollapsed : false,
     mode: mounted ? mode : "hover-expand",
     isHoverExpanded: mounted ? isHoverExpanded : false,
+    animated,
     toggleCollapsed,
     setMode,
     setHoverExpanded,

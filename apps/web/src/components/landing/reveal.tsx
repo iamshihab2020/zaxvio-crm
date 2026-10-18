@@ -23,8 +23,16 @@ interface RevealProps {
  *    the whole page rendered at opacity 0. Here the hidden state is CSS scoped
  *    to `html.js` (see globals.css), which fails open.
  *
- * `reveal-ready` is added one frame after mount so an element already in the
- * viewport on load does not animate its own initial paint.
+ * `reveal-ready` (which switches the transition on) is added one frame after
+ * mount so a reveal below the fold animates when it is scrolled to.
+ *
+ * An element that is already in the viewport when the page hydrates never gets
+ * it. One frame is not enough to keep the two apart (the observer's first
+ * callback can arrive after `reveal-ready`), and a strip just under the hero
+ * would then rise into place on every load of a tall window: first-paint
+ * choreography on a page whose hero is deliberately still. It is shown at once
+ * instead. The same check covers a visit that lands on an anchor (`#features`):
+ * what you jumped to is not announced.
  */
 export function Reveal({
   children,
@@ -39,6 +47,12 @@ export function Reveal({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.bottom > 0 && rect.top < window.innerHeight) {
+      setVisible(true);
+      return;
+    }
 
     const frame = requestAnimationFrame(() => setReady(true));
 

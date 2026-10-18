@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useTheme } from "next-themes";
 import {
@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { MobileNav } from "@/components/dashboard/mobile-nav";
 import { NotificationBell } from "@/components/dashboard/notifications/notification-bell";
 import { PageActionsSlot } from "@/components/dashboard/page-actions";
+import { useSidebar } from "@/components/dashboard/sidebar-provider";
 import { useSession, signOut } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -51,17 +52,17 @@ function getPageTitle(pathname: string): string {
   return PAGE_TITLES[segment] ?? "";
 }
 
-export function Navbar() {
+/**
+ * `impersonating` shifts the bar below the impersonation banner. It comes from
+ * the layout, which read the cookie on the server: deciding it in an effect put
+ * the bar at the top for the first paint and slid it 40px down once hydrated.
+ */
+export function Navbar({ impersonating = false }: { impersonating?: boolean }) {
   const router = useRouter();
   const pathname = usePathname();
   const { data: session } = useSession();
   const { resolvedTheme, setTheme } = useTheme();
-
-  // Shift navbar down when impersonation bar is visible
-  const [isImpersonating, setIsImpersonating] = useState(false);
-  useEffect(() => {
-    setIsImpersonating(document.cookie.includes("x-impersonation-id="));
-  }, []);
+  const { animated } = useSidebar();
 
   const userName = session?.user?.name ?? "User";
   const userEmail = session?.user?.email ?? "";
@@ -74,6 +75,13 @@ export function Navbar() {
     .slice(0, 2);
 
   const pageTitle = getPageTitle(pathname);
+
+  // The title crossfades when navigation changes it. `changed` stays false for
+  // the title the page was first loaded with, so a full page load shows it at
+  // once, and a detail page ("Jobs" to "Jobs") keeps the same text and the same
+  // element, so nothing replays.
+  const [title, setTitle] = useState({ text: pageTitle, changed: false });
+  if (title.text !== pageTitle) setTitle({ text: pageTitle, changed: true });
 
   const handleLogout = async () => {
     // Clear role cookie before signing out
@@ -94,9 +102,12 @@ export function Navbar() {
         // published by DashboardShell (this renders inside it) and is 0 below
         // `lg`, where the sidebar is a drawer. `left-0` first so the bar spans
         // the phone instead of starting 224px in.
-        "fixed right-0 z-20 flex h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-md px-4 transition-[left,top] duration-300 ease-in-out sm:px-6",
+        "fixed right-0 z-20 flex h-14 items-center justify-between border-b border-border/50 bg-card/80 backdrop-blur-md px-4 sm:px-6",
         "left-0 lg:left-[var(--sidebar-w)]",
-        isImpersonating ? "top-10" : "top-0",
+        // Tracks the rail's width. Off until `animated` so a saved collapsed
+        // rail does not slide the bar on load.
+        animated && "transition-[left] duration-300 ease-in-out",
+        impersonating ? "top-10" : "top-0",
       )}
     >
       {/* Brand accent line */}
@@ -107,9 +118,15 @@ export function Navbar() {
           truncate instead of pushing the account controls off a 375px screen. */}
       <div className="flex min-w-0 flex-1 items-center gap-1">
         <MobileNav />
-        {pageTitle && (
-          <h1 className="truncate font-heading text-lg font-semibold text-foreground">
-            {pageTitle}
+        {title.text && (
+          <h1
+            key={title.text}
+            className={cn(
+              "truncate font-heading text-lg font-semibold text-foreground",
+              title.changed && "motion-appear",
+            )}
+          >
+            {title.text}
           </h1>
         )}
       </div>

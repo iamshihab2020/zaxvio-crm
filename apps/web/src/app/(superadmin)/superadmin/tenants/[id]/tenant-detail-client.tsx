@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   IconArrowLeft,
@@ -25,6 +25,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { cn } from "@/lib/utils";
 import { TenantStatusBadge } from "@/components/superadmin/tenants/tenant-status-badge";
 import { ImpersonateDialog } from "@/components/superadmin/tenants/impersonate-dialog";
 import { ExtendTrialDialog } from "@/components/superadmin/tenants/extend-trial-dialog";
@@ -109,6 +111,33 @@ function InfoRow({
   );
 }
 
+function formatCount(n: number): string {
+  return String(n);
+}
+
+/**
+ * True for 1.5s after `key` changes, never on the first render.
+ *
+ * The edit, trial and override dialogs all end in `router.refresh()`, so the
+ * new values arrive as props some time after the dialog closes. Watching the
+ * values rather than the dialog's success callback flashes the card when the
+ * change is actually on screen, not before the server has answered.
+ */
+function useChangeFlash(key: string): boolean {
+  const [flashing, setFlashing] = useState(false);
+  const previous = useRef(key);
+
+  useEffect(() => {
+    if (previous.current === key) return;
+    previous.current = key;
+    setFlashing(true);
+    const timer = setTimeout(() => setFlashing(false), 1500);
+    return () => clearTimeout(timer);
+  }, [key]);
+
+  return flashing;
+}
+
 function StatCard({
   icon: Icon,
   label,
@@ -116,7 +145,7 @@ function StatCard({
 }: {
   icon: React.ComponentType<{ className?: string }>;
   label: string;
-  value: string | number;
+  value: number;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-4">
@@ -124,7 +153,9 @@ function StatCard({
         <Icon className="h-5 w-5 text-admin-accent" />
       </div>
       <div>
-        <p className="font-heading text-xl font-bold">{value}</p>
+        <p className="font-heading text-xl font-bold">
+          <AnimatedNumber value={value} format={formatCount} />
+        </p>
         <p className="text-xs text-muted-foreground font-body">{label}</p>
       </div>
     </div>
@@ -168,8 +199,23 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
     .filter(Boolean)
     .join(", ");
 
+  // Which card just changed, so the reader can see what the dialog did.
+  const contactFlash = useChangeFlash(
+    [tenant.businessName, tenant.ownerName, tenant.email, tenant.phone, tenant.slug, address].join("|"),
+  );
+  const trialFlash = useChangeFlash(String(tenant.trialEndsAt));
+  const subscriptionFlash = useChangeFlash(
+    [
+      tenant.isActive,
+      tenant.subscription?.status,
+      tenant.subscription?.planName,
+      tenant.subscription?.mrr,
+      tenant.subscription?.currentPeriodEnd,
+    ].join("|"),
+  );
+
   return (
-    <section className="flex flex-col min-h-[calc(100dvh-3.5rem)] bg-surface">
+    <section data-stagger className="flex flex-col min-h-[calc(100dvh-3.5rem)] bg-surface">
       {/* Header. The title block and the six actions stack until `xl`: side by
           side they need about 950px, which only the content area at `xl` and up
           has once the rail is taking 240px. */}
@@ -302,7 +348,7 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Left panel — Info */}
               <div className="w-full lg:w-80 shrink-0 space-y-4">
-                <Card>
+                <Card className={cn(contactFlash && "motion-highlight")}>
                   <CardHeader className="pb-3">
                     <CardTitle className="font-heading text-sm font-semibold text-muted-foreground uppercase tracking-wider">
                       Contact Info
@@ -343,7 +389,7 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
                     reason as the tiles above. */}
                 <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
                   {/* Trial Details */}
-                  <Card className="flex flex-col">
+                  <Card className={cn("flex flex-col", trialFlash && "motion-highlight")}>
                     <CardHeader className="pb-3">
                       <CardTitle className="font-heading text-base font-semibold">
                         Trial Details
@@ -405,7 +451,7 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
                   </Card>
 
                   {/* Subscription Details */}
-                  <Card>
+                  <Card className={cn(subscriptionFlash && "motion-highlight")}>
                     <CardHeader className="pb-3">
                       <CardTitle className="font-heading text-base font-semibold">
                         Subscription
@@ -427,7 +473,7 @@ export function TenantDetailClient({ tenant }: { tenant: TenantDetail }) {
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground font-body">MRR</span>
                             <span className="font-heading font-bold text-emerald-600 dark:text-emerald-400">
-                              {formatCurrency(tenant.subscription.mrr)}
+                              <AnimatedNumber value={tenant.subscription.mrr} format={formatCurrency} />
                             </span>
                           </div>
                           <div className="flex items-center justify-between">

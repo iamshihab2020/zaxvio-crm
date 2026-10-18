@@ -62,6 +62,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { StageLifecycle } from "@/lib/constants/stage-lifecycle";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
 
 interface PipelineStageWithCount {
   id: string;
@@ -191,16 +193,23 @@ interface PipelineStagesDialogProps {
 
 function SortableStageRow({
   stage,
+  highlight,
   onUpdate,
   onMark,
   onDelete,
 }: {
   stage: PipelineStageWithCount;
+  /** Just added: wears the highlight wash once. */
+  highlight: boolean;
   onUpdate: (id: string, data: StageEdit) => void;
   onMark: (id: string, mark: StageMark) => void;
   onDelete: (id: string) => void;
 }) {
   const mark = markOf(stage.lifecycle);
+  // Marking a stage as the one that completes or cancels is the change worth
+  // pointing at, so its badge pops as it appears.
+  const markBadgeRef = useRef<HTMLSpanElement>(null);
+  useReplayOnChange(markBadgeRef, mark, "motion-pop");
   const {
     attributes,
     listeners,
@@ -244,6 +253,7 @@ function SortableStageRow({
       className={cn(
         "rounded-md border border-border bg-card px-3 py-2",
         isDragging && "shadow-lg ring-2 ring-brand/30",
+        highlight && "motion-highlight",
       )}
     >
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 sm:flex-nowrap sm:gap-3">
@@ -338,6 +348,7 @@ function SortableStageRow({
       {/* Only a marked stage says anything; the rest stay quiet. */}
       {mark !== "none" && (
         <span
+          ref={markBadgeRef}
           className={cn(
             "shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-body font-medium",
             MARK_META[mark].className,
@@ -395,6 +406,13 @@ export function PipelineStagesDialog({
   const [newLabel, setNewLabel] = useState("");
   const [newColor, setNewColor] = useState("gray");
   const newInputRef = useRef<HTMLInputElement>(null);
+
+  // A stage added while the dialog is open wears the highlight once. The
+  // baseline is whatever the dialog opened with.
+  const fresh = useNewIds(
+    localStages.map((s) => s.id),
+    open,
+  );
 
   // Sync from parent
   useEffect(() => {
@@ -570,7 +588,7 @@ export function PipelineStagesDialog({
         </DialogHeader>
 
         {!hasCompletedStage && localStages.length > 0 && (
-          <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+          <div className="motion-arrive flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2">
             <IconAlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
             <p className="text-xs font-body text-amber-700 dark:text-amber-400">
               No stage completes a job, so work in this pipeline can never
@@ -593,6 +611,7 @@ export function PipelineStagesDialog({
                 <SortableStageRow
                   key={stage.id}
                   stage={stage}
+                  highlight={fresh.has(stage.id)}
                   onUpdate={handleUpdate}
                   onMark={handleMark}
                   onDelete={handleDelete}
@@ -604,7 +623,7 @@ export function PipelineStagesDialog({
 
         {/* Add stage form */}
         {adding ? (
-          <div className="space-y-2 pt-1">
+          <div className="motion-arrive space-y-2 pt-1">
           <div className="flex flex-wrap items-center gap-2 sm:flex-nowrap">
             {/* Color picker for new stage */}
             <Popover>

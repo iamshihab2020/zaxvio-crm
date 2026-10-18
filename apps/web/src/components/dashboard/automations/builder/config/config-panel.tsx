@@ -122,14 +122,12 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
         "lg:relative max-lg:absolute max-lg:inset-y-0 max-lg:right-0 max-lg:z-20",
         // `!` because the live width is an inline style. Only while open, so
         // the closed state still collapses to zero.
+        //
+        // No width transition: width is layout, and animating it re-laid-out the
+        // canvas every frame while the panel opened. The panel takes its width at
+        // once and its content fades in (below), which is also why a drag
+        // resize never had to suppress an animation.
         open && "max-md:!w-full",
-        // The open/close animation is suppressed **while dragging** — a width
-        // transition during a drag lags the pointer by its own duration, which
-        // feels like the panel is resisting. Also suppressed until mounted, so
-        // the saved width does not visibly animate in from the default.
-        panel.isResizing || !panel.mounted
-          ? ""
-          : "transition-[width] duration-200 ease-out motion-reduce:transition-none",
         !open && "border-l-0",
       )}
     >
@@ -161,11 +159,14 @@ export function ConfigPanel({ workflowId, readOnly }: Props) {
 
       {node && definition && (
         <div
+          // Keyed on the step: selecting another one mounts a fresh form (no
+          // field state carried over from the last step) that fades in, which is
+          // also how the panel itself arrives on first open.
+          key={node.id}
           style={{ width: panel.width }}
-          // Pinned to the viewport width on a phone, as it is pinned to the
-          // saved width elsewhere, so the form does not reflow while the shell
-          // animates open.
-          className="flex flex-1 flex-col overflow-hidden max-md:!w-screen"
+          // Pinned to the saved width, and to the viewport on a phone, so the
+          // form lays out at its real width from the first frame.
+          className="motion-appear flex flex-1 flex-col overflow-hidden max-md:!w-screen"
         >
           <Header
             label={draftLabel}

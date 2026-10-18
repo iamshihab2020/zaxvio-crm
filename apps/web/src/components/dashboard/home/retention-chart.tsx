@@ -3,11 +3,13 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type { DashboardRetentionPoint } from "@hvac-saas/types";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
 import { tokenColor } from "@/lib/constants/chart-palette";
 import { cn } from "@/lib/utils";
 import { ChartTooltipBox } from "./chart-tooltip";
+import { chartAnimation } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
 
 interface RetentionChartProps {
@@ -45,9 +47,10 @@ export function RetentionChart({ data }: RetentionChartProps) {
     latest && prev && prev.repeatRate > 0
       ? latest.repeatRate - prev.repeatRate
       : 0;
+  const anim = chartAnimation();
 
   return (
-    <Card className="flex h-full flex-col p-4 sm:p-6">
+    <Card data-widget="retention" className="flex h-full flex-col p-4 sm:p-6">
       <WidgetHeader
         title="Retention Rate"
         badge={<WidgetWindowBadge label="Last 6 months" />}
@@ -59,7 +62,11 @@ export function RetentionChart({ data }: RetentionChartProps) {
       />
       <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
         <span className="tnum font-heading text-2xl font-bold text-foreground">
-          {latest ? `${latest.repeatRate}%` : "—"}
+          {latest ? (
+            <AnimatedNumber value={latest.repeatRate} format={(n) => `${n}%`} />
+          ) : (
+            "—"
+          )}
         </span>
         {latest && prev && (
           <span
@@ -106,6 +113,7 @@ export function RetentionChart({ data }: RetentionChartProps) {
               fill={BAR_COLOR}
               radius={[4, 4, 0, 0]}
               maxBarSize={40}
+              {...anim}
             />
           </BarChart>
         </ResponsiveContainer>

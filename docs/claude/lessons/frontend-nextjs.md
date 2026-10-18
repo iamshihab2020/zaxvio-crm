@@ -971,3 +971,47 @@ From [[bookings-calendar|the report]] — the front-end half.
   templates) and the API's react-pdf invoices/quotes hard-coded the old orange `#E8652D` in ~30
   places. A rebrand isn't done until `grep` for the old hex across `packages/` and `apps/api`
   is empty.
+
+## Motion foundation (2026-10-18)
+
+- **Radix only plays an exit if it can see a CSS animation.** Its `Presence` unmounts portal
+  content the moment `open` turns false unless the element has a running CSS `animation`. The
+  dialog, alert-dialog and sheet exits were `motion` springs inside `AnimatePresence`, so they
+  never played at all. Overlay enter/exit belongs in CSS (tailwindcss-animate) on Radix.
+- **Centre an animated dialog with the `translate` property, not `transform`.** The zoom
+  keyframes write `transform`, which wipes a `-translate-x-1/2 -translate-y-1/2` centring.
+  `[translate:-50%_-50%]` is a separate property and composes with the keyframes.
+- **animate-ui's Tabs wrote `opacity:0; filter:blur(4px)` into the server HTML**, so the first
+  panel was invisible until hydration, and it left `filter: blur(0px)` behind, which turns the
+  panel into a containing block for `position: fixed` children. Override the primitive's
+  `initial` so the first panel is at rest, and never leave a `filter` on a resting element.
+- **A stagger key is the whole API.** `useStagger` keys on what is SHOWN (page, filter, tab),
+  `null` while loading, never the data array: a background refetch would otherwise replay the
+  entrance every 30 seconds.
+
+## Animating every page (2026-10-18)
+
+- **A route-change hook can't see a page behind `loading.tsx`.** On an uncached visit the
+  pathname changes while the skeleton is on screen; the real page arrives a round trip later.
+  `useRouteArrival` now watches `<main>` with a MutationObserver for a few seconds after a
+  navigation and staggers `data-stagger` blocks that mount late. The observer's callback runs
+  before the next paint, so the late block is never shown at rest first.
+- **A CSS animation class on server-rendered markup plays on page load.** A draw-in or pop on
+  SSR content needs a "came by client navigation" gate, not a mount check.
+- **Recharts restarts a `Pie` whenever its children aren't shallow-equal.** A fresh `data` array
+  or an inline `content={<Tooltip />}` replays every pie on each refetch. Memoise pie data and
+  hoist tooltip elements; Area/Bar/Line charts only replay when the root `data` changes.
+- **Stagger table rows with opacity only.** `ui/table` wraps `<table>` in an `overflow-auto`
+  box exactly its height, so a row starting 6px low makes a scrollbar flash for the length of the
+  animation (and reflows the table on Windows).
+- **A stagger key must treat placeholder data as not ready** (`isPlaceholderData` → `null`), or
+  the previous page's rows animate just before being replaced.
+- **Mutation hooks don't await invalidation**, so a "just created" row mounts only when the
+  refetch lands. Hold the highlight id for ~3s, longer than the animation.
+- **A save handler that toasts and resolves breaks feedback.** `EditableField` played its
+  "saved" wash over a refused job-field save because `handleFieldSave` toasted the error and
+  returned normally. Throw `new Error(message)` and let the field show the one toast and shake.
+- **Several agents wrote the same small hook.** "Did this mount by client navigation?" now
+  exists twice (`superadmin/use-arrived-by-navigation.ts`, `settings/use-arrival-stagger.ts`),
+  and "flash a changed row" three ways (`use-row-flash`, `use-new-ids`, `useChangeFlash`).
+  Consolidate before adding a fourth.

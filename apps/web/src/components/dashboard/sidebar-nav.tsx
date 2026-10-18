@@ -25,7 +25,7 @@ import {
   readJobsPipeline,
 } from "@/lib/jobs-pipeline-preference";
 import { Button } from "@/components/ui/button";
-import { SidebarNavItem } from "./sidebar-nav-item";
+import { SidebarNavItem, RAIL_INDICATOR_ID } from "./sidebar-nav-item";
 
 /**
  * The navigation itself, separate from the chrome around it.
@@ -117,6 +117,13 @@ interface SidebarNavProps {
   useTooltip: boolean;
   /** Called when any link in the nav is activated, so a drawer can close itself. */
   onNavigate?: () => void;
+  /**
+   * Layout id of the active-item indicator, which glides between the items that
+   * share it. Each container that can be mounted alongside another needs its
+   * own: the rail keeps the default and the phone drawer passes a different one,
+   * because a shared id would let the highlight fly between the two.
+   */
+  indicatorId?: string;
 }
 
 export function SidebarNav({
@@ -124,6 +131,7 @@ export function SidebarNav({
   collapsedRail,
   useTooltip,
   onNavigate,
+  indicatorId = RAIL_INDICATOR_ID,
 }: SidebarNavProps) {
   const pathname = usePathname();
 
@@ -221,6 +229,7 @@ export function SidebarNav({
             showLabel={expanded}
             useTooltip={useTooltip}
             badge={item.badge}
+            indicatorId={indicatorId}
           />
         );
       })}
@@ -254,6 +263,7 @@ export function SidebarNav({
                       isCollapsed
                       showLabel={false}
                       useTooltip={useTooltip}
+                      indicatorId={indicatorId}
                     />
                   );
                 })}
@@ -308,6 +318,7 @@ export function SidebarNav({
                     showLabel
                     useTooltip={false}
                     badge={item.badge}
+                    indicatorId={indicatorId}
                   />
                 );
               })}

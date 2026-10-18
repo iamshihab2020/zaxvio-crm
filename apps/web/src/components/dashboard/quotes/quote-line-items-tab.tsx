@@ -26,6 +26,11 @@ import {
   IconLink,
 } from "@tabler/icons-react";
 import { ITEM_TYPE_LABELS } from "@/lib/constants/job-options";
+import { cn } from "@/lib/utils";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { useRowFlash } from "@/hooks/use-row-flash";
+import { useFormShake } from "@/hooks/use-form-shake";
 import {
   addQuoteLineItem,
   updateQuoteLineItem,
@@ -77,6 +82,8 @@ const emptyForm: AddForm = {
   catalogUnitPrice: null,
 };
 
+const formatDollars = (value: number) => `$${value.toFixed(2)}`;
+
 export function QuoteLineItemsTab({
   quoteId,
   lineItems,
@@ -89,6 +96,12 @@ export function QuoteLineItemsTab({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<AddForm>(emptyForm);
 
+  // A line that arrives after the first render is washed, and so is one just
+  // edited. A refused add shakes the form; the toast says why.
+  const fresh = useNewIds(lineItems.map((li) => li.id));
+  const { flashId, flash } = useRowFlash();
+  const { ref: addFormRef, shake } = useFormShake<HTMLDivElement>();
+
   const subtotal = lineItems.reduce(
     (sum, li) => sum + parseFloat(li.total ?? "0"),
     0,
@@ -97,6 +110,7 @@ export function QuoteLineItemsTab({
   async function handleAdd() {
     if (!form.unitPrice.trim()) {
       toast.error("A price is required");
+      shake();
       return;
     }
     setSaving(true);
@@ -146,6 +160,7 @@ export function QuoteLineItemsTab({
     if (result.error) {
       toast.error(result.error);
     } else {
+      flash(editingId);
       setEditingId(null);
       onUpdate();
     }
@@ -184,7 +199,7 @@ export function QuoteLineItemsTab({
       <QuickPriceInput onAdd={handleQuickPrice} className="mb-3" />
 
       {lineItems.length === 0 && !showAdd && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
+        <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
             <IconPackage className="h-5 w-5 text-brand" />
           </div>
@@ -224,7 +239,7 @@ export function QuoteLineItemsTab({
               <tbody>
                 {lineItems.map((li) =>
                   editingId === li.id ? (
-                    <tr key={li.id} className="border-b border-border">
+                    <tr key={li.id} className="motion-appear border-b border-border">
                       <td colSpan={isDraft ? 5 : 4} className="px-2 py-2">
                         <div className="space-y-2">
                           <CatalogItemPicker
@@ -309,7 +324,10 @@ export function QuoteLineItemsTab({
                   ) : (
                     <tr
                       key={li.id}
-                      className="border-b border-border last:border-0"
+                      className={cn(
+                        "border-b border-border last:border-0",
+                        (fresh.has(li.id) || li.id === flashId) && "motion-highlight",
+                      )}
                     >
                       <td className="px-3 py-2 font-body">
                         <div className="flex items-center gap-1.5 text-foreground">
@@ -373,7 +391,7 @@ export function QuoteLineItemsTab({
               Subtotal
             </span>
             <span className="text-sm font-semibold text-foreground font-body">
-              ${subtotal.toFixed(2)}
+              <AnimatedNumber value={subtotal} format={formatDollars} />
             </span>
           </div>
         </div>
@@ -381,7 +399,7 @@ export function QuoteLineItemsTab({
 
       {/* Add line item form */}
       {isDraft && showAdd && (
-        <div className="mt-3 rounded-md border border-border p-3 space-y-2">
+        <div ref={addFormRef} className="motion-arrive mt-3 rounded-md border border-border p-3 space-y-2">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
               From catalog (optional)

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { IconBriefcase, IconCalendar } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/reusable/pagination";
 import { getJobs } from "@/lib/client-reads/jobs";
+import { useStagger } from "@/hooks/use-stagger";
 import {
   JOB_STATUS_COLORS,
   JOB_PRIORITY_LABELS,
@@ -71,6 +72,11 @@ export function CustomerJobsTab({ customerId }: CustomerJobsTabProps) {
     });
   }, [customerId, page]);
 
+  // Rows rise in when a page arrives. `loading` is true across every page turn,
+  // so the key is `null` while waiting and the page number once rows exist.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, loading ? null : page);
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -83,7 +89,7 @@ export function CustomerJobsTab({ customerId }: CustomerJobsTabProps) {
 
   if (jobs.length === 0 && page === 1) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
           <IconBriefcase className="h-5 w-5 text-brand" />
         </div>
@@ -128,7 +134,7 @@ export function CustomerJobsTab({ customerId }: CustomerJobsTabProps) {
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={bodyRef}>
               {jobs.map((job) => {
                 const statusColors =
                   JOB_STATUS_COLORS[job.status] ?? JOB_STATUS_COLORS.scheduled;
@@ -153,7 +159,7 @@ export function CustomerJobsTab({ customerId }: CustomerJobsTabProps) {
                 return (
                   <tr
                     key={job.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
+                    className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer transition-colors duration-200"
                     onClick={() => router.push(`/jobs/${job.id}`)}
                   >
                     <td className="px-3 py-2 font-medium font-body">

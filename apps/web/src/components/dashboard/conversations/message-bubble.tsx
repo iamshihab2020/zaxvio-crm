@@ -4,6 +4,8 @@ import type { Message } from "@/actions/conversations";
 
 interface MessageBubbleProps {
   message: Message;
+  /** The message arrived while the thread was open: rise into place once. */
+  arrive?: boolean;
 }
 
 function formatTime(iso: string) {
@@ -13,11 +15,15 @@ function formatTime(iso: string) {
   });
 }
 
-export function MessageBubble({ message }: MessageBubbleProps) {
+export function MessageBubble({ message, arrive = false }: MessageBubbleProps) {
   const isOutbound = message.direction === "outbound";
 
   return (
-    <div className={`flex flex-col gap-1 ${isOutbound ? "items-end" : "items-start"}`}>
+    <div
+      className={`flex flex-col gap-1 ${isOutbound ? "items-end" : "items-start"}${
+        arrive ? " motion-arrive" : ""
+      }`}
+    >
       <div
         className={`max-w-[85%] px-4 py-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] sm:max-w-[75%] ${
           isOutbound

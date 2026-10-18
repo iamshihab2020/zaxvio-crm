@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageActions } from "@/components/dashboard/page-actions";
 import { format, parseISO, subYears } from "date-fns";
 import type { DateRange } from "react-day-picker";
@@ -36,7 +36,6 @@ import { CustomersTab } from "@/components/dashboard/reports/customers-tab";
 import { QuotesInvoicesTab } from "@/components/dashboard/reports/quotes-invoices-tab";
 import { BookingsTab } from "@/components/dashboard/reports/bookings-tab";
 import { ProfitabilityTab } from "@/components/dashboard/reports/profitability-tab";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 
 const TABS: { value: ReportSection; label: string; icon: typeof IconCash }[] = [
   { value: "revenue", label: "Revenue", icon: IconCash },
@@ -150,6 +149,17 @@ export function ReportsPageClient({
     [saveRange],
   );
 
+  // Content that replaces a skeleton fades in (`motion-appear`). Content that
+  // was already there does not: not the server's HTML on a full page load (it
+  // would fade in what the reader is looking at), and not a tab whose data was
+  // cached (the tab panel's own arrival covers that). So the fade is for the
+  // one render where this commit has content and the last one did not.
+  const hadContent = useRef(current !== null);
+  const replacedSkeleton = current !== null && !hadContent.current;
+  useEffect(() => {
+    hadContent.current = current !== null;
+  });
+
   if (isLoading && !report) {
     return (
       <section className="p-4 sm:p-6">
@@ -179,7 +189,7 @@ export function ReportsPageClient({
       {/* `max-md:mb-4`: below `md` PageActions renders the picker here instead
           of in the navbar, and it needs the same gap the tab row keeps. From
           `md` this wrapper is empty, so it must not add space. */}
-      <Fade inView inViewOnce delay={0} className="max-md:mb-4">
+      <div className="max-md:mb-4">
         {/* The range governs every tab, so it stays with the page title.
             Export produces the *current* tab's CSV, so it sits with the tabs. */}
         <PageActions>
@@ -189,43 +199,43 @@ export function ReportsPageClient({
             extraPresets={EXTRA_PRESETS}
           />
         </PageActions>
-      </Fade>
+      </div>
 
       <Tabs
         value={activeTab}
         onValueChange={(v) => setActiveTab(v as ReportSection)}
       >
-        <Fade inView inViewOnce delay={80}>
-          <div className="mb-4 flex items-center justify-between gap-2 sm:gap-4">
-            <div className="min-w-0 flex-1 overflow-x-auto">
-              <TabsList>
-                {TABS.map((tab) => (
-                  <TabsTrigger key={tab.value} value={tab.value}>
-                    <tab.icon className="h-3.5 w-3.5" aria-hidden />
-                    {tab.label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </div>
-            <div className="shrink-0 pb-1">
-              <ExportCsvButton report={current} />
-            </div>
+        <div className="mb-4 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="min-w-0 flex-1 overflow-x-auto">
+            <TabsList>
+              {TABS.map((tab) => (
+                <TabsTrigger key={tab.value} value={tab.value}>
+                  <tab.icon className="h-3.5 w-3.5" aria-hidden />
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
           </div>
-        </Fade>
+          <div className="shrink-0 pb-1">
+            <ExportCsvButton report={current} />
+          </div>
+        </div>
 
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value} className="mt-0">
             {!current ? (
               <ReportsTabSkeleton />
             ) : (
-              <Fade
-                inView
-                inViewOnce
-                key={`${current.section}-${current.range.from}-${current.range.to}`}
-                delay={0}
-              >
-                <ReportSectionView report={current} />
-              </Fade>
+              // The tab stays mounted across a date-range change, so what moves
+              // is its content: figures count, charts redraw, table rows re-lay.
+              // (It used to be re-keyed on the range, which remounted the lot
+              // and faded it in.)
+              <div className={replacedSkeleton ? "motion-appear" : undefined}>
+                <ReportSectionView
+                  report={current}
+                  viewKey={`${current.section}:${current.range.from}:${current.range.to}`}
+                />
+              </div>
             )}
           </TabsContent>
         ))}
@@ -239,14 +249,33 @@ export function ReportsPageClient({
  * five-key map in which four keys were `null` by construction, then switched
  * over *that* — pure indirection that also hid five `as` casts over an `any`.
  */
-function ReportSectionView({ report }: { report: ReportSectionResponse }) {
+function ReportSectionView({
+  report,
+  viewKey,
+}: {
+  report: ReportSectionResponse;
+  /** Which section and range these rows belong to, for the tables to re-lay on. */
+  viewKey: string;
+}) {
   switch (report.section) {
     case "revenue":
-      return <RevenueTab data={report.data} granularity={report.granularity} />;
+      return (
+        <RevenueTab
+          data={report.data}
+          granularity={report.granularity}
+          viewKey={viewKey}
+        />
+      );
     case "jobs":
       return <JobsTab data={report.data} granularity={report.granularity} />;
     case "customers":
-      return <CustomersTab data={report.data} granularity={report.granularity} />;
+      return (
+        <CustomersTab
+          data={report.data}
+          granularity={report.granularity}
+          viewKey={viewKey}
+        />
+      );
     case "quotes-invoices":
       return (
         <QuotesInvoicesTab data={report.data} granularity={report.granularity} />
@@ -256,7 +285,7 @@ function ReportSectionView({ report }: { report: ReportSectionResponse }) {
     // No granularity: this section has no trend to bucket. It answers "over the
     // whole window", not "week by week".
     case "profitability":
-      return <ProfitabilityTab data={report.data} />;
+      return <ProfitabilityTab data={report.data} viewKey={viewKey} />;
     default: {
       const exhaustive: never = report;
       throw new Error(`Unhandled report section: ${String(exhaustive)}`);

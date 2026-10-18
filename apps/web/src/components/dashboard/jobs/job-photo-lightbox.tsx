@@ -90,10 +90,12 @@ export function JobPhotoLightbox({
 
         {/* Image */}
         <div className="flex items-center justify-center bg-black min-h-[40vh] max-h-[70vh] sm:min-h-[60vh] sm:max-h-[80vh]">
+          {/* Keyed on the photo so stepping through fades the next one in. */}
           <img
+            key={photo.id}
             src={photo.publicUrl}
             alt={photo.caption ?? "Photo"}
-            className="max-w-full max-h-[70vh] object-contain sm:max-h-[80vh]"
+            className="motion-appear max-w-full max-h-[70vh] object-contain sm:max-h-[80vh]"
           />
         </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import {
   Table,
   TableBody,
@@ -12,6 +13,7 @@ import { useTenantTimezone } from "@/hooks/queries/use-tenant";
 import { RunStatusBadge } from "./run-status-badge";
 import { elapsedMs, formatDuration, formatExact, formatRelative } from "./run-timing";
 import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
 import type { WorkflowRunSummary } from "@/actions/workflows";
 
 /**
@@ -32,10 +34,18 @@ import type { WorkflowRunSummary } from "@/actions/workflows";
 interface Props {
   runs: WorkflowRunSummary[];
   onOpen: (runId: string) => void;
+  /**
+   * Which rows are shown (filter and page), `null` while the previous ones are
+   * still on screen. The rows arrive in sequence when it changes. Never the
+   * runs themselves: a poll that updates a running row must not replay the table.
+   */
+  arrivalKey?: string | null;
 }
 
-export function RunListTable({ runs, onOpen }: Props) {
+export function RunListTable({ runs, onOpen, arrivalKey }: Props) {
   const timezone = useTenantTimezone();
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, arrivalKey);
 
   return (
     <div className="overflow-x-auto rounded-lg border border-border">
@@ -49,7 +59,7 @@ export function RunListTable({ runs, onOpen }: Props) {
             <TableHead className="hidden w-[90px] text-right md:table-cell">Took</TableHead>
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody ref={bodyRef}>
           {runs.map((run) => {
             const took = formatDuration(elapsedMs(run.startedAt, run.completedAt));
             return (

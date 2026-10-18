@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/popover";
 import { IconPlus, IconX, IconCheck } from "@tabler/icons-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import { getTags } from "@/lib/client-reads/tags";
 import { createTag } from "@/actions/tags";
 import { useAddCustomerTag, useRemoveCustomerTag } from "@/hooks/queries";
@@ -66,6 +67,25 @@ export function CustomerTagsInput({
   }, [open]);
 
   const assignedIds = new Set(assignedTags.map((t) => t.id));
+
+  // A chip pops in when it was not in the set rendered before it. The first
+  // render has no earlier set, so a customer opened with five tags pops none of
+  // them; only an add made while looking at the row does. An id stays in
+  // `poppedIds` so a re-render during the 200ms does not cut the animation, and
+  // the class is inert at rest. Removing a chip animates nothing.
+  const seenIds = useRef<Set<string> | null>(null);
+  const poppedIds = useRef(new Set<string>());
+  useEffect(() => {
+    seenIds.current = new Set(assignedTags.map((t) => t.id));
+  });
+  function isNewChip(id: string): boolean {
+    if (poppedIds.current.has(id)) return true;
+    if (seenIds.current && !seenIds.current.has(id)) {
+      poppedIds.current.add(id);
+      return true;
+    }
+    return false;
+  }
 
   // All tags matching the search (including assigned ones, for display)
   const matchingTags = allTags.filter((t) =>
@@ -126,7 +146,10 @@ export function CustomerTagsInput({
           <Badge
             key={tag.id}
             variant="secondary"
-            className="gap-1 pr-1 text-xs font-medium"
+            className={cn(
+              "gap-1 pr-1 text-xs font-medium",
+              isNewChip(tag.id) && "motion-pop",
+            )}
             style={
               tag.color
                 ? {

@@ -21,6 +21,8 @@ import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import {
   useCustomers,
   useCustomerStats,
@@ -159,6 +161,19 @@ export function CustomersPageClient({
   const loading = customersQuery.isLoading;
   const stats = statsQuery.data?.data ?? DEFAULT_STATS;
 
+  // The rows replay when WHICH rows are shown changes: page, view, sort, tag,
+  // search. `null` while loading, and while the previous list is held over as
+  // placeholder data for the next one, so the rows about to be replaced are
+  // never the ones that animate.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || customersQuery.isPlaceholderData
+      ? null
+      : `${page}:${viewFilter}:${sortBy}:${sortOrder}:${tagFilter?.id ?? ""}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
+
   // Prefetch next page
   useEffect(() => {
     if (pagination && page < pagination.totalPages) {
@@ -237,13 +252,22 @@ export function CustomersPageClient({
   function handleSave(data: CustomerFormData) {
     setError(null);
     if (editingCustomer) {
-      updateMutation.mutate({ id: editingCustomer.id, data }, {
-        onSuccess: (res) => { if (!res.error) setDialogOpen(false); },
+      const id = editingCustomer.id;
+      updateMutation.mutate({ id, data }, {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setDialogOpen(false);
+          flash(id);
+        },
       });
     } else {
       createMutation.mutate(data, {
         onSuccess: (res) => {
-          if (!res.error) { setDialogOpen(false); setPage(1); }
+          if (res.error) return;
+          setDialogOpen(false);
+          setPage(1);
+          const newId = res.data?.id;
+          if (typeof newId === "string") flash(newId);
         },
       });
     }
@@ -283,7 +307,7 @@ export function CustomersPageClient({
   const showNoResults = !loading && !loadFailed && !hasCustomers && isFiltered;
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {error && (
         <div className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
           {error}
@@ -330,7 +354,7 @@ export function CustomersPageClient({
                 />
                 {/* Tag filter chip — set by clicking a tag in the table (CUST-12). */}
                 {tagFilter && (
-                  <Badge variant="secondary" className="gap-1 whitespace-nowrap pr-1">
+                  <Badge variant="secondary" className="motion-pop gap-1 whitespace-nowrap pr-1">
                     Tagged &ldquo;{tagFilter.name}&rdquo;
                     {/* The visible target stays 16px. The pseudo-element is the
                         phone's 28×40px hit area, dropped from `sm` where a
@@ -376,7 +400,7 @@ export function CustomersPageClient({
           )}
 
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               {search
                 ? `No customers found matching “${search}”`
                 : tagFilter
@@ -403,6 +427,8 @@ export function CustomersPageClient({
               onToggleSelectAll={() => toggleAll(customers)}
               isAllSelected={isAllSelected(customers)}
               isIndeterminate={isIndeterminate(customers)}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
         </div>

@@ -217,7 +217,7 @@ export function DisplaySettingsPopover({
             {CARD_FIELD_DEFS.map((def) => (
               <label
                 key={def.key}
-                className="flex min-h-10 items-center justify-between rounded-md px-2 py-1 text-xs font-body hover:bg-muted/50 cursor-pointer sm:min-h-0"
+                className="flex min-h-10 items-center justify-between rounded-md px-2 py-1 text-xs font-body transition-colors duration-200 hover:bg-muted/50 cursor-pointer sm:min-h-0"
               >
                 <span className="text-foreground">{def.label}</span>
                 <Switch

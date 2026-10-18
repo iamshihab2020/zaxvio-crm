@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { IconMail, IconMessage } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { useFormShake } from "@/hooks/use-form-shake";
 import {
   CustomerPicker,
   type CustomerSelection,
@@ -36,10 +37,12 @@ export function NewConversationDialog({
   const [channel, setChannel] = useState<"email" | "sms">("email");
   const [subject, setSubject] = useState("");
   const [error, setError] = useState("");
+  const { ref: fieldsRef, shake } = useFormShake<HTMLDivElement>();
 
   function handleConfirm() {
     if (!customer || customer.type !== "existing") {
       setError("Please select an existing customer.");
+      shake();
       return;
     }
     if (channel === "sms") return; // blocked by UI
@@ -64,7 +67,7 @@ export function NewConversationDialog({
           <DialogTitle>New Conversation</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div ref={fieldsRef} className="space-y-4 py-2">
           {/* Customer picker */}
           <div className="space-y-1.5">
             <Label>Customer</Label>
@@ -114,7 +117,7 @@ export function NewConversationDialog({
 
           {/* Subject (email only) */}
           {channel === "email" && (
-            <div className="space-y-1.5">
+            <div className="motion-appear space-y-1.5">
               <Label>Subject (optional)</Label>
               <Input
                 value={subject}

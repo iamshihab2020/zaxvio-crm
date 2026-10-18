@@ -72,7 +72,7 @@ export function RunDetailSheet({ workflowId, runId, onOpenChange }: Props) {
           )}
 
           {run && (
-            <div className="space-y-5">
+            <div className="motion-appear space-y-5">
               <dl className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/40 p-3">
                 <Field label="Status">
                   <RunStatusBadge status={run.status} />
@@ -137,7 +137,7 @@ export function RunDetailSheet({ workflowId, runId, onOpenChange }: Props) {
 
               <div>
                 <h3 className="mb-2 font-heading text-sm font-semibold">Steps</h3>
-                <RunStepList steps={run.steps} />
+                <RunStepList steps={run.steps} arrivalKey={run.id} />
               </div>
             </div>
           )}

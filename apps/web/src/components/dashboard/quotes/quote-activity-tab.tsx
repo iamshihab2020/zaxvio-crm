@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getQuoteActivities } from "@/lib/client-reads/quotes";
+import { useStagger } from "@/hooks/use-stagger";
 import {
   IconFilePlus,
   IconEdit,
@@ -66,6 +67,11 @@ export function QuoteActivityTab({ quoteId, refreshKey }: QuoteActivityTabProps)
     });
   }, [quoteId, refreshKey]);
 
+  // The timeline lays itself down each time it finishes loading (it shows a
+  // skeleton on every refresh), so the key is only `null` while waiting.
+  const listRef = useRef<HTMLDivElement>(null);
+  useStagger(listRef, loading ? null : quoteId);
+
   if (loading) {
     return (
       <div className="space-y-4 py-2">
@@ -84,7 +90,7 @@ export function QuoteActivityTab({ quoteId, refreshKey }: QuoteActivityTabProps)
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
           <IconActivity className="h-5 w-5 text-brand" />
         </div>
@@ -99,7 +105,7 @@ export function QuoteActivityTab({ quoteId, refreshKey }: QuoteActivityTabProps)
   }
 
   return (
-    <div className="space-y-0">
+    <div ref={listRef} className="space-y-0">
       {activities.map((activity, idx) => (
         <div
           key={activity.id}

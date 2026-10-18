@@ -9,6 +9,8 @@ import { IconUser } from "@tabler/icons-react";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { authClient } from "@/lib/auth-client";
+import { useFormShake } from "@/hooks/use-form-shake";
+import { useRowFlash } from "@/hooks/use-row-flash";
 
 interface ProfileFormProps {
   user: {
@@ -24,6 +26,8 @@ export function ProfileForm({ user }: ProfileFormProps) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [saving, setSaving] = useState(false);
+  const { ref: formRef, shake } = useFormShake();
+  const { flashId, flash } = useRowFlash();
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -44,6 +48,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
         const result = await authClient.updateUser({ name });
         if (result.error) {
           setMessage({ type: "error", text: result.error.message ?? "Failed to update name" });
+          shake();
           setSaving(false);
           return;
         }
@@ -57,6 +62,7 @@ export function ProfileForm({ user }: ProfileFormProps) {
             type: "error",
             text: result.error.message ?? "Failed to update email",
           });
+          shake();
           setSaving(false);
           return;
         }
@@ -64,11 +70,14 @@ export function ProfileForm({ user }: ProfileFormProps) {
           type: "success",
           text: "Profile updated. A verification email has been sent to your new email address.",
         });
+        flash("saved");
       } else {
         setMessage({ type: "success", text: "Profile updated successfully." });
+        flash("saved");
       }
     } catch {
       setMessage({ type: "error", text: "An unexpected error occurred." });
+      shake();
     }
 
     setSaving(false);
@@ -88,8 +97,9 @@ export function ProfileForm({ user }: ProfileFormProps) {
       icon={IconUser}
       title="Profile Information"
       description="Update your personal information."
+      flash={flashId === "saved"}
     >
-      <form onSubmit={handleSave} className="space-y-4">
+      <form ref={formRef} onSubmit={handleSave} className="space-y-4">
         {/* Avatar */}
         <div className="flex items-center gap-4">
           <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-brand/20 bg-brand/10 text-brand-ink font-heading text-2xl font-bold">

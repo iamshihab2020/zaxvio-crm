@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useShakeOnError } from "@/components/superadmin/use-shake-on-error";
 import { Label } from "@/components/ui/label";
 import {
   Popover,
@@ -54,6 +55,8 @@ export function OverrideSubscriptionDialog({
   const [planName, setPlanName] = useState(currentPlan ?? "starter");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rejected submit shakes the form body, never the dialog (see the hook).
+  const shakeRef = useShakeOnError<HTMLDivElement>(error);
   const [statusOpen, setStatusOpen] = useState(false);
   const [planOpen, setPlanOpen] = useState(false);
 
@@ -79,7 +82,7 @@ export function OverrideSubscriptionDialog({
             Override Subscription
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div ref={shakeRef} className="space-y-4">
           <p className="text-sm text-muted-foreground font-body">
             Override subscription for <strong>{tenantName}</strong>.
           </p>
@@ -139,7 +142,7 @@ export function OverrideSubscriptionDialog({
           </div>
 
           {error && (
-            <p className="text-sm text-destructive font-body">{error}</p>
+            <p className="motion-appear text-sm text-destructive font-body">{error}</p>
           )}
         </div>
         <DialogFooter className="max-sm:[&>button]:h-10">

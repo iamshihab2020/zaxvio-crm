@@ -45,7 +45,7 @@ export default async function DashboardLayout({
     <MotionProvider>
     <SidebarProvider>
       <div className="flex min-h-screen">
-        <Sidebar />
+        <Sidebar impersonating={isImpersonating} />
         <DashboardShell>
           {isImpersonating && <ImpersonationBar />}
           {!isImpersonating && (
@@ -70,7 +70,7 @@ export default async function DashboardLayout({
               navbar — the two are siblings, so a context is the only way for
               one to reach the other. */}
           <PageActionsProvider>
-            <Navbar />
+            <Navbar impersonating={isImpersonating} />
             <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
               {/* Inside the scroll flow so it can pin, and above the page's own
                   content so a running timer is the first thing on screen. It

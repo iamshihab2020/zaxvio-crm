@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import * as RadioGroupPrimitive from "@radix-ui/react-radio-group";
-import { motion, AnimatePresence } from "motion/react";
 import { cn } from "@/lib/utils";
 
 const RadioGroup = React.forwardRef<
@@ -24,24 +23,18 @@ const RadioGroupItem = React.forwardRef<
   <RadioGroupPrimitive.Item
     ref={ref}
     className={cn(
-      "aspect-square h-4 w-4 rounded-full border border-primary text-primary shadow focus:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+      "group/radio aspect-square h-4 w-4 rounded-full border border-primary text-primary shadow transition-[border-color,box-shadow] duration-200 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
       className,
     )}
     {...props}
   >
-    <RadioGroupPrimitive.Indicator asChild>
-      <AnimatePresence mode="wait">
-        <motion.span
-          className="flex items-center justify-center"
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0 }}
-          transition={{ type: "spring", stiffness: 500, damping: 30 }}
-        >
-          <span className="h-2 w-2 rounded-full bg-primary" />
-        </motion.span>
-      </AnimatePresence>
-    </RadioGroupPrimitive.Indicator>
+    {/* The dot is always rendered and the item's own `data-state` scales it in
+        and out. Mounting it from a Radix Indicator instead would replay the
+        entrance for a radio that is already checked when the form first
+        appears; a transition only runs on a change. */}
+    <span className="flex items-center justify-center">
+      <span className="h-2 w-2 scale-0 rounded-full bg-primary opacity-0 transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-data-[state=checked]/radio:scale-100 group-data-[state=checked]/radio:opacity-100 motion-reduce:transition-none" />
+    </span>
   </RadioGroupPrimitive.Item>
 ));
 RadioGroupItem.displayName = RadioGroupPrimitive.Item.displayName;

@@ -5,10 +5,12 @@ import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 
 import { IconChartBar } from "@tabler/icons-react";
 import type { DashboardServiceRevenue } from "@hvac-saas/types";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { formatCurrency } from "@/lib/format";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
 import { OTHER_COLOR, tokenColor } from "@/lib/constants/chart-palette";
 import { ChartTooltipBox } from "./chart-tooltip";
+import { chartAnimation } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
 
 interface RevenueByServiceChartProps {
@@ -73,22 +75,28 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
   }, [data]);
 
   const hasData = total > 0;
+  const anim = chartAnimation();
 
   return (
-    <Card className="flex h-full flex-col p-4 sm:p-6">
+    <Card data-widget="revenueByService" className="flex h-full flex-col p-4 sm:p-6">
       <WidgetHeader
         title="Revenue by Service"
         action={
           hasData && (
             <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
-              <span className="tnum font-mono">{formatCurrency(total)}</span> total
+              <AnimatedNumber
+                value={total}
+                format={formatCurrency}
+                className="font-mono"
+              />{" "}
+              total
             </span>
           )
         }
       />
 
       {!hasData ? (
-        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
+        <div className="motion-appear mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconChartBar className="h-5 w-5 text-brand" />
           </div>
@@ -124,7 +132,7 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
                 cursor={{ fill: "hsl(var(--muted) / 0.3)" }}
                 content={<ServiceTooltip total={total} />}
               />
-              <Bar dataKey="amount" radius={[0, 4, 4, 0]} maxBarSize={24}>
+              <Bar dataKey="amount" radius={[0, 4, 4, 0]} maxBarSize={24} {...anim}>
                 {rows.map((r, i) => (
                   <Cell key={i} fill={r.color} />
                 ))}

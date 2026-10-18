@@ -14,7 +14,9 @@ import {
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
+  type DropAnimation,
   type PointerSensorOptions,
+  defaultDropAnimationSideEffects,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import { toast } from "sonner";
@@ -28,6 +30,8 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useFillViewportHeight } from "@/hooks/use-fill-viewport-height";
+import { useStagger } from "@/hooks/use-stagger";
+import { DUR, EASE_OUT_CSS, prefersReducedMotion } from "@/lib/motion";
 
 interface PipelineStage {
   id: string;
@@ -73,6 +77,15 @@ interface KanbanBoardProps {
   members?: AssigneeMember[];
   onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
   onJobFieldChange?: (jobId: string, field: string, value: string) => void;
+  /**
+   * Which cards are on the board, for the column arrival stagger: the pipeline
+   * once its stages and jobs have both arrived, `null` while the board still
+   * shows the previous pipeline's. Never the jobs themselves, or every
+   * background refetch would replay it.
+   */
+  arrivalKey?: string | null;
+  /** A job that was just created or edited, to wear the highlight once. */
+  highlightJobId?: string | null;
 }
 
 export function KanbanBoard({
@@ -86,6 +99,8 @@ export function KanbanBoard({
   members,
   onAssigneeChange,
   onJobFieldChange,
+  arrivalKey,
+  highlightJobId,
 }: KanbanBoardProps) {
   const [localJobs, setLocalJobs] = useState<JobCardData[]>(jobs);
   const [activeJob, setActiveJob] = useState<JobCardData | null>(null);
@@ -95,6 +110,46 @@ export function KanbanBoard({
   const boardHeight = useFillViewportHeight(scrollRef);
   const pendingMoveRef = useRef(false);
   const snapshotRef = useRef<JobCardData[]>([]);
+
+  // Columns rise in turn when a pipeline's board arrives. Cards ride along with
+  // their column rather than each carrying a motion of its own: a 500-card
+  // board mounting 500 animated nodes was the cost of the old per-card version,
+  // and a card dropped into a column mounted with its own rise, which fought
+  // the drop settling into place.
+  const columnsRef = useRef<HTMLDivElement>(null);
+  useStagger(columnsRef, arrivalKey);
+
+  // The card that just changed stage by drag, to wear the highlight once in its
+  // new column. Cleared if the move is refused, or the card would flash in the
+  // column it was put back into.
+  const [movedJobId, setMovedJobId] = useState<string | null>(null);
+  const movedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flashMoved(jobId: string | null) {
+    if (movedTimer.current) clearTimeout(movedTimer.current);
+    setMovedJobId(jobId);
+    if (jobId) movedTimer.current = setTimeout(() => setMovedJobId(null), 1600);
+  }
+  useEffect(
+    () => () => {
+      if (movedTimer.current) clearTimeout(movedTimer.current);
+    },
+    [],
+  );
+  const flashId = movedJobId ?? highlightJobId ?? null;
+
+  // A dropped card settles into its slot instead of snapping: the overlay glides
+  // from where the pointer let go to the card's place, on the system curve, and
+  // the real card stays hidden until it lands. Read per render so a change to
+  // the reduced-motion setting applies to the next drop.
+  const dropAnimation: DropAnimation | null = prefersReducedMotion()
+    ? null
+    : {
+        duration: DUR.state,
+        easing: EASE_OUT_CSS,
+        sideEffects: defaultDropAnimationSideEffects({
+          styles: { active: { opacity: "0" } },
+        }),
+      };
 
   // Sync from parent when jobs change — skip if a move is pending
   if (jobs !== localJobs && !activeJob && !pendingMoveRef.current) {
@@ -350,12 +405,14 @@ export function KanbanBoard({
       // the notification and the activity row. /reorder only saves positions,
       // and only once the move itself is accepted.
       const targetJobs = localJobs.filter((j) => j.status === job.status);
+      flashMoved(activeId);
       updateJobStatus(activeId, {
         stageId: targetStage?.id,
         status: targetStage ? undefined : job.status,
       }).then((result) => {
         if (result.error) {
           pendingMoveRef.current = false;
+          flashMoved(null);
           setLocalJobs(snapshot);
           toast.error(result.error);
           return;
@@ -380,9 +437,12 @@ export function KanbanBoard({
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
-      <div className="relative" ref={scrollRef}>
+      {/* The board fades in when it replaces the skeleton or a view switch.
+          Opacity only: a transform here would offset dnd-kit's measurements. */}
+      <div className="motion-appear relative" ref={scrollRef}>
         <ScrollArea className="w-full" type="scroll">
           <div
+            ref={columnsRef}
             className={cn("flex gap-3 py-1 mx-[2px]", !activeJob && "cursor-grab active:cursor-grabbing")}
             style={{ height: boardHeight }}
             onMouseDown={handleMouseDown}
@@ -399,6 +459,7 @@ export function KanbanBoard({
                 members={members}
                 onAssigneeChange={onAssigneeChange}
                 onJobFieldChange={onJobFieldChange}
+                highlightJobId={flashId}
               />
             ))}
           </div>
@@ -406,17 +467,17 @@ export function KanbanBoard({
         </ScrollArea>
 
         {activeJob && canScrollLeft && (
-          <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 flex w-10 items-center justify-center bg-gradient-to-r from-background/90 to-transparent animate-pulse">
+          <div className="pointer-events-none absolute left-0 top-0 bottom-0 z-10 flex w-10 items-center justify-center bg-gradient-to-r from-background/90 to-transparent motion-appear">
             <IconChevronLeft className="h-5 w-5 text-muted-foreground" />
           </div>
         )}
         {activeJob && canScrollRight && (
-          <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 flex w-10 items-center justify-center bg-gradient-to-l from-background/90 to-transparent animate-pulse">
+          <div className="pointer-events-none absolute right-0 top-0 bottom-0 z-10 flex w-10 items-center justify-center bg-gradient-to-l from-background/90 to-transparent motion-appear">
             <IconChevronRight className="h-5 w-5 text-muted-foreground" />
           </div>
         )}
       </div>
-      <DragOverlay dropAnimation={null}>
+      <DragOverlay dropAnimation={dropAnimation}>
         {activeJob ? (
           <div className="w-[290px] p-2">
             {cardView === "compact" ? (

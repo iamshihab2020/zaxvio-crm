@@ -283,22 +283,47 @@ are signals: the emergency-priority pulse, the empty automation canvas's slow br
 assistant's typing dots while a reply is pending, and the impersonation bar's live dot. Each of
 the last two stops for reduced motion.
 
-**Motion vocabulary** (the MOTION SYSTEM block in `globals.css`, 2026-10-16). There is one
-curve, `--ease-out` (`cubic-bezier(0.16, 1, 0.3, 1)`), and four durations: `--dur-feedback`
-120ms, `--dur-state` 200ms, `--dur-arrive` 280ms, `--dur-focal` 700ms. New motion uses these.
-- **Route arrival.** Every dashboard, superadmin, blog and legal route rises 8px into place on
-  navigation, never on first paint. It is one hook, `useRouteArrival`, in the shells
-  (`PageContent`, `RouteStage`), so a new route inherits it. It uses no remount and leaves no
-  transform behind, so `position: fixed` children are never captured.
+**Motion vocabulary** (the MOTION SYSTEM block in `globals.css`, mirrored for scripts in
+`lib/motion.ts`; extended to every page and component on 2026-10-18). There is one curve,
+`--ease-out` (`cubic-bezier(0.16, 1, 0.3, 1)`), and five durations: `--dur-feedback` 120ms,
+`--dur-state` 200ms, `--dur-arrive` 280ms, `--dur-focal` 700ms, and `--dur-exit` 150ms for
+anything leaving. New motion uses these. Only `transform` and `opacity` move (plus colour
+transitions), and nothing animates on the first paint of a full page load: the page the reader
+asked for is already on screen.
+- **Route arrival, in sequence.** Every dashboard, superadmin, blog and legal route arrives on
+  navigation through one hook, `useRouteArrival`, in the shells (`PageContent`, `RouteStage`). A
+  page marks its top-level containers `data-stagger`, and their direct children rise 8px and fade
+  in one after another, 40ms apart and eight steps at most, while `<main>` only fades. A page
+  that streams in behind its `loading.tsx` arrives the same way when the content replaces the
+  skeleton. Unmarked pages rise as a whole. Nothing is left behind afterwards, so `position:
+  fixed` children are never captured.
+- **Data changing in place.** Lists, table bodies and grids enter row by row (`useStagger`, 20ms
+  apart, twelve at most) when what is shown changes: a page, a filter, a tab, a search. The key is
+  what is shown, never the data, so a background refetch never replays it. Table rows fade only,
+  because a rising row overflows the table's scroller. Content replacing a skeleton fades in
+  (`.motion-appear`). Figures that change (KPIs, totals, balances, counts) count to their new
+  value (`AnimatedNumber`, 600ms, tabular figures), never counting up from zero on a page load.
+- **Data visuals.** Charts draw in over 700ms on the ease-out curve when they first appear after a
+  navigation or when their data changes (`chartAnimation()`), and never under reduced motion. Bars
+  and meters are full-width fills scaled with `scaleX`/`scaleY` and drawn in by `.motion-grow-x/-y`,
+  staggered with `--enter-delay`; never an animated width.
+- **Overlays.** Dialogs, sheets, popovers, menus, selects, tooltips and hover cards enter and
+  leave in CSS (`.motion-overlay`, 200ms in and 150ms out; sheets 280ms in): Radix only plays an
+  exit it can see as a CSS animation. Tab panels fade and rise 4px when switched to. The sidebar's
+  active highlight glides between items.
+- **Actions.** Every `Button` presses to 98%. A created or edited row or card flashes the brand
+  tint once (`.motion-highlight`); a badge, chip or check that appears pops (`.motion-pop`); a
+  rejected form submit or save shakes once (`.motion-shake`, alongside the error text); an inline
+  form or a panel that opens after a click arrives (`.motion-arrive`); a dropped kanban card
+  settles into its column. Deletes have no exit choreography.
 - **Step travel.** In the booking portal the next step slides in from the direction of travel
-  (`.motion-step-forward` / `-back`) with no wait before it. In the quote portal, Respond and
-  Confirmation arrive (`.motion-arrive`), and both only ever mount after a click.
-- **Appearance in place.** An empty result or a load error fades in (`.motion-appear`, opacity
-  only, so it never stacks with a route arrival).
-- **Feedback.** Every `Button` presses to 98% (`active:scale-[0.98]`), with no scale under
-  reduced motion. The running-timer bar drops in once per timer (`.motion-drop-in`), not on every
-  route.
-- **Focal moment.** The landing day sheet's now-line, drawn once.
+  (`.motion-step-forward` / `-back`); conversations do the same between list and thread on a
+  phone. In the quote portal, Respond and Confirmation arrive only after a click.
+- **Feedback that already existed.** The running-timer bar drops in once per timer
+  (`.motion-drop-in`), not on every route. The landing day sheet's now-line is drawn once.
+- **Never.** No hover lifts or scale on cards, no animated width or height (the sidebar collapse
+  and its content offset are the one structural exception, and never run on page load), no
+  spinners, and no loops except the signals listed above.
 - **Reduced motion is fewer and gentler, not none.** Arrivals become fades. tailwindcss-animate
   overlays keep their fade and lose their zoom and slide through its `--tw-enter-*`/`--tw-exit-*`
   variables, never a global 0.01ms kill. The emergency pulse becomes a steady ring, so the state

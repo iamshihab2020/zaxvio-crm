@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { replayMotion } from "@/lib/motion";
 import { IconArrowLeft, IconUserPlus } from "@tabler/icons-react";
 
 export interface CustomerInfo {
@@ -34,6 +35,19 @@ export function BookingStepInfo({
 }: BookingStepInfoProps) {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
+  // The button is disabled until the form is valid, so the only rejected
+  // submit is the server's answer. Shake when a new error arrives, not when the
+  // step mounts with the previous one still in state (back from step 3), and
+  // not on a field's inline message, which appears on blur and is not a "no".
+  const fieldsRef = useRef<HTMLDivElement>(null);
+  const shownError = useRef(error);
+  useEffect(() => {
+    if (error && error !== shownError.current && fieldsRef.current) {
+      replayMotion(fieldsRef.current, "motion-shake");
+    }
+    shownError.current = error;
+  }, [error]);
+
   const update = (field: keyof CustomerInfo, value: string) => {
     onChange({ ...info, [field]: value });
   };
@@ -58,7 +72,7 @@ export function BookingStepInfo({
         </div>
       </div>
 
-      <div className="space-y-4">
+      <div ref={fieldsRef} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label className="font-body text-sm">
@@ -71,7 +85,7 @@ export function BookingStepInfo({
               placeholder="John Smith"
             />
             {nameError && (
-              <p className="text-xs text-destructive">Name is required (min 2 characters)</p>
+              <p className="motion-appear text-xs text-destructive">Name is required (min 2 characters)</p>
             )}
           </div>
 
@@ -86,7 +100,7 @@ export function BookingStepInfo({
               onBlur={() => setTouched((t) => ({ ...t, customerPhone: true }))}
               placeholder="(555) 123-4567"
             />
-            {phoneError && <p className="text-xs text-destructive">Phone is required</p>}
+            {phoneError && <p className="motion-appear text-xs text-destructive">Phone is required</p>}
           </div>
         </div>
 
@@ -120,7 +134,7 @@ export function BookingStepInfo({
         </div>
 
         {error && (
-          <div className="rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
+          <div className="motion-appear rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive font-body">
             {error}
           </div>
         )}

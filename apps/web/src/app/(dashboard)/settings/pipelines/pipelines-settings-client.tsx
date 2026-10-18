@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,11 @@ import { getPipelineStages } from "@/lib/client-reads/pipeline-stages";
 import { SettingsPageHeader } from "@/components/dashboard/settings/settings-page-header";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { useRowFlash } from "@/hooks/use-row-flash";
+import { useArrivalStagger } from "@/components/dashboard/settings/use-arrival-stagger";
 
 export interface PipelineData {
   id: string;
@@ -89,6 +94,16 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // `data-stagger` covers arriving with the page; the list rises in turn when
+  // the fetch finishes after it. A pipeline created while this is open is washed
+  // where it lands, and so is one just renamed or made the default.
+  const listRef = useRef<HTMLDivElement>(null);
+  useStagger(listRef, loading || pipelines.length === 0 ? null : "pipelines");
+  const fresh = useNewIds(pipelines.map((p) => p.id), !loading);
+  const { flashId, flash } = useRowFlash();
+  const rootRef = useRef<HTMLDivElement>(null);
+  useArrivalStagger(rootRef);
+
   async function handleCreated() {
     setCreateOpen(false);
     await fetchPipelines();
@@ -100,6 +115,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
     if (result.error) {
       toast.error(result.error);
     } else {
+      flash(id);
       await fetchPipelines();
       toast.success("Default pipeline updated");
     }
@@ -118,6 +134,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
       toast.error(result.error);
     } else {
       setRenamingId(null);
+      flash(id);
       await fetchPipelines();
       toast.success("Pipeline renamed");
     }
@@ -164,7 +181,7 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
   }
 
   return (
-    <div className="space-y-6">
+    <div ref={rootRef} data-stagger className="space-y-6">
       <SettingsPageHeader
         description="Create and manage multiple job pipelines with custom stages."
         action={
@@ -192,25 +209,28 @@ export function PipelinesSettingsClient({ initialPipelines = [] }: PipelinesSett
           ))}
         </div>
       ) : pipelines.length === 0 ? (
-        <div className="rounded-lg border border-border bg-card py-12 text-center">
+        <div className="motion-appear rounded-lg border border-border bg-card py-12 text-center">
           <IconLayoutColumns className="mx-auto h-8 w-8 text-muted-foreground" />
           <p className="mt-2 text-sm text-muted-foreground font-body">
             No pipelines yet. Create your first pipeline.
           </p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div ref={listRef} className="space-y-3">
           {pipelines.map((pipeline) => {
             const isRenaming = renamingId === pipeline.id;
             return (
               <div
                 key={pipeline.id}
-                className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80"
+                className={cn(
+                  "rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80",
+                  (fresh.has(pipeline.id) || pipeline.id === flashId) && "motion-highlight",
+                )}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex min-w-0 flex-1 items-center gap-2.5">
                     {isRenaming ? (
-                      <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
+                      <div className="motion-appear flex min-w-0 flex-1 items-center gap-1.5 sm:flex-none">
                         <Input
                           value={renameValue}
                           onChange={(e) => setRenameValue(e.target.value)}

@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 
 interface WebhookLog {
   id: string;
@@ -43,6 +44,14 @@ interface HealthData {
   nodeVersion: string;
 }
 
+function formatCount(n: number): string {
+  return String(n);
+}
+
+function formatUptime(seconds: number): string {
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString("en-US", {
     month: "short",
@@ -72,7 +81,7 @@ export function SystemPageClient({
   crons: CronJob[];
 }) {
   return (
-    <section className="p-4 sm:p-6 space-y-6">
+    <section data-stagger className="p-4 sm:p-6 space-y-6">
       {/* Health Cards. Two by two on a phone, with 16px card padding and a
           smaller figure so "128.4 MB" fits the ~130px inside a half-width card. */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
@@ -99,9 +108,11 @@ export function SystemPageClient({
           </CardHeader>
           <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             <p className="font-heading text-xl font-bold sm:text-2xl">
-              {health?.uptime
-                ? `${Math.floor(health.uptime / 3600)}h ${Math.floor((health.uptime % 3600) / 60)}m`
-                : "—"}
+              {health?.uptime ? (
+                <AnimatedNumber value={health.uptime} format={formatUptime} />
+              ) : (
+                "—"
+              )}
             </p>
           </CardContent>
         </Card>
@@ -112,10 +123,21 @@ export function SystemPageClient({
           </CardHeader>
           <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             <p className="font-heading text-xl font-bold sm:text-2xl">
-              {health?.memory?.heapUsedMB ?? "—"} MB
+              {health?.memory ? (
+                <AnimatedNumber value={health.memory.heapUsedMB} format={formatCount} />
+              ) : (
+                "—"
+              )}{" "}
+              MB
             </p>
             <p className="text-xs text-muted-foreground font-body">
-              of {health?.memory?.heapTotalMB ?? "—"} MB
+              of{" "}
+              {health?.memory ? (
+                <AnimatedNumber value={health.memory.heapTotalMB} format={formatCount} />
+              ) : (
+                "—"
+              )}{" "}
+              MB
             </p>
           </CardContent>
         </Card>

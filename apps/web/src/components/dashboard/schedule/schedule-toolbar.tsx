@@ -24,6 +24,7 @@ import {
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { motion } from "motion/react";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import {
   format,
   startOfWeek,
@@ -157,12 +158,10 @@ export function ScheduleToolbar({
             >
               <IconCalendarEvent className="h-3.5 w-3.5" />
               Today
+              {/* "You are not looking at today". A dot that appears when you
+                  navigate away, not one that pulses for as long as you stay. */}
               {!viewingToday && (
-                <motion.span
-                  className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-brand"
-                  animate={{ scale: [1, 1.3, 1] }}
-                  transition={{ repeat: Infinity, duration: 2, ease: "easeInOut" }}
-                />
+                <span className="motion-pop absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-brand" />
               )}
             </Button>
           </TooltipTrigger>
@@ -207,16 +206,10 @@ export function ScheduleToolbar({
             variant="ghost"
             className="col-start-1 row-start-2 h-10 min-w-0 cursor-pointer justify-self-start overflow-hidden px-2 font-heading text-base font-semibold sm:h-9"
           >
-            <motion.span
-              key={dateLabel}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: "spring", stiffness: 400, damping: 25 }}
-              className="min-w-0 truncate"
-            >
+            <span key={dateLabel} className="motion-appear min-w-0 truncate">
               <span className="sm:hidden">{shortDateLabel}</span>
               <span className="hidden sm:inline">{dateLabel}</span>
-            </motion.span>
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -273,7 +266,7 @@ export function ScheduleToolbar({
                   <motion.div
                     layoutId="schedule-view-indicator"
                     className="absolute inset-0 rounded-md bg-brand shadow-sm"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    transition={{ duration: DUR.state / 1000, ease: EASE_OUT }}
                   />
                 )}
                 <span className="relative z-10 flex items-center gap-1">

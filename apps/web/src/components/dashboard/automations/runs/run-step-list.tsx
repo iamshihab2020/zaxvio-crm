@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { IconChevronRight } from "@tabler/icons-react";
 import { getDefinition } from "@hvac-saas/workflow-nodes";
 import { resolveNodeIcon } from "@/lib/workflow/icon-map";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { RunStatusBadge } from "./run-status-badge";
 import { formatDuration } from "./run-timing";
 import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
 import type { WorkflowRunStep } from "@/actions/workflows";
 
 /**
@@ -38,9 +39,21 @@ interface Props {
   steps: WorkflowRunStep[];
   /** Selects the step on the builder canvas, when opened from there. */
   onSelectNode?: (nodeId: string) => void;
+  /**
+   * Which run these steps belong to. The timeline lays itself out in sequence
+   * when it appears and when another run replaces it, but not when a poll adds
+   * a step to a run that is still going, so it is keyed on the run, never on the
+   * steps.
+   */
+  arrivalKey?: string | null;
 }
 
-export function RunStepList({ steps, onSelectNode }: Props) {
+export function RunStepList({ steps, onSelectNode, arrivalKey }: Props) {
+  const listRef = useRef<HTMLOListElement>(null);
+  // `onMount`: this mounts inside a sheet that was opened by a click, so there
+  // is no server-rendered copy for it to flash over.
+  useStagger(listRef, arrivalKey, { onMount: true });
+
   if (steps.length === 0) {
     return (
       <p className="rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground font-body">
@@ -51,7 +64,7 @@ export function RunStepList({ steps, onSelectNode }: Props) {
   }
 
   return (
-    <ol className="space-y-2">
+    <ol ref={listRef} className="space-y-2">
       {steps.map((step) => (
         <StepRow key={step.id} step={step} onSelectNode={onSelectNode} />
       ))}
@@ -126,7 +139,7 @@ function StepRow({ step, onSelectNode }: { step: WorkflowRunStep } & Pick<Props,
                 >
                   <IconChevronRight
                     className={cn(
-                      "mr-1 h-3.5 w-3.5 transition-transform",
+                      "mr-1 h-3.5 w-3.5 transition-transform duration-200",
                       open && "rotate-90",
                     )}
                   />
@@ -147,7 +160,7 @@ function StepRow({ step, onSelectNode }: { step: WorkflowRunStep } & Pick<Props,
           )}
 
           {open && (
-            <div className="mt-2 space-y-3 border-t border-border pt-3">
+            <div className="motion-appear mt-2 space-y-3 border-t border-border pt-3">
               {hasKeys(step.resolvedParams) && (
                 <Detail
                   title="What it tried to do"

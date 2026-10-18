@@ -21,6 +21,7 @@ import {
 } from "@/hooks/queries";
 import { useBuilderStore } from "@/lib/workflow/store";
 import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
+import { DUR, replayMotion } from "@/lib/motion";
 import type { WorkflowDetail, WorkflowValidation } from "@/actions/workflows";
 
 /**
@@ -45,6 +46,25 @@ interface Props {
   id: string;
   initialDetail: WorkflowDetail | null;
   initialError: string | null;
+}
+
+/**
+ * Points at the step a publish error is about.
+ *
+ * Choosing an error in the validation dialog selects its step and closes the
+ * dialog; the step shakes once as the dialog finishes leaving, so the movement
+ * is seen on the canvas and not through the overlay's fade. The tile is found in
+ * the DOM rather than through the store because the shake is a one-off signal,
+ * not state the graph should carry (it would land in undo history and dirty the
+ * draft). `data-node-tile` is on the tile in `automation-node.tsx`.
+ */
+function shakeNode(nodeId: string) {
+  window.setTimeout(() => {
+    const tile = document.querySelector<HTMLElement>(
+      `.react-flow__node[data-id="${CSS.escape(nodeId)}"] [data-node-tile]`,
+    );
+    if (tile) replayMotion(tile, "motion-shake");
+  }, DUR.exit + 40);
 }
 
 export function AutomationDetailPageClient({ id, initialDetail, initialError }: Props) {
@@ -207,6 +227,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
           `data-fills-viewport` is what tells the page to stop scrolling. */}
       <section
         data-fills-viewport
+        data-stagger
         className="flex h-[calc(100dvh-3.5rem)] flex-col"
       >
         <BuilderToolbar
@@ -308,7 +329,10 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
           }}
           // S-4: clicking an error selects the step it is about. A list of
           // errors you cannot navigate to is barely better than no list.
-          onSelectNode={(nodeId) => select(nodeId)}
+          onSelectNode={(nodeId) => {
+            select(nodeId);
+            shakeNode(nodeId);
+          }}
         />
       </section>
     </TooltipProvider>

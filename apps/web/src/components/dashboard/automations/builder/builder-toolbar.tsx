@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   IconArrowLeft,
   IconArrowBackUp,
@@ -23,6 +23,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useBuilderStore } from "@/lib/workflow/store";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
 import { cn } from "@/lib/utils";
 
 /**
@@ -130,6 +131,12 @@ export function BuilderToolbar({
   const published = publishedVersion !== null;
   const unpublished = localDirty || serverDirty;
 
+  // Publishing is the moment worth marking: "Draft" becomes "v1", or "v3"
+  // becomes "v4", and the chip pops as it does. `?? 0` so the first publish
+  // (null to 1) counts as a change rather than as a value arriving.
+  const versionChipRef = useRef<HTMLSpanElement>(null);
+  useReplayOnChange(versionChipRef, publishedVersion ?? 0, "motion-pop");
+
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-border bg-card px-4 py-2.5">
       <Button
@@ -200,36 +207,38 @@ export function BuilderToolbar({
           this product rather than a badge here and a dashed ring there:
           filled = live, hollow = published but off, dashed = never published.
           The version is set in mono because it is an identifier, not a word. */}
-      {published ? (
-        <span className="inline-flex items-center gap-2 text-sm font-body">
-          <span
-            aria-hidden
-            className={
-              isActive
-                ? "h-2 w-2 shrink-0 rounded-full bg-green-500"
-                : "h-2 w-2 shrink-0 rounded-full border border-muted-foreground/60"
-            }
-          />
-          <span className="font-mono text-xs text-muted-foreground">
-            v{publishedVersion}
+      <span ref={versionChipRef} className="inline-flex">
+        {published ? (
+          <span className="inline-flex items-center gap-2 text-sm font-body">
+            <span
+              aria-hidden
+              className={
+                isActive
+                  ? "h-2 w-2 shrink-0 rounded-full bg-green-500 transition-colors duration-200"
+                  : "h-2 w-2 shrink-0 rounded-full border border-muted-foreground/60 transition-colors duration-200"
+              }
+            />
+            <span className="font-mono text-xs text-muted-foreground">
+              v{publishedVersion}
+            </span>
           </span>
-        </span>
-      ) : (
-        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground font-body">
-          <span
-            aria-hidden
-            className="h-2.5 w-2.5 shrink-0 rounded-full border border-dashed border-muted-foreground/70"
-          />
-          Draft
-        </span>
-      )}
+        ) : (
+          <span className="inline-flex items-center gap-2 text-sm text-muted-foreground font-body">
+            <span
+              aria-hidden
+              className="h-2.5 w-2.5 shrink-0 rounded-full border border-dashed border-muted-foreground/70"
+            />
+            Draft
+          </span>
+        )}
+      </span>
 
       {unpublished && published && (
         // The words give way to the dot from `md` to `xl`, where the editing
         // controls are back and the row has no room for them; `title` names it
         // for a pointer. Phones have the room (the row wraps), so they keep it.
         <span
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground font-body"
+          className="motion-appear inline-flex items-center gap-1.5 text-xs text-muted-foreground font-body"
           title="Unpublished changes"
         >
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden />

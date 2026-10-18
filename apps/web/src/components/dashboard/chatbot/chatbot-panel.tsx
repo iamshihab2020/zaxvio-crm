@@ -36,6 +36,16 @@ export function ChatbotPanel({
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // The history the panel opens with is already there and stays still; only
+  // messages that arrive while it is open move. Remembering the ids at mount is
+  // enough, because the panel is unmounted whenever it is closed.
+  const [idsAtOpen] = useState(() => new Set(messages.map((m) => m.id)));
+
+  // The welcome screen fades in only when it replaces a conversation (history
+  // cleared); on opening the panel its own entrance is the motion.
+  const [hadMessages, setHadMessages] = useState(messages.length > 0);
+  if (messages.length > 0 && !hadMessages) setHadMessages(true);
+
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
@@ -101,7 +111,10 @@ export function ChatbotPanel({
       <ScrollArea className="flex-1">
         <div ref={scrollRef} className="flex min-h-full flex-col">
           {messages.length === 0 ? (
-            <ChatbotWelcome onSuggestionClick={handleSuggestionClick} />
+            <ChatbotWelcome
+              onSuggestionClick={handleSuggestionClick}
+              animate={hadMessages}
+            />
           ) : (
             <div className="flex flex-col py-3">
               {messages.map((msg) => (
@@ -111,6 +124,7 @@ export function ChatbotPanel({
                   onConfirm={onConfirm}
                   onCancel={onCancel}
                   onSelectCustomer={onSelectCustomer}
+                  animate={!idsAtOpen.has(msg.id)}
                 />
               ))}
               {isProcessing && <ChatbotTypingIndicator />}

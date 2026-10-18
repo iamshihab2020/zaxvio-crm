@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { IconBell, IconBellRinging } from "@tabler/icons-react";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/tooltip";
 import { useNotificationPreferences, useUpdateNotificationPreferences } from "@/hooks/queries";
 import { useDesktopNotifications } from "@/hooks/use-desktop-notifications";
+import { useRowFlash } from "@/hooks/use-row-flash";
+import { useArrivalStagger } from "@/components/dashboard/settings/use-arrival-stagger";
 
 /** Channel preference defaults when no config row exists */
 const NOTIFICATION_CHANNEL_DEFAULTS: Record<
@@ -98,6 +100,9 @@ interface NotificationSettingsPageClientProps {
 
 export function NotificationSettingsPageClient({ initialPreferences }: NotificationSettingsPageClientProps) {
   const { permission, requestPermission } = useDesktopNotifications();
+  const { flashId, flash } = useRowFlash();
+  const stackRef = useRef<HTMLDivElement>(null);
+  useArrivalStagger(stackRef);
 
   // Local edits layered on top of server data
   const [localEdits, setLocalEdits] = useState<Record<string, Partial<ChannelConfig>>>({});
@@ -154,6 +159,7 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
         } else {
           setMessage({ type: "success", text: "Preferences saved" });
           setLocalEdits({});
+          flash("prefs");
         }
       },
     });
@@ -161,7 +167,7 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
 
   return (
     <TooltipProvider>
-      <div className="space-y-6">
+      <div ref={stackRef} data-stagger className="space-y-6">
         {/* Desktop Notifications */}
         <SettingsSection
           icon={IconBellRinging}
@@ -201,6 +207,7 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
           icon={IconBell}
           title="Notification Preferences"
           description="Choose how you want to be notified for each event type."
+          flash={flashId === "prefs"}
         >
           {isLoading ? (
             <div className="space-y-3">
@@ -210,7 +217,7 @@ export function NotificationSettingsPageClient({ initialPreferences }: Notificat
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto rounded-md border border-border">
+              <div className="motion-appear overflow-x-auto rounded-md border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>

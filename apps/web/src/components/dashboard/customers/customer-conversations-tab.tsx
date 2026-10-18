@@ -121,7 +121,7 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
   // ── Empty: no conversations yet ──────────────────────────────────────────
   if (convos.length === 0 && !isCreating) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
           <IconMessageCircle className="h-5 w-5 text-brand" />
         </div>
@@ -141,7 +141,7 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
 
   // ── Chat UI ──────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-[520px] max-h-[75dvh] flex-col rounded-lg border border-border overflow-hidden">
+    <div className="motion-appear flex h-[520px] max-h-[75dvh] flex-col rounded-lg border border-border overflow-hidden">
       {/* Conversation selector — shown when multiple threads exist */}
       {convos.length > 1 && (
         <div className="flex gap-1.5 items-center overflow-x-auto px-3 py-2 border-b border-border bg-muted/30 shrink-0">
@@ -184,7 +184,11 @@ export function CustomerConversationsTab({ customerId }: CustomerConversationsTa
 
       {/* Thread */}
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
-        <ConversationThread messages={messages} isLoading={isLoadingMessages} />
+        <ConversationThread
+          messages={messages}
+          isLoading={isLoadingMessages}
+          conversationId={activeConvo?.id}
+        />
       </div>
 
       {/* Compose */}

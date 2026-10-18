@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type {
   DashboardCategoryCount,
   DashboardPipelineItem,
@@ -9,6 +9,7 @@ import type {
 } from "@hvac-saas/types";
 import { Cell, Pie, PieChart, ResponsiveContainer } from "recharts";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import {
   Select,
@@ -29,7 +30,9 @@ import {
   OTHER_COLOR,
   categoricalColor,
 } from "@/lib/constants/chart-palette";
+import { useStagger } from "@/hooks/use-stagger";
 import { cn } from "@/lib/utils";
+import { chartAnimation } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
 
 interface JobsManagementPanelProps {
@@ -142,8 +145,20 @@ export function JobsManagementPanel({
     pipelines.find((p) => p.isDefault)?.id ?? pipelines[0]?.id ?? "";
   const selectValue = pipelineId ?? defaultPipelineId;
 
+  // The legend re-lays itself when the view changes (a tab, another pipeline),
+  // not when a refetch hands back the same buckets. The key is the segment and
+  // the buckets it holds rather than the pipeline id: choosing a pipeline keeps
+  // the previous one's data on screen (`placeholderData`) until the new data
+  // lands, and the id changes before the rows do. The bucket keys change with
+  // the rows, so the sequence plays when they are actually replaced.
+  const legendRef = useRef<HTMLUListElement>(null);
+  useStagger(
+    legendRef,
+    buckets.length > 0 ? `${segment}:${buckets.map((b) => b.key).join("|")}` : null,
+  );
+
   return (
-    <Card className="flex h-full flex-col p-4 sm:p-6">
+    <Card data-widget="jobsManagement" className="flex h-full flex-col p-4 sm:p-6">
       <WidgetHeader
         title="Jobs Management"
         action={
@@ -171,7 +186,8 @@ export function JobsManagementPanel({
                 isPipelineFetching && "opacity-50",
               )}
             >
-              <span className="tnum font-mono">{total}</span> total
+              <AnimatedNumber value={total} format={String} className="font-mono" />{" "}
+              total
             </span>
           </>
         }
@@ -201,7 +217,7 @@ export function JobsManagementPanel({
           at any height instead of leaving a hole under a short grid.
         */}
         {buckets.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border bg-muted/10 p-4 text-center text-xs font-body text-muted-foreground sm:p-6">
+          <div className="motion-appear rounded-md border border-dashed border-border bg-muted/10 p-4 text-center text-xs font-body text-muted-foreground sm:p-6">
             No data in current range.
           </div>
         ) : (
@@ -213,7 +229,7 @@ export function JobsManagementPanel({
           <div className="flex flex-wrap items-center justify-center gap-5 sm:gap-6">
             <BucketDonut buckets={buckets} total={total} />
 
-            <ul className="min-w-0 grow basis-[12rem] space-y-0.5">
+            <ul ref={legendRef} className="min-w-0 grow basis-[12rem] space-y-0.5">
               {buckets.map((b) => {
                 const pct = total > 0 ? Math.round((b.count / total) * 100) : 0;
                 return (
@@ -301,7 +317,13 @@ function resolveStageColor(raw: string | null | undefined, index: number): strin
  * only route to the data.
  */
 function BucketDonut({ buckets, total }: { buckets: Bucket[]; total: number }) {
-  const data = buckets.filter((b) => b.count > 0);
+  // Memoised on purpose, now that the ring animates. Recharts compares a `Pie`'s
+  // `data` by identity and restarts the draw-in when it changes, so a fresh
+  // array on every render would replay the ring each time the dashboard
+  // re-rendered for any reason (a refetch toggling `isFetching`, a widget
+  // switched on). `buckets` itself only changes with the view.
+  const data = useMemo(() => buckets.filter((b) => b.count > 0), [buckets]);
+  const anim = chartAnimation();
 
   return (
     <div
@@ -321,7 +343,7 @@ function BucketDonut({ buckets, total }: { buckets: Bucket[]; total: number }) {
               outerRadius="100%"
               paddingAngle={data.length > 1 ? 2 : 0}
               strokeWidth={0}
-              isAnimationActive={false}
+              {...anim}
             >
               {data.map((b) => (
                 <Cell key={b.key} fill={b.color} />
@@ -334,7 +356,7 @@ function BucketDonut({ buckets, total }: { buckets: Bucket[]; total: number }) {
       {/* Total sits in the hole, where the eye already is. */}
       <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
         <span className="tnum font-heading text-2xl font-bold leading-none text-foreground">
-          {total}
+          <AnimatedNumber value={total} format={String} />
         </span>
         <span className="mt-1 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
           jobs

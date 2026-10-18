@@ -26,6 +26,9 @@ export function BookingStepDate({
 }: BookingStepDateProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [monthAnimating, setMonthAnimating] = useState(false);
+  // Only a calendar that replaces the skeleton fades in; one present at mount
+  // is already inside the sliding step.
+  const [startedLoading] = useState(loading);
 
   const handleMonthChange = (month: Date) => {
     setMonthAnimating(true);
@@ -85,7 +88,8 @@ export function BookingStepDate({
       ) : (
         <div
           className={cn(
-            "transition-all duration-150",
+            "transition-[opacity,transform] duration-150 motion-reduce:scale-100",
+            startedLoading && "motion-appear",
             monthAnimating ? "opacity-0 scale-[0.97]" : "opacity-100 scale-100",
           )}
         >

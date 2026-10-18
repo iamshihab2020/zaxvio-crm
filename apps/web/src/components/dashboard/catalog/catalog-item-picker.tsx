@@ -114,7 +114,7 @@ export function CatalogItemPicker({
                   e.stopPropagation();
                   onSelect(null);
                 }}
-                className="rounded-sm hover:bg-muted p-0.5"
+                className="rounded-sm p-0.5 transition-colors hover:bg-muted"
               >
                 <IconX className="h-3 w-3 text-muted-foreground" />
               </span>

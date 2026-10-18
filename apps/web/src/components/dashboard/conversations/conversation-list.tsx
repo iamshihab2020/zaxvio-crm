@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IconPlus, IconSearch } from "@tabler/icons-react";
 import { ConversationItem } from "./conversation-item";
+import { useNewIds } from "@/hooks/use-new-ids";
 import type { Conversation } from "@/actions/conversations";
 
 interface ConversationListProps {
@@ -22,6 +23,10 @@ export function ConversationList({
   onNew,
 }: ConversationListProps) {
   const [search, setSearch] = useState("");
+  // A conversation that appears while the list is open (one just started) is
+  // washed. Keyed on every conversation, not the filtered ones, so searching
+  // never reads as new rows.
+  const fresh = useNewIds(conversations.map((c) => c.id));
 
   const filtered = conversations.filter((c) => {
     if (!search) return true;
@@ -63,7 +68,7 @@ export function ConversationList({
       {/* List */}
       <ScrollArea className="flex-1">
         {filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
+          <div className="motion-appear flex flex-col items-center justify-center py-12 px-4 text-center">
             <p className="text-sm text-muted-foreground">
               {search ? "No conversations match your search." : "No conversations yet."}
             </p>
@@ -85,6 +90,7 @@ export function ConversationList({
                 key={conv.id}
                 conversation={conv}
                 isActive={conv.id === activeId}
+                isNew={fresh.has(conv.id)}
                 onClick={() => onSelect(conv.id)}
               />
             ))}

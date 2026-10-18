@@ -8,10 +8,17 @@ import { IconCalendar, IconReceipt, IconBriefcase } from "@tabler/icons-react";
 // has used since INV-19.
 import { formatMoney as formatCurrency, formatDateOnly as formatDate } from "@/lib/format";
 import { QuoteStatusBadge } from "./quote-status-badge";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import type { QuoteDetail } from "./quote-detail-sheet";
 
 interface QuoteInfoPanelProps {
   quote: QuoteDetail;
+}
+
+/** A decimal string from the API as a number, so a figure can be tweened. */
+function amount(value: string | null | undefined): number {
+  const n = parseFloat(value ?? "0");
+  return Number.isFinite(n) ? n : 0;
 }
 
 
@@ -67,7 +74,7 @@ export function QuoteInfoPanel({ quote }: QuoteInfoPanelProps) {
               Subtotal
             </span>
             <span className="text-sm font-body">
-              {formatCurrency(quote.subtotal)}
+              <AnimatedNumber value={amount(quote.subtotal)} format={formatCurrency} />
             </span>
           </div>
           {taxPercent > 0 && (
@@ -76,7 +83,7 @@ export function QuoteInfoPanel({ quote }: QuoteInfoPanelProps) {
                 Tax ({taxPercent.toFixed(1)}%)
               </span>
               <span className="text-sm font-body">
-                {formatCurrency(quote.taxAmount)}
+                <AnimatedNumber value={amount(quote.taxAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
@@ -86,14 +93,14 @@ export function QuoteInfoPanel({ quote }: QuoteInfoPanelProps) {
                 Discount
               </span>
               <span className="text-sm font-body">
-                -{formatCurrency(quote.discountAmount)}
+                -<AnimatedNumber value={amount(quote.discountAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-semibold font-body">Total</span>
             <span className="text-sm font-bold text-brand-ink font-body">
-              {formatCurrency(quote.totalAmount)}
+              <AnimatedNumber value={amount(quote.totalAmount)} format={formatCurrency} />
             </span>
           </div>
         </div>

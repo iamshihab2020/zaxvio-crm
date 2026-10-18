@@ -5,6 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { readUrlStatus, QUOTE_STATUSES } from "@/lib/url-filters";
 import { useQueryClient } from "@tanstack/react-query";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { queryKeys } from "@/lib/query-keys";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
@@ -230,6 +232,24 @@ export function QuotesPageClient({
   const stats = rawStats ?? { draft: 0, sent: 0, accepted: 0, declined: 0, expired: 0 };
   const defaultTaxRate = (prefetchedTaxRate !== "0" ? prefetchedTaxRate : tenantQuery.data?.data?.defaultTaxRate) ?? "0";
 
+  // The rows replay when WHICH rows are shown changes: page, view, status, sort,
+  // search. `null` while loading, and while the previous list is held over as
+  // placeholder data for the next one, so the rows about to be replaced are
+  // never the ones that animate. Above the failed-load early return below,
+  // because hooks cannot follow it.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || quotesQuery.isPlaceholderData
+      ? null
+      : `${page}:${viewFilter}:${statusFilter}:${sortBy}:${sortOrder}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
+  // A quote is created and edited inside the sheet, which covers its row. The
+  // wash would play unseen, so the id waits here and the row flashes when the
+  // sheet closes and the list is back in view.
+  const touchedId = useRef<string | null>(null);
+
   // Prefetch next page
   useEffect(() => {
     if (pagination && page < pagination.totalPages) {
@@ -267,11 +287,20 @@ export function QuotesPageClient({
           const quoteId = res.data?.id;
           if (quoteId) {
             setSelectedQuoteId(quoteId);
+            touchedId.current = quoteId;
             setSheetOpen(true);
           }
         },
       },
     );
+  }
+
+  function handleSheetOpenChange(open: boolean) {
+    setSheetOpen(open);
+    if (!open && touchedId.current) {
+      flash(touchedId.current);
+      touchedId.current = null;
+    }
   }
 
   function handleDelete() {
@@ -337,7 +366,7 @@ export function QuotesPageClient({
   }
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Empty state */}
       {showEmptyState && (
         <EmptyState
@@ -467,7 +496,7 @@ export function QuotesPageClient({
 
           {/* No results */}
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               No quotes found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
             </p>
           )}
@@ -482,6 +511,8 @@ export function QuotesPageClient({
               onToggleSelectAll={() => toggleAll(quotes)}
               isAllSelected={isAllSelected(quotes)}
               isIndeterminate={isIndeterminate(quotes)}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
         </div>
@@ -511,12 +542,16 @@ export function QuotesPageClient({
       <QuoteDetailSheet
         quoteId={selectedQuoteId}
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={handleSheetOpenChange}
         onDelete={(q) => {
           setDeletingQuote(q);
           setDeleteDialogOpen(true);
         }}
-        onDataChange={() => { quotesQuery.refetch(); statsQuery.refetch(); }}
+        onDataChange={() => {
+          touchedId.current = selectedQuoteId;
+          quotesQuery.refetch();
+          statsQuery.refetch();
+        }}
       />
 
       {/* Delete confirmation */}

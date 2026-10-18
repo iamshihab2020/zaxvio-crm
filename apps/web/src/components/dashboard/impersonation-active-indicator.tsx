@@ -42,8 +42,10 @@ export function ImpersonationActiveIndicator() {
 
   if (!adminName) return null;
 
+  // Nothing renders until a support session is found or approved, so this only
+  // ever mounts after the page is up, never in the server HTML: it drops in.
   return (
-    <div className="fixed top-0 left-0 right-0 z-40 flex h-8 items-center justify-center gap-2 bg-blue-600 text-white">
+    <div className="motion-drop-in fixed top-0 left-0 right-0 z-40 flex h-8 items-center justify-center gap-2 bg-blue-600 text-white">
       <IconHeadset className="h-3.5 w-3.5" />
       <span className="font-body text-xs">
         Support team is currently assisting with your account

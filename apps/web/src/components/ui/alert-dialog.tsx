@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
-import { AnimatePresence, motion, type Transition } from "motion/react";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
@@ -10,53 +9,51 @@ const AlertDialog = AlertDialogPrimitive.Root;
 const AlertDialogTrigger = AlertDialogPrimitive.Trigger;
 const AlertDialogPortal = AlertDialogPrimitive.Portal;
 
-const alertSpring: Transition = {
-  type: "spring",
-  stiffness: 200,
-  damping: 24,
-};
+// Enter and exit are CSS animations timed by `.motion-overlay`, for the reason
+// given at the top of dialog.tsx: Radix only waits for the exit of an animation
+// it can see, and the spring that was here could not be seen, so the dialog
+// vanished on close. Same centring too: the individual `translate` property,
+// so tailwindcss-animate's zoom does not drag the box off centre.
 
-function AlertDialogOverlay({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>) {
-  return (
-    <AlertDialogPrimitive.Overlay asChild {...props}>
-      <motion.div
-        className={cn("fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]", className)}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
-      />
-    </AlertDialogPrimitive.Overlay>
-  );
-}
+const AlertDialogOverlay = React.forwardRef<
+  React.ComponentRef<typeof AlertDialogPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <AlertDialogPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      "fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]",
+      "data-[state=open]:animate-in data-[state=closed]:animate-out",
+      "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+      "motion-overlay",
+      className,
+    )}
+    {...props}
+  />
+));
+AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 
 const AlertDialogContent = React.forwardRef<
   React.ComponentRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
 >(({ className, ...props }, ref) => (
   <AlertDialogPortal>
-    <AnimatePresence mode="wait">
-      <AlertDialogOverlay />
-      <AlertDialogPrimitive.Content ref={ref} asChild {...props}>
-        <motion.div
-          className={cn(
-            // Same box as DialogContent: inset from the screen edges and
-            // capped at the viewport height, so a long confirmation scrolls
-            // inside itself instead of pushing its buttons off a phone.
-            "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-2xl",
-            className,
-          )}
-          style={{ x: "-50%", y: "-50%" }}
-          initial={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-          animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, scale: 0.95, filter: "blur(4px)" }}
-          transition={alertSpring}
-        />
-      </AlertDialogPrimitive.Content>
-    </AnimatePresence>
+    <AlertDialogOverlay />
+    <AlertDialogPrimitive.Content
+      ref={ref}
+      className={cn(
+        // Same box as DialogContent: inset from the screen edges and
+        // capped at the viewport height, so a long confirmation scrolls
+        // inside itself instead of pushing its buttons off a phone.
+        "fixed left-[50%] top-[50%] z-50 grid max-h-[calc(100dvh_-_2rem)] w-[calc(100%_-_2rem)] max-w-lg [translate:-50%_-50%] gap-4 overflow-y-auto rounded-lg border bg-background p-6 shadow-2xl",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+        "data-[state=open]:zoom-in-[0.96] data-[state=closed]:zoom-out-[0.96]",
+        "motion-overlay",
+        className,
+      )}
+      {...props}
+    />
   </AlertDialogPortal>
 ));
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;

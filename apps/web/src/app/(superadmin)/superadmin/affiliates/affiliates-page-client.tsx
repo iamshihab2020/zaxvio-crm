@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TenantStatusBadge } from "@/components/superadmin/tenants/tenant-status-badge";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 
 interface Tenant {
   id: string;
@@ -28,6 +29,14 @@ interface Tenant {
   planName: string | null;
   isActive: boolean | null;
   mrr: number;
+}
+
+function formatCount(n: number): string {
+  return String(n);
+}
+
+function formatPercent(n: number): string {
+  return `${Math.round(n)}%`;
 }
 
 function formatCurrency(amount: number): string {
@@ -59,7 +68,7 @@ export function AffiliatesPageClient({
     : 0;
 
   return (
-    <section className="p-4 sm:p-6 space-y-6">
+    <section data-stagger className="p-4 sm:p-6 space-y-6">
       {/* KPI Cards. Padding is 16px on phones (24px from `sm`), the card rule
           in DESIGN.md; the three stack on a phone and sit in a row from `sm`. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -69,7 +78,9 @@ export function AffiliatesPageClient({
               <IconUsers className="h-4 w-4 shrink-0 text-admin-accent" />
               <span className="text-sm font-body">Referred Tenants</span>
             </div>
-            <p className="mt-2 font-heading text-3xl font-bold">{tenants.length}</p>
+            <p className="mt-2 font-heading text-3xl font-bold">
+              <AnimatedNumber value={tenants.length} format={formatCount} />
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -79,7 +90,7 @@ export function AffiliatesPageClient({
               <span className="text-sm font-body">Affiliate MRR</span>
             </div>
             <p className="mt-2 font-heading text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-              {formatCurrency(affiliateMRR)}
+              <AnimatedNumber value={affiliateMRR} format={formatCurrency} />
             </p>
           </CardContent>
         </Card>
@@ -89,7 +100,9 @@ export function AffiliatesPageClient({
               <IconPercentage className="h-4 w-4 shrink-0 text-admin-accent" />
               <span className="text-sm font-body">Affiliate Rate</span>
             </div>
-            <p className="mt-2 font-heading text-3xl font-bold">{affiliateRate}%</p>
+            <p className="mt-2 font-heading text-3xl font-bold">
+              <AnimatedNumber value={affiliateRate} format={formatPercent} />
+            </p>
             <p className="text-xs text-muted-foreground font-body mt-1">
               of {totalTenants} total tenants
             </p>

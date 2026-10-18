@@ -18,6 +18,8 @@ import {
 } from "@/components/ui/hover-card";
 import { WidgetHeader, WidgetLink } from "./widget-header";
 import { WidgetWindowBadge } from "./widget-window-badge";
+import { enterDelay } from "./chart-motion";
+import { staggerDelay } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 /**
@@ -69,6 +71,15 @@ const MAX_DAYS = 14;
 const TRACK = 92;
 /** A day with work always shows something, even at one item against a busy week. */
 const MIN_SEGMENT = 6;
+/**
+ * The bars rise left to right, 30ms apart, so the week reads as a sequence.
+ * The first starts after the card has landed (its own rise is 280ms), and the
+ * ninth day on shares the eighth's delay so a 14-day window finishes with the
+ * rest.
+ */
+const BAR_DELAY_BASE = 160;
+const BAR_STEP = 30;
+const BAR_MAX_STEPS = 8;
 
 export function WeekAhead({ agenda }: WeekAheadProps) {
   const days = useMemo<DayLoad[]>(() => {
@@ -116,7 +127,7 @@ export function WeekAhead({ agenda }: WeekAheadProps) {
   const openDays = days.filter((d) => d.total === 0).length;
 
   return (
-    <Card className="p-4 sm:p-6">
+    <Card data-widget="weekAhead" className="p-4 sm:p-6">
       <WidgetHeader
         title="Week Ahead"
         badge={
@@ -151,8 +162,8 @@ export function WeekAhead({ agenda }: WeekAheadProps) {
           label is also what a phone user has, since a hover card never opens
           on touch. */}
       <div className="mt-5 grid auto-cols-fr grid-flow-col gap-1 sm:gap-2">
-        {days.map((day) => (
-          <DayColumn key={day.key} day={day} peak={peak} />
+        {days.map((day, index) => (
+          <DayColumn key={day.key} day={day} peak={peak} index={index} />
         ))}
       </div>
 
@@ -195,7 +206,15 @@ function Legend() {
   );
 }
 
-function DayColumn({ day, peak }: { day: DayLoad; peak: number }) {
+function DayColumn({
+  day,
+  peak,
+  index,
+}: {
+  day: DayLoad;
+  peak: number;
+  index: number;
+}) {
   const segments = SERIES.filter((s) => day.counts[s.key] > 0).map((s) => ({
     ...s,
     count: day.counts[s.key],
@@ -223,7 +242,14 @@ function DayColumn({ day, peak }: { day: DayLoad; peak: number }) {
             {segments.length === 0 ? (
               <div className="h-1 w-full rounded-full border-t border-dashed border-border" />
             ) : (
-              <div className="flex w-full flex-col-reverse gap-[2px]">
+              /* The stack grows as one bar from the baseline, not segment by
+                 segment, so the proportions between its parts hold throughout. */
+              <div
+                className="motion-grow-y flex w-full flex-col-reverse gap-[2px]"
+                style={enterDelay(
+                  BAR_DELAY_BASE + staggerDelay(index, BAR_STEP, BAR_MAX_STEPS),
+                )}
+              >
                 {segments.map((s, i) => (
                   <div
                     key={s.key}

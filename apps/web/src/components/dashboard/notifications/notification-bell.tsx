@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { IconBell } from "@tabler/icons-react";
 import {
@@ -12,13 +13,57 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications } from "@/hooks/use-notifications";
+import { replayMotion } from "@/lib/motion";
 import { NotificationHeader } from "./notification-header";
 import { NotificationItem } from "./notification-item";
 import { NotificationEmpty } from "./notification-empty";
 
+/** How long a row that just arrived keeps its highlight class, in ms. */
+const FRESH_MS = 1500;
+
 export function NotificationBell() {
   const { notifications, unreadCount, isLoading, markAsRead, markAllAsRead } =
     useNotifications();
+
+  // The badge pops when the count goes UP after the first load, which is a new
+  // notification arriving. The first count, and any decrease (reading one), set
+  // the badge without moving it. `replayMotion` rather than a `key`, because the
+  // badge is already mounted for every increase after the first.
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  const previousCount = useRef<number | null>(null);
+  useEffect(() => {
+    if (isLoading) return;
+    const previous = previousCount.current;
+    previousCount.current = unreadCount;
+    if (previous !== null && unreadCount > previous && badgeRef.current) {
+      replayMotion(badgeRef.current, "motion-pop");
+    }
+  }, [unreadCount, isLoading]);
+
+  // Rows that arrived over the live stream while the page was open. The popover
+  // unmounts its content when closed, so the highlight class is dropped after
+  // `FRESH_MS`; left on, every reopening would play it again for old rows.
+  const knownIds = useRef<Set<string> | null>(null);
+  const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(() => new Set());
+  useEffect(() => {
+    if (isLoading) return;
+    if (knownIds.current === null) {
+      knownIds.current = new Set(notifications.map((n) => n.id));
+      return;
+    }
+    const known = knownIds.current;
+    const added = notifications.filter((n) => !known.has(n.id)).map((n) => n.id);
+    if (added.length === 0) return;
+    for (const id of added) known.add(id);
+    setFreshIds((prev) => new Set([...prev, ...added]));
+    setTimeout(() => {
+      setFreshIds((prev) => {
+        const next = new Set(prev);
+        for (const id of added) next.delete(id);
+        return next;
+      });
+    }, FRESH_MS);
+  }, [notifications, isLoading]);
 
   return (
     <Popover>
@@ -30,7 +75,10 @@ export function NotificationBell() {
         >
           <IconBell className="h-[18px] w-[18px]" stroke={1.5} />
           {unreadCount > 0 && (
-            <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground">
+            <span
+              ref={badgeRef}
+              className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand px-1 text-[10px] font-semibold text-brand-foreground"
+            >
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -62,18 +110,24 @@ export function NotificationBell() {
           <ScrollArea className="max-h-[400px]">
             <div className="divide-y divide-border">
               {notifications.map((notif) => (
-                <NotificationItem
+                // The wrapper carries the highlight: the item is a button with
+                // no background of its own, so the wash shows through it.
+                <div
                   key={notif.id}
-                  id={notif.id}
-                  type={notif.type}
-                  title={notif.title}
-                  description={notif.description}
-                  entityType={notif.entityType}
-                  entityId={notif.entityId}
-                  createdAt={notif.createdAt}
-                  isRead={notif.isRead}
-                  onMarkRead={markAsRead}
-                />
+                  className={freshIds.has(notif.id) ? "motion-highlight" : undefined}
+                >
+                  <NotificationItem
+                    id={notif.id}
+                    type={notif.type}
+                    title={notif.title}
+                    description={notif.description}
+                    entityType={notif.entityType}
+                    entityId={notif.entityId}
+                    createdAt={notif.createdAt}
+                    isRead={notif.isRead}
+                    onMarkRead={markAsRead}
+                  />
+                </div>
               ))}
             </div>
           </ScrollArea>

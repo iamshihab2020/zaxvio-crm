@@ -56,6 +56,8 @@ interface KanbanCardProps {
   job: JobCardData;
   onClick: (jobId: string) => void;
   isOverlay?: boolean;
+  /** Wears the highlight wash once: the job was just created, edited or moved. */
+  highlight?: boolean;
   visibleFields?: CardFieldVisibility;
   members?: AssigneeMember[];
   onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
@@ -111,6 +113,7 @@ export function KanbanCard({
   job,
   onClick,
   isOverlay,
+  highlight,
   visibleFields,
   members,
   onAssigneeChange,
@@ -193,6 +196,7 @@ export function KanbanCard({
         isDragging && "opacity-30 z-0",
         isOverlay && "shadow-xl ring-2 ring-brand/30 rotate-2 scale-[1.03]",
         job.priority === "emergency" && "animate-pulse-emergency",
+        highlight && "motion-highlight",
       )}
     >
       {/* Top row: Service type + Priority (inline editable) */}

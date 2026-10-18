@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   IconLink,
   IconBrandWordpress,
@@ -12,6 +12,7 @@ import {
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useArrivalStagger } from "@/components/dashboard/settings/use-arrival-stagger";
 
 interface ShareSettingsClientProps {
   slug: string;
@@ -36,7 +37,7 @@ function CopyButton({ text, className }: { text: string; className?: string }) {
     >
       {copied ? (
         <>
-          <IconCheck className="h-3.5 w-3.5 text-green-500" />
+          <IconCheck className="motion-pop h-3.5 w-3.5 text-green-500" />
           Copied
         </>
       ) : (
@@ -60,6 +61,8 @@ function CodeBlock({ code }: { code: string }) {
 }
 
 export function ShareSettingsClient({ slug, appUrl }: ShareSettingsClientProps) {
+  const stackRef = useRef<HTMLDivElement>(null);
+  useArrivalStagger(stackRef);
   const bookingUrl = `${appUrl}/book/${slug}`;
   const embedUrl = `${appUrl}/book/${slug}?embed=1&source=embed`;
   const widgetSrc = `${appUrl}/widget.js`;
@@ -69,7 +72,7 @@ export function ShareSettingsClient({ slug, appUrl }: ShareSettingsClientProps) 
   const scriptCode = `<script\n  async\n  src="${widgetSrc}"\n  data-slug="${slug}"\n  data-color="#2563EB">\n</script>`;
 
   return (
-    <div className="space-y-6">
+    <div ref={stackRef} data-stagger className="space-y-6">
       {/* Direct Link */}
       <div className="rounded-xl border border-border bg-card p-4 sm:p-6">
         <div className="flex items-start gap-3 sm:gap-4">

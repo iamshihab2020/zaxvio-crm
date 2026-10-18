@@ -1,7 +1,6 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import { motion, useReducedMotion } from "motion/react";
 import { IconUser, IconCalendarEvent } from "@tabler/icons-react";
 import {
   AgendaHoverCard,
@@ -23,38 +22,47 @@ function isEventActive(start: Date, end: Date): boolean {
 /**
  * Priority → softer pastel background colors for calendar events (Motion-inspired).
  */
-const EVENT_COLORS: Record<string, { bg: string; border: string; text: string; subtext: string }> = {
+// `hover` is a step deeper in the same hue: hovering an event is a colour
+// change, not a lift, like every other card in the app.
+type EventColors = { bg: string; hover: string; border: string; text: string; subtext: string };
+
+const EVENT_COLORS: Record<string, EventColors> = {
   standard: {
     bg: "bg-blue-50 dark:bg-blue-950/50",
+    hover: "hover:bg-blue-100 dark:hover:bg-blue-950/75",
     border: "border-l-blue-400 dark:border-l-blue-500",
     text: "text-blue-800 dark:text-blue-200",
     subtext: "text-blue-600/80 dark:text-blue-400/70",
   },
   urgent: {
     bg: "bg-amber-50 dark:bg-amber-950/50",
+    hover: "hover:bg-amber-100 dark:hover:bg-amber-950/75",
     border: "border-l-amber-400 dark:border-l-amber-500",
     text: "text-amber-800 dark:text-amber-200",
     subtext: "text-amber-600/80 dark:text-amber-400/70",
   },
   emergency: {
     bg: "bg-red-50 dark:bg-red-950/50",
+    hover: "hover:bg-red-100 dark:hover:bg-red-950/75",
     border: "border-l-red-400 dark:border-l-red-500",
     text: "text-red-800 dark:text-red-200",
     subtext: "text-red-600/80 dark:text-red-400/70",
   },
 };
 
-const BOOKING_COLORS = {
+const BOOKING_COLORS: EventColors = {
   bg: "bg-teal-50 dark:bg-teal-950/50",
+  hover: "hover:bg-teal-100 dark:hover:bg-teal-950/75",
   border: "border-l-teal-400 dark:border-l-teal-500",
   text: "text-teal-800 dark:text-teal-200",
   subtext: "text-teal-600/80 dark:text-teal-400/70",
 };
 
 /** Calendar event (user-created) colors keyed by color name — softer pastels */
-const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: string; subtext: string; dot: string }> = {
+const CALENDAR_EVENT_COLORS: Record<string, EventColors & { dot: string }> = {
   purple: {
     bg: "bg-purple-50 dark:bg-purple-950/50",
+    hover: "hover:bg-purple-100 dark:hover:bg-purple-950/75",
     border: "border-l-purple-400 dark:border-l-purple-500",
     text: "text-purple-800 dark:text-purple-200",
     subtext: "text-purple-600/80 dark:text-purple-400/70",
@@ -62,6 +70,7 @@ const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: 
   },
   blue: {
     bg: "bg-sky-50 dark:bg-sky-950/50",
+    hover: "hover:bg-sky-100 dark:hover:bg-sky-950/75",
     border: "border-l-sky-400 dark:border-l-sky-500",
     text: "text-sky-800 dark:text-sky-200",
     subtext: "text-sky-600/80 dark:text-sky-400/70",
@@ -69,6 +78,7 @@ const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: 
   },
   green: {
     bg: "bg-emerald-50 dark:bg-emerald-950/50",
+    hover: "hover:bg-emerald-100 dark:hover:bg-emerald-950/75",
     border: "border-l-emerald-400 dark:border-l-emerald-500",
     text: "text-emerald-800 dark:text-emerald-200",
     subtext: "text-emerald-600/80 dark:text-emerald-400/70",
@@ -76,6 +86,7 @@ const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: 
   },
   amber: {
     bg: "bg-orange-50 dark:bg-orange-950/50",
+    hover: "hover:bg-orange-100 dark:hover:bg-orange-950/75",
     border: "border-l-orange-400 dark:border-l-orange-500",
     text: "text-orange-800 dark:text-orange-200",
     subtext: "text-orange-600/80 dark:text-orange-400/70",
@@ -83,6 +94,7 @@ const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: 
   },
   red: {
     bg: "bg-rose-50 dark:bg-rose-950/50",
+    hover: "hover:bg-rose-100 dark:hover:bg-rose-950/75",
     border: "border-l-rose-400 dark:border-l-rose-500",
     text: "text-rose-800 dark:text-rose-200",
     subtext: "text-rose-600/80 dark:text-rose-400/70",
@@ -90,6 +102,7 @@ const CALENDAR_EVENT_COLORS: Record<string, { bg: string; border: string; text: 
   },
   teal: {
     bg: "bg-teal-50 dark:bg-teal-950/50",
+    hover: "hover:bg-teal-100 dark:hover:bg-teal-950/75",
     border: "border-l-teal-400 dark:border-l-teal-500",
     text: "text-teal-800 dark:text-teal-200",
     subtext: "text-teal-600/80 dark:text-teal-400/70",
@@ -190,12 +203,9 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
   const isCalendarEvent = r.type === "event";
   const colors = getEventColors(r);
   const active = !event.allDay && isEventActive(event.start, event.end);
-  const reducedMotion = useReducedMotion();
 
   return (
-    <motion.div
-      whileHover={reducedMotion ? undefined : { y: -1, boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+    <div
       role="button"
       tabIndex={0}
       aria-label={
@@ -206,9 +216,10 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
             : `Job ${r.jobNumber ?? event.title} for ${r.customerName}`
       }
       className={cn(
-        "h-full w-full rounded-lg px-2 py-1.5 border-l-[3px] cursor-pointer overflow-hidden",
+        "h-full w-full rounded-lg px-2 py-1.5 border-l-[3px] cursor-pointer overflow-hidden transition-colors duration-200",
         "shadow-[0_1px_3px_rgba(0,0,0,0.04)]",
         colors.bg,
+        colors.hover,
         colors.border,
         isBooking && "border border-l-[3px] border-dashed border-teal-200 dark:border-teal-800",
         active && "schedule-event-active",
@@ -230,7 +241,7 @@ function TimedEventContent({ event }: { event: CalendarEvent }) {
           </span>
         </div>
       )}
-    </motion.div>
+    </div>
   );
 }
 
@@ -242,17 +253,15 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
   const priority = r.priority ?? "standard";
   const colors = getEventColors(r);
   const calEvtColors = isCalendarEvent ? CALENDAR_EVENT_COLORS[r.color ?? "purple"] ?? CALENDAR_EVENT_COLORS.purple : null;
-  const reducedMotion = useReducedMotion();
 
   return (
-    <motion.div
-      whileHover={reducedMotion ? undefined : { x: 2 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25, duration: 0.15 }}
+    <div
       role="button"
       tabIndex={0}
       className={cn(
-        "flex items-center gap-1.5 px-2 py-0.5 rounded-lg cursor-pointer min-w-0",
+        "flex items-center gap-1.5 px-2 py-0.5 rounded-lg cursor-pointer min-w-0 transition-colors duration-200",
         colors.bg,
+        colors.hover,
       )}
     >
       <span
@@ -264,7 +273,7 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
       <span className={cn("truncate text-xs font-semibold", colors.text)}>
         {isCalendarEvent ? event.title : r.jobNumber ?? event.title}
       </span>
-    </motion.div>
+    </div>
   );
 }
 
@@ -272,7 +281,12 @@ function MonthEventContent({ event }: { event: CalendarEvent }) {
 export function ScheduleEvent({ event }: ScheduleEventProps) {
   return (
     <AgendaHoverCard details={toAgendaDetails(event)}>
-      <div className="h-full w-full cursor-pointer">
+      {/* Fades in when it mounts: an event that arrives with a new range, or lands
+          in a new slot after a drag, appears rather than pops. On this wrapper and
+          not on the card inside, because the card is what `.schedule-event-flash`
+          animates: two animation classes on one element would restart the fade
+          the moment the highlight ended. */}
+      <div className="motion-appear h-full w-full cursor-pointer">
         {event.allDay ? (
           <MonthEventContent event={event} />
         ) : (
@@ -287,7 +301,8 @@ export function ScheduleEvent({ event }: ScheduleEventProps) {
 export function ScheduleMonthEvent({ event }: ScheduleEventProps) {
   return (
     <AgendaHoverCard details={toAgendaDetails(event)}>
-      <div className="h-full w-full cursor-pointer">
+      {/* The fade is on this wrapper for the reason given on `ScheduleEvent`. */}
+      <div className="motion-appear h-full w-full cursor-pointer">
         <MonthEventContent event={event} />
       </div>
     </AgendaHoverCard>

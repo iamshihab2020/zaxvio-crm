@@ -90,7 +90,7 @@ export function JobFilters({
           >
             <IconFilter className="h-3.5 w-3.5" />
             {activeFilterCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand text-[8px] font-bold text-brand-foreground">
+              <span className="motion-pop absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-brand text-[8px] font-bold text-brand-foreground">
                 {activeFilterCount}
               </span>
             )}

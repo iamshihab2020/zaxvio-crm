@@ -728,6 +728,12 @@ apps/web/
     |   +-- use-route-arrival.ts     # Route arrival: content rises 8px on navigation, never on first
     |   |                            # paint; WAAPI with no fill, no remount (DESIGN.md motion vocabulary)
     |   +-- use-media-query.ts       # useMediaQuery + MEDIA (Tailwind breakpoints); false during SSR.
+    |   +-- use-stagger.ts           # useStagger(ref, key): children enter in sequence when key changes (lists, tables)
+    |   +-- use-table-stagger.ts     # useStagger with rise 0 for <tbody>: a rising row would flash the table's own scrollbar
+    |   +-- use-row-flash.ts         # useRowFlash(): { flashId, flash(id) } for .motion-highlight on a created/edited row (3s hold)
+    |   +-- use-replay-on-change.ts  # useReplayOnChange(ref, value, className): replays a CSS motion class when a value changes, never on first render
+    |   +-- use-new-ids.ts           # useNewIds(ids): ids new since the last render, for highlighting rows that arrive by refetch
+    |   +-- use-form-shake.ts        # useFormShake(): { ref, shake } — pass shake as react-hook-form's onInvalid
     |   |                            # Only where CSS can't decide: portal vs inline, calendar month count
     |   +-- queries/                 # TanStack Query hooks (one file per domain)
     |       +-- index.ts                       # Barrel export for all query hooks
@@ -797,6 +803,7 @@ apps/web/
     |   +-- auth-server.ts           # Server-side session helper (forwards cookies for SSR) + getServerOrgRole()
     |   +-- event-stream.ts          # Shared SSE connection to /events (replaced Supabase Realtime); openTenantStream() for admins
     |   +-- format.ts                # formatCurrency(), formatMoney() (thousands separators — the
+    |   +-- motion.ts                # Motion vocabulary in JS (EASE_OUT, DUR, stagger helpers, replayMotion, prefersReducedMotion)
     |   |                            # invoice table and PDF each printed `$1234.50`), formatDateOnly()
     |   |                            # (a `date` column read a day early west of UTC), formatRelativeTime()
     |   +-- legal.ts                 # LEGAL_LAST_UPDATED, LEGAL_CONTACT_EMAIL (null until a real
@@ -873,6 +880,7 @@ apps/web/
     |   |   +-- separator.tsx
     |   |   +-- sheet.tsx
     |   |   +-- skeleton.tsx
+    |   |   +-- sonner.tsx               # Toaster that follows next-themes (toasts were light in dark mode)
     |   |   +-- switch.tsx
     |   |   +-- table.tsx
     |   |   +-- tabs.tsx
@@ -901,6 +909,7 @@ apps/web/
     |   |   +-- legal-document.tsx   # LegalDocument / LegalSection / LegalContact for /privacy, /terms
     |   |
     |   +-- booking-portal/          # Public booking portal components
+    |   |   +-- booking-handoff.ts      # Carries the just-submitted booking id across router.push (status page arrives only then)
     |   |   +-- booking-progress-indicator.tsx  # Step dots (5 steps)
     |   |   +-- booking-service-card.tsx        # Selectable service type card
     |   |   +-- booking-step-service.tsx        # Step 1: service type grid
@@ -947,6 +956,7 @@ apps/web/
     |   |   |   +-- top-customers-card.tsx       # Ranked list of top 5 customers by revenue
     |   |   |   +-- widget-window-badge.tsx      # Marks widgets that ignore the date picker
     |   |   |   +-- widget-header.tsx            # WidgetHeader (h2 + badge + action, wraps) + WidgetLink
+    |   |   |   +-- chart-motion.ts              # chartAnimation() recharts props, enterDelay(ms) typed --enter-delay style
     |   |   |   # chart-data-table / widget-error-boundary / dashboard-load-error moved
     |   |   |   # to components/reusable/ on 2026-07-27 — /reports uses them too
     |   |   |
@@ -1121,9 +1131,10 @@ apps/web/
     |   |       +-- invoice-preview.tsx
     |   |       +-- profile-form.tsx
     |   |       +-- profile-sidebar.tsx
-    |   |       +-- settings-content.tsx
+    |   |       +-- settings-content.tsx     # Server wrapper; no pathname remount (arrival comes from the shell + data-stagger)
     |   |       +-- settings-form-message.tsx
     |   |       +-- settings-nav.tsx
+    |   |       +-- use-arrival-stagger.ts   # Staggers a settings page that streams in behind loading.tsx after a client navigation
     |   |       +-- settings-page-header.tsx
     |   |       +-- settings-section.tsx
     |   |
@@ -1134,6 +1145,7 @@ apps/web/
     |   |   +-- editable-field.tsx         # Inline editable text field
     |   |   +-- empty-state.tsx
     |   |   +-- list-toolbar.tsx           # ListToolbar (tabs left, controls right; stacks below sm) + ListToolbarCreateButton
+    |   |   +-- animated-number.tsx        # AnimatedNumber: tweens a figure to its new value, no re-renders
     |   |   +-- pagination.tsx
     |   |   +-- scroll-fade-area.tsx
     |   |   +-- search-input.tsx           # Search input with icon (no built-in debounce); own line on phones
@@ -1154,6 +1166,9 @@ apps/web/
     |       +-- superadmin-sidebar.tsx          # Red-accented collapsible sidebar (lg+ only)
     |       +-- superadmin-nav-items.ts         # Nav list + isSuperadminNavActive, shared by sidebar and drawer
     |       +-- superadmin-mobile-nav.tsx       # Below lg: menu button + admin-red left Sheet
+    |       +-- use-arrived-by-navigation.ts    # True only when a page mounted via client navigation (gates CSS draw-ins)
+    |       +-- use-shake-on-error.ts           # Replays motion-shake on a new error message, never on mount
+    |       +-- bar-fill.tsx                    # Meter fill with motion-grow-x, gated to navigation
     |       +-- superadmin-sidebar-provider.tsx # Sidebar state context (localStorage)
     |       +-- superadmin-shell.tsx            # Content wrapper; sidebar padding + --sidebar-w from lg
     |       +-- superadmin-navbar.tsx           # Navbar with ADMIN badge, Cmd+K search, user dropdown

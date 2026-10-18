@@ -52,9 +52,10 @@ export function JobPhotoCompare({
             <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
               {before && (
                 <img
+                  key={before.id}
                   src={before.publicUrl}
                   alt="Before"
-                  className="w-full h-full object-cover"
+                  className="motion-appear w-full h-full object-cover"
                 />
               )}
               {beforePhotos.length > 1 && (
@@ -98,9 +99,10 @@ export function JobPhotoCompare({
             <div className="relative aspect-video bg-muted rounded-lg overflow-hidden">
               {after && (
                 <img
+                  key={after.id}
                   src={after.publicUrl}
                   alt="After"
-                  className="w-full h-full object-cover"
+                  className="motion-appear w-full h-full object-cover"
                 />
               )}
               {afterPhotos.length > 1 && (

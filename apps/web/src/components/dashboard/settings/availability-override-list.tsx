@@ -12,6 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
+import { cn } from "@/lib/utils";
+import { useNewIds } from "@/hooks/use-new-ids";
 import { IconCalendarOff, IconPlus, IconTrash } from "@tabler/icons-react";
 
 interface AvailabilityOverrideListProps {
@@ -45,6 +47,9 @@ export function AvailabilityOverrideList({
   onAdd,
   onDelete,
 }: AvailabilityOverrideListProps) {
+  // An override added while this is open is washed where it lands in the list.
+  const fresh = useNewIds(overrides.map((o) => o.id));
+
   return (
     <SettingsSection
       icon={IconCalendarOff}
@@ -58,7 +63,7 @@ export function AvailabilityOverrideList({
       }
     >
       {overrides.length === 0 ? (
-        <p className="text-sm text-muted-foreground py-4">
+        <p className="motion-appear text-sm text-muted-foreground py-4">
           No schedule overrides. Add one for holidays or special closures.
         </p>
       ) : (
@@ -75,7 +80,10 @@ export function AvailabilityOverrideList({
             </TableHeader>
             <TableBody>
               {overrides.map((override) => (
-                <TableRow key={override.id}>
+                <TableRow
+                  key={override.id}
+                  className={cn(fresh.has(override.id) && "motion-highlight")}
+                >
                   <TableCell className="text-sm font-medium">
                     {formatDate(override.overrideDate)}
                     {/* Reason and Hours are their own columns from `sm`; under

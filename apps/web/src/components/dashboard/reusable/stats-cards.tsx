@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import type { Icon } from "@tabler/icons-react";
 
 export interface StatItem {
@@ -20,6 +21,10 @@ interface StatsCardsProps {
   className?: string;
 }
 
+// Plain `String`, not a locale format, so a card reads exactly as it did before
+// it counted.
+const formatCount = (n: number) => String(n);
+
 function StatContent({ stat }: { stat: StatItem }) {
   return (
     <>
@@ -32,8 +37,10 @@ function StatContent({ stat }: { stat: StatItem }) {
         <stat.icon className={cn("h-4 w-4", stat.color)} />
       </div>
       <div>
+        {/* These move after a filter, an archive or a create, which is when a
+            count says "this changed, and by about this much". */}
         <p className="text-lg font-bold font-heading text-foreground">
-          {stat.count}
+          <AnimatedNumber value={stat.count} format={formatCount} />
         </p>
         <p className="text-xs text-muted-foreground font-body">
           {stat.label}
@@ -62,8 +69,13 @@ export function StatsCards({
         const value = stat.filterValue ?? stat.label.toLowerCase();
         const isActive = activeFilter === value;
         const cardStyles = cn(
-          "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left transition-all",
-          isClickable && "hover:border-brand/40 cursor-pointer",
+          "flex items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-left",
+          // Only a clickable card changes state (hover, the active filter), so
+          // only it transitions. Transform stays in the list because this
+          // replaces the Button's own transition and the press scale must still
+          // ease.
+          isClickable &&
+            "cursor-pointer transition-[color,background-color,border-color,box-shadow,transform] duration-200 hover:border-brand/40",
           isActive && "border-brand ring-1 ring-brand/20",
         );
 

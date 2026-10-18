@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useFormShake } from "@/hooks/use-form-shake";
 import {
   Select,
   SelectContent,
@@ -69,6 +70,8 @@ export function RefrigerantLogDialog({
     Partial<Record<keyof RefrigerantLogFormData, string>>
   >({});
 
+  const { ref: fieldsRef, shake } = useFormShake<HTMLDivElement>();
+
   useEffect(() => {
     if (open) {
       setForm(emptyForm);
@@ -91,7 +94,10 @@ export function RefrigerantLogDialog({
   }
 
   function handleSubmit() {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      shake();
+      return;
+    }
     onSave(form);
   }
 
@@ -104,7 +110,7 @@ export function RefrigerantLogDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div ref={fieldsRef} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="font-body">Refrigerant Type *</Label>

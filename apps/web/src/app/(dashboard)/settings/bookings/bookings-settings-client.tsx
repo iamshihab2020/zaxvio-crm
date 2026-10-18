@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   AvailabilityWeeklyEditor,
   type ScheduleEntry,
@@ -16,6 +16,8 @@ import {
 } from "@/hooks/queries";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useStagger } from "@/hooks/use-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 
 const DEFAULT_SCHEDULE: ScheduleEntry[] = [0, 1, 2, 3, 4, 5, 6].map((day) => ({
   dayOfWeek: day,
@@ -69,6 +71,12 @@ export function BookingsSettingsClient() {
   const isDirty =
     JSON.stringify(schedule) !== JSON.stringify(savedSchedule) || capacity !== savedCapacity;
 
+  // `data-stagger` covers arriving with the page; this covers the availability
+  // finishing after it, when the skeleton gives way to the cards.
+  const stackRef = useRef<HTMLDivElement>(null);
+  useStagger(stackRef, query.isLoading || query.isError || !query.data ? null : "availability");
+  const { flashId, flash } = useRowFlash();
+
   const handleSaveSchedule = () => {
     updateMutation.mutate(
       { schedule, slotCapacity: capacity },
@@ -77,6 +85,7 @@ export function BookingsSettingsClient() {
           if (res.error) return;
           setSavedSchedule(schedule);
           setSavedCapacity(capacity);
+          flash("schedule");
         },
       },
     );
@@ -122,13 +131,14 @@ export function BookingsSettingsClient() {
   }
 
   return (
-    <div className="space-y-6">
+    <div ref={stackRef} data-stagger className="space-y-6">
       <AvailabilityWeeklyEditor
         schedule={schedule}
         onChange={setSchedule}
         onSave={handleSaveSchedule}
         saving={updateMutation.isPending}
         dirty={isDirty}
+        flash={flashId === "schedule"}
       />
 
       <BookingCapacityCard value={capacity} onChange={setCapacity} />

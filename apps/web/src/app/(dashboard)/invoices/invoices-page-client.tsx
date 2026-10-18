@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { readUrlStatus, INVOICE_STATUSES } from "@/lib/url-filters";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { ViewModeToggle } from "@/components/reusable/view-mode-toggle";
 import {
@@ -21,6 +23,7 @@ import { SearchInput } from "@/components/reusable/search-input";
 import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
 import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
@@ -257,6 +260,23 @@ export function InvoicesPageClient({
   const defaultTaxRate =
     (prefetchedTaxRate !== "0" ? prefetchedTaxRate : tenantQuery.data?.data?.defaultTaxRate) ?? "0";
 
+  // The rows replay when WHICH rows are shown changes: page, view, status, sort,
+  // search. `null` while loading, and while the previous list is held over as
+  // placeholder data for the next one, so the rows about to be replaced are
+  // never the ones that animate.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || invoicesQuery.isPlaceholderData
+      ? null
+      : `${page}:${viewFilter}:${statusFilter}:${sortBy}:${sortOrder}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
+  // An invoice is created and edited inside the sheet, which covers its row. The
+  // wash would play unseen, so the id waits here and the row flashes when the
+  // sheet closes and the list is back in view.
+  const touchedId = useRef<string | null>(null);
+
   // Prefetch next page
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -310,11 +330,20 @@ export function InvoicesPageClient({
           setCreateDialogOpen(false);
           if (res.data?.id) {
             setSelectedInvoiceId(res.data.id);
+            touchedId.current = res.data.id;
             setSheetOpen(true);
           }
         },
       },
     );
+  }
+
+  function handleSheetOpenChange(open: boolean) {
+    setSheetOpen(open);
+    if (!open && touchedId.current) {
+      flash(touchedId.current);
+      touchedId.current = null;
+    }
   }
 
   function handleDelete() {
@@ -376,7 +405,7 @@ export function InvoicesPageClient({
     !loading && !listError && !hasInvoices && (!!search || !!statusFilter || showingArchived);
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && !statsError && (
         <>
@@ -399,7 +428,7 @@ export function InvoicesPageClient({
             <div>
               <p className="text-xs text-muted-foreground font-body">Outstanding</p>
               <p className="font-heading text-lg font-semibold text-foreground">
-                {formatMoney(stats.outstanding)}
+                <AnimatedNumber value={parseFloat(stats.outstanding)} format={formatMoney} />
               </p>
             </div>
             {/* The dividers only read as dividers while the three figures share
@@ -413,14 +442,14 @@ export function InvoicesPageClient({
                     : "text-foreground"
                 }`}
               >
-                {formatMoney(stats.overdueAmount)}
+                <AnimatedNumber value={parseFloat(stats.overdueAmount)} format={formatMoney} />
               </p>
             </div>
             {stats.partially_paid > 0 && (
               <div className="sm:border-l sm:border-border sm:pl-4">
                 <p className="text-xs text-muted-foreground font-body">Partially paid</p>
                 <p className="font-heading text-lg font-semibold text-foreground">
-                  {stats.partially_paid}
+                  <AnimatedNumber value={stats.partially_paid} format={String} />
                 </p>
               </div>
             )}
@@ -497,7 +526,7 @@ export function InvoicesPageClient({
           )}
 
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               No invoices found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
             </p>
           )}
@@ -514,6 +543,8 @@ export function InvoicesPageClient({
               sortBy={sortBy}
               sortOrder={sortOrder}
               onSortChange={handleSortChange}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
         </div>
@@ -543,12 +574,13 @@ export function InvoicesPageClient({
       <InvoiceDetailSheet
         invoiceId={selectedInvoiceId}
         open={sheetOpen}
-        onOpenChange={setSheetOpen}
+        onOpenChange={handleSheetOpenChange}
         onDelete={(inv) => {
           setDeletingInvoice(inv);
           setDeleteDialogOpen(true);
         }}
         onDataChange={() => {
+          touchedId.current = selectedInvoiceId;
           invoicesQuery.refetch();
           statsQuery.refetch();
         }}

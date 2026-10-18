@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { IconAlertTriangle, IconFileDescription, IconInfoCircle, IconLink } from "@tabler/icons-react";
 import { getTenant } from "@/lib/client-reads/tenants";
 import { updateTenant } from "@/actions/tenants";
+import { useRowFlash } from "@/hooks/use-row-flash";
+import { useArrivalStagger } from "@/components/dashboard/settings/use-arrival-stagger";
 
 interface TenantData {
   id: string;
@@ -41,6 +43,9 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
   const [postAcceptanceScheduling, setPostAcceptanceScheduling] = useState(initialTenant?.quotePostAcceptanceScheduling ?? false);
   const [autoConvertToJob, setAutoConvertToJob] = useState(initialTenant?.quoteAutoConvertToJob ?? false);
   const [savingToggle, setSavingToggle] = useState<string | null>(null);
+  const { flashId, flash } = useRowFlash();
+  const columnRef = useRef<HTMLDivElement>(null);
+  useArrivalStagger(columnRef);
 
   useEffect(() => {
     if (initialTenant) return;
@@ -124,6 +129,7 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
       toast.error(result.error);
     } else {
       toast.success("Quote settings saved");
+      flash("pdf");
     }
   }
 
@@ -165,7 +171,7 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
+      <div ref={columnRef} data-stagger className="lg:col-span-2 space-y-6">
         <SettingsSection icon={IconLink} title="Online Quote Acceptance">
           <div className="space-y-5">
             <div className="flex items-center justify-between gap-4">
@@ -201,7 +207,7 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
             </div>
 
             {postAcceptanceScheduling && (
-              <div className="rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5">
+              <div className="motion-arrive rounded-md border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-950/20 px-3 py-2.5">
                 <div className="flex items-start gap-2">
                   <IconAlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
                   <div className="text-xs text-amber-800 dark:text-amber-300 font-body space-y-1">
@@ -245,7 +251,11 @@ export function QuoteSettingsClient({ initialTenant }: QuoteSettingsClientProps)
           </div>
         </SettingsSection>
 
-        <SettingsSection icon={IconFileDescription} title="Quote PDF Settings">
+        <SettingsSection
+          icon={IconFileDescription}
+          title="Quote PDF Settings"
+          flash={flashId === "pdf"}
+        >
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="terms" className="font-body text-sm">

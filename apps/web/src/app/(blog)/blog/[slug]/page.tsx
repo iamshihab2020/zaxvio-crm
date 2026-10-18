@@ -143,7 +143,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                   href={`/blog/${related.slug}`}
                   className="group block"
                 >
-                  <Card className="h-full overflow-hidden transition-all duration-300 group-hover:-translate-y-1 group-hover:shadow-md">
+                  <Card className="h-full overflow-hidden transition-colors duration-200 group-hover:border-brand/40">
                     <div
                       className={`h-28 bg-gradient-to-br ${related.coverGradient}`}
                       aria-hidden="true"

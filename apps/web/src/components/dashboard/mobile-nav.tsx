@@ -29,6 +29,20 @@ export function MobileNav() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
+  // The active indicator is a shared-layout element, and motion remembers where
+  // the last one with a given id was. The drawer's content unmounts on every
+  // close, so reusing one id would make the highlight fly in from wherever it
+  // last sat, tangled with the drawer's own slide. A fresh id per opening has
+  // no history, so it simply appears on the current page. It can never glide
+  // between items while visible anyway: tapping a link closes the drawer. The
+  // id differs from the rail's too (both navs are in the tree at once).
+  const [openCount, setOpenCount] = useState(0);
+  const handleOpenChange = (next: boolean) => {
+    if (next) setOpenCount((count) => count + 1);
+    setOpen(next);
+  };
+  const indicatorId = `sidebar-drawer-indicator-${openCount}`;
+
   // Back and forward change the route without a click on any link here.
   useEffect(() => {
     setOpen(false);
@@ -44,7 +58,7 @@ export function MobileNav() {
   const close = () => setOpen(false);
 
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetTrigger asChild>
         {/* 40px, with a negative margin so the 20px glyph sits on the page
             gutter instead of 10px inside it. */}
@@ -79,6 +93,7 @@ export function MobileNav() {
             collapsedRail={false}
             useTooltip={false}
             onNavigate={close}
+            indicatorId={indicatorId}
           />
         </ScrollArea>
 
@@ -100,6 +115,7 @@ export function MobileNav() {
             isCollapsed={false}
             showLabel
             useTooltip={false}
+            indicatorId={indicatorId}
           />
         </div>
       </SheetContent>

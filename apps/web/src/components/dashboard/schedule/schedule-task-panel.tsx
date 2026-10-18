@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, AnimatePresence } from "motion/react";
+import { useEffect, useRef } from "react";
+import { motion } from "motion/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,9 @@ import {
 import { cn } from "@/lib/utils";
 import { format, addDays } from "date-fns";
 import type { CalendarEventData } from "@/actions/calendar-events";
+import { useStagger } from "@/hooks/use-stagger";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
+import { DUR, EASE_OUT } from "@/lib/motion";
 
 /* ── Types ── */
 export type TaskFilter = "today" | "upcoming" | "completed";
@@ -175,6 +179,27 @@ export function ScheduleTaskPanel({
 
   const inSheet = !inline;
 
+  // The list arrives in sequence when the tab or the day changes. Keyed on those
+  // two, not on the items: an event dragged off today should leave quietly, not
+  // replay the rest.
+  const listRef = useRef<HTMLDivElement>(null);
+  useStagger(listRef, `${filter}:${todayStr}`);
+
+  // The docked column slides in from the side it lives on when it is opened. It
+  // is mounted only while open, so there is no width to animate (the calendar
+  // takes the space at once); react-big-calendar is told to re-measure.
+  const columnRef = useRef<HTMLDivElement>(null);
+  useReplayOnChange(columnRef, inline ? open : null, "motion-step-back");
+  const measured = useRef(false);
+  useEffect(() => {
+    if (!inline) return;
+    if (!measured.current) {
+      measured.current = true;
+      return;
+    }
+    window.dispatchEvent(new Event("resize"));
+  }, [open, inline]);
+
   // The sheet covers the calendar, so choosing something has to uncover it: a
   // job opens its own sheet and an event its dialog, and either would otherwise
   // stack on top of this one.
@@ -253,7 +278,7 @@ export function ScheduleTaskPanel({
               <motion.div
                 layoutId="task-filter-pill"
                 className="absolute inset-0 rounded-full bg-brand"
-                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                transition={{ duration: DUR.state / 1000, ease: EASE_OUT }}
               />
             )}
             <span className="relative z-10">{opt.label}</span>
@@ -263,38 +288,23 @@ export function ScheduleTaskPanel({
 
       {/* Task list */}
       <ScrollArea className="flex-1 min-h-0">
-        <div className="p-2 space-y-0.5">
-          <AnimatePresence mode="popLayout">
+        <div ref={listRef} className="p-2 space-y-0.5">
             {filteredItems.length === 0 && (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
-                className="flex flex-col items-center justify-center py-8 text-center"
-              >
+              <div className="motion-appear flex flex-col items-center justify-center py-8 text-center">
                 <IconCalendarEvent className="h-8 w-8 text-muted-foreground/40 mb-2" />
                 <p className="text-xs text-muted-foreground">
                   {filter === "today" && "No tasks for today"}
                   {filter === "upcoming" && "No upcoming tasks"}
                   {filter === "completed" && "No completed tasks"}
                 </p>
-              </motion.div>
+              </div>
             )}
-            {filteredItems.map((item, index) => {
+            {filteredItems.map((item) => {
               return (
-                <motion.div
-                  key={item.id}
-                  layout
-                  initial={{ opacity: 0, x: -8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -12 }}
-                  transition={{ delay: index * 0.02, duration: 0.2 }}
-                >
+                <div key={item.id}>
                   <button
                     onClick={() => handleItemClick(item.type, item.id)}
-                    className="flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-colors hover:bg-muted/50 cursor-pointer"
+                    className="flex w-full items-start gap-2.5 rounded-lg p-2.5 text-left transition-colors duration-200 hover:bg-muted/50 cursor-pointer"
                   >
                     <span
                       className={cn(
@@ -320,10 +330,9 @@ export function ScheduleTaskPanel({
                       {item.type === "job" ? "Job" : item.type === "booking" ? "Booking" : "Event"}
                     </Badge>
                   </button>
-                </motion.div>
+                </div>
               );
             })}
-          </AnimatePresence>
         </div>
       </ScrollArea>
     </div>
@@ -345,20 +354,11 @@ export function ScheduleTaskPanel({
     );
   }
 
+  if (!open) return null;
+
   return (
-    <motion.div
-      animate={{
-        width: open ? 288 : 0,
-        opacity: open ? 1 : 0,
-      }}
-      initial={false}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      onAnimationComplete={() => {
-        window.dispatchEvent(new Event("resize"));
-      }}
-      className="shrink-0 overflow-hidden"
-    >
+    <div ref={columnRef} className="shrink-0">
       {panel}
-    </motion.div>
+    </div>
   );
 }

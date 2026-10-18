@@ -108,10 +108,10 @@ export function GlobalSearch() {
                 </div>
               )}
               {!loading && query.length >= 2 && results.length === 0 && (
-                <CommandEmpty className="font-body">No tenants found.</CommandEmpty>
+                <CommandEmpty className="motion-appear font-body">No tenants found.</CommandEmpty>
               )}
               {!loading && results.length > 0 && (
-                <CommandGroup heading="Tenants">
+                <CommandGroup heading="Tenants" className="motion-appear">
                   {results.map((tenant) => (
                     <CommandItem
                       key={tenant.id}

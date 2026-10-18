@@ -3,6 +3,8 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import { IconX } from "@tabler/icons-react";
 
 export interface BulkAction {
@@ -32,11 +34,26 @@ export function BulkActionBar({
         <motion.div
           /* `x: "-50%"` is constant, not animated — it replaces the
              `-translate-x-1/2` class, which Framer would otherwise overwrite
-             when it composes the `y` animation into the same transform. */
-          initial={{ opacity: 0, y: 20, x: "-50%" }}
-          animate={{ opacity: 1, y: 0, x: "-50%" }}
-          exit={{ opacity: 0, y: 20, x: "-50%" }}
-          transition={{ type: "spring", stiffness: 300, damping: 25 }}
+             when it composes the `y` animation into the same transform.
+
+             The system curve rather than a spring: the old spring overshot
+             the resting position and took ~400ms to settle, a second accent
+             next to the one curve everything else uses. It rises over
+             `arrive` and leaves over `exit`, quicker than it came. Under
+             reduced motion `MotionConfig` keeps the fade and drops the rise. */
+          initial={{ opacity: 0, y: 16, x: "-50%" }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            x: "-50%",
+            transition: { duration: DUR.arrive / 1000, ease: EASE_OUT },
+          }}
+          exit={{
+            opacity: 0,
+            y: 16,
+            x: "-50%",
+            transition: { duration: DUR.exit / 1000, ease: EASE_OUT },
+          }}
           /* `w-max` is load-bearing: a fixed box with `left: 50%` otherwise
              shrink-wraps into the right half of the screen, so on a phone the
              nowrap labels spilled out of a 187px bar. The cap keeps it inside
@@ -59,7 +76,12 @@ export function BulkActionBar({
           <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3 shadow-lg sm:flex-row sm:items-center sm:px-4 sm:py-2.5">
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-foreground whitespace-nowrap">
-                {selectedCount} selected
+                <AnimatedNumber
+                  value={selectedCount}
+                  format={(n) => String(n)}
+                  duration={DUR.arrive}
+                />{" "}
+                selected
               </span>
 
               <Button

@@ -65,44 +65,49 @@ export function JobTimerButton({
     });
   }
 
-  if (runningHere) {
-    return (
-      <Button
-        size={size}
-        variant="outline"
-        disabled={pending}
-        onClick={() => stop.mutate(undefined)}
-        className={cn(
-          "cursor-pointer border-brand/40 text-brand-ink hover:bg-brand/10 hover:text-brand-ink",
-          className,
-        )}
-      >
-        <IconPlayerStop className="mr-1.5 h-4 w-4" aria-hidden />
-        Stop
-        <ElapsedTime
-          since={running.startedAt}
-          className="tnum ml-2 font-mono text-xs opacity-80"
-        />
-      </Button>
-    );
-  }
-
+  // One button in both states, not two returns. Start and Stop used to be
+  // different elements, so React replaced the node and the border and text
+  // colour jumped; with a single element the transition the Button already
+  // carries runs between the two looks.
   return (
     <>
       <Button
         size={size}
         variant="outline"
         disabled={pending}
-        onClick={() =>
-          runningElsewhere ? setConfirmSwitch(true) : start.mutate(undefined)
-        }
-        className={cn("cursor-pointer", className)}
+        onClick={() => {
+          if (runningHere) stop.mutate(undefined);
+          else if (runningElsewhere) setConfirmSwitch(true);
+          else start.mutate(undefined);
+        }}
+        className={cn(
+          "cursor-pointer",
+          runningHere &&
+            "border-brand/40 text-brand-ink hover:bg-brand/10 hover:text-brand-ink",
+          className,
+        )}
       >
-        <IconPlayerPlay className="mr-1.5 h-4 w-4" aria-hidden />
-        Start timer
+        {runningHere ? (
+          <>
+            <IconPlayerStop className="mr-1.5 h-4 w-4" aria-hidden />
+            Stop
+            <ElapsedTime
+              since={running.startedAt}
+              className="tnum ml-2 font-mono text-xs opacity-80"
+            />
+          </>
+        ) : (
+          <>
+            <IconPlayerPlay className="mr-1.5 h-4 w-4" aria-hidden />
+            Start timer
+          </>
+        )}
       </Button>
 
-      <AlertDialog open={confirmSwitch} onOpenChange={setConfirmSwitch}>
+      <AlertDialog
+        open={confirmSwitch && !runningHere}
+        onOpenChange={setConfirmSwitch}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Switch your timer to this job?</AlertDialogTitle>

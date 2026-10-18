@@ -5,6 +5,7 @@ import { IconSparkles, IconCheck } from "@tabler/icons-react";
 import { format, formatDistanceToNow, isValid, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { openChatbot } from "@/lib/chatbot/bus";
+import { cn } from "@/lib/utils";
 import { CustomizeWidgetsPopover } from "./customize-widgets-popover";
 import type { useDashboardWidgetPrefs } from "@/hooks/use-dashboard-widget-prefs";
 
@@ -77,15 +78,17 @@ export function DashboardToolbar({
             className="inline-flex items-center gap-1.5 text-xs font-body text-muted-foreground"
           >
             {/* Only "Refreshing" pulses: that is a change in progress. A fresh
-                result is a resting state, and it used to pulse forever. */}
+                result is a resting state, and it used to pulse forever. The dot
+                changes colour between the three states rather than snapping. */}
             <span
-              className={
+              className={cn(
+                "h-1.5 w-1.5 rounded-full transition-colors duration-200",
                 isFetching
-                  ? "h-1.5 w-1.5 motion-safe:animate-pulse rounded-full bg-brand"
+                  ? "motion-safe:animate-pulse bg-brand"
                   : isFresh
-                    ? "h-1.5 w-1.5 rounded-full bg-status-good"
-                    : "h-1.5 w-1.5 rounded-full bg-muted-foreground/40"
-              }
+                    ? "bg-status-good"
+                    : "bg-muted-foreground/40",
+              )}
               aria-hidden
             />
             {isFetching ? (

@@ -3,6 +3,7 @@
 import { format } from "date-fns";
 import { IconCheck, IconX } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { ChatMessage } from "@/lib/chatbot/types";
 
 interface ChatbotMessageProps {
@@ -10,6 +11,11 @@ interface ChatbotMessageProps {
   onConfirm?: () => void;
   onCancel?: () => void;
   onSelectCustomer?: (index: number) => void;
+  /**
+   * Play the arrival. The panel passes it for messages that came in while it
+   * was open; the history it opens with is already there and does not move.
+   */
+  animate?: boolean;
 }
 
 export function ChatbotMessage({
@@ -17,18 +23,18 @@ export function ChatbotMessage({
   onConfirm,
   onCancel,
   onSelectCustomer,
+  animate = false,
 }: ChatbotMessageProps) {
   const isUser = message.role === "user";
   const time = format(new Date(message.timestamp), "h:mm a");
 
   return (
     <div
-      className={`flex w-full ${isUser ? "justify-end" : "justify-start"} px-4 py-1.5`}
-      style={{
-        animation: isUser
-          ? "chatSlideRight 0.3s ease-out"
-          : "chatSlideLeft 0.3s ease-out",
-      }}
+      className={cn(
+        "flex w-full px-4 py-1.5",
+        isUser ? "justify-end" : "justify-start",
+        animate && "motion-arrive",
+      )}
     >
       <div
         className={`flex max-w-[85%] flex-col gap-1 ${isUser ? "items-end" : "items-start"}`}
@@ -51,6 +57,7 @@ export function ChatbotMessage({
               onConfirm={onConfirm}
               onCancel={onCancel}
               onSelectCustomer={onSelectCustomer}
+              animate={animate}
             />
           </div>
         </div>
@@ -69,6 +76,7 @@ function MessageContent({
   onConfirm,
   onCancel,
   onSelectCustomer,
+  animate,
 }: ChatbotMessageProps) {
   // Render markdown-like bold text
   const renderText = (text: string) => {
@@ -99,7 +107,7 @@ function MessageContent({
           <div className="flex gap-2">
             <Button
               size="sm"
-              className="h-8 bg-brand text-brand-foreground transition-transform hover:scale-105 hover:bg-brand/90"
+              className="h-8 bg-brand text-brand-foreground hover:bg-brand/90"
               onClick={onConfirm}
             >
               <IconCheck className="mr-1 h-3.5 w-3.5" />
@@ -108,7 +116,7 @@ function MessageContent({
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 transition-transform hover:scale-105"
+              className="h-8"
               onClick={onCancel}
             >
               <IconX className="mr-1 h-3.5 w-3.5" />
@@ -118,24 +126,33 @@ function MessageContent({
         </div>
       );
 
-    case "action-result":
+    case "action-result": {
+      // The outcome gets one beat on top of the message's own arrival: the
+      // check pops on success, the row shakes once on failure. The icon and the
+      // text carry the outcome, so reduced motion (which drops the shake) loses
+      // nothing.
+      const succeeded = message.content.startsWith("✓");
       return (
         <div
-          className="flex items-start gap-2"
-          style={{
-            animation: message.content.startsWith("✓")
-              ? "chatPop 0.3s ease-out"
-              : "chatShake 0.4s ease-out",
-          }}
+          className={cn(
+            "flex items-start gap-2",
+            animate && !succeeded && "motion-shake",
+          )}
         >
-          {message.content.startsWith("✓") ? (
-            <IconCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+          {succeeded ? (
+            <IconCheck
+              className={cn(
+                "mt-0.5 h-4 w-4 shrink-0 text-green-500",
+                animate && "motion-pop",
+              )}
+            />
           ) : (
             <IconX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           )}
           <span>{renderText(message.content)}</span>
         </div>
       );
+    }
 
     case "customer-select":
       return (

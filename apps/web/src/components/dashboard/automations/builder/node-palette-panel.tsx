@@ -67,19 +67,22 @@ export function NodePalettePanel() {
 
   return (
     <aside
-      // Width animates to zero rather than unmounting, so the canvas resize is
-      // one smooth motion instead of a jump. `aria-hidden` when closed keeps the
-      // collapsed content out of the tab order.
+      // The column takes its width at once. It used to animate `width`, which is
+      // layout and re-laid-out the canvas every frame; now the contents are
+      // mounted only while open and arrive on their own (each row slides in from
+      // the side the panel opened from, the header and search fade). Keyed on the
+      // mode, so switching between triggers and actions replays it for the new
+      // list instead of swapping rows silently.
       aria-hidden={!open}
       className={cn(
         "flex shrink-0 flex-col overflow-hidden border-r border-border bg-card",
         // Floats over the canvas, anchored to the builder's row, until `lg`.
         "max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-20",
-        "transition-[width] duration-200 ease-out motion-reduce:transition-none",
         open ? "w-[300px]" : "w-0 border-r-0",
       )}
     >
-      <div className="flex w-[300px] flex-1 flex-col overflow-hidden">
+      {open && (
+      <div key={mode} className="motion-appear flex w-[300px] flex-1 flex-col overflow-hidden">
         <div className="flex items-start justify-between gap-2 border-b border-border px-4 py-3">
           <div className="min-w-0">
             <p className="font-heading text-sm font-semibold">
@@ -205,6 +208,7 @@ export function NodePalettePanel() {
           ))}
         </div>
       </div>
+      )}
     </aside>
   );
 }

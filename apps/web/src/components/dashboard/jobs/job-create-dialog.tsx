@@ -21,7 +21,8 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { replayMotion } from "@/lib/motion";
 import {
   IconBriefcase,
   IconUser,
@@ -103,23 +104,15 @@ function FormSection({
   );
 }
 
-/* ── Animated error message ── */
+/* ── Field error ──
+   Arrives with a short rise when it appears and leaves at once when the field is
+   corrected: an error should not linger to be animated away. */
 function FieldError({ message }: { message?: string }) {
-  return (
-    <AnimatePresence>
-      {message && (
-        <motion.p
-          initial={{ opacity: 0, y: -4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          className="text-xs text-destructive"
-        >
-          {message}
-        </motion.p>
-      )}
-    </AnimatePresence>
-  );
+  if (!message) return null;
+  return <p className="motion-arrive text-xs text-destructive">{message}</p>;
 }
+
+const formatDollars = (value: number) => "$" + value.toFixed(2);
 
 interface JobCreateDialogProps {
   job?: JobDetail | null;
@@ -138,6 +131,14 @@ export interface LineItemFormData {
   quantity: string;
   unitPrice: string;
   catalogItemId: string | null;
+}
+
+/**
+ * A line item in the draft. The `uid` is only for React: rows were keyed by
+ * description and position, so removing one remounted every row below it.
+ */
+interface DraftLineItem extends LineItemFormData {
+  uid: number;
 }
 
 export interface JobFormData {
@@ -212,7 +213,12 @@ export function JobCreateDialog({
   defaultCustomer,
 }: JobCreateDialogProps) {
   const [form, setForm] = useState(emptyForm);
-  const [lineItems, setLineItems] = useState<LineItemFormData[]>([]);
+  const [lineItems, setLineItems] = useState<DraftLineItem[]>([]);
+  const nextUid = useRef(0);
+  // A refused submit shakes the form once; the errors themselves are in text and
+  // borders, so the shake is only a pointer to them.
+  const formRef = useRef<HTMLFormElement>(null);
+  const itemFormRef = useRef<HTMLDivElement>(null);
   const [errors, setErrors] = useState<Partial<Record<keyof typeof emptyForm, string>>>({});
   const [customerSelection, setCustomerSelection] =
     useState<CustomerSelection | null>(null);
@@ -328,6 +334,7 @@ export function JobCreateDialog({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      if (formRef.current) replayMotion(formRef.current, "motion-shake");
       return;
     }
 
@@ -403,11 +410,21 @@ export function JobCreateDialog({
     if (!itemForm.unitPrice.trim()) return;
     const qty = parseFloat(itemForm.quantity);
     const price = parseFloat(itemForm.unitPrice);
-    if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
-    if (isNaN(price) || price < 0) { toast.error("Unit price must be a valid number"); return; }
+    if (isNaN(qty) || qty <= 0) {
+      toast.error("Quantity must be a positive number");
+      if (itemFormRef.current) replayMotion(itemFormRef.current, "motion-shake");
+      return;
+    }
+    if (isNaN(price) || price < 0) {
+      toast.error("Unit price must be a valid number");
+      if (itemFormRef.current) replayMotion(itemFormRef.current, "motion-shake");
+      return;
+    }
+    const uid = nextUid.current++;
     setLineItems((prev) => [
       ...prev,
       {
+        uid,
         // Resolved with the same rule the API applies, so an unnamed line
         // reads the same here as it will after the save.
         description: resolveLineItemDescription({
@@ -479,7 +496,7 @@ export function JobCreateDialog({
     <div className="flex items-center justify-between px-4 sm:px-6 pt-5 pb-3">
       <div className="flex items-center gap-3">
         <div className={cn(
-          "flex items-center justify-center h-9 w-9 rounded-lg",
+          "flex items-center justify-center h-9 w-9 rounded-lg transition-colors duration-200",
           PRIORITY_COLORS[form.priority] ?? "bg-blue-500",
         )}>
           <IconBriefcase className="h-4.5 w-4.5 text-white" />
@@ -520,7 +537,7 @@ export function JobCreateDialog({
 
   /* ── Form content ── */
   const formContent = (
-    <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
       <ScrollFadeArea className="flex-1">
         <div className={cn(
           "px-4 pb-4 sm:px-6",
@@ -728,7 +745,7 @@ export function JobCreateDialog({
                     onChange={(e) => updateField("taxRate", e.target.value)}
                     placeholder="8.25"
                     readOnly={!taxEditable}
-                    className={cn("h-9 text-sm", !taxEditable && "bg-muted text-muted-foreground")}
+                    className={cn("h-9 text-sm transition-colors", !taxEditable && "bg-muted text-muted-foreground")}
                   />
                   {!taxEditable && (
                     <Button
@@ -776,18 +793,20 @@ export function JobCreateDialog({
                   label="Add a price"
                   value={pendingPrice}
                   onValueChange={setPendingPrice}
-                  onAdd={(price) =>
+                  onAdd={(price) => {
+                    const uid = nextUid.current++;
                     setLineItems((prev) => [
                       ...prev,
                       {
+                        uid,
                         description: resolveLineItemDescription({ itemType: "other" }),
                         itemType: "other",
                         quantity: "1",
                         unitPrice: price,
                         catalogItemId: null,
                       },
-                    ])
-                  }
+                    ]);
+                  }}
                 />
 
                 {lineItems.length > 0 && (
@@ -797,13 +816,8 @@ export function JobCreateDialog({
                 )}
 
                 {/* Existing items */}
-                <AnimatePresence>
-                  {lineItems.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="rounded-md border border-border overflow-hidden"
-                    >
+                {lineItems.length > 0 && (
+                    <div className="motion-arrive rounded-md border border-border overflow-hidden">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-border bg-muted/30">
@@ -815,12 +829,12 @@ export function JobCreateDialog({
                         </thead>
                         <tbody>
                           {lineItems.map((li, idx) => (
-                            <motion.tr
-                              key={`${li.description}-${idx}`}
-                              initial={{ opacity: 0, x: -8 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: -8 }}
-                              className="border-b border-border last:border-0"
+                            // A row that was just added is washed once; the
+                            // stable `uid` key means removing another row does
+                            // not remount, and so does not re-highlight, this one.
+                            <tr
+                              key={li.uid}
+                              className="motion-highlight border-b border-border last:border-0"
                             >
                               <td className="px-2 py-1.5 font-body">
                                 <div className="text-xs text-foreground truncate max-w-[160px]">{li.description}</div>
@@ -835,34 +849,26 @@ export function JobCreateDialog({
                                   <IconTrash className="h-3 w-3" />
                                 </Button>
                               </td>
-                            </motion.tr>
+                            </tr>
                           ))}
                         </tbody>
                       </table>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    </div>
+                )}
 
-                {/* Add Line Item button */}
-                <div
-                  className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
-                  style={{ gridTemplateRows: showAddItem ? "0fr" : "1fr", opacity: showAddItem ? 0 : 1 }}
-                >
-                  <div className="overflow-hidden">
-                    <Button type="button" variant="outline" size="sm" onClick={() => setShowAddItem(true)} tabIndex={showAddItem ? -1 : 0} className="w-full cursor-pointer text-xs gap-1.5">
-                      <IconPlus className="h-3.5 w-3.5" />
-                      Add Line Item
-                    </Button>
-                  </div>
-                </div>
+                {/* The button becomes the form: one or the other is mounted. The
+                    old version animated grid-template-rows, which is height,
+                    and kept both in the tab order; this fades the form up
+                    instead and only ever focuses what is on screen. */}
+                {!showAddItem && (
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowAddItem(true)} className="w-full cursor-pointer text-xs gap-1.5">
+                    <IconPlus className="h-3.5 w-3.5" />
+                    Add Line Item
+                  </Button>
+                )}
 
-                {/* Add item form */}
-                <div
-                  className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
-                  style={{ gridTemplateRows: showAddItem ? "1fr" : "0fr", opacity: showAddItem ? 1 : 0 }}
-                >
-                  <div className="overflow-hidden">
-                    <div className="rounded-md border border-border p-2.5 space-y-2">
+                {showAddItem && (
+                    <div ref={itemFormRef} className="motion-arrive rounded-md border border-border p-2.5 space-y-2">
                       <div>
                         <label className="text-[10px] font-medium text-muted-foreground mb-1 block">
                           From catalog (optional)
@@ -950,35 +956,33 @@ export function JobCreateDialog({
                         </Button>
                       </div>
                     </div>
-                  </div>
-                </div>
+                )}
 
                 {/* Summary */}
-                <AnimatePresence>
-                  {lineItems.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: 8 }}
-                      className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5"
-                    >
+                {lineItems.length > 0 && (
+                  <div className="motion-arrive rounded-md border border-border bg-muted/20 p-3 space-y-1.5">
+                    <div className="flex justify-between text-xs text-muted-foreground font-body">
+                      <span>Subtotal</span>
+                      <span>
+                        <AnimatedNumber value={subtotal} format={formatDollars} />
+                      </span>
+                    </div>
+                    {taxRateNum > 0 && (
                       <div className="flex justify-between text-xs text-muted-foreground font-body">
-                        <span>Subtotal</span>
-                        <span>${subtotal.toFixed(2)}</span>
+                        <span>Tax ({form.taxRate}%)</span>
+                        <span>
+                          <AnimatedNumber value={taxAmount} format={formatDollars} />
+                        </span>
                       </div>
-                      {taxRateNum > 0 && (
-                        <div className="flex justify-between text-xs text-muted-foreground font-body">
-                          <span>Tax ({form.taxRate}%)</span>
-                          <span>${taxAmount.toFixed(2)}</span>
-                        </div>
-                      )}
-                      <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold font-body">
-                        <span>Total</span>
-                        <span>${total.toFixed(2)}</span>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+                    )}
+                    <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold font-body">
+                      <span>Total</span>
+                      <span>
+                        <AnimatedNumber value={total} format={formatDollars} />
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {lineItems.length === 0 && !showAddItem && (
                   <p className="text-xs text-muted-foreground text-center py-4 font-body">

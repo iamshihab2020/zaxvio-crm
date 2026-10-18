@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -22,6 +23,8 @@ import { getJobs } from "@/lib/client-reads/jobs";
 import { getInvoices } from "@/lib/client-reads/invoices";
 import { useCustomerSummary, useCustomerActivities } from "@/hooks/queries";
 import { useTenantSettings } from "@/hooks/queries/use-tenant";
+import { useStagger } from "@/hooks/use-stagger";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 
 interface CustomerOverviewTabProps {
   customerId: string;
@@ -77,6 +80,10 @@ function formatCurrency(val: string | number) {
     style: "currency",
     currency: "USD",
   }).format(Number.isFinite(num) ? num : 0);
+}
+
+function formatCount(value: number) {
+  return String(Math.round(value));
 }
 
 function timeAgo(dateStr: string) {
@@ -156,7 +163,14 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
   const invoicesFailed = invoicesQuery.isError || !!invoicesQuery.data?.error;
   const activitiesFailed = activitiesQuery.isError || !!activitiesQuery.data?.error;
 
-  if (summaryQuery.isLoading && jobsQuery.isLoading) {
+  // The blocks (totals, the two lists, activity) rise in turn when the tab
+  // finishes loading. Arriving with the page is covered by the route arrival,
+  // so this only runs when the skeleton gives way to content.
+  const blocksRef = useRef<HTMLDivElement>(null);
+  const stillLoading = summaryQuery.isLoading && jobsQuery.isLoading;
+  useStagger(blocksRef, stillLoading ? null : customerId);
+
+  if (stillLoading) {
     return (
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="space-y-3">
@@ -174,7 +188,7 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
   }
 
   return (
-    <div className="space-y-5">
+    <div ref={blocksRef} className="space-y-5">
       {/* Stats row */}
       <WidgetErrorBoundary name="Customer totals">
         {summaryFailed ? (
@@ -189,24 +203,28 @@ export function CustomerOverviewTab({ customerId }: CustomerOverviewTabProps) {
             <StatCard
               icon={<IconBriefcase className="h-4 w-4" />}
               label="Total Jobs"
-              value={String(summary?.totalJobs ?? 0)}
+              value={Number(summary?.totalJobs ?? 0)}
+              format={formatCount}
             />
             <StatCard
               icon={<IconReceipt className="h-4 w-4" />}
               label="Open Invoices"
-              value={String(summary?.openInvoices ?? 0)}
+              value={Number(summary?.openInvoices ?? 0)}
+              format={formatCount}
               accent={(summary?.openInvoices ?? 0) > 0}
             />
             <StatCard
               icon={<IconCurrencyDollar className="h-4 w-4" />}
               label="Outstanding"
-              value={formatCurrency(summary?.outstandingAmount ?? 0)}
+              value={Number(summary?.outstandingAmount ?? 0)}
+              format={formatCurrency}
               accent={Number(summary?.outstandingAmount ?? 0) > 0}
             />
             <StatCard
               icon={<IconFileCheck className="h-4 w-4" />}
               label="Agreements"
-              value={String(summary?.activeAgreements ?? 0)}
+              value={Number(summary?.activeAgreements ?? 0)}
+              format={formatCount}
             />
           </div>
         )}
@@ -364,11 +382,13 @@ function StatCard({
   icon,
   label,
   value,
+  format,
   accent,
 }: {
   icon: React.ReactNode;
   label: string;
-  value: string;
+  value: number;
+  format: (value: number) => string;
   accent?: boolean;
 }) {
   return (
@@ -378,9 +398,9 @@ function StatCard({
         <span className="font-body text-xs">{label}</span>
       </div>
       <p
-        className={`font-heading text-lg font-bold ${accent ? "text-brand-ink" : "text-foreground"}`}
+        className={`font-heading text-lg font-bold transition-colors duration-200 ${accent ? "text-brand-ink" : "text-foreground"}`}
       >
-        {value}
+        <AnimatedNumber value={value} format={format} />
       </p>
     </div>
   );

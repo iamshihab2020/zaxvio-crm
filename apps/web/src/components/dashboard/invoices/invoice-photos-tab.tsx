@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconPhoto } from "@tabler/icons-react";
 import { getJobPhotos } from "@/lib/client-reads/jobs";
 import { getStorageUrl } from "@/lib/storage-url";
+import { useStagger } from "@/hooks/use-stagger";
 import { PhotoTagPill } from "@/components/dashboard/jobs/photo-tag-pill";
 import { JobPhotoLightbox } from "@/components/dashboard/jobs/job-photo-lightbox";
 import type { LightboxPhoto } from "@/components/dashboard/jobs/job-photo-lightbox";
@@ -62,6 +63,11 @@ export function InvoicePhotosTab({ jobId }: InvoicePhotosTabProps) {
     createdAt: p.createdAt,
   }));
 
+  // The thumbnails rise in when the job's photos arrive. Selecting one is a
+  // state change on a tile that is already there, so it does not replay this.
+  const gridRef = useRef<HTMLDivElement>(null);
+  useStagger(gridRef, loading ? null : photos.map((p) => p.id).join(","));
+
   if (loading) {
     return (
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -74,7 +80,7 @@ export function InvoicePhotosTab({ jobId }: InvoicePhotosTabProps) {
 
   if (photos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
         <IconPhoto className="h-8 w-8 text-muted-foreground mb-2" />
         <p className="text-sm text-muted-foreground font-body">No photos on this job</p>
         <p className="text-xs text-muted-foreground/70 mt-1 font-body">
@@ -94,7 +100,7 @@ export function InvoicePhotosTab({ jobId }: InvoicePhotosTabProps) {
       <p className="text-xs text-muted-foreground font-body">
         Select photos to include in the invoice PDF
       </p>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      <div ref={gridRef} className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {photos.map((photo, index) => {
           const isSelected = selected.has(photo.id);
           return (
@@ -124,8 +130,8 @@ export function InvoicePhotosTab({ jobId }: InvoicePhotosTabProps) {
                 <PhotoTagPill tag={photo.tag} />
               </div>
               {isSelected && (
-                <div className="absolute inset-0 bg-brand/20 flex items-center justify-center">
-                  <div className="flex h-6 w-6 items-center justify-center rounded-full bg-brand text-brand-foreground text-xs font-bold">
+                <div className="motion-appear absolute inset-0 bg-brand/20 flex items-center justify-center">
+                  <div className="motion-pop flex h-6 w-6 items-center justify-center rounded-full bg-brand text-brand-foreground text-xs font-bold">
                     ✓
                   </div>
                 </div>

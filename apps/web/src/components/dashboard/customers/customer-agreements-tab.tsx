@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { IconFileCheck, IconPlus } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,6 +17,8 @@ import {
   type AgreementSaveData,
 } from "@/components/dashboard/service-agreements/service-agreement-dialog";
 import { getMaintenanceContracts } from "@/lib/client-reads/maintenance-contracts";
+import { useStagger } from "@/hooks/use-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import {
   createMaintenanceContract,
   updateMaintenanceContract,
@@ -67,6 +69,11 @@ export function CustomerAgreementsTab({
     fetchAgreements();
   }, [fetchAgreements]);
 
+  // Rows rise in when the list arrives; the one just saved is washed.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, loading || loadError ? null : "agreements");
+  const { flashId, flash } = useRowFlash();
+
   function openCreateDialog() {
     setEditingAgreement(null);
     setDialogOpen(true);
@@ -97,6 +104,7 @@ export function CustomerAgreementsTab({
       });
       if (!result.error) {
         setDialogOpen(false);
+        flash(editingAgreement.id);
         await fetchAgreements();
       }
     } else {
@@ -115,6 +123,7 @@ export function CustomerAgreementsTab({
       });
       if (!result.error) {
         setDialogOpen(false);
+        if (typeof result.data?.id === "string") flash(result.data.id);
         await fetchAgreements();
       }
     }
@@ -171,7 +180,7 @@ export function CustomerAgreementsTab({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
+      <div className="motion-appear flex items-center justify-between gap-3">
         <p className="text-sm text-muted-foreground font-body">
           {/* Reports the cap rather than hiding it (CUST-15). */}
           {totalAgreements > agreements.length
@@ -191,6 +200,8 @@ export function CustomerAgreementsTab({
       <Card className="overflow-hidden">
         <ServiceAgreementTable
           agreements={agreements}
+          bodyRef={bodyRef}
+          highlightId={flashId}
           onEdit={openEditDialog}
           onDelete={openDeleteDialog}
           showCustomer={false}

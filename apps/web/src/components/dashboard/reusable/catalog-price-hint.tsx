@@ -45,7 +45,7 @@ export function CatalogPriceHint({
   if (!hasPrice || Math.abs(delta) < 0.005) return null;
 
   return (
-    <p className={cn("text-[11px] font-body", className)}>
+    <p className={cn("motion-appear text-[11px] font-body", className)}>
       <span
         className={cn(
           "font-medium",

@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useShakeOnError } from "@/components/superadmin/use-shake-on-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { extendTrial } from "@/actions/admin";
@@ -32,6 +33,8 @@ export function ExtendTrialDialog({
   const [days, setDays] = useState(14);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rejected submit shakes the form body, never the dialog (see the hook).
+  const shakeRef = useShakeOnError<HTMLDivElement>(error);
 
   const handleSubmit = async () => {
     if (days < 1 || days > 365) {
@@ -59,7 +62,7 @@ export function ExtendTrialDialog({
             Extend Trial
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div ref={shakeRef} className="space-y-4">
           <p className="text-sm text-muted-foreground font-body">
             Extend the trial period for <strong>{tenantName}</strong>.
           </p>
@@ -91,7 +94,7 @@ export function ExtendTrialDialog({
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive font-body">{error}</p>
+            <p className="motion-appear text-sm text-destructive font-body">{error}</p>
           )}
         </div>
         <DialogFooter className="max-sm:[&>button]:h-10">

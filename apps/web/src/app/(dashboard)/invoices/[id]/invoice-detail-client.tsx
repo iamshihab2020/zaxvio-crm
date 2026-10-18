@@ -85,7 +85,10 @@ export function InvoiceDetailClient({
             sidebar is not dropped but runs under both as a full-width card —
             it holds the customer's phone and address, the linked job and the
             notes, and nothing else on this page shows them. */}
-        <div className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start xl:grid-cols-[20rem_minmax(0,1fr)_18rem]">
+        <div
+          data-stagger
+          className="grid grid-cols-1 gap-4 sm:gap-5 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start xl:grid-cols-[20rem_minmax(0,1fr)_18rem]"
+        >
           {/* Left Panel */}
           <div className="rounded-lg border border-border bg-card shadow-sm">
             <InvoiceInfoPanel invoice={invoice} />

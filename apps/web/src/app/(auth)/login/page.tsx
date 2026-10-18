@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn, authClient } from "@/lib/auth-client";
 import { initializeTenant } from "@/actions/tenants";
 import { safeRedirectPath } from "@/lib/safe-redirect";
+import { replayMotion } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,10 +21,17 @@ function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     document.title = "Log In — Zaxvio";
   }, []);
+
+  // The message is shown in the banner; the shake only says "no" a moment sooner.
+  function reject(message: string) {
+    setError(message);
+    if (formRef.current) replayMotion(formRef.current, "motion-shake");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -37,7 +45,7 @@ function LoginForm() {
       });
 
       if (authError) {
-        setError(authError.message ?? "Invalid email or password");
+        reject(authError.message ?? "Invalid email or password");
         return;
       }
 
@@ -151,9 +159,9 @@ function LoginForm() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="motion-appear rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}

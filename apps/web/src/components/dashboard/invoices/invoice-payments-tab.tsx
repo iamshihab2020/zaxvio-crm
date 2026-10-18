@@ -19,6 +19,10 @@ import { ConfirmActionDialog } from "@/components/reusable/confirm-action-dialog
 import { useRecordPayment, useDeletePayment, usePayInFull, useTenantSettings } from "@/hooks/queries";
 import { formatMoney, formatDateOnly } from "@/lib/format";
 import { tenantToday } from "@/lib/tenant-time";
+import { cn } from "@/lib/utils";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { useFormShake } from "@/hooks/use-form-shake";
 
 interface Payment {
   id: string;
@@ -92,6 +96,11 @@ export function InvoicePaymentsTab({
   const deleteMutation = useDeletePayment();
   const payInFullMutation = usePayInFull();
 
+  // A payment that arrives after the first render is washed. A refused amount
+  // shakes the form; the toast says why.
+  const fresh = useNewIds(payments.map((p) => p.id));
+  const { ref: addFormRef, shake } = useFormShake<HTMLDivElement>();
+
   const totalPaid = payments.reduce((sum, p) => sum + parseFloat(p.amount), 0);
   const balance = parseFloat(balanceDue);
   const credit = parseFloat(creditAmount ?? "0");
@@ -109,6 +118,7 @@ export function InvoicePaymentsTab({
     const parsed = parseAmount(amount);
     if (parsed === null || parsed <= 0) {
       toast.error("Enter an amount greater than zero");
+      shake();
       return;
     }
     // Overpayment is allowed — it becomes a credit on the invoice — but it is
@@ -177,28 +187,28 @@ export function InvoicePaymentsTab({
         <div>
           <p className="text-xs text-muted-foreground font-body">Total Paid</p>
           <p className="text-sm font-semibold text-green-600 dark:text-green-400 font-body">
-            {formatMoney(totalPaid)}
+            <AnimatedNumber value={totalPaid} format={formatMoney} />
           </p>
         </div>
         {credit > 0 && (
           <div className="text-center">
             <p className="text-xs text-muted-foreground font-body">Credit</p>
             <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 font-body">
-              {formatMoney(credit)}
+              <AnimatedNumber value={credit} format={formatMoney} />
             </p>
           </div>
         )}
         <div className="text-right">
           <p className="text-xs text-muted-foreground font-body">Balance Due</p>
           <p className="text-sm font-bold text-brand-ink font-body">
-            {formatMoney(balanceDue)}
+            <AnimatedNumber value={balance} format={formatMoney} />
           </p>
         </div>
       </div>
 
       {/* Payments list */}
       {payments.length === 0 && !showAdd && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
+        <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand-light">
             <IconCash className="h-5 w-5 text-brand" />
           </div>
@@ -216,7 +226,10 @@ export function InvoicePaymentsTab({
           {payments.map((p) => (
             <div
               key={p.id}
-              className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2"
+              className={cn(
+                "flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2",
+                fresh.has(p.id) && "motion-highlight",
+              )}
             >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -257,7 +270,7 @@ export function InvoicePaymentsTab({
 
       {/* Add payment form */}
       {canTakePayment && showAdd && (
-        <div className="mt-3 space-y-3 rounded-md border border-border p-3">
+        <div ref={addFormRef} className="motion-arrive mt-3 space-y-3 rounded-md border border-border p-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label className="text-xs font-body" htmlFor="payment-amount">

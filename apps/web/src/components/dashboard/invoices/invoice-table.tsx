@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import {
   Table,
   TableBody,
@@ -51,6 +52,10 @@ interface InvoiceTableProps {
   sortBy?: InvoiceSortKey;
   sortOrder?: "asc" | "desc";
   onSortChange?: (key: InvoiceSortKey) => void;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just created or edited; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 // `hide` is the breakpoint a column appears at. On a phone the table is the
@@ -82,6 +87,8 @@ export function InvoiceTable({
   sortBy,
   sortOrder = "desc",
   onSortChange,
+  bodyRef,
+  highlightId,
 }: InvoiceTableProps) {
   const queryClient = useQueryClient();
   const hasSelection = !!selectedIds && !!onToggleSelect;
@@ -152,7 +159,7 @@ export function InvoiceTable({
             })}
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody ref={bodyRef}>
           {invoices.map((inv) => {
             const total = parseFloat(inv.totalAmount ?? "0");
             const paid = parseFloat(inv.amountPaid ?? "0");
@@ -173,7 +180,10 @@ export function InvoiceTable({
                 role="button"
                 tabIndex={0}
                 aria-label={`Invoice ${inv.invoiceNumber}`}
-                className="cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className={cn(
+                  "cursor-pointer hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
+                  inv.id === highlightId && "motion-highlight",
+                )}
                 onClick={() => onRowClick(inv.id)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {

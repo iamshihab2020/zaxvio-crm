@@ -124,18 +124,14 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
 
   return (
     <div>
-      {/* Popover trigger — collapses when in new-customer mode */}
-      <div
-        className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
-        style={{ gridTemplateRows: isNewMode ? "0fr" : "1fr", opacity: isNewMode ? 0 : 1 }}
-      >
-        <div className="overflow-hidden">
+      {/* Popover trigger — replaced by the inline form in new-customer mode */}
+      {!isNewMode && (
+        <div>
           <Popover modal open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
               <Button
                 type="button"
                 variant="outline"
-                tabIndex={isNewMode ? -1 : 0}
                 className={cn(
                   "h-10 w-full justify-between font-body sm:h-9",
                   error && !isNewMode ? "border-destructive" : "",
@@ -202,15 +198,12 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
             </PopoverContent>
           </Popover>
         </div>
-      </div>
+      )}
 
-      {/* Inline new customer form — expands when in new-customer mode */}
-      <div
-        className="grid transition-[grid-template-rows,opacity] duration-200 ease-out"
-        style={{ gridTemplateRows: isNewMode ? "1fr" : "0fr", opacity: isNewMode ? 1 : 0 }}
-      >
-        <div className="overflow-hidden">
-          <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+      {/* Inline new customer form — appears when "New Customer" is chosen */}
+      {isNewMode && (
+        <div>
+          <div className="motion-arrive rounded-md border border-border bg-muted/30 p-3 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground font-heading">
                 New Customer
@@ -220,7 +213,6 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                 variant="ghost"
                 size="sm"
                 onClick={handleSwitchToExisting}
-                tabIndex={isNewMode ? 0 : -1}
                 className="h-10 gap-1 px-2 text-xs text-brand-ink hover:underline font-body sm:h-auto sm:p-0"
               >
                 <IconArrowBack className="h-3 w-3" />
@@ -233,13 +225,12 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   First Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  value={isNewMode ? value.firstName : ""}
+                  value={value.firstName}
                   onChange={(e) => updateNewField("firstName", e.target.value)}
                   placeholder="John"
                   className="h-10 text-sm sm:h-8"
-                  tabIndex={isNewMode ? 0 : -1}
                 />
-                {error && isNewMode && !value.firstName.trim() && (
+                {error && !value.firstName.trim() && (
                   <p className="flex items-center gap-1 text-xs text-destructive">
                     <IconAlertCircle className="h-3 w-3 shrink-0" />
                     Required
@@ -251,13 +242,12 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   Last Name <span className="text-destructive">*</span>
                 </Label>
                 <Input
-                  value={isNewMode ? value.lastName : ""}
+                  value={value.lastName}
                   onChange={(e) => updateNewField("lastName", e.target.value)}
                   placeholder="Doe"
                   className="h-10 text-sm sm:h-8"
-                  tabIndex={isNewMode ? 0 : -1}
                 />
-                {error && isNewMode && !value.lastName.trim() && (
+                {error && !value.lastName.trim() && (
                   <p className="flex items-center gap-1 text-xs text-destructive">
                     <IconAlertCircle className="h-3 w-3 shrink-0" />
                     Required
@@ -269,11 +259,10 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                   Phone
                 </Label>
                 <Input
-                  value={isNewMode ? value.phone : ""}
+                  value={value.phone}
                   onChange={(e) => updateNewField("phone", formatPhoneInput(e.target.value))}
                   placeholder="(555) 123-4567"
                   className="h-10 text-sm sm:h-8"
-                  tabIndex={isNewMode ? 0 : -1}
                 />
               </div>
               <div className="space-y-1">
@@ -282,17 +271,16 @@ export function CustomerPicker({ value, onChange, error }: CustomerPickerProps) 
                 </Label>
                 <Input
                   type="email"
-                  value={isNewMode ? value.email : ""}
+                  value={value.email}
                   onChange={(e) => updateNewField("email", e.target.value)}
                   placeholder="john@example.com"
                   className="h-10 text-sm sm:h-8"
-                  tabIndex={isNewMode ? 0 : -1}
                 />
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

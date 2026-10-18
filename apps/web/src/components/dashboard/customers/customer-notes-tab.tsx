@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/reusable/pagination";
+import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
 import {
@@ -67,6 +70,13 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
   const pagination = notesQuery.data?.pagination;
   const loadFailed = notesQuery.isError || !!notesQuery.data?.error;
 
+  // Notes rise in when the first page arrives and when the page changes, not on
+  // the refetch that follows every write. A note just added or edited is washed
+  // instead (the stagger would replay the whole list for one new row).
+  const listRef = useRef<HTMLDivElement>(null);
+  useStagger(listRef, notesQuery.isLoading || loadFailed ? null : page);
+  const { flashId, flash } = useRowFlash();
+
   function handleCreate() {
     const content = newNote.trim();
     if (!content || createMutation.isPending) return;
@@ -75,6 +85,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
         if (!res.error) {
           setNewNote("");
           setPage(1);
+          if (typeof res.data?.id === "string") flash(res.data.id);
         }
       },
     });
@@ -85,7 +96,14 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
     if (!content) return;
     updateMutation.mutate(
       { noteId, content },
-      { onSuccess: (res) => { if (!res.error) setEditingId(null); } },
+      {
+        onSuccess: (res) => {
+          if (!res.error) {
+            setEditingId(null);
+            flash(noteId);
+          }
+        },
+      },
     );
   }
 
@@ -120,7 +138,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
   return (
     <div className="space-y-4">
       {/* Compose Area */}
-      <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 sm:p-4">
+      <div className="motion-appear space-y-2 rounded-lg border border-border bg-muted/30 p-3 sm:p-4">
         <Textarea
           value={newNote}
           onChange={(e) => setNewNote(e.target.value)}
@@ -150,7 +168,7 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
 
       {/* Notes List */}
       {notes.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
+        <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
           <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-brand-light">
             <IconNote className="h-5 w-5 text-brand" />
           </div>
@@ -158,13 +176,16 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
           <p className="mt-1 text-xs text-muted-foreground">Add your first note above</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div ref={listRef} className="space-y-3">
           {notes.map((note) => {
             const edited = note.updatedAt && note.updatedAt !== note.createdAt;
             return (
               <div
                 key={note.id}
-                className="space-y-2 rounded-lg border border-border/70 bg-surface p-3 transition-colors hover:border-border sm:p-4"
+                className={cn(
+                  "space-y-2 rounded-lg border border-border/70 bg-surface p-3 transition-colors hover:border-border sm:p-4",
+                  note.id === flashId && "motion-highlight",
+                )}
               >
                 {editingId === note.id ? (
                   <>
@@ -173,9 +194,9 @@ export function CustomerNotesTab({ customerId }: CustomerNotesTabProps) {
                       onChange={(e) => setEditContent(e.target.value)}
                       rows={3}
                       maxLength={MAX_NOTE}
-                      className="resize-none"
+                      className="motion-appear resize-none"
                     />
-                    <div className="flex justify-end gap-1">
+                    <div className="motion-appear flex justify-end gap-1">
                       <Button variant="ghost" size="sm" onClick={() => setEditingId(null)} className="h-10 sm:h-8">
                         <IconX className="h-4 w-4" />
                         <span className="sr-only">Cancel</span>

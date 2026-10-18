@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import Link from "next/link";
 import {
   Table,
@@ -14,6 +15,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { IconBriefcase, IconFileCheck, IconFileDescription } from "@tabler/icons-react";
 import { useEquipmentHistory } from "@/hooks/queries";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
+import { useStagger } from "@/hooks/use-stagger";
 // ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
 // timezone rendered the previous day. These are all `date` columns.
 import { formatDateOnly as formatDate } from "@/lib/format";
@@ -103,6 +105,11 @@ export function AssetServiceHistoryTab({
     ? "Something went wrong loading this history."
     : (historyQuery.data?.error ?? null);
 
+  // The jobs, quotes and agreements sections arrive one after another when the
+  // history finishes loading.
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  useStagger(sectionsRef, loading || loadError ? null : equipmentId);
+
   if (loadError) {
     return (
       <LoadErrorState
@@ -132,7 +139,7 @@ export function AssetServiceHistoryTab({
 
   if (isEmpty) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
         <IconBriefcase className="h-6 w-6 text-muted-foreground mb-2" />
         <p className="text-sm font-medium text-foreground">
           No service history
@@ -145,7 +152,7 @@ export function AssetServiceHistoryTab({
   }
 
   return (
-    <div className="space-y-6">
+    <div ref={sectionsRef} className="space-y-6">
       {/* Jobs Section */}
       {hasJobs && (
         <div className="space-y-2">

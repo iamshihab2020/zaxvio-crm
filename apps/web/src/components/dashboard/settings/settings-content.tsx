@@ -1,16 +1,8 @@
-"use client";
-
-import { usePathname } from "next/navigation";
-
+/**
+ * The padded area every settings page renders into. It does not animate: the
+ * shell's route arrival (`useRouteArrival`) already runs on navigation, and each
+ * page marks its own stack with `data-stagger` so its cards arrive in turn.
+ */
 export function SettingsContent({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
-  return (
-    <div
-      key={pathname}
-      className="p-4 sm:p-6 animate-settings-enter"
-    >
-      {children}
-    </div>
-  );
+  return <div className="p-4 sm:p-6">{children}</div>;
 }

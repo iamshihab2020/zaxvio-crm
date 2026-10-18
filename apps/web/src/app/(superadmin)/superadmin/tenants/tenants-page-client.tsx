@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { IconSearch, IconBuilding } from "@tabler/icons-react";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { TenantStatusBadge } from "@/components/superadmin/tenants/tenant-status-badge";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useStagger } from "@/hooks/use-stagger";
 import { getAdminTenants } from "@/actions/admin";
 
 interface Tenant {
@@ -53,6 +55,10 @@ const SKELETON_COLUMN_CLASSES = [
   "",
   COLUMN_FROM_XL,
 ];
+
+function formatCount(n: number): string {
+  return String(n);
+}
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", {
@@ -100,13 +106,20 @@ export function TenantsPageClient({
     [search, pagination.page, pagination.limit],
   );
 
+  // The rows are laid out in turn when a search or a page replaces them. The
+  // key is which rows are shown (page and search) and `null` while they load,
+  // so the skeleton does not animate and a refetch of the same view does not
+  // replay.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, loading ? null : `${pagination.page}:${search}`);
+
   const handleSearch = (value: string) => {
     setSearch(value);
     fetchTenants({ search: value, page: 1 });
   };
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Card wrapper */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Search bar */}
@@ -121,7 +134,7 @@ export function TenantsPageClient({
             />
           </div>
           <Badge variant="secondary" className="font-body text-xs shrink-0">
-            {pagination.total} tenants
+            <AnimatedNumber value={pagination.total} format={formatCount} /> tenants
           </Badge>
         </div>
 
@@ -142,7 +155,7 @@ export function TenantsPageClient({
               <TableHead className={`font-body ${COLUMN_FROM_XL}`}>Signed Up</TableHead>
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody ref={bodyRef}>
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
                 <TableRow key={i}>

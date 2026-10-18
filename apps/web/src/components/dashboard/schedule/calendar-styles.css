@@ -238,7 +238,7 @@
   padding: 2px 6px;
   background: transparent;
   border-radius: var(--radius);
-  transition: background-color 150ms ease;
+  transition: background-color var(--dur-state) var(--ease-out);
 }
 
 .rbc-show-more:hover {
@@ -306,12 +306,6 @@
   border-radius: 50%;
   background-color: hsl(var(--brand));
   box-shadow: 0 0 0 3px hsl(var(--brand) / 0.15), 0 0 8px hsl(var(--brand) / 0.25);
-  animation: time-dot-pulse 2s ease-in-out infinite;
-}
-
-@keyframes time-dot-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -386,10 +380,14 @@
    CELL HOVER EFFECT — softer transitions
    ══════════════════════════════════════════════════════════════════ */
 
-/* Month view cells */
+/* Month view cells. The transition lives on the resting state, so the tint
+   eases away as well as in; it used to sit on :hover and snap off. */
+.rbc-month-view .rbc-day-bg {
+  transition: background-color var(--dur-state) var(--ease-out);
+}
+
 .rbc-month-view .rbc-day-bg:hover {
   background-color: hsl(var(--muted) / 0.3) !important;
-  transition: background-color 200ms ease;
 }
 
 :is(.dark) .rbc-month-view .rbc-day-bg:hover {
@@ -409,7 +407,7 @@
 }
 
 .rbc-day-slot .rbc-timeslot-group {
-  transition: background-color 200ms ease;
+  transition: background-color var(--dur-state) var(--ease-out);
   cursor: default;
 }
 
@@ -488,13 +486,23 @@
    IN-PROGRESS EVENT PULSE
    ══════════════════════════════════════════════════════════════════ */
 
-@keyframes active-event-pulse {
-  0%, 100% { border-left-color: inherit; opacity: 1; }
-  50% { opacity: 0.65; }
+/* An event that is happening now. It used to breathe for as long as it was in
+   progress, a loop on a screen that should be still. A steady brand ring says
+   the same thing and still says it under reduced motion. An outline rather than
+   a box-shadow, because the card already carries a shadow class. */
+.schedule-event-active {
+  outline: 1.5px solid hsl(var(--brand) / 0.55);
+  outline-offset: -1.5px;
 }
 
-.schedule-event-active {
-  animation: active-event-pulse 3s ease-in-out infinite;
+/* An event that was just dragged to a new slot or edited. The wash is drawn on
+   the card inside (`.rbc-event` itself is transparent, so a background on it
+   would sit behind the card's own). It reuses `motion-highlight` from
+   globals.css: the end of that animation is the card's own background, so
+   there is nothing to snap back to. Not overridden for reduced motion, for the
+   same reason the class itself is not: a colour wash is not movement. */
+.schedule-event-flash [role="button"] {
+  animation: motion-highlight 1200ms var(--ease-out);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -502,14 +510,6 @@
    ══════════════════════════════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {
-  .rbc-current-time-indicator::before {
-    animation: none;
-  }
-
-  .schedule-event-active {
-    animation: none;
-  }
-
   .rbc-addons-dnd-drag-preview {
     transition: none;
   }

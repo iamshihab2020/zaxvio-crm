@@ -17,6 +17,7 @@ import {
   type TabsContentsProps as AnimatedTabsContentsProps,
 } from "@/components/animate-ui/primitives/radix/tabs";
 import { cn } from "@/lib/utils";
+import { DUR, EASE_OUT } from "@/lib/motion";
 
 // ── Tabs Root ──
 
@@ -93,18 +94,42 @@ function TabsTrigger({ className, value, ...props }: TabsTriggerProps) {
   );
 }
 
-// ── Tabs Content (with fade animation) ──
+// ── Tabs Content (fades in and rises when it becomes the active panel) ──
 
 type TabsContentProps = AnimatedTabsContentProps;
 
+// A panel arrives when you switch to it: opacity 0 to 1 and 4px up, 200ms on
+// the system curve (`--dur-state`, `--ease-out`). It does not arrive with the
+// page. The animate-ui primitive renders its `initial` style (opacity 0, blur)
+// into the server HTML and then animates after hydration, so the first panel
+// sat invisible until the script ran, and it left `filter: blur(0px)` behind,
+// which makes the panel the containing block for any `position: fixed` child.
+//
+// `initial={false}` until the first effect has run renders the panel at rest on
+// the server and on hydration. Every TabsContent mounts with the page, so by
+// the time anyone can click a tab `armed` is already true; a panel that mounts
+// after that (Radix mounts a panel when its tab becomes active) starts from
+// the hidden state and animates. The panel that was active at load is already
+// mounted, so changing the prop later does nothing to it. Opacity and the rise
+// are the only things animated; reduced motion (MotionConfig) keeps the fade
+// and drops the rise.
+//
+// The underline and the scrolling list are TabsList's and are not touched here.
 function TabsContent({ className, ...props }: TabsContentProps) {
+  const [armed, setArmed] = React.useState(false);
+  React.useEffect(() => {
+    setArmed(true);
+  }, []);
+
   return (
     <AnimatedTabsContent
       className={cn(
         "mt-4 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
         className,
       )}
-      transition={{ duration: 0.3, ease: "easeInOut" }}
+      initial={armed ? { opacity: 0, y: 4 } : false}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: DUR.state / 1000, ease: EASE_OUT }}
       {...props}
     />
   );

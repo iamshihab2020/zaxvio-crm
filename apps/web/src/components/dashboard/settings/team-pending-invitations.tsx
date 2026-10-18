@@ -7,6 +7,8 @@ import { toast } from "sonner";
 import { SettingsSection } from "./settings-section";
 import { TeamRoleBadge } from "./team-role-badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { useNewIds } from "@/hooks/use-new-ids";
 import {
   Table,
   TableBody,
@@ -45,6 +47,10 @@ export function TeamPendingInvitations({
   const [cancelling, setCancelling] = useState<string | null>(null);
 
   const pendingInvitations = invitations.filter((i) => i.status === "pending");
+
+  // An invitation sent while this is on screen is washed. Declared above the
+  // early return so the hook runs on every render.
+  const fresh = useNewIds(pendingInvitations.map((i) => i.id));
 
   if (pendingInvitations.length === 0) return null;
 
@@ -88,7 +94,7 @@ export function TeamPendingInvitations({
             const isExpired = expiresAt < new Date();
 
             return (
-              <TableRow key={inv.id}>
+              <TableRow key={inv.id} className={cn(fresh.has(inv.id) && "motion-highlight")}>
                 <TableCell>
                   <span className="text-sm font-medium text-foreground font-body">
                     {inv.email}

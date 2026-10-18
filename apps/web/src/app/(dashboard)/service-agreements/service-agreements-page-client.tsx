@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   IconFileCheck,
@@ -31,6 +31,8 @@ import {
 } from "@/components/dashboard/service-agreements/service-agreement-dialog";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { seeded } from "@/hooks/queries/seed";
 import {
   useServiceAgreements,
@@ -149,6 +151,19 @@ export function ServiceAgreementsPageClient({
     DEFAULT_PAGINATION;
   const loading = agreementsQuery.isLoading;
 
+  // The rows replay when WHICH rows are shown changes: page, status tab,
+  // search. `null` while loading, and while the previous list is held over as
+  // placeholder data for the next one, so the rows about to be replaced are
+  // never the ones that animate.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || agreementsQuery.isPlaceholderData
+      ? null
+      : `${page}:${statusFilter}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
+
   // Prefetch next page
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -208,9 +223,10 @@ export function ServiceAgreementsPageClient({
 
   async function handleSave(data: AgreementSaveData) {
     if (editingAgreement) {
+      const id = editingAgreement.id;
       updateMutation.mutate(
         {
-          id: editingAgreement.id,
+          id,
           data: {
             contractName: data.contractName,
             startDate: data.startDate,
@@ -221,7 +237,13 @@ export function ServiceAgreementsPageClient({
             notes: data.notes || undefined,
           },
         },
-        { onSuccess: (res) => { if (!res.error) setDialogOpen(false); } },
+        {
+          onSuccess: (res) => {
+            if (res.error) return;
+            setDialogOpen(false);
+            flash(id);
+          },
+        },
       );
     } else {
       createMutation.mutate(
@@ -235,7 +257,15 @@ export function ServiceAgreementsPageClient({
           annualPrice: data.annualPrice ? parseFloat(data.annualPrice) : undefined,
           notes: data.notes || undefined,
         },
-        { onSuccess: (res) => { if (!res.error) { setDialogOpen(false); setPage(1); } } },
+        {
+          onSuccess: (res) => {
+            if (res.error) return;
+            setDialogOpen(false);
+            setPage(1);
+            const newId = res.data?.id;
+            if (typeof newId === "string") flash(newId);
+          },
+        },
       );
     }
   }
@@ -269,7 +299,7 @@ export function ServiceAgreementsPageClient({
     !loading && !hasAgreements && (!!search || !!statusFilter);
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -352,7 +382,7 @@ export function ServiceAgreementsPageClient({
 
           {/* No results */}
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               No agreements found
               {search ? (
                 <>
@@ -377,6 +407,8 @@ export function ServiceAgreementsPageClient({
               onToggleAll={toggleAll}
               isAllSelected={isAllSelected(filteredAgreements)}
               isIndeterminate={isIndeterminate(filteredAgreements)}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
         </div>

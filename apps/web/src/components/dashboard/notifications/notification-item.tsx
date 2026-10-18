@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { formatRelativeTime } from "@/lib/format";
 import { bookingLink } from "@/lib/entity-links";
+import { cn } from "@/lib/utils";
 
 const ICON_MAP: Record<string, React.ElementType> = {
   booking_received: IconCalendarEvent,
@@ -80,6 +81,8 @@ interface NotificationItemProps {
   createdAt: string;
   isRead: boolean;
   onMarkRead: (id: string) => void;
+  /** For the caller to add `motion-appear` to an item that arrived after the page did. */
+  className?: string;
 }
 
 export function NotificationItem({
@@ -92,6 +95,7 @@ export function NotificationItem({
   createdAt,
   isRead,
   onMarkRead,
+  className,
 }: NotificationItemProps) {
   const router = useRouter();
   const Icon = ICON_MAP[type] ?? IconBell;
@@ -109,22 +113,32 @@ export function NotificationItem({
     <button
       type="button"
       onClick={handleClick}
-      className="flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50"
+      className={cn(
+        "flex w-full items-start gap-3 px-3 py-2.5 text-left transition-colors hover:bg-muted/50",
+        className,
+      )}
     >
+      {/* Reading an item changes its colours, not its layout: the disc, the icon
+          and the title cross-fade (`transition-colors`) instead of snapping. */}
       <div
-        className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          isRead ? "bg-muted" : "bg-brand-light"
-        }`}
+        className={cn(
+          "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors duration-200",
+          isRead ? "bg-muted" : "bg-brand-light",
+        )}
       >
-        <Icon className={`h-4 w-4 ${isRead ? "text-muted-foreground" : iconColor}`} />
+        <Icon
+          className={cn(
+            "h-4 w-4 transition-colors duration-200",
+            isRead ? "text-muted-foreground" : iconColor,
+          )}
+        />
       </div>
       <div className="min-w-0 flex-1">
         <p
-          className={`text-sm leading-tight ${
-            isRead
-              ? "text-muted-foreground font-body"
-              : "font-medium text-foreground font-body"
-          }`}
+          className={cn(
+            "text-sm leading-tight font-body transition-colors duration-200",
+            isRead ? "text-muted-foreground" : "font-medium text-foreground",
+          )}
         >
           {title}
         </p>
@@ -135,9 +149,15 @@ export function NotificationItem({
           {formatRelativeTime(createdAt)}
         </p>
       </div>
-      {!isRead && (
-        <div className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" />
-      )}
+      {/* Always in the layout and faded out on read. Unmounting it would let the
+          text column jump 20px wider the moment an item is read. */}
+      <div
+        aria-hidden
+        className={cn(
+          "mt-2 h-2 w-2 shrink-0 rounded-full bg-brand transition-opacity duration-200",
+          isRead && "opacity-0",
+        )}
+      />
     </button>
   );
 }

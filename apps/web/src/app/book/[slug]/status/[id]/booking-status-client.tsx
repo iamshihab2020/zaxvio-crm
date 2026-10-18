@@ -13,6 +13,7 @@ import {
   IconX,
   IconRefresh,
 } from "@tabler/icons-react";
+import { wasJustSubmitted } from "@/components/booking-portal/booking-handoff";
 import { LicenseBadge } from "@/components/public/license-badge";
 import type { ServiceType } from "@hvac-saas/types";
 
@@ -106,6 +107,13 @@ export function BookingStatusClient({
 }: BookingStatusClientProps) {
   const [data, setData] = useState(initialData);
 
+  // Reached by submitting the form (a client navigation): the confirmation
+  // arrives. Reached by a link or a reload, the page is simply there.
+  const [justBooked] = useState(() => wasJustSubmitted(bookingId));
+  // A status the poll changed under the reader's eyes (pending to confirmed)
+  // is the other moment worth marking.
+  const [firstStatus] = useState(initialData.booking.status);
+
   // Poll for status updates every 30 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -121,6 +129,7 @@ export function BookingStatusClient({
   const { booking, businessName, logoUrl, licenseNumber } = data;
   const statusConfig = STATUS_CONFIG[booking.status] ?? STATUS_CONFIG.pending;
   const StatusIcon = statusConfig.icon;
+  const statusChanged = booking.status !== firstStatus;
 
   return (
     <div className="min-h-screen bg-background">
@@ -145,10 +154,22 @@ export function BookingStatusClient({
 
       <main className="mx-auto max-w-xl px-4 py-6">
         {/* Status Card */}
-        <div className="rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8">
-          {/* Status Badge */}
-          <div className="mb-6 text-center">
-            <div className={cn("mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full", statusConfig.bg)}>
+        <div
+          className={cn(
+            "rounded-xl border border-border bg-card p-6 shadow-sm sm:p-8",
+            justBooked && "motion-arrive",
+          )}
+        >
+          {/* Status Badge. Keyed by status so a change remounts it and the
+              icon pops; without a change the key is stable and nothing plays. */}
+          <div key={booking.status} className={cn("mb-6 text-center", statusChanged && "motion-appear")}>
+            <div
+              className={cn(
+                "mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full",
+                (justBooked || statusChanged) && "motion-pop",
+                statusConfig.bg,
+              )}
+            >
               <StatusIcon className={cn("h-8 w-8", statusConfig.iconColor)} />
             </div>
             <h2 className={cn("text-xl font-bold font-heading", statusConfig.color)}>

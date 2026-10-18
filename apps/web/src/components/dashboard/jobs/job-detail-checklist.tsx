@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { cn } from "@/lib/utils";
 import { IconLock, IconChecklist, IconPackage } from "@tabler/icons-react";
 import { toggleChecklistItem } from "@/actions/jobs";
@@ -94,7 +96,8 @@ export function JobDetailChecklist({
             Progress
           </span>
           <span className="text-sm text-muted-foreground font-body">
-            {completedCount}/{totalCount} completed
+            <AnimatedNumber value={completedCount} format={String} duration={300} />/
+            {totalCount} completed
           </span>
         </div>
         <Progress value={progressPercent} className="h-2" />
@@ -113,16 +116,17 @@ export function JobDetailChecklist({
                 toggling === item.id && "opacity-60",
               )}
             >
-              <input
-                type="checkbox"
+              {/* The shadcn checkbox, not a native input: its check mark pops in
+                  (the primitive owns that motion), which a native tick cannot. */}
+              <Checkbox
                 checked={item.isCompleted}
-                onChange={() => handleToggle(item)}
+                onCheckedChange={() => handleToggle(item)}
                 disabled={toggling === item.id}
-                className="h-5 w-5 rounded border-border accent-brand cursor-pointer sm:h-4 sm:w-4"
+                className="h-5 w-5 cursor-pointer data-[state=checked]:border-brand data-[state=checked]:bg-brand data-[state=checked]:text-brand-foreground sm:h-4 sm:w-4"
               />
               <span
                 className={cn(
-                  "flex-1 text-sm font-body",
+                  "flex-1 text-sm font-body transition-colors duration-200",
                   item.isCompleted
                     ? "text-muted-foreground line-through"
                     : "text-foreground",

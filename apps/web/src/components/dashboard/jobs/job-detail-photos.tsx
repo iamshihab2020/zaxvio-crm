@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,6 +13,7 @@ import { JobPhotoLightbox } from "./job-photo-lightbox";
 import type { LightboxPhoto } from "./job-photo-lightbox";
 import { JobPhotoCompare } from "./job-photo-compare";
 import { JobPhotoUploadModal } from "./job-photo-upload-modal";
+import { useStagger } from "@/hooks/use-stagger";
 
 interface Photo {
   id: string;
@@ -53,16 +54,24 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
+  // Counts completed loads. The grid staggers in once per load (the first, and
+  // each one after an upload), keyed on that rather than on the photo ids so
+  // deleting a photo does not replay every tile.
+  const [loadCount, setLoadCount] = useState(0);
+  const gridRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
     setLoading(true);
     getJobPhotos(jobId).then((res) => {
       if (res.data) setPhotos(res.data);
       setLoading(false);
+      setLoadCount((n) => n + 1);
     });
   }, [jobId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useStagger(gridRef, loading ? null : `${jobId}:${loadCount}`);
 
   async function handleDelete(photoId: string) {
     const result = await deleteJobPhoto(jobId, photoId);
@@ -128,7 +137,7 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
       </div>
 
       {photos.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
+        <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-10 text-center">
           <IconPhoto className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground font-body">No photos yet</p>
           <p className="text-xs text-muted-foreground/70 mt-1 font-body">
@@ -136,7 +145,7 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div ref={gridRef} className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {photos.map((photo, index) => (
             <div
               key={photo.id}
@@ -146,7 +155,7 @@ export function JobDetailPhotos({ jobId, customerId }: JobDetailPhotosProps) {
               <img
                 src={toPublicUrl(photo.storagePath)}
                 alt={photo.caption ?? "Job photo"}
-                className="h-full w-full object-cover transition-transform group-hover:scale-105"
+                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
               />
               {/* Tag pill */}
               <div className="absolute top-1.5 left-1.5">

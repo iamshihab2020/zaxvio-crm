@@ -1,5 +1,6 @@
 "use client";
 
+import { useRef } from "react";
 import {
   Table,
   TableBody,
@@ -27,6 +28,7 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { JobCardData } from "./kanban-card";
+import { useStagger } from "@/hooks/use-stagger";
 
 interface Stage {
   name: string;
@@ -47,6 +49,14 @@ interface JobTableProps {
   onToggleSelectAll?: () => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
+  /**
+   * Which rows are on screen: the pipeline, filters, sort and page they were
+   * fetched for, `null` while the previous ones are still showing. The rows
+   * arrive in sequence when it changes. Never the jobs themselves.
+   */
+  arrivalKey?: string | null;
+  /** A job that was just created or edited, to wear the highlight once. */
+  highlightJobId?: string | null;
 }
 
 function formatCurrency(val: string | null) {
@@ -125,8 +135,12 @@ export function JobTable({
   onToggleSelectAll,
   isAllSelected,
   isIndeterminate,
+  arrivalKey,
+  highlightJobId,
 }: JobTableProps) {
   const queryClient = useQueryClient();
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, arrivalKey);
 
   function getStageInfo(statusName: string) {
     const stage = stages.find((s) => s.name === statusName);
@@ -142,7 +156,9 @@ export function JobTable({
   const phonePad = compact ? undefined : "px-3 md:px-4";
 
   return (
-    <div className="overflow-hidden">
+    // Fades in when it replaces the skeleton. A page or sort change that is
+    // already cached keeps this mounted and staggers the rows instead.
+    <div className="motion-appear overflow-hidden">
       <Table>
         <TableHeader>
           <TableRow>
@@ -168,7 +184,7 @@ export function JobTable({
             <SortableHeader label="Total" column="totalAmount" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} align="right" compact={compact} className={phonePad} />
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody ref={bodyRef}>
           {jobs.map((job) => {
             const stageInfo = getStageInfo(job.status);
             const priorityColors = JOB_PRIORITY_COLORS[job.priority as JobPriority];
@@ -196,7 +212,10 @@ export function JobTable({
             return (
               <TableRow
                 key={job.id}
-                className="cursor-pointer hover:bg-muted/50"
+                className={cn(
+                  "cursor-pointer hover:bg-muted/50",
+                  job.id === highlightJobId && "motion-highlight",
+                )}
                 onClick={() => onRowClick(job.id)}
                 onMouseEnter={() => {
                   queryClient.prefetchQuery({

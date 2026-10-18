@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { normalizePhone } from "@/lib/phone";
 import {
   Dialog,
@@ -20,7 +20,7 @@ import { TimePicker } from "@/components/ui/time-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ScrollFadeArea } from "@/components/reusable/scroll-fade-area";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "motion/react";
+import { replayMotion } from "@/lib/motion";
 import {
   IconCalendarEvent,
   IconClock,
@@ -138,6 +138,8 @@ export function EventCreateDialog({
     useState<CustomerSelection | null>(null);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
   const { mode, setMode } = useViewPreference("events");
+  // A refused submit shakes the form once; the reasons are in text and borders.
+  const formRef = useRef<HTMLFormElement>(null);
 
   const isEditing = !!event;
   const isSidebar = mode === "sidebar";
@@ -208,6 +210,7 @@ export function EventCreateDialog({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      if (formRef.current) replayMotion(formRef.current, "motion-shake");
       return;
     }
 
@@ -261,7 +264,7 @@ export function EventCreateDialog({
   const header = (
     <div className="flex items-center justify-between px-4 pt-4 pb-3 sm:px-6 sm:pt-5">
       <div className="flex items-center gap-3">
-        <div className={cn("flex items-center justify-center h-9 w-9 rounded-lg", selectedColor.class)}>
+        <div className={cn("flex items-center justify-center h-9 w-9 rounded-lg transition-colors duration-200", selectedColor.class)}>
           <IconCalendarEvent className="h-4.5 w-4.5 text-white" />
         </div>
         <div>
@@ -320,7 +323,7 @@ export function EventCreateDialog({
 
   /* ── Form content ── */
   const formContent = (
-    <form onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
+    <form ref={formRef} onSubmit={handleSubmit} className="flex flex-col min-h-0 flex-1">
       <ScrollFadeArea className="flex-1">
         <div className={cn(
           "px-4 pb-4 space-y-5 sm:px-6",
@@ -344,18 +347,9 @@ export function EventCreateDialog({
                   errors.title && "border-destructive focus-visible:ring-destructive/30",
                 )}
               />
-              <AnimatePresence>
-                {errors.title && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    className="text-xs text-destructive"
-                  >
-                    {errors.title}
-                  </motion.p>
-                )}
-              </AnimatePresence>
+              {errors.title && (
+                <p className="motion-arrive text-xs text-destructive">{errors.title}</p>
+              )}
             </div>
 
             {/* Date & Time section */}
@@ -373,18 +367,9 @@ export function EventCreateDialog({
                     onChange={(v) => updateField("eventDate", v)}
                     placeholder="Pick date"
                   />
-                  <AnimatePresence>
-                    {errors.eventDate && (
-                      <motion.p
-                        initial={{ opacity: 0, y: -4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -4 }}
-                        className="text-xs text-destructive"
-                      >
-                        {errors.eventDate}
-                      </motion.p>
-                    )}
-                  </AnimatePresence>
+                  {errors.eventDate && (
+                    <p className="motion-arrive text-xs text-destructive">{errors.eventDate}</p>
+                  )}
                 </div>
                 <div className={cn(isSidebar ? "grid grid-cols-2 gap-3" : "contents")}>
                   <div className="space-y-1.5">
@@ -484,19 +469,11 @@ export function EventCreateDialog({
                       )}
                       title={c.label}
                     >
-                      <AnimatePresence>
-                        {isSelected && (
-                          <motion.span
-                            initial={{ scale: 0, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0, opacity: 0 }}
-                            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                            className="absolute inset-0 flex items-center justify-center"
-                          >
-                            <IconCheck className="h-3.5 w-3.5 text-white" />
-                          </motion.span>
-                        )}
-                      </AnimatePresence>
+                      {isSelected && (
+                        <span className="motion-pop absolute inset-0 flex items-center justify-center">
+                          <IconCheck className="h-3.5 w-3.5 text-white" />
+                        </span>
+                      )}
                     </button>
                   );
                 })}

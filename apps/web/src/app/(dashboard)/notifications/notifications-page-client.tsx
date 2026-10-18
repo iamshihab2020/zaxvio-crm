@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { IconBell } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { NotificationItem } from "@/components/dashboard/notifications/notification-item";
 import { getNotifications } from "@/lib/client-reads/notifications";
 import { markNotificationRead, markAllNotificationsRead } from "@/actions/notifications";
@@ -49,6 +50,11 @@ export function NotificationsPageClient({
   }, [notificationsQuery.data, extraNotifications]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
+
+  // Items that were not in the server render: a "Load more" page, or one that
+  // arrived while the page was open. They fade in; the first 50 are already on
+  // screen and must not.
+  const [initialIds] = useState(() => new Set(initialNotifications.map((n) => n.id)));
 
   // Optimistic mark-as-read via TanStack mutation
   const markReadMutation = useMutation({
@@ -138,15 +144,20 @@ export function NotificationsPageClient({
   }, [nextCursor, loadingMore]);
 
   return (
-    <div className="flex flex-col gap-6 p-4 sm:p-6">
+    <div data-stagger className="flex flex-col gap-6 p-4 sm:p-6">
       <div className="rounded-lg border border-border bg-card">
         {/* Card header — "Mark all as read" acts on this list, so it belongs on
             the list rather than up in the navbar. */}
         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
           <span className="font-body text-sm text-muted-foreground">
-            {unreadCount > 0
-              ? `${unreadCount} unread`
-              : "You're all caught up"}
+            {unreadCount > 0 ? (
+              <AnimatedNumber
+                value={unreadCount}
+                format={(n) => `${n} unread`}
+              />
+            ) : (
+              "You're all caught up"
+            )}
           </span>
           <Button
             variant="outline"
@@ -160,7 +171,7 @@ export function NotificationsPageClient({
         </div>
 
         {notifications.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20">
+          <div className="motion-appear flex flex-col items-center justify-center py-20">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-light">
               <IconBell className="h-8 w-8 text-brand" />
             </div>
@@ -189,6 +200,7 @@ export function NotificationsPageClient({
                 }
                 isRead={notif.isRead}
                 onMarkRead={markAsRead}
+                className={initialIds.has(notif.id) ? undefined : "motion-appear"}
               />
             ))}
             {nextCursor && (

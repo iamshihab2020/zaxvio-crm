@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -41,6 +41,9 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useStagger } from "@/hooks/use-stagger";
+import { prefersReducedMotion } from "@/lib/motion";
 import { getAdminTenantAnalytics } from "@/actions/admin";
 
 interface AnalyticsData {
@@ -72,6 +75,25 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(amount);
 }
 
+function formatCount(n: number): string {
+  return String(n);
+}
+
+function formatPercent(n: number): string {
+  return `${Math.round(n * 10) / 10}%`;
+}
+
+type SegmentStyle = React.CSSProperties & Record<"--enter-delay", string>;
+
+/** One slice of a status bar: its share of the width, drawn in from the left in turn. */
+function segmentStyle(percent: number, count: number, index: number): SegmentStyle {
+  return {
+    width: `${percent}%`,
+    minWidth: count > 0 ? "24px" : 0,
+    "--enter-delay": `${index * 60}ms`,
+  };
+}
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 }
@@ -100,7 +122,9 @@ function KpiMini({ icon: Icon, label, value, color }: { icon: React.ComponentTyp
           <Icon className="h-4 w-4 text-white" />
         </div>
         <div>
-          <p className="font-heading text-xl font-bold">{value}</p>
+          <p className="font-heading text-xl font-bold">
+            <AnimatedNumber value={value} format={formatCount} animateOnMount />
+          </p>
           <p className="text-xs text-muted-foreground font-body">{label}</p>
         </div>
       </CardContent>
@@ -113,8 +137,10 @@ function RateCard({ label, rate, color }: { label: string; rate: number; color: 
     <Card>
       <CardContent className="p-4 text-center">
         <p className="text-xs text-muted-foreground font-body uppercase tracking-wider mb-2">{label}</p>
-        <p className={`font-heading text-3xl font-bold ${color}`}>{rate}%</p>
-        <Progress value={rate} className="mt-3 h-2" />
+        <p className={`font-heading text-3xl font-bold ${color}`}>
+          <AnimatedNumber value={rate} format={formatPercent} animateOnMount />
+        </p>
+        <Progress value={rate} drawIn className="mt-3 h-2" />
       </CardContent>
     </Card>
   );
@@ -159,8 +185,17 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
     return () => { cancelled = true; };
   }, [tenantId]);
 
+  // The sections arrive in turn when the data replaces the skeleton. The key is
+  // `null` until there is something to show, so the skeleton never plays it.
+  const contentRef = useRef<HTMLDivElement>(null);
+  useStagger(contentRef, loading || error || !data ? null : tenantId);
+
+  // Read at render, on the client: this component only exists after the tab was
+  // chosen, and the charts mount once the data has arrived.
+  const animateCharts = !prefersReducedMotion();
+
   if (loading) return <AnalyticsSkeleton />;
-  if (error || !data) return <p className="text-sm text-destructive font-body">{error}</p>;
+  if (error || !data) return <p className="motion-appear text-sm text-destructive font-body">{error}</p>;
 
   const statusColors: Record<string, string> = {
     scheduled: "bg-blue-500 dark:bg-blue-400",
@@ -218,7 +253,7 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
 
   return (
     <TooltipProvider>
-      <div className="space-y-4">
+      <div ref={contentRef} className="space-y-4">
         {/* Section 1: Usage KPIs. Seven across needs ~170px a tile (icon, gap
             and the longest label), which only `2xl` has once the rail takes
             240px; below that they wrap into rows of four. */}
@@ -259,7 +294,15 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
                     {/* `maxBarSize`, not `barSize`: twelve fixed 40px bars are
                         480px, wider than a phone's plot area. This is still 40
                         wherever the months have room for it. */}
-                    <Bar dataKey="total" fill="hsl(var(--chart-5))" radius={[6, 6, 0, 0]} maxBarSize={40} />
+                    <Bar
+                      dataKey="total"
+                      fill="hsl(var(--chart-5))"
+                      radius={[6, 6, 0, 0]}
+                      maxBarSize={40}
+                      isAnimationActive={animateCharts}
+                      animationDuration={700}
+                      animationEasing="ease-out"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -280,12 +323,12 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
               <div>
                 <p className="text-xs text-muted-foreground font-body mb-2 uppercase tracking-wider">Jobs ({data.usage.jobs.total})</p>
                 <div className="flex gap-1 h-7 rounded-full overflow-hidden bg-muted cursor-pointer">
-                  {Object.entries(data.usage.jobs.byStatus).map(([status, cnt]) => {
+                  {Object.entries(data.usage.jobs.byStatus).map(([status, cnt], index) => {
                     const pct = data.usage.jobs.total > 0 ? Math.round((cnt / data.usage.jobs.total) * 100) : 0;
                     return (
                       <Tooltip key={status} delayDuration={0}>
                         <TooltipTrigger asChild>
-                          <div className={`${statusColors[status] ?? "bg-gray-400"} transition-all hover:opacity-80`} style={{ width: `${pct}%`, minWidth: cnt > 0 ? "24px" : 0 }} />
+                          <div className={`${statusColors[status] ?? "bg-gray-400"} motion-grow-x transition-opacity hover:opacity-80`} style={segmentStyle(pct, cnt, index)} />
                         </TooltipTrigger>
                         <TooltipContent side="top" className={`font-body border-0 ${tooltipBg[status] ?? "bg-gray-600 text-white"}`}>
                           <p className="capitalize font-medium">{status.replace("_", " ")}</p>
@@ -310,12 +353,12 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
               <div>
                 <p className="text-xs text-muted-foreground font-body mb-2 uppercase tracking-wider">Quotes ({data.usage.quotes.total})</p>
                 <div className="flex gap-1 h-7 rounded-full overflow-hidden bg-muted cursor-pointer">
-                  {Object.entries(data.usage.quotes.byStatus).map(([status, cnt]) => {
+                  {Object.entries(data.usage.quotes.byStatus).map(([status, cnt], index) => {
                     const pct = data.usage.quotes.total > 0 ? Math.round((cnt / data.usage.quotes.total) * 100) : 0;
                     return (
                       <Tooltip key={status} delayDuration={0}>
                         <TooltipTrigger asChild>
-                          <div className={`${statusColors[status] ?? "bg-gray-400"} transition-all hover:opacity-80`} style={{ width: `${pct}%`, minWidth: cnt > 0 ? "24px" : 0 }} />
+                          <div className={`${statusColors[status] ?? "bg-gray-400"} motion-grow-x transition-opacity hover:opacity-80`} style={segmentStyle(pct, cnt, index)} />
                         </TooltipTrigger>
                         <TooltipContent side="top" className={`font-body border-0 ${tooltipBg[status] ?? "bg-gray-600 text-white"}`}>
                           <p className="capitalize font-medium">{status}</p>
@@ -340,12 +383,12 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
               <div>
                 <p className="text-xs text-muted-foreground font-body mb-2 uppercase tracking-wider">Invoices ({data.usage.invoices.total})</p>
                 <div className="flex gap-1 h-7 rounded-full overflow-hidden bg-muted cursor-pointer">
-                  {Object.entries(data.usage.invoices.byStatus).map(([status, cnt]) => {
+                  {Object.entries(data.usage.invoices.byStatus).map(([status, cnt], index) => {
                     const pct = data.usage.invoices.total > 0 ? Math.round((cnt / data.usage.invoices.total) * 100) : 0;
                     return (
                       <Tooltip key={status} delayDuration={0}>
                         <TooltipTrigger asChild>
-                          <div className={`${statusColors[status] ?? "bg-gray-400"} transition-all hover:opacity-80`} style={{ width: `${pct}%`, minWidth: cnt > 0 ? "24px" : 0 }} />
+                          <div className={`${statusColors[status] ?? "bg-gray-400"} motion-grow-x transition-opacity hover:opacity-80`} style={segmentStyle(pct, cnt, index)} />
                         </TooltipTrigger>
                         <TooltipContent side="top" className={`font-body border-0 ${tooltipBg[status] ?? "bg-gray-600 text-white"}`}>
                           <p className="capitalize font-medium">{status.replace("_", " ")}</p>
@@ -377,7 +420,9 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
           <Card>
             <CardContent className="p-4 text-center">
               <p className="text-xs text-muted-foreground font-body uppercase tracking-wider mb-2">Avg Job Value</p>
-              <p className="font-heading text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">{formatCurrency(data.financial.avgJobValue)}</p>
+              <p className="font-heading text-2xl sm:text-3xl font-bold text-amber-600 dark:text-amber-400">
+                <AnimatedNumber value={data.financial.avgJobValue} format={formatCurrency} animateOnMount />
+              </p>
               <div className="mt-3 flex items-center justify-center gap-2 text-xs text-muted-foreground font-body">
                 <IconCurrencyDollar className="h-3.5 w-3.5" />
                 <span>{formatCurrency(data.financial.outstandingBalance)} outstanding</span>
@@ -408,6 +453,9 @@ export function TenantAnalyticsTab({ tenantId }: { tenantId: string }) {
                         outerRadius={65}
                         strokeWidth={2}
                         stroke="hsl(var(--card))"
+                        isAnimationActive={animateCharts}
+                        animationDuration={700}
+                        animationEasing="ease-out"
                       >
                         {data.financial.paymentMethods.map((_, i) => (
                           <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />

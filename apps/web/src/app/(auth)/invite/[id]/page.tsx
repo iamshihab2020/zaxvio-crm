@@ -79,7 +79,7 @@ export default function InviteAcceptPage() {
 
   return (
     <AuthShell>
-      <div className="space-y-6">
+      <div className="motion-appear space-y-6">
         <div className="flex items-center justify-center md:hidden">
           <Logo size="md" />
         </div>
@@ -91,8 +91,8 @@ export default function InviteAcceptPage() {
         </div>
 
         {success && (
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 p-6">
-            <IconCheck className="h-8 w-8 text-green-600 dark:text-green-400" />
+          <div className="motion-arrive flex flex-col items-center gap-3 rounded-lg border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/40 p-6">
+            <IconCheck className="motion-pop h-8 w-8 text-green-600 dark:text-green-400" />
             <p className="text-sm font-medium text-green-700 dark:text-green-300">
               You've joined the team!
             </p>
@@ -113,7 +113,7 @@ export default function InviteAcceptPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
+              <div className="motion-appear rounded-lg bg-destructive/10 p-3 text-sm text-destructive text-center">
                 {error}
               </div>
             )}

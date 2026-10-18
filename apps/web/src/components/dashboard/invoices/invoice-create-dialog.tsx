@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useViewPreference, getSheetWidth } from "@/hooks/use-view-preference";
 import { getCustomers } from "@/lib/client-reads/customers";
+import { useFormShake } from "@/hooks/use-form-shake";
 
 export interface InvoiceFormData {
   customerId: string;
@@ -92,6 +93,9 @@ export function InvoiceCreateDialog({
   >({});
   const [selectedCustomerLabel, setSelectedCustomerLabel] = useState("");
   const [taxEditable, setTaxEditable] = useState(false);
+  // The form fills a container with no padding, so it is the submit button that
+  // answers a refused submit: a shaken form would slide against the clipped edge.
+  const { ref: submitRef, shake } = useFormShake<HTMLButtonElement>();
 
   // Popover customer picker
   const [customerSearch, setCustomerSearch] = useState("");
@@ -167,6 +171,7 @@ export function InvoiceCreateDialog({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      shake();
       return;
     }
 
@@ -465,6 +470,7 @@ export function InvoiceCreateDialog({
               Cancel
             </Button>
             <Button
+              ref={submitRef}
               type="submit"
               className="bg-brand text-brand-foreground hover:bg-brand/90 min-w-[160px] cursor-pointer"
               disabled={loading}

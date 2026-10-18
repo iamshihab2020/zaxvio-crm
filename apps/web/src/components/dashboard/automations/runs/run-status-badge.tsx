@@ -1,3 +1,6 @@
+"use client";
+
+import { useRef } from "react";
 import {
   IconAlertTriangle,
   IconBan,
@@ -8,6 +11,7 @@ import {
   IconPlayerSkipForward,
 } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
 
 /**
  * What happened, in one word and one colour.
@@ -101,8 +105,14 @@ export function RunStatusBadge({ status, kind = "run", className }: Props) {
   const style = (kind === "step" ? STEP_STYLES : RUN_STYLES)[status] ?? UNKNOWN;
   const Icon = style.icon;
 
+  // A run that moves on while someone is watching (running to finished, waiting
+  // to running) pops its badge, so the change is seen rather than diffed by eye.
+  const badgeRef = useRef<HTMLSpanElement>(null);
+  useReplayOnChange(badgeRef, status, "motion-pop");
+
   return (
     <span
+      ref={badgeRef}
       className={cn(
         "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2 py-0.5",
         "text-xs font-medium font-body",

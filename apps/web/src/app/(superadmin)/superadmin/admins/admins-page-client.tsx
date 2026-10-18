@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   IconCrown,
   IconShieldLock,
@@ -30,6 +30,7 @@ import {
 import { AddAdminDialog } from "@/components/superadmin/admins/add-admin-dialog";
 import { EditAdminTierDialog } from "@/components/superadmin/admins/edit-admin-tier-dialog";
 import { RemoveAdminDialog } from "@/components/superadmin/admins/remove-admin-dialog";
+import { cn } from "@/lib/utils";
 import { getAdminUsers } from "@/actions/admin";
 
 interface AdminUser {
@@ -113,9 +114,35 @@ export function AdminsPageClient({
     (a) => a.id === currentUserId && a.isOwner,
   );
 
-  const refresh = useCallback(async () => {
+  // Rows that were just added or edited get a brief wash so the change can be
+  // found in the list after the dialog closes. An edit names its row; an add
+  // does not, so a new id in the refetched list is how a new admin is known.
+  const knownIds = useRef(new Set(initialData.map((a) => a.id)));
+  const [changedIds, setChangedIds] = useState<ReadonlySet<string>>(new Set<string>());
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+    },
+    [],
+  );
+
+  const refresh = useCallback(async (editedId?: string) => {
     const result = await getAdminUsers();
-    if (result.data) setAdmins(result.data);
+    if (!result.data) return;
+
+    const added = result.data
+      .filter((a) => !knownIds.current.has(a.id))
+      .map((a) => a.id);
+    knownIds.current = new Set(result.data.map((a) => a.id));
+    setAdmins(result.data);
+
+    const changed = editedId ? [editedId] : added;
+    if (changed.length === 0) return;
+    setChangedIds(new Set(changed));
+    if (clearTimer.current) clearTimeout(clearTimer.current);
+    clearTimer.current = setTimeout(() => setChangedIds(new Set<string>()), 1500);
   }, []);
 
   const canManage = (target: AdminUser): boolean => {
@@ -129,7 +156,7 @@ export function AdminsPageClient({
   };
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Card wrapper */}
       <div className="rounded-lg border border-border bg-card overflow-hidden">
         {/* Header */}
@@ -182,7 +209,10 @@ export function AdminsPageClient({
                 const isSelf = admin.id === currentUserId;
 
                 return (
-                  <TableRow key={admin.id}>
+                  <TableRow
+                    key={admin.id}
+                    className={cn(changedIds.has(admin.id) && "motion-highlight")}
+                  >
                     <TableCell className="font-body font-medium">
                       <div className="flex items-center gap-2">
                         {admin.name}
@@ -275,7 +305,7 @@ export function AdminsPageClient({
           currentTier={editTarget.adminTier ?? "support"}
           open={!!editTarget}
           onOpenChange={(open) => !open && setEditTarget(null)}
-          onSuccess={refresh}
+          onSuccess={() => refresh(editTarget.id)}
           isOwner={currentUserIsOwner}
         />
       )}

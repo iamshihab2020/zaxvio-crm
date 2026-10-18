@@ -3,11 +3,6 @@
 import * as React from "react";
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { IconX } from "@tabler/icons-react";
-import {
-  AnimatePresence,
-  motion,
-  type Transition,
-} from "motion/react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
@@ -19,37 +14,59 @@ const SheetClose = SheetPrimitive.Close;
 
 const SheetPortal = SheetPrimitive.Portal;
 
+// ── Motion ──
+//
+// Enter and exit are CSS animations (tailwindcss-animate, timed by
+// `.motion-overlay` in globals.css), not `motion/react`. The spring that was
+// here sat in an `AnimatePresence`, and its exit never played: Radix unmounts
+// a portal's children the moment `open` turns false unless it can see a CSS
+// animation running on them. With CSS the panel slides back out before it
+// unmounts, and this file no longer pulls `motion/react` into every page that
+// has a drawer. Under reduced motion `.animate-in` loses its slide and the
+// `fade-in-0` is what is left.
+
 // ── Animated Overlay ──
 
-function SheetOverlay({
-  className,
-  ...props
-}: React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>) {
-  return (
-    <SheetPrimitive.Overlay asChild {...props}>
-      <motion.div
-        className={cn("fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]", className)}
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
-      />
-    </SheetPrimitive.Overlay>
-  );
-}
+const SheetOverlay = React.forwardRef<
+  React.ComponentRef<typeof SheetPrimitive.Overlay>,
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Overlay>
+>(({ className, ...props }, ref) => (
+  <SheetPrimitive.Overlay
+    ref={ref}
+    className={cn(
+      "fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]",
+      "data-[state=open]:animate-in data-[state=closed]:animate-out",
+      "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+      "motion-overlay",
+      className,
+    )}
+    {...props}
+  />
+));
 SheetOverlay.displayName = "SheetOverlay";
 
-// ── Side variants (for static classes only — animation handled by motion) ──
+// ── Side variants ──
+//
+// `slide-in-from-*` with no suffix travels the panel's whole size (100%), so it
+// works for any width a caller sets. `motion-overlay-far` is `--dur-arrive`
+// rather than `--dur-state` because the panel crosses up to 512px.
 
-const sheetStaticVariants = cva(
-  "fixed z-50 gap-4 bg-background shadow-2xl",
+const sheetVariants = cva(
+  [
+    "fixed z-50 gap-4 bg-background shadow-2xl",
+    "data-[state=open]:animate-in data-[state=closed]:animate-out",
+    "data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0",
+    "motion-overlay motion-overlay-far",
+  ],
   {
     variants: {
       side: {
-        top: "inset-x-0 top-0 border-b",
-        bottom: "inset-x-0 bottom-0 border-t",
-        left: "inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm",
-        right: "inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-lg",
+        top: "inset-x-0 top-0 border-b data-[state=open]:slide-in-from-top data-[state=closed]:slide-out-to-top",
+        bottom:
+          "inset-x-0 bottom-0 border-t data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom",
+        left: "inset-y-0 left-0 h-full w-3/4 border-r data-[state=open]:slide-in-from-left data-[state=closed]:slide-out-to-left sm:max-w-sm",
+        right:
+          "inset-y-0 right-0 h-full w-3/4 border-l data-[state=open]:slide-in-from-right data-[state=closed]:slide-out-to-right sm:max-w-lg",
       },
     },
     defaultVariants: {
@@ -58,27 +75,11 @@ const sheetStaticVariants = cva(
   },
 );
 
-// ── Motion variants per side ──
-
-const slideVariants = {
-  top: { initial: { y: "-100%" }, animate: { y: 0 }, exit: { y: "-100%" } },
-  bottom: { initial: { y: "100%" }, animate: { y: 0 }, exit: { y: "100%" } },
-  left: { initial: { x: "-100%" }, animate: { x: 0 }, exit: { x: "-100%" } },
-  right: { initial: { x: "100%" }, animate: { x: 0 }, exit: { x: "100%" } },
-} as const;
-
-const springTransition: Transition = {
-  type: "spring",
-  stiffness: 150,
-  damping: 22,
-};
-
 // ── Animated Content ──
 
 interface SheetContentProps
   extends Omit<React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>, "asChild" | "forceMount">,
-    VariantProps<typeof sheetStaticVariants> {
-  transition?: Transition;
+    VariantProps<typeof sheetVariants> {
   showCloseButton?: boolean;
 }
 
@@ -89,37 +90,26 @@ const SheetContent = React.forwardRef<
   side = "right",
   className,
   children,
-  transition = springTransition,
   showCloseButton = false,
   ...props
-}, ref) => {
-  const variants = slideVariants[side ?? "right"];
-
-  return (
-    <SheetPortal>
-      <AnimatePresence mode="wait">
-        <SheetOverlay />
-        <SheetPrimitive.Content ref={ref} asChild {...props}>
-          <motion.div
-            className={cn(sheetStaticVariants({ side }), className)}
-            initial={variants.initial}
-            animate={variants.animate}
-            exit={variants.exit}
-            transition={transition}
-          >
-            {children}
-            {showCloseButton && (
-              <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
-                <IconX className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </SheetPrimitive.Close>
-            )}
-          </motion.div>
-        </SheetPrimitive.Content>
-      </AnimatePresence>
-    </SheetPortal>
-  );
-});
+}, ref) => (
+  <SheetPortal>
+    <SheetOverlay />
+    <SheetPrimitive.Content
+      ref={ref}
+      className={cn(sheetVariants({ side }), className)}
+      {...props}
+    >
+      {children}
+      {showCloseButton && (
+        <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-secondary">
+          <IconX className="h-4 w-4" />
+          <span className="sr-only">Close</span>
+        </SheetPrimitive.Close>
+      )}
+    </SheetPrimitive.Content>
+  </SheetPortal>
+));
 SheetContent.displayName = "SheetContent";
 
 // ── Layout components (unchanged) ──

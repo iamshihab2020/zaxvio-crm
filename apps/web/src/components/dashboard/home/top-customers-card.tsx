@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import { IconUsersGroup } from "@tabler/icons-react";
 import type { DashboardTopCustomer } from "@hvac-saas/types";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
 import { tokenColor } from "@/lib/constants/chart-palette";
+import { useStagger } from "@/hooks/use-stagger";
+import { enterDelay } from "./chart-motion";
 import { WidgetHeader, WidgetLink } from "./widget-header";
 
 interface TopCustomersCardProps {
@@ -25,19 +28,29 @@ function initials(name: string): string {
     .join("");
 }
 
+/** The meters draw in as the ranking is laid down, row by row. */
+const METER_DELAY_BASE = 160;
+const METER_STEP = 50;
+
 export function TopCustomersCard({ data }: TopCustomersCardProps) {
   const top = data.slice(0, 5);
   const max = top[0]?.revenue ?? 0;
 
+  // The ranking is who is on it, in order. A new range that reorders or
+  // replaces the five re-lays the list; the same five with new revenue does
+  // not (their meters re-size instead).
+  const listRef = useRef<HTMLUListElement>(null);
+  useStagger(listRef, top.length > 0 ? top.map((c) => c.id).join("|") : null);
+
   return (
-    <Card className="flex h-full flex-col p-4 sm:p-6">
+    <Card data-widget="topCustomers" className="flex h-full flex-col p-4 sm:p-6">
       <WidgetHeader
         title="Top Customers"
         action={<WidgetLink href="/customers">View all →</WidgetLink>}
       />
 
       {top.length === 0 ? (
-        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
+        <div className="motion-appear mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconUsersGroup className="h-5 w-5 text-brand" />
           </div>
@@ -49,9 +62,9 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
           </p>
         </div>
       ) : (
-        <ul className="mt-4 space-y-2">
+        <ul ref={listRef} className="mt-4 space-y-2">
           {top.map((c, i) => {
-            const rel = max > 0 ? Math.max(4, Math.round((c.revenue / max) * 100)) : 0;
+            const rel = max > 0 ? Math.max(4, Math.round((c.revenue / max) * 100)) / 100 : 0;
             return (
               <li key={c.id}>
                 <Link
@@ -80,9 +93,15 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted/50">
+                        {/* Full width, scaled to the share: it draws in and
+                            re-sizes on `transform` alone. */}
                         <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${rel}%`, backgroundColor: METER_COLOR }}
+                          className="motion-grow-x h-full w-full rounded-full motion-safe:transition-transform motion-safe:duration-[var(--dur-focal)] motion-safe:ease-[var(--ease-out)]"
+                          style={{
+                            ...enterDelay(METER_DELAY_BASE + i * METER_STEP),
+                            transform: `scaleX(${rel})`,
+                            backgroundColor: METER_COLOR,
+                          }}
                         />
                       </div>
                       <span className="whitespace-nowrap text-[10px] font-body text-muted-foreground">

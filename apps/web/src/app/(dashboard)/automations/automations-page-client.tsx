@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { IconRobot } from "@tabler/icons-react";
 import { DEFAULT_WORKFLOW_NAME } from "@hvac-saas/workflow-nodes";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { SearchInput } from "@/components/reusable/search-input";
 import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
@@ -31,6 +32,9 @@ import {
   useArchiveWorkflow,
 } from "@/hooks/queries";
 import { seeded } from "@/hooks/queries/seed";
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { useRouter } from "next/navigation";
 
 const PAGE_SIZE = 20;
@@ -57,6 +61,10 @@ export function AutomationsPageClient({
   const router = useRouter();
 
   const [search, setSearch] = useState("");
+  // The query follows the debounced value, as on every other list page: the
+  // rows replay as results arrive, and a fetch per keystroke would restart that
+  // on every letter.
+  const debouncedSearch = useDebouncedValue(search, 300);
   const [statusFilter, setStatusFilter] = useState("");
   const [page, setPage] = useState(1);
 
@@ -75,16 +83,16 @@ export function AutomationsPageClient({
     () => ({
       page,
       limit: PAGE_SIZE,
-      search: search || undefined,
+      search: debouncedSearch || undefined,
       showArchived: statusFilter === "archived" ? true : undefined,
       isActive:
         statusFilter === "live" ? true : statusFilter === "off" ? false : undefined,
     }),
-    [page, search, statusFilter],
+    [page, debouncedSearch, statusFilter],
   );
 
   const isFirstRender =
-    page === 1 && !search && !statusFilter && initialWorkflows.length > 0;
+    page === 1 && !debouncedSearch && !statusFilter && initialWorkflows.length > 0;
 
   const workflowsQuery = useWorkflows(
     listParams,
@@ -115,6 +123,19 @@ export function AutomationsPageClient({
   const loadError = workflowsQuery.isError
     ? "Couldn't reach the server."
     : (workflowsQuery.data?.error ?? null);
+
+  // The rows replay when WHICH rows are shown changes: page, status tab, search.
+  // `null` while loading, and while the previous list is held over as
+  // placeholder data for the next one, so the rows about to be replaced are
+  // never the ones that animate.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || workflowsQuery.isPlaceholderData
+      ? null
+      : `${page}:${statusFilter}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
 
   // ── Mutations ──────────────────────────────────────────────
   const createMutation = useCreateWorkflow();
@@ -205,9 +226,10 @@ export function AutomationsPageClient({
 
   function handleRename(values: AutomationNameValues) {
     if (!renaming) return;
+    const id = renaming.id;
     updateMutation.mutate(
       {
-        id: renaming.id,
+        id,
         data: { name: values.name, description: values.description || null },
       },
       {
@@ -215,6 +237,7 @@ export function AutomationsPageClient({
           if (!res.error) {
             setNameDialogOpen(false);
             setRenaming(null);
+            flash(id);
           }
         },
       },
@@ -234,7 +257,7 @@ export function AutomationsPageClient({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <section className="p-4 sm:p-6">
+      <section data-stagger className="p-4 sm:p-6">
         {loadError && (
           <LoadErrorState
             title="Couldn't load your automations"
@@ -292,10 +315,10 @@ export function AutomationsPageClient({
                       on page two of forty. */}
                   {!loading && (
                     <span className="hidden shrink-0 items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body sm:inline-flex">
-                      {pagination?.total ?? visible.length}{" "}
-                      {(pagination?.total ?? visible.length) === 1
-                        ? "automation"
-                        : "automations"}
+                      <AnimatedNumber
+                        value={pagination?.total ?? visible.length}
+                        format={(n) => `${n} ${n === 1 ? "automation" : "automations"}`}
+                      />
                     </span>
                   )}
                   {/* Opens the gallery, which is instant — so no pending state
@@ -314,18 +337,23 @@ export function AutomationsPageClient({
                 archived={statusFilter === "archived"}
                 pendingIds={pendingIds}
                 onToggleActive={(workflow, next) =>
-                  activeMutation.mutate({ id: workflow.id, isActive: next })
+                  activeMutation.mutate(
+                    { id: workflow.id, isActive: next },
+                    { onSuccess: (res) => { if (!res.error) flash(workflow.id); } },
+                  )
                 }
                 onRename={(workflow) => {
                   setRenaming(workflow);
                   setNameDialogOpen(true);
                 }}
                 onArchive={setArchiving}
+                bodyRef={bodyRef}
+                highlightId={flashId}
               />
             )}
 
             {showNoResults && (
-              <p className="py-12 text-center text-sm text-muted-foreground font-body">
+              <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
                 No automations found
                 {search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
               </p>

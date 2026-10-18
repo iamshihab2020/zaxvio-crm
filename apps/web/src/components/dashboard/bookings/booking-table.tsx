@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import Link from "next/link";
 import type { Booking } from "@hvac-saas/types";
 import {
@@ -21,6 +22,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { BookingStatusBadge } from "./booking-status-badge";
 import { SERVICE_TYPE_LABELS } from "@/lib/constants/booking-options";
+import { cn } from "@/lib/utils";
 import {
   IconDots,
   IconEye,
@@ -58,6 +60,10 @@ interface BookingTableProps {
   onToggleAll?: (items: { id: string }[]) => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just changed; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 function formatDate(dateStr: string): string {
@@ -93,6 +99,8 @@ export function BookingTable({
   onToggleAll,
   isAllSelected,
   isIndeterminate,
+  bodyRef,
+  highlightId,
 }: BookingTableProps) {
   const selectionEnabled = !!selectedIds && !!onToggle;
 
@@ -124,11 +132,14 @@ export function BookingTable({
           <TableHead className="w-[48px]" />
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody ref={bodyRef}>
         {bookings.map((booking) => (
           <TableRow
             key={booking.id}
-            className="cursor-pointer"
+            className={cn(
+              "cursor-pointer",
+              booking.id === highlightId && "motion-highlight",
+            )}
             onClick={() => onViewDetail(booking.id)}
             data-selected={selectionEnabled && selectedIds?.has(booking.id)}
           >

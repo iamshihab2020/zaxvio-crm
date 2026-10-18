@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useShakeOnError } from "@/components/superadmin/use-shake-on-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { signIn } from "@/lib/auth-client";
@@ -32,6 +33,8 @@ export function ReauthDialog({
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rejected submit shakes the form body, never the dialog (see the hook).
+  const shakeRef = useShakeOnError<HTMLDivElement>(error);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +78,7 @@ export function ReauthDialog({
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="space-y-4">
+          <div ref={shakeRef} className="space-y-4">
             <p className="text-sm text-muted-foreground font-body">
               Re-enter your password to <strong>{actionLabel}</strong>.
             </p>
@@ -94,7 +97,7 @@ export function ReauthDialog({
               />
             </div>
             {error && (
-              <p className="text-sm text-destructive font-body">{error}</p>
+              <p className="motion-appear text-sm text-destructive font-body">{error}</p>
             )}
           </div>
           {/* Footer buttons are 40px on phones, where they stack full width. */}

@@ -10,6 +10,8 @@ interface KanbanCardCompactProps {
   job: JobCardData;
   onClick: (jobId: string) => void;
   isOverlay?: boolean;
+  /** Wears the highlight wash once: the job was just created, edited or moved. */
+  highlight?: boolean;
   visibleFields?: CardFieldVisibility;
 }
 
@@ -28,6 +30,7 @@ export function KanbanCardCompact({
   job,
   onClick,
   isOverlay,
+  highlight,
   visibleFields,
 }: KanbanCardCompactProps) {
   const {
@@ -75,6 +78,7 @@ export function KanbanCardCompact({
         isDragging && "opacity-30 z-0",
         isOverlay && "shadow-xl ring-2 ring-brand/30 rotate-2 scale-[1.03]",
         job.priority === "emergency" && "animate-pulse-emergency",
+        highlight && "motion-highlight",
       )}
     >
       <div className="flex items-center gap-2">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { IconCheck, IconRotate } from "@tabler/icons-react";
 import {
   Sheet,
@@ -17,6 +17,7 @@ import { useWorkflowVersions, useRestoreWorkflowVersion } from "@/hooks/queries"
 import { useTenantTimezone } from "@/hooks/queries/use-tenant";
 import { formatExact, formatRelative } from "../runs/run-timing";
 import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
 
 /**
  * Every version this automation has been published as.
@@ -74,6 +75,16 @@ export function VersionHistorySheet({
   const versions = query.data?.data ?? [];
   const error = query.isError ? "Couldn't reach the server." : query.data?.error;
 
+  // The rows arrive in sequence each time the sheet opens onto a loaded list.
+  // `null` while closed or loading, so the first real key counts as a change.
+  const listRef = useRef<HTMLOListElement>(null);
+  useStagger(
+    listRef,
+    open && !query.isLoading && !error
+      ? versions.map((version) => version.id).join(",")
+      : null,
+  );
+
   function restore() {
     if (!confirming || !expectedUpdatedAt) return;
     restoreMutation.mutate(
@@ -120,13 +131,13 @@ export function VersionHistorySheet({
             )}
 
             {!query.isLoading && !error && versions.length === 0 && (
-              <p className="rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground font-body">
+              <p className="motion-appear rounded-lg border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground font-body">
                 This automation hasn&apos;t been published yet, so there is no
                 history to show.
               </p>
             )}
 
-            <ol className="space-y-2">
+            <ol ref={listRef} className="space-y-2">
               {versions.map((version) => (
                 <li
                   key={version.id}

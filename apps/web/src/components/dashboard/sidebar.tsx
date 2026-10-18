@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -28,13 +27,18 @@ const modeOptions: { value: SidebarMode; icon: typeof IconLayoutSidebar; label: 
  * The desktop rail. Hidden below `lg`: there the same navigation opens from the
  * navbar's menu button instead (`MobileNav`), because a fixed 224px column
  * leaves a phone about 150px for the page.
+ *
+ * `impersonating` comes from the layout, which already read the cookie on the
+ * server. Reading `document.cookie` in an effect instead put the rail at the top
+ * for the first paint and slid it down 40px once hydrated.
  */
-export function Sidebar() {
+export function Sidebar({ impersonating = false }: { impersonating?: boolean }) {
   const pathname = usePathname();
   const {
     isCollapsed,
     mode,
     isHoverExpanded,
+    animated,
     toggleCollapsed,
     setMode,
     setHoverExpanded,
@@ -56,20 +60,18 @@ export function Sidebar() {
     }
   };
 
-  // Shift sidebar down when impersonation bar is visible
-  const [isImpersonating, setIsImpersonating] = useState(false);
-  useEffect(() => {
-    setIsImpersonating(document.cookie.includes("x-impersonation-id="));
-  }, []);
-
   return (
     <TooltipProvider delayDuration={0}>
       <aside
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         className={cn(
-          "fixed left-0 z-30 hidden flex-col border-r border-border bg-card transition-[width,top] duration-300 ease-in-out lg:flex",
-          isImpersonating ? "top-10 bottom-0" : "inset-y-0",
+          // Width is the one layout transition left in the app: it has to move
+          // the shell's padding with it, so it cannot be a transform. It waits
+          // for `animated` so the saved collapsed state never animates on load.
+          "fixed left-0 z-30 hidden flex-col border-r border-border bg-card lg:flex",
+          animated && "transition-[width,box-shadow] duration-300 ease-in-out",
+          impersonating ? "top-10 bottom-0" : "inset-y-0",
           isEffectivelyExpanded ? "w-56" : "w-16",
           isHoverExpanded && "shadow-xl",
         )}

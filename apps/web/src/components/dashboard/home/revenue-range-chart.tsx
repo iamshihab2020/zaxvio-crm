@@ -17,12 +17,14 @@ import type {
   DashboardRevenueTrendItem,
 } from "@hvac-saas/types";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { formatCurrency } from "@/lib/format";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
 import { tokenColor } from "@/lib/constants/chart-palette";
 import { cn } from "@/lib/utils";
 import { ChartTooltipBox } from "./chart-tooltip";
+import { chartAnimation } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
 
 export type RevenueRange = "1D" | "1W" | "1M" | "6M" | "1Y" | "ALL";
@@ -109,7 +111,7 @@ function SeriesLegend({
           Collected
         </span>
         <span className="tnum font-mono text-[11px] font-medium text-foreground">
-          {formatCurrency(collected)}
+          <AnimatedNumber value={collected} format={formatCurrency} />
         </span>
       </li>
       <li className="flex items-center gap-1.5">
@@ -121,7 +123,7 @@ function SeriesLegend({
           Billed
         </span>
         <span className="tnum font-mono text-[11px] font-medium text-foreground">
-          {formatCurrency(billed)}
+          <AnimatedNumber value={billed} format={formatCurrency} />
         </span>
       </li>
     </ul>
@@ -157,9 +159,10 @@ export function RevenueRangeChart({
    * plot; otherwise state the figure and say what would produce a trend.
    */
   const canPlot = hasData && data.length >= 2;
+  const anim = chartAnimation();
 
   return (
-    <Card className="p-4 sm:p-6">
+    <Card data-widget="revenue" className="p-4 sm:p-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <WidgetHeader
@@ -172,7 +175,7 @@ export function RevenueRangeChart({
           />
           <div className="mt-1 flex flex-wrap items-baseline gap-x-2 gap-y-1">
             <span className="tnum font-heading text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              {formatCurrency(currentValue)}
+              <AnimatedNumber value={currentValue} format={formatCurrency} />
             </span>
             <span
               className={cn(
@@ -209,9 +212,12 @@ export function RevenueRangeChart({
 
       {/* `font-mono` is for the SVG axis ticks, which inherit it: the Y axis is
           money and the X axis is dates, both figures. The tooltip resets it. */}
+      {/* No height transition: the box changes size when a range stops being
+          plottable, and animating `height` re-lays-out everything under the
+          card on every frame. The content swaps inside it instead. */}
       <div
         className={cn(
-          "relative mt-3 w-full transition-[height]",
+          "relative mt-3 w-full",
           canPlot ? "h-[200px] font-mono sm:h-[260px]" : "h-[150px]",
         )}
         aria-hidden={canPlot}
@@ -267,6 +273,7 @@ export function RevenueRangeChart({
                   stroke: "hsl(var(--background))",
                   fill: BILLED_COLOR,
                 }}
+                {...anim}
               />
               <Area
                 type="monotone"
@@ -280,6 +287,7 @@ export function RevenueRangeChart({
                   stroke: "hsl(var(--background))",
                   fill: COLLECTED_COLOR,
                 }}
+                {...anim}
               />
             </ComposedChart>
           </ResponsiveContainer>
@@ -319,7 +327,7 @@ function SingleBucketState({
   granularity: DashboardRevenueGranularity;
 }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/10 px-4 text-center sm:px-6">
+    <div className="motion-appear flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/10 px-4 text-center sm:px-6">
       <p className="font-heading text-sm font-semibold text-foreground">
         One {granularity} of revenue{label ? ` — ${label}` : ""}
       </p>
@@ -336,7 +344,7 @@ function SingleBucketState({
 
 function EmptyRevenueState() {
   return (
-    <div className="flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/10 px-4 text-center">
+    <div className="motion-appear flex h-full flex-col items-center justify-center rounded-md border border-dashed border-border/60 bg-muted/10 px-4 text-center">
       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
         <IconChartAreaLine className="h-5 w-5 text-brand" />
       </div>

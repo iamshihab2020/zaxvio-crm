@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { seeded } from "@/hooks/queries/seed";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { toast } from "sonner";
 import {
   IconChecklist,
@@ -11,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { StatsCards } from "@/components/dashboard/reusable/stats-cards";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { SearchInput } from "@/components/reusable/search-input";
 import { ListToolbar, ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
@@ -132,6 +135,17 @@ export function ChecklistsPageClient({
     return result;
   }, [templates, statusFilter, search]);
 
+  // The rows replay when the tab or service type changes. The search box is not
+  // in the key: it filters as you type, rows come and go on every keystroke,
+  // and a replay per keystroke would keep restarting the one before it.
+  // Unlike the server-paged lists this does not wait out placeholder data: the
+  // tabs filter the loaded rows on the client, so the rows to animate are
+  // already on screen at the click, and waiting for the refetch would replay
+  // them a second time when it landed.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(bodyRef, loading ? null : `${statusFilter}:${filterServiceType}`);
+  const { flashId, flash } = useRowFlash();
+
   // ── Handlers ───────────────────────────────────────────────
   function openCreateDialog() {
     setEditingTemplate(null);
@@ -192,6 +206,7 @@ export function ChecklistsPageClient({
         ]);
 
         setDialogOpen(false);
+        flash(editingTemplate.id);
       } catch {
         toast.error("Failed to save checklist items");
       } finally {
@@ -210,13 +225,23 @@ export function ChecklistsPageClient({
             sortOrder: item.sortOrder,
           })),
         },
-        { onSuccess: (res) => { if (!res.error) setDialogOpen(false); } },
+        {
+          onSuccess: (res) => {
+            if (res.error) return;
+            setDialogOpen(false);
+            const newId = res.data?.id;
+            if (typeof newId === "string") flash(newId);
+          },
+        },
       );
     }
   }
 
   function handleToggleActive(template: ChecklistTemplate) {
-    updateMutation.mutate({ id: template.id, data: { isActive: !template.isActive } });
+    updateMutation.mutate(
+      { id: template.id, data: { isActive: !template.isActive } },
+      { onSuccess: (res) => { if (!res.error) flash(template.id); } },
+    );
   }
 
   function handleDelete() {
@@ -236,7 +261,7 @@ export function ChecklistsPageClient({
   const showNoResults = !loading && !hasTemplates && (!!search || !!statusFilter || !!filterServiceType);
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -331,7 +356,10 @@ export function ChecklistsPageClient({
                 </Popover>
 
                 <span className="inline-flex items-center rounded-full border border-border bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground font-body shrink-0">
-                  {filteredTemplates.length} {filteredTemplates.length === 1 ? "Template" : "Templates"}
+                  <AnimatedNumber
+                    value={filteredTemplates.length}
+                    format={(n) => `${n} ${n === 1 ? "Template" : "Templates"}`}
+                  />
                 </span>
                 <ListToolbarCreateButton label="New Template" onClick={openCreateDialog} />
               </>
@@ -346,12 +374,14 @@ export function ChecklistsPageClient({
               onEdit={openEditDialog}
               onDelete={openDeleteDialog}
               onToggleActive={handleToggleActive}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
 
           {/* No results */}
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               No checklist templates found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
             </p>
           )}

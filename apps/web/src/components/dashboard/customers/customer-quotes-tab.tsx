@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { IconFileText } from "@tabler/icons-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,6 +10,7 @@ import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { QuoteStatusBadge } from "@/components/dashboard/quotes/quote-status-badge";
 import { getQuotes } from "@/lib/client-reads/quotes";
+import { useStagger } from "@/hooks/use-stagger";
 // ARC-12: issuedDate/expiryDate are `date` columns; `new Date(col)` is UTC
 // midnight and rendered the previous day west of UTC.
 import { formatDateOnly as formatDate } from "@/lib/format";
@@ -53,6 +54,10 @@ export function CustomerQuotesTab({ customerId }: CustomerQuotesTabProps) {
   const loading = quotesQuery.isLoading;
   const loadFailed = quotesQuery.isError || !!quotesQuery.data?.error;
 
+  // Waits for the real rows, not the placeholder page kept on screen meanwhile.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, loading || loadFailed || quotesQuery.isPlaceholderData ? null : page);
+
   if (loadFailed && !loading) {
     return (
       <LoadErrorState
@@ -76,7 +81,7 @@ export function CustomerQuotesTab({ customerId }: CustomerQuotesTabProps) {
 
   if (quotes.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
           <IconFileText className="h-5 w-5 text-brand" />
         </div>
@@ -118,11 +123,11 @@ export function CustomerQuotesTab({ customerId }: CustomerQuotesTabProps) {
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody ref={bodyRef}>
               {quotes.map((q) => (
                 <tr
                   key={q.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer"
+                  className="border-b border-border last:border-0 hover:bg-muted/50 cursor-pointer transition-colors duration-200"
                   onClick={() => router.push(`/quotes/${q.id}`)}
                 >
                   <td className="px-3 py-2 font-medium font-body">

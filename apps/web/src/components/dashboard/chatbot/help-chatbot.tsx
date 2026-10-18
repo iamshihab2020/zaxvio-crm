@@ -5,6 +5,7 @@ import { IconMessageChatbot } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { useChatbot } from "@/hooks/use-chatbot";
 import { onOpenChatbot } from "@/lib/chatbot/bus";
+import { DUR } from "@/lib/motion";
 import { ChatbotPanel } from "./chatbot-panel";
 
 export function HelpChatbot() {
@@ -30,74 +31,24 @@ export function HelpChatbot() {
 
   useEffect(() => onOpenChatbot(() => setIsOpen(true)), [setIsOpen]);
 
+  // The panel is not a Radix overlay, so nothing keeps it mounted while it
+  // leaves. `panelMounted` does: it turns on with `isOpen` and off one exit
+  // later, which lets the closing animation play before the unmount. Reopening
+  // inside that window cancels the unmount and the entrance simply restarts.
+  const [panelMounted, setPanelMounted] = useState(false);
+  if (isOpen && !panelMounted) setPanelMounted(true);
+  useEffect(() => {
+    if (isOpen || !panelMounted) return;
+    const timer = setTimeout(() => setPanelMounted(false), DUR.exit);
+    return () => clearTimeout(timer);
+  }, [isOpen, panelMounted]);
+
   return (
     <>
-      {/* CSS Keyframes for animations */}
+      {/* Keyframes for the panel and the launcher. Everything inside the panel
+          (messages, results, the welcome screen) uses the shared `motion-*`
+          classes from globals.css instead. */}
       <style jsx global>{`
-        @keyframes chatSlideLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-12px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes chatSlideRight {
-          from {
-            opacity: 0;
-            transform: translateX(12px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        @keyframes chatFadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(8px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        @keyframes chatPop {
-          0% {
-            transform: scale(0.8);
-            opacity: 0;
-          }
-          60% {
-            transform: scale(1.05);
-            opacity: 1;
-          }
-          100% {
-            transform: scale(1);
-          }
-        }
-        @keyframes chatShake {
-          0%,
-          100% {
-            transform: translateX(0);
-          }
-          15% {
-            transform: translateX(-4px);
-          }
-          30% {
-            transform: translateX(4px);
-          }
-          45% {
-            transform: translateX(-3px);
-          }
-          60% {
-            transform: translateX(3px);
-          }
-          75% {
-            transform: translateX(-1px);
-          }
-        }
         @keyframes chatPulse {
           0%,
           100% {
@@ -122,42 +73,32 @@ export function HelpChatbot() {
             transform: translateY(0) scale(1);
           }
         }
+        @keyframes chatPanelOut {
+          from {
+            transform-origin: bottom right;
+          }
+          to {
+            opacity: 0;
+            transform: translateY(8px) scale(0.97);
+            transform-origin: bottom right;
+          }
+        }
 
         /* Reduced motion. These animations are set inline by name, which a
            stylesheet cannot override, so the KEYFRAMES are redefined instead:
            a later @keyframes of the same name wins while the query matches.
-           Arrivals keep their fade; the shake and the pulse lose their
-           movement entirely, because the message and the button already
-           carry the state. */
+           The panel keeps its fade and loses the rise and scale; the pulse
+           loses its movement entirely, because the button already carries the
+           state. */
         @media (prefers-reduced-motion: reduce) {
-          @keyframes chatSlideLeft {
-            from {
-              opacity: 0;
-            }
-          }
-          @keyframes chatSlideRight {
-            from {
-              opacity: 0;
-            }
-          }
-          @keyframes chatFadeIn {
-            from {
-              opacity: 0;
-            }
-          }
-          @keyframes chatPop {
-            from {
-              opacity: 0;
-            }
-          }
           @keyframes chatPanelIn {
             from {
               opacity: 0;
             }
           }
-          @keyframes chatShake {
-            from {
-              opacity: 1;
+          @keyframes chatPanelOut {
+            to {
+              opacity: 0;
             }
           }
           @keyframes chatPulse {
@@ -169,10 +110,18 @@ export function HelpChatbot() {
       `}</style>
 
       {/* Chat Panel */}
-      {isOpen && (
+      {panelMounted && (
         <div
-          className="fixed bottom-20 right-6 z-40 max-sm:inset-4 max-sm:bottom-4 max-sm:right-4 sm:h-[520px] sm:w-[380px]"
-          style={{ animation: "chatPanelIn 0.3s ease-out" }}
+          className={`fixed bottom-20 right-6 z-40 max-sm:inset-4 max-sm:bottom-4 max-sm:right-4 sm:h-[520px] sm:w-[380px] ${
+            isOpen ? "" : "pointer-events-none"
+          }`}
+          // Entrance on the system curve over `arrive`. The exit is quicker and
+          // holds its last frame (`forwards`) until the unmount that follows.
+          style={{
+            animation: isOpen
+              ? "chatPanelIn var(--dur-arrive) var(--ease-out)"
+              : "chatPanelOut var(--dur-exit) var(--ease-out) forwards",
+          }}
         >
           <ChatbotPanel
             messages={messages}
@@ -190,7 +139,7 @@ export function HelpChatbot() {
       {/* Floating Button */}
       <Button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-brand text-brand-foreground shadow-lg transition-all duration-300 hover:bg-brand/90 hover:shadow-xl ${
+        className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-brand text-brand-foreground shadow-lg transition-[transform,box-shadow,background-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none hover:bg-brand/90 hover:shadow-xl ${
           isOpen ? "rotate-90 scale-90" : "scale-100"
         }`}
         // Three pulses, then rest. `hasOpened` is not persisted, so this used to

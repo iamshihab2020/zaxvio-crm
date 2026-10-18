@@ -9,13 +9,13 @@ file (every finding, proof and caveat up to 2026-10-17) is `git show f6327fe:doc
 
 ## In Progress
 
-### Rebrand: Deep Sea Blue + Inter (2026-10-18) — approved; tokens, fonts, charts, emails, PDFs done
-Done: `globals.css` tokens both themes (dark = near-neutral greys after the user rejected navy surfaces), `--midnight-accent` for brand text on the navy slab, Inter in `layout.tsx` + every Tailwind font slot, calendar CSS font vars, chart palette validated (light `0466C8 009C93 D2622A 8A4FD6 4A9A3C`, dark `2F7FDB 14A89C DD6E34 9670E6 53A843`), reports aging colours onto tokens, emails (Inter + blue) and PDFs (blue). Then: animate every page and component (user, same day).
-Preview: https://claude.ai/artifact/QHC2pgBbnfzXk1SwB4ujSk. User rejected the yellow "Hi-Vis" proposal; asked for Inter everywhere and a blue theme from the Coolors "Deep Sea Blue" palette (`0466C8 0353A4 023E7D 002855 001845 001233 33415C 5C677D 7D8597 979DAC`). Logo out of scope.
-- [ ] **Tokens**: new values for the existing names in `globals.css`, both themes (role map in the preview); dark mode on the palette's navies; Midnight slab to navy; input borders ≥3:1.
-- [ ] **Fonts**: Inter in `app/layout.tsx`, all Tailwind font slots (`heading`, `body`, `mono`) mapped to it; email layout to Inter.
-- [ ] **Data + states**: chart palette re-validated (slot 4 is blue today and collides with the brand), `--status-*`, `--overdue-*`, series (booking teal, event violet), priority pills, stage "brand" preset.
-- [ ] **Hard-coded orange** anywhere in components; DESIGN.md rewritten; KB colour mentions; lessons.
+### Rebrand + animation pass — written 2026-10-18, never rendered
+Both are in Completed. Nothing has been typechecked, linted or opened in a browser (user's call).
+- [ ] `pnpm typecheck` + `pnpm lint`, then a browser pass in both themes: open/close a dialog, an alert dialog, a sheet and the phone drawer (overlays moved from motion springs to CSS); navigate between pages behind a skeleton (late `data-stagger`); change a dashboard date range (figures count, charts redraw); drag a kanban card; flip calendar weeks; reduced motion on.
+- [ ] Consolidate the duplicate hooks the parallel agents wrote: "arrived by client navigation" (`superadmin/use-arrived-by-navigation.ts`, `settings/use-arrival-stagger.ts`) and "flash a changed row" (`use-row-flash`, `use-new-ids`, superadmin `useChangeFlash`).
+- [ ] Regenerate the Impeccable sidecar `apps/web/.impeccable/design.json` from the new DESIGN.md (it still describes cream + orange).
+- [ ] The pipeline-stage colour presets offer "brand" and "blue", which are now nearly the same colour.
+- [ ] Later, with the logo: the landing illustrations and PDF fonts (PDFs use the blue but keep Helvetica).
 
 ### Responsive app + dashboard redesign — written 2026-10-18, never rendered
 Phases 1–4 are in Completed. Nothing here has been typechecked, linted or opened in a browser (user's call: no checks between phases).
@@ -52,6 +52,8 @@ P0–P10 are written and `pnpm typecheck` is green. **Proven by execution agains
 - [ ] **Security:** fold the `ownsCustomer` copies in `invoice-guards.ts:181` and `quote-guards.ts:193` into `tenant-guards.ts`.
 - [ ] **Docs:** conversations API docs describe `GET /conversations/:id` and `POST /:id/send`; the code has `GET|POST /:id/messages`.
 - [ ] **Settings:** the nav links owners to `/settings/billing`, and `billing/` has no `page.tsx`, so it 404s.
+- [ ] **Auth (found 2026-10-18):** `forgot-password/page.tsx:43` sends `redirectTo: /reset-password`, and no `reset-password` route exists, so every password-reset email links to a 404.
+- [ ] **Chatbot (found 2026-10-18):** `chatbot-panel.tsx` auto-scroll sets `scrollTop` on an element inside the Radix ScrollArea viewport, so new messages can land below the fold.
 - [ ] **Settings nav, browser check:** Business + Billing present on first paint after reloading `/settings/business`; the highlight moves at once on Business → Pipelines.
 
 ### Architecture audit remainder ([[architecture]])
@@ -112,6 +114,8 @@ Tenants: Shihab Housing (`/book/shihab-housing`) and Shihab Roofing Corp (demo s
 
 ## Completed
 
+- [x] **Animation pass: every page and component** (2026-10-18) — a motion foundation (`lib/motion.ts`, `useStagger`, `AnimatedNumber`, CSS `motion-pop/shake/highlight/grow-x/grow-y`, overlays on CSS so Radix exits finally play, tab panels fade, a gliding sidebar highlight) applied by six parallel passes: page sections arrive in sequence (also when a page streams in behind its skeleton), rows and lists re-enter on filter/page changes, figures count to new values, charts and bars draw in, created/edited rows flash, rejected saves shake, dropped kanban cards settle. Removed on the way: per-card kanban motion nodes, width-animated panels, three loops, hover lifts, `card-enter`/`node-enter`/`settings-enter`. Fixed: toasts were light in dark mode; a refused job-field save played the "saved" wash.
+- [x] **Rebrand: Deep Sea Blue + Inter** (2026-10-18) — palette from Coolors "Deep Sea Blue" after the user rejected a yellow proposal; a true dark mode (near-neutral greys) after rejecting navy surfaces; Inter for every font slot; chart palette re-validated; `--midnight-accent` for brand text on the navy slab; emails (Inter + blue) and PDFs (blue) moved off the old orange; DESIGN.md rewritten.
 - [x] **Responsive app, Phase 3** (2026-10-18) — seven parallel passes: full-width detail/create sheets below `md` (the default was 40% of the viewport: 150px on a phone); one `ListToolbar` for nine list pages; column hiding with folded sub-lines on every wide table; dialogs capped to the screen; scrollable tab lists; jobs list view by default and press-and-hold drag on phones; calendar day view and task sheet; the builder actually read-only below `md` (it was fully editable under a banner saying it wasn't), with Publish kept; the superadmin shell given the same drawer; 16px fields on phones so iOS stops zooming. Found on the way: every `ui/switch` thumb stayed put when toggled (user report); invoice, quote and job detail sidebars were `hidden xl:block`, hiding contact details and Generate Invoice below 1280px.
 - [x] **Dashboard redesign + responsive shell, Phases 1–2** (2026-10-18) — sidebar becomes a drawer below `lg`; dashboard in two zones with today's work first on phones, **Up next** as a day sheet, every widget back on DESIGN.md (8px cards, no hover lift or glow, filter tabs, `WidgetHeader`). DESIGN.md gained The Phone Is a Peer Rule; the chatbot no longer claims a responsive app that wasn't.
 - [x] **App-wide slowness, first pass** (2026-10-16) — Better Auth cookie cache 10s → 5 min, dashboard reads moved off the server-action queue onto `lib/client-reads` (ADR-004, ARC-01), `staleTimes.dynamic` 0 → 30. Open items in In Progress.

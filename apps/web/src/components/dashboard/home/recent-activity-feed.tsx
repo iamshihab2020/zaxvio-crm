@@ -6,9 +6,11 @@ import {
   IconActivity,
 } from "@tabler/icons-react";
 import Link from "next/link";
+import { useRef } from "react";
 import { Card } from "@/components/ui/card";
 import type { DashboardActivityItem } from "@hvac-saas/types";
 import { formatRelativeTime } from "@/lib/format";
+import { useStagger } from "@/hooks/use-stagger";
 import { WidgetHeader } from "./widget-header";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { cn } from "@/lib/utils";
@@ -44,13 +46,19 @@ function getActivityHref(activity: DashboardActivityItem): string {
 }
 
 export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
+  // The feed is newest first, so the first id is "the latest thing that
+  // happened". A new event changes it and the rows re-lay in order, the new one
+  // at the head; a refetch with nothing new keeps the key and nothing moves.
+  const listRef = useRef<HTMLDivElement>(null);
+  useStagger(listRef, activities[0]?.id ?? null);
+
   return (
     /* `h-full` + an internal scroll: this now shares a grid row with Top
        Customers, and ten activity rows against five customer rows would
        otherwise set the row height and leave its neighbour half empty.
        The list takes the card's padding back with a negative margin so each
        row's hover and hairline run edge to edge, which is why the card clips. */
-    <Card className="flex h-full flex-col overflow-hidden p-4 sm:p-6">
+    <Card data-widget="activity" className="flex h-full flex-col overflow-hidden p-4 sm:p-6">
       <WidgetHeader
         title="Recent Activity"
         badge={<WidgetWindowBadge label="Latest 10" />}
@@ -66,7 +74,7 @@ export function RecentActivityFeed({ activities }: RecentActivityFeedProps) {
             </div>
           </div>
         ) : (
-          <div>
+          <div ref={listRef}>
             {activities.map((activity, idx) => {
               const { Icon, bg, text } = getActivityIcon(activity.type);
               return (

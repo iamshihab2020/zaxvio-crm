@@ -1,6 +1,7 @@
 "use client";
 
 import { useTenantTimezone } from "@/hooks/queries/use-tenant";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { formatExact, formatRelative } from "./run-timing";
 import { cn } from "@/lib/utils";
 import type { WorkflowRunStats } from "@/actions/workflows";
@@ -56,7 +57,7 @@ export function RunStatsRow({ stats }: Props) {
                 card.tone === "busy" && "text-violet-600 dark:text-violet-400",
               )}
             >
-              {card.value}
+              <AnimatedNumber value={card.value} format={String} duration={400} />
             </p>
           </div>
         ))}

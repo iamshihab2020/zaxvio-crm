@@ -89,6 +89,7 @@ export function JobCostStack({ summary }: JobCostStackProps) {
         : null;
 
   const segments = remainder ? [...costSegments, remainder] : costSegments;
+  const barKey = segments.map((seg) => `${seg.key}:${seg.amount}`).join("|");
 
   const summaryText = complete
     ? `${formatMoney(summary.revenue)} billed, ${formatMoney(summary.totalCost)} spent, ${formatMoney(summary.margin)} margin`
@@ -101,18 +102,23 @@ export function JobCostStack({ summary }: JobCostStackProps) {
         role="img"
         aria-label={summaryText}
       >
-        {segments.map((seg) => (
-          <div
-            key={seg.key}
-            className={cn(
-              "h-full border-r border-background/40 last:border-r-0",
-              "motion-safe:transition-[width] motion-safe:duration-500",
-              seg.className,
-            )}
-            style={{ width: pct(seg.amount), ...seg.style }}
-            title={`${seg.label} — ${formatMoney(seg.amount)}`}
-          />
-        ))}
+        {/* Draws in from the left once when it appears and again when the
+            amounts change. Keyed on the amounts, so a refetch that returns the
+            same figures leaves it alone. Width itself never animates: the
+            wrapper scales, and the segments inside keep their real widths. */}
+        <div key={barKey} className="motion-grow-x flex h-full w-full">
+          {segments.map((seg) => (
+            <div
+              key={seg.key}
+              className={cn(
+                "h-full border-r border-background/40 last:border-r-0",
+                seg.className,
+              )}
+              style={{ width: pct(seg.amount), ...seg.style }}
+              title={`${seg.label} — ${formatMoney(seg.amount)}`}
+            />
+          ))}
+        </div>
 
         {/* What the customer was actually charged. With the bar scaled to the
             larger side, this is the only fixed reference on it — without it an

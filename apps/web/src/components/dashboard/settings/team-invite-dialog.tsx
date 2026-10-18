@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { IconSend } from "@tabler/icons-react";
+import { useFormShake } from "@/hooks/use-form-shake";
 
 interface TeamInviteDialogProps {
   open: boolean;
@@ -39,6 +40,7 @@ export function TeamInviteDialog({
   const [role, setRole] = useState("member");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { ref: formRef, shake } = useFormShake();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,6 +56,7 @@ export function TeamInviteDialog({
 
       if (result.error) {
         setError(result.error.message ?? "Failed to send invitation");
+        shake();
         setLoading(false);
         return;
       }
@@ -65,6 +68,7 @@ export function TeamInviteDialog({
       onSuccess();
     } catch {
       setError("Something went wrong. Please try again.");
+      shake();
     } finally {
       setLoading(false);
     }
@@ -77,9 +81,9 @@ export function TeamInviteDialog({
           <DialogTitle className="font-heading">Invite Team Member</DialogTitle>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive font-body">
+            <div className="motion-appear rounded-lg bg-destructive/10 p-3 text-sm text-destructive font-body">
               {error}
             </div>
           )}

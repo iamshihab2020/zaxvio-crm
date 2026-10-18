@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { QuoteReviewCard } from "@/components/quote-portal/quote-review-card";
 import { QuoteResponseButtons } from "@/components/quote-portal/quote-response-buttons";
 import { QuoteConfirmation } from "@/components/quote-portal/quote-confirmation";
 import { QuoteExpiredView } from "@/components/quote-portal/quote-expired-view";
 import { acceptPublicQuote, declinePublicQuote } from "@/actions/public-quote";
+import { replayMotion } from "@/lib/motion";
 import { LicenseBadge } from "@/components/public/license-badge";
 import { IconPrinter } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +80,14 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
     alreadyResponded ? (quote.status as "accepted" | "declined") : null,
   );
   const [jobCreated, setJobCreated] = useState(false);
+
+  // A rejected accept or decline (the quote expired while it was open, the
+  // link was withdrawn) shakes the panel that was just acted on. The reason is
+  // in the banner above; the shake only says the click did not go through.
+  const respondRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (error && respondRef.current) replayMotion(respondRef.current, "motion-shake");
+  }, [error]);
 
   // The earliest date the customer may request, in the *business's* zone — the
   // browser's "today" can be a day ahead or behind it.
@@ -180,7 +189,7 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
         {error && (
           <div
             role="alert"
-            className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 font-body text-sm text-destructive"
+            className="motion-appear mb-4 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 font-body text-sm text-destructive"
           >
             {error}
           </div>
@@ -251,14 +260,16 @@ export function QuoteAcceptanceClient({ token, initialData }: QuoteAcceptanceCli
                   </span>
                 </div>
               </div>
-              <QuoteResponseButtons
-                onAccept={handleAccept}
-                onDecline={handleDecline}
-                accepting={accepting}
-                declining={declining}
-                schedulingEnabled={settings.postAcceptanceScheduling}
-                minDate={todayInBusinessTimezone}
-              />
+              <div ref={respondRef}>
+                <QuoteResponseButtons
+                  onAccept={handleAccept}
+                  onDecline={handleDecline}
+                  accepting={accepting}
+                  declining={declining}
+                  schedulingEnabled={settings.postAcceptanceScheduling}
+                  minDate={todayInBusinessTimezone}
+                />
+              </div>
             </div>
           )}
 

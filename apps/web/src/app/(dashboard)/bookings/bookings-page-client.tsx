@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Booking } from "@hvac-saas/types";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import { queryKeys } from "@/lib/query-keys";
 import {
   useBookings,
@@ -219,6 +221,20 @@ export function BookingsPageClient({
   const stats = statsQuery.data?.data ?? EMPTY_STATS;
   const tenantSlug = tenantQuery.data?.data?.slug ?? prefetchedSlug ?? null;
 
+  // The rows replay when WHICH rows are shown changes: page, view, status,
+  // search. `null` while loading, and while the previous list is held over as
+  // placeholder data for the next one, so the rows about to be replaced are
+  // never the ones that animate. Above the failed-load early return below,
+  // because hooks cannot follow it.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || bookingsQuery.isPlaceholderData
+      ? null
+      : `${page}:${view}:${statusFilter}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
+
   // Prefetch next page
   useEffect(() => {
     if (pagination && page < pagination.totalPages) {
@@ -308,7 +324,10 @@ export function BookingsPageClient({
   };
 
   const handleConfirm = (id: string) => {
-    confirmMutation.mutate({ id, data: { status: "confirmed" } });
+    confirmMutation.mutate(
+      { id, data: { status: "confirmed" } },
+      { onSuccess: (res) => { if (!res.error) flash(id); } },
+    );
   };
 
   const handleCancelClick = (id: string) => {
@@ -318,8 +337,12 @@ export function BookingsPageClient({
 
   const handleCancelConfirm = () => {
     if (!cancelId) return;
-    cancelMutation.mutate(cancelId, {
-      onSuccess: () => setCancelOpen(false),
+    const id = cancelId;
+    cancelMutation.mutate(id, {
+      onSuccess: (res) => {
+        setCancelOpen(false);
+        if (!res.error) flash(id);
+      },
     });
   };
 
@@ -360,7 +383,7 @@ export function BookingsPageClient({
   }
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Booking Link Card */}
       <div className="mb-4 rounded-lg border border-border bg-card p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -498,7 +521,7 @@ export function BookingsPageClient({
 
           {/* No results */}
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               {view === "archived"
                 ? "No archived bookings."
                 : <>No bookings found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.</>}
@@ -518,6 +541,8 @@ export function BookingsPageClient({
               onToggleAll={() => toggleAll(bookings)}
               isAllSelected={isAllSelected(bookings)}
               isIndeterminate={isIndeterminate(bookings)}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
         </div>

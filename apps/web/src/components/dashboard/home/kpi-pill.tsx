@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { TablerIcon } from "@tabler/icons-react";
 import { IconTrendingUp, IconTrendingDown } from "@tabler/icons-react";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { cn } from "@/lib/utils";
 
@@ -39,10 +40,22 @@ import { cn } from "@/lib/utils";
  * smaller. The value is never truncated or clipped: it is the number the tile
  * exists to show. The supporting text wraps instead, so "3 unpaid invoices" is
  * not cut to "3 unpai…".
+ *
+ * The figure counts to its new value when a refetch changes it, and never on
+ * mount: the tile arrives with the page (a sequenced rise), and counting up
+ * from zero on every visit would replay something the reader already knows.
  */
 interface KpiPillProps {
   label: string;
+  /** The figure as text. Always required: the aria label reads it. */
   value: string;
+  /**
+   * The figure as a number, with `format` to turn it back into `value`'s text.
+   * Together they make the tile count when the figure changes; without them it
+   * shows `value` as it is.
+   */
+  numericValue?: number;
+  format?: (value: number) => string;
   icon?: TablerIcon;
   currentValue?: number;
   previousValue?: number;
@@ -86,6 +99,8 @@ function computeTrend(current: number, previous: number): Trend {
 export function KpiPill({
   label,
   value,
+  numericValue,
+  format,
   icon: Icon,
   currentValue,
   previousValue,
@@ -183,7 +198,11 @@ export function KpiPill({
       {/* Row 2 — the number, big and alone. */}
       <div className="mt-3 sm:mt-4">
         <span className="tnum font-heading text-xl font-bold leading-none tracking-tight text-foreground sm:text-2xl lg:text-[2rem]">
-          {value}
+          {numericValue !== undefined && format ? (
+            <AnimatedNumber value={numericValue} format={format} />
+          ) : (
+            value
+          )}
         </span>
       </div>
 

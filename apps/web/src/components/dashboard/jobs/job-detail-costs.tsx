@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   IconPlus,
@@ -44,6 +44,9 @@ import {
   useDeleteJobExpense,
 } from "@/hooks/queries";
 import { JobCostStack } from "./job-cost-stack";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { replayMotion } from "@/lib/motion";
 
 interface JobDetailCostsProps {
   jobId: string;
@@ -58,6 +61,8 @@ interface ExpenseForm {
   incurredOn: string;
   vendor: string;
 }
+
+const formatPercent = (value: number) => Math.round(value) + "%";
 
 function emptyExpense(): ExpenseForm {
   return {
@@ -99,7 +104,7 @@ export function JobDetailCosts({ jobId, onOpenTime }: JobDetailCostsProps) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="motion-appear space-y-6">
       <MarginHeadline summary={summary} />
       <LaborPanel summary={summary} onOpenTime={onOpenTime} />
       <ExpensesPanel jobId={jobId} expenses={rows} />
@@ -131,10 +136,10 @@ function MarginHeadline({ summary }: { summary: JobCostSummary }) {
                   : "text-foreground",
             )}
           >
-            {formatMoney(summary.margin)}
+            <AnimatedNumber value={margin} format={formatMoney} />
             {pct !== null && (
               <span className="ml-2 font-body text-sm font-medium text-muted-foreground">
-                {Math.round(pct * 100)}%
+                <AnimatedNumber value={Math.round(pct * 100)} format={formatPercent} />
               </span>
             )}
           </p>
@@ -192,6 +197,8 @@ function LaborPanel({
   onOpenTime?: () => void;
 }) {
   const { actualHours, timeEntryCount, coverage } = summary;
+  // Keeps the precision the server sent ("6.50" stays two places mid-count).
+  const hoursDecimals = actualHours?.split(".")[1]?.length ?? 0;
 
   return (
     <section>
@@ -208,7 +215,10 @@ function LaborPanel({
             {actualHours ? (
               <>
                 <p className="tnum font-mono text-lg font-semibold text-foreground">
-                  {actualHours} h
+                  <AnimatedNumber
+                    value={Number(actualHours)}
+                    format={(hours) => hours.toFixed(hoursDecimals) + " h"}
+                  />
                 </p>
                 <p className="font-body text-xs text-muted-foreground">
                   across {timeEntryCount}{" "}
@@ -217,7 +227,10 @@ function LaborPanel({
                     <>
                       {" · costing "}
                       <span className="tnum font-mono font-medium text-foreground">
-                        {formatMoney(summary.laborCost)}
+                        <AnimatedNumber
+                          value={Number(summary.laborCost)}
+                          format={formatMoney}
+                        />
                       </span>
                     </>
                   )}
@@ -283,6 +296,11 @@ function ExpensesPanel({
 
   const total = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
 
+  // A logged expense wears the highlight once; the panel only mounts with its
+  // data, so the first list is the baseline.
+  const fresh = useNewIds(expenses.map((expense) => expense.id));
+  const formRef = useRef<HTMLDivElement>(null);
+
   function validate(f: ExpenseForm): string | null {
     if (!f.description.trim()) return "Describe what this cost was for";
     if (!/^\d{1,8}(\.\d{1,2})?$/.test(f.amount.trim()))
@@ -305,6 +323,7 @@ function ExpensesPanel({
     const problem = validate(form);
     if (problem) {
       toast.error(problem);
+      if (formRef.current) replayMotion(formRef.current, "motion-shake");
       return;
     }
     if (editingId) {
@@ -375,7 +394,7 @@ function ExpensesPanel({
       </div>
 
       {expenses.length === 0 && !showAdd && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+        <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
           <p className="font-body text-sm text-foreground">
             No expenses on this job
           </p>
@@ -410,7 +429,10 @@ function ExpensesPanel({
                 {expenses.map((expense) => (
                   <tr
                     key={expense.id}
-                    className="border-b border-border last:border-0"
+                    className={cn(
+                      "border-b border-border last:border-0",
+                      fresh.has(expense.id) && "motion-highlight",
+                    )}
                   >
                     <td className="px-3 py-2">
                       <div className="font-body text-foreground">
@@ -476,14 +498,14 @@ function ExpensesPanel({
               Total expenses
             </span>
             <span className="tnum font-mono text-sm font-semibold text-foreground">
-              {formatMoney(total)}
+              <AnimatedNumber value={total} format={formatMoney} />
             </span>
           </div>
         </div>
       )}
 
       {confirmingId && (
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
+        <div className="motion-arrive mt-3 flex flex-wrap items-center justify-between gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3">
           <p className="font-body text-sm text-foreground">
             Delete this expense? The margin above will go back up.
           </p>
@@ -514,7 +536,7 @@ function ExpensesPanel({
       )}
 
       {showAdd && (
-        <div className="mt-3 space-y-2 rounded-md border border-border p-3">
+        <div ref={formRef} className="motion-arrive mt-3 space-y-2 rounded-md border border-border p-3">
           <Input
             placeholder="What was this cost for?"
             value={form.description}

@@ -4,11 +4,16 @@ import { useEffect, useRef } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { MessageBubble } from "./message-bubble";
 import { Skeleton } from "@/components/ui/skeleton";
+import { prefersReducedMotion } from "@/lib/motion";
+import { useStagger } from "@/hooks/use-stagger";
+import { useNewIds } from "@/hooks/use-new-ids";
 import type { Message } from "@/actions/conversations";
 
 interface ConversationThreadProps {
   messages: Message[];
   isLoading: boolean;
+  /** Which conversation is open, so opening another lays its history down again. */
+  conversationId?: string | null;
 }
 
 function formatDateSeparator(iso: string) {
@@ -26,13 +31,41 @@ function formatDateSeparator(iso: string) {
   });
 }
 
-export function ConversationThread({ messages, isLoading }: ConversationThreadProps) {
+export function ConversationThread({
+  messages,
+  isLoading,
+  conversationId,
+}: ConversationThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
+  const groupsRef = useRef<HTMLDivElement>(null);
+  const filledBefore = useRef(false);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom when messages change. Opening a thread jumps to the
+  // end (a smooth scroll through a month of history is a long way to watch);
+  // a message arriving after that eases into view.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (messages.length === 0) {
+      filledBefore.current = false;
+      return;
+    }
+    const smooth = filledBefore.current && !prefersReducedMotion();
+    bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
+    filledBefore.current = true;
   }, [messages]);
+
+  // The history rises in, day by day, when a conversation finishes loading.
+  useStagger(
+    groupsRef,
+    isLoading || messages.length === 0 ? null : (conversationId ?? "thread"),
+  );
+
+  // A message that arrives while the thread is open (just sent, or pushed in
+  // over the realtime stream) rises into place. The first load is the baseline,
+  // so opening a thread animates nothing here.
+  const fresh = useNewIds(
+    messages.map((m) => m.id),
+    !isLoading,
+  );
 
   if (isLoading) {
     return (
@@ -54,7 +87,7 @@ export function ConversationThread({ messages, isLoading }: ConversationThreadPr
 
   if (messages.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center">
+      <div className="motion-appear flex flex-1 items-center justify-center">
         <p className="text-sm text-muted-foreground">
           No messages yet. Send the first one below.
         </p>
@@ -76,7 +109,7 @@ export function ConversationThread({ messages, isLoading }: ConversationThreadPr
 
   return (
     <ScrollArea className="flex-1">
-      <div className="flex flex-col gap-3 px-4 py-4">
+      <div ref={groupsRef} className="flex flex-col gap-3 px-4 py-4">
         {grouped.map((group) => (
           <div key={group.date} className="flex flex-col gap-3">
             {/* Date separator */}
@@ -89,7 +122,17 @@ export function ConversationThread({ messages, isLoading }: ConversationThreadPr
             </div>
 
             {group.messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                // The sent message and the server's copy of it have different
+                // ids, so the copy that replaces an optimistic one would arrive a
+                // second time; it is left still, since it looks identical.
+                arrive={
+                  fresh.has(msg.id) &&
+                  (msg.direction === "inbound" || msg.id.startsWith("optimistic-"))
+                }
+              />
             ))}
           </div>
         ))}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import {
   IconCash,
   IconReceipt2,
@@ -14,12 +15,16 @@ import { Button } from "@/components/ui/button";
 import { WidgetErrorBoundary } from "@/components/reusable/widget-error-boundary";
 import { ReportKpiRow } from "./report-kpi-row";
 import { formatMoney } from "@/lib/format";
+import { useStagger } from "@/hooks/use-stagger";
 import { cn } from "@/lib/utils";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 
 interface ProfitabilityTabProps {
   data: ProfitabilitySection;
+  /** Section and range these figures belong to; the tables re-lay rows on it. */
+  viewKey: string;
 }
+
+const formatCount = (n: number) => String(n);
 
 /** A margin percentage, or an honest dash when there is no revenue to divide by. */
 function marginLabel(pct: number | null): string {
@@ -32,7 +37,7 @@ function marginTone(margin: string): string {
     : "text-foreground";
 }
 
-export function ProfitabilityTab({ data }: ProfitabilityTabProps) {
+export function ProfitabilityTab({ data, viewKey }: ProfitabilityTabProps) {
   const { totals } = data;
 
   // Nobody has entered a cost anywhere. Showing a 100%-margin report to this
@@ -42,30 +47,41 @@ export function ProfitabilityTab({ data }: ProfitabilityTabProps) {
   }
 
   return (
-    <div className="space-y-4">
+    <div data-stagger className="space-y-4">
       <ReportKpiRow
         kpis={[
           {
             label: "Revenue",
             value: formatMoney(totals.revenue),
+            // The API sends money as decimal strings. Parsing is only for the
+            // count between two figures: the text it settles on is
+            // `formatMoney` of the same number, which is what `value` shows.
+            numericValue: Number.parseFloat(totals.revenue),
+            format: formatMoney,
             icon: IconCash,
             hint: "Costed jobs completed in this period",
           },
           {
             label: "Cost",
             value: formatMoney(totals.cost),
+            numericValue: Number.parseFloat(totals.cost),
+            format: formatMoney,
             icon: IconReceipt2,
             hint: "Parts, labour and expenses",
           },
           {
             label: "Margin",
             value: formatMoney(totals.margin),
+            numericValue: Number.parseFloat(totals.margin),
+            format: formatMoney,
             icon: IconChartPie,
             suffix: ` · ${marginLabel(totals.marginPct)}`,
           },
           {
             label: "Jobs counted",
             value: String(totals.jobCount),
+            numericValue: totals.jobCount,
+            format: formatCount,
             icon: IconBriefcase,
             hint:
               totals.excludedJobCount > 0
@@ -76,27 +92,25 @@ export function ProfitabilityTab({ data }: ProfitabilityTabProps) {
       />
 
       {totals.excludedJobCount > 0 && (
-        <Fade inView inViewOnce>
-          <div className="flex gap-2.5 rounded-lg border border-border bg-muted/40 p-3.5">
-            <IconAlertTriangle
-              className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
-              aria-hidden
-            />
-            <div>
-              <p className="font-body text-sm font-medium text-foreground">
-                {totals.excludedJobCount}{" "}
-                {totals.excludedJobCount === 1 ? "job is" : "jobs are"} not in
-                these figures
-              </p>
-              <p className="mt-0.5 font-body text-xs leading-snug text-muted-foreground">
-                Their costs are only partly entered. Counting them would treat
-                the missing half as free and pull every margin here upwards, so
-                they sit out until they are complete. Open a job&rsquo;s Costs
-                tab to see what it is missing.
-              </p>
-            </div>
+        <div className="flex gap-2.5 rounded-lg border border-border bg-muted/40 p-3.5">
+          <IconAlertTriangle
+            className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground"
+            aria-hidden
+          />
+          <div>
+            <p className="font-body text-sm font-medium text-foreground">
+              {totals.excludedJobCount}{" "}
+              {totals.excludedJobCount === 1 ? "job is" : "jobs are"} not in
+              these figures
+            </p>
+            <p className="mt-0.5 font-body text-xs leading-snug text-muted-foreground">
+              Their costs are only partly entered. Counting them would treat
+              the missing half as free and pull every margin here upwards, so
+              they sit out until they are complete. Open a job&rsquo;s Costs
+              tab to see what it is missing.
+            </p>
           </div>
-        </Fade>
+        </div>
       )}
 
       {totals.truncated && (
@@ -108,49 +122,45 @@ export function ProfitabilityTab({ data }: ProfitabilityTabProps) {
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <Fade className="h-full" inView inViewOnce delay={0}>
-          <GroupTable
-            title="Thinnest margins"
-            description="Jobs where the least of what you charged stayed with you."
-            rows={data.byJob}
-            firstColumn="Job"
-            emptyMessage="No fully costed jobs completed in this period."
-            hrefFor={(row) => `/jobs/${row.key}`}
-          />
-        </Fade>
+        <GroupTable
+          title="Thinnest margins"
+          description="Jobs where the least of what you charged stayed with you."
+          rows={data.byJob}
+          firstColumn="Job"
+          emptyMessage="No fully costed jobs completed in this period."
+          hrefFor={(row) => `/jobs/${row.key}`}
+          viewKey={viewKey}
+        />
 
-        <Fade className="h-full" inView inViewOnce delay={100}>
-          <GroupTable
-            title="By service type"
-            description="Which kinds of work pay."
-            rows={data.byServiceType}
-            firstColumn="Service type"
-            emptyMessage="No costed work in this period."
-          />
-        </Fade>
+        <GroupTable
+          title="By service type"
+          description="Which kinds of work pay."
+          rows={data.byServiceType}
+          firstColumn="Service type"
+          emptyMessage="No costed work in this period."
+          viewKey={viewKey}
+        />
 
-        <Fade className="h-full" inView inViewOnce delay={200}>
-          <GroupTable
-            title="By customer"
-            description="Your biggest accounts, and what they leave behind."
-            rows={data.byCustomer}
-            firstColumn="Customer"
-            emptyMessage="No costed work in this period."
-            hrefFor={(row) =>
-              row.key === "unknown" ? undefined : `/customers/${row.key}`
-            }
-          />
-        </Fade>
+        <GroupTable
+          title="By customer"
+          description="Your biggest accounts, and what they leave behind."
+          rows={data.byCustomer}
+          firstColumn="Customer"
+          emptyMessage="No costed work in this period."
+          hrefFor={(row) =>
+            row.key === "unknown" ? undefined : `/customers/${row.key}`
+          }
+          viewKey={viewKey}
+        />
 
-        <Fade className="h-full" inView inViewOnce delay={300}>
-          <GroupTable
-            title="By assignee"
-            description="What each person's work returns, after their time is costed."
-            rows={data.byAssignee}
-            firstColumn="Assignee"
-            emptyMessage="No costed work in this period."
-          />
-        </Fade>
+        <GroupTable
+          title="By assignee"
+          description="What each person's work returns, after their time is costed."
+          rows={data.byAssignee}
+          firstColumn="Assignee"
+          emptyMessage="No costed work in this period."
+          viewKey={viewKey}
+        />
       </div>
     </div>
   );
@@ -165,6 +175,8 @@ interface GroupTableProps {
   firstColumn: string;
   emptyMessage: string;
   hrefFor?: (row: ProfitabilityRow) => string | undefined;
+  /** Which section and range these rows are for; they re-lay when it changes. */
+  viewKey: string;
 }
 
 /**
@@ -181,7 +193,11 @@ function GroupTable({
   firstColumn,
   emptyMessage,
   hrefFor,
+  viewKey,
 }: GroupTableProps) {
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, rows.length > 0 ? viewKey : null);
+
   return (
     <Card className="h-full">
       <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
@@ -193,7 +209,7 @@ function GroupTable({
       <CardContent className="px-0 pb-0">
         <WidgetErrorBoundary name={title}>
           {rows.length === 0 ? (
-            <div className="flex h-24 items-center justify-center px-4 pb-4 sm:px-6">
+            <div className="motion-appear flex h-24 items-center justify-center px-4 pb-4 sm:px-6">
               <p className="font-body text-sm text-muted-foreground">
                 {emptyMessage}
               </p>
@@ -232,7 +248,7 @@ function GroupTable({
                     </th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody ref={bodyRef}>
                   {rows.map((row) => {
                     const href = hrefFor?.(row);
                     return (

@@ -58,7 +58,7 @@ export function QuoteResponseButtons({
 
   if (showScheduleForm) {
     return (
-      <div className="space-y-4">
+      <div className="motion-arrive space-y-4">
         <div className="space-y-1">
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             Preferred timing
@@ -126,7 +126,7 @@ export function QuoteResponseButtons({
 
   if (showDeclineForm) {
     return (
-      <div className="space-y-4">
+      <div className="motion-arrive space-y-4">
         <div className="space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
             Reason (optional)

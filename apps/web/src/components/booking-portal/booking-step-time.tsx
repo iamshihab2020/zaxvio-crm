@@ -1,8 +1,10 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
 import { IconArrowLeft, IconClock } from "@tabler/icons-react";
 
 interface TimeSlot {
@@ -46,6 +48,17 @@ export function BookingStepTime({
   const loading = slots === null;
   const availableSlots = slots?.filter((s) => s.available) ?? [];
 
+  // Slots arrive after the date is picked, so the list is laid out in turn when
+  // they replace the skeleton. When the step opens with slots already cached it
+  // has no skeleton to replace and the step's own slide is the arrival, so the
+  // key is `null` until a real list exists and nothing plays on mount.
+  const gridRef = useRef<HTMLDivElement>(null);
+  useStagger(gridRef, loading ? null : date);
+
+  // Only a state that replaces the skeleton fades in; one present at mount is
+  // already inside the sliding step.
+  const [startedLoading] = useState(loading);
+
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
@@ -69,7 +82,12 @@ export function BookingStepTime({
           ))}
         </div>
       ) : availableSlots.length === 0 ? (
-        <div className="rounded-lg border border-border bg-muted/30 py-10 text-center">
+        <div
+          className={cn(
+            "rounded-lg border border-border bg-muted/30 py-10 text-center",
+            startedLoading && "motion-appear",
+          )}
+        >
           <p className="text-sm text-muted-foreground font-body">
             No available time slots for this date.
           </p>
@@ -78,7 +96,7 @@ export function BookingStepTime({
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <div ref={gridRef} className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {slots!.map((slot) => (
             <Button
               key={slot.time}

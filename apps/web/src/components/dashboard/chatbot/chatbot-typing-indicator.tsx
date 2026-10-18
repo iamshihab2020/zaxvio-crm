@@ -2,10 +2,7 @@
 
 export function ChatbotTypingIndicator() {
   return (
-    <div
-      className="flex items-start gap-2 px-4 py-2"
-      style={{ animation: "chatSlideLeft 0.3s ease-out" }}
-    >
+    <div className="motion-arrive flex items-start gap-2 px-4 py-2">
       <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted">
         <span className="text-xs">🤖</span>
       </div>

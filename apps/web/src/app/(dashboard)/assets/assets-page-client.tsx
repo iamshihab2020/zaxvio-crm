@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import {
@@ -30,6 +30,8 @@ import {
   type AssetFormData,
 } from "@/components/dashboard/equipment/asset-dialog";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useTableStagger } from "@/hooks/use-table-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import {
   useEquipment,
   useUpdateEquipment,
@@ -120,6 +122,19 @@ export function AssetsPageClient({
   const pagination = (assetsQuery.data?.pagination ?? DEFAULT_PAGINATION) as PaginationData;
   const loading = assetsQuery.isLoading;
 
+  // The rows replay when WHICH rows are shown changes: page, warranty tab,
+  // search. `null` while loading, and while the previous list is held over as
+  // placeholder data for the next one, so the rows about to be replaced are
+  // never the ones that animate.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useTableStagger(
+    bodyRef,
+    loading || assetsQuery.isPlaceholderData
+      ? null
+      : `${page}:${statusFilter}:${debouncedSearch}`,
+  );
+  const { flashId, flash } = useRowFlash();
+
   // Prefetch next page
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -177,9 +192,16 @@ export function AssetsPageClient({
 
   function handleSave(data: AssetFormData) {
     if (!editingAsset) return;
+    const id = editingAsset.id;
     updateMutation.mutate(
-      { id: editingAsset.id, data },
-      { onSuccess: (res) => { if (!res.error) setDialogOpen(false); } },
+      { id, data },
+      {
+        onSuccess: (res) => {
+          if (res.error) return;
+          setDialogOpen(false);
+          flash(id);
+        },
+      },
     );
   }
 
@@ -208,7 +230,7 @@ export function AssetsPageClient({
   const showNoResults = !loading && !hasAssets && (!!search || !!statusFilter);
 
   return (
-    <section className="p-4 sm:p-6">
+    <section data-stagger className="p-4 sm:p-6">
       {/* Stats Cards */}
       {!showEmptyState && (
         <StatsCards
@@ -260,7 +282,7 @@ export function AssetsPageClient({
           )}
 
           {showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               No assets found{search ? <> matching &ldquo;{search}&rdquo;</> : " for this filter"}.
             </p>
           )}
@@ -277,6 +299,8 @@ export function AssetsPageClient({
               onToggleAll={toggleAll}
               isAllSelected={isAllSelected(filteredAssets)}
               isIndeterminate={isIndeterminate(filteredAssets)}
+              bodyRef={bodyRef}
+              highlightId={flashId}
             />
           )}
         </div>

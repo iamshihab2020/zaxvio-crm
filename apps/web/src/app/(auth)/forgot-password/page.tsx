@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import { replayMotion } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,10 +17,17 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     document.title = "Forgot Password — Zaxvio";
   }, []);
+
+  // The message is shown in the banner; the shake only says "no" a moment sooner.
+  function reject(message: string) {
+    setError(message);
+    if (formRef.current) replayMotion(formRef.current, "motion-shake");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,7 +46,7 @@ export default function ForgotPasswordPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setError(data?.message ?? "Something went wrong");
+        reject(data?.message ?? "Something went wrong");
         setLoading(false);
         return;
       }
@@ -54,7 +62,7 @@ export default function ForgotPasswordPage() {
   if (sent) {
     return (
       <AuthShell>
-        <div className="space-y-6 text-center">
+        <div className="motion-arrive space-y-6 text-center">
           {/* Logo (mobile only) */}
           <div className="flex items-center justify-center md:hidden">
             <Logo size="md" />
@@ -62,7 +70,7 @@ export default function ForgotPasswordPage() {
 
           {/* Success icon */}
           <div className="flex justify-center">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-brand/10">
+            <div className="motion-pop flex h-14 w-14 items-center justify-center rounded-full bg-brand/10">
               <IconMailCheck size={28} className="text-brand" stroke={1.5} />
             </div>
           </div>
@@ -109,9 +117,9 @@ export default function ForgotPasswordPage() {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           {error && (
-            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="motion-appear rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
               {error}
             </div>
           )}

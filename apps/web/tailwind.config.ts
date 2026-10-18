@@ -95,15 +95,9 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
-      keyframes: {
-        "settings-enter": {
-          "0%": { opacity: "0", transform: "translateY(8px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-      },
-      animation: {
-        "settings-enter": "settings-enter 0.3s ease-out",
-      },
+      // No custom keyframes here: app motion lives in the MOTION SYSTEM block
+      // of globals.css, with one curve and four durations. The settings pages'
+      // own `settings-enter` was retired on 2026-10-18 for the shared arrival.
     },
   },
   plugins: [tailwindcssAnimate],

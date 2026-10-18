@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Table,
   TableBody,
@@ -15,6 +15,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { IconDroplet, IconPlus } from "@tabler/icons-react";
 import { createRefrigerantLog } from "@/actions/equipment";
 import { getEquipmentRefrigerantLogs } from "@/lib/client-reads/equipment";
+import { cn } from "@/lib/utils";
+import { useStagger } from "@/hooks/use-stagger";
+import { useRowFlash } from "@/hooks/use-row-flash";
 import {
   RefrigerantLogDialog,
   type RefrigerantLogFormData,
@@ -75,6 +78,12 @@ export function RefrigerantLogsPanel({
     fetchLogs();
   }, [fetchLogs]);
 
+  // The panel shows a skeleton on every reload, so rows rise in each time it
+  // finishes; the log just added is washed on top of that.
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, loading ? null : equipmentId);
+  const { flashId, flash } = useRowFlash();
+
   async function handleSave(data: RefrigerantLogFormData) {
     setSaving(true);
     const result = await createRefrigerantLog(equipmentId, {
@@ -88,6 +97,7 @@ export function RefrigerantLogsPanel({
     });
     if (!result.error) {
       setDialogOpen(false);
+      if (typeof result.data?.id === "string") flash(result.data.id);
       await fetchLogs();
     }
     setSaving(false);
@@ -123,7 +133,7 @@ export function RefrigerantLogsPanel({
       </div>
 
       {logs.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
+        <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
           <IconDroplet className="h-5 w-5 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">
             No refrigerant logs yet
@@ -143,9 +153,12 @@ export function RefrigerantLogsPanel({
                 </TableHead>
               </TableRow>
             </TableHeader>
-            <TableBody>
+            <TableBody ref={bodyRef}>
               {logs.map((log) => (
-                <TableRow key={log.id}>
+                <TableRow
+                  key={log.id}
+                  className={cn(log.id === flashId && "motion-highlight")}
+                >
                   <TableCell className="text-sm">
                     {formatDate(log.createdAt)}
                   </TableCell>

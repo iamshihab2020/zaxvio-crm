@@ -5,6 +5,7 @@ import * as ToggleGroupPrimitive from "@radix-ui/react-toggle-group";
 import { type VariantProps } from "class-variance-authority";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { DUR, EASE_OUT } from "@/lib/motion";
 import { toggleVariants } from "@/components/ui/toggle";
 
 const ToggleGroupContext = React.createContext<
@@ -52,8 +53,8 @@ const ToggleGroupItem = React.forwardRef<
           }),
           className,
         )}
-        whileTap={{ scale: 0.95 }}
-        transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        whileTap={{ scale: 0.98 }}
+        transition={{ duration: DUR.feedback / 1000, ease: EASE_OUT }}
       >
         {children}
       </motion.button>

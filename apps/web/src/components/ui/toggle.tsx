@@ -5,6 +5,7 @@ import * as TogglePrimitive from "@radix-ui/react-toggle";
 import { cva, type VariantProps } from "class-variance-authority";
 import { motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { DUR, EASE_OUT } from "@/lib/motion";
 
 const toggleVariants = cva(
   "inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
@@ -40,8 +41,10 @@ const Toggle = React.forwardRef<
   >
     <motion.button
       className={cn(toggleVariants({ variant, size, className }))}
-      whileTap={{ scale: 0.95 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
+      // The same press as Button (98%, over `feedback`), so a toggle and a
+      // button next to each other acknowledge a tap alike.
+      whileTap={{ scale: 0.98 }}
+      transition={{ duration: DUR.feedback / 1000, ease: EASE_OUT }}
     />
   </TogglePrimitive.Root>
 ));

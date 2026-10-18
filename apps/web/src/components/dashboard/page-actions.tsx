@@ -71,6 +71,11 @@ export function PageActionsSlot({ className }: { className?: string }) {
  * in place first, then moving them) would visibly jump. That null also hides
  * the `false` that `useMediaQuery` reports while hydrating, so a wide screen
  * does not begin in the phone's inline form.
+ *
+ * The navbar copy fades in (`motion-appear`) because it mounts into a bar that
+ * is already on screen, outside the page's own route arrival; a page without
+ * actions leaves the slot empty and nothing moves. The inline copy does not,
+ * since it sits inside the page and rises with the rest of it.
  */
 export function PageActions({ children }: { children: ReactNode }) {
   const slot = useContext(PageActionsContext);
@@ -80,7 +85,7 @@ export function PageActions({ children }: { children: ReactNode }) {
     return <div className="flex flex-wrap items-center gap-2">{children}</div>;
   }
   return createPortal(
-    <div className="flex items-center gap-2">{children}</div>,
+    <div className="motion-appear flex items-center gap-2">{children}</div>,
     slot,
   );
 }

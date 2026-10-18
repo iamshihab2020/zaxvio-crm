@@ -36,7 +36,7 @@ export function QuoteConfirmation({
         </p>
         <h2 className="mt-2 flex items-center gap-2 font-heading text-xl font-semibold text-foreground">
           {isAccepted && (
-            <IconCircleCheck className="h-5 w-5 text-brand" aria-hidden />
+            <IconCircleCheck className="motion-pop h-5 w-5 text-brand" aria-hidden />
           )}
           {isAccepted ? "You’re all set" : "Thanks for letting us know"}
         </h2>

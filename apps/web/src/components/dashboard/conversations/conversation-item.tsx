@@ -1,12 +1,16 @@
 "use client";
 
+import { useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
 import type { Conversation } from "@/actions/conversations";
 
 interface ConversationItemProps {
   conversation: Conversation;
   isActive: boolean;
+  /** The conversation appeared while the list was open: wash it once. */
+  isNew?: boolean;
   onClick: () => void;
 }
 
@@ -26,8 +30,13 @@ function formatRelativeTime(iso: string | null): string {
 export function ConversationItem({
   conversation,
   isActive,
+  isNew = false,
   onClick,
 }: ConversationItemProps) {
+  // The unread count popping when it changes, not when the list first paints.
+  const unreadRef = useRef<HTMLSpanElement>(null);
+  useReplayOnChange(unreadRef, conversation.unreadCount, "motion-pop", conversation.id);
+
   const initials =
     (conversation.customerFirstName[0] ?? "") +
     (conversation.customerLastName[0] ?? "");
@@ -44,6 +53,7 @@ export function ConversationItem({
         isActive
           ? "bg-accent border-brand"
           : "border-transparent",
+        isNew && "motion-highlight",
       )}
     >
       {/* Avatar */}
@@ -66,12 +76,14 @@ export function ConversationItem({
 
       {/* Unread badge */}
       {conversation.unreadCount > 0 && (
-        <Badge
-          variant="destructive"
-          className="text-[10px] h-4 min-w-4 px-1 shrink-0"
-        >
-          {conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}
-        </Badge>
+        <span ref={unreadRef} className="inline-flex shrink-0">
+          <Badge
+            variant="destructive"
+            className="text-[10px] h-4 min-w-4 px-1 shrink-0"
+          >
+            {conversation.unreadCount > 9 ? "9+" : conversation.unreadCount}
+          </Badge>
+        </span>
       )}
     </button>
   );

@@ -285,9 +285,10 @@ export function TemplateGallery({
               // Remounts on selection, which both restarts the entrance and —
               // more importantly — resets this pane's scroll to the top. Moving
               // to a new template while parked at the bottom of a long one
-              // otherwise opens it half-read.
+              // otherwise opens it half-read. The entrance is a fade: the
+              // content changes in place, it does not travel anywhere.
               key={selected}
-              className="min-h-0 flex-1 overflow-y-auto animate-panel-item-right px-5 py-5 sm:px-6"
+              className="motion-appear min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6"
             >
               <button
                 type="button"
@@ -357,7 +358,7 @@ function IndexRow({
     >
       {/* You-are-here. Sits on the edge the sheet opens from. */}
       {selected && (
-        <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-brand" />
+        <span className="motion-appear absolute inset-y-2 left-0 w-0.5 rounded-full bg-brand" />
       )}
 
       <span

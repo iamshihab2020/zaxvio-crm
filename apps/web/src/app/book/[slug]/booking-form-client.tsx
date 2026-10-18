@@ -10,6 +10,7 @@ import { BookingStepDate } from "@/components/booking-portal/booking-step-date";
 import { BookingStepTime } from "@/components/booking-portal/booking-step-time";
 import { BookingStepInfo, type CustomerInfo } from "@/components/booking-portal/booking-step-info";
 import { submitPublicBooking, getPublicAvailability, getPublicSlots } from "@/actions/bookings";
+import { markBookingSubmitted } from "@/components/booking-portal/booking-handoff";
 import { LicenseBadge } from "@/components/public/license-badge";
 import { cn } from "@/lib/utils";
 
@@ -235,7 +236,9 @@ export function BookingFormClient({
       }
       setError(result.error);
     } else {
-      // Redirect to the unique booking status page
+      // Redirect to the unique booking status page. The status page reads this
+      // to play its confirmation only when reached from here, not on a reload.
+      markBookingSubmitted(result.data.id);
       router.push(`/book/${slug}/status/${result.data.id}`);
     }
   };
@@ -329,7 +332,7 @@ export function BookingFormClient({
               {error && (
                 <div
                   role="alert"
-                  className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-body text-destructive"
+                  className="motion-appear mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm font-body text-destructive"
                 >
                   {error}
                 </div>

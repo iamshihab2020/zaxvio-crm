@@ -84,7 +84,7 @@ export function SupportPageClient({
   impersonationPagination: Pagination;
 }) {
   return (
-    <section className="p-4 sm:p-6 space-y-6">
+    <section data-stagger className="p-4 sm:p-6 space-y-6">
       <Tabs defaultValue="audit">
         {/* The icons go below `sm`: with both labels and their counts the
             tabs are about 335px, which is the whole 343px phone content. */}

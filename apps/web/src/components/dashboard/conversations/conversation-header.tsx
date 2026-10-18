@@ -16,7 +16,7 @@ export function ConversationHeader({ conversation }: ConversationHeaderProps) {
       : conversation.customerPhone;
 
   return (
-    <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0">
+    <div className="motion-appear flex items-center justify-between px-4 py-3 border-b border-border bg-card shrink-0">
       <div className="flex items-center gap-3 min-w-0">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-light text-sm font-semibold text-brand-ink">
           {conversation.customerFirstName[0]}

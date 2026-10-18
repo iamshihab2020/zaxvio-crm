@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import Link from "next/link";
 import {
   IconDotsVertical,
@@ -68,6 +69,10 @@ export interface AutomationsTableProps {
   /** Ids with a mutation in flight — the row's toggle is held while it lands. */
   pendingIds?: Set<string>;
   archived?: boolean;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just changed; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 export function AutomationsTable({
@@ -77,6 +82,8 @@ export function AutomationsTable({
   onRename,
   pendingIds,
   archived = false,
+  bodyRef,
+  highlightId,
 }: AutomationsTableProps) {
   return (
     <Table>
@@ -92,13 +99,16 @@ export function AutomationsTable({
           </TableHead>
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody ref={bodyRef}>
         {workflows.map((workflow) => {
           const published = workflow.activeVersionId !== null;
           const pending = pendingIds?.has(workflow.id) ?? false;
 
           return (
-            <TableRow key={workflow.id} className="group">
+            <TableRow
+              key={workflow.id}
+              className={cn("group", workflow.id === highlightId && "motion-highlight")}
+            >
               <TableCell className="py-3">
                 <Link
                   href={`/automations/${workflow.id}`}

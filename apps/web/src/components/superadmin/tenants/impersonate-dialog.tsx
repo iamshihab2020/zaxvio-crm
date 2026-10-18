@@ -21,6 +21,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useShakeOnError } from "@/components/superadmin/use-shake-on-error";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { openTenantStream } from "@/lib/event-stream";
@@ -49,6 +50,8 @@ export function ImpersonateDialog({
   const [phase, setPhase] = useState<Phase>("form");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rejected submit shakes the form body, never the dialog (see the hook).
+  const shakeRef = useShakeOnError<HTMLDivElement>(error);
   const [pendingSessionId, setPendingSessionId] = useState<string | null>(
     null,
   );
@@ -159,7 +162,7 @@ export function ImpersonateDialog({
     return (
       <Dialog open={open} onOpenChange={() => handleCancel()}>
         <DialogContent className="sm:max-w-sm">
-          <div className="flex flex-col items-center gap-4 py-6">
+          <div className="motion-appear flex flex-col items-center gap-4 py-6">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
               {/* An hourglass, not a spinner: this waits on a person, for up
                   to five minutes, and a spinner promises something is loading. */}
@@ -190,8 +193,8 @@ export function ImpersonateDialog({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-sm">
-          <div className="flex flex-col items-center gap-4 py-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+          <div className="motion-appear flex flex-col items-center gap-4 py-6">
+            <div className="motion-pop flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
               <IconX className="h-6 w-6 text-destructive" />
             </div>
             <div className="space-y-1 text-center">
@@ -231,7 +234,7 @@ export function ImpersonateDialog({
             Impersonate Tenant
           </DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
+        <div ref={shakeRef} className="space-y-4">
           {/* Mode selector */}
           <div className="space-y-2">
             <Label className="font-body text-sm">Impersonation Mode</Label>
@@ -287,7 +290,7 @@ export function ImpersonateDialog({
 
           {/* Info banner */}
           <div
-            className={`rounded-md border p-3 ${
+            className={`rounded-md border p-3 transition-colors duration-200 ${
               mode === "ghost"
                 ? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"
                 : "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
@@ -330,7 +333,7 @@ export function ImpersonateDialog({
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive font-body">{error}</p>
+            <p className="motion-appear text-sm text-destructive font-body">{error}</p>
           )}
         </div>
         <DialogFooter className="max-sm:[&>button]:h-10">

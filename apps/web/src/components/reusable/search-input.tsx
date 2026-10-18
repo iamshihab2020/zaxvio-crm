@@ -34,7 +34,9 @@ export function SearchInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="pl-10"
+        // The focus ring is a box-shadow, so the colour utility alone would let
+        // it snap on while the border fades.
+        className="pl-10 transition-[border-color,box-shadow] duration-200"
       />
     </div>
   );

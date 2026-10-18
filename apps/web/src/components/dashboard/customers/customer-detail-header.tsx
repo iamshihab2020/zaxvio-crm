@@ -23,6 +23,8 @@ import {
   useDeleteCustomer,
 } from "@/hooks/queries";
 import { formatPhoneDisplay, normalizePhone } from "@/lib/phone";
+import { replayMotion } from "@/lib/motion";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import {
   IconChevronRight,
   IconPhone,
@@ -89,19 +91,39 @@ function EditableText({
   const [draft, setDraft] = useState(value);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const shakeRef = useRef<HTMLSpanElement>(null);
+  const displayRef = useRef<HTMLButtonElement>(null);
+  // The save is a mutation that resolves later, by changing `value`. This
+  // remembers that the next change of `value` is ours, so it gets the wash and
+  // a refetch from somewhere else does not.
+  const awaitingSave = useRef(false);
 
   useEffect(() => { setDraft(value); }, [value]);
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
+  useEffect(() => {
+    if (!awaitingSave.current) return;
+    awaitingSave.current = false;
+    if (displayRef.current) replayMotion(displayRef.current, "motion-highlight");
+  }, [value]);
+
+  function startEditing() {
+    awaitingSave.current = false;
+    setEditing(true);
+  }
 
   function handleSave() {
     const problem = validate?.(draft) ?? null;
     if (problem) {
       setError(problem);
+      if (shakeRef.current) replayMotion(shakeRef.current, "motion-shake");
       return; // stay in edit mode — losing the text silently is the old bug
     }
     setError(null);
     setEditing(false);
-    if (draft !== value) onSave(field, draft);
+    if (draft !== value) {
+      awaitingSave.current = true;
+      onSave(field, draft);
+    }
   }
 
   function cancel() {
@@ -112,8 +134,8 @@ function EditableText({
 
   if (editing) {
     return (
-      <span className="inline-flex flex-col gap-0.5">
-        <span className="inline-flex items-center gap-1">
+      <span ref={shakeRef} className="inline-flex flex-col gap-0.5">
+        <span className="motion-appear inline-flex items-center gap-1">
           <Input
             ref={inputRef}
             type={inputType}
@@ -157,10 +179,11 @@ function EditableText({
   if (!shown) {
     return (
       <Button
+        ref={displayRef}
         type="button"
         variant="ghost"
         size="sm"
-        onClick={() => setEditing(true)}
+        onClick={startEditing}
         className="h-auto self-stretch p-0 text-sm italic text-muted-foreground/40 hover:text-brand-ink"
       >
         {placeholder}
@@ -170,10 +193,11 @@ function EditableText({
 
   return (
     <Button
+      ref={displayRef}
       type="button"
       variant="ghost"
       size="sm"
-      onClick={() => setEditing(true)}
+      onClick={startEditing}
       className={`group inline-flex h-auto items-center gap-1 self-stretch p-0 hover:text-brand-ink ${className ?? ""}`}
     >
       <span>{shown}</span>
@@ -182,6 +206,10 @@ function EditableText({
       <IconPencil className="h-2.5 w-2.5 shrink-0 opacity-0 transition-opacity group-hover:opacity-50 [@media(hover:none)]:opacity-50" />
     </Button>
   );
+}
+
+function formatCount(value: number) {
+  return String(Math.round(value));
 }
 
 function formatCurrency(value: string | number) {
@@ -434,26 +462,32 @@ export function CustomerDetailHeader({
           {summary && (
             <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 font-body text-xs text-muted-foreground">
               <span>
-                <span className="font-medium text-foreground">{summary.totalJobs}</span> job
-                {summary.totalJobs === 1 ? "" : "s"}
+                <AnimatedNumber
+                  value={Number(summary.totalJobs)}
+                  format={formatCount}
+                  className="font-medium text-foreground"
+                />{" "}
+                job{summary.totalJobs === 1 ? "" : "s"}
               </span>
               <span>
-                <span
+                <AnimatedNumber
+                  value={Number(summary.outstandingAmount)}
+                  format={formatCurrency}
                   className={
                     Number(summary.outstandingAmount) > 0
                       ? "font-medium text-brand-ink"
                       : "font-medium text-foreground"
                   }
-                >
-                  {formatCurrency(summary.outstandingAmount)}
-                </span>{" "}
+                />{" "}
                 outstanding
                 {summary.openInvoices > 0 ? ` (${summary.openInvoices} open)` : ""}
               </span>
               <span>
-                <span className="font-medium text-foreground">
-                  {formatCurrency(summary.lifetimeValue)}
-                </span>{" "}
+                <AnimatedNumber
+                  value={Number(summary.lifetimeValue)}
+                  format={formatCurrency}
+                  className="font-medium text-foreground"
+                />{" "}
                 lifetime
               </span>
               {summary.lastJobDate && (

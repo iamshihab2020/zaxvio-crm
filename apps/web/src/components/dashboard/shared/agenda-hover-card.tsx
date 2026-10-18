@@ -181,7 +181,7 @@ export function AgendaHoverCard({
         {/* Footer */}
         <Link
           href={details.href}
-          className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2.5 text-xs font-body font-medium text-foreground hover:bg-muted/40 cursor-pointer"
+          className="flex items-center justify-between border-t border-border/60 bg-muted/20 px-4 py-2.5 text-xs font-body font-medium text-foreground transition-colors hover:bg-muted/40 cursor-pointer"
         >
           <span>Open {meta.label.toLowerCase()}</span>
           <IconArrowRight className="h-3.5 w-3.5" />

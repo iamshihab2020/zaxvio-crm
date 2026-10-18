@@ -60,6 +60,8 @@ import {
 import { createCustomer } from "@/actions/customers";
 import { AssetPicker } from "@/components/dashboard/equipment/asset-picker";
 import { toast } from "sonner";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useFormShake } from "@/hooks/use-form-shake";
 
 export interface LineItemFormData {
   description: string;
@@ -127,6 +129,8 @@ const emptyForm: Omit<QuoteFormData, "lineItems"> = {
   notes: "",
 };
 
+const formatDollars = (value: number) => `$${value.toFixed(2)}`;
+
 export function QuoteCreateDialog({
   open,
   onOpenChange,
@@ -144,6 +148,9 @@ export function QuoteCreateDialog({
     useState<CustomerSelection | null>(null);
   const [taxEditable, setTaxEditable] = useState(false);
   const [creatingCustomer, setCreatingCustomer] = useState(false);
+  // The form fills a container with no padding, so it is the submit button that
+  // answers a refused submit: a shaken form would slide against the clipped edge.
+  const { ref: submitRef, shake } = useFormShake<HTMLButtonElement>();
 
   // New line item form
   const [showAddItem, setShowAddItem] = useState(false);
@@ -199,6 +206,7 @@ export function QuoteCreateDialog({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      shake();
       return;
     }
 
@@ -778,26 +786,26 @@ export function QuoteCreateDialog({
 
                 {/* Summary */}
                 {lineItems.length > 0 && (
-                  <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5">
+                  <div className="motion-appear rounded-md border border-border bg-muted/20 p-3 space-y-1.5">
                     <div className="flex justify-between text-xs text-muted-foreground font-body">
                       <span>Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
+                      <span><AnimatedNumber value={subtotal} format={formatDollars} /></span>
                     </div>
                     {taxRateNum > 0 && (
                       <div className="flex justify-between text-xs text-muted-foreground font-body">
                         <span>Tax ({form.taxRate}%)</span>
-                        <span>${taxAmount.toFixed(2)}</span>
+                        <span><AnimatedNumber value={taxAmount} format={formatDollars} /></span>
                       </div>
                     )}
                     {discount > 0 && (
                       <div className="flex justify-between text-xs text-muted-foreground font-body">
                         <span>Discount</span>
-                        <span>-${discount.toFixed(2)}</span>
+                        <span>-<AnimatedNumber value={discount} format={formatDollars} /></span>
                       </div>
                     )}
                     <div className="border-t border-border pt-1.5 flex justify-between text-sm font-semibold font-body">
                       <span>Total</span>
-                      <span>${total.toFixed(2)}</span>
+                      <span><AnimatedNumber value={total} format={formatDollars} /></span>
                     </div>
                   </div>
                 )}
@@ -823,6 +831,7 @@ export function QuoteCreateDialog({
               Cancel
             </Button>
             <Button
+              ref={submitRef}
               type="submit"
               className="bg-brand text-brand-foreground hover:bg-brand/90 min-w-[160px] cursor-pointer"
               disabled={isBusy}

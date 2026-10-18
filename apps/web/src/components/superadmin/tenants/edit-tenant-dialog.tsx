@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useShakeOnError } from "@/components/superadmin/use-shake-on-error";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { editTenant } from "@/actions/admin";
@@ -52,6 +53,8 @@ export function EditTenantDialog({
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // A rejected submit shakes the form body, never the dialog (see the hook).
+  const shakeRef = useShakeOnError<HTMLDivElement>(error);
 
   const handleChange = (key: keyof TenantFields, value: string) => {
     setFields((prev) => ({ ...prev, [key]: value }));
@@ -91,7 +94,7 @@ export function EditTenantDialog({
             Edit Tenant
           </DialogTitle>
         </DialogHeader>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div ref={shakeRef} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {formFields.map((field) => (
             <div
               key={field.key}
@@ -110,7 +113,7 @@ export function EditTenantDialog({
           ))}
         </div>
         {error && (
-          <p className="text-sm text-destructive font-body">{error}</p>
+          <p className="motion-appear text-sm text-destructive font-body">{error}</p>
         )}
         <DialogFooter className="max-sm:[&>button]:h-10">
           <Button

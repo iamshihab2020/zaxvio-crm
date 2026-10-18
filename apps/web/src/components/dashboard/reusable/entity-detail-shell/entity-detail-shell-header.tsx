@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   IconLayoutSidebar,
   IconMaximize,
@@ -11,6 +12,8 @@ import {
 } from "@tabler/icons-react";
 
 interface EntityDetailShellHeaderProps {
+  /** Lets the shell fade the header in when it replaces a skeleton. */
+  className?: string;
   mode: "sidebar" | "dialog";
   entityLabel: string;
 
@@ -26,6 +29,7 @@ interface EntityDetailShellHeaderProps {
 }
 
 export function EntityDetailShellHeader({
+  className,
   mode,
   entityLabel,
   renderTitle,
@@ -43,7 +47,12 @@ export function EntityDetailShellHeader({
   const deleteLabel = `Delete ${entityLabel.toLowerCase()}`;
 
   return (
-    <div className="px-4 pt-4 pb-3 border-b border-border sm:px-6 sm:pt-5">
+    <div
+      className={cn(
+        "px-4 pt-4 pb-3 border-b border-border sm:px-6 sm:pt-5",
+        className,
+      )}
+    >
       {/* Wraps instead of squeezing: five 40px buttons leave a job number about
           120px on a phone, so the toolbar drops under the title whenever the
           title can't keep 10rem beside it. */}

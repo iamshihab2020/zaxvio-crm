@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +27,10 @@ import { AssigneePicker, type AssigneeMember } from "./assignee-picker";
 import { getJobAssignees } from "@/lib/client-reads/jobs";
 import { updateJob } from "@/actions/jobs";
 import { toast } from "sonner";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
+
+const formatDollars = (value: number) => "$" + value.toFixed(2);
 
 interface PipelineStage {
   id: string;
@@ -87,6 +91,9 @@ export function JobInfoPanel({ job, stages, onUpdate }: JobInfoPanelProps) {
   const statusLabel = currentStage?.label ?? job.status;
   const priorityColors = JOB_PRIORITY_COLORS[job.priority];
 
+  const statusPillRef = useRef<HTMLSpanElement>(null);
+  useReplayOnChange(statusPillRef, job.status, "motion-pop", job.id);
+
   const timeRange =
     job.scheduledStart && job.scheduledEnd
       ? `${formatTime(job.scheduledStart)} - ${formatTime(job.scheduledEnd)}`
@@ -107,9 +114,11 @@ export function JobInfoPanel({ job, stages, onUpdate }: JobInfoPanelProps) {
         </h2>
         <div className="flex items-center gap-2">
           {statusColors && (
-            <Badge className={cn("px-2 py-0.5 font-medium", statusColors.bg, statusColors.text)}>
-              {statusLabel}
-            </Badge>
+            <span ref={statusPillRef} className="inline-flex">
+              <Badge className={cn("px-2 py-0.5 font-medium", statusColors.bg, statusColors.text)}>
+                {statusLabel}
+              </Badge>
+            </span>
           )}
           {priorityColors && (
             <Badge className={cn("px-2 py-0.5 font-medium", priorityColors.bg, priorityColors.text)}>
@@ -218,7 +227,9 @@ export function JobInfoPanel({ job, stages, onUpdate }: JobInfoPanelProps) {
             <span className="text-sm text-muted-foreground font-body">
               Subtotal
             </span>
-            <span className="text-sm font-body">${subtotal.toFixed(2)}</span>
+            <span className="text-sm font-body">
+              <AnimatedNumber value={subtotal} format={formatDollars} />
+            </span>
           </div>
           {taxAmount > 0 && (
             <div className="flex justify-between px-3 py-2">
@@ -226,14 +237,14 @@ export function JobInfoPanel({ job, stages, onUpdate }: JobInfoPanelProps) {
                 Tax
               </span>
               <span className="text-sm font-body">
-                ${taxAmount.toFixed(2)}
+                <AnimatedNumber value={taxAmount} format={formatDollars} />
               </span>
             </div>
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-medium font-body">Total</span>
             <span className="text-sm font-semibold font-body">
-              ${total.toFixed(2)}
+              <AnimatedNumber value={total} format={formatDollars} />
             </span>
           </div>
         </div>

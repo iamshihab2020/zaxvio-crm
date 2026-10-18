@@ -4,6 +4,7 @@ import { IconCalendar, IconReceipt } from "@tabler/icons-react";
 import { InvoiceStatusBadge } from "./invoice-status-badge";
 import type { InvoiceDetail } from "./invoice-detail-sheet";
 import { formatMoney, formatDateOnly } from "@/lib/format";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 
 interface InvoiceInfoPanelProps {
   invoice: InvoiceDetail;
@@ -13,6 +14,12 @@ interface InvoiceInfoPanelProps {
 // separator, and `new Date("2026-07-29")` shifting the day west of UTC.
 const formatCurrency = formatMoney;
 const formatDate = formatDateOnly;
+
+/** A decimal string from the API as a number, so a figure can be tweened. */
+function amount(value: string | null | undefined): number {
+  const n = parseFloat(value ?? "0");
+  return Number.isFinite(n) ? n : 0;
+}
 
 export function InvoiceInfoPanel({ invoice }: InvoiceInfoPanelProps) {
   const taxPercent = parseFloat(invoice.taxRate ?? "0") * 100;
@@ -67,7 +74,7 @@ export function InvoiceInfoPanel({ invoice }: InvoiceInfoPanelProps) {
               Subtotal
             </span>
             <span className="text-sm font-body">
-              {formatCurrency(invoice.subtotal)}
+              <AnimatedNumber value={amount(invoice.subtotal)} format={formatCurrency} />
             </span>
           </div>
           {taxPercent > 0 && (
@@ -76,7 +83,7 @@ export function InvoiceInfoPanel({ invoice }: InvoiceInfoPanelProps) {
                 Tax ({Number(taxPercent.toFixed(4))}%)
               </span>
               <span className="text-sm font-body">
-                {formatCurrency(invoice.taxAmount)}
+                <AnimatedNumber value={amount(invoice.taxAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
@@ -86,14 +93,14 @@ export function InvoiceInfoPanel({ invoice }: InvoiceInfoPanelProps) {
                 Discount
               </span>
               <span className="text-sm font-body">
-                -{formatCurrency(invoice.discountAmount)}
+                -<AnimatedNumber value={amount(invoice.discountAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-medium font-body">Total</span>
             <span className="text-sm font-semibold font-body">
-              {formatCurrency(invoice.totalAmount)}
+              <AnimatedNumber value={amount(invoice.totalAmount)} format={formatCurrency} />
             </span>
           </div>
           {parseFloat(invoice.amountPaid) > 0 && (
@@ -102,20 +109,20 @@ export function InvoiceInfoPanel({ invoice }: InvoiceInfoPanelProps) {
                 Paid
               </span>
               <span className="text-sm text-green-600 dark:text-green-400 font-body">
-                -{formatCurrency(invoice.amountPaid)}
+                -<AnimatedNumber value={amount(invoice.amountPaid)} format={formatCurrency} />
               </span>
             </div>
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-semibold font-body">Balance Due</span>
             <span
-              className={`text-sm font-bold font-body ${
+              className={`text-sm font-bold font-body transition-colors duration-200 ${
                 balanceIsZero
                   ? "text-green-600 dark:text-green-400"
                   : "text-brand-ink"
               }`}
             >
-              {formatCurrency(invoice.balanceDue)}
+              <AnimatedNumber value={amount(invoice.balanceDue)} format={formatCurrency} />
             </span>
           </div>
         </div>

@@ -20,6 +20,8 @@ interface AvailabilityWeeklyEditorProps {
   onSave: () => void;
   saving: boolean;
   dirty: boolean;
+  /** The schedule was just saved: wash the card once. */
+  flash?: boolean;
 }
 
 export function AvailabilityWeeklyEditor({
@@ -28,6 +30,7 @@ export function AvailabilityWeeklyEditor({
   onSave,
   saving,
   dirty,
+  flash = false,
 }: AvailabilityWeeklyEditorProps) {
   const updateDay = (dayOfWeek: number, updates: Partial<ScheduleEntry>) => {
     onChange(
@@ -49,6 +52,7 @@ export function AvailabilityWeeklyEditor({
       icon={IconClock}
       title="Weekly Schedule"
       description="Set your regular working hours. Customers can only book during active hours."
+      flash={flash}
       action={
         <Button
           size="sm"
@@ -68,7 +72,7 @@ export function AvailabilityWeeklyEditor({
           // have; from `sm` everything shares a single line again.
           <div
             key={entry.dayOfWeek}
-            className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md border border-border px-3 py-3 sm:px-4"
+            className="flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md border border-border px-3 py-3 transition-colors duration-200 sm:px-4"
           >
             <div className="w-24 shrink-0">
               <span className="text-sm font-medium font-body">
@@ -84,7 +88,7 @@ export function AvailabilityWeeklyEditor({
             />
 
             {entry.isActive ? (
-              <div className="flex w-full items-center gap-2 sm:w-auto">
+              <div className="motion-appear flex w-full items-center gap-2 sm:w-auto">
                 <div className="min-w-0 flex-1 sm:w-36 sm:flex-none">
                   <TimePicker
                     value={entry.startTime}
@@ -102,7 +106,7 @@ export function AvailabilityWeeklyEditor({
                 </div>
               </div>
             ) : (
-              <span className="text-sm text-muted-foreground">Closed</span>
+              <span className="motion-appear text-sm text-muted-foreground">Closed</span>
             )}
           </div>
         ))}

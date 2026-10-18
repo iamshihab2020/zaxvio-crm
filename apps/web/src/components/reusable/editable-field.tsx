@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,37 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
+import { replayMotion } from "@/lib/motion";
 import { toast } from "sonner";
 import { IconPencil, IconCheck } from "@tabler/icons-react";
+
+/**
+ * The message to show when a save is refused. A caller that knows why (a
+ * server action returning `{ error }`) throws `new Error(message)`; anything
+ * else gets the generic line. The caller must not toast as well: this is the
+ * one toast, so a refused save never reports twice.
+ */
+function saveErrorMessage(err: unknown): string {
+  return err instanceof Error && err.message ? err.message : "Failed to save";
+}
+
+/* ── Shared behaviour ──────────────────────────────────────── */
+
+/**
+ * What a save tells the reader, on the control that was edited: a brief wash
+ * when the value was stored, a shake when it was refused (the toast carries the
+ * reason, so the shake is only the "this didn't take" cue).
+ */
+function useSaveFeedback() {
+  const ref = useRef<HTMLButtonElement>(null);
+  const saved = useCallback(() => {
+    if (ref.current) replayMotion(ref.current, "motion-highlight");
+  }, []);
+  const rejected = useCallback(() => {
+    if (ref.current) replayMotion(ref.current, "motion-shake");
+  }, []);
+  return useMemo(() => ({ ref, saved, rejected }), [saved, rejected]);
+}
 
 /* ── Shared types ──────────────────────────────────────────── */
 
@@ -40,6 +69,7 @@ export function EditableText({
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const feedback = useSaveFeedback();
 
   useEffect(() => { setDraft(value); }, [value]);
   useEffect(() => { if (editing) inputRef.current?.focus(); }, [editing]);
@@ -50,13 +80,15 @@ export function EditableText({
     setSaving(true);
     try {
       await onSave(draft);
-    } catch {
+      feedback.saved();
+    } catch (err) {
       setDraft(value);
-      toast.error("Failed to save");
+      toast.error(saveErrorMessage(err));
+      feedback.rejected();
     } finally {
       setSaving(false);
     }
-  }, [draft, value, onSave]);
+  }, [draft, value, onSave, feedback]);
 
   if (disabled) {
     return (
@@ -68,7 +100,7 @@ export function EditableText({
 
   if (editing) {
     return (
-      <div className="flex items-center gap-1">
+      <div className="motion-appear flex items-center gap-1">
         <Input
           ref={inputRef}
           value={draft}
@@ -96,6 +128,7 @@ export function EditableText({
 
   return (
     <Button
+      ref={feedback.ref}
       type="button"
       variant="ghost"
       size="sm"
@@ -132,6 +165,7 @@ export function EditableTextarea({
   const [draft, setDraft] = useState(value);
   const [saving, setSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const feedback = useSaveFeedback();
 
   useEffect(() => { setDraft(value); }, [value]);
   useEffect(() => {
@@ -148,13 +182,15 @@ export function EditableTextarea({
     setSaving(true);
     try {
       await onSave(draft);
-    } catch {
+      feedback.saved();
+    } catch (err) {
       setDraft(value);
-      toast.error("Failed to save");
+      toast.error(saveErrorMessage(err));
+      feedback.rejected();
     } finally {
       setSaving(false);
     }
-  }, [draft, value, onSave]);
+  }, [draft, value, onSave, feedback]);
 
   if (disabled) {
     return (
@@ -166,7 +202,7 @@ export function EditableTextarea({
 
   if (editing) {
     return (
-      <div className="space-y-1">
+      <div className="motion-appear space-y-1">
         <Textarea
           ref={textareaRef}
           value={draft}
@@ -189,6 +225,7 @@ export function EditableTextarea({
 
   return (
     <Button
+      ref={feedback.ref}
       type="button"
       variant="ghost"
       size="sm"
@@ -236,6 +273,7 @@ export function EditableSelect({
 }: EditableSelectProps) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const feedback = useSaveFeedback();
   const currentOption = options.find((o) => o.value === value);
 
   async function handleSelect(newValue: string) {
@@ -244,8 +282,10 @@ export function EditableSelect({
     setSaving(true);
     try {
       await onSave(newValue);
-    } catch {
-      toast.error("Failed to save");
+      feedback.saved();
+    } catch (err) {
+      toast.error(saveErrorMessage(err));
+      feedback.rejected();
     } finally {
       setSaving(false);
     }
@@ -263,6 +303,7 @@ export function EditableSelect({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={feedback.ref}
           type="button"
           variant="ghost"
           size="sm"
@@ -336,6 +377,7 @@ export function EditableDate({
 }: EditableDateProps) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const feedback = useSaveFeedback();
 
   const selectedDate = value ? new Date(value + "T00:00:00") : undefined;
 
@@ -347,8 +389,10 @@ export function EditableDate({
     setSaving(true);
     try {
       await onSave(iso);
-    } catch {
-      toast.error("Failed to save");
+      feedback.saved();
+    } catch (err) {
+      toast.error(saveErrorMessage(err));
+      feedback.rejected();
     } finally {
       setSaving(false);
     }
@@ -366,6 +410,7 @@ export function EditableDate({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={feedback.ref}
           type="button"
           variant="ghost"
           size="sm"
@@ -418,6 +463,7 @@ export function EditableTime({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const feedback = useSaveFeedback();
 
   useEffect(() => {
     if (open && inputRef.current) {
@@ -431,8 +477,10 @@ export function EditableTime({
     setSaving(true);
     try {
       await onSave(newValue);
-    } catch {
-      toast.error("Failed to save");
+      feedback.saved();
+    } catch (err) {
+      toast.error(saveErrorMessage(err));
+      feedback.rejected();
     } finally {
       setSaving(false);
     }
@@ -450,6 +498,7 @@ export function EditableTime({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          ref={feedback.ref}
           type="button"
           variant="ghost"
           size="sm"

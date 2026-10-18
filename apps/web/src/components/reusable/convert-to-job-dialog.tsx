@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import { IconBriefcase } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { getPipelineStages } from "@/lib/client-reads/pipeline-stages";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
+import { useStagger } from "@/hooks/use-stagger";
 
 interface PipelineStage {
   id: string;
@@ -42,6 +43,12 @@ export function ConvertToJobDialog({
   const [stages, setStages] = useState<PipelineStage[]>([]);
   const [selectedStageId, setSelectedStageId] = useState<string | null>(null);
   const [loadingStages, setLoadingStages] = useState(false);
+
+  // The stages rise in the first time they load. Keyed on the stages themselves,
+  // not on opening, so reopening the dialog (the list is already there while it
+  // refreshes) does not replay a list that is already on screen.
+  const stagesRef = useRef<HTMLDivElement>(null);
+  useStagger(stagesRef, stages.length > 0 ? stages.map((s) => s.id).join(",") : null);
 
   useEffect(() => {
     if (!open) return;
@@ -86,7 +93,7 @@ export function ConvertToJobDialog({
           {/* Stage Picker */}
           <div className="space-y-2">
             <Label className="text-sm font-body">Pipeline Stage</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div ref={stagesRef} className="grid grid-cols-2 gap-2">
               {stages.map((stage) => {
                 const colors = getStageColors(stage.color);
                 const isSelected = selectedStageId === stage.id;

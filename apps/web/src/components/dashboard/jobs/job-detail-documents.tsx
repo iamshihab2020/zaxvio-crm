@@ -10,6 +10,8 @@ import { deleteJobDocument } from "@/actions/jobs";
 import { getJobDocuments } from "@/lib/client-reads/jobs";
 import { getStorageUrl } from "@/lib/storage-url";
 import { JobPhotoUploadModal } from "./job-photo-upload-modal";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { cn } from "@/lib/utils";
 
 interface Document {
   id: string;
@@ -64,6 +66,14 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
 
   useEffect(() => { load(); }, [load]);
 
+  // An uploaded document wears the highlight once. The baseline is the first
+  // real list, and the list is a skeleton between loads, so `!loading` keeps the
+  // refetch after an upload from being read as "everything is new".
+  const fresh = useNewIds(
+    documents.map((doc) => doc.id),
+    !loading,
+  );
+
   async function handleDelete(docId: string) {
     const result = await deleteJobDocument(jobId, docId);
     if (result.error) {
@@ -89,7 +99,7 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
   }
 
   return (
-    <div className="space-y-3">
+    <div className="motion-appear space-y-3">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-body font-medium text-foreground">
@@ -120,7 +130,10 @@ export function JobDetailDocuments({ jobId, customerId }: JobDetailDocumentsProp
           {documents.map((doc) => (
             <div
               key={doc.id}
-              className="group flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5 hover:bg-muted/40 transition-colors"
+              className={cn(
+                "group flex items-center gap-3 rounded-md border border-border bg-card px-3 py-2.5 transition-colors duration-200 hover:bg-muted/40",
+                fresh.has(doc.id) && "motion-highlight",
+              )}
             >
               <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted">
                 <IconFile className="h-4 w-4 text-muted-foreground" />

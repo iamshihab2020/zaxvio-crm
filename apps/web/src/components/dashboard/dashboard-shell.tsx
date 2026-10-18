@@ -4,12 +4,15 @@ import { cn } from "@/lib/utils";
 import { useSidebar } from "./sidebar-provider";
 
 export function DashboardShell({ children }: { children: React.ReactNode }) {
-  const { isCollapsed } = useSidebar();
+  const { isCollapsed, animated } = useSidebar();
 
   return (
     <div
       className={cn(
-        "min-w-0 flex-1 transition-[padding-left] duration-300 ease-in-out lg:pl-[var(--sidebar-w)]",
+        // Follows the rail's width in step. Off until `animated`, so a saved
+        // collapsed state is applied without sliding the page on every load.
+        "min-w-0 flex-1 lg:pl-[var(--sidebar-w)]",
+        animated && "transition-[padding-left] duration-300 ease-in-out",
         // Published so descendants can centre themselves on the CONTENT area
         // rather than the viewport. A `position: fixed` element resolves
         // `left: 50%` against the viewport, which ignores the sidebar and

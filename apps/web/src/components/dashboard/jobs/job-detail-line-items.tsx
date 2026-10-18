@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,10 @@ import {
 } from "@/components/dashboard/catalog/catalog-item-picker";
 import { QuickPriceInput } from "@/components/dashboard/reusable/quick-price-input";
 import { CatalogPriceHint } from "@/components/dashboard/reusable/catalog-price-hint";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { replayMotion } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 interface LineItem {
   id: string;
@@ -69,6 +73,8 @@ interface AddForm {
   catalogUnitPrice: string | null;
 }
 
+const formatDollars = (value: number) => "$" + value.toFixed(2);
+
 const emptyForm: AddForm = {
   description: "",
   itemType: "labor",
@@ -91,6 +97,19 @@ export function JobDetailLineItems({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<AddForm>(emptyForm);
 
+  // The list arrives as a prop, so a diff of the ids is the only way to know
+  // which row is new: an add, a quick price, or a checklist item that adds its
+  // catalog line. New rows wear the highlight once.
+  const fresh = useNewIds(lineItems.map((li) => li.id));
+  const addFormRef = useRef<HTMLDivElement>(null);
+  const editRowRef = useRef<HTMLTableRowElement>(null);
+
+  /** A refused submit: the reason as a toast, and the form shakes once. */
+  function reject(message: string, el: HTMLElement | null) {
+    toast.error(message);
+    if (el) replayMotion(el, "motion-shake");
+  }
+
   const subtotal = lineItems.reduce(
     (sum, li) => sum + parseFloat(li.total ?? "0"),
     0,
@@ -98,15 +117,15 @@ export function JobDetailLineItems({
 
   async function handleAdd() {
     if (!form.unitPrice.trim()) {
-      toast.error("A price is required");
+      reject("A price is required", addFormRef.current);
       return;
     }
     const qty = parseFloat(form.quantity);
     const price = parseFloat(form.unitPrice);
-    if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
-    if (isNaN(price) || price < 0) { toast.error("Unit price must be a valid number"); return; }
+    if (isNaN(qty) || qty <= 0) { reject("Quantity must be a positive number", addFormRef.current); return; }
+    if (isNaN(price) || price < 0) { reject("Unit price must be a valid number", addFormRef.current); return; }
     if (form.unitCost.trim() && isNaN(parseFloat(form.unitCost))) {
-      toast.error("Unit cost must be a valid number");
+      reject("Unit cost must be a valid number", addFormRef.current);
       return;
     }
     setSaving(true);
@@ -148,8 +167,8 @@ export function JobDetailLineItems({
     if (!editingId) return;
     const qty = parseFloat(editForm.quantity);
     const price = parseFloat(editForm.unitPrice);
-    if (isNaN(qty) || qty <= 0) { toast.error("Quantity must be a positive number"); return; }
-    if (isNaN(price) || price < 0) { toast.error("Unit price must be a valid number"); return; }
+    if (isNaN(qty) || qty <= 0) { reject("Quantity must be a positive number", editRowRef.current); return; }
+    if (isNaN(price) || price < 0) { reject("Unit price must be a valid number", editRowRef.current); return; }
     setSaving(true);
     const result = await updateJobLineItem(jobId, editingId, {
       description: editForm.description,
@@ -203,7 +222,7 @@ export function JobDetailLineItems({
       <QuickPriceInput onAdd={handleQuickPrice} className="mb-3" />
 
       {lineItems.length === 0 && !showAdd && (
-        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
+        <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-8 text-center">
           <IconPackage className="h-8 w-8 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground font-body">
             No line items yet
@@ -239,7 +258,7 @@ export function JobDetailLineItems({
               <tbody>
                 {lineItems.map((li) =>
                   editingId === li.id ? (
-                    <tr key={li.id} className="border-b border-border">
+                    <tr ref={editRowRef} key={li.id} className="border-b border-border">
                       <td className="px-2 py-1.5">
                         <Input
                           value={editForm.description}
@@ -312,7 +331,13 @@ export function JobDetailLineItems({
                       </td>
                     </tr>
                   ) : (
-                    <tr key={li.id} className="border-b border-border last:border-0">
+                    <tr
+                      key={li.id}
+                      className={cn(
+                        "border-b border-border last:border-0",
+                        fresh.has(li.id) && "motion-highlight",
+                      )}
+                    >
                       <td className="px-3 py-2 font-body">
                         <div className="flex flex-wrap items-center gap-1.5 break-words text-foreground">
                           {li.description}
@@ -394,7 +419,7 @@ export function JobDetailLineItems({
               Subtotal
             </span>
             <span className="text-sm font-semibold text-foreground font-body">
-              ${subtotal.toFixed(2)}
+              <AnimatedNumber value={subtotal} format={formatDollars} />
             </span>
           </div>
         </div>
@@ -402,7 +427,7 @@ export function JobDetailLineItems({
 
       {/* Add line item form */}
       {showAdd && (
-        <div className="mt-3 rounded-md border border-border p-3 space-y-2">
+        <div ref={addFormRef} className="motion-arrive mt-3 rounded-md border border-border p-3 space-y-2">
           <div>
             <label className="text-xs font-medium text-muted-foreground mb-1 block">
               From catalog (optional)

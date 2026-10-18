@@ -76,7 +76,7 @@ export function DeleteTenantDialog({
             />
           </div>
           {error && (
-            <p className="text-sm text-destructive font-body">{error}</p>
+            <p className="motion-appear text-sm text-destructive font-body">{error}</p>
           )}
         </div>
         <DialogFooter className="max-sm:[&>button]:h-10">

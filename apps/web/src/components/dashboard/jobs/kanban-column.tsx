@@ -5,8 +5,8 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { cn } from "@/lib/utils";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
@@ -33,6 +33,8 @@ interface KanbanColumnProps {
   members?: AssigneeMember[];
   onAssigneeChange?: (jobId: string, assigneeId: string | null) => void;
   onJobFieldChange?: (jobId: string, field: string, value: string) => void;
+  /** The card to wear the highlight wash once: just created, edited or moved. */
+  highlightJobId?: string | null;
 }
 
 export function KanbanColumn({
@@ -45,6 +47,7 @@ export function KanbanColumn({
   members,
   onAssigneeChange,
   onJobFieldChange,
+  highlightJobId,
 }: KanbanColumnProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: stage.name,
@@ -76,7 +79,9 @@ export function KanbanColumn({
           "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold",
           colors.dot, "text-white",
         )}>
-          {jobs.length}
+          {/* Counts tween as cards cross columns. Short, because most moves
+              are a change of one. */}
+          <AnimatedNumber value={jobs.length} format={String} duration={300} />
         </span>
         {/* 40px target on a phone without making the header taller: the
             negative margin takes back the height the larger button adds. */}
@@ -87,7 +92,7 @@ export function KanbanColumn({
           className={cn(
             "-my-2 h-10 w-10 sm:my-0 sm:h-6 sm:w-6",
             colors.text,
-            "opacity-60 hover:opacity-100",
+            "opacity-60 transition-[opacity,color,background-color,transform] hover:opacity-100",
           )}
           title={`Add job to ${stage.label}`}
           aria-label={`Add job to ${stage.label}`}
@@ -109,39 +114,35 @@ export function KanbanColumn({
       <div className="min-h-0 flex-1 overflow-y-auto kanban-column-scroll px-1">
         <SortableContext items={jobIds} strategy={verticalListSortingStrategy}>
           <div className="flex flex-col gap-2.5">
-            {jobs.map((job, index) => (
-              <motion.div
-                key={job.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{
-                  duration: 0.25,
-                  delay: index * 0.04,
-                  ease: "easeOut",
-                }}
-              >
-                {cardView === "compact" ? (
-                  <KanbanCardCompact job={job} onClick={onJobClick} visibleFields={visibleFields} />
-                ) : (
-                  <KanbanCard
-                    job={job}
-                    onClick={onJobClick}
-                    visibleFields={visibleFields}
-                    members={members}
-                    onAssigneeChange={onAssigneeChange}
-                    onJobFieldChange={onJobFieldChange}
-                  />
-                )}
-              </motion.div>
-            ))}
+            {/* No per-card motion. The columns arrive in sequence (the board's
+                useStagger) and the cards come with them; a card dropped into a
+                column is already mounted and settles via the drag overlay, so
+                it must not also fade in from nothing. */}
+            {jobs.map((job) =>
+              cardView === "compact" ? (
+                <KanbanCardCompact
+                  key={job.id}
+                  job={job}
+                  onClick={onJobClick}
+                  visibleFields={visibleFields}
+                  highlight={job.id === highlightJobId}
+                />
+              ) : (
+                <KanbanCard
+                  key={job.id}
+                  job={job}
+                  onClick={onJobClick}
+                  visibleFields={visibleFields}
+                  members={members}
+                  onAssigneeChange={onAssigneeChange}
+                  onJobFieldChange={onJobFieldChange}
+                  highlight={job.id === highlightJobId}
+                />
+              ),
+            )}
 
             {jobs.length === 0 && !isOver && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-                className="flex flex-col items-center justify-center rounded-xl py-10 px-4 text-center"
-              >
+              <div className="motion-appear flex flex-col items-center justify-center rounded-xl py-10 px-4 text-center">
                 <IconBriefcase className="h-7 w-7 text-muted-foreground/40 dark:text-muted-foreground/30 mb-2" />
                 <p className="text-sm text-muted-foreground/70 dark:text-muted-foreground/60 font-body">
                   No jobs in {stage.label}
@@ -149,12 +150,12 @@ export function KanbanColumn({
                 <p className="text-xs text-muted-foreground/50 dark:text-muted-foreground/40 font-body mt-0.5">
                   Drag a job here or click + to add one
                 </p>
-              </motion.div>
+              </div>
             )}
 
             {/* Drop indicator for empty columns */}
             {jobs.length === 0 && isOver && (
-              <div className="rounded-xl border-2 border-dashed border-brand/40 bg-brand/5 dark:bg-brand/10 py-8 text-center">
+              <div className="motion-appear rounded-xl border-2 border-dashed border-brand/40 bg-brand/5 dark:bg-brand/10 py-8 text-center">
                 <p className="text-xs text-brand-ink font-body">Drop here</p>
               </div>
             )}

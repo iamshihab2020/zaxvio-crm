@@ -30,6 +30,11 @@ export function PageContent({
   // on navigation, never on first paint. One call here covers all of them, and
   // any route added later. `<main>` is keyed by pathname, so the ref points at
   // the new element by the time the hook's layout effect reads it.
+  //
+  // A page opts into a sequenced arrival by putting `data-stagger` on its
+  // top-level containers (the contract is in the hook's docblock). The hook
+  // reads the new `<main>`'s DOM at navigation time, which is why the marker
+  // lives in the page and nothing has to be passed through here.
   const mainRef = useRef<HTMLElement>(null);
   useRouteArrival(mainRef);
 

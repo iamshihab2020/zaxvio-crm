@@ -3,10 +3,13 @@
 import Link from "next/link";
 import { IconFileInvoice } from "@tabler/icons-react";
 import { Card } from "@/components/ui/card";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { cn } from "@/lib/utils";
 import type { DashboardAgingBucket } from "@hvac-saas/types";
 import { formatCurrency } from "@/lib/format";
+import { staggerDelay } from "@/lib/motion";
 import { OVERDUE_COLORS, STATUS_COLORS } from "@/lib/constants/chart-palette";
+import { enterDelay } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
 import { WidgetWindowBadge } from "./widget-window-badge";
 
@@ -37,6 +40,10 @@ const BUCKET_CONFIG: Record<BucketKey, { label: string; color: string }> = {
 
 const BUCKET_ORDER: BucketKey[] = ["current", "30", "60", "90", "90plus"];
 
+/** The share bars draw in one after another, once the card has landed. */
+const BAR_DELAY_BASE = 160;
+const BAR_STEP = 50;
+
 export function InvoiceAging({ data }: InvoiceAgingProps) {
   const totalAmount = data.reduce((sum, b) => sum + b.amount, 0);
   const totalCount = data.reduce((sum, b) => sum + b.count, 0);
@@ -50,22 +57,31 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
   }));
 
   return (
-    <Card className="flex h-full flex-col p-4 sm:p-6">
+    <Card data-widget="invoiceAging" className="flex h-full flex-col p-4 sm:p-6">
       <WidgetHeader
         title="Invoice Aging"
         badge={<WidgetWindowBadge label="All open" />}
         action={
           totalCount > 0 && (
             <span className="whitespace-nowrap text-xs font-body text-muted-foreground">
-              <span className="tnum font-mono">{totalCount}</span> invoices ·{" "}
-              <span className="tnum font-mono">{formatCurrency(totalAmount)}</span>
+              <AnimatedNumber
+                value={totalCount}
+                format={String}
+                className="font-mono"
+              />{" "}
+              invoices ·{" "}
+              <AnimatedNumber
+                value={totalAmount}
+                format={formatCurrency}
+                className="font-mono"
+              />
             </span>
           )
         }
       />
 
       {totalCount === 0 ? (
-        <div className="mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
+        <div className="motion-appear mt-4 flex-1 rounded-md border border-dashed border-border bg-muted/10 p-4 text-center sm:p-6">
           <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-brand/10">
             <IconFileInvoice className="h-5 w-5 text-brand" aria-hidden />
           </div>
@@ -78,27 +94,36 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
         </div>
       ) : (
         <div className="mt-5 flex min-h-0 flex-1 flex-col gap-4">
-          {/* Stacked bar — decorative; the rows below are the accessible version */}
+          {/* Stacked bar — decorative; the rows below are the accessible version.
+              The track stays put and the segments inside it draw out of the left
+              edge as one, so the split reads as a bar being laid down. Widths
+              are not tweened when the data changes: animating `width` would
+              re-lay-out the row on every frame. */}
           <div
             aria-hidden
             className={cn(
-              "flex h-2 w-full gap-0.5 overflow-hidden rounded-full bg-muted/50 ring-1 ring-border/50",
+              "h-2 w-full overflow-hidden rounded-full bg-muted/50 ring-1 ring-border/50",
             )}
           >
-            {rows.map(
-              (row) =>
-                row.amount > 0 && (
-                  <div
-                    key={row.key}
-                    className="h-full transition-all first:rounded-l-full last:rounded-r-full"
-                    style={{
-                      width: `${(row.amount / totalAmount) * 100}%`,
-                      backgroundColor: row.config.color,
-                    }}
-                    title={`${row.config.label}: ${formatCurrency(row.amount)}`}
-                  />
-                ),
-            )}
+            <div
+              className="motion-grow-x flex h-full w-full gap-0.5"
+              style={enterDelay(BAR_DELAY_BASE)}
+            >
+              {rows.map(
+                (row) =>
+                  row.amount > 0 && (
+                    <div
+                      key={row.key}
+                      className="h-full first:rounded-l-full last:rounded-r-full"
+                      style={{
+                        width: `${(row.amount / totalAmount) * 100}%`,
+                        backgroundColor: row.config.color,
+                      }}
+                      title={`${row.config.label}: ${formatCurrency(row.amount)}`}
+                    />
+                  ),
+              )}
+            </div>
           </div>
 
           {/*
@@ -109,8 +134,8 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
             readable down the column instead of only in the stacked bar above.
           */}
           <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto">
-            {rows.map((row) => {
-              const share = totalAmount > 0 ? (row.amount / totalAmount) * 100 : 0;
+            {rows.map((row, index) => {
+              const share = totalAmount > 0 ? row.amount / totalAmount : 0;
               return (
                 <li key={row.key}>
                   <Link
@@ -147,15 +172,20 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
                       </span>
                     </span>
 
-                    {/* Share of the outstanding total, spanning both columns. */}
+                    {/* Share of the outstanding total, spanning both columns. The
+                        fill is full width and scaled to the share, so it draws in
+                        and re-sizes on `transform` alone. */}
                     <span
                       aria-hidden
                       className="col-span-2 h-1 overflow-hidden rounded-full bg-muted/60"
                     >
                       <span
-                        className="block h-full rounded-full transition-all"
+                        className="motion-grow-x block h-full w-full rounded-full motion-safe:transition-transform motion-safe:duration-[var(--dur-focal)] motion-safe:ease-[var(--ease-out)]"
                         style={{
-                          width: `${share}%`,
+                          ...enterDelay(
+                            BAR_DELAY_BASE + staggerDelay(index, BAR_STEP, BUCKET_ORDER.length),
+                          ),
+                          transform: `scaleX(${share})`,
                           backgroundColor: row.config.color,
                         }}
                       />

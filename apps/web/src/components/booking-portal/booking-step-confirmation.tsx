@@ -38,7 +38,7 @@ export function BookingStepConfirmation({
 }: BookingStepConfirmationProps) {
   return (
     <div className="text-center py-2">
-      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/40">
+      <div className="motion-pop mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/40">
         <IconCircleCheck className="h-8 w-8 text-green-600 dark:text-green-400" />
       </div>
 

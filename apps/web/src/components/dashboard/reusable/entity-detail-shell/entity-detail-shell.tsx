@@ -61,6 +61,17 @@ export function EntityDetailShell({
     }
   }, [entityId, hasData]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The loaded body fades in only when it replaces a skeleton. A record that was
+  // already cached mounts at once, while the sheet is still sliding in, and a
+  // fade on top of that slide would be two arrivals for one event. Cleared when
+  // the sheet closes so the next open decides afresh.
+  const [afterSkeleton, setAfterSkeleton] = useState(false);
+  useEffect(() => {
+    if (loading) setAfterSkeleton(true);
+    else if (!open) setAfterSkeleton(false);
+  }, [loading, open]);
+  const arrive = afterSkeleton ? "motion-appear" : undefined;
+
   /* ── Inner content (shared between dialog and sidebar) ───── */
   const innerContent = (
     <>
@@ -112,7 +123,7 @@ export function EntityDetailShell({
           )}
           <div
             role="alert"
-            className="flex flex-col items-center justify-center gap-3 p-6 text-center sm:p-10"
+            className="motion-appear flex flex-col items-center justify-center gap-3 p-6 text-center sm:p-10"
           >
             <div className="flex h-11 w-11 items-center justify-center rounded-full bg-muted">
               <IconPlugConnectedX
@@ -161,6 +172,7 @@ export function EntityDetailShell({
 
           {/* Header */}
           <EntityDetailShellHeader
+            className={arrive}
             mode={mode}
             entityLabel={entityLabel}
             renderTitle={renderTitle}
@@ -178,7 +190,7 @@ export function EntityDetailShell({
             <Tabs
               value={activeTab}
               onValueChange={setActiveTab}
-              className="flex-1"
+              className={cn("flex-1", arrive)}
             >
               <TabsList className="w-full justify-start px-4 pt-2 sm:px-6">
                 {tabs.map((tab) => (
@@ -208,7 +220,9 @@ export function EntityDetailShell({
 
           {/* Direct content (non-tabbed) */}
           {!tabs && children && (
-            <div className="px-4 py-4 sm:px-6 sm:py-5">{children}</div>
+            <div className={cn("px-4 py-4 sm:px-6 sm:py-5", arrive)}>
+              {children}
+            </div>
           )}
         </>
       )}

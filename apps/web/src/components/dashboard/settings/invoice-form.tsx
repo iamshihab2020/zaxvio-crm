@@ -10,6 +10,9 @@ import { IconFileInvoice } from "@tabler/icons-react";
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { updateTenant } from "@/actions/tenants";
+import { useFormShake } from "@/hooks/use-form-shake";
+import { useRowFlash } from "@/hooks/use-row-flash";
+import { useArrivalStagger } from "@/components/dashboard/settings/use-arrival-stagger";
 
 export interface InvoiceFormValues {
   licenseNumber: string;
@@ -45,6 +48,9 @@ export function InvoiceForm({ tenant, onFormChange, onSaved }: InvoiceFormProps)
     invoiceFooterMessage: tenant.invoiceFooterMessage ?? "",
   });
   const [saving, setSaving] = useState(false);
+  const { ref: formRef, shake } = useFormShake();
+  const { flashId, flash } = useRowFlash();
+  useArrivalStagger(formRef);
   const [message, setMessage] = useState<{
     type: "success" | "error";
     text: string;
@@ -84,8 +90,10 @@ export function InvoiceForm({ tenant, onFormChange, onSaved }: InvoiceFormProps)
 
     if (result.error) {
       setMessage({ type: "error", text: result.error });
+      shake();
     } else {
       setMessage({ type: "success", text: "Invoice settings saved." });
+      flash("saved");
       if (result.data) {
         onSaved?.(result.data as Tenant);
       }
@@ -95,11 +103,12 @@ export function InvoiceForm({ tenant, onFormChange, onSaved }: InvoiceFormProps)
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-6">
+    <form ref={formRef} data-stagger onSubmit={handleSave} className="space-y-6">
       <SettingsSection
         icon={IconFileInvoice}
         title="Invoice Details"
         description="Customize what appears on your invoices. Leave a field empty to hide it from the PDF."
+        flash={flashId === "saved"}
       >
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

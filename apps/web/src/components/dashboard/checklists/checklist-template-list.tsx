@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import {
   Table,
   TableBody,
@@ -26,6 +27,7 @@ import {
   IconChecklist,
 } from "@tabler/icons-react";
 import { SERVICE_TYPE_LABELS, type ServiceType } from "@/lib/constants/job-options";
+import { cn } from "@/lib/utils";
 
 export interface ChecklistTemplate {
   id: string;
@@ -42,6 +44,10 @@ interface ChecklistTemplateListProps {
   onEdit: (template: ChecklistTemplate) => void;
   onDelete: (template: ChecklistTemplate) => void;
   onToggleActive: (template: ChecklistTemplate) => void;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just created or edited; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 export function ChecklistTemplateList({
@@ -50,6 +56,8 @@ export function ChecklistTemplateList({
   onEdit,
   onDelete,
   onToggleActive,
+  bodyRef,
+  highlightId,
 }: ChecklistTemplateListProps) {
   if (loading) {
     return <ChecklistTemplateSkeleton />;
@@ -70,9 +78,12 @@ export function ChecklistTemplateList({
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody ref={bodyRef}>
         {templates.map((t) => (
-          <TableRow key={t.id}>
+          <TableRow
+            key={t.id}
+            className={cn(t.id === highlightId && "motion-highlight")}
+          >
             <TableCell className="font-body">
               <div className="flex items-center gap-2">
                 <IconChecklist className="h-4 w-4 text-muted-foreground shrink-0" />

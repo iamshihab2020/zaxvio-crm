@@ -172,9 +172,9 @@ export function JobPhotoUploadModal({
           onClick={() => inputRef.current?.click()}
         >
           {preview ? (
-            <img src={preview} alt="Preview" className="max-h-40 rounded-md object-cover" />
+            <img src={preview} alt="Preview" className="motion-appear max-h-40 rounded-md object-cover" />
           ) : file ? (
-            <div className="flex items-center gap-2 text-sm font-body text-foreground">
+            <div className="motion-appear flex items-center gap-2 text-sm font-body text-foreground">
               <IconFile className="h-5 w-5 text-muted-foreground" />
               <span className="truncate max-w-[200px]">{file.name}</span>
             </div>
@@ -194,7 +194,7 @@ export function JobPhotoUploadModal({
           {file && (
             <button
               type="button"
-              className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground sm:h-6 sm:w-6"
+              className="absolute top-2 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors duration-200 hover:text-foreground sm:h-6 sm:w-6"
               aria-label="Remove file"
               onClick={(e) => { e.stopPropagation(); setFile(null); setPreview(null); }}
             >
@@ -214,7 +214,7 @@ export function JobPhotoUploadModal({
 
         {/* Tag selector — photos only */}
         {mode === "photo" && (
-          <div>
+          <div className="motion-appear">
             <p className="mb-2 text-xs font-body text-muted-foreground">Tag</p>
             <div className="flex gap-2">
               {TAG_OPTIONS.map((opt) => (
@@ -222,7 +222,7 @@ export function JobPhotoUploadModal({
                   key={opt.value}
                   type="button"
                   onClick={() => setTag(opt.value)}
-                  className={`flex-1 rounded-md border py-3 text-xs font-body transition-all sm:py-1.5 ${
+                  className={`flex-1 rounded-md border py-3 text-xs font-body transition-colors duration-200 sm:py-1.5 ${
                     tag === opt.value
                       ? opt.color + " font-medium"
                       : "border-border bg-background text-muted-foreground hover:bg-muted"

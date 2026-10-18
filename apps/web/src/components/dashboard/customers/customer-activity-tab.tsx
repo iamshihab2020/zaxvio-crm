@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { useCustomerActivities } from "@/hooks/queries";
+import { useStagger } from "@/hooks/use-stagger";
 import {
   IconUserPlus,
   IconEdit,
@@ -67,6 +68,10 @@ export function CustomerActivityTab({ customerId }: CustomerActivityTabProps) {
   const loading = activitiesQuery.isLoading;
   const loadFailed = activitiesQuery.isError || !!activitiesQuery.data?.error;
 
+  // The timeline lays itself down when the first page arrives or the page turns.
+  const listRef = useRef<HTMLDivElement>(null);
+  useStagger(listRef, loading || loadFailed ? null : page);
+
   if (loadFailed && !loading) {
     return (
       <LoadErrorState
@@ -96,7 +101,7 @@ export function CustomerActivityTab({ customerId }: CustomerActivityTabProps) {
 
   if (activities.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-12 text-center">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-light mb-3">
           <IconActivity className="h-5 w-5 text-brand" />
         </div>
@@ -111,7 +116,7 @@ export function CustomerActivityTab({ customerId }: CustomerActivityTabProps) {
   }
 
   return (
-    <div className="space-y-0">
+    <div ref={listRef} className="space-y-0">
       {activities.map((activity, idx) => (
         <div
           key={activity.id}

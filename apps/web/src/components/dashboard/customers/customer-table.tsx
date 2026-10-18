@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -81,6 +82,10 @@ interface CustomerTableProps {
   onToggleSelectAll?: () => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just created or edited; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 /**
@@ -145,6 +150,8 @@ export function CustomerTable({
   onToggleSelectAll,
   isAllSelected,
   isIndeterminate,
+  bodyRef,
+  highlightId,
 }: CustomerTableProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -204,11 +211,14 @@ export function CustomerTable({
             <TableHead className="w-12" />
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody ref={bodyRef}>
           {customers.map((customer) => (
             <TableRow
               key={customer.id}
-              className="cursor-pointer"
+              className={cn(
+                "cursor-pointer",
+                customer.id === highlightId && "motion-highlight",
+              )}
               onClick={() => router.push(`/customers/${customer.id}`)}
               onMouseEnter={() => prefetchCustomer(customer.id)}
             >

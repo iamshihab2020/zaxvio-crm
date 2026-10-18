@@ -12,6 +12,9 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
+import { prefersReducedMotion } from "@/lib/motion";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+import { BarFill } from "@/components/superadmin/bar-fill";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -70,6 +73,10 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function formatCount(n: number): string {
+  return String(n);
+}
+
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-US", {
@@ -96,8 +103,12 @@ export function AnalyticsPageClient({
   // 15th is 6.
   const isSm = useMediaQuery(MEDIA.sm);
 
+  // Recharts draws on mount and on a data change; read at render, on the client
+  // (the charts only render once the container has a width).
+  const animateCharts = !prefersReducedMotion();
+
   return (
-    <section className="p-4 sm:p-6 space-y-6">
+    <section data-stagger className="p-4 sm:p-6 space-y-6">
       {/* Row 1: MRR Breakdown + Active Users */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* MRR Breakdown Bar Chart */}
@@ -108,7 +119,7 @@ export function AnalyticsPageClient({
                 MRR by Plan
               </CardTitle>
               <span className="shrink-0 font-heading text-lg font-bold text-blue-600 dark:text-blue-400">
-                {formatCurrency(mrr?.currentMRR ?? 0)}
+                <AnimatedNumber value={mrr?.currentMRR ?? 0} format={formatCurrency} />
               </span>
             </div>
           </CardHeader>
@@ -138,7 +149,14 @@ export function AnalyticsPageClient({
                       fontSize: "12px",
                     }}
                   />
-                  <Bar dataKey="mrr" fill="hsl(var(--chart-3))" radius={[4, 4, 0, 0]} />
+                  <Bar
+                    dataKey="mrr"
+                    fill="hsl(var(--chart-3))"
+                    radius={[4, 4, 0, 0]}
+                    isAnimationActive={animateCharts}
+                    animationDuration={700}
+                    animationEasing="ease-out"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -170,7 +188,7 @@ export function AnalyticsPageClient({
                     {metric.label}
                   </p>
                   <p className={`font-heading text-3xl font-bold mt-1 ${metric.color}`}>
-                    {metric.value}
+                    <AnimatedNumber value={metric.value} format={formatCount} />
                   </p>
                   <p className="text-xs text-muted-foreground font-body mt-1">
                     {metric.sublabel}
@@ -190,7 +208,7 @@ export function AnalyticsPageClient({
                   { label: "Active Trials", value: trialConversion.activeTrials, color: "bg-amber-500 dark:bg-amber-400" },
                   { label: "Converted", value: trialConversion.converted, color: "bg-green-500 dark:bg-green-400" },
                   { label: "Cancelled", value: trialConversion.cancelled, color: "bg-red-500 dark:bg-red-400" },
-                ].map((stage) => {
+                ].map((stage, index) => {
                   const maxVal = trialConversion.totalTrials || 1;
                   const pct = Math.round((stage.value / maxVal) * 100);
                   return (
@@ -200,10 +218,7 @@ export function AnalyticsPageClient({
                         <span className="font-medium">{stage.value} ({pct}%)</span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted">
-                        <div
-                          className={`h-full rounded-full transition-all ${stage.color}`}
-                          style={{ width: `${pct}%` }}
-                        />
+                        <BarFill percent={pct} index={index} className={stage.color} />
                       </div>
                     </div>
                   );
@@ -270,6 +285,9 @@ export function AnalyticsPageClient({
                   stroke="hsl(var(--chart-2))"
                   strokeWidth={2}
                   fill="url(#signupGradient)"
+                  isAnimationActive={animateCharts}
+                  animationDuration={700}
+                  animationEasing="ease-out"
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -377,9 +395,10 @@ export function AnalyticsPageClient({
                         </span>
                       </div>
                       <div className="h-2 w-full rounded-full bg-muted">
-                        <div
-                          className={`h-full rounded-full transition-all ${barColors[i % barColors.length]}`}
-                          style={{ width: `${Math.max(f.percentage, 3)}%` }}
+                        <BarFill
+                          percent={Math.max(f.percentage, 3)}
+                          index={i}
+                          className={barColors[i % barColors.length]}
                         />
                       </div>
                     </div>

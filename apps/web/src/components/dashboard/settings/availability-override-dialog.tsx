@@ -80,7 +80,7 @@ export function AvailabilityOverrideDialog({
           </div>
 
           {isAvailable && (
-            <div className="flex items-center gap-2">
+            <div className="motion-arrive flex items-center gap-2">
               <div className="space-y-2 flex-1">
                 <Label>Start Time</Label>
                 <TimePicker value={startTime} onChange={setStartTime} placeholder="Start" />

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { IconPhoto } from "@tabler/icons-react";
 import { Pagination } from "@/components/reusable/pagination";
 import { LoadErrorState } from "@/components/reusable/load-error-state";
 import { useCustomerPhotos } from "@/hooks/queries";
+import { useStagger } from "@/hooks/use-stagger";
 import { getStorageUrl } from "@/lib/storage-url";
 import { PhotoTagPill } from "@/components/dashboard/jobs/photo-tag-pill";
 import { JobPhotoLightbox } from "@/components/dashboard/jobs/job-photo-lightbox";
@@ -48,6 +49,15 @@ export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
   const loading = photosQuery.isLoading;
   const loadFailed = photosQuery.isError || !!photosQuery.data?.error;
 
+  // Each job's group rises in turn when the set of photos shown changes (first
+  // load, next page). Keyed on the ids so the refetch after a lightbox edit that
+  // returns the same photos stays still.
+  const groupsRef = useRef<HTMLDivElement>(null);
+  useStagger(
+    groupsRef,
+    loading || loadFailed ? null : photos.map((p) => p.id).join(","),
+  );
+
   function openLightbox(allPhotos: LightboxPhoto[], index: number) {
     setLightboxPhotos(allPhotos);
     setLightboxIndex(index);
@@ -83,7 +93,7 @@ export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
 
   if (photos.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
+      <div className="motion-appear flex flex-col items-center justify-center rounded-lg border border-dashed border-border bg-muted/20 py-16 text-center">
         <IconPhoto className="h-10 w-10 text-muted-foreground mb-3" />
         <p className="text-sm font-body font-medium text-foreground">No photos</p>
         <p className="text-xs text-muted-foreground mt-1 font-body">
@@ -106,7 +116,7 @@ export function CustomerPhotosTab({ customerId }: CustomerPhotosTabProps) {
   );
 
   return (
-    <div className="space-y-6 p-1">
+    <div ref={groupsRef} className="space-y-6 p-1">
       {Object.values(groups).map(({ meta, items }) => {
         const groupLightbox: LightboxPhoto[] = items.map((p) => ({
           id: p.id,

@@ -32,6 +32,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DeleteConfirmDialog } from "@/components/reusable/delete-confirm-dialog";
+import { cn } from "@/lib/utils";
+import { useNewIds } from "@/hooks/use-new-ids";
+import { useRowFlash } from "@/hooks/use-row-flash";
 
 interface MemberData {
   id: string;
@@ -66,6 +69,11 @@ export function TeamMemberList({
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  // Someone who joins while this is open is washed, and so is a member whose
+  // role was just changed (the id is the same, so the diff cannot see it).
+  const fresh = useNewIds(members.map((m) => m.id));
+  const { flashId, flash } = useRowFlash();
+
   const canManage = currentUserRole === "owner" || currentUserRole === "admin";
 
   async function handleRoleChange(memberId: string, newRole: string) {
@@ -80,6 +88,7 @@ export function TeamMemberList({
         toast.error(result.error.message ?? "Failed to update role");
       } else {
         toast.success("Role updated");
+        flash(memberId);
         onRefresh();
       }
     } catch {
@@ -145,7 +154,10 @@ export function TeamMemberList({
               const canEditThis = canManage && !isOwner && !isCurrentUser;
 
               return (
-                <TableRow key={m.id}>
+                <TableRow
+                  key={m.id}
+                  className={cn((fresh.has(m.id) || m.id === flashId) && "motion-highlight")}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-8 w-8">

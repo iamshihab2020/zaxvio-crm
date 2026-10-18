@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useFormShake } from "@/hooks/use-form-shake";
 
 export interface AssetFormData {
   equipmentType: string;
@@ -56,6 +57,7 @@ export function AssetDialog({
   >({});
 
   const isEditing = !!asset;
+  const { ref: fieldsRef, shake } = useFormShake<HTMLDivElement>();
 
   useEffect(() => {
     if (asset) {
@@ -74,7 +76,10 @@ export function AssetDialog({
   }
 
   function handleSubmit() {
-    if (!validateForm()) return;
+    if (!validateForm()) {
+      shake();
+      return;
+    }
     onSave(form);
   }
 
@@ -87,7 +92,7 @@ export function AssetDialog({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div ref={fieldsRef} className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1 sm:col-span-2">
               <Label className="font-body">Asset Type *</Label>

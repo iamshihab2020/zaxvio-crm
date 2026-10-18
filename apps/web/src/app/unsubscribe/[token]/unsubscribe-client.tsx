@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   confirmUnsubscribe,
   type UnsubscribeTarget,
@@ -39,6 +40,9 @@ export function UnsubscribeClient({
   loadError,
 }: UnsubscribeClientProps) {
   const [done, setDone] = useState(target?.alreadyOptedOut ?? false);
+  // Only the click that unsubscribes animates its result. A link opened after
+  // the fact (`alreadyOptedOut`) shows the same words at rest.
+  const [justDone, setJustDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -69,6 +73,7 @@ export function UnsubscribeClient({
     return (
       <Shell
         icon={<IconCheck className="size-6 text-emerald-600" />}
+        arrives={justDone}
         title="You're unsubscribed"
         description={`${target.businessName} will no longer send you marketing or reminder emails.`}
       >
@@ -100,7 +105,10 @@ export function UnsubscribeClient({
               setError(null);
               startTransition(async () => {
                 const result = await confirmUnsubscribe(token);
-                if (result.ok) setDone(true);
+                if (result.ok) {
+                  setDone(true);
+                  setJustDone(true);
+                }
                 else setError(result.error);
               });
             }}
@@ -108,7 +116,9 @@ export function UnsubscribeClient({
             {isPending ? "Unsubscribing…" : "Unsubscribe"}
           </Button>
           {error ? (
-            <p className="text-center text-sm text-destructive">{error}</p>
+            <p className="motion-appear text-center text-sm text-destructive">
+              {error}
+            </p>
           ) : null}
         </div>
       }
@@ -127,17 +137,25 @@ function Shell({
   description,
   children,
   footer,
+  arrives = false,
 }: {
   icon: React.ReactNode;
   title: string;
   description: string;
   children?: React.ReactNode;
   footer?: React.ReactNode;
+  /** The card replaced one the reader just clicked through: fade it in. */
+  arrives?: boolean;
 }) {
   return (
-    <Card>
+    <Card className={cn(arrives && "motion-appear")}>
       <CardHeader>
-        <div className="mb-2 flex size-11 items-center justify-center rounded-full bg-muted">
+        <div
+          className={cn(
+            "mb-2 flex size-11 items-center justify-center rounded-full bg-muted",
+            arrives && "motion-pop",
+          )}
+        >
           {icon}
         </div>
         <CardTitle>{title}</CardTitle>

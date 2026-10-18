@@ -1,5 +1,6 @@
 "use client";
 
+import type { Ref } from "react";
 import {
   Table,
   TableBody,
@@ -18,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { IconDots, IconEdit, IconTrash } from "@tabler/icons-react";
+import { cn } from "@/lib/utils";
 // ARC-12: `new Date("2026-08-01")` is UTC midnight, so every negative-offset
 // timezone rendered the previous day. These are all `date` columns.
 import { formatDateOnly as formatDate } from "@/lib/format";
@@ -51,6 +53,10 @@ interface AssetTableProps {
   onToggleAll?: (items: { id: string }[]) => void;
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
+  /** The page owns the ref so it can stagger the rows when the view changes (`useStagger`). */
+  bodyRef?: Ref<HTMLTableSectionElement>;
+  /** A row that was just edited; it flashes once (`useRowFlash`). */
+  highlightId?: string | null;
 }
 
 function getWarrantyStatus(warrantyExpiry: string | null) {
@@ -83,6 +89,8 @@ export function AssetTable({
   onToggleAll,
   isAllSelected,
   isIndeterminate,
+  bodyRef,
+  highlightId,
 }: AssetTableProps) {
   const selectionEnabled = !!selectedIds && !!onToggle;
 
@@ -110,7 +118,7 @@ export function AssetTable({
           <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
-      <TableBody>
+      <TableBody ref={bodyRef}>
         {assets.map((asset) => {
           const warranty = getWarrantyStatus(asset.warrantyExpiry);
           const brandModel =
@@ -125,7 +133,10 @@ export function AssetTable({
           return (
             <TableRow
               key={asset.id}
-              className={onRowClick ? "cursor-pointer" : ""}
+              className={cn(
+                onRowClick && "cursor-pointer",
+                asset.id === highlightId && "motion-highlight",
+              )}
               onClick={() => onRowClick?.(asset)}
               data-selected={selectionEnabled && selectedIds?.has(asset.id)}
             >

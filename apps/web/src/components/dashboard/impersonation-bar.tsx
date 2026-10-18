@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { IconShieldCheck, IconArrowLeft, IconClock } from "@tabler/icons-react";
 import { getActiveImpersonation, endImpersonation } from "@/actions/admin";
 
@@ -85,11 +86,21 @@ export function ImpersonationBar() {
           <span className="font-body text-[13px] text-amber-200/80">
             Viewing as
           </span>
-          <span className="font-heading text-[13px] font-semibold text-amber-100">
+          {/* The bar itself is in the server HTML (a full page load starts every
+              impersonation), so it stays put. What loads after it, the tenant's
+              name, the mode chip and the timer, fades in instead of swapping
+              the "..." placeholder out. */}
+          <span
+            key={session ? "loaded" : "loading"}
+            className={cn(
+              "font-heading text-[13px] font-semibold text-amber-100",
+              session && "motion-appear",
+            )}
+          >
             {session?.tenantName ?? "..."}
           </span>
           {session?.mode === "visible" && (
-            <span className="rounded bg-amber-500/25 px-1.5 py-0.5 font-body text-[10px] font-medium uppercase tracking-wider text-amber-300">
+            <span className="motion-appear rounded bg-amber-500/25 px-1.5 py-0.5 font-body text-[10px] font-medium uppercase tracking-wider text-amber-300">
               Visible
             </span>
           )}
@@ -99,7 +110,7 @@ export function ImpersonationBar() {
       {/* Right — timer + exit */}
       <div className="flex items-center gap-3">
         {timeLeft && (
-          <div className="flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5">
+          <div className="motion-appear flex items-center gap-1.5 rounded-full bg-amber-500/15 px-2.5 py-0.5">
             <IconClock className="h-3 w-3 text-amber-400/70" />
             <span className="font-body text-xs tabular-nums text-amber-300/90">
               {timeLeft}

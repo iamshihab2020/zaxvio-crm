@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRef } from "react";
 import {
   Table,
   TableBody,
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WidgetErrorBoundary } from "@/components/reusable/widget-error-boundary";
+import { useStagger } from "@/hooks/use-stagger";
 
 interface Column<T> {
   key: keyof T;
@@ -28,6 +30,14 @@ interface ReportDataTableProps<T> {
   rowKey?: (row: T, index: number) => string;
   /** Makes rows clickable — the report is a starting point, not a dead end. */
   rowHref?: (row: T) => string;
+  /**
+   * Which section and date range these rows are for. When it changes the rows
+   * re-lay one after another; a refetch that returns the same view does not
+   * replay them. Omit it and the table never animates.
+   */
+  viewKey?: string;
+  /** Grid placement, e.g. `md:col-span-2`. */
+  className?: string;
 }
 
 export function ReportDataTable<T extends Record<string, unknown>>({
@@ -37,9 +47,14 @@ export function ReportDataTable<T extends Record<string, unknown>>({
   emptyMessage = "No data available",
   rowKey,
   rowHref,
+  viewKey,
+  className,
 }: ReportDataTableProps<T>) {
+  const bodyRef = useRef<HTMLTableSectionElement>(null);
+  useStagger(bodyRef, data.length > 0 ? viewKey : null);
+
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="p-4 pb-2 sm:p-6 sm:pb-2">
         <CardTitle className="font-heading text-sm font-semibold">
           {title}
@@ -48,7 +63,7 @@ export function ReportDataTable<T extends Record<string, unknown>>({
       <CardContent className="px-0 pb-0">
         <WidgetErrorBoundary name={title}>
           {data.length === 0 ? (
-            <div className="flex h-20 items-center justify-center px-4 pb-4 sm:px-6">
+            <div className="motion-appear flex h-20 items-center justify-center px-4 pb-4 sm:px-6">
               <p className="text-sm text-muted-foreground font-body">
                 {emptyMessage}
               </p>
@@ -69,7 +84,7 @@ export function ReportDataTable<T extends Record<string, unknown>>({
                   ))}
                 </TableRow>
               </TableHeader>
-              <TableBody>
+              <TableBody ref={bodyRef}>
                 {data.map((row, i) => {
                   // Index keys made React reuse DOM across re-sorts, so a row's
                   // rendered content could lag its data. Rows carry real ids.

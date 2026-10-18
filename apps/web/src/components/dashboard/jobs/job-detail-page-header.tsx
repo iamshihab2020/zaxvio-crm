@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import {
 import { getStageColors } from "@/lib/constants/stage-color-presets";
 import { updateJobStatus, deleteJob } from "@/actions/jobs";
 import { JobTimerButton } from "./job-timer-button";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
 import type { JobDetail } from "./job-detail-sheet";
 
 interface PipelineStage {
@@ -59,6 +60,10 @@ export function JobDetailPageHeader({
   const statusColors = currentStage ? getStageColors(currentStage.color) : null;
   const statusLabel = currentStage?.label ?? job.status;
   const priorityColors = JOB_PRIORITY_COLORS[job.priority];
+
+  // Pops when the job changes stage, so "Move to X" visibly lands somewhere.
+  const statusPillRef = useRef<HTMLSpanElement>(null);
+  useReplayOnChange(statusPillRef, job.status, "motion-pop", job.id);
 
   const currentIndex = currentStage
     ? stages.findIndex((s) => s.id === currentStage.id)
@@ -115,9 +120,11 @@ export function JobDetailPageHeader({
                 {job.jobNumber}
               </span>
               {statusColors && (
-                <Badge className={cn("px-2 py-0.5 font-medium", statusColors.bg, statusColors.text)}>
-                  {statusLabel}
-                </Badge>
+                <span ref={statusPillRef} className="inline-flex">
+                  <Badge className={cn("px-2 py-0.5 font-medium", statusColors.bg, statusColors.text)}>
+                    {statusLabel}
+                  </Badge>
+                </span>
               )}
               {priorityColors && (
                 <Badge className={cn("px-2 py-0.5 font-medium", priorityColors.bg, priorityColors.text)}>

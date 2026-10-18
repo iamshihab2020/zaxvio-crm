@@ -2,12 +2,22 @@
 
 import type { TablerIcon } from "@tabler/icons-react";
 import { IconTrendingUp, IconTrendingDown } from "@tabler/icons-react";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { cn } from "@/lib/utils";
-import { Fade } from "@/components/animate-ui/primitives/effects/fade";
 
 interface ReportKpi {
   label: string;
+  /** The figure as text. Shown as it is when `numericValue` is not given. */
   value: string;
+  /**
+   * The figure as a number, with `format` to turn it back into `value`'s text.
+   * Together they make the card count to a new figure when the date range
+   * changes (the tab stays mounted across a range change, so the card sees a
+   * new value rather than a new card). Never on mount: a tab arrives as a
+   * whole, and counting up from zero on every visit would replay old news.
+   */
+  numericValue?: number;
+  format?: (value: number) => string;
   icon: TablerIcon;
   currentValue?: number;
   previousValue?: number;
@@ -50,10 +60,8 @@ export function ReportKpiRow({ kpis }: ReportKpiRowProps) {
           : "grid-cols-2 sm:grid-cols-4",
       )}
     >
-      {kpis.map((kpi, i) => (
-        <Fade inView inViewOnce key={kpi.label} delay={i * 80}>
-          <KpiItem {...kpi} />
-        </Fade>
+      {kpis.map((kpi) => (
+        <KpiItem key={kpi.label} {...kpi} />
       ))}
     </div>
   );
@@ -63,6 +71,8 @@ function KpiItem({
   icon: Icon,
   label,
   value,
+  numericValue,
+  format,
   currentValue,
   previousValue,
   trendInverted = false,
@@ -95,7 +105,11 @@ function KpiItem({
       </div>
       <div className="mt-2 flex flex-wrap items-end gap-x-2">
         <span className="font-heading text-lg font-bold text-foreground [overflow-wrap:anywhere] sm:text-xl">
-          {value}
+          {numericValue !== undefined && format ? (
+            <AnimatedNumber value={numericValue} format={format} />
+          ) : (
+            value
+          )}
           {suffix && (
             <span className="ml-0.5 text-sm font-normal text-muted-foreground">
               {suffix}

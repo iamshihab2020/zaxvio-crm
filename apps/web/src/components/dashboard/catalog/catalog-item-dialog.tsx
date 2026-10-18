@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/command";
 import { IconChevronDown, IconCheck } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
+import { useFormShake } from "@/hooks/use-form-shake";
 import {
   CATALOG_UNITS,
   CATALOG_CATEGORIES,
@@ -92,6 +93,7 @@ export function CatalogItemDialog({
   const [categoryOpen, setCategoryOpen] = useState(false);
 
   const isEditing = !!item;
+  const { ref: formRef, shake } = useFormShake();
 
   // Merge static HVAC categories with dynamic ones from existing items (deduped, sorted)
   const mergedCategories = useMemo(() => {
@@ -131,6 +133,7 @@ export function CatalogItemDialog({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      shake();
       return;
     }
 
@@ -163,7 +166,7 @@ export function CatalogItemDialog({
               : "Add a new service, part, or material to your catalog."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
           {/* Row 1: Name */}
           <div className="space-y-2">
             <Label htmlFor="name" className="font-body">

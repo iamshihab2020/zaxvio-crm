@@ -9,6 +9,9 @@ import { IconBuilding, IconSettings, IconPhoto, IconTrash, IconUpload } from "@t
 import { SettingsSection } from "@/components/dashboard/settings/settings-section";
 import { SettingsFormMessage } from "@/components/dashboard/settings/settings-form-message";
 import { updateTenant, uploadLogo, removeLogo } from "@/actions/tenants";
+import { useFormShake } from "@/hooks/use-form-shake";
+import { useRowFlash } from "@/hooks/use-row-flash";
+import { useArrivalStagger } from "@/components/dashboard/settings/use-arrival-stagger";
 
 interface BusinessFormProps {
   tenant: {
@@ -34,6 +37,11 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [removingLogo, setRemovingLogo] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // A refused save shakes the form (the message says why); a stored one washes
+  // the sections that were saved.
+  const { ref: formRef, shake } = useFormShake();
+  const { flashId, flash } = useRowFlash();
+  useArrivalStagger(formRef);
 
   async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -150,6 +158,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
         type: "error",
         text: "Tax rate must be a number between 0 and 100.",
       });
+      shake();
       setSaving(false);
       return;
     }
@@ -164,6 +173,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
         type: "error",
         text: "Labour cost rate must be a number, or blank if you don't track it.",
       });
+      shake();
       setSaving(false);
       return;
     }
@@ -184,8 +194,10 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
 
     if (result.error) {
       setMessage({ type: "error", text: result.error });
+      shake();
     } else {
       setMessage({ type: "success", text: "Business settings saved." });
+      flash("saved");
       if (result.data) {
         onSaved?.(result.data as Tenant);
       }
@@ -195,7 +207,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-6">
+    <form ref={formRef} data-stagger onSubmit={handleSave} className="space-y-6">
       {/* Logo Upload */}
       <SettingsSection
         icon={IconPhoto}
@@ -263,6 +275,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
         icon={IconBuilding}
         title="Business Information"
         description="Your business details appear on invoices, quotes, and customer communications."
+        flash={flashId === "saved"}
       >
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -370,6 +383,7 @@ export function BusinessForm({ tenant, onSaved }: BusinessFormProps) {
         icon={IconSettings}
         title="Defaults & Integrations"
         description="Configure default values and third-party integrations."
+        flash={flashId === "saved"}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">

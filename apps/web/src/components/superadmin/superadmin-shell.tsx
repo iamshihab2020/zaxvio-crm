@@ -2,9 +2,12 @@
 
 import { cn } from "@/lib/utils";
 import { useSuperadminSidebar } from "./superadmin-sidebar-provider";
+import { useMarkShellHydrated } from "./use-arrived-by-navigation";
 
 export function SuperadminShell({ children }: { children: React.ReactNode }) {
   const { isCollapsed } = useSuperadminSidebar();
+  // Lets pages tell a navigation from the load of the URL (see the hook).
+  useMarkShellHydrated();
 
   return (
     <div

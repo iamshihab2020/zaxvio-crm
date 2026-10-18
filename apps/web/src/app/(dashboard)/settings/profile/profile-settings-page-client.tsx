@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import { useSession } from "@/lib/auth-client";
+import { useStagger } from "@/hooks/use-stagger";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProfileForm } from "@/components/dashboard/settings/profile-form";
 import { ChangePasswordForm } from "@/components/dashboard/settings/change-password-form";
@@ -8,6 +10,11 @@ import { ProfileSidebar } from "@/components/dashboard/settings/profile-sidebar"
 
 export function ProfileSettingsPageClient() {
   const { data: session, isPending } = useSession();
+
+  // `data-stagger` (below) covers arriving with the page; this covers the
+  // session finishing after it, when the skeleton gives way to the forms.
+  const sectionsRef = useRef<HTMLDivElement>(null);
+  useStagger(sectionsRef, isPending || !session?.user ? null : "profile");
 
   if (isPending) {
     return (
@@ -68,7 +75,7 @@ export function ProfileSettingsPageClient() {
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-      <div className="lg:col-span-2 space-y-6">
+      <div ref={sectionsRef} data-stagger className="lg:col-span-2 space-y-6">
         <ProfileForm user={session.user} />
         <ChangePasswordForm />
       </div>

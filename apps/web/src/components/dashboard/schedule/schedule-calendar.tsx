@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useEffect, type MutableRefObject } from "react";
+import { useCallback, useMemo, useRef, useEffect } from "react";
 import {
   Calendar as BigCalendar,
   dateFnsLocalizer,
@@ -17,9 +17,10 @@ import {
   getDay,
 } from "date-fns";
 import { enUS } from "date-fns/locale/en-US";
-import { AnimatePresence, motion } from "motion/react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { isTenantToday, tenantNow } from "@/lib/tenant-time";
+import { useReplayOnChange } from "@/hooks/use-replay-on-change";
+import { cn } from "@/lib/utils";
 import { ScheduleEvent, ScheduleMonthEvent } from "./schedule-event";
 import type { CalendarView } from "./schedule-toolbar";
 import "./calendar-styles.css";
@@ -92,7 +93,8 @@ interface ScheduleCalendarProps {
   overrides: ScheduleOverrideSlot[];
   /** Tenant IANA timezone — decides which column is "today". */
   timezone: string;
-  navigationDirection: MutableRefObject<-1 | 0 | 1>;
+  /** The event that was just dragged or edited; its card wears the highlight once. */
+  highlightedEventId?: string | null;
   onNavigate: (date: Date) => void;
   onViewChange: (view: CalendarView) => void;
   onSelectEvent: (event: CalendarEvent) => void;
@@ -118,7 +120,7 @@ export function ScheduleCalendar({
   availability,
   overrides,
   timezone,
-  navigationDirection,
+  highlightedEventId,
   onNavigate,
   onViewChange,
   onSelectEvent,
@@ -171,10 +173,15 @@ export function ScheduleCalendar({
   /* ── Event styling ── */
   const eventPropGetter = useCallback(
     (event: CalendarEvent) => ({
-      className: event.resource.type === "booking" ? "rbc-booking-event" : "",
+      className: cn(
+        event.resource.type === "booking" && "rbc-booking-event",
+        // The wash is drawn on the card inside, in calendar-styles.css, because
+        // this element is transparent and a background here would be hidden.
+        event.id === highlightedEventId && "schedule-event-flash",
+      ),
       style: { cursor: "pointer" as const },
     }),
-    [],
+    [highlightedEventId],
   );
 
   /* ── Today column highlight (week/day views) ── */
@@ -221,9 +228,17 @@ export function ScheduleCalendar({
 
   const isTimeView = currentView === "week" || currentView === "day";
 
-  /* ── Directional transition key ── */
+  /* ── Range change: the grid crossfades ──
+     Prev, next, today, a date pick and a view switch all change the visible
+     range. The grid used to be re-keyed inside AnimatePresence, which waited
+     for the old range to fade out before the new one could start (an arrow key
+     held down queued 200ms per press) and remounted react-big-calendar, so the
+     time views lost their scroll position and its measured rows on every step.
+     Here the wrapper stays mounted and only its fade restarts, so nothing is
+     rebuilt and nothing waits. Opacity only; a slide would need a direction. */
   const transitionKey = `${currentView}-${currentDate.toISOString().slice(0, 10)}`;
-  const dir = navigationDirection.current;
+  const bodyRef = useRef<HTMLDivElement>(null);
+  useReplayOnChange(bodyRef, transitionKey, "motion-appear");
 
   /* ── Scroll to current time on mount/today in week/day views ── */
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -270,48 +285,19 @@ export function ScheduleCalendar({
     />
   );
 
-  /* ── Motion variants for directional transitions ── */
-  const isDateNav = dir !== 0;
-  const motionProps = {
-    initial: isDateNav
-      ? { x: dir * 30, opacity: 0 }
-      : { scale: 0.98, opacity: 0 },
-    animate: isDateNav
-      ? { x: 0, opacity: 1 }
-      : { scale: 1, opacity: 1 },
-    exit: isDateNav
-      ? { x: -dir * 30, opacity: 0 }
-      : { scale: 1.02, opacity: 0 },
-    transition: isDateNav
-      ? { duration: 0.2, ease: [0, 0, 0.2, 1] as const }
-      : { type: "spring" as const, stiffness: 300, damping: 30 },
-  };
-
   if (isTimeView) {
     return (
       <ScrollArea ref={scrollAreaRef} className="flex-1 min-h-0">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={transitionKey}
-            {...motionProps}
-            className="schedule-calendar-no-internal-scroll"
-          >
-            {calendarEl}
-          </motion.div>
-        </AnimatePresence>
+        <div ref={bodyRef} className="schedule-calendar-no-internal-scroll">
+          {calendarEl}
+        </div>
       </ScrollArea>
     );
   }
 
   return (
-    <AnimatePresence mode="wait" initial={false}>
-      <motion.div
-        key={transitionKey}
-        {...motionProps}
-        className="flex-1 min-h-0"
-      >
-        {calendarEl}
-      </motion.div>
-    </AnimatePresence>
+    <div ref={bodyRef} className="flex-1 min-h-0">
+      {calendarEl}
+    </div>
   );
 }

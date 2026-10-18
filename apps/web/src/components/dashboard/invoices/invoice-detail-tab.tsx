@@ -13,12 +13,19 @@ import {
   IconBellRinging,
 } from "@tabler/icons-react";
 import { formatMoney, formatDateOnly } from "@/lib/format";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
 
 // INV-19/39: this file had its own `$${num.toFixed(2)}` and its own
 // `new Date(val)` \u2014 no thousands separator, and a UTC-midnight day shift on
 // every date. Both now come from `lib/format.ts`.
 const formatCurrency = formatMoney;
 const formatDate = formatDateOnly;
+
+/** A decimal string from the API as a number, so a figure can be tweened. */
+function amount(value: string | null | undefined): number {
+  const n = parseFloat(value ?? "0");
+  return Number.isFinite(n) ? n : 0;
+}
 
 /** Statuses an unpaid, already-sent invoice can be reminded about. */
 const REMINDABLE = ["sent", "partially_paid", "overdue"];
@@ -195,7 +202,7 @@ export function InvoiceDetailTab({
               Subtotal
             </span>
             <span className="text-sm font-body">
-              {formatCurrency(invoice.subtotal)}
+              <AnimatedNumber value={amount(invoice.subtotal)} format={formatCurrency} />
             </span>
           </div>
           {taxPercent > 0 && (
@@ -204,7 +211,7 @@ export function InvoiceDetailTab({
                 Tax ({Number(taxPercent.toFixed(4))}%)
               </span>
               <span className="text-sm font-body">
-                {formatCurrency(invoice.taxAmount)}
+                <AnimatedNumber value={amount(invoice.taxAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
@@ -214,14 +221,14 @@ export function InvoiceDetailTab({
                 Discount
               </span>
               <span className="text-sm font-body">
-                -{formatCurrency(invoice.discountAmount)}
+                -<AnimatedNumber value={amount(invoice.discountAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-medium font-body">Total</span>
             <span className="text-sm font-semibold font-body">
-              {formatCurrency(invoice.totalAmount)}
+              <AnimatedNumber value={amount(invoice.totalAmount)} format={formatCurrency} />
             </span>
           </div>
           {parseFloat(invoice.amountPaid) > 0 && (
@@ -230,7 +237,7 @@ export function InvoiceDetailTab({
                 Paid
               </span>
               <span className="text-sm text-green-600 dark:text-green-400 font-body">
-                -{formatCurrency(invoice.amountPaid)}
+                -<AnimatedNumber value={amount(invoice.amountPaid)} format={formatCurrency} />
               </span>
             </div>
           )}
@@ -239,13 +246,13 @@ export function InvoiceDetailTab({
               Balance Due
             </span>
             <span
-              className={`text-sm font-bold font-body ${
+              className={`text-sm font-bold font-body transition-colors duration-200 ${
                 balanceIsZero
                   ? "text-green-600 dark:text-green-400"
                   : "text-brand-ink"
               }`}
             >
-              {formatCurrency(invoice.balanceDue)}
+              <AnimatedNumber value={amount(invoice.balanceDue)} format={formatCurrency} />
             </span>
           </div>
           {credit > 0 && (
@@ -254,7 +261,7 @@ export function InvoiceDetailTab({
                 Credit on account
               </span>
               <span className="text-sm text-blue-600 dark:text-blue-400 font-body">
-                {formatCurrency(invoice.creditAmount ?? "0")}
+                <AnimatedNumber value={amount(invoice.creditAmount)} format={formatCurrency} />
               </span>
             </div>
           )}

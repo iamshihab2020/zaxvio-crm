@@ -104,8 +104,12 @@ export function StatusFilterTabs({
       )}
     >
       {indicator && (
+        // Left and width are animated because the pill has to grow and shrink to
+        // each label; it is absolute, so nothing around it reflows. The system
+        // curve, not `ease-in-out`, which starts slowly and reads as lag after a
+        // click. Reduced motion gets the move without the slide.
         <div
-          className="absolute rounded-full bg-brand transition-all duration-300 ease-in-out"
+          className="absolute rounded-full bg-brand transition-[left,width] duration-[var(--dur-arrive)] ease-[var(--ease-out)] motion-reduce:transition-none"
           style={{
             left: indicator.left,
             width: indicator.width,

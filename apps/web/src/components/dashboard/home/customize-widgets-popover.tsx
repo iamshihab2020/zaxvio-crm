@@ -56,7 +56,7 @@ export function CustomizeWidgetsPopover({ prefs }: CustomizeWidgetsPopoverProps)
           {ALL_WIDGETS.map((w) => (
             <li
               key={w.key}
-              className="flex items-center justify-between gap-3 rounded-md px-2 text-sm hover:bg-muted"
+              className="flex items-center justify-between gap-3 rounded-md px-2 text-sm transition-colors hover:bg-muted"
             >
               <label
                 htmlFor={`widget-${w.key}`}

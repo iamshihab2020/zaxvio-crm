@@ -23,6 +23,14 @@ import {
 // QUO-10: `new Date("2026-08-01")` is UTC midnight, so this printed the previous
 // day for every US tenant while the customer portal printed the right one.
 import { formatMoney as formatCurrency, formatDateOnly as formatDate } from "@/lib/format";
+import { AnimatedNumber } from "@/components/reusable/animated-number";
+
+/** A decimal string from the API as a number, so a figure can be tweened. */
+function amount(value: string | null | undefined): number {
+  const n = parseFloat(value ?? "0");
+  return Number.isFinite(n) ? n : 0;
+}
+
 
 interface QuoteDetailTabProps {
   quote: {
@@ -298,7 +306,7 @@ export function QuoteDetailTab({
               Subtotal
             </span>
             <span className="text-sm font-body">
-              {formatCurrency(quote.subtotal)}
+              <AnimatedNumber value={amount(quote.subtotal)} format={formatCurrency} />
             </span>
           </div>
           {taxPercent > 0 && (
@@ -307,7 +315,7 @@ export function QuoteDetailTab({
                 Tax ({taxPercent.toFixed(1)}%)
               </span>
               <span className="text-sm font-body">
-                {formatCurrency(quote.taxAmount)}
+                <AnimatedNumber value={amount(quote.taxAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
@@ -317,14 +325,14 @@ export function QuoteDetailTab({
                 Discount
               </span>
               <span className="text-sm font-body">
-                -{formatCurrency(quote.discountAmount)}
+                -<AnimatedNumber value={amount(quote.discountAmount)} format={formatCurrency} />
               </span>
             </div>
           )}
           <div className="flex justify-between px-3 py-2 bg-muted/30">
             <span className="text-sm font-semibold font-body">Total</span>
             <span className="text-sm font-bold text-brand-ink font-body">
-              {formatCurrency(quote.totalAmount)}
+              <AnimatedNumber value={amount(quote.totalAmount)} format={formatCurrency} />
             </span>
           </div>
         </div>

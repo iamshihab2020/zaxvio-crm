@@ -14,6 +14,8 @@ const Checkbox = React.forwardRef<
     ref={ref}
     className={cn(
       "peer relative h-4 w-4 shrink-0 rounded-sm border border-primary shadow focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground",
+      // The fill fades in with the mark's spring instead of snapping ahead of it.
+      "transition-[color,background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
       // Below `md` the box keeps its 16px look but takes a 40px tap: it is the
       // only target in every list table's select column, and a 16px square is
       // a miss on a phone. The pseudo-element is transparent and inside the

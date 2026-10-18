@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { IconUser, IconMapPin, IconAlertCircle, IconNote, IconInfoCircle } from "@tabler/icons-react";
 import { formatPhoneInput, normalizePhone } from "@/lib/phone";
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
+import { useFormShake } from "@/hooks/use-form-shake";
 import { checkDuplicateCustomer } from "@/lib/client-reads/customers";
 import type { Customer } from "@hvac-saas/types";
 
@@ -82,6 +83,7 @@ export function CustomerDialog({
   const [duplicate, setDuplicate] = useState<{ id: string; firstName: string; lastName: string } | null>(null);
 
   const isEditing = !!customer;
+  const { ref: formRef, shake } = useFormShake();
   const debouncedEmail = useDebouncedValue(form.email, 500);
 
   useEffect(() => {
@@ -141,6 +143,7 @@ export function CustomerDialog({
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
+      shake();
       return;
     }
 
@@ -173,7 +176,7 @@ export function CustomerDialog({
               : "Add a new customer so you can schedule jobs and send invoices."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-5">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
           {/* Section: Contact Info */}
           <div className="space-y-3">
             <div className="flex items-center gap-2 text-sm font-medium text-foreground font-heading">

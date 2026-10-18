@@ -42,7 +42,7 @@ export function QuotaNotice() {
   return (
     <div
       className={cn(
-        "flex items-start gap-2 rounded-lg border px-3 py-2 text-sm font-body",
+        "motion-appear flex items-start gap-2 rounded-lg border px-3 py-2 text-sm font-body",
         atLimit
           ? "border-red-500/30 bg-red-500/10"
           : "border-amber-500/30 bg-amber-500/10",

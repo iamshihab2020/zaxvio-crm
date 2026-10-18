@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
-import { AnimatePresence, motion } from "motion/react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useViewPreference } from "@/hooks/use-view-preference";
 import { MEDIA } from "@/hooks/use-media-query";
@@ -182,6 +181,10 @@ export function JobsPageClient({
 
   // View type: board vs list vs table (persisted — SSR-safe default)
   const [viewType, setViewType] = useState<"board" | "list" | "table">("board");
+  // Whether the reader has picked a view themselves. The new view fades in only
+  // then: the stored view is applied in an effect after mount, and animating
+  // that would be animating the page load.
+  const [viewSwitched, setViewSwitched] = useState(false);
   // Compact density (persisted — SSR-safe default)
   const [compact, setCompact] = useState(false);
 
@@ -233,6 +236,7 @@ export function JobsPageClient({
 
   function handleViewTypeChange(type: "board" | "list" | "table") {
     setViewType(type);
+    setViewSwitched(true);
     localStorage.setItem("jobs-view-type", type);
   }
 
@@ -240,6 +244,23 @@ export function JobsPageClient({
     setCompact(value);
     localStorage.setItem("jobs-compact", String(value));
   }
+
+  // The job a create or edit just landed on, so its card or row can wear the
+  // highlight wash once. Held for a few seconds rather than until the refetch
+  // lands: a new job's card only exists after the list reloads.
+  const [highlightJobId, setHighlightJobId] = useState<string | null>(null);
+  const highlightTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function flashJob(jobId: string) {
+    setHighlightJobId(jobId);
+    if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    highlightTimer.current = setTimeout(() => setHighlightJobId(null), 4000);
+  }
+  useEffect(
+    () => () => {
+      if (highlightTimer.current) clearTimeout(highlightTimer.current);
+    },
+    [],
+  );
 
   // Sheet state
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -489,7 +510,12 @@ export function JobsPageClient({
   });
   const tableJobs = tableJobsQuery.data?.data ?? [];
   const tablePagination = tableJobsQuery.data?.pagination ?? { page: tablePage, totalPages: 1, total: 0 };
-  const tableLoading = tableJobsQuery.isLoading || tableJobsQuery.isFetching;
+  // Loading means "these rows are not the ones you asked for": the first fetch,
+  // or a new page/sort/filter whose rows are still the previous ones. A refetch
+  // of the same rows (window focus, a mutation) is not loading, so the table is
+  // not torn down for a skeleton and rebuilt, which would replay its arrival
+  // every time the tab regained focus.
+  const tableLoading = tableJobsQuery.isLoading || tableJobsQuery.isPlaceholderData;
 
   // Prefetch next page (table view only)
   useEffect(() => {
@@ -752,6 +778,7 @@ export function JobsPageClient({
       } else {
         setDialogOpen(false);
         toast.success("Job updated");
+        flashJob(editingJob.id);
         invalidateAll();
       }
     } else {
@@ -804,6 +831,7 @@ export function JobsPageClient({
         } else {
           toast.success("Job created");
         }
+        flashJob(result.data.id);
         invalidateAll();
       }
     }
@@ -825,11 +853,44 @@ export function JobsPageClient({
     setSaving(false);
   }
 
+  // What identifies the rows on screen, for the arrival stagger. `null` while
+  // the rows are still the previous pipeline's or filter's (placeholder data),
+  // so the sequence plays when the right rows replace them. Built from the
+  // debounced values that actually drive the queries, never from the data, so a
+  // background refetch cannot replay it.
+  const boardArrivalKey =
+    loading || boardJobsQuery.isPlaceholderData || stagesQuery.isPlaceholderData
+      ? null
+      : selectedPipelineId;
+  const listArrivalKey =
+    loading || boardJobsQuery.isPlaceholderData
+      ? null
+      : [
+          selectedPipelineId,
+          debouncedSearch,
+          debouncedPriority,
+          debouncedServiceType,
+          debouncedAssignee,
+        ].join(":");
+  const tableArrivalKey = tableLoading
+    ? null
+    : [
+        selectedPipelineId,
+        debouncedSearch,
+        debouncedPriority,
+        debouncedServiceType,
+        debouncedAssignee,
+        viewFilter,
+        tableSortBy,
+        tableSortOrder,
+        tablePage,
+      ].join(":");
+
   const showNoResults = !loading && jobs.length === 0 && (!!search || !!priorityFilter || !!serviceTypeFilter || !!assigneeFilter);
   const stagesReady = stages.length > 0;
 
   return (
-    <section className="px-4 pt-3 pb-0 sm:px-5 sm:pt-2.5">
+    <section data-stagger className="px-4 pt-3 pb-0 sm:px-5 sm:pt-2.5">
       {/* Unified toolbar. On a phone it is three stacked lines: pipeline,
           search, then the view switch with Display and New Job. From `sm` it is
           the one row it always was, wrapping only when the window is too narrow
@@ -923,12 +984,16 @@ export function JobsPageClient({
       </div>
 
       {error && (
-        <div className="mb-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive font-body">
+        <div className="motion-appear mb-2 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-2 text-sm text-destructive font-body">
           {error}
         </div>
       )}
 
-      {/* Board view — rendered outside AnimatePresence to avoid transform interference with DnD */}
+      {/* Board view. Not wrapped in anything that transforms: dnd-kit measures
+          its droppables and positions its overlay against the viewport, and a
+          transformed ancestor would offset both. The board fades itself in and
+          staggers its columns (kanban-board.tsx), neither of which leaves a
+          transform behind. */}
       {viewType === "board" && (
         <>
           {loading && <KanbanSkeleton columnCount={stages.length || 4} />}
@@ -946,13 +1011,13 @@ export function JobsPageClient({
           )}
 
           {!loadFailed && showNoResults && (
-            <p className="py-12 text-center text-sm text-muted-foreground font-body">
+            <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
               No jobs found matching your filters
             </p>
           )}
 
           {hasNoPipelines && (
-            <div className="py-16 text-center">
+            <div className="motion-appear py-16 text-center">
               <p className="text-sm text-muted-foreground mb-2">
                 No pipelines yet — create one to start tracking jobs.
               </p>
@@ -967,14 +1032,14 @@ export function JobsPageClient({
           )}
 
           {boardTruncated && !loading && !loadFailed && (
-            <p className="mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-700 dark:text-amber-400">
+            <p className="motion-appear mb-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-center text-sm text-amber-700 dark:text-amber-400">
               Showing the first {jobs.length} of {totalBoardJobs} jobs. Filter or
               switch to the table view to see the rest.
             </p>
           )}
 
           {!loading && !loadFailed && !hasNoPipelines && !stagesReady && !showNoResults && (
-            <div className="py-16 text-center">
+            <div className="motion-appear py-16 text-center">
               <p className="text-sm text-muted-foreground mb-2">No pipeline stages configured</p>
               <Button variant="outline" size="sm" onClick={() => setPipelineDialogOpen(true)}>
                 Manage Stages
@@ -994,21 +1059,18 @@ export function JobsPageClient({
               members={assigneeMembers}
               onAssigneeChange={handleAssigneeChange}
               onJobFieldChange={handleJobFieldChange}
+              arrivalKey={boardArrivalKey}
+              highlightJobId={highlightJobId}
             />
           )}
         </>
       )}
 
-      {/* List + Table views with AnimatePresence */}
+      {/* List and table views. Keyed by the view only, so a pipeline or filter
+          change keeps the same list mounted and staggers its rows (useStagger,
+          inside), while a view switch mounts the new view and fades it in. */}
       {viewType !== "board" && (
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={`${selectedPipelineId ?? "loading"}-${viewType}`}
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-          >
+          <div key={viewType} className={cn(viewSwitched && "motion-appear")}>
             {/* List view */}
             {viewType === "list" && (
               <>
@@ -1027,7 +1089,7 @@ export function JobsPageClient({
                 )}
 
                 {showNoResults && (
-                  <p className="py-12 text-center text-sm text-muted-foreground font-body">
+                  <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
                     No jobs found matching your filters
                   </p>
                 )}
@@ -1037,6 +1099,8 @@ export function JobsPageClient({
                     jobs={jobs}
                     stages={stages}
                     onJobClick={handleJobClick}
+                    arrivalKey={listArrivalKey}
+                    highlightJobId={highlightJobId}
                   />
                 )}
               </>
@@ -1064,7 +1128,7 @@ export function JobsPageClient({
                   )}
 
                   {!tableLoading && tableJobs.length === 0 && (
-                    <p className="py-12 text-center text-sm text-muted-foreground font-body">
+                    <p className="motion-appear py-12 text-center text-sm text-muted-foreground font-body">
                       No jobs found matching your filters
                     </p>
                   )}
@@ -1083,6 +1147,8 @@ export function JobsPageClient({
                       onToggleSelectAll={() => toggleSelectAll(tableJobs)}
                       isAllSelected={isAllSelected(tableJobs)}
                       isIndeterminate={isIndeterminate(tableJobs)}
+                      arrivalKey={tableArrivalKey}
+                      highlightJobId={highlightJobId}
                     />
                   )}
                 </div>
@@ -1098,8 +1164,7 @@ export function JobsPageClient({
                 )}
               </>
             )}
-          </motion.div>
-        </AnimatePresence>
+          </div>
       )}
 
       <JobDetailSheet
