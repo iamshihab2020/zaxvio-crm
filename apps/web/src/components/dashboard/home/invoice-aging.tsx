@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 import type { DashboardAgingBucket } from "@hvac-saas/types";
 import { formatCurrency } from "@/lib/format";
 import { staggerDelay } from "@/lib/motion";
-import { OVERDUE_COLORS, STATUS_COLORS } from "@/lib/constants/chart-palette";
+import { AGING_COLORS, barBackground } from "@/lib/constants/chart-palette";
 import { enterDelay } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
 import { WidgetWindowBadge } from "./widget-window-badge";
@@ -24,18 +24,19 @@ type BucketKey = DashboardAgingBucket["bucket"];
  * previously had no 61-90 bucket, so a 61-day-old invoice was reported under a key
  * called `90plus`.
  *
- * Colour is an ordinal scale, not five unrelated hues. Current is good; every
- * overdue bucket is the same red, darker the older the debt, so the order reads
- * from the colour alone. The old scale ran green → amber → brand orange → orange
- * → red, which spent the brand on "31–60 days overdue" and made 31–60 and 61–90
- * near-identical oranges.
+ * Colour is an ordinal scale, not five unrelated hues. Current is the brand
+ * (it was status green until 2026-10-19); every overdue bucket is the same red,
+ * darker the older the debt, so the order reads from the colour alone. The old
+ * scale ran green → amber → brand orange → orange → red, which spent the brand
+ * on "31–60 days overdue" and made 31–60 and 61–90 near-identical oranges.
+ * /reports draws its aging chart from the same list.
  */
 const BUCKET_CONFIG: Record<BucketKey, { label: string; color: string }> = {
-  current: { label: "Current", color: STATUS_COLORS.good },
-  "30": { label: "1–30 days", color: OVERDUE_COLORS[0] },
-  "60": { label: "31–60 days", color: OVERDUE_COLORS[1] },
-  "90": { label: "61–90 days", color: OVERDUE_COLORS[2] },
-  "90plus": { label: "90+ days", color: OVERDUE_COLORS[3] },
+  current: { label: "Current", color: AGING_COLORS[0] },
+  "30": { label: "1–30 days", color: AGING_COLORS[1] },
+  "60": { label: "31–60 days", color: AGING_COLORS[2] },
+  "90": { label: "61–90 days", color: AGING_COLORS[3] },
+  "90plus": { label: "90+ days", color: AGING_COLORS[4] },
 };
 
 const BUCKET_ORDER: BucketKey[] = ["current", "30", "60", "90", "90plus"];
@@ -186,7 +187,7 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
                             BAR_DELAY_BASE + staggerDelay(index, BAR_STEP, BUCKET_ORDER.length),
                           ),
                           transform: `scaleX(${share})`,
-                          backgroundColor: row.config.color,
+                          backgroundImage: barBackground(row.config.color),
                         }}
                       />
                     </span>

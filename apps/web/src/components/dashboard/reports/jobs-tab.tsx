@@ -34,16 +34,17 @@ import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
-import { BRAND_SERIES } from "@/lib/constants/chart-palette";
+import { BRAND_SERIES, barBackground } from "@/lib/constants/chart-palette";
 import {
   ChartLegendList,
+  barFill,
+  useFillId,
+} from "@/components/dashboard/reusable/chart-fills";
+import {
   JOB_STATUS_FILL,
   JOB_STATUS_ORDER,
   UNKNOWN_FILL,
-  barBackground,
-  barFill,
   sortByOrder,
-  useFillId,
 } from "./report-palette";
 
 // One series each, so one colour each: the brand. Priority and service type

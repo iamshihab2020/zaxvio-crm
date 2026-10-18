@@ -35,37 +35,25 @@ import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
-import { BRAND_SERIES, STATE_COLORS } from "@/lib/constants/chart-palette";
+import {
+  AGING_COLORS,
+  BRAND_SERIES,
+  STATE_COLORS,
+  barBackground,
+} from "@/lib/constants/chart-palette";
 import {
   ChartLegendList,
+  areaFill,
+  useFillId,
+} from "@/components/dashboard/reusable/chart-fills";
+import {
   INVOICE_RING_ORDER,
   INVOICE_STATUS_FILL,
   INVOICE_STATUS_ORDER,
   QUOTE_STATUS_FILL,
   UNKNOWN_FILL,
-  areaFill,
-  barBackground,
   sortByOrder,
-  useFillId,
 } from "./report-palette";
-
-/**
- * One colour per aging bucket. There are five buckets since the dashboard pass
- * split 61–90 out of "90+"; a four-entry list left the last one falling back to
- * grey, which read as "no data" rather than "worst".
- *
- * Tokens, the same ones the dashboard's Invoice Aging uses: current is good,
- * then one red darkening with age. This list used to start on the brand
- * (orange, then blue after the rebrand), which made "current" look like the
- * first of the overdue buckets, and its hex steps followed no theme.
- */
-const AGING_COLORS = [
-  "hsl(var(--status-good))",
-  "hsl(var(--overdue-1))",
-  "hsl(var(--overdue-2))",
-  "hsl(var(--overdue-3))",
-  "hsl(var(--overdue-4))",
-];
 
 const funnelConfig = {
   count: { label: "Count", color: BRAND_SERIES },

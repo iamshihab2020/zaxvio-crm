@@ -21,7 +21,8 @@ import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { StatusFilterTabs } from "@/components/reusable/status-filter-tabs";
 import { formatCurrency } from "@/lib/format";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
-import { tokenColor } from "@/lib/constants/chart-palette";
+import { BRAND_SERIES, tokenColor } from "@/lib/constants/chart-palette";
+import { areaFill, useFillId } from "@/components/dashboard/reusable/chart-fills";
 import { cn } from "@/lib/utils";
 import { ChartTooltipBox } from "./chart-tooltip";
 import { chartAnimation } from "./chart-motion";
@@ -43,10 +44,10 @@ interface RevenueRangeChartProps {
 const RANGES: RevenueRange[] = ["1D", "1W", "1M", "6M", "1Y", "ALL"];
 const RANGE_OPTIONS = RANGES.map((r) => ({ value: r, label: r }));
 
-// Collected is the chart's one series, so it takes the first categorical slot
-// rather than the UI brand: in dark mode `--chart-1` is a step deeper than
-// `--brand`, so the filled band doesn't outweigh everything else on the page.
-const COLLECTED_COLOR = tokenColor("chart-1");
+// Collected is the chart's one series, so it takes the series brand
+// (`--chart-1`) rather than the UI one, as every one-series chart on /dashboard
+// and /reports does. Its area fades toward the axis (`areaFill`).
+const COLLECTED_COLOR = BRAND_SERIES;
 // Billed is the ceiling the collected area fills toward, so it stays ink.
 const BILLED_COLOR = tokenColor("foreground", 0.55);
 
@@ -160,6 +161,7 @@ export function RevenueRangeChart({
    */
   const canPlot = hasData && data.length >= 2;
   const anim = chartAnimation();
+  const fillId = useFillId();
 
   return (
     <Card data-widget="revenue" className="p-4 sm:p-6">
@@ -225,13 +227,7 @@ export function RevenueRangeChart({
         {canPlot ? (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="revenueRangeFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={COLLECTED_COLOR} stopOpacity={0.35} />
-                  <stop offset="60%" stopColor={COLLECTED_COLOR} stopOpacity={0.08} />
-                  <stop offset="100%" stopColor={COLLECTED_COLOR} stopOpacity={0} />
-                </linearGradient>
-              </defs>
+              {areaFill(fillId, COLLECTED_COLOR)}
               <CartesianGrid
                 strokeDasharray="3 3"
                 vertical={false}
@@ -280,7 +276,7 @@ export function RevenueRangeChart({
                 dataKey="amount"
                 stroke={COLLECTED_COLOR}
                 strokeWidth={2.5}
-                fill="url(#revenueRangeFill)"
+                fill={`url(#${fillId})`}
                 activeDot={{
                   r: 5,
                   strokeWidth: 2,

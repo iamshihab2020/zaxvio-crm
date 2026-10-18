@@ -21,7 +21,7 @@ import {
   JOB_PRIORITY_COLORS,
   JOB_PRIORITY_LABELS,
 } from "@/lib/constants/job-options";
-import { tokenColor } from "@/lib/constants/chart-palette";
+import { kindColor } from "@/lib/constants/chart-palette";
 import { useStagger } from "@/hooks/use-stagger";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { WidgetHeader, WidgetLink } from "./widget-header";
@@ -59,10 +59,12 @@ type AgendaItem = AgendaDetails & {
 };
 
 /**
- * The colour of a row is its kind, and only its kind: DESIGN.md says a job is
- * always orange, a booking always teal and an event always indigo, here and in
- * the type badges. Week Ahead beside this widget draws the kinds the same way,
- * so one booking is one teal on the whole screen.
+ * The colour of a row is its kind, and only its kind: a job is the brand, a
+ * booking the ramp's strong end and an event its quiet end (`kindColor`), here,
+ * in the type badges and in the hover card. Week Ahead beside this widget draws
+ * the kinds the same way, so one booking is one blue on the whole screen. They
+ * were orange, teal and indigo, then blue, teal and violet, until 2026-10-19;
+ * the Calendar still uses the teal and violet.
  *
  * Rows used to be coloured by something else. A job took its priority's hue,
  * so a blue rule meant "standard job" in a list where indigo meant "event", and
@@ -70,14 +72,11 @@ type AgendaItem = AgendaDetails & {
  * Neither says what kind of thing the row is, which is what the rule down its
  * left edge is for. Priority is a word now (see `PriorityPill`), shown only
  * where it needs attention.
- *
- * These are tokens, not Tailwind's indigo-500/teal-500, so both themes stay
- * correct and the colours are the validated ones.
  */
 const KIND_COLOR: Record<AgendaKind, string> = {
-  job: tokenColor("brand"),
-  booking: tokenColor("series-booking"),
-  event: tokenColor("series-event"),
+  job: kindColor("job"),
+  booking: kindColor("booking"),
+  event: kindColor("event"),
 };
 
 /** The whole list, not each day: the card sets its own height (see `AgendaTimeline`). */
@@ -332,19 +331,13 @@ const KIND_LABEL: Record<AgendaKind, string> = {
 };
 
 // The kind's colour is the tint; the word is ink. Printing the word in the
-// series hue measured 2.3:1 for bookings and 4.0:1 for events at 9px.
+// kind's hue measured 2.3:1 for bookings and 4.0:1 for events at 9px when they
+// were teal and violet, and the quiet end of the ramp is fainter still.
 function KindBadge({ kind }: { kind: AgendaKind }) {
-  const style = {
-    event: "bg-[hsl(var(--series-event)/0.14)]",
-    job: "bg-brand/15",
-    booking: "bg-[hsl(var(--series-booking)/0.14)]",
-  }[kind];
   return (
     <span
-      className={cn(
-        "shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-body font-semibold uppercase tracking-wide text-foreground",
-        style,
-      )}
+      className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-body font-semibold uppercase tracking-wide text-foreground"
+      style={{ backgroundColor: kindColor(kind, 0.16) }}
     >
       {KIND_LABEL[kind]}
     </span>
@@ -460,7 +453,7 @@ function AgendaRow({ item }: { item: AgendaItem }) {
       <span className="tnum pt-2 font-mono text-xs text-muted-foreground">
         {time}
       </span>
-      <AgendaHoverCard details={item} side="left">
+      <AgendaHoverCard details={item} side="left" badgeColor={item.color}>
         <Link
           href={item.href}
           style={{ borderLeftColor: item.color }}

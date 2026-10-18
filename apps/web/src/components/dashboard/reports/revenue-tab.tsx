@@ -40,13 +40,15 @@ import { granularityLabel } from "./report-format";
 import { BRAND_SERIES } from "@/lib/constants/chart-palette";
 import {
   ChartLegendList,
+  areaFill,
+  barFill,
+  useFillId,
+} from "@/components/dashboard/reusable/chart-fills";
+import {
   PAYMENT_METHOD_FILL,
   PAYMENT_METHOD_ORDER,
   UNKNOWN_FILL,
-  areaFill,
-  barFill,
   sortByOrder,
-  useFillId,
 } from "./report-palette";
 
 const revenueTrendConfig = {

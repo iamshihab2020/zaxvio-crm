@@ -83,6 +83,13 @@ interface AgendaHoverCardProps {
   openDelay?: number;
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
+  /**
+   * The kind badge's colour, when the caller has its own kind palette. The
+   * dashboard passes its brand shades (`kindColor`) so this card agrees with Up
+   * next and Week Ahead; the Calendar passes nothing and keeps the teal and
+   * violet series tokens in `KIND_META`.
+   */
+  badgeColor?: string;
 }
 
 export function AgendaHoverCard({
@@ -91,6 +98,7 @@ export function AgendaHoverCard({
   openDelay = 200,
   side = "right",
   align = "start",
+  badgeColor,
 }: AgendaHoverCardProps) {
   const meta = KIND_META[details.kind];
   const Icon = meta.icon;
@@ -118,8 +126,16 @@ export function AgendaHoverCard({
             <span
               className={cn(
                 "inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold font-body uppercase tracking-wide",
-                meta.style,
+                badgeColor ? "text-foreground" : meta.style,
               )}
+              style={
+                badgeColor
+                  ? {
+                      backgroundColor: tint(badgeColor, 10),
+                      borderColor: tint(badgeColor, 25),
+                    }
+                  : undefined
+              }
             >
               {meta.label}
             </span>

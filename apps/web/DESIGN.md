@@ -391,9 +391,11 @@ in both themes (the brand fill, the Midnight slab) there is one key.
 ### Semantic and data
 - **Stop Red** (`stop-red`): destructive buttons and errors only.
 - **Job blue, Booking Teal and Event Violet** (`--brand`, `series-booking`, `series-event`; each
-  has its own dark step): schedule series. A job is always the brand blue, a booking always teal,
-  an event always violet (indigo until 2026-10-18), here and in the agenda's type badges. Read
-  them through the tokens, never Tailwind's teal-500 or violet-500.
+  has its own dark step): the Calendar's schedule series, and the fallback badge in the shared
+  agenda hover card. A job is the brand blue, a booking teal, an event violet (indigo until
+  2026-10-18). Read them through the tokens, never Tailwind's teal-500 or violet-500. The
+  dashboard stopped using them on 2026-10-19: Up next, its hover card and Week Ahead take
+  `kindColor` from the brand ramp instead (job step 3, booking step 5, event step 1).
 - **Chart Blue, Teal, Rust, Violet, Green** (`chart-blue`, `chart-teal`, `chart-rust`,
   `chart-violet`, `chart-green`; `--chart-1..5`): categorical series 1–5 in that fixed order
   (light: #0466C8 #009C93 #D2622A #8A4FD6 #4A9A3C; dark: #2F7FDB #14A89C #DD6E34 #9670E6
@@ -401,11 +403,12 @@ in both themes (the brand fill, the Midnight slab) there is one key.
   chroma floor, colour-blind separation of neighbours (worst ΔE 14.2 in light), a normal-vision
   floor and 3:1 contrast. Dark mode has its own steps rather than a flip, including a lighter
   `--chart-1` than the UI brand. Violet took slot 4 from the old blue, which would now sit beside
-  the brand as a second blue. Used by the dashboard; `/reports` uses the brand ramp below.
+  the brand as a second blue. Now only the super-admin analytics charts use slots 2–5; the
+  dashboard and `/reports` use the brand ramp below.
 - **Brand Ramp 1–5 and Chart Stone** (`chart-ramp-1`…`chart-ramp-5`, `chart-stone`;
   `--chart-ramp-1..5`, `--chart-neutral`): Deep Sea Blue from quiet to strong, and a warm stone.
-  Every chart on `/reports` draws from these since 2026-10-19, when the user asked for the
-  brand's shades in place of green, amber, teal and orange (light: #80B8F4 #4791E6 #0466C8
+  Every chart on `/reports` and `/dashboard` draws from these since 2026-10-19, when the user
+  asked for the brand's shades in place of green, amber, teal and orange (light: #80B8F4 #4791E6 #0466C8
   #014C9D #033372, stone #8D8477; dark: #174E96 #1D66B9 #2F7FDA #5DA3EE #96C8FD, stone
   #7B7265). Step 3 is the brand, the same blue as `--chart-1`. In dark mode quiet is dim and
   strong is bright, so the strong end is always the one that stands out from the card.
@@ -414,7 +417,11 @@ in both themes (the brand fill, the Midnight slab) there is one key.
   the blues, and the stone is ΔE 16 or more from every step it touches. A state takes a step by
   what it means (`STATE_COLORS`): draft and scheduled are step 1, sent and in progress step 3,
   partially paid step 4, completed, accepted and paid step 5; cancelled, declined, expired, void
-  and inactive are stone; overdue alone is red.
+  and inactive are stone; overdue alone is red. Other sets, each validated in its drawing order in
+  both themes: the schedule's kinds (`kindColor`: job 3, booking 5, event 1); a pipeline's stages
+  in board order (`pipelineStageColors`: 1-3-5 for three forward stages, both ends always used,
+  `cancelled` stone); priority (standard 1, urgent 3, emergency 5); service types by rank
+  (3, 1, 5, 2, 4, then stone for Other).
 - **Status** (`status-good`, `status-warning`, `status-critical`): reserved meaning (accepted
   vs declined quotes, current invoices, up vs down). Green is good, amber is warning, red is
   critical. Never a series colour, and never shown without a label or icon. Warning is a fill,
@@ -422,34 +429,41 @@ in both themes (the brand fill, the Midnight slab) there is one key.
   which clear 5:1 even on their own 10% tint.
 - **Overdue 1–4** (`overdue-1`…`overdue-4`): invoice aging, one red that darkens with age, so
   the order reads from the colour. In dark mode the anchor flips and the oldest is brightest.
-  Unchanged by the rebrand.
+  Unchanged by the rebrand. `AGING_COLORS` puts the brand in front of them for Current (status
+  green until 2026-10-19), for both the dashboard widget and the `/reports` chart. The four reds
+  pass as an ordinal ramp (time buckets, which is what the validator's ordinal mode is for), not
+  as categorical neighbours (ΔE 7 apart), so every bucket is also a labelled row.
 - **Admin Red** (`admin-red`, `admin-sidebar`): the super-admin area only, so staff always know
   they are outside a tenant's workspace.
 
 ### Named Rules
 **The Validated Data Colour Rule.** Data colours come from `lib/constants/chart-palette.ts`, which
-reads only tokens: categorical slots in fixed order (brand blue, teal, rust, violet, green) and
-never cycled (past the fifth, a bucket folds into a neutral "Other"), status for good or bad,
-overdue for age. A single series is one hue, not a colour per bar. No hex in a chart: a colour
+reads only tokens: the brand ramp and stone (dashboard, reports), categorical slots in fixed
+order (brand blue, teal, rust, violet, green; super-admin only) and never cycled (past the fifth,
+a bucket folds into a neutral "Other"), status for good or bad, overdue for age. A single series is one hue, not a colour per bar. No hex in a chart: a colour
 that is not a token is a colour nobody validated.
 
-**The Brand Shades Rule.** On `/reports`, a chart with one series is the brand, and a chart of
-parts is shades of the brand, darker (brighter in dark) the further along the work is. Grey-brown
-stone is for what dropped out, and red is only for money that is late (the overdue trend, the
-overdue slice, invoice aging; aging keeps the dashboard's green for Current, so the same buckets
-read the same on both pages). Neighbouring ramp steps are about ΔE 10 apart, which reads as
-more and less but not as two different things, so a ring is drawn in an order where touching
-slices are at least two steps apart, and every ring has a legend under it that names each part
-with its figure. The shade is never the only way to tell two parts apart.
+**The Brand Shades Rule.** On `/reports` and `/dashboard`, a chart with one series is the brand,
+and a chart of parts is shades of the brand, darker (brighter in dark) the further along the
+work is. Grey-brown stone is for what dropped out, and red is only for money that is late (the
+overdue trend, the overdue slice, invoice aging past Current). Neighbouring ramp steps are about
+ΔE 10 apart, which reads as more and less but not as two different things, so a ring or a stack
+is drawn in an order where touching parts are at least two steps apart (a legend or list may keep
+the natural order), and every ring names each part with its figure in text beside it. The shade
+is never the only way to tell two parts apart. Status green, amber and red stay where they say
+good or bad about a number: KPI deltas, the "New" badge, the live-data dot, the overdue banner.
 
 **The Quiet Gradient Rule.** Gradients in charts show which way a mark grows, nothing else. A
 one-series bar runs from 65% at its baseline to full colour at its value end; an area fades from
-30% under its line to nearly nothing at the axis. Rings, multi-shade bars and anything that is
-not a chart mark stay flat. No glow, no second hue in a gradient.
+30% under its line to nearly nothing at the axis. A bar drawn as a `div` (Top Customers'
+meters, aging rows) takes the same shade through `barBackground`. Rings, stacks and multi-shade
+bars stay flat. No glow, no second hue in a gradient. The helpers (`useFillId`, `barFill`,
+`areaFill`, `ChartLegendList`) live in `components/dashboard/reusable/chart-fills.tsx` for both
+pages.
 
 **The One Mark Rule.** Deep Sea Blue is the only accent. It marks the next action, the current
 place, or now. If a screen has blue in more than a handful of places, one of them is lying.
-Teal, violet and the other chart hues are data identity, not UI chrome.
+The chart shades of blue, and the Calendar's teal and violet, are data identity, not UI chrome.
 
 **The Rising Sheet Rule.** Surfaces must rise in this order in both themes: background ≤ surface
 < section < card. In dark mode that is 7%, 8%, 9% and 11% lightness, and borders stay lighter than
@@ -545,8 +559,8 @@ Every other widget flows in one grid under the band, two across from `md` and th
 the last widget stretches over whatever its row has left, so hiding widgets in Customize never
 leaves a hole, and row-mates stretch to the taller card. Two zones of unequal stacks were tried
 first and left the right third empty for most of the page. Up next is a day sheet:
-today first, an hour column in tabular Inter, and each row marked by its kind (job blue, booking
-teal, event violet).
+today first, an hour column in tabular Inter, and each row marked by its kind in a shade of the
+brand (job the brand, booking the strong end, event the quiet end), the same shades as Week Ahead.
 
 **List pages** (customers, invoices, quotes, bookings, assets, catalog, checklists, agreements)
 share one structure: page header (Headline title, Slate subtitle, action on the right) → a row
@@ -756,8 +770,8 @@ a matching `loading.tsx`. No spinners.
   face, with Roboto, Arial and system defaults only as the fallback stack.
 - **Don't** build dark surfaces out of the palette's navies. Dark mode is near-neutral charcoal;
   navy belongs to the Midnight slab.
-- **Don't** add a second accent colour. Teal, violet and the chart hues are data identity, not UI
-  chrome.
+- **Don't** add a second accent colour. The chart shades, and the Calendar's teal and violet, are
+  data identity, not UI chrome.
 - **Don't** put the blue grab glow on anything that can't be picked up.
 - **Don't** stack two toolbars on a list page (The One Row Rule).
 - **Don't** put dark text on the blue fill (navy on it is 3.3:1), or use `text-brand` for anything

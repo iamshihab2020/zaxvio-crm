@@ -6,7 +6,8 @@ import { Card } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
-import { tokenColor } from "@/lib/constants/chart-palette";
+import { BRAND_SERIES, tokenColor } from "@/lib/constants/chart-palette";
+import { barFill, useFillId } from "@/components/dashboard/reusable/chart-fills";
 import { cn } from "@/lib/utils";
 import { ChartTooltipBox } from "./chart-tooltip";
 import { chartAnimation } from "./chart-motion";
@@ -16,10 +17,12 @@ interface RetentionChartProps {
   data: DashboardRetentionPoint[];
 }
 
-// One series, one flat hue. The bars used to fade to 45% opacity at the base, a
-// gradient that encoded nothing and left the baseline, where a bar's height is
-// read from, the faintest part of it.
-const BAR_COLOR = tokenColor("chart-1");
+// One series, one hue: the brand. The bars used to fade to 45% opacity at the
+// base, which left the baseline, where a bar's height is read from, the
+// faintest part of it. They shade again since 2026-10-19 (the user asked for
+// brand gradients, and /reports has the same), but from 65%, so the base still
+// reads as the bar.
+const BAR_COLOR = BRAND_SERIES;
 
 function RetentionTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: DashboardRetentionPoint }> }) {
   if (!active || !payload?.length) return null;
@@ -48,6 +51,7 @@ export function RetentionChart({ data }: RetentionChartProps) {
       ? latest.repeatRate - prev.repeatRate
       : 0;
   const anim = chartAnimation();
+  const fillId = useFillId();
 
   return (
     <Card data-widget="retention" className="flex h-full flex-col p-4 sm:p-6">
@@ -87,6 +91,7 @@ export function RetentionChart({ data }: RetentionChartProps) {
       <div className="mt-4 min-h-[180px] w-full flex-1 font-mono" aria-hidden>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
+            {barFill(fillId, BAR_COLOR, "up")}
             <CartesianGrid
               strokeDasharray="3 3"
               vertical={false}
@@ -110,7 +115,7 @@ export function RetentionChart({ data }: RetentionChartProps) {
             <Tooltip cursor={{ fill: tokenColor("chart-1", 0.08) }} content={<RetentionTooltip />} />
             <Bar
               dataKey="repeatRate"
-              fill={BAR_COLOR}
+              fill={`url(#${fillId})`}
               radius={[4, 4, 0, 0]}
               maxBarSize={40}
               {...anim}

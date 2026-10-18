@@ -8,7 +8,8 @@ import { Card } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/reusable/animated-number";
 import { formatCurrency } from "@/lib/format";
 import { ChartDataTable } from "@/components/reusable/chart-data-table";
-import { OTHER_COLOR, tokenColor } from "@/lib/constants/chart-palette";
+import { BRAND_SERIES, NEUTRAL_COLOR } from "@/lib/constants/chart-palette";
+import { barFill, useFillId } from "@/components/dashboard/reusable/chart-fills";
 import { ChartTooltipBox } from "./chart-tooltip";
 import { chartAnimation } from "./chart-motion";
 import { WidgetHeader } from "./widget-header";
@@ -20,8 +21,11 @@ interface RevenueByServiceChartProps {
 // One series, so one hue. The bars used to take a different colour each, in
 // rank order, which spent the colour channel re-encoding what bar length and
 // the axis labels already say, and repainted a service whenever its rank
-// changed. The folded "Other" bar is neutral so it never reads as a service.
-const BAR_COLOR = tokenColor("chart-1");
+// changed. The folded "Other" bar is the stone so it never reads as a service.
+// Both shade toward the base like every one-series bar on /dashboard and
+// /reports; the plain colour stays on each row for the tooltip's dot.
+const BAR_COLOR = BRAND_SERIES;
+const OTHER_BAR_COLOR = NEUTRAL_COLOR;
 
 const MAX_VISIBLE = 6;
 
@@ -66,7 +70,7 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
     }
     const withColor = visible.map((r) => ({
       ...r,
-      color: r.serviceType === "other" ? OTHER_COLOR : BAR_COLOR,
+      color: r.serviceType === "other" ? OTHER_BAR_COLOR : BAR_COLOR,
     }));
     return {
       rows: withColor,
@@ -76,6 +80,8 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
 
   const hasData = total > 0;
   const anim = chartAnimation();
+  const barFillId = useFillId();
+  const otherFillId = useFillId();
 
   return (
     <Card data-widget="revenueByService" className="flex h-full flex-col p-4 sm:p-6">
@@ -119,6 +125,8 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
               layout="vertical"
               margin={{ top: 4, right: 16, bottom: 0, left: 0 }}
             >
+              {barFill(barFillId, BAR_COLOR, "right")}
+              {barFill(otherFillId, OTHER_BAR_COLOR, "right")}
               <XAxis type="number" hide />
               <YAxis
                 type="category"
@@ -134,7 +142,10 @@ export function RevenueByServiceChart({ data }: RevenueByServiceChartProps) {
               />
               <Bar dataKey="amount" radius={[0, 4, 4, 0]} maxBarSize={24} {...anim}>
                 {rows.map((r, i) => (
-                  <Cell key={i} fill={r.color} />
+                  <Cell
+                    key={i}
+                    fill={`url(#${r.serviceType === "other" ? otherFillId : barFillId})`}
+                  />
                 ))}
               </Bar>
             </BarChart>

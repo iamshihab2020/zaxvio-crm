@@ -20,6 +20,7 @@ import { WidgetHeader, WidgetLink } from "./widget-header";
 import { WidgetWindowBadge } from "./widget-window-badge";
 import { enterDelay } from "./chart-motion";
 import { staggerDelay } from "@/lib/motion";
+import { kindColor } from "@/lib/constants/chart-palette";
 import { cn } from "@/lib/utils";
 
 /**
@@ -39,11 +40,17 @@ interface WeekAheadProps {
   agenda: DashboardAgenda;
 }
 
-/** Fixed series order. A colour means a kind, never a rank. */
+/**
+ * Fixed series order. A colour means a kind, never a rank, and it is the same
+ * kind colour Up next uses beside this card (`kindColor`): shades of the brand
+ * since 2026-10-19, when bookings were teal and events violet. Jobs take the
+ * middle step and the other two kinds the ends, so any two kinds that touch in
+ * a stack are two or more steps apart (validated for every pair).
+ */
 const SERIES = [
-  { key: "jobs", label: "Jobs", color: "hsl(var(--brand))" },
-  { key: "bookings", label: "Bookings", color: "hsl(var(--series-booking))" },
-  { key: "events", label: "Events", color: "hsl(var(--series-event))" },
+  { key: "jobs", label: "Jobs", color: kindColor("job") },
+  { key: "bookings", label: "Bookings", color: kindColor("booking") },
+  { key: "events", label: "Events", color: kindColor("event") },
 ] as const;
 
 type SeriesKey = (typeof SERIES)[number]["key"];

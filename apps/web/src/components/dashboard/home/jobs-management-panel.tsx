@@ -20,15 +20,13 @@ import {
 } from "@/components/ui/select";
 import { usePipelines } from "@/hooks/queries/use-pipelines";
 import { useDashboardPipeline } from "@/hooks/queries";
-import { STAGE_COLOR_PRESETS } from "@/lib/constants/stage-color-presets";
+import type { JobPriority } from "@/lib/constants/job-options";
 import {
-  JOB_PRIORITY_CHART_COLORS,
-  type JobPriority,
-} from "@/lib/constants/job-options";
-import {
-  MAX_CATEGORIES,
-  OTHER_COLOR,
-  categoricalColor,
+  NEUTRAL_COLOR,
+  pipelineRingOrder,
+  pipelineStageColors,
+  rampColor,
+  type RampStep,
 } from "@/lib/constants/chart-palette";
 import { useStagger } from "@/hooks/use-stagger";
 import { cn } from "@/lib/utils";
@@ -55,11 +53,32 @@ const SEGMENT_OPTIONS: { value: Segment; label: string }[] = [
 /** The folded tail of the service segment. Not a service type, so it links unfiltered. */
 const OTHER_BUCKET = "__other";
 
+/**
+ * Priority is a scale, so it climbs the brand ramp: standard is the quiet end,
+ * emergency the strong one. It was blue, amber and red, which put a second and
+ * third accent on a card about volume. The word in the list beside the ring is
+ * what says "emergency"; the board's red pill still does on the job itself.
+ */
+const PRIORITY_COLORS: Record<JobPriority, string> = {
+  standard: rampColor(1),
+  urgent: rampColor(3),
+  emergency: rampColor(5),
+};
+
+/**
+ * Service types have no order, so they take ramp steps by rank, ordered so that
+ * neighbouring slices (neighbouring ranks) are always two or more steps apart.
+ * Validated in that order with the stone "Other" closing the ring.
+ */
+const SERVICE_STEPS: readonly RampStep[] = [3, 1, 5, 2, 4];
+
 interface Bucket {
   key: string;
   label: string;
   count: number;
   color: string;
+  /** Where the ring draws this bucket, when that differs from the list's order. */
+  ring?: number;
 }
 
 export function JobsManagementPanel({
@@ -81,15 +100,19 @@ export function JobsManagementPanel({
 
   const buckets: Bucket[] = useMemo(() => {
     if (segment === "status") {
-      // Use DB-stored stage colors so the widget matches the user's pipeline config.
-      // Only trust values that look like CSS colors (#hex, hsl(...), rgb(...),
-      // or a recognizable named color) — empty strings, null, or random values
-      // would render as transparent and break the legend.
+      // The stages climb the brand ramp in board order, the way the work does
+      // (`pipelineStageColors`). The stored stage colour is a preset name for
+      // the board's columns, and several presets are green, red or amber.
+      // The list keeps board order; the ring may not (`pipelineRingOrder`).
+      const names = pipeline.map((p) => p.stageName);
+      const colors = pipelineStageColors(names);
+      const ringOrder = pipelineRingOrder(names);
       return pipeline.map((p, i) => ({
         key: p.stageName,
         label: p.stageLabel,
         count: p.count,
-        color: resolveStageColor(p.stageColor, i),
+        color: colors[i] ?? NEUTRAL_COLOR,
+        ring: ringOrder.indexOf(i),
       }));
     }
     if (segment === "priority") {
@@ -98,41 +121,41 @@ export function JobsManagementPanel({
         label: p.label,
         count: p.count,
         color:
-          p.key in JOB_PRIORITY_CHART_COLORS
-            ? JOB_PRIORITY_CHART_COLORS[p.key as JobPriority]
-            : "hsl(var(--brand))",
+          p.key in PRIORITY_COLORS
+            ? PRIORITY_COLORS[p.key as JobPriority]
+            : NEUTRAL_COLOR,
       }));
     }
-    // Service types have no stored colour, so they take the categorical slots
-    // in count order. That way every pair of touching slices is a pair of
-    // neighbouring slots, which is exactly the pairing the palette was
-    // validated for. Keying the colour to the type would hold steadier across
-    // date ranges, but seven types against five validated slots would put
-    // unchecked pairs side by side. The old palette cycled instead (`i % 8`),
-    // so a ninth type quietly shared the first type's colour. The tail now
-    // folds into one neutral "Other", and so does the literal "other" type.
+    // Service types have no stored colour, so they take ramp steps in count
+    // order (`SERVICE_STEPS`), and every pair of touching slices is the pairing
+    // that was validated. Keying the colour to the type would hold steadier
+    // across date ranges, but seven types against five steps would put
+    // unchecked pairs side by side. The tail folds into one stone "Other", and
+    // so does the literal "other" type.
     const ranked = [...serviceBreakdown]
       .filter((s) => s.key !== "other")
       .sort((a, b) => b.count - a.count);
-    const named: Bucket[] = ranked.slice(0, MAX_CATEGORIES).map((s, i) => ({
-      key: s.key,
-      label: s.label,
-      count: s.count,
-      color: categoricalColor(i),
-    }));
+    const named: Bucket[] = ranked
+      .slice(0, SERVICE_STEPS.length)
+      .map((s, i) => ({
+        key: s.key,
+        label: s.label,
+        count: s.count,
+        color: rampColor(SERVICE_STEPS[i] ?? 3),
+      }));
     const tail = [
-      ...ranked.slice(MAX_CATEGORIES),
+      ...ranked.slice(SERVICE_STEPS.length),
       ...serviceBreakdown.filter((s) => s.key === "other"),
     ];
     if (tail.length === 0) return named;
-    if (tail.length === 1) return [...named, { ...tail[0]!, color: OTHER_COLOR }];
+    if (tail.length === 1) return [...named, { ...tail[0]!, color: NEUTRAL_COLOR }];
     return [
       ...named,
       {
         key: OTHER_BUCKET,
         label: `Other (${tail.length})`,
         count: tail.reduce((sum, s) => sum + s.count, 0),
-        color: OTHER_COLOR,
+        color: NEUTRAL_COLOR,
       },
     ];
   }, [segment, pipeline, priorityBreakdown, serviceBreakdown]);
@@ -287,24 +310,6 @@ function bucketHref(
 }
 
 /**
- * Resolve the CSS color for a stage. The pipeline_stages.color column stores a
- * preset KEY (see `STAGE_COLOR_PRESETS`), e.g. "brand" or "purple". This function
- * looks up the matching `hex` from that single source of truth, with fallbacks
- * for legacy rows that stored raw CSS colors or for stages with missing values.
- */
-function resolveStageColor(raw: string | null | undefined, index: number): string {
-  const trimmed = raw?.trim();
-  if (!trimmed) return categoricalColor(index);
-  const preset = STAGE_COLOR_PRESETS[trimmed];
-  if (preset) return preset.hex;
-  // Legacy: some older stages may have stored a literal CSS color.
-  if (/^(#[0-9a-f]{3,8}|hsl\(|rgb\(|hsla\(|rgba\()/i.test(trimmed)) {
-    return trimmed;
-  }
-  return categoricalColor(index);
-}
-
-/**
  * Composition ring for the active segment.
  *
  * Replaces the stacked `SegmentBar`, which showed the same split as a 12px
@@ -322,7 +327,14 @@ function BucketDonut({ buckets, total }: { buckets: Bucket[]; total: number }) {
   // array on every render would replay the ring each time the dashboard
   // re-rendered for any reason (a refetch toggling `isFetching`, a widget
   // switched on). `buckets` itself only changes with the view.
-  const data = useMemo(() => buckets.filter((b) => b.count > 0), [buckets]);
+  const data = useMemo(
+    () =>
+      buckets
+        .map((b, i) => ({ ...b, ring: b.ring ?? i }))
+        .filter((b) => b.count > 0)
+        .sort((a, b) => a.ring - b.ring),
+    [buckets],
+  );
   const anim = chartAnimation();
 
   return (

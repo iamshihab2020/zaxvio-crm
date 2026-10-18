@@ -35,7 +35,11 @@ import {
   STATE_COLORS,
   rampColor,
 } from "@/lib/constants/chart-palette";
-import { ChartLegendList, areaFill, useFillId } from "./report-palette";
+import {
+  ChartLegendList,
+  areaFill,
+  useFillId,
+} from "@/components/dashboard/reusable/chart-fills";
 
 const newCustomersConfig = {
   count: { label: "New Customers", color: BRAND_SERIES },

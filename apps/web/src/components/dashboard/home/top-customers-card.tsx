@@ -6,7 +6,7 @@ import { IconUsersGroup } from "@tabler/icons-react";
 import type { DashboardTopCustomer } from "@hvac-saas/types";
 import { Card } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
-import { tokenColor } from "@/lib/constants/chart-palette";
+import { BRAND_SERIES, barBackground } from "@/lib/constants/chart-palette";
 import { useStagger } from "@/hooks/use-stagger";
 import { enterDelay } from "./chart-motion";
 import { WidgetHeader, WidgetLink } from "./widget-header";
@@ -16,8 +16,9 @@ interface TopCustomersCardProps {
 }
 
 // The meter is a one-series bar chart, so it takes the series colour, not the
-// UI brand (which runs brighter than `--chart-1` in dark mode).
-const METER_COLOR = tokenColor("chart-1");
+// UI brand (which is dimmer than `--chart-1` on a dark card), shaded toward its
+// base like every other one-series bar.
+const METER_FILL = barBackground(BRAND_SERIES);
 
 function initials(name: string): string {
   return name
@@ -100,7 +101,7 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
                           style={{
                             ...enterDelay(METER_DELAY_BASE + i * METER_STEP),
                             transform: `scaleX(${rel})`,
-                            backgroundColor: METER_COLOR,
+                            backgroundImage: METER_FILL,
                           }}
                         />
                       </div>

@@ -27,7 +27,7 @@ import { ReportChartCard } from "./report-chart-card";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
 import { BRAND_SERIES } from "@/lib/constants/chart-palette";
-import { barFill, useFillId } from "./report-palette";
+import { barFill, useFillId } from "@/components/dashboard/reusable/chart-fills";
 
 // One series each, so the brand each time. Service type and day of week were
 // teal and rust, which read as meanings that were not there.

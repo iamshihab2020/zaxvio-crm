@@ -1102,3 +1102,9 @@ From [[bookings-calendar|the report]] — the front-end half.
   prop (`BAR_TOOLTIP` in the report tabs). Gradient ids come from `useId()` with the colons
   stripped, and the `<defs>` is returned by a plain function (`barFill`), because Recharts 2 drops
   chart children that are not SVG elements it recognises.
+- **The Up next hover card is shared with the Calendar, so its kind colours cannot follow a
+  dashboard-only palette by changing tokens.** `AgendaHoverCard` (`components/dashboard/shared/`)
+  styles its kind badge from `--series-booking`/`--series-event`, and `schedule-event.tsx` renders
+  it too. Recolouring the tokens would have repainted the Calendar; instead the card takes an
+  optional `badgeColor`, which the dashboard passes (its `kindColor`) and the Calendar does not.
+  Check `grep -rl AgendaHoverCard` before touching anything a hover card reads.
