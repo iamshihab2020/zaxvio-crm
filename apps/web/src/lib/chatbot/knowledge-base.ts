@@ -66,7 +66,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["getting started", "start", "begin", "new", "setup", "first", "onboard"],
     question: "How do I get started?",
     answer:
-      "Welcome! Here's the recommended setup order:\n\n1. **Settings > Business** — Add your business name, phone, address, and logo\n2. **Settings > Business** — Set your default tax rate\n3. **Catalog** — Add your common parts, labor items, and services with prices\n4. **Checklists** — Create checklist templates for your service types\n5. **Customers** — Add your existing customers\n6. **Settings > Scheduling** — Set your weekly availability hours\n7. **Jobs** — Create your first job and try the Kanban board\n\nYou're ready to start managing your service business!",
+      "Welcome! Here's the recommended setup order:\n\n1. **Settings > Business** — Add your business name, phone, address, and logo\n2. **Settings > Business** — Set your default tax rate\n3. **Catalog** — Add your common parts, labor items, and services with prices\n4. **Checklists** — Create checklist templates for your service types\n5. **Customers** — Add your existing customers\n6. **Settings > Scheduling** — Set your weekly availability hours\n7. **Pipeline** — Create your first job and try the Kanban board\n\nYou're ready to start managing your service business!",
   },
   {
     id: "general-automations",
@@ -368,7 +368,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["quick action", "shortcut", "new job", "create", "add button", "where"],
     question: "Where do I create a new job, customer or invoice?",
     answer:
-      "Each page has its own create button, next to the search box on that page's list:\n\n• **New Job** — Jobs page toolbar\n• **Add Customer** — Customers page, beside the search box\n• **New Invoice** — Invoices page, beside the search box\n• **New Quote** — Quotes page, beside the search box\n• **Add Agreement**, **Add Item**, **New Template** — same place on their own pages\n\nThe top bar keeps only the date range picker, on Dashboard and Reports, because that setting governs the whole page. Buttons that create something sit next to the thing they create.",
+      "Each page has its own create button, next to the search box on that page's list:\n\n• **New Job** — Pipeline page toolbar\n• **Add Customer** — Customers page, beside the search box\n• **New Invoice** — Invoices page, beside the search box\n• **New Quote** — Quotes page, beside the search box\n• **Add Agreement**, **Add Item**, **New Template** — same place on their own pages\n\nThe top bar keeps only the date range picker, on Dashboard and Reports, because that setting governs the whole page. Buttons that create something sit next to the thing they create.",
   },
 
   // ═══════════════════════════════════════
@@ -593,15 +593,15 @@ const entries: KnowledgeEntry[] = [
     keywords: ["create", "new", "add", "job", "work order", "service call", "make"],
     question: "How do I create a new job?",
     answer:
-      'Go to **Jobs** in the sidebar. Click the **"+ New Job"** button in the toolbar. Fill in:\n\n• **Customer** (required) — Search and select\n• **Service Type** (required) — e.g., repair, maintenance, installation\n• **Title** (required) — Brief description\n• **Scheduled Date** (required)\n• **Priority** — Standard, Urgent, or Emergency\n• **Start/End Time**, **Address**, **Notes** (optional)\n\nThe job appears on your Kanban board in the first pipeline stage.',
+      'Go to **Pipeline** in the sidebar. Click the **"+ New Job"** button in the toolbar (the **+** button on a phone). Fill in:\n\n• **Customer** (required) — Search and select\n• **Service Type** (required) — e.g., repair, maintenance, installation\n• **Title** (required) — Brief description\n• **Scheduled Date** (required)\n• **Priority** — Standard, Urgent, or Emergency\n• **Start/End Time**, **Address**, **Notes** (optional)\n\nThe job appears on your Kanban board in the first pipeline stage.',
   },
   {
     id: "jobs-kanban",
     category: "jobs",
-    keywords: ["kanban", "board", "drag", "columns", "pipeline", "board view"],
+    keywords: ["kanban", "board", "drag", "columns", "pipeline", "board view", "pipeline page", "jobs page", "where are jobs"],
     question: "How does the Kanban board work?",
     answer:
-      "The **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of **active** jobs in that stage — archived jobs are excluded.\n\n**Filter** by priority, service type or **assignee** with the funnel icon. If a pipeline holds more jobs than the board loads at once, a banner tells you how many are hidden — use a filter or the table view to reach the rest.\n\n**On a phone** the Jobs page opens on the **list view** the first time (the board is one tap away, and your choice is remembered). On the board, **swipe** to scroll between columns and **press and hold** a card to pick it up and drag it.",
+      "Your jobs live on the **Pipeline** page (it used to be called Jobs). Its **Kanban board** shows jobs as cards in columns (one per pipeline stage). You can:\n\n• **Switch pipelines** using the dropdown at the top (if you have multiple)\n• **Drag cards** between columns to change their status\n• **Click a card** to open the job detail sheet\n• Toggle between **compact** and **default** card sizes\n• Switch to **Table view** using the toggle in the toolbar\n\nEach column shows the count of **active** jobs in that stage — archived jobs are excluded.\n\n**Filter** by priority, service type or **assignee** with the funnel icon. If a pipeline holds more jobs than the board loads at once, a banner tells you how many are hidden — use a filter or the table view to reach the rest.\n\n**On a phone** the Pipeline page opens on the **list view** the first time (the board is one tap away, and your choice is remembered). The board shows one column at a time: **swipe** to move between columns, or tap a stage in the **row of stages** above the board to jump to it. That row also shows how many jobs each stage holds. To move a job, **press and hold** its card, then drop it on a column or on any stage in that row, even one that's off screen. On a phone a tap on a card always opens the job; change its priority, date or assignee in the job itself.",
   },
   {
     id: "jobs-table",
@@ -609,7 +609,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["table", "list", "view", "sort", "job table"],
     question: "How do I view jobs in a table?",
     answer:
-      'On the **Jobs** page, click the **Table** view toggle (next to Board). The table shows Job #, Customer, Title, Scheduled Date, Status, Priority, and Amount. Click any column header to sort. Click a row to open the job detail.',
+      'On the **Pipeline** page, click the **Table** view toggle (next to Board). The table shows Job #, Customer, Title, Scheduled Date, Status, Priority, and Amount. Click any column header to sort. Click a row to open the job detail.',
   },
   {
     id: "jobs-status",
@@ -617,7 +617,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["status", "move", "stage", "pipeline", "progress", "workflow"],
     question: "How do job statuses work?",
     answer:
-      'Jobs move through **custom pipeline stages** on the Kanban board. Drag a card between columns, or open the job detail and use the **status dropdown**. You can also click the **"Move to [next stage]"** button in the detail page.\n\nMoves follow the stage\'s **type**: a *Scheduled* job can go to *In Progress* or *Cancelled*; an *In Progress* job can be *Completed* or *Cancelled*; *Completed* is final; a *Cancelled* job can be re-scheduled. Moving between two columns of the same type is always allowed. If a move is refused the board says why and puts the card back.\n\nCompleting a job — from the board, the detail page, or a bulk action — requires every **required** checklist item to be ticked, and sends the customer a completion email.\n\nCustomize your stages via **Manage Pipeline** (gear icon on Jobs page).',
+      'Jobs move through **custom pipeline stages** on the Kanban board. Drag a card between columns, or open the job detail and use the **status dropdown**. You can also click the **"Move to [next stage]"** button in the detail page.\n\nMoves follow the stage\'s **type**: a *Scheduled* job can go to *In Progress* or *Cancelled*; an *In Progress* job can be *Completed* or *Cancelled*; *Completed* is final; a *Cancelled* job can be re-scheduled. Moving between two columns of the same type is always allowed. If a move is refused the board says why and puts the card back.\n\nCompleting a job — from the board, the detail page, or a bulk action — requires every **required** checklist item to be ticked, and sends the customer a completion email.\n\nCustomize your stages with **Manage Stages**, at the bottom of the pipeline dropdown on the Pipeline page.',
   },
   {
     id: "jobs-pipeline-custom",
@@ -625,7 +625,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["pipeline", "customize", "manage", "stages", "columns", "reorder", "color"],
     question: "How do I customize pipeline stages?",
     answer:
-      'On the **Jobs** page, click the **gear icon** or **"Manage Pipeline"** button. In the dialog:\n\n• **Add stages** with a label, color, and **stage type**\n• **Drag to reorder** stages (uses drag-and-drop)\n• **Edit** stage label, color and type inline\n• **Delete** stages (only if no jobs are in that stage — archived jobs count too)\n\n**Stage type** tells the app what a job sitting in that column actually is: *Scheduled*, *In Progress*, *Completed* or *Cancelled*. Name a column anything you like — "Awaiting Parts", "Ready to Invoice" — and set its type so everything else behaves correctly. A column typed *Completed* will demand the required checklist items and email the customer; one typed *In Progress* will not. New stages default to *Scheduled*.\n\n8 color presets available: blue, brand, green, red, purple, amber, gray, teal.',
+      'On the **Pipeline** page, open the **pipeline dropdown** at the left of the toolbar and choose **Manage Stages**. In the dialog:\n\n• **Add stages** with a label, color, and **stage type**\n• **Drag to reorder** stages (uses drag-and-drop)\n• **Edit** stage label, color and type inline\n• **Delete** stages (only if no jobs are in that stage — archived jobs count too)\n\n**Stage type** tells the app what a job sitting in that column actually is: *Scheduled*, *In Progress*, *Completed* or *Cancelled*. Name a column anything you like — "Awaiting Parts", "Ready to Invoice" — and set its type so everything else behaves correctly. A column typed *Completed* will demand the required checklist items and email the customer; one typed *In Progress* will not. New stages default to *Scheduled*.\n\n8 color presets available: blue, brand, green, red, purple, amber, gray, teal.',
   },
   {
     id: "jobs-multi-pipeline",
@@ -633,7 +633,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["multiple pipelines", "multi pipeline", "create pipeline", "pipeline settings", "different workflows"],
     question: "Can I have multiple pipelines?",
     answer:
-      'Yes! Go to **Settings > Pipelines** to create multiple pipelines (e.g., "Residential", "Commercial", "Maintenance"). Each pipeline has its own set of stages. On the **Jobs** page, use the **pipeline dropdown** to switch between pipelines. New jobs are assigned to the currently selected pipeline. One pipeline is always marked as **default**.',
+      'Yes! Go to **Settings > Pipelines** to create multiple pipelines (e.g., "Residential", "Commercial", "Maintenance"). Each pipeline has its own set of stages. On the **Pipeline** page, use the **pipeline dropdown** to switch between pipelines. New jobs are assigned to the currently selected pipeline. One pipeline is always marked as **default**.',
   },
   {
     id: "jobs-line-items",
@@ -681,15 +681,15 @@ const entries: KnowledgeEntry[] = [
     keywords: ["filter", "priority", "service type", "search jobs"],
     question: "How do I filter jobs?",
     answer:
-      "On the **Jobs** page toolbar:\n\n• **Search** — Type to search by job title or customer name\n• **Priority filter** — Show only standard, urgent, or emergency jobs\n• **Service type filter** — Filter by repair, maintenance, installation, etc.\n\nFilters work on both Board and Table views.",
+      "On the **Pipeline** page toolbar:\n\n• **Search** — Type to search by job title or customer name\n• **Filters** (the funnel icon) — Show only one priority, one service type, or one person's jobs\n\nFilters work on the Board, List and Table views.",
   },
   {
     id: "jobs-stats",
     category: "jobs",
-    keywords: ["job stats", "stats bar", "job count", "pipeline value"],
-    question: "What do the stats at the top of the Jobs page show?",
+    keywords: ["job stats", "stats bar", "job count", "how many jobs", "stage count", "pipeline value"],
+    question: "Where do I see how many jobs are in each stage?",
     answer:
-      "The **stats bar** at the top of the Jobs page shows: Total Jobs, Today's Jobs, Urgent/Emergency count, and total Pipeline Value (sum of all active job amounts).",
+      "On the **Pipeline** page, every column's header shows how many active jobs sit in that stage. On a phone, the **row of stages** above the board shows every stage's count at once, so you don't have to swipe through the columns to see them.\n\nFor totals over a period — jobs completed, completion rate, jobs by status or service type — open **Reports > Jobs**. Today's job count is also on the **Dashboard**.",
   },
   {
     id: "jobs-generate-invoice",
@@ -1233,7 +1233,7 @@ const entries: KnowledgeEntry[] = [
     keywords: ["mobile", "phone", "responsive", "small screen"],
     question: "Can I use the app on my phone?",
     answer:
-      "Yes. On a phone or tablet:\n\n• The **sidebar** becomes a menu: tap the menu button at the top left\n• The **Dashboard** reorders for a small screen, so today's work comes before the money charts\n• **Lists** (customers, invoices, quotes, bookings and the rest) show the most important columns, with the details folded under each name; open a record for everything else\n• Records open **full screen** instead of in a side panel\n• **Jobs** opens on the list view; on the board, swipe between columns and press and hold a card to drag it\n• The **calendar** opens on the day view unless you've picked another, and its task list slides in from the side\n• The **chatbot** goes full-screen\n\nOne thing stays on the computer: **editing automations**. On a phone you can open any automation, look at every step, publish it, run it and switch it on or off, but adding or changing steps needs a larger screen. Line-item tables on quotes, invoices and jobs scroll sideways on a phone.",
+      "Yes. On a phone or tablet:\n\n• The **sidebar** becomes a menu: tap the menu button at the top left\n• The **Dashboard** reorders for a small screen, so today's work comes before the money charts\n• **Lists** (customers, invoices, quotes, bookings and the rest) show the most important columns, with the details folded under each name; open a record for everything else\n• Records open **full screen** instead of in a side panel\n• **Pipeline** opens on the list view; the board shows one column at a time under a row of stages with their counts. Swipe between columns or tap a stage, and press and hold a card to drag it onto a column or a stage\n• The **calendar** opens on the day view unless you've picked another, and its task list slides in from the side\n• The **chatbot** goes full-screen\n\nOne thing stays on the computer: **editing automations**. On a phone you can open any automation, look at every step, publish it, run it and switch it on or off, but adding or changing steps needs a larger screen. Line-item tables on quotes, invoices and jobs scroll sideways on a phone.",
   },
 ];
 

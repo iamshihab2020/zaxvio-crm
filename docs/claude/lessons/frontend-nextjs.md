@@ -71,7 +71,7 @@
 - **EntityDetailShell eliminates sidebar/dialog boilerplate** — The shell in `components/dashboard/reusable/entity-detail-shell/` handles all shared logic (mode toggle, drag-resize, Sheet/Dialog wrapping, skeleton, toolbar). Entity-specific files only provide render callbacks for title, badges, actions, and tab content. Reduced 4 files from ~1,850 total lines to ~500. Always use this shell for new entity detail views instead of copy-pasting the pattern.
 - **Lazy tab rendering for performance** — Only the active tab's content should be mounted. Previous pattern mounted all tabs simultaneously, causing unnecessary fetches and renders. The shell uses `{activeTab === tab.value && tab.content}` to defer rendering.
 - **Reusable settings components** — Use `SettingsSection` (Card with icon + title), `SettingsFormMessage` (success/error with icons), `SettingsPageHeader` (description + action) from `components/dashboard/settings/` instead of hand-rolling Card boilerplate.
-- **Dual-view pages (Kanban + Table)** — Job page supports both Kanban board and table view with a toggle. Stats bar shows KPI summary above the content.
+- **Dual-view pages (Kanban + Table)** — The Pipeline page (route `/jobs`) has Board, List and Table views behind one toggle. Its old stats bar is gone; the chatbot described it until 2026-10-19.
 - **Dark mode: always add `dark:` variants** — Badge colors, success/error messages, and any hardcoded light-mode colors need explicit `dark:` variants. Invoice preview paper stays `bg-white dark:bg-white` (it's a PDF preview, not a UI element).
 - **All status badges must use shadcn `<Badge>`** — Never use raw `<span>` for status/priority indicators. Use `<Badge>` with subtle-fill pattern (no borders). The `outline` variant with visible borders looks AI-generated.
 - **Settings sidebar > horizontal tabs for enterprise** — Grouped sidebar scales to 10+ items, horizontal tabs break at 6+. Groups: Account, Organization, Documents, Scheduling.
@@ -1059,3 +1059,27 @@ From [[bookings-calendar|the report]] — the front-end half.
   its scrollbar. On `/reports` the extra wrapper showed its own scrollbar under the first tabs and
   cut the list off square at the export button. Give the list `flex w-full` inside a `min-w-0`
   parent instead; its bottom rule then runs the full width.
+
+## Pipeline page on a phone (2026-10-19)
+
+- **Inside a Radix `ScrollArea`, size children in viewport units, not percentages, and put scroll
+  snap on the viewport.** The viewport wraps its children in a `display: table` div that sizes to
+  its content, so `w-[calc(100%-2.5rem)]` on a kanban column has nothing fixed to resolve
+  against. The element that scrolls is `[data-radix-scroll-area-viewport]`, which the shadcn
+  wrapper gives no className, so `scroll-snap-type` goes on it from a parent class in globals.css
+  (`.kanban-board-snap > [data-radix-scroll-area-viewport]`).
+- **Turn scroll snap off while a dnd-kit drag is live.** dnd-kit auto-scrolls the board when a card
+  nears the edge, and `scroll-snap-type: x mandatory` pulls each step back to the nearest column,
+  so the two fight. The board drops its snap class while `activeJob` is set.
+- **Extra droppables beside a board need their own collision rule.** With `closestCorners` for
+  everything, the stage rail's cells (above the first column) would win whenever a card was held
+  near the top of the board. `detectCollisions` in `kanban-board.tsx` checks the rail with
+  `pointerWithin` first and leaves the columns to `closestCorners`. A cell's droppable data says
+  `type: "column"`, so the existing drag handlers needed no change.
+- **A shared layout class must not live in the component the skeleton stands in for.** The kanban
+  skeleton is the board's `dynamic()` fallback. Importing the column width from
+  `kanban-column.tsx` would have put dnd-kit in the page's first bundle, so the constant lives in
+  `lib/constants/kanban-layout.ts`.
+- **Renaming a page is not renaming its route.** "Jobs" became "Pipeline" in the sidebar, the
+  navbar title, the browser tab, the job breadcrumb and the chatbot. `/jobs` stays, because job
+  links already sit in sent emails, notifications and bookmarks.

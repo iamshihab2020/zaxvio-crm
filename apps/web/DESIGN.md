@@ -650,8 +650,24 @@ The kanban card: Card, 12px corners, 14px padding, a Rule Line border at 60%, an
 shadow. Priority and stage pills sit at the top in 10px uppercase. Then the title (14px Inter 500,
 two lines max), the customer and schedule in Slate, a 24px round assignee initial on Blue Tint, and
 a footer separated by a half-opacity hairline. On hover it takes the grab glow and a blue-tinted
-border. While dragged it lifts, tilts 2° and gains a blue ring. Cards enter in a 300ms staggered
-rise.
+border, on screens that can hover only: a phone keeps `:hover` after a tap, and the glow would
+claim the card was still held. While dragged it lifts, tilts 2° and gains a blue ring. Cards enter
+in a 300ms staggered rise. Below `md` the pills, date and time are plain text rather than inline
+editors, because they are 20px targets and a near miss should open the job.
+
+### Pipeline Board on a Phone
+The board page is called **Pipeline** (renamed from Jobs on 2026-10-19; the route stays `/jobs`).
+Below `md` it shows one column at a time: each column is the screen less a 40px peek of the next,
+capped at 20rem, and the board snaps column by column. Above it sits the **stage rail**, the board
+in miniature: one cell per stage in board order, 44px tall, topped with the column's own 3px colour
+rule, the count over the label in tabular figures. The column on screen is the Blue Tint cell with
+Deep Sea Blue text (one blue for where you are). Tapping a cell scrolls the board there. While a
+card is held every cell turns into a drop target (dashed sides, the stage's tint and ring under
+the finger), so a job crosses the pipeline in one drag instead of creeping across columns at
+the screen's edge. The rail is not a second toolbar: it summarises the board and moves it, and
+it exists only where the board is too narrow to summarise itself. The toolbar above is two lines
+on a phone (pipeline, view switch and New Job; then search, filters and Display), one row from
+`sm`.
 
 ### Day Sheet (landing signature)
 The landing hero: a time-ruled card showing one working day, with an accepted quote and a paid

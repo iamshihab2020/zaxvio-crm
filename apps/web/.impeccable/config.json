@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "broken-image",
+        "value": "*",
+        "files": [
+          "src/components/dashboard/jobs/kanban-card.tsx"
+        ],
+        "createdAt": "2026-10-18T19:32:40.850Z",
+        "reason": "Claude: false positive - the <img> src is the assignee's avatar URL from the auth provider, rendered only when job.assigneeImage is set (pre-existing code)"
+      }
+    ]
+  }
+}

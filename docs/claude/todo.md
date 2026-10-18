@@ -9,11 +9,11 @@ file (every finding, proof and caveat up to 2026-10-17) is `git show f6327fe:doc
 
 ## In Progress
 
-### Deploy blocked: `9893fa9` failed on Vercel (2026-10-18)
-Production still serves `293af35` (Rebranded); `59a275d` (animations) and `9893fa9` (landing + dashboard layout) are not live. The API on Render is current. GitHub Actions CI never runs: the GitHub account is locked over billing.
+### Deploy: `9893fa9` failed on Vercel, `c04e229` fixed it (2026-10-18)
+GitHub Actions CI never runs: the GitHub account is locked over billing.
 - [x] Type error at `admins-page-client.tsx:136` (implicit `any` on untyped action data) fixed; 7 ambiguous Tailwind `duration-[…]`/`ease-[…]` classes rewritten as arbitrary properties.
+- [x] `c04e229` deployed green; `zaxvio-crm-web.vercel.app` serves the new landing.
 - [ ] `pnpm typecheck` + `pnpm lint` before the next push: `next build` reports only the first error, and ~290 files have never been checked.
-- [ ] Commit, push, and confirm the Vercel deployment goes green and `zaxvio-crm-web.vercel.app` serves the new landing (`#why-zaxvio`).
 
 ### Rebrand + animation pass — written 2026-10-18, never rendered
 Both are in Completed. Nothing has been typechecked, linted or opened in a browser (user's call).
@@ -27,6 +27,7 @@ Both are in Completed. Nothing has been typechecked, linted or opened in a brows
 Phases 1–4 are in Completed. Nothing here has been typechecked, linted or opened in a browser (user's call: no checks between phases).
 - [ ] `pnpm typecheck` + `pnpm lint`, then a browser pass at 375/768/1024/1440 in both themes: the dashboard, every list page, a detail page and sheet, the job board (swipe vs press-and-hold drag on a real phone), the calendar's day view and task sheet, the builder's read-only mode, superadmin.
 - [ ] Arbitrary Tailwind values to confirm in the first build: `md:max-w-[min(var(--sheet-w),100vw)]`, `max-w-[calc(100vw_-_var(--sidebar-w,0px)_-_1rem)]`, `md:max-xl:sr-only`, `[@media(hover:hover)]:group-hover:*`. (The Vercel log for `9893fa9` flagged 7 ambiguous `duration-[…]`/`ease-[…]` classes, fixed 2026-10-18; it raised none of these four.)
+- [ ] Pipeline page (2026-10-19, never rendered), on a real phone: the board snaps a column at a time and the stage rail follows the swipe; tapping a rail cell scrolls there; a held card dropped on a rail cell moves stage (and a refused move puts it back); auto-scroll at the edge still works mid-drag (snap is off then); the two-line toolbar at 320/375px; a 6+ stage pipeline scrolls the rail. Confirm `dark:[@media(hover:hover)]:hover:*` on the kanban cards compiles.
 - [ ] Known gaps: Week Ahead columns ~35px wide on a phone; Revenue by service has no visible amounts; line-item tables scroll sideways on phones; on a phone the job and invoice tables sort only by the columns that stay visible; `invoice-photos-tab.tsx` opens its lightbox on double click only; the builder's palette + config panel still squeeze the canvas between `lg` and `xl` (needs a store change).
 
 ### Landing redesign + dashboard layout — written 2026-10-18, never rendered
@@ -128,6 +129,8 @@ Tenants: Shihab Housing (`/book/shihab-housing`) and Shihab Roofing Corp (demo s
 
 ## Completed
 
+- [x] **Jobs → Pipeline, phone layout** (2026-10-19) — page renamed in the sidebar (kanban icon), navbar, tab title, job breadcrumb and chatbot; route stays `/jobs`. Below `md` the board snaps one column at a time under a stage rail (the board in miniature: counts, jump to a column, drop a held card on any stage); toolbar 3 → 2 lines on a phone; inline card editors off below `md`; grab glow only where hover exists. Also fixed the chatbot's stale "stats bar" and "gear icon" answers.
+- [x] **Reports tabs on a phone** (2026-10-18) — dropped the second `overflow-x-auto` wrapper around the tab list; the list fades at the right edge below `sm` and scrolls the selected tab into view.
 - [x] **Demo seed: two months, connected** (2026-10-18) — `pnpm seed:demo -- --reset` rewritten as a pure generator + writer: 37 customers, 76 jobs on a one-person schedule, 16 quotes (accepted ones became the install jobs), 16 bookings, 56 invoices with payments, 61 time entries, 20 expenses, notifications. Ran against Shihab Roofing Corp; 26/26 consistency checks against the database passed. Automations untouched.
 - [x] **Landing width** (2026-10-18) — container 72rem → 88rem (navbar, hero, sections, footer, legal pages) after the user found the side margins too wide at 1920px.
 - [x] **Landing page redesign** (2026-10-18) — two-column section headings, a larger hero (day sheet + accepted quote + paid invoice, captioned "Example data"), trades tiles, a new Booking → Paid flow (`#features`) and Why switch rows (`#why-zaxvio`), restyled industries/how-it-works/pricing/FAQ/blog, and a neutral closing card instead of the navy band (user asked). `features-section.tsx` deleted; `example-ui.tsx` holds the shared sample pieces.

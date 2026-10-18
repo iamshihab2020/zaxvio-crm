@@ -189,6 +189,21 @@
     --chart-4: 266 62% 57%;
     --chart-5: 111 44% 42%;
 
+    /* Brand ramp — Deep Sea Blue from quiet (1) to strong (5), for ordered
+       states and the /reports charts (user's call, 2026-10-19: brand shades
+       instead of the categorical hues). Step 3 is the brand, the same blue as
+       --chart-1. Validated as an ordinal ramp against --card: one hue (7°
+       spread), monotone lightness, every step ≥ 0.06 OKLCH L from the next,
+       quiet end 2.1:1. --chart-neutral is a warm stone for states that dropped
+       out: a cool slate sat within ΔE 13 of the blues, and the warm cast puts
+       it ≥ 16 from every step it touches in a ring. */
+    --chart-ramp-1: 211 84% 73%;
+    --chart-ramp-2: 212 76% 59%;
+    --chart-ramp-3: 210 96% 40%;
+    --chart-ramp-4: 211 99% 31%;
+    --chart-ramp-5: 214 95% 23%;
+    --chart-neutral: 35 9% 51%;
+
     /* Status — reserved meaning, never a series colour, never shown without a
        label or icon (warning is a fill, not text). The -ink pair is for words:
        5:1 or better on white and on its own 10% tint. */
@@ -275,6 +290,15 @@
     --chart-3: 21 71% 54%;
     --chart-4: 259 70% 67%;
     --chart-5: 110 43% 46%;
+
+    /* Quiet is dim and strong is bright here, so "stronger" is still the step
+       that stands out more from the card. Step 3 is --chart-1. */
+    --chart-ramp-1: 214 73% 34%;
+    --chart-ramp-2: 212 73% 42%;
+    --chart-ramp-3: 212 70% 52%;
+    --chart-ramp-4: 211 81% 65%;
+    --chart-ramp-5: 211 96% 79%;
+    --chart-neutral: 35 10% 44%;
 
     --status-good: 137 50% 53%;
     --status-warning: 39 89% 63%;
@@ -916,6 +940,17 @@
    container. */
 .kanban-column-scroll [style*="touch-action"] {
   touch-action: manipulation !important;
+}
+
+/* Below `md` the Pipeline board shows one column and a peek of the next, so a
+   swipe stops on a column, never between two; the columns carry `snap-start`
+   (KANBAN_COLUMN_WIDTH). Set on the Radix viewport, the element that actually
+   scrolls, which the ScrollArea primitive gives no className to. The board
+   drops the class while a card is held. */
+@media (max-width: 767.98px) {
+  .kanban-board-snap > [data-radix-scroll-area-viewport] {
+    scroll-snap-type: x mandatory;
+  }
 }
 
 /* Thin scrollbar for kanban columns */

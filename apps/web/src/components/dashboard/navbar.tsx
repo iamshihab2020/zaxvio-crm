@@ -33,7 +33,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/schedule": "Calendar",
   "/bookings": "Bookings",
   "/customers": "Customers",
-  "/jobs": "Jobs",
+  // The page was renamed; the route was not (sidebar-nav.tsx says why).
+  "/jobs": "Pipeline",
   "/quotes": "Quotes",
   "/invoices": "Invoices",
   "/service-agreements": "Agreements",
@@ -47,7 +48,7 @@ const PAGE_TITLES: Record<string, string> = {
 function getPageTitle(pathname: string): string {
   // Exact match first
   if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
-  // Match by prefix (e.g. /jobs/abc → Jobs)
+  // Match by prefix (e.g. /jobs/abc → Pipeline)
   const segment = "/" + pathname.split("/")[1];
   return PAGE_TITLES[segment] ?? "";
 }

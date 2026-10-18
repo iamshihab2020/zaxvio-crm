@@ -188,9 +188,12 @@ export function KanbanCard({
         "cursor-grab rounded-xl border bg-card p-3.5",
         "transition-all duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)]",
         "border-border/60 shadow-sm",
-        "hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.25)] hover:border-brand/30",
+        // The grab glow, on screens that can hover. A phone fires `:hover` on
+        // tap and keeps it, so the card you just opened came back glowing as
+        // if it were still held.
+        "[@media(hover:hover)]:hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.25)] [@media(hover:hover)]:hover:border-brand/30",
         "dark:border-border/40 dark:shadow-sm",
-        "dark:hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.35)] dark:hover:border-brand/40",
+        "dark:[@media(hover:hover)]:hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.35)] dark:[@media(hover:hover)]:hover:border-brand/40",
         "active:cursor-grabbing",
         pressed && "scale-[0.98]",
         isDragging && "opacity-30 z-0",

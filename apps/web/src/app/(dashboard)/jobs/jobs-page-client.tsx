@@ -50,6 +50,7 @@ import {
 } from "@/actions/jobs";
 import { useRowSelection } from "@/hooks/use-row-selection";
 import { BulkActionBar } from "@/components/reusable/bulk-action-bar";
+import { ListToolbarCreateButton } from "@/components/reusable/list-toolbar";
 import { BulkConfirmDialog } from "@/components/reusable/bulk-confirm-dialog";
 import type { AssigneeMember } from "@/components/dashboard/jobs/assignee-picker";
 import { getPipelines } from "@/lib/client-reads/pipelines";
@@ -65,7 +66,6 @@ import {
   IconLayoutKanban,
   IconListDetails,
   IconList,
-  IconPlus,
   IconStatusChange,
   IconTrash,
   IconArchive,
@@ -891,12 +891,17 @@ export function JobsPageClient({
 
   return (
     <section data-stagger className="px-4 pt-3 pb-0 sm:px-5 sm:pt-2.5">
-      {/* Unified toolbar. On a phone it is three stacked lines: pipeline,
-          search, then the view switch with Display and New Job. From `sm` it is
-          the one row it always was, wrapping only when the window is too narrow
-          to hold it (about 1024px, once the sidebar takes its 224px). */}
-      <div className="mb-4 flex flex-col gap-2 rounded-xl border border-border/60 bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-0 sm:gap-y-1.5 sm:py-1.5">
-        {/* Left: Pipeline selector */}
+      {/* One toolbar. On a phone the grid sets it in two lines: the pipeline,
+          the view switch and New Job, then search with its filter beside
+          Display. It was three, with the pipeline's short name alone on the
+          first, and every line is 48px of board a phone does not get back.
+          From `sm` it is the single flex row it always was, in DOM order,
+          wrapping only when the window is too narrow to hold it (about 1024px,
+          once the sidebar takes its 224px). Flex items ignore grid placement,
+          so the phone classes need no `sm:` resets. */}
+      <div className="mb-3 grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 rounded-xl border border-border/60 bg-card shadow-sm dark:border-border/40 dark:bg-muted/15 dark:shadow-none px-2 py-2 sm:mb-4 sm:flex sm:flex-wrap sm:gap-x-0 sm:gap-y-1.5 sm:py-1.5">
+        {/* Pipeline selector. The one item the grid places itself: the cell
+            the others leave free, first line, first column. */}
         <PipelineTabs
           pipelines={pipelinesData}
           selectedId={selectedPipelineId}
@@ -906,81 +911,76 @@ export function JobsPageClient({
 
         <div className="mx-2 hidden h-5 w-px shrink-0 bg-border dark:bg-border/60 sm:block" />
 
-        {/* Left-center: Search + Filter */}
-        <JobFilters
-          search={search}
-          onSearchChange={setSearch}
-          priority={priorityFilter}
-          onPriorityChange={setPriorityFilter}
-          serviceType={serviceTypeFilter}
-          onServiceTypeChange={setServiceTypeFilter}
-          assignees={assigneeMembers.map((m) => ({
-            id: m.id,
-            name: m.name ?? m.email,
-          }))}
-          assigneeId={assigneeFilter}
-          onAssigneeChange={setAssigneeFilter}
-        />
-
-        {/* The switch and the actions share a line on a phone. `sm:contents`
-            drops this wrapper from the layout above that, so they sit in the
-            toolbar row as direct children, exactly as before. */}
-        <div className="flex items-center justify-between gap-2 sm:contents">
-          {/* Center: Board / List / Table switch. Icon-only on a phone. */}
-          <div className="sm:mx-auto">
-            <Highlight
-              className="rounded-md bg-brand-light dark:bg-brand/20"
-              value={viewType}
-              controlledItems
-            >
-              <div className="flex items-center rounded-lg bg-muted/80 dark:bg-muted/30 p-0.5 gap-0.5">
-                {VIEW_TYPE_OPTIONS.map(({ value, label, icon: Icon }) => (
-                  <HighlightItem key={value} value={value}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleViewTypeChange(value)}
-                      aria-label={label}
-                      aria-pressed={viewType === value}
-                      className={cn(
-                        "relative z-10 flex h-10 w-11 items-center justify-center gap-1.5 rounded-md px-0 text-xs font-semibold font-body whitespace-nowrap sm:h-6 sm:w-auto sm:px-3",
-                        viewType === value
-                          ? "text-brand-ink"
-                          : "text-foreground/80 hover:text-foreground",
-                      )}
-                    >
-                      <Icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-                      <span className="hidden sm:inline">{label}</span>
-                    </Button>
-                  </HighlightItem>
-                ))}
-              </div>
-            </Highlight>
-          </div>
-
-          {/* Right: Display settings + New Job */}
-          <div className="flex items-center gap-2 sm:gap-1">
-            <DisplaySettingsPopover
-              compact={compact}
-              onCompactChange={handleCompactChange}
-              fields={cardFields}
-              onFieldChange={setCardField}
-              onFieldsReset={resetCardFields}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              viewModeMounted={viewMounted}
-            />
-
-            <Button
-              onClick={openCreateDialog}
-              size="sm"
-              className="bg-brand text-brand-foreground hover:bg-brand/90 font-body h-10 px-3 text-xs rounded-lg sm:h-7 sm:px-2.5"
-            >
-              <IconPlus className="mr-1 h-3.5 w-3.5" />
-              New Job
-            </Button>
-          </div>
+        {/* Search + Filter */}
+        <div className="col-span-2 row-start-2 min-w-0 sm:contents">
+          <JobFilters
+            search={search}
+            onSearchChange={setSearch}
+            priority={priorityFilter}
+            onPriorityChange={setPriorityFilter}
+            serviceType={serviceTypeFilter}
+            onServiceTypeChange={setServiceTypeFilter}
+            assignees={assigneeMembers.map((m) => ({
+              id: m.id,
+              name: m.name ?? m.email,
+            }))}
+            assigneeId={assigneeFilter}
+            onAssigneeChange={setAssigneeFilter}
+          />
         </div>
+
+        {/* Board / List / Table, centred in the row. Icon-only on a phone. */}
+        <div className="col-start-2 row-start-1 sm:mx-auto">
+          <Highlight
+            className="rounded-md bg-brand-light dark:bg-brand/20"
+            value={viewType}
+            controlledItems
+          >
+            <div className="flex items-center rounded-lg bg-muted/80 dark:bg-muted/30 p-0.5 gap-0.5">
+              {VIEW_TYPE_OPTIONS.map(({ value, label, icon: Icon }) => (
+                <HighlightItem key={value} value={value}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleViewTypeChange(value)}
+                    aria-label={label}
+                    aria-pressed={viewType === value}
+                    className={cn(
+                      "relative z-10 flex h-10 w-10 items-center justify-center gap-1.5 rounded-md px-0 text-xs font-semibold font-body whitespace-nowrap sm:h-6 sm:w-auto sm:px-3",
+                      viewType === value
+                        ? "text-brand-ink"
+                        : "text-foreground/80 hover:text-foreground",
+                    )}
+                  >
+                    <Icon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+                    <span className="hidden sm:inline">{label}</span>
+                  </Button>
+                </HighlightItem>
+              ))}
+            </div>
+          </Highlight>
+        </div>
+
+        <div className="col-start-3 row-start-2 sm:contents">
+          <DisplaySettingsPopover
+            compact={compact}
+            onCompactChange={handleCompactChange}
+            fields={cardFields}
+            onFieldChange={setCardField}
+            onFieldsReset={resetCardFields}
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            viewModeMounted={viewMounted}
+          />
+        </div>
+
+        {/* The list pages' create button: a 40px icon on a phone, labelled
+            from `sm`, at this toolbar's denser 28px. */}
+        <ListToolbarCreateButton
+          label="New Job"
+          onClick={openCreateDialog}
+          className="col-start-3 row-start-1 ml-0 rounded-lg text-xs sm:ml-1 sm:h-7 sm:px-2.5"
+        />
       </div>
 
       {error && (
@@ -1074,7 +1074,7 @@ export function JobsPageClient({
             {/* List view */}
             {viewType === "list" && (
               <>
-                {loading && <KanbanSkeleton columnCount={1} />}
+                {loading && <KanbanSkeleton columnCount={1} layout="list" />}
 
                 {loadFailed && (
                   <LoadErrorState

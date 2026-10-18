@@ -6,7 +6,7 @@ import { getTenant } from "@/actions/tenants";
 import { JobsPageClient } from "./jobs-page-client";
 
 export const metadata: Metadata = {
-  title: "Jobs",
+  title: "Pipeline",
 };
 
 export default async function JobsPage() {

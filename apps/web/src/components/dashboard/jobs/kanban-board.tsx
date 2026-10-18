@@ -9,8 +9,10 @@ import {
   TouchSensor,
   KeyboardSensor,
   closestCorners,
+  pointerWithin,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragStartEvent,
   type DragEndEvent,
   type DragOverEvent,
@@ -23,6 +25,7 @@ import { toast } from "sonner";
 import { KanbanColumn } from "./kanban-column";
 import { KanbanCard, type JobCardData } from "./kanban-card";
 import { KanbanCardCompact } from "./kanban-card-compact";
+import { KanbanStageRail } from "./kanban-stage-rail";
 import type { CardFieldVisibility } from "./card-fields-popover";
 import type { AssigneeMember } from "./assignee-picker";
 import { reorderJobs, updateJobStatus } from "@/actions/jobs";
@@ -30,6 +33,7 @@ import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import { cn } from "@/lib/utils";
 import { useFillViewportHeight } from "@/hooks/use-fill-viewport-height";
+import { MEDIA, useMediaQuery } from "@/hooks/use-media-query";
 import { useStagger } from "@/hooks/use-stagger";
 import { DUR, EASE_OUT_CSS, prefersReducedMotion } from "@/lib/motion";
 
@@ -65,6 +69,30 @@ class MousePenSensor extends PointerSensor {
     },
   ];
 }
+
+/**
+ * The board's collision rule, with the stage rail's cells on top of it.
+ *
+ * A rail cell counts only while the pointer is actually on it. Left to
+ * `closestCorners` alongside the columns, the cells above the first column
+ * would win whenever a card was held near the top of the board, and the card
+ * would change stage without going anywhere near one.
+ */
+const detectCollisions: CollisionDetection = (args) => {
+  const onRail = pointerWithin({
+    ...args,
+    droppableContainers: args.droppableContainers.filter(
+      (container) => container.data.current?.source === "rail",
+    ),
+  });
+  if (onRail.length > 0) return onRail;
+  return closestCorners({
+    ...args,
+    droppableContainers: args.droppableContainers.filter(
+      (container) => container.data.current?.source !== "rail",
+    ),
+  });
+};
 
 interface KanbanBoardProps {
   jobs: JobCardData[];
@@ -118,6 +146,68 @@ export function KanbanBoard({
   // the drop settling into place.
   const columnsRef = useRef<HTMLDivElement>(null);
   useStagger(columnsRef, arrivalKey);
+
+  // A card's pills, date and time open inline editors on a click. Below `md`
+  // they stay plain text: each is about 20px tall, well under a finger's 40px,
+  // and a tap that misses one by a few pixels should open the job, not a
+  // calendar. The job opens full screen on a phone, where every one of those
+  // fields is editable at a proper size.
+  const inlineEditing = useMediaQuery(MEDIA.md);
+
+  // The column on screen, for the stage rail: whichever shows the most of
+  // itself. Read from the layout on scroll rather than computed from widths,
+  // so it is right at any column width, and at the end of the row, where the
+  // last column cannot reach the left edge to snap there.
+  const [activeColumn, setActiveColumn] = useState(0);
+  useEffect(() => {
+    const viewport = scrollRef.current?.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    const columns = columnsRef.current;
+    if (!viewport || !columns) return;
+    let frame = 0;
+    function track() {
+      frame = 0;
+      if (!viewport || !columns) return;
+      const view = viewport.getBoundingClientRect();
+      let best = 0;
+      let bestVisible = -Infinity;
+      Array.from(columns.children).forEach((column, index) => {
+        const rect = column.getBoundingClientRect();
+        const visible =
+          Math.min(rect.right, view.right) - Math.max(rect.left, view.left);
+        if (visible > bestVisible) {
+          bestVisible = visible;
+          best = index;
+        }
+      });
+      setActiveColumn(best);
+    }
+    function onScroll() {
+      if (!frame) frame = requestAnimationFrame(track);
+    }
+    track();
+    viewport.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      viewport.removeEventListener("scroll", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [stages]);
+
+  /** Bring a column to the board's left edge, where the phone snap holds it. */
+  function scrollToColumn(index: number) {
+    const viewport = scrollRef.current?.querySelector<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    const column = columnsRef.current?.children.item(index);
+    if (!viewport || !column) return;
+    const offset =
+      column.getBoundingClientRect().left - viewport.getBoundingClientRect().left;
+    viewport.scrollTo({
+      left: viewport.scrollLeft + offset,
+      behavior: prefersReducedMotion() ? "auto" : "smooth",
+    });
+  }
 
   // The card that just changed stage by drag, to wear the highlight once in its
   // new column. Cleared if the move is refused, or the card would flash in the
@@ -429,18 +519,39 @@ export function KanbanBoard({
     }
   }
 
+  const stageCounts: Record<string, number> = {};
+  for (const job of localJobs) {
+    stageCounts[job.status] = (stageCounts[job.status] ?? 0) + 1;
+  }
+
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCorners}
+      collisionDetection={detectCollisions}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
     >
+      {/* Outside `scrollRef`, which the board measures its height from. */}
+      <KanbanStageRail
+        stages={stages}
+        counts={stageCounts}
+        activeIndex={activeColumn}
+        onSelect={scrollToColumn}
+        dragging={activeJob !== null}
+        className="motion-appear mb-3 md:hidden"
+      />
+
       {/* The board fades in when it replaces the skeleton or a view switch.
           Opacity only: a transform here would offset dnd-kit's measurements. */}
       <div className="motion-appear relative" ref={scrollRef}>
-        <ScrollArea className="w-full" type="scroll">
+        {/* `kanban-board-snap` stops a phone swipe on a column, never between
+            two (globals.css). Off while a card is held, or the snap would fight
+            dnd-kit's auto-scroll at the screen edge. */}
+        <ScrollArea
+          className={cn("w-full", !activeJob && "kanban-board-snap")}
+          type="scroll"
+        >
           <div
             ref={columnsRef}
             className={cn("flex gap-3 py-1 mx-[2px]", !activeJob && "cursor-grab active:cursor-grabbing")}
@@ -457,8 +568,8 @@ export function KanbanBoard({
                 cardView={cardView}
                 visibleFields={visibleFields}
                 members={members}
-                onAssigneeChange={onAssigneeChange}
-                onJobFieldChange={onJobFieldChange}
+                onAssigneeChange={inlineEditing ? onAssigneeChange : undefined}
+                onJobFieldChange={inlineEditing ? onJobFieldChange : undefined}
                 highlightJobId={flashId}
               />
             ))}

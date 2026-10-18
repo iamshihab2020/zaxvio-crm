@@ -110,7 +110,7 @@ export function JobDetailPageHeader({
               href="/jobs"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
-              Jobs
+              Pipeline
             </Link>
             <IconChevronRight className="h-4 w-4 text-muted-foreground" />
           </nav>

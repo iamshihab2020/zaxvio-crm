@@ -845,6 +845,8 @@ apps/web/
     |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
     |       +-- job-options.ts       # Service types, priorities
+    |       +-- kanban-layout.ts     # Column width + stage-rail grid shared by the board and its
+    |       |                        # skeleton (kept out of kanban-column so dnd-kit stays split)
     |       +-- stage-color-presets.ts  # 8 color presets for pipeline stages
     +-- stage-lifecycle.ts       # The four job lifecycles a custom stage can mean + UI copy
     |
@@ -985,8 +987,8 @@ apps/web/
     |   |   +-- pipelines/           # Pipeline management components
     |   |   |   +-- pipeline-create-dialog.tsx  # Create pipeline dialog (name, stage options)
     |   |   |
-    |   |   +-- jobs/               # Job management components
-    |   |   |   +-- pipeline-tabs.tsx         # Pipeline tab switcher (animated Highlight tabs, always visible)
+    |   |   +-- jobs/               # Job management components (the page is "Pipeline", route /jobs)
+    |   |   |   +-- pipeline-tabs.tsx         # Pipeline picker: a popover select, with Manage Stages at its foot
     |   |   |   +-- assignee-picker.tsx        # Popover-based team member assignee picker (AssigneePicker)
     |   |   |   +-- job-create-dialog.tsx
     |   |   |   +-- job-detail-activities.tsx
@@ -1016,11 +1018,13 @@ apps/web/
     |   |   |   +-- job-sidebar-panel.tsx
     |   |   |   +-- job-table.tsx
     |   |   |   +-- job-tabs-panel.tsx
-    |   |   |   +-- kanban-board.tsx
+    |   |   |   +-- kanban-board.tsx           # Board + drag; snaps a column at a time below `md`
     |   |   |   +-- kanban-card-compact.tsx
     |   |   |   +-- kanban-card.tsx
     |   |   |   +-- kanban-column.tsx
-    |   |   |   +-- kanban-skeleton.tsx
+    |   |   |   +-- kanban-skeleton.tsx        # `layout`: board (with the rail) or list
+    |   |   |   +-- kanban-stage-rail.tsx      # Phone only: the board in miniature (counts, jump to a
+    |   |   |   |                              # column, drop a held card on any stage)
     |   |   |   +-- pipeline-stages-dialog.tsx
     |   |   |
     |   |   +-- invoices/           # Invoice components

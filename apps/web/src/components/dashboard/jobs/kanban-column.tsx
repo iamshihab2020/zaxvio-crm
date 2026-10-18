@@ -13,6 +13,7 @@ import { KanbanCardCompact } from "./kanban-card-compact";
 import type { CardFieldVisibility } from "./card-fields-popover";
 import type { AssigneeMember } from "./assignee-picker";
 import { getStageColors } from "@/lib/constants/stage-color-presets";
+import { KANBAN_COLUMN_WIDTH } from "@/lib/constants/kanban-layout";
 import { IconPlus, IconBriefcase } from "@tabler/icons-react";
 
 interface PipelineStage {
@@ -61,7 +62,8 @@ export function KanbanColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex flex-col rounded-xl border border-t-[3px] p-3 transition-all duration-200 min-w-[290px] flex-1",
+        "flex flex-col rounded-xl border border-t-[3px] p-3 transition-all duration-200",
+        KANBAN_COLUMN_WIDTH,
         "bg-card/60 dark:bg-muted/10",
         colors.borderTop,
         isOver

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   IconLayoutDashboard,
   IconUsers,
-  IconBriefcase,
+  IconLayoutKanban,
   IconFileDescription,
   IconReceipt,
   IconCalendarWeek,
@@ -59,7 +59,10 @@ const navGroups: NavGroup[] = [
     defaultOpen: true,
     items: [
       { href: "/customers", label: "Customers", icon: IconUsers },
-      { href: "/jobs", label: "Jobs", icon: IconBriefcase },
+      // "Pipeline" since 2026-10-19 (the page is the board of jobs moving
+      // through stages). The route stays /jobs: job links already out in
+      // emails, notifications and bookmarks all point there.
+      { href: "/jobs", label: "Pipeline", icon: IconLayoutKanban },
       { href: "/conversations", label: "Conversations", icon: IconMessageCircle, badge: "Dev" },
     ],
   },
