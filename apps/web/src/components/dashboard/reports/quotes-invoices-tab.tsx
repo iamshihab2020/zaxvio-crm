@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Area,
   AreaChart,
@@ -34,23 +35,19 @@ import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
-
-const QUOTE_COLORS: Record<string, string> = {
-  sent: "#3b82f6",
-  accepted: "#22c55e",
-  declined: "#ef4444",
-  expired: "#6b7280",
-  draft: "#a3a3a3",
-};
-
-const INVOICE_COLORS: Record<string, string> = {
-  paid: "#22c55e",
-  sent: "#3b82f6",
-  partially_paid: "#f59e0b",
-  overdue: "#ef4444",
-  draft: "#a3a3a3",
-  void: "#6b7280",
-};
+import { BRAND_SERIES, STATE_COLORS } from "@/lib/constants/chart-palette";
+import {
+  ChartLegendList,
+  INVOICE_RING_ORDER,
+  INVOICE_STATUS_FILL,
+  INVOICE_STATUS_ORDER,
+  QUOTE_STATUS_FILL,
+  UNKNOWN_FILL,
+  areaFill,
+  barBackground,
+  sortByOrder,
+  useFillId,
+} from "./report-palette";
 
 /**
  * One colour per aging bucket. There are five buckets since the dashboard pass
@@ -71,11 +68,15 @@ const AGING_COLORS = [
 ];
 
 const funnelConfig = {
-  count: { label: "Count", color: "hsl(var(--chart-1))" },
+  count: { label: "Count", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
+// Red, and the only red series on /reports: everything on this chart is money
+// that is late. It was a raw #ef4444 that ignored the theme.
+const OVERDUE_SERIES = STATE_COLORS.late;
+
 const overdueConfig = {
-  count: { label: "Overdue Invoices", color: "#ef4444" },
+  count: { label: "Overdue Invoices", color: OVERDUE_SERIES },
 } satisfies ChartConfig;
 
 // Stable for the pie below: see CURRENCY_TOOLTIP in revenue-tab.tsx for why a
@@ -98,13 +99,28 @@ export function QuotesInvoicesTab({
   data,
   granularity,
 }: QuotesInvoicesTabProps) {
+  // Drawn in the ring's order, listed in the lifecycle's (see
+  // INVOICE_RING_ORDER). Memoised: Recharts restarts a ring's draw-in whenever
+  // its data changes identity.
+  const invoiceRing = useMemo(
+    () =>
+      sortByOrder(
+        data.invoiceStatusDistribution,
+        (s) => s.status,
+        INVOICE_RING_ORDER,
+      ).map((s) => ({ ...s, fill: INVOICE_STATUS_FILL[s.status] ?? UNKNOWN_FILL })),
+    [data.invoiceStatusDistribution],
+  );
+  const invoiceLegend = useMemo(
+    () => sortByOrder(invoiceRing, (s) => s.status, INVOICE_STATUS_ORDER),
+    [invoiceRing],
+  );
   const invoiceStatusConfig: ChartConfig = {};
-  data.invoiceStatusDistribution.forEach((s) => {
-    invoiceStatusConfig[s.status] = {
-      label: s.label,
-      color: INVOICE_COLORS[s.status] ?? "#6b7280",
-    };
+  invoiceRing.forEach((s) => {
+    invoiceStatusConfig[s.status] = { label: s.label, color: s.fill };
   });
+
+  const overdueFill = useFillId();
 
   const anim = chartAnimation();
 
@@ -198,11 +214,13 @@ export function QuotesInvoicesTab({
                     />
                   }
                 />
+                {/* Shaded by how far each quote got, and every bar is named
+                    on the axis beside it, so the shade is never alone. */}
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} {...anim}>
                   {data.quoteConversionFunnel.map((item) => (
                     <Cell
                       key={item.status}
-                      fill={QUOTE_COLORS[item.status] ?? "#6b7280"}
+                      fill={QUOTE_STATUS_FILL[item.status] ?? UNKNOWN_FILL}
                     />
                   ))}
                 </Bar>
@@ -226,32 +244,39 @@ export function QuotesInvoicesTab({
           {data.invoiceStatusDistribution.length === 0 ? (
             <EmptyChart />
           ) : (
-            <ChartContainer
-              config={invoiceStatusConfig}
-              className="mx-auto h-[280px] w-full"
-            >
-              <PieChart>
-                <ChartTooltip content={PIE_TOOLTIP} />
-                <Pie
-                  data={data.invoiceStatusDistribution}
-                  dataKey="count"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  {...anim}
-                >
-                  {data.invoiceStatusDistribution.map((s) => (
-                    <Cell
-                      key={s.status}
-                      fill={INVOICE_COLORS[s.status] ?? "#6b7280"}
-                    />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
+            <>
+              <ChartContainer
+                config={invoiceStatusConfig}
+                className="mx-auto h-[240px] w-full"
+              >
+                <PieChart>
+                  <ChartTooltip content={PIE_TOOLTIP} />
+                  <Pie
+                    data={invoiceRing}
+                    dataKey="count"
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    {...anim}
+                  >
+                    {invoiceRing.map((s) => (
+                      <Cell key={s.status} fill={s.fill} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              <ChartLegendList
+                items={invoiceLegend.map((s) => ({
+                  key: s.status,
+                  label: s.label,
+                  color: s.fill,
+                  value: String(s.count),
+                }))}
+              />
+            </>
           )}
         </ReportChartCard>
 
@@ -298,7 +323,9 @@ export function QuotesInvoicesTab({
                         style={{
                           ...enterDelay(staggerDelay(i, BAR_STEP, BAR_MAX_STEPS)),
                           transform: `scaleX(${Math.max(pct, 3) / 100})`,
-                          backgroundColor: AGING_COLORS[i] ?? "#6b7280",
+                          backgroundImage: barBackground(
+                            AGING_COLORS[i] ?? UNKNOWN_FILL,
+                          ),
                         }}
                       />
                     </div>
@@ -333,22 +360,7 @@ export function QuotesInvoicesTab({
                 data={data.overdueInvoiceTrend}
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
-                <defs>
-                  <linearGradient
-                    id="fillOverdue"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="5%" stopColor="#ef4444" stopOpacity={0.3} />
-                    <stop
-                      offset="95%"
-                      stopColor="#ef4444"
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-                </defs>
+                {areaFill(overdueFill, OVERDUE_SERIES)}
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="monthLabel"
@@ -367,8 +379,8 @@ export function QuotesInvoicesTab({
                 <Area
                   type="monotone"
                   dataKey="count"
-                  stroke="#ef4444"
-                  fill="url(#fillOverdue)"
+                  stroke={OVERDUE_SERIES}
+                  fill={`url(#${overdueFill})`}
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}

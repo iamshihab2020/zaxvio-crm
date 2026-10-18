@@ -1083,3 +1083,22 @@ From [[bookings-calendar|the report]] — the front-end half.
 - **Renaming a page is not renaming its route.** "Jobs" became "Pipeline" in the sidebar, the
   navbar title, the browser tab, the job breadcrumb and the chatbot. `/jobs` stays, because job
   links already sit in sent emails, notifications and bookmarks.
+
+## Reports charts in brand blue (2026-10-19)
+
+- **A stage's `color` is a preset name, not a colour.** `pipeline_stages.color` holds keys like
+  `"blue"` and `"green"` for `getStageColors()`. The Pipeline Distribution bars passed it straight
+  to `backgroundColor`, so CSS drew the keyword colours: pure #0000ff, #008000, #808080. Anything
+  that reads a stage's colour outside the board has to go through `getStageColors()`, or not use
+  it at all (the report now draws every stage in the brand).
+- **A monochrome palette is an ordinal ramp, and only an ordinal ramp passes the validator.** Run
+  with `--ordinal` (one hue, monotone L, ΔL ≥ 0.06, quiet end ≥ 2:1); the categorical checks fail a
+  correct ramp by design. Neighbouring steps are about ΔE 10 apart, under the categorical
+  normal-vision floor of 15, so in a ring the fix is the slice order (touching slices two steps
+  apart: `INVOICE_RING_ORDER`), plus a legend that names every part with its figure. A cool slate
+  "other" sat within ΔE 13 of the blues in dark mode; a warm stone at the same lightness clears 16.
+- **A bar filled with `url(#gradient)` breaks the shadcn tooltip's colour dot.** The tooltip takes
+  `item.color`, which is then the `url(…)` string. Pass the plain colour as the tooltip's `color`
+  prop (`BAR_TOOLTIP` in the report tabs). Gradient ids come from `useId()` with the colons
+  stripped, and the `<defs>` is returned by a plain function (`barFill`), because Recharts 2 drops
+  chart children that are not SVG elements it recognises.

@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import {
   Bar,
   BarChart,
@@ -33,22 +34,39 @@ import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
+import { BRAND_SERIES } from "@/lib/constants/chart-palette";
+import {
+  ChartLegendList,
+  JOB_STATUS_FILL,
+  JOB_STATUS_ORDER,
+  UNKNOWN_FILL,
+  barBackground,
+  barFill,
+  sortByOrder,
+  useFillId,
+} from "./report-palette";
 
+// One series each, so one colour each: the brand. Priority and service type
+// were teal and orange, which read as two more meanings that were not there.
 const volumeConfig = {
-  count: { label: "Jobs", color: "hsl(var(--chart-1))" },
+  count: { label: "Jobs", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
 const priorityConfig = {
-  count: { label: "Count", color: "hsl(var(--chart-2))" },
+  count: { label: "Count", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
 const serviceConfig = {
-  count: { label: "Count", color: "hsl(var(--chart-3))" },
+  count: { label: "Count", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
 // Stable for the pie below: see CURRENCY_TOOLTIP in revenue-tab.tsx for why a
 // pie's tooltip element must not be rebuilt on every render.
 const PIE_TOOLTIP = <ChartTooltipContent />;
+
+// The bars fill with a gradient, whose `url(#…)` the tooltip would otherwise
+// take for their colour.
+const BAR_TOOLTIP = <ChartTooltipContent color={BRAND_SERIES} />;
 
 const formatCount = (n: number) => String(n);
 const formatPercent = (n: number) => `${n}%`;
@@ -65,10 +83,24 @@ interface JobsTabProps {
 }
 
 export function JobsTab({ data, granularity }: JobsTabProps) {
+  // The API still sends a colour per status (green, amber, red); the shade is
+  // chosen here instead, from the brand ramp. Lifecycle order, memoised:
+  // Recharts restarts a ring's draw-in whenever its data changes identity.
+  const statusRows = useMemo(
+    () =>
+      sortByOrder(data.jobsByStatus, (s) => s.status, JOB_STATUS_ORDER).map(
+        (s) => ({ ...s, fill: JOB_STATUS_FILL[s.status] ?? UNKNOWN_FILL }),
+      ),
+    [data.jobsByStatus],
+  );
   const statusConfig: ChartConfig = {};
-  data.jobsByStatus.forEach((s) => {
-    statusConfig[s.status] = { label: s.label, color: s.color };
+  statusRows.forEach((s) => {
+    statusConfig[s.status] = { label: s.label, color: s.fill };
   });
+
+  const volumeFill = useFillId();
+  const priorityFill = useFillId();
+  const serviceFill = useFillId();
 
   const anim = chartAnimation();
 
@@ -131,6 +163,7 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                 data={data.jobVolumeTrend}
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
+                {barFill(volumeFill, BRAND_SERIES, "up")}
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="monthLabel"
@@ -145,10 +178,10 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                   width={30}
                   className="text-xs font-body"
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={BAR_TOOLTIP} />
                 <Bar
                   dataKey="count"
-                  fill="var(--color-count)"
+                  fill={`url(#${volumeFill})`}
                   radius={[4, 4, 0, 0]}
                   {...anim}
                 />
@@ -169,29 +202,39 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
           {data.jobsByStatus.length === 0 ? (
             <EmptyChart />
           ) : (
-            <ChartContainer
-              config={statusConfig}
-              className="mx-auto h-[280px] w-full"
-            >
-              <PieChart>
-                <ChartTooltip content={PIE_TOOLTIP} />
-                <Pie
-                  data={data.jobsByStatus}
-                  dataKey="count"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  {...anim}
-                >
-                  {data.jobsByStatus.map((s) => (
-                    <Cell key={s.status} fill={s.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
+            <>
+              <ChartContainer
+                config={statusConfig}
+                className="mx-auto h-[240px] w-full"
+              >
+                <PieChart>
+                  <ChartTooltip content={PIE_TOOLTIP} />
+                  <Pie
+                    data={statusRows}
+                    dataKey="count"
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    {...anim}
+                  >
+                    {statusRows.map((s) => (
+                      <Cell key={s.status} fill={s.fill} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              <ChartLegendList
+                items={statusRows.map((s) => ({
+                  key: s.status,
+                  label: s.label,
+                  color: s.fill,
+                  value: String(s.count),
+                }))}
+              />
+            </>
           )}
         </ReportChartCard>
 
@@ -216,6 +259,7 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                 layout="vertical"
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
+                {barFill(priorityFill, BRAND_SERIES, "right")}
                 <CartesianGrid horizontal={false} strokeDasharray="3 3" />
                 <XAxis
                   type="number"
@@ -231,10 +275,10 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                   width={80}
                   className="text-xs font-body"
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={BAR_TOOLTIP} />
                 <Bar
                   dataKey="count"
-                  fill="var(--color-count)"
+                  fill={`url(#${priorityFill})`}
                   radius={[0, 4, 4, 0]}
                   {...anim}
                 />
@@ -264,6 +308,7 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                 layout="vertical"
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
+                {barFill(serviceFill, BRAND_SERIES, "right")}
                 <CartesianGrid horizontal={false} strokeDasharray="3 3" />
                 <XAxis
                   type="number"
@@ -279,10 +324,10 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                   width={90}
                   className="text-xs font-body"
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={BAR_TOOLTIP} />
                 <Bar
                   dataKey="count"
-                  fill="var(--color-count)"
+                  fill={`url(#${serviceFill})`}
                   radius={[0, 4, 4, 0]}
                   {...anim}
                 />
@@ -343,7 +388,10 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                         style={{
                           ...enterDelay(staggerDelay(index, BAR_STEP, BAR_MAX_STEPS)),
                           transform: `scaleX(${Math.max(pct, 2) / 100})`,
-                          backgroundColor: stage.stageColor || "hsl(var(--chart-1))",
+                          // One measure across the stages, so one colour. This
+                          // was `stage.stageColor`, a preset NAME ("blue",
+                          // "green"), which CSS drew as the keyword colours.
+                          backgroundImage: barBackground(BRAND_SERIES),
                         }}
                       />
                     </div>

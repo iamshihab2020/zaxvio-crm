@@ -196,7 +196,8 @@
        spread), monotone lightness, every step ≥ 0.06 OKLCH L from the next,
        quiet end 2.1:1. --chart-neutral is a warm stone for states that dropped
        out: a cool slate sat within ΔE 13 of the blues, and the warm cast puts
-       it ≥ 16 from every step it touches in a ring. */
+       it at ΔE 16 or more (normal vision) from every step it touches in a ring.
+       Which state gets which step: STATE_COLORS in chart-palette.ts. */
     --chart-ramp-1: 211 84% 73%;
     --chart-ramp-2: 212 76% 59%;
     --chart-ramp-3: 210 96% 40%;

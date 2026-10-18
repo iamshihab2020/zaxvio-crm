@@ -25,6 +25,12 @@ colors:
   chart-rust: "hsl(20 67% 49%)"
   chart-violet: "hsl(266 62% 57%)"
   chart-green: "hsl(111 44% 42%)"
+  chart-ramp-1: "hsl(211 84% 73%)"
+  chart-ramp-2: "hsl(212 76% 59%)"
+  chart-ramp-3: "hsl(210 96% 40%)"
+  chart-ramp-4: "hsl(211 99% 31%)"
+  chart-ramp-5: "hsl(214 95% 23%)"
+  chart-stone: "hsl(35 9% 51%)"
   status-good: "hsl(137 54% 40%)"
   status-warning: "hsl(38 92% 50%)"
   status-critical: "hsl(0 65% 48%)"
@@ -55,6 +61,12 @@ colors:
   chart-rust-dark: "hsl(21 71% 54%)"
   chart-violet-dark: "hsl(259 70% 67%)"
   chart-green-dark: "hsl(110 43% 46%)"
+  chart-ramp-1-dark: "hsl(214 73% 34%)"
+  chart-ramp-2-dark: "hsl(212 73% 42%)"
+  chart-ramp-3-dark: "hsl(212 70% 52%)"
+  chart-ramp-4-dark: "hsl(211 81% 65%)"
+  chart-ramp-5-dark: "hsl(211 96% 79%)"
+  chart-stone-dark: "hsl(35 10% 44%)"
   status-good-dark: "hsl(137 50% 53%)"
   status-warning-dark: "hsl(39 89% 63%)"
   status-critical-dark: "hsl(0 100% 71%)"
@@ -389,7 +401,20 @@ in both themes (the brand fill, the Midnight slab) there is one key.
   chroma floor, colour-blind separation of neighbours (worst ΔE 14.2 in light), a normal-vision
   floor and 3:1 contrast. Dark mode has its own steps rather than a flip, including a lighter
   `--chart-1` than the UI brand. Violet took slot 4 from the old blue, which would now sit beside
-  the brand as a second blue.
+  the brand as a second blue. Used by the dashboard; `/reports` uses the brand ramp below.
+- **Brand Ramp 1–5 and Chart Stone** (`chart-ramp-1`…`chart-ramp-5`, `chart-stone`;
+  `--chart-ramp-1..5`, `--chart-neutral`): Deep Sea Blue from quiet to strong, and a warm stone.
+  Every chart on `/reports` draws from these since 2026-10-19, when the user asked for the
+  brand's shades in place of green, amber, teal and orange (light: #80B8F4 #4791E6 #0466C8
+  #014C9D #033372, stone #8D8477; dark: #174E96 #1D66B9 #2F7FDA #5DA3EE #96C8FD, stone
+  #7B7265). Step 3 is the brand, the same blue as `--chart-1`. In dark mode quiet is dim and
+  strong is bright, so the strong end is always the one that stands out from the card.
+  Validated as an ordinal ramp (one hue, monotone lightness, each step ≥ 0.06 OKLCH L from the
+  next, the quiet end above 2:1). The stone is warm on purpose: a cool slate sat within ΔE 13 of
+  the blues, and the stone is ΔE 16 or more from every step it touches. A state takes a step by
+  what it means (`STATE_COLORS`): draft and scheduled are step 1, sent and in progress step 3,
+  partially paid step 4, completed, accepted and paid step 5; cancelled, declined, expired, void
+  and inactive are stone; overdue alone is red.
 - **Status** (`status-good`, `status-warning`, `status-critical`): reserved meaning (accepted
   vs declined quotes, current invoices, up vs down). Green is good, amber is warning, red is
   critical. Never a series colour, and never shown without a label or icon. Warning is a fill,
@@ -407,6 +432,20 @@ reads only tokens: categorical slots in fixed order (brand blue, teal, rust, vio
 never cycled (past the fifth, a bucket folds into a neutral "Other"), status for good or bad,
 overdue for age. A single series is one hue, not a colour per bar. No hex in a chart: a colour
 that is not a token is a colour nobody validated.
+
+**The Brand Shades Rule.** On `/reports`, a chart with one series is the brand, and a chart of
+parts is shades of the brand, darker (brighter in dark) the further along the work is. Grey-brown
+stone is for what dropped out, and red is only for money that is late (the overdue trend, the
+overdue slice, invoice aging; aging keeps the dashboard's green for Current, so the same buckets
+read the same on both pages). Neighbouring ramp steps are about ΔE 10 apart, which reads as
+more and less but not as two different things, so a ring is drawn in an order where touching
+slices are at least two steps apart, and every ring has a legend under it that names each part
+with its figure. The shade is never the only way to tell two parts apart.
+
+**The Quiet Gradient Rule.** Gradients in charts show which way a mark grows, nothing else. A
+one-series bar runs from 65% at its baseline to full colour at its value end; an area fades from
+30% under its line to nearly nothing at the axis. Rings, multi-shade bars and anything that is
+not a chart mark stay flat. No glow, no second hue in a gradient.
 
 **The One Mark Rule.** Deep Sea Blue is the only accent. It marks the next action, the current
 place, or now. If a screen has blue in more than a handful of places, one of them is lying.

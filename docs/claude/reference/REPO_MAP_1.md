@@ -840,8 +840,9 @@ apps/web/
     |   +-- constants/
     |       +-- chart-palette.ts     # The ONE home for data colours: categoricalColor() (fixed order,
     |       |                        # never cycled, neutral "Other" past 5), STATUS_COLORS,
-    |       |                        # OVERDUE_COLORS, tokenColor(). Tokens only — every value was
-    |       |                        # validated with the dataviz script in globals.css
+    |       |                        # OVERDUE_COLORS, tokenColor(), and the brand ramp:
+    |       |                        # BRAND_SERIES, rampColor(1-5), STATE_COLORS. Tokens only —
+    |       |                        # every value was validated with the dataviz script in globals.css
     |       +-- booking-options.ts   # Booking status labels/colors, service type labels, day names
     |       +-- catalog-options.ts   # Catalog item types, units
     |       +-- job-options.ts       # Service types, priorities
@@ -1106,6 +1107,9 @@ apps/web/
     |   |   |   +-- reports-skeleton.tsx         # Page + tab skeletons
     |   |   |   +-- empty-chart.tsx              # Shared no-data placeholder (was 5 copies)
     |   |   |   +-- report-format.ts             # granularityLabel / bucketNoun helpers
+    |   |   |   +-- report-palette.tsx           # Brand shades per state (job/quote/invoice/payment),
+    |   |   |   |                                # ring order, useFillId + barFill/areaFill gradients,
+    |   |   |   |                                # ChartLegendList (legend that is also the readout)
     |   |   |   +-- export-csv-button.tsx        # Full-section CSV; BOM, range in filename, formula escaping
     |   |   |   # The date picker is shared: components/ui/date-range-picker.tsx
     |   |   |

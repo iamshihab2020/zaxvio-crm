@@ -26,18 +26,26 @@ import { ReportKpiRow } from "./report-kpi-row";
 import { ReportChartCard } from "./report-chart-card";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
+import { BRAND_SERIES } from "@/lib/constants/chart-palette";
+import { barFill, useFillId } from "./report-palette";
 
+// One series each, so the brand each time. Service type and day of week were
+// teal and rust, which read as meanings that were not there.
 const volumeConfig = {
-  count: { label: "Bookings", color: "hsl(var(--chart-1))" },
+  count: { label: "Bookings", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
 const serviceConfig = {
-  count: { label: "Count", color: "hsl(var(--chart-2))" },
+  count: { label: "Count", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
 const dayConfig = {
-  count: { label: "Bookings", color: "hsl(var(--chart-3))" },
+  count: { label: "Bookings", color: BRAND_SERIES },
 } satisfies ChartConfig;
+
+// The bars fill with a gradient, whose `url(#…)` the tooltip would otherwise
+// take for their colour.
+const BAR_TOOLTIP = <ChartTooltipContent color={BRAND_SERIES} />;
 
 const formatCount = (n: number) => String(n);
 const formatPercent = (n: number) => `${n}%`;
@@ -48,6 +56,10 @@ interface BookingsTabProps {
 }
 
 export function BookingsTab({ data, granularity }: BookingsTabProps) {
+  const volumeFill = useFillId();
+  const serviceFill = useFillId();
+  const dayFill = useFillId();
+
   const anim = chartAnimation();
 
   return (
@@ -105,6 +117,7 @@ export function BookingsTab({ data, granularity }: BookingsTabProps) {
                 data={data.bookingVolumeTrend}
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
+                {barFill(volumeFill, BRAND_SERIES, "up")}
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="monthLabel"
@@ -119,10 +132,10 @@ export function BookingsTab({ data, granularity }: BookingsTabProps) {
                   width={30}
                   className="text-xs font-body"
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={BAR_TOOLTIP} />
                 <Bar
                   dataKey="count"
-                  fill="var(--color-count)"
+                  fill={`url(#${volumeFill})`}
                   radius={[4, 4, 0, 0]}
                   {...anim}
                 />
@@ -155,6 +168,7 @@ export function BookingsTab({ data, granularity }: BookingsTabProps) {
                 layout="vertical"
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
+                {barFill(serviceFill, BRAND_SERIES, "right")}
                 <CartesianGrid horizontal={false} strokeDasharray="3 3" />
                 <XAxis
                   type="number"
@@ -170,10 +184,10 @@ export function BookingsTab({ data, granularity }: BookingsTabProps) {
                   width={90}
                   className="text-xs font-body"
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={BAR_TOOLTIP} />
                 <Bar
                   dataKey="count"
-                  fill="var(--color-count)"
+                  fill={`url(#${serviceFill})`}
                   radius={[0, 4, 4, 0]}
                   {...anim}
                 />
@@ -202,6 +216,7 @@ export function BookingsTab({ data, granularity }: BookingsTabProps) {
                 data={data.bookingsByDayOfWeek}
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
+                {barFill(dayFill, BRAND_SERIES, "up")}
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="day"
@@ -216,10 +231,10 @@ export function BookingsTab({ data, granularity }: BookingsTabProps) {
                   width={30}
                   className="text-xs font-body"
                 />
-                <ChartTooltip content={<ChartTooltipContent />} />
+                <ChartTooltip content={BAR_TOOLTIP} />
                 <Bar
                   dataKey="count"
-                  fill="var(--color-count)"
+                  fill={`url(#${dayFill})`}
                   radius={[4, 4, 0, 0]}
                   {...anim}
                 />

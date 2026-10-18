@@ -37,28 +37,30 @@ import { ReportChartCard } from "./report-chart-card";
 import { ReportDataTable } from "./report-data-table";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
-
-const CHART_COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(var(--brand))",
-  "#6366f1",
-];
+import { BRAND_SERIES } from "@/lib/constants/chart-palette";
+import {
+  ChartLegendList,
+  PAYMENT_METHOD_FILL,
+  PAYMENT_METHOD_ORDER,
+  UNKNOWN_FILL,
+  areaFill,
+  barFill,
+  sortByOrder,
+  useFillId,
+} from "./report-palette";
 
 const revenueTrendConfig = {
-  current: { label: "Current Period", color: "hsl(var(--chart-1))" },
+  current: { label: "Current Period", color: BRAND_SERIES },
   previous: { label: "Previous Period", color: "hsl(var(--muted-foreground))" },
 } satisfies ChartConfig;
 
 const serviceTypeConfig = {
-  amount: { label: "Revenue", color: "hsl(var(--chart-1))" },
+  amount: { label: "Revenue", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
+// One series, so the brand. It was the rust of the old categorical palette.
 const avgJobConfig = {
-  avgValue: { label: "Avg Job Value", color: "hsl(var(--chart-3))" },
+  avgValue: { label: "Avg Job Value", color: BRAND_SERIES },
 } satisfies ChartConfig;
 
 const formatPercent = (n: number) => `${n}%`;
@@ -73,6 +75,15 @@ const CURRENCY_TOOLTIP = (
   <ChartTooltipContent formatter={(value) => formatCurrency(value as number)} />
 );
 
+// The service bars fill with a gradient, whose `url(#…)` the tooltip would
+// otherwise take for their colour.
+const BAR_CURRENCY_TOOLTIP = (
+  <ChartTooltipContent
+    color={BRAND_SERIES}
+    formatter={(value) => formatCurrency(value as number)}
+  />
+);
+
 interface RevenueTabProps {
   data: RevenueReportData;
   granularity: ReportGranularity;
@@ -81,16 +92,28 @@ interface RevenueTabProps {
 }
 
 export function RevenueTab({ data, granularity, viewKey }: RevenueTabProps) {
+  // Colour follows the method, not its rank: the slices used to take the next
+  // colour by position (and wrapped round a seven-entry list), so a method
+  // changed colour whenever its share overtook another's.
+  const paymentRows = useMemo(
+    () =>
+      sortByOrder(
+        data.revenueByPaymentMethod,
+        (r) => r.method,
+        PAYMENT_METHOD_ORDER,
+      ).map((r) => ({ ...r, fill: PAYMENT_METHOD_FILL[r.method] ?? UNKNOWN_FILL })),
+    [data.revenueByPaymentMethod],
+  );
   const paymentMethodConfig = useMemo(() => {
     const config: ChartConfig = {};
-    data.revenueByPaymentMethod.forEach((item, i) => {
-      config[item.method] = {
-        label: item.label,
-        color: CHART_COLORS[i % CHART_COLORS.length],
-      };
+    paymentRows.forEach((item) => {
+      config[item.method] = { label: item.label, color: item.fill };
     });
     return config;
-  }, [data.revenueByPaymentMethod]);
+  }, [paymentRows]);
+
+  const trendFill = useFillId();
+  const serviceFill = useFillId();
 
   const anim = chartAnimation();
 
@@ -167,26 +190,7 @@ export function RevenueTab({ data, granularity, viewKey }: RevenueTabProps) {
                 data={data.revenueTrend}
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
-                <defs>
-                  <linearGradient
-                    id="fillRevCurrent"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor="var(--color-current)"
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="var(--color-current)"
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-                </defs>
+                {areaFill(trendFill, BRAND_SERIES)}
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="monthLabel"
@@ -230,7 +234,7 @@ export function RevenueTab({ data, granularity, viewKey }: RevenueTabProps) {
                   type="monotone"
                   dataKey="current"
                   stroke="var(--color-current)"
-                  fill="url(#fillRevCurrent)"
+                  fill={`url(#${trendFill})`}
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -265,6 +269,7 @@ export function RevenueTab({ data, granularity, viewKey }: RevenueTabProps) {
                 layout="vertical"
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
+                {barFill(serviceFill, BRAND_SERIES, "right")}
                 <CartesianGrid horizontal={false} strokeDasharray="3 3" />
                 <XAxis
                   type="number"
@@ -283,16 +288,10 @@ export function RevenueTab({ data, granularity, viewKey }: RevenueTabProps) {
                   width={90}
                   className="text-xs font-body"
                 />
-                <ChartTooltip
-                  content={
-                    <ChartTooltipContent
-                      formatter={(value) => formatCurrency(value as number)}
-                    />
-                  }
-                />
+                <ChartTooltip content={BAR_CURRENCY_TOOLTIP} />
                 <Bar
                   dataKey="amount"
-                  fill="var(--color-amount)"
+                  fill={`url(#${serviceFill})`}
                   radius={[0, 4, 4, 0]}
                   {...anim}
                 />
@@ -316,32 +315,39 @@ export function RevenueTab({ data, granularity, viewKey }: RevenueTabProps) {
           {data.revenueByPaymentMethod.length === 0 ? (
             <EmptyChart />
           ) : (
-            <ChartContainer
-              config={paymentMethodConfig}
-              className="mx-auto h-[280px] w-full"
-            >
-              <PieChart>
-                <ChartTooltip content={CURRENCY_TOOLTIP} />
-                <Pie
-                  data={data.revenueByPaymentMethod}
-                  dataKey="amount"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  {...anim}
-                >
-                  {data.revenueByPaymentMethod.map((slice, i) => (
-                    <Cell
-                      key={slice.method}
-                      fill={CHART_COLORS[i % CHART_COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
+            <>
+              <ChartContainer
+                config={paymentMethodConfig}
+                className="mx-auto h-[240px] w-full"
+              >
+                <PieChart>
+                  <ChartTooltip content={CURRENCY_TOOLTIP} />
+                  <Pie
+                    data={paymentRows}
+                    dataKey="amount"
+                    nameKey="label"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    {...anim}
+                  >
+                    {paymentRows.map((slice) => (
+                      <Cell key={slice.method} fill={slice.fill} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              <ChartLegendList
+                items={paymentRows.map((r) => ({
+                  key: r.method,
+                  label: r.label,
+                  color: r.fill,
+                  value: formatCurrency(r.amount),
+                }))}
+              />
+            </>
           )}
         </ReportChartCard>
 

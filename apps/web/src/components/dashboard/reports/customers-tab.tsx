@@ -30,19 +30,35 @@ import { ReportChartCard } from "./report-chart-card";
 import { ReportDataTable } from "./report-data-table";
 import { EmptyChart } from "./empty-chart";
 import { granularityLabel } from "./report-format";
+import {
+  BRAND_SERIES,
+  STATE_COLORS,
+  rampColor,
+} from "@/lib/constants/chart-palette";
+import { ChartLegendList, areaFill, useFillId } from "./report-palette";
 
 const newCustomersConfig = {
-  count: { label: "New Customers", color: "hsl(var(--chart-1))" },
+  count: { label: "New Customers", color: BRAND_SERIES },
 } satisfies ChartConfig;
+
+// An inactive customer has dropped out, so the warm neutral rather than the
+// slate it was, which sat within ΔE 13 of the blue beside it.
+const ACTIVE_FILL = BRAND_SERIES;
+const INACTIVE_FILL = STATE_COLORS.dropped;
 
 const activeInactiveConfig = {
-  active: { label: "Active", color: "hsl(var(--chart-1))" },
-  inactive: { label: "Inactive", color: "hsl(var(--muted-foreground))" },
+  active: { label: "Active", color: ACTIVE_FILL },
+  inactive: { label: "Inactive", color: INACTIVE_FILL },
 } satisfies ChartConfig;
 
+// Repeat customers are the brand, one-time ones its quietest step. These were
+// rust and violet.
+const REPEAT_FILL = BRAND_SERIES;
+const ONE_TIME_FILL = rampColor(1);
+
 const repeatConfig = {
-  repeat: { label: "Repeat", color: "hsl(var(--chart-3))" },
-  oneTime: { label: "One-Time", color: "hsl(var(--chart-4))" },
+  repeat: { label: "Repeat", color: REPEAT_FILL },
+  oneTime: { label: "One-Time", color: ONE_TIME_FILL },
 } satisfies ChartConfig;
 
 // Stable for the two pies below: see CURRENCY_TOOLTIP in revenue-tab.tsx for why
@@ -66,19 +82,41 @@ export function CustomersTab({ data, granularity, viewKey }: CustomersTabProps) 
   // toggling `isFetching`, say). `data` only changes when the report does.
   const activeInactiveData = useMemo(
     () => [
-      { name: "Active", value: data.activeVsInactive.active, key: "active" },
-      { name: "Inactive", value: data.activeVsInactive.inactive, key: "inactive" },
+      {
+        name: "Active",
+        value: data.activeVsInactive.active,
+        key: "active",
+        fill: ACTIVE_FILL,
+      },
+      {
+        name: "Inactive",
+        value: data.activeVsInactive.inactive,
+        key: "inactive",
+        fill: INACTIVE_FILL,
+      },
     ],
     [data.activeVsInactive],
   );
 
   const repeatData = useMemo(
     () => [
-      { name: "Repeat", value: data.repeatVsOneTime.repeat, key: "repeat" },
-      { name: "One-Time", value: data.repeatVsOneTime.oneTime, key: "oneTime" },
+      {
+        name: "Repeat",
+        value: data.repeatVsOneTime.repeat,
+        key: "repeat",
+        fill: REPEAT_FILL,
+      },
+      {
+        name: "One-Time",
+        value: data.repeatVsOneTime.oneTime,
+        key: "oneTime",
+        fill: ONE_TIME_FILL,
+      },
     ],
     [data.repeatVsOneTime],
   );
+
+  const newCustomersFill = useFillId();
 
   const anim = chartAnimation();
 
@@ -138,26 +176,7 @@ export function CustomersTab({ data, granularity, viewKey }: CustomersTabProps) 
                 data={data.newCustomersTrend}
                 margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
               >
-                <defs>
-                  <linearGradient
-                    id="fillNewCust"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop
-                      offset="5%"
-                      stopColor="var(--color-count)"
-                      stopOpacity={0.3}
-                    />
-                    <stop
-                      offset="95%"
-                      stopColor="var(--color-count)"
-                      stopOpacity={0.05}
-                    />
-                  </linearGradient>
-                </defs>
+                {areaFill(newCustomersFill, BRAND_SERIES)}
                 <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="monthLabel"
@@ -177,7 +196,7 @@ export function CustomersTab({ data, granularity, viewKey }: CustomersTabProps) 
                   type="monotone"
                   dataKey="count"
                   stroke="var(--color-count)"
-                  fill="url(#fillNewCust)"
+                  fill={`url(#${newCustomersFill})`}
                   strokeWidth={2}
                   dot={false}
                   activeDot={{ r: 4, strokeWidth: 0 }}
@@ -201,28 +220,39 @@ export function CustomersTab({ data, granularity, viewKey }: CustomersTabProps) 
           {activeInactiveData.every((d) => d.value === 0) ? (
             <EmptyChart />
           ) : (
-            <ChartContainer
-              config={activeInactiveConfig}
-              className="mx-auto h-[280px] w-full"
-            >
-              <PieChart>
-                <ChartTooltip content={PIE_TOOLTIP} />
-                <Pie
-                  data={activeInactiveData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  {...anim}
-                >
-                  <Cell fill="hsl(var(--chart-1))" />
-                  <Cell fill="hsl(var(--muted-foreground))" />
-                </Pie>
-              </PieChart>
-            </ChartContainer>
+            <>
+              <ChartContainer
+                config={activeInactiveConfig}
+                className="mx-auto h-[240px] w-full"
+              >
+                <PieChart>
+                  <ChartTooltip content={PIE_TOOLTIP} />
+                  <Pie
+                    data={activeInactiveData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    {...anim}
+                  >
+                    {activeInactiveData.map((d) => (
+                      <Cell key={d.key} fill={d.fill} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              <ChartLegendList
+                items={activeInactiveData.map((d) => ({
+                  key: d.key,
+                  label: d.name,
+                  color: d.fill,
+                  value: String(d.value),
+                }))}
+              />
+            </>
           )}
         </ReportChartCard>
 
@@ -238,28 +268,39 @@ export function CustomersTab({ data, granularity, viewKey }: CustomersTabProps) 
           {repeatData.every((d) => d.value === 0) ? (
             <EmptyChart />
           ) : (
-            <ChartContainer
-              config={repeatConfig}
-              className="mx-auto h-[280px] w-full"
-            >
-              <PieChart>
-                <ChartTooltip content={PIE_TOOLTIP} />
-                <Pie
-                  data={repeatData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  {...anim}
-                >
-                  <Cell fill="hsl(var(--chart-3))" />
-                  <Cell fill="hsl(var(--chart-4))" />
-                </Pie>
-              </PieChart>
-            </ChartContainer>
+            <>
+              <ChartContainer
+                config={repeatConfig}
+                className="mx-auto h-[240px] w-full"
+              >
+                <PieChart>
+                  <ChartTooltip content={PIE_TOOLTIP} />
+                  <Pie
+                    data={repeatData}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    {...anim}
+                  >
+                    {repeatData.map((d) => (
+                      <Cell key={d.key} fill={d.fill} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </ChartContainer>
+              <ChartLegendList
+                items={repeatData.map((d) => ({
+                  key: d.key,
+                  label: d.name,
+                  color: d.fill,
+                  value: String(d.value),
+                }))}
+              />
+            </>
           )}
         </ReportChartCard>
       </div>
