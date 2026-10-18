@@ -62,11 +62,17 @@ export function RunningTimerBar({
 
   if (!running) return null;
 
+  // A fixed `h-12`, not padding around the content: full-height pages subtract
+  // exactly this (`--timer-bar-h`, found by `data-running-timer` in
+  // globals.css). The row is one line that truncates, so it never needs more.
+  // No negative side margins: the parent `<main>` has no padding to bleed into,
+  // so they pushed the clock and Stop flush against the edges of the screen.
   return (
     <div
       role="status"
       aria-live="polite"
-      className={`sticky ${offsetClass} z-10 -mx-4 flex items-center gap-3 border-b border-brand/25 bg-brand/10 px-4 py-2 backdrop-blur-md sm:-mx-6 sm:px-6 ${isNew ? "motion-drop-in" : ""}`}
+      data-running-timer
+      className={`sticky ${offsetClass} z-10 flex h-12 items-center gap-3 border-b border-brand/25 bg-brand/10 px-4 backdrop-blur-md sm:px-6 ${isNew ? "motion-drop-in" : ""}`}
     >
       <IconClock className="h-4 w-4 shrink-0 text-brand" aria-hidden />
 

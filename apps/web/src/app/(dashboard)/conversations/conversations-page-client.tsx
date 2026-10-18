@@ -192,7 +192,7 @@ export function ConversationsPageClient({
 
   return (
     <>
-      <div data-stagger className="flex h-[calc(100dvh-3.5rem)] overflow-hidden">
+      <div data-stagger className="flex h-page overflow-hidden">
         {/* Left panel — conversation list */}
         <div
           className={cn(

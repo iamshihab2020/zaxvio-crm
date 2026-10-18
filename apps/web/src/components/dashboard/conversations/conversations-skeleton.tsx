@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export function ConversationsSkeleton() {
   return (
-    <div className="flex h-[calc(100dvh-3.5rem)] overflow-hidden">
+    <div className="flex h-page overflow-hidden">
       {/* Left panel skeleton */}
       <div className="w-full shrink-0 border-r border-border flex flex-col lg:w-80">
         <div className="flex items-center justify-between px-4 py-3 border-b border-border">

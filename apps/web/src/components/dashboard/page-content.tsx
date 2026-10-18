@@ -44,8 +44,11 @@ export function PageContent({
   // the fixed navbar spanned the wider page while the content kept the screen
   // width, leaving a gutter on the right only. `clip` rather than `hidden` so
   // it creates no scroll container and `position: sticky` inside still pins.
+  //
+  // `dashboard-main` publishes `--page-chrome-h`, the height above a page's
+  // content, for the `h-page` / `min-h-page` utilities (globals.css).
   return (
-    <main key={pathname} ref={mainRef} className={cn("[overflow-x:clip]", className)}>
+    <main key={pathname} ref={mainRef} className={cn("dashboard-main [overflow-x:clip]", className)}>
       {children}
     </main>
   );

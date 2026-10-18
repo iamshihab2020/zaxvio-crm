@@ -1163,3 +1163,11 @@ From [[bookings-calendar|the report]] — the front-end half.
 - **The day view now fetches its whole week.** The week strip needs every day's items, and moving
   between days of one week no longer refetches. A side effect: the "first 200" warning can no
   longer say "narrow to a day", because a day loads the same week.
+- **Full-height pages subtract the chrome from one variable, not from 3.5rem.** Schedule,
+  Conversations, the automation builder and Settings used `calc(100dvh - 3.5rem)`, which knew
+  about the navbar only. The running-timer bar sits in the flow above every page, so a running
+  timer pushed them 3rem past the screen's bottom; on the builder (`html { overflow: hidden }`
+  via `data-fills-viewport`) the bottom 3rem was simply unreachable. `.dashboard-main` now
+  publishes `--page-chrome-h` (navbar or navbar + impersonation banner, plus the timer bar found
+  with `:has(> [data-running-timer])`), and pages use `h-page` / `min-h-page`. The bar has a
+  fixed `h-12` so CSS can know its height without measuring.

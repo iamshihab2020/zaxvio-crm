@@ -91,7 +91,7 @@ export function AssetDetailClient({ asset }: AssetDetailClientProps) {
   ) : null;
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-col min-h-page">
       {/* Header */}
       <div className="border-b border-border bg-card px-4 py-3 sm:px-6">
         <div className="flex items-center gap-3">

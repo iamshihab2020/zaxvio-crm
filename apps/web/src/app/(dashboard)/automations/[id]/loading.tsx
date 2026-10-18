@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export default function BuilderLoading() {
   return (
-    <section data-fills-viewport className="flex h-[calc(100dvh-3.5rem)] flex-col">
+    <section data-fills-viewport className="flex h-page flex-col">
       <div className="flex items-center gap-3 border-b border-border bg-card px-4 py-2.5">
         <Skeleton className="h-10 w-10 sm:h-8 sm:w-32" />
         <Skeleton className="h-5 w-32 sm:w-40" />

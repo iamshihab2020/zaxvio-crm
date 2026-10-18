@@ -924,6 +924,35 @@
   }
 }
 
+/* ── Page height under the dashboard chrome ──
+   Full-height pages (Schedule, Conversations, an automation's builder,
+   Settings) size themselves to the screen less what sits above their content:
+   the fixed navbar (3.5rem), the impersonation banner while an admin is in a
+   tenant (the layout sets --page-top to 6rem then), and the running-timer bar
+   while a timer runs, which is in the flow above the page. They used to
+   subtract a literal 3.5rem, so a running timer pushed the Schedule 3rem past
+   the bottom of the screen, and on the builder, where the page cannot scroll
+   (`data-fills-viewport`), it hid the bottom 3rem for good. The bar's height
+   is fixed (`h-12` in running-timer-bar.tsx) so it can be known here without
+   measuring. Outside `.dashboard-main` the utilities fall back to 3.5rem. */
+.dashboard-main {
+  --page-chrome-h: calc(var(--page-top, 3.5rem) + var(--timer-bar-h, 0px));
+}
+
+.dashboard-main:has(> [data-running-timer]) {
+  --timer-bar-h: 3rem;
+}
+
+@layer utilities {
+  .h-page {
+    height: calc(100dvh - var(--page-chrome-h, 3.5rem));
+  }
+
+  .min-h-page {
+    min-height: calc(100dvh - var(--page-chrome-h, 3.5rem));
+  }
+}
+
 /* Force correct background on dragged kanban cards */
 [data-dragging="true"] {
   background-color: hsl(var(--card)) !important;

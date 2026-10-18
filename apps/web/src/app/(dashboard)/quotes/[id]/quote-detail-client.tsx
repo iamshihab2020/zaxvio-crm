@@ -56,7 +56,7 @@ export function QuoteDetailClient({
   }, [quoteQuery]);
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
+    <div className="flex flex-col min-h-page">
       <QuoteDetailHeader quote={quote} onUpdate={refreshQuote}>
         {viewMounted && (
           <ViewModeToggle value={viewMode} onChange={setViewMode} />

@@ -1139,6 +1139,8 @@ apps/web/
     |   |   |   |                     # ChartLegendList (ring legend that is also the readout)
     |   |   |   +-- stats-cards.tsx  # Stats cards grid (clickable filter + filterValue support)
     |   |   |   +-- running-timer-bar.tsx # The running timer, pinned under the navbar on EVERY page.
+    |   |   |   |                     # Fixed h-12 + data-running-timer: full-height pages subtract it
+    |   |   |   |                     # through --page-chrome-h / h-page (globals.css).
     |   |   |   |                     # The whole reason a stopwatch beats a text box is that you
     |   |   |   |                     # cannot forget it; Stop lives here because the user has usually
     |   |   |   |                     # navigated away from the job they clocked into. Renders null

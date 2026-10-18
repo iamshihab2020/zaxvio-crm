@@ -86,7 +86,7 @@ export function JobDetailClient({
   }, [jobQuery, queryClient, router]);
 
   return (
-    <div data-stagger className="flex flex-col min-h-[calc(100vh-3.5rem)]">
+    <div data-stagger className="flex flex-col min-h-page">
       <JobDetailPageHeader
         job={job}
         stages={stages}

@@ -159,7 +159,7 @@ export function CustomerDetailClient({
   }
 
   return (
-    <div data-stagger className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+    <div data-stagger className="flex min-h-page flex-col">
       <CustomerDetailHeader
         customer={customer}
         onUpdate={handleCustomerUpdate}

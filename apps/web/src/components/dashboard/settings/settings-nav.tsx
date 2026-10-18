@@ -155,7 +155,7 @@ export function SettingsNav({ orgRole }: SettingsNavProps) {
         className="hidden md:block w-56 shrink-0 border-r border-border"
         aria-label="Settings navigation"
       >
-        <ScrollArea className="h-[calc(100dvh-3.5rem)]">
+        <ScrollArea className="h-page">
           <div className="relative p-4 space-y-5">
             {filteredGroups.map((group) => (
               <div key={group.label}>

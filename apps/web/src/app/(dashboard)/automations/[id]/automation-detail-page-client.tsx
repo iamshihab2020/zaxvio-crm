@@ -228,7 +228,7 @@ export function AutomationDetailPageClient({ id, initialDetail, initialError }: 
       <section
         data-fills-viewport
         data-stagger
-        className="flex h-[calc(100dvh-3.5rem)] flex-col"
+        className="flex h-page flex-col"
       >
         <BuilderToolbar
           id={id}

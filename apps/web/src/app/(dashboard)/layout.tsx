@@ -71,7 +71,9 @@ export default async function DashboardLayout({
               one to reach the other. */}
           <PageActionsProvider>
             <Navbar impersonating={isImpersonating} />
-            <PageContent className={isImpersonating ? "pt-24" : "pt-14"}>
+            {/* `--page-top` is the same offset as the padding, for full-height
+                pages (`h-page` in globals.css); 3.5rem when unset. */}
+            <PageContent className={isImpersonating ? "pt-24 [--page-top:6rem]" : "pt-14"}>
               {/* Inside the scroll flow so it can pin, and above the page's own
                   content so a running timer is the first thing on screen. It
                   renders nothing at all when no timer is running, which is

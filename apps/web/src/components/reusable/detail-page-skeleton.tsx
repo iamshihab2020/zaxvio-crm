@@ -37,7 +37,7 @@ export function DetailPageSkeleton({
 }: DetailPageSkeletonProps) {
   return (
     <div
-      className={cn("flex min-h-[calc(100vh-3.5rem)] flex-col", className)}
+      className={cn("flex min-h-page flex-col", className)}
       aria-busy="true"
       aria-label="Loading"
     >

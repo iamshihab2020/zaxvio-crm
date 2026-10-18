@@ -73,7 +73,7 @@ export function InvoiceDetailClient({
   }, [invoiceQuery, queryClient, router]);
 
   return (
-    <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+    <div className="flex min-h-page flex-col">
       <InvoiceDetailHeader invoice={invoice} onUpdate={refreshInvoice}>
         {viewMounted && (
           <ViewModeToggle value={viewMode} onChange={setViewMode} />

@@ -754,11 +754,13 @@ export function SchedulePageClient({ timezone }: SchedulePageClientProps) {
 
   return (
     <TooltipProvider delayDuration={300}>
-      {/* Full-height flex column: navbar is h-14 (3.5rem). `dvh`, so a phone's
-          address bar does not push the calendar's bottom edge off screen. */}
+      {/* Full-height flex column. `h-page` is the screen (`dvh`, so a phone's
+          address bar does not push the calendar's bottom edge off it) less
+          the navbar, the impersonation banner and the running-timer bar
+          (globals.css). It was `100dvh - 3.5rem`, which ignored the last two. */}
       <section
         className={cn(
-          "flex flex-col h-[calc(100dvh-3.5rem)] p-4 gap-0",
+          "flex flex-col h-page p-4 gap-0",
           coldStart && "motion-appear",
         )}
       >

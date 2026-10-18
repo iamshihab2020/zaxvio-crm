@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 export function ScheduleSkeleton() {
   return (
-    <section className="flex flex-col h-[calc(100dvh-3.5rem)] p-4 gap-0">
+    <section className="flex flex-col h-page p-4 gap-0">
       <div className="flex flex-1 min-h-0 gap-3">
         {/* Task panel skeleton */}
         <div className="hidden xl:flex w-72 shrink-0 flex-col rounded-lg border border-border bg-card">
