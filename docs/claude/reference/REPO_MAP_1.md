@@ -623,8 +623,11 @@ apps/api/
 |   |   ~ .gitkeep                # Planned: background cron runners
 |   +-- scripts/
 |       +-- seed-admin.ts         # Seed super admin from env vars (idempotent)
-|       +-- seed-demo-data.ts     # Seed one tenant with a working dataset (pnpm seed:demo [-- --reset])
-|       +-- seed-demo-dataset.ts  # The demo content itself — pure data, no DB access
+|       +-- seed-demo-data.ts     # Writer: two months of connected data for one tenant (pnpm seed:demo [-- --reset | --wipe])
+|       +-- seed-demo-dataset.ts  # Generator: buildDemoDataset(today) — schedule board, quotes→jobs, bookings, invoices; pure
+|       +-- seed-demo-types.ts    # DemoDataset shape: index links, day-offset + HH:MM dates
+|       +-- seed-demo-rng.ts      # Seeded PRNG, calendar and clock helpers (pure)
+|       +-- seed-demo-banks.ts    # Static content: catalog with unit costs, names, places, job and booking text
 |
 +-- tests/
     +-- integration/

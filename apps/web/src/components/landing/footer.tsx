@@ -69,7 +69,7 @@ export function Footer() {
     <footer className="bg-midnight text-midnight-foreground" role="contentinfo">
       <Separator className="bg-midnight-foreground/10" />
 
-      <div className="mx-auto w-full max-w-6xl px-5 py-12 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[88rem] px-5 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="lg:col-span-2">
             <Logo size="md" />

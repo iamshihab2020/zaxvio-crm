@@ -529,7 +529,7 @@ menu always stay. Line-item tables keep every column and scroll sideways inside 
 **Settings** use a two-thirds form column and a one-third side column at `lg`, under a settings
 sub-nav.
 
-**Landing page.** A 72rem container with 20 / 24 / 32px gutters, a 12-column grid at `lg`, and
+**Landing page.** An 88rem container (72rem until 2026-10-18; the user found the side margins too wide on a 1920px screen) with 20 / 24 / 32px gutters, a 12-column grid at `lg`, and
 sections at `py-20` → `py-28` (`lg`), with 112–144px above the hero for the fixed navbar. Section
 surfaces alternate strictly between base and alt. `SectionHeading` is two columns at `lg`: the
 heading in seven, the lede bottom-aligned in five (`layout="stacked"` keeps them together, as in

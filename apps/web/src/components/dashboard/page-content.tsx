@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useRouteArrival } from "@/hooks/use-route-arrival";
+import { cn } from "@/lib/utils";
 
 export function PageContent({
   children,
@@ -38,8 +39,13 @@ export function PageContent({
   const mainRef = useRef<HTMLElement>(null);
   useRouteArrival(mainRef);
 
+  // `overflow-x: clip` keeps one too-wide widget from widening the document.
+  // On a phone that overflow made the browser zoom the page out to fit it, so
+  // the fixed navbar spanned the wider page while the content kept the screen
+  // width, leaving a gutter on the right only. `clip` rather than `hidden` so
+  // it creates no scroll container and `position: sticky` inside still pins.
   return (
-    <main key={pathname} ref={mainRef} className={className}>
+    <main key={pathname} ref={mainRef} className={cn("[overflow-x:clip]", className)}>
       {children}
     </main>
   );

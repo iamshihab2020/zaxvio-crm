@@ -28,7 +28,7 @@ export function LegalDocument({
   children: React.ReactNode;
 }) {
   return (
-    <article className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:px-6 sm:pt-14 lg:px-8">
+    <article className="mx-auto w-full max-w-[88rem] px-5 pb-20 pt-10 sm:px-6 sm:pt-14 lg:px-8">
       <header className="max-w-3xl">
         <span aria-hidden="true" className="block h-px w-full bg-border" />
         <h1 className="mt-5 font-heading text-[1.75rem] font-bold leading-[1.15] tracking-tight text-ink text-balance sm:text-4xl">

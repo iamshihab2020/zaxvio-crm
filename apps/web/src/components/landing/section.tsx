@@ -52,7 +52,7 @@ export function Section({
       aria-labelledby={labelledBy}
       className={cn("py-20 lg:py-28", SURFACE[surface], className)}
     >
-      <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[88rem] px-5 sm:px-6 lg:px-8">
         {children}
       </div>
     </section>

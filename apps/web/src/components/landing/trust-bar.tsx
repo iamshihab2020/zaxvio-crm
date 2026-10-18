@@ -42,7 +42,7 @@ export function TrustBar() {
       aria-labelledby="trust-heading"
       className="border-y border-border bg-surface-alt py-12 lg:py-14"
     >
-      <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-[88rem] px-5 sm:px-6 lg:px-8">
         <Reveal>
           <h2
             id="trust-heading"

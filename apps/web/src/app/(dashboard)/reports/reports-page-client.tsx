@@ -30,6 +30,7 @@ import {
   ReportsTabSkeleton,
 } from "@/components/dashboard/reports/reports-skeleton";
 import { ExportCsvButton } from "@/components/dashboard/reports/export-csv-button";
+import { prefersReducedMotion } from "@/lib/motion";
 import { RevenueTab } from "@/components/dashboard/reports/revenue-tab";
 import { JobsTab } from "@/components/dashboard/reports/jobs-tab";
 import { CustomersTab } from "@/components/dashboard/reports/customers-tab";
@@ -73,6 +74,20 @@ export function ReportsPageClient({
   const [activeTab, setActiveTab] = useState<ReportSection>(
     initialParams?.section ?? "revenue",
   );
+
+  // Six tabs do not fit a phone, so the list scrolls sideways. Bring the
+  // selected one fully into view: after a tap on a half-visible tab, and when
+  // the page opens on a tab past the edge.
+  const tabsScrollerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    tabsScrollerRef.current
+      ?.querySelector<HTMLElement>('[role="tab"][data-state="active"]')
+      ?.scrollIntoView({
+        block: "nearest",
+        inline: "nearest",
+        behavior: prefersReducedMotion() ? "auto" : "smooth",
+      });
+  }, [activeTab]);
   // No explicit range until the user picks one. The browser cannot reproduce
   // "month to date in the tenant's timezone", so the API resolves it and echoes
   // the window back: the picker renders what was queried, not a guess.
@@ -206,8 +221,14 @@ export function ReportsPageClient({
         onValueChange={(v) => setActiveTab(v as ReportSection)}
       >
         <div className="mb-4 flex items-center justify-between gap-2 sm:gap-4">
-          <div className="min-w-0 flex-1 overflow-x-auto">
-            <TabsList>
+          {/* The list scrolls itself (ui/tabs). It used to sit in a second
+              `overflow-x-auto` box as well, which showed its own scrollbar
+              under the first tabs on a phone and cut the list off square at
+              the export button. Full width so its bottom rule runs to the
+              button; below `sm` the last visible tab fades out to say the row
+              continues. */}
+          <div ref={tabsScrollerRef} className="min-w-0 flex-1">
+            <TabsList className="flex w-full max-sm:[mask-image:linear-gradient(to_right,#000_calc(100%_-_1.25rem),transparent)]">
               {TABS.map((tab) => (
                 <TabsTrigger key={tab.value} value={tab.value}>
                   <tab.icon className="h-3.5 w-3.5" aria-hidden />

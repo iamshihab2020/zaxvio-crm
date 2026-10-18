@@ -872,3 +872,24 @@
 - **Two hops can be one join, and still be live.** `resolveOrgRole` went
   tenant-then-member to a single `tenants ⋈ member`. It's still read fresh each
   call, as the impersonation guards require.
+
+## Two-month demo seed (2026-10-18)
+
+- **Trigger-issued numbers follow insert order, so insert by date.** `JOB-`, `QT-` and `INV-` numbers
+  are `MAX + 1` at insert time. Inserting jobs in array order gave JOB-0001 to a job created last week.
+  Sort each parent by its created/issued instant before the one-row-at-a-time inserts.
+- **`--reset` must wipe and reseed in one transaction.** The first seed wiped in its own
+  transaction, so any failure in the reseed left the tenant empty. One transaction means a failed
+  seed leaves the old data in place.
+- **Only write activity types the routes write.** `quote.viewed`, `quote.expired` and
+  `booking.created` exist only as workflow events (the outbox), not as activity rows; the routes
+  record a view in `quotes.first_viewed_at` and an expiry in the status. The July seed also wrote
+  `job_created` and `customer_created` with underscores, which no timeline ever produces. Grep
+  `insert(<table>Activities)` for the real type and wording.
+- **Clamp every "already happened" timestamp to now.** The dataset dates things as a local day
+  plus a time, so a seed run at 9am would otherwise write invoices, payments and notifications
+  dated this evening. Times are built in the tenant's zone (`America/Chicago`), not the machine's.
+- **Dry-run the generator before it touches the database.** It is pure, so `tsx` can run it alone
+  and check what matters: links that point both ways, no event after today, no two jobs
+  overlapping on the owner's schedule, no work dated before the customer joined. Two of the
+  three tuning passes happened there, at no cost to the tenant.

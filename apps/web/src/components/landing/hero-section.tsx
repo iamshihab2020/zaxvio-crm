@@ -68,7 +68,7 @@ export function HeroSection() {
         className="dot-field pointer-events-none absolute inset-0"
       />
 
-      <div className="relative mx-auto grid w-full max-w-6xl gap-14 px-5 sm:px-6 lg:grid-cols-12 lg:items-center lg:gap-x-12 lg:px-8">
+      <div className="relative mx-auto grid w-full max-w-[88rem] gap-14 px-5 sm:px-6 lg:grid-cols-12 lg:items-center lg:gap-x-12 lg:px-8">
         {/* Copy */}
         <div className="lg:col-span-6">
           <h1

@@ -1047,3 +1047,15 @@ From [[bookings-calendar|the report]] — the front-end half.
   warns, and the transition silently falls back to 150ms and the default curve. Write the property
   out: `[transition-duration:var(--dur-arrive)]`, `[transition-timing-function:var(--ease-out)]`.
 
+## Phone overflow and the fixed navbar (2026-10-18)
+
+- **One element wider than a phone screen shifts the whole page off-centre on a phone.** Mobile
+  Chrome, and DevTools device mode, zoom out to fit an overflowing page. The fixed navbar then
+  spans the wider layout viewport while the content keeps the screen width, so the dashboard showed
+  a 16px gutter on the left and about 60px on the right. `PageContent` now sets
+  `overflow-x: clip` on `<main>`. Use `clip`, not `hidden`, because `hidden` creates a scroll
+  container and breaks `position: sticky` inside. The widget that overflows is still unidentified.
+- **Don't wrap a `TabsList` in another `overflow-x-auto` box.** `ui/tabs` already scrolls and hides
+  its scrollbar. On `/reports` the extra wrapper showed its own scrollbar under the first tabs and
+  cut the list off square at the export button. Give the list `flex w-full` inside a `min-w-0`
+  parent instead; its bottom rule then runs the full width.
