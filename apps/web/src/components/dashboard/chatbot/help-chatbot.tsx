@@ -139,7 +139,7 @@ export function HelpChatbot() {
       {/* Floating Button */}
       <Button
         onClick={() => setIsOpen(!isOpen)}
-        className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-brand text-brand-foreground shadow-lg transition-[transform,box-shadow,background-color] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none hover:bg-brand/90 hover:shadow-xl ${
+        className={`fixed bottom-6 right-6 z-40 h-14 w-14 rounded-full bg-brand text-brand-foreground shadow-lg transition-[transform,box-shadow,background-color] duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none hover:bg-brand/90 hover:shadow-xl ${
           isOpen ? "rotate-90 scale-90" : "scale-100"
         }`}
         // Three pulses, then rest. `hasOpened` is not persisted, so this used to

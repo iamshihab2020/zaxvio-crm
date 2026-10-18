@@ -339,7 +339,7 @@ export function JobsTab({ data, granularity }: JobsTabProps) {
                       {/* Full width, scaled to the share: it draws in and
                           re-sizes on `transform` alone. */}
                       <div
-                        className="motion-grow-x h-full w-full rounded-full motion-safe:transition-transform motion-safe:duration-[var(--dur-focal)] motion-safe:ease-[var(--ease-out)]"
+                        className="motion-grow-x h-full w-full rounded-full motion-safe:transition-transform motion-safe:[transition-duration:var(--dur-focal)] motion-safe:[transition-timing-function:var(--ease-out)]"
                         style={{
                           ...enterDelay(staggerDelay(index, BAR_STEP, BAR_MAX_STEPS)),
                           transform: `scaleX(${Math.max(pct, 2) / 100})`,

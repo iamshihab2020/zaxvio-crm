@@ -109,7 +109,7 @@ export function StatusFilterTabs({
         // curve, not `ease-in-out`, which starts slowly and reads as lag after a
         // click. Reduced motion gets the move without the slide.
         <div
-          className="absolute rounded-full bg-brand transition-[left,width] duration-[var(--dur-arrive)] ease-[var(--ease-out)] motion-reduce:transition-none"
+          className="absolute rounded-full bg-brand transition-[left,width] [transition-duration:var(--dur-arrive)] [transition-timing-function:var(--ease-out)] motion-reduce:transition-none"
           style={{
             left: indicator.left,
             width: indicator.width,

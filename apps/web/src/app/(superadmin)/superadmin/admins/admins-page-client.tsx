@@ -132,11 +132,14 @@ export function AdminsPageClient({
     const result = await getAdminUsers();
     if (!result.data) return;
 
-    const added = result.data
+    // `getAdminUsers` returns the API's JSON untyped; give it the row type here
+    // so the callbacks below are typed (Next's build rejects implicit `any`).
+    const rows: AdminUser[] = result.data;
+    const added = rows
       .filter((a) => !knownIds.current.has(a.id))
       .map((a) => a.id);
-    knownIds.current = new Set(result.data.map((a) => a.id));
-    setAdmins(result.data);
+    knownIds.current = new Set(rows.map((a) => a.id));
+    setAdmins(rows);
 
     const changed = editedId ? [editedId] : added;
     if (changed.length === 0) return;

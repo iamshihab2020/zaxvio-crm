@@ -34,7 +34,7 @@ const Progress = React.forwardRef<
         its own (the track clips it), so scaling it distorts nothing. */}
     <ProgressPrimitive.Indicator
       className={cn(
-        "h-full w-full flex-1 origin-left bg-primary transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+        "h-full w-full flex-1 origin-left bg-primary transition-transform duration-500 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
         drawIn && "motion-grow-x",
       )}
       style={{

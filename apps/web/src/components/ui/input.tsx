@@ -15,7 +15,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
           // Border and focus ring ease in and out instead of snapping. The ring
           // is a box-shadow, so it belongs in the list.
-          "transition-[color,background-color,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "transition-[color,background-color,border-color,box-shadow] duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)]",
           className,
         )}
         ref={ref}

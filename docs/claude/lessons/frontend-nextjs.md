@@ -1032,3 +1032,18 @@ From [[bookings-calendar|the report]] — the front-end half.
   anything that reads as a real customer. Every composite says "Example data" or "sample data" in
   text a sighted reader sees, and avatars are initials for roles, never names.
 
+## Vercel build failure after the unchecked passes (2026-10-18)
+
+- **`next build` stops at the first type error, so one fix is not proof the next build passes.**
+  Commit `9893fa9` failed on Vercel at `admins-page-client.tsx:136` (an implicit `any`); that is
+  the only error the log can show. After ~300 unchecked files, run `pnpm typecheck` before the
+  next push instead of fixing one error per deploy.
+- **An untyped server action makes every callback on its result an implicit `any`.** Actions that
+  return `json.data` straight from `res.json()` hand back `any`; `setState(result.data)` compiles,
+  but `result.data.filter((a) => …)` does not. Assign it to a typed local first
+  (`const rows: AdminUser[] = result.data`), no cast needed.
+- **Tailwind drops an arbitrary `duration-[…]` or `ease-[…]` class as "ambiguous" when
+  `tailwindcss-animate` is installed**, because both plugins claim the prefix. The build only
+  warns, and the transition silently falls back to 150ms and the default curve. Write the property
+  out: `[transition-duration:var(--dur-arrive)]`, `[transition-timing-function:var(--ease-out)]`.
+

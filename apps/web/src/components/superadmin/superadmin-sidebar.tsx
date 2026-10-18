@@ -117,7 +117,7 @@ export function SuperadminSidebar() {
           className={cn(
             "absolute left-3 right-3 top-0 rounded-md bg-admin-accent/15",
             indicatorReady &&
-              "transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
+              "transition-[transform,opacity] duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] motion-reduce:transition-none",
           )}
           style={{
             transform: `translateY(${indicator.top}px)`,

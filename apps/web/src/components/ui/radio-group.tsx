@@ -33,7 +33,7 @@ const RadioGroupItem = React.forwardRef<
         entrance for a radio that is already checked when the form first
         appears; a transition only runs on a change. */}
     <span className="flex items-center justify-center">
-      <span className="h-2 w-2 scale-0 rounded-full bg-primary opacity-0 transition-[transform,opacity] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] group-data-[state=checked]/radio:scale-100 group-data-[state=checked]/radio:opacity-100 motion-reduce:transition-none" />
+      <span className="h-2 w-2 scale-0 rounded-full bg-primary opacity-0 transition-[transform,opacity] duration-200 [transition-timing-function:cubic-bezier(0.16,1,0.3,1)] group-data-[state=checked]/radio:scale-100 group-data-[state=checked]/radio:opacity-100 motion-reduce:transition-none" />
     </span>
   </RadioGroupPrimitive.Item>
 ));

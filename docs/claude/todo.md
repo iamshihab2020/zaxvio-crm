@@ -9,6 +9,12 @@ file (every finding, proof and caveat up to 2026-10-17) is `git show f6327fe:doc
 
 ## In Progress
 
+### Deploy blocked: `9893fa9` failed on Vercel (2026-10-18)
+Production still serves `293af35` (Rebranded); `59a275d` (animations) and `9893fa9` (landing + dashboard layout) are not live. The API on Render is current. GitHub Actions CI never runs: the GitHub account is locked over billing.
+- [x] Type error at `admins-page-client.tsx:136` (implicit `any` on untyped action data) fixed; 7 ambiguous Tailwind `duration-[…]`/`ease-[…]` classes rewritten as arbitrary properties.
+- [ ] `pnpm typecheck` + `pnpm lint` before the next push: `next build` reports only the first error, and ~290 files have never been checked.
+- [ ] Commit, push, and confirm the Vercel deployment goes green and `zaxvio-crm-web.vercel.app` serves the new landing (`#why-zaxvio`).
+
 ### Rebrand + animation pass — written 2026-10-18, never rendered
 Both are in Completed. Nothing has been typechecked, linted or opened in a browser (user's call).
 - [ ] `pnpm typecheck` + `pnpm lint`, then a browser pass in both themes: open/close a dialog, an alert dialog, a sheet and the phone drawer (overlays moved from motion springs to CSS); navigate between pages behind a skeleton (late `data-stagger`); change a dashboard date range (figures count, charts redraw); drag a kanban card; flip calendar weeks; reduced motion on.
@@ -20,7 +26,7 @@ Both are in Completed. Nothing has been typechecked, linted or opened in a brows
 ### Responsive app + dashboard redesign — written 2026-10-18, never rendered
 Phases 1–4 are in Completed. Nothing here has been typechecked, linted or opened in a browser (user's call: no checks between phases).
 - [ ] `pnpm typecheck` + `pnpm lint`, then a browser pass at 375/768/1024/1440 in both themes: the dashboard, every list page, a detail page and sheet, the job board (swipe vs press-and-hold drag on a real phone), the calendar's day view and task sheet, the builder's read-only mode, superadmin.
-- [ ] Arbitrary Tailwind values to confirm in the first build: `md:max-w-[min(var(--sheet-w),100vw)]`, `max-w-[calc(100vw_-_var(--sidebar-w,0px)_-_1rem)]`, `md:max-xl:sr-only`, `[@media(hover:hover)]:group-hover:*`.
+- [ ] Arbitrary Tailwind values to confirm in the first build: `md:max-w-[min(var(--sheet-w),100vw)]`, `max-w-[calc(100vw_-_var(--sidebar-w,0px)_-_1rem)]`, `md:max-xl:sr-only`, `[@media(hover:hover)]:group-hover:*`. (The Vercel log for `9893fa9` flagged 7 ambiguous `duration-[…]`/`ease-[…]` classes, fixed 2026-10-18; it raised none of these four.)
 - [ ] Known gaps: Week Ahead columns ~35px wide on a phone; Revenue by service has no visible amounts; line-item tables scroll sideways on phones; on a phone the job and invoice tables sort only by the columns that stay visible; `invoice-photos-tab.tsx` opens its lightbox on double click only; the builder's palette + config panel still squeeze the canvas between `lg` and `xl` (needs a store change).
 
 ### Landing redesign + dashboard layout — written 2026-10-18, never rendered

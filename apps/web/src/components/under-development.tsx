@@ -139,7 +139,7 @@ export default function UnderDev() {
             style={{ background: "hsl(var(--border))" }}
           >
             <div
-              className="h-full rounded-full transition-all duration-[2500ms] ease-out"
+              className="h-full rounded-full transition-all [transition-duration:2500ms] ease-out"
               style={{
                 width: visible ? "67%" : "0%",
                 background: "linear-gradient(to right, hsl(var(--brand)), hsl(var(--midnight-foreground)))",

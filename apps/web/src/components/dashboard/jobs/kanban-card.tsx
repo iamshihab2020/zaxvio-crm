@@ -186,7 +186,7 @@ export function KanbanCard({
       }}
       className={cn(
         "cursor-grab rounded-xl border bg-card p-3.5",
-        "transition-all duration-300 ease-[cubic-bezier(0.25,0.1,0.25,1)]",
+        "transition-all duration-300 [transition-timing-function:cubic-bezier(0.25,0.1,0.25,1)]",
         "border-border/60 shadow-sm",
         "hover:shadow-[0_6px_24px_0px_hsl(var(--brand)/0.25)] hover:border-brand/30",
         "dark:border-border/40 dark:shadow-sm",

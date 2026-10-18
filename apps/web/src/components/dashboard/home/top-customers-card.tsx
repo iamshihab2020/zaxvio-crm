@@ -96,7 +96,7 @@ export function TopCustomersCard({ data }: TopCustomersCardProps) {
                         {/* Full width, scaled to the share: it draws in and
                             re-sizes on `transform` alone. */}
                         <div
-                          className="motion-grow-x h-full w-full rounded-full motion-safe:transition-transform motion-safe:duration-[var(--dur-focal)] motion-safe:ease-[var(--ease-out)]"
+                          className="motion-grow-x h-full w-full rounded-full motion-safe:transition-transform motion-safe:[transition-duration:var(--dur-focal)] motion-safe:[transition-timing-function:var(--ease-out)]"
                           style={{
                             ...enterDelay(METER_DELAY_BASE + i * METER_STEP),
                             transform: `scaleX(${rel})`,

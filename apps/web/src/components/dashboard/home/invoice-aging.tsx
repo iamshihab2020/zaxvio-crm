@@ -180,7 +180,7 @@ export function InvoiceAging({ data }: InvoiceAgingProps) {
                       className="col-span-2 h-1 overflow-hidden rounded-full bg-muted/60"
                     >
                       <span
-                        className="motion-grow-x block h-full w-full rounded-full motion-safe:transition-transform motion-safe:duration-[var(--dur-focal)] motion-safe:ease-[var(--ease-out)]"
+                        className="motion-grow-x block h-full w-full rounded-full motion-safe:transition-transform motion-safe:[transition-duration:var(--dur-focal)] motion-safe:[transition-timing-function:var(--ease-out)]"
                         style={{
                           ...enterDelay(
                             BAR_DELAY_BASE + staggerDelay(index, BAR_STEP, BUCKET_ORDER.length),
