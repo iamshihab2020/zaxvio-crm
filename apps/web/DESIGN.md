@@ -241,8 +241,8 @@ used with restraint. Surfaces are cool, near-white greys in light mode and near-
 charcoal in dark. Text is the palette's deepest navy; quieter text is its slate. Times,
 money and counts are tabular figures that line up in columns. One blue marks what to do
 next, where you are, and now, the way a marker circles the job that matters on a printed
-sheet. On the landing page the ruling is literal: hairlines every 3rem behind the headline
-and the closing band, and a time-ruled day sheet as the hero. Inside the app the same idea
+sheet. On the landing page that sheet is literal: a time-ruled day sheet is the hero, with a
+quote and an invoice card beside it, over a faint dot grid. Inside the app the same idea
 shows up as order: bordered cards, one-row toolbars, tabular figures and pill-shaped status.
 
 The density is a working tool's, not a brochure's. Body text is 14px, and toolbars, filter
@@ -254,7 +254,8 @@ right order. The palette's own navies were tried as dark surfaces first and the 
 rejected them ("doesn't look like a dark mode"): a saturated navy page reads as a blue
 theme, and leaves the blue nothing to stand out against. The navy lives where it can be
 navy: the always-dark slab used by the auth shell, the public portals and the landing
-page's closing band.
+page's footer. The landing page's closing band was a navy slab until 2026-10-18; the user
+rejected the saturated band, and it is now a large card on the alt surface.
 
 Rejected on purpose, and recorded in the code where each was removed: "AI startup" gloss
 (purple-on-white gradients, aurora or nebula backdrops, glow used as decoration), device
@@ -366,14 +367,13 @@ in both themes (the brand fill, the Midnight slab) there is one key.
   palette's deepest navy in light mode, a soft off-white in dark.
 - **Slate** (`slate`, #5C677D; `slate-dark`, #9AA2AF): secondary text, idle nav items, timestamps
   and captions.
-- **Rule Line** (`rule-line`, #D6DCE6; `rule-line-dark`, #262B34): every 1px border and divider,
-  plus the landing page ruling.
+- **Rule Line** (`rule-line`, #D6DCE6; `rule-line-dark`, #262B34): every 1px border and divider.
 - **Field Line** (`field-line`, #7D8597; `field-line-dark`, #5E6674): input borders and hovered
   scrollbar thumbs. Much darker than Rule Line (3.7:1 against a card in light mode, 3:1 in dark),
   so form fields stay visible in sunlight and read as fields.
 - **Midnight** (`midnight`, #001233; raised step `midnight-raised`, #001845; text `midnight-text`;
   light blue `midnight-accent`, #7DB3F2): the always-dark navy slab used by the auth shell, the
-  public booking portal, the quote page and the landing page's closing band. It is the same navy
+  public booking portal, the quote page and the landing page's footer. It is the same navy
   in both themes on purpose, which also sets it apart from the charcoal page around it in dark mode.
 
 ### Semantic and data
@@ -450,21 +450,20 @@ invoice) take the brand blue but stay in Helvetica, because react-pdf ships only
 faces.
 
 ### Hierarchy
-- **Display** (700, 2.5rem → 3rem at `sm` → 3.75rem at `lg`, line-height 1.05, tight tracking):
-  the landing page `<h1>` only. Balanced wrapping. `display-phone` in the frontmatter is its 2.5rem
-  base.
-- **Section** (700, 1.75rem → 2.25rem at `sm`, line-height 1.15, tight tracking): every landing
-  `<h2>` (`SectionHeading`), the closing band (which alone rises to 3rem at `lg`), and the page
-  title on `/privacy` and `/terms`. The closing band was 2rem on phones until 2026-10-16, a 1.14×
-  step from the other section headings, too close to read as a different role, so it shares this
-  one.
+- **Display** (700, 2.75rem → 3.75rem at `sm` → 4.25rem at `lg`, line-height 1.02, tight
+  tracking): the landing page `<h1>` only. Balanced wrapping. `display-phone` in the frontmatter
+  is still 2.5rem and should be regenerated with the sidecar.
+- **Section** (700, 1.875rem → 2.25rem at `sm` → 2.75rem at `lg`, line-height 1.1, tight
+  tracking): every landing `<h2>` (`SectionHeading`) and the page title on `/privacy` and
+  `/terms`. The closing card's headline is the one step up (2.25rem → 3rem → 3.75rem), because
+  scale is what marks it as the closing call to action now that it has no coloured band.
 - **Headline** (700, 1.5rem): dashboard page titles in the page header.
 - **Title** (600, 1.125rem): card titles, the navbar page name and empty-state headings.
 - **Title Small** (600, 0.875rem): headings inside cards and panels. The most-used heading size
   in the app.
 - **Body** (400, 0.875rem): the app's default text, controls and table cells, including the
-  landing page's pricing ledger. The landing page uses Body Lead (1.125rem, relaxed leading,
-  `max-w-xl`) for ledes. Text people read at length on a public page, such as the FAQ answers and
+  landing page's pricing ledger. The landing page uses Body Lead (1.125rem, 1.25rem in the hero
+  and closing card, relaxed leading, `max-w-xl`) for ledes and 1rem for list items and card copy. Text people read at length on a public page, such as the FAQ answers and
   the legal pages, is 1rem at a measure of at most 68ch. There is no 13px step: it sat 1px from
   Body and Data in four components and was folded onto them.
 - **Label** (600, 11px, 0.05em tracking, uppercase): sidebar group headers and table-adjacent
@@ -473,8 +472,8 @@ faces.
   page carries no eyebrow above any heading; the hero's was removed on 2026-10-16 and
   `SectionHeading` no longer accepts one.
 - **Data** (400, 12px, tabular figures): times, money, counts, IDs and the day sheet's hour
-  column. Drops to 10–11px inside dense job cards (`data-dense`), which includes the landing
-  page's illustrative day sheet and kanban diagram.
+  column. Drops to 10–11px inside dense job cards (`data-dense`). The landing day sheet is no
+  longer dense: since 2026-10-18 it sets its hours and jobs at body sizes, because it is the hero.
 
 ### Named Rules
 **The Figures Rule.** Anything read as a number (a time, an amount, a count, a job number) is set
@@ -500,10 +499,13 @@ render at the top of the page instead below `md`, where the navbar has no room f
 content sits in a 16px gutter on phones and 24px from `sm`.
 
 **Dashboard.** An overdue banner, then four KPI tiles (two by two on a phone, four across from
-`lg`), then two zones. The side zone (Up next, Week Ahead) comes first in the DOM so a phone reads
-today's work before the money; from `xl` it takes the right third and the main zone (Revenue, then
-a two-up grid of everything else) the left two. Zones are stacks, so hiding a widget in Customize
-never leaves a hole, and an odd last widget in the grid spans its row. Up next is a day sheet:
+`lg`), then a top band and one flowing grid. The band is Up next beside Revenue: Up next comes
+first in the DOM so a phone reads today's work before the money, and from `xl` it takes the right
+third and Revenue's height, scrolling inside it, so a busy week never opens a gap under Revenue.
+Every other widget flows in one grid under the band, two across from `md` and three from `xl`;
+the last widget stretches over whatever its row has left, so hiding widgets in Customize never
+leaves a hole, and row-mates stretch to the taller card. Two zones of unequal stacks were tried
+first and left the right third empty for most of the page. Up next is a day sheet:
 today first, an hour column in tabular Inter, and each row marked by its kind (job blue, booking
 teal, event violet).
 
@@ -528,7 +530,11 @@ menu always stay. Line-item tables keep every column and scroll sideways inside 
 sub-nav.
 
 **Landing page.** A 72rem container with 20 / 24 / 32px gutters, a 12-column grid at `lg`, and
-generous vertical rhythm (96–128px above the hero). The ruling repeats every 48px.
+sections at `py-20` → `py-28` (`lg`), with 112–144px above the hero for the fixed navbar. Section
+surfaces alternate strictly between base and alt. `SectionHeading` is two columns at `lg`: the
+heading in seven, the lede bottom-aligned in five (`layout="stacked"` keeps them together, as in
+the FAQ's sticky rail). Sample visuals are drawn from the page's tokens with the shared pieces in
+`example-ui.tsx` (one pill, one icon disc, one mini card), never screenshots.
 
 **Rhythm.** A 4px base. 16px gaps between cards, 24px padding inside them (16px on phones), 12px
 between a toolbar's controls. Breakpoints follow Tailwind (640 / 768 / 1024 / 1280 / 1536px), and
@@ -561,8 +567,8 @@ pick up.
   hover, together with a blue-tinted border.
 - **Lifted** (`box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)`,
   plus a 2px blue ring at 30%, rotated 2° and scaled 1.03): a job card while it's being dragged.
-- **Showcase** (the same extra-large shadow tinted with Navy Ink at 5%): the landing page's
-  day sheet only.
+- **Showcase** (the same extra-large shadow tinted with Navy Ink at 5%): the landing hero's day
+  sheet and the quote and invoice cards beside it, nothing else.
 
 ### Named Rules
 **The Tonal-First Rule.** Separate things with the surface ladder and a hairline before reaching
@@ -648,10 +654,11 @@ border. While dragged it lifts, tilts 2° and gains a blue ring. Cards enter in 
 rise.
 
 ### Day Sheet (landing signature)
-The landing hero: a time-ruled card showing one working day. A date field in the eyebrow style,
+The landing hero: a time-ruled card showing one working day, with an accepted quote and a paid
+invoice card overhanging it at `lg` and stacked under it below. A date field in the eyebrow style,
 an hour column in tabular Inter, jobs placed at their real start time and duration, and a Deep Sea
 Blue dot and rule on the current hour. The same object at every width, never a screenshot in a
-device frame. It is titled "Example schedule", because the jobs are sample data. The current-hour
+device frame. The figure's visible caption says "Example data", because none of it is real. The current-hour
 rule is the landing page's one authored motion: after mount, the dot lands and the line draws
 across the day once, and under reduced motion it is simply there. The hero around it is never
 wrapped in a scroll reveal, so it paints with the HTML.

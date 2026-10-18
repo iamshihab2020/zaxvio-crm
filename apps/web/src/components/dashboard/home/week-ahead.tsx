@@ -127,7 +127,7 @@ export function WeekAhead({ agenda }: WeekAheadProps) {
   const openDays = days.filter((d) => d.total === 0).length;
 
   return (
-    <Card data-widget="weekAhead" className="p-4 sm:p-6">
+    <Card data-widget="weekAhead" className="h-full p-4 sm:p-6">
       <WidgetHeader
         title="Week Ahead"
         badge={

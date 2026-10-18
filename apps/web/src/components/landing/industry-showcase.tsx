@@ -17,6 +17,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { IconDisc } from "./example-ui";
 import { Section, SectionHeading } from "./section";
 
 const INDUSTRIES = [
@@ -120,26 +121,31 @@ const INDUSTRIES = [
  * never clipped. Measured on a 390px viewport, that pushed the document to
  * 976px wide — every section on the page scrolled sideways because of this one
  * element. A full-width strip above the panel cannot reproduce it.
+ *
+ * The panel is two columns from `lg`: the description, set large, on the left
+ * and the checklist in a card on the right. One card of mixed content left the
+ * right half of a wide screen empty and made the bullets read as an
+ * afterthought; here they are the thing you scan.
  */
 export function IndustryShowcase() {
   return (
-    <Section id="industries" surface="alt" labelledBy="industries-heading">
+    <Section id="industries" surface="base" labelledBy="industries-heading">
       <SectionHeading
         id="industries-heading"
         title="One platform. Every service trade."
         lede="The same board, quotes and invoices, set up for how your trade actually works."
       />
 
-      <Tabs defaultValue="hvac" className="mt-10 gap-0 sm:mt-12">
+      <Tabs defaultValue="hvac" className="mt-12 gap-0 lg:mt-14">
         <div className="strip-scroll -mx-5 overflow-x-auto px-5 sm:mx-0 sm:px-0">
           <TabsList className="w-max min-w-full gap-1">
             {INDUSTRIES.map((industry) => (
               <TabsTrigger
                 key={industry.id}
                 value={industry.id}
-                className="gap-2 px-3 py-2.5 text-sm sm:px-4"
+                className="gap-2 px-3 py-2.5 text-base sm:px-5"
               >
-                <industry.icon size={16} stroke={1.6} aria-hidden="true" />
+                <industry.icon size={18} stroke={1.6} aria-hidden="true" />
                 {industry.label}
               </TabsTrigger>
             ))}
@@ -153,48 +159,42 @@ export function IndustryShowcase() {
           out of the measured box, so the panel rendered exactly one margin
           short and clipped its own last row of bullets.
         */}
-        <div className="mt-6">
+        <div className="mt-8 lg:mt-10">
           <TabsContents>
             {INDUSTRIES.map((industry) => (
               <TabsContent key={industry.id} value={industry.id} className="mt-0">
-                <Card>
-                  <CardContent className="p-6 sm:p-8">
-                    <div className="flex items-start gap-4">
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-brand">
-                        <industry.icon
-                          size={22}
-                          stroke={1.6}
-                          aria-hidden="true"
-                        />
-                      </span>
-                      <div className="min-w-0">
-                        <h3 className="font-heading text-xl font-bold tracking-tight text-ink sm:text-2xl">
-                          {industry.headline}
-                        </h3>
-                        <p className="mt-3 max-w-2xl leading-relaxed text-muted-foreground text-pretty">
-                          {industry.description}
-                        </p>
-                      </div>
-                    </div>
+                <div className="grid gap-8 lg:grid-cols-12 lg:items-center lg:gap-x-12">
+                  <div className="lg:col-span-6">
+                    <IconDisc icon={industry.icon} size="lg" />
+                    <h3 className="mt-5 font-heading text-2xl font-bold leading-tight tracking-tight text-ink text-balance sm:text-3xl">
+                      {industry.headline}
+                    </h3>
+                    <p className="mt-4 max-w-xl text-lg leading-relaxed text-muted-foreground text-pretty">
+                      {industry.description}
+                    </p>
+                  </div>
 
-                    <ul
-                      role="list"
-                      className="mt-7 grid gap-x-6 gap-y-3 sm:grid-cols-2"
-                    >
-                      {industry.bullets.map((bullet) => (
-                        <li key={bullet} className="flex items-start gap-2.5">
-                          <IconCheck
-                            size={16}
-                            stroke={2.5}
-                            className="mt-0.5 shrink-0 text-brand"
-                            aria-hidden="true"
-                          />
-                          <span className="text-sm text-ink/80">{bullet}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
+                  <Card className="lg:col-span-6">
+                    <CardContent className="p-2 sm:p-3">
+                      <ul role="list" className="divide-y divide-border">
+                        {industry.bullets.map((bullet) => (
+                          <li
+                            key={bullet}
+                            className="flex items-start gap-3 px-3 py-3.5 sm:px-4"
+                          >
+                            <IconCheck
+                              size={20}
+                              stroke={2.5}
+                              className="mt-0.5 shrink-0 text-brand-ink"
+                              aria-hidden="true"
+                            />
+                            <span className="text-base text-ink">{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </CardContent>
+                  </Card>
+                </div>
               </TabsContent>
             ))}
           </TabsContents>

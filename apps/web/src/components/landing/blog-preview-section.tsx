@@ -21,6 +21,9 @@ import { Section, SectionHeading } from "./section";
  * inside it repeated the category badge printed directly underneath. Removing
  * them lets the headline lead, which is the only part a reader actually chooses
  * on.
+ *
+ * "All posts" sits under the lede, in the heading's right column, instead of
+ * floating at the end of a flex row that left the heading short of its width.
  */
 const PREVIEW_POSTS = [...BLOG_POSTS]
   .sort((a, b) => b.date.localeCompare(a.date))
@@ -28,39 +31,36 @@ const PREVIEW_POSTS = [...BLOG_POSTS]
 
 export function BlogPreviewSection() {
   return (
-    <Section surface="alt" labelledBy="blog-heading">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <SectionHeading
-          id="blog-heading"
-          title="From the blog"
-          lede="Tips and guides for running a service business."
-          className="flex-1"
-        />
-        <Reveal delay={60}>
-          <Button asChild variant="outline" className="h-10">
+    <Section surface="base" labelledBy="blog-heading">
+      <SectionHeading
+        id="blog-heading"
+        title="From the blog"
+        lede="Tips and guides for running a service business."
+        action={
+          <Button asChild variant="outline" className="h-11 px-5 text-base">
             <Link href="/blog">
               All posts
               <IconArrowRight className="!size-4" />
             </Link>
           </Button>
-        </Reveal>
-      </div>
+        }
+      />
 
-      <div className="mt-10 grid gap-5 sm:mt-12 md:grid-cols-3">
+      <div className="mt-12 grid gap-5 md:grid-cols-3 lg:mt-14 lg:gap-6">
         {PREVIEW_POSTS.map((post, i) => (
           <Reveal key={post.slug} delay={i * 90}>
             <Card className="group relative h-full transition-colors duration-200 hover:border-brand/40">
-              <CardContent className="flex h-full flex-col p-6">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[11px]">
+              <CardContent className="flex h-full flex-col p-6 sm:p-7">
+                <div className="flex items-center gap-2.5">
+                  <Badge variant="secondary" className="text-xs">
                     {post.categoryLabel}
                   </Badge>
-                  <span className="tnum font-mono text-[11px] text-muted-foreground">
+                  <span className="tnum text-sm text-muted-foreground">
                     {post.readTime}
                   </span>
                 </div>
 
-                <h3 className="mt-4 font-heading text-lg font-semibold leading-snug text-ink text-pretty">
+                <h3 className="mt-5 font-heading text-xl font-semibold leading-snug tracking-tight text-ink text-pretty">
                   {/* Stretched link — the whole card is the hit area, but only
                       the title is announced as the link. */}
                   <Link
@@ -71,13 +71,13 @@ export function BlogPreviewSection() {
                   </Link>
                 </h3>
 
-                <p className="mt-2.5 flex-1 text-sm leading-relaxed text-muted-foreground text-pretty">
+                <p className="mt-3 flex-1 text-base leading-relaxed text-muted-foreground text-pretty">
                   {post.excerpt}
                 </p>
 
                 <time
                   dateTime={post.date}
-                  className="tnum mt-5 font-mono text-[11px] text-muted-foreground"
+                  className="tnum mt-6 text-sm text-muted-foreground"
                 >
                   {formatDateOnly(post.date)}
                 </time>

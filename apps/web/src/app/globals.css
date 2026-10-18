@@ -338,35 +338,50 @@
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   RULED SHEET — the landing page's structural motif.
+   LANDING PATTERNS, AND TABULAR FIGURES
 
-   Field service runs on ruled paper: work orders, day sheets, estimate
-   pads. These utilities draw that ruling so the page's own furniture
-   echoes the artefact the product replaces.
+   `.sheet-rows` and `.sheet-wash` (2026-10-18) drew the "ruled work order
+   paper" motif of the retired Work Order brand: hairlines every 3rem. Nothing
+   used `.sheet-rows`, and the hero was the only user of the wash, so both
+   went with the redesign (as did the hairline over every section heading,
+   which was a plain element in `section.tsx`, not a class).
+
+   Two patterns replaced them, both drawn from tokens and both decoration-
+   free in the sense DESIGN.md means: neither is a colour wash.
    ───────────────────────────────────────────────────────────────────── */
 
 @layer utilities {
-  /* Horizontal hairlines at --row spacing. */
-  .sheet-rows {
-    background-image: linear-gradient(
-      to bottom,
-      hsl(var(--border)) 1px,
-      transparent 1px
+  /* A faint dot grid for the hero, masked so it fades out toward the copy
+     and the bottom edge and never reaches a hard border. Dots are the input
+     line colour at 35%: visible as texture, never as content. */
+  .dot-field {
+    background-image: radial-gradient(
+      hsl(var(--input) / 0.35) 1px,
+      transparent 1.5px
     );
-    background-size: 100% var(--row, 3rem);
+    background-size: 24px 24px;
+    mask-image: radial-gradient(
+      ellipse 65% 75% at 78% 38%,
+      black 0%,
+      transparent 100%
+    );
+    -webkit-mask-image: radial-gradient(
+      ellipse 65% 75% at 78% 38%,
+      black 0%,
+      transparent 100%
+    );
   }
 
-  /* Faint full-bleed ruling for section backgrounds — fades out downward so
-     it reads as texture rather than as a table. */
-  .sheet-wash {
-    background-image: linear-gradient(
-      to bottom,
-      hsl(var(--border) / 0.55) 1px,
-      transparent 1px
+  /* Diagonal hatching for a figure that is known to be incomplete: the job
+     margin bar's missing-cost segment. A solid fill would read as a number
+     we trust, so the segment is deliberately not solid. Amber is a fill here,
+     never text (DESIGN.md → Status). */
+  .hatch-incomplete {
+    background-image: repeating-linear-gradient(
+      135deg,
+      hsl(var(--status-warning) / 0.75) 0 5px,
+      hsl(var(--status-warning) / 0.18) 5px 10px
     );
-    background-size: 100% 3rem;
-    mask-image: linear-gradient(to bottom, black, transparent 70%);
-    -webkit-mask-image: linear-gradient(to bottom, black, transparent 70%);
   }
 
   /* Tabular figures — times, money and counts must not jitter as they change

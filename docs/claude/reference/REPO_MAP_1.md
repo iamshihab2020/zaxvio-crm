@@ -891,18 +891,20 @@ apps/web/
     |   |
     |   +-- landing/                 # Landing page section components
     |   |   +-- navbar.tsx           # Full-width bar; mobile menu is a shadcn Sheet
-    |   |   +-- section.tsx          # <Section> surface band + <SectionHeading> ruled header
+    |   |   +-- section.tsx          # <Section> surface band + <SectionHeading> (two columns at lg, or stacked)
     |   |   +-- reveal.tsx           # IntersectionObserver scroll reveal (CSS classes, html.js guarded)
-    |   |   +-- hero-section.tsx
+    |   |   +-- hero-section.tsx     # H1, facts, and the day sheet + quote + invoice composite ("Example data")
     |   |   +-- day-sheet.tsx        # Signature: live time-ruled day schedule in the hero
-    |   |   +-- trust-bar.tsx        # Compact "Built for <trade>" strip
-    |   |   +-- features-section.tsx
+    |   |   +-- example-ui.tsx       # Pill / IconDisc / MiniCard / CheckBox shared by the sample visuals
+    |   |   +-- trust-bar.tsx        # "Built for every service trade" tiles (scrolls on phones)
+    |   |   +-- job-flow-section.tsx # #features: Booked → Scheduled → Quoted → Done → Paid
+    |   |   +-- differentiators-section.tsx # #why-zaxvio: price, automations, margins rows
     |   |   +-- industry-showcase.tsx # shadcn Tabs, one panel per trade
     |   |   +-- how-it-works-section.tsx
-    |   |   +-- pricing-section.tsx  # Sticky price rail + included list + replacement ledger
+    |   |   +-- pricing-section.tsx  # Price band, then included list beside the replacement ledger
     |   |   +-- faq-section.tsx
     |   |   +-- blog-preview-section.tsx
-    |   |   +-- final-cta-section.tsx
+    |   |   +-- final-cta-section.tsx # Closing card on the alt surface (no navy band)
     |   |   +-- footer.tsx
     |   |   +-- json-ld.tsx          # SoftwareApplication + FAQPage structured data
     |   |   +-- skip-link.tsx        # "Skip to content"; landing, blog and legal pages (main#main)

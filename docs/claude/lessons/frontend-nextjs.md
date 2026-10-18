@@ -1015,3 +1015,20 @@ From [[bookings-calendar|the report]] — the front-end half.
   exists twice (`superadmin/use-arrived-by-navigation.ts`, `settings/use-arrival-stagger.ts`),
   and "flash a changed row" three ways (`use-row-flash`, `use-new-ids`, `useChangeFlash`).
   Consolidate before adding a fourth.
+
+## Dashboard layout + landing redesign (2026-10-18)
+
+- **Two independent column stacks leave a hole under the shorter one.** The dashboard's main and
+  side zones each stacked their own widgets, so the side column ended halfway down the page.
+  Put only the paired pieces in a band (Up next beside Revenue) and every other widget in one
+  grid, and span the last card (`fillLastRow`) so an odd count never ends a row early.
+- **To make a list card match its neighbour's height, give it `contain: size` in a stretched
+  grid cell.** `h-full` alone lets the longer list set the row height. `[contain:size]` with
+  `flex-1` makes the card take the row height from Revenue and scroll its own list inside it.
+- **A "colour change" on the closing band was a structural change.** The navy slab carried the
+  section's weight; making it neutral without changing anything else left a weak ending. Scale did
+  the job instead: the page's biggest headline in one bordered card, with one blue button.
+- **Landing sample visuals need a visible label, not just `aria-hidden`.** PRODUCT.md forbids
+  anything that reads as a real customer. Every composite says "Example data" or "sample data" in
+  text a sighted reader sees, and avatars are initials for roles, never names.
+

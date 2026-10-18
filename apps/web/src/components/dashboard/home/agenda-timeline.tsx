@@ -30,6 +30,14 @@ import { cn } from "@/lib/utils";
 
 interface AgendaTimelineProps {
   agenda: DashboardAgenda;
+  /**
+   * From `xl`, take the height of the row it sits in (Revenue's) and scroll
+   * inside it, instead of setting that height itself. A busy week is ten rows,
+   * ~600px, and letting that set the row left a tall void under Revenue.
+   * `contain: size` is what stops the list's own height from counting when the
+   * grid sizes the row. Below `xl` the card is one column and shows everything.
+   */
+  fitRowAtXl?: boolean;
 }
 
 type AgendaKind = "event" | "job" | "booking";
@@ -210,7 +218,7 @@ function groupByDay(items: AgendaItem[], todayKey: string | null): DayGroup[] {
   return groups;
 }
 
-export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
+export function AgendaTimeline({ agenda, fitRowAtXl = false }: AgendaTimelineProps) {
   const { from, to, events, jobs, bookings } = agenda;
   const items = useMemo<AgendaItem[]>(() => {
     const eventItems = events.map(eventToItem);
@@ -257,10 +265,16 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
   );
 
   return (
-    // No `h-full`: this card lives in the side zone's stack, where a percentage
-    // height resolves against the stretched zone and pulls the card down to
-    // the bottom of the main zone, leaving empty sheet under the last row.
-    <Card data-widget="agenda" className="flex flex-col p-4 sm:p-6">
+    // Below `xl` (and whenever it isn't beside Revenue) the card sets its own
+    // height. Beside Revenue at `xl` it takes the row's height instead; see
+    // `fitRowAtXl`.
+    <Card
+      data-widget="agenda"
+      className={cn(
+        "flex flex-col p-4 sm:p-6",
+        fitRowAtXl && "xl:flex-1 xl:[contain:size]",
+      )}
+    >
       <WidgetHeader
         title="Up next"
         badge={<WidgetWindowBadge label={`Next ${spanDays} days`} />}
@@ -278,12 +292,15 @@ export function AgendaTimeline({ agenda }: AgendaTimelineProps) {
         </div>
       ) : (
         <>
-          {/* No inner scroll. This card sits in the dashboard's side zone, which
-              is a stack, so the list sets its own height and nothing next to it
-              is stretched to match. A scrolling box was how it used to avoid
-              that, and on a phone it put a scroll area inside the page scroll.
-              The ten-row cap is what bounds the height instead. */}
-          <div className="mt-4 space-y-5">
+          {/* No inner scroll below `xl`: on a phone a scroll area inside the page
+              scroll is a trap, and the ten-row cap bounds the height. Beside
+              Revenue at `xl` the list scrolls inside the row's height. */}
+          <div
+            className={cn(
+              "mt-4 space-y-5",
+              fitRowAtXl && "xl:min-h-0 xl:flex-1 xl:overflow-y-auto xl:pr-1",
+            )}
+          >
             {days.map((group) => (
               <DaySection
                 key={group.key ?? "unscheduled"}

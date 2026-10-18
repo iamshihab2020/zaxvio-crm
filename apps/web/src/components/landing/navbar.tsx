@@ -24,7 +24,20 @@ const NAV_LINKS = [
   { label: "Blog", href: "/blog" },
 ] as const;
 
-const SECTION_IDS = ["features", "industries", "pricing", "faq"] as const;
+const SECTION_IDS = [
+  "features",
+  "why-zaxvio",
+  "industries",
+  "pricing",
+  "faq",
+] as const;
+
+/* The "Why switch" section has no link of its own. It follows Booking to paid
+   and reads as the second half of "Features", so it keeps that link lit rather
+   than leaving the nav with nothing highlighted for a screen and a half. */
+const LINK_FOR_SECTION: Partial<Record<(typeof SECTION_IDS)[number], string>> = {
+  "why-zaxvio": "#features",
+};
 
 /**
  * Smooth unless the reader asked for less motion (LAND-07).
@@ -105,7 +118,7 @@ export function Navbar() {
         }
 
         const first = SECTION_IDS.find((id) => visible.has(id));
-        setActive(first ? `#${first}` : null);
+        setActive(first ? (LINK_FOR_SECTION[first] ?? `#${first}`) : null);
       },
       { rootMargin: "-25% 0px -60% 0px" },
     );

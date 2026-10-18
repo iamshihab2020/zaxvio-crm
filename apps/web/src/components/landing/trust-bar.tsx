@@ -6,7 +6,7 @@ import {
   IconSpray,
   IconTool,
 } from "@tabler/icons-react";
-import { Badge } from "@/components/ui/badge";
+import { IconDisc } from "./example-ui";
 import { Reveal } from "./reveal";
 
 const INDUSTRIES = [
@@ -19,7 +19,7 @@ const INDUSTRIES = [
 ] as const;
 
 /**
- * Trust strip.
+ * Trades strip.
  *
  * Was a 342px band of four animated counter cards — "500+ businesses",
  * "4.9★", "6+ industries", "99% uptime" — none of which had anything behind
@@ -29,36 +29,41 @@ const INDUSTRIES = [
  * The six labels match the Industries tabs exactly. The last one used to read
  * "Handyman" here and "Any trade" there (LAND-13); the product is trade-neutral
  * by principle, so "Any trade" is the one that is true.
+ *
+ * The trades are 8px bordered tiles with a round icon disc, not pills: a pill
+ * means a state in this system, and a trade is not one. From `sm` they wrap at
+ * their natural width (all six fit one row at 1024px, where a fixed six-column
+ * grid would clip "Landscaping"); on a phone they stay one row that scrolls
+ * sideways, so the strip never forces the page wide.
  */
 export function TrustBar() {
   return (
     <section
       aria-labelledby="trust-heading"
-      className="border-y border-border bg-surface-alt py-7"
+      className="border-y border-border bg-surface-alt py-12 lg:py-14"
     >
       <div className="mx-auto w-full max-w-6xl px-5 sm:px-6 lg:px-8">
-        <Reveal className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+        <Reveal>
           <h2
             id="trust-heading"
-            className="shrink-0 text-sm font-medium text-muted-foreground"
+            className="font-heading text-xl font-semibold tracking-tight text-ink sm:text-2xl"
           >
-            Built for
+            Built for every service trade
           </h2>
 
-          {/* Wraps on desktop, scrolls on mobile — never forces the page wide. */}
           <ul
             role="list"
-            className="strip-scroll -mx-5 flex min-w-0 gap-2 overflow-x-auto px-5 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
+            className="strip-scroll -mx-5 mt-6 flex min-w-0 gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0"
           >
             {INDUSTRIES.map((industry) => (
-              <li key={industry.label}>
-                <Badge
-                  variant="secondary"
-                  className="gap-1.5 whitespace-nowrap px-3 py-1.5 text-muted-foreground"
-                >
-                  <industry.icon size={14} stroke={1.6} aria-hidden="true" />
+              <li
+                key={industry.label}
+                className="flex shrink-0 items-center gap-3 rounded-lg border border-border bg-card px-4 py-3 shadow-sm"
+              >
+                <IconDisc icon={industry.icon} size="sm" />
+                <span className="whitespace-nowrap text-base font-medium text-ink">
                   {industry.label}
-                </Badge>
+                </span>
               </li>
             ))}
           </ul>

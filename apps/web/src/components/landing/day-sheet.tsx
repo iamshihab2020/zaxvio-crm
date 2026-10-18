@@ -19,6 +19,11 @@ import { cn } from "@/lib/utils";
  * phone-first audience was not the thing being advertised; and a laptop is the
  * wrong object entirely for a product sold on "run it from the truck". Here the
  * desktop and mobile renderings are the same artefact at different widths.
+ *
+ * It is the hero's main object and is drawn large (the hour row grows from 2.6
+ * to 2.9rem across breakpoints). The hero wraps it in a `<figure>` with the
+ * quote and invoice cards and a visible "example data" caption, so this
+ * component is a labelled group rather than a figure of its own.
  */
 
 const START_HOUR = 7;
@@ -95,127 +100,122 @@ export function DaySheet() {
   const span = END_HOUR - START_HOUR;
 
   return (
-    <figure className="m-0">
-      <Card className="overflow-hidden shadow-xl shadow-ink/5">
-        {/* Sheet header — reads like the top of a work order. */}
-        <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-5">
-          <div className="min-w-0">
-            <p className="truncate font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
-              {now?.label ?? "Today"}
-            </p>
-            {/* "Example", not "Today's". The jobs are invented, and over the
-                reader's real date with a real "now" line, "Today's schedule"
-                read as a live screenshot. PRODUCT.md requires sample data to be
-                labelled as sample data wherever it is shown. */}
-            <p className="mt-0.5 font-heading text-sm font-semibold text-ink">
-              Example schedule
-            </p>
-          </div>
-          {/* The count is derived, so it cannot drift from the rows below it.
-              A `$2,480` takings badge used to sit beside it; that figure was
-              invented, and a revenue number is the single detail that turns a
-              diagram into something the reader reads as a real screenshot. */}
-          <Badge
-            variant="secondary"
-            className="tnum shrink-0 font-mono text-[11px]"
-          >
-            {JOBS.length} jobs
-          </Badge>
+    /* `--row` is the hour height, set by class so it can step up with the
+       breakpoint. Every position below is a multiple of it, which is what keeps
+       a job block's height proportional to how long the job takes. */
+    <Card
+      role="group"
+      aria-label="Example schedule: five jobs between 7am and 6pm. Two finished, one in progress, two still booked."
+      className="overflow-hidden shadow-xl shadow-ink/5 [--row:2.6rem] sm:[--row:2.8rem] lg:[--row:2.9rem]"
+    >
+      {/* Sheet header — reads like the top of a work order. */}
+      <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-6">
+        <div className="min-w-0">
+          <p className="truncate font-mono text-[11px] uppercase tracking-[0.16em] text-muted-foreground">
+            {now?.label ?? "Today"}
+          </p>
+          {/* "Example", not "Today's". The jobs are invented, and over the
+              reader's real date with a real "now" line, "Today's schedule"
+              read as a live screenshot. PRODUCT.md requires sample data to be
+              labelled as sample data wherever it is shown. */}
+          <p className="mt-1 font-heading text-base font-semibold text-ink">
+            Example schedule
+          </p>
         </div>
-
-        <Separator />
-
-        {/* Ruled column. Rows are a fixed height so a job's block height is
-            literally proportional to how long the job takes. */}
-        <div
-          className="relative px-4 py-3 sm:px-5"
-          /* 2.6rem × 11 hours keeps the whole working day visible without the
-             card outgrowing the copy beside it — at 3.25rem the sheet stood
-             ~230px taller than the headline column, and centring the two left
-             a void above and below the text. */
-          style={{ "--row": "2.6rem" } as React.CSSProperties}
+        {/* The count is derived, so it cannot drift from the rows below it.
+            A `$2,480` takings badge used to sit beside it; that figure was
+            invented, and a revenue number is the single detail that turns a
+            diagram into something the reader reads as a real screenshot. */}
+        <Badge
+          variant="secondary"
+          className="tnum shrink-0 font-mono text-xs"
         >
-          <div className="relative" style={{ height: `calc(${span} * var(--row))` }}>
-            {/* Hour rules + labels */}
-            {HOURS.map((hour, i) => (
+          {JOBS.length} jobs
+        </Badge>
+      </div>
+
+      <Separator />
+
+      {/* Ruled column. Rows are a fixed height so a job's block height is
+          literally proportional to how long the job takes. */}
+      <div className="relative px-4 py-4 sm:px-6">
+        <div className="relative" style={{ height: `calc(${span} * var(--row))` }}>
+          {/* Hour rules + labels */}
+          {HOURS.map((hour, i) => (
+            <div
+              key={hour}
+              className="absolute inset-x-0 flex items-center gap-3"
+              style={{ top: `calc(${i} * var(--row))` }}
+            >
+              {/* Full muted, not `/70`: at 11px the faded value was 2.9:1,
+                  and these are the times a reader checks the jobs against. */}
+              <span className="tnum w-9 shrink-0 font-mono text-xs text-muted-foreground">
+                {String(hour).padStart(2, "0")}
+              </span>
+              <span aria-hidden="true" className="h-px flex-1 bg-border" />
+            </div>
+          ))}
+
+          {/* Job blocks */}
+          <div className="absolute inset-y-0 left-12 right-0">
+            {JOBS.map((job) => (
               <div
-                key={hour}
-                className="absolute inset-x-0 flex items-center gap-3"
-                style={{ top: `calc(${i} * var(--row))` }}
+                key={job.customer}
+                className={cn(
+                  "absolute inset-x-0 overflow-hidden rounded-lg border px-3 py-1.5",
+                  STATUS_STYLE[job.status],
+                )}
+                style={{
+                  top: `calc(${job.start - START_HOUR} * var(--row) + 2px)`,
+                  height: `calc(${job.end - job.start} * var(--row) - 4px)`,
+                }}
               >
-                {/* Full muted, not `/70`: at 11px the faded value was 2.9:1,
-                    and these are the times a reader checks the jobs against. */}
-                <span className="tnum w-9 shrink-0 font-mono text-[11px] text-muted-foreground">
-                  {String(hour).padStart(2, "0")}
-                </span>
-                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                <div className="flex items-baseline justify-between gap-2">
+                  <p className="truncate text-sm font-semibold sm:text-base">
+                    {job.customer}
+                  </p>
+                  <span className="tnum shrink-0 font-mono text-xs text-muted-foreground">
+                    {formatHour(job.start)}
+                  </span>
+                </div>
+                {/* Secondary lines are muted by COLOUR, not opacity (LAND-19).
+                    `opacity-70` stacked on a finished job's already-muted text
+                    came to 2.78:1; the muted token is 4.7:1 or better on all
+                    three job fills, in both themes. */}
+                <p className="truncate text-xs text-muted-foreground sm:text-sm">
+                  {job.service}
+                </p>
+                {/* A pinging dot on invented data is a live-status cue with
+                    nothing live behind it. The word alone carries the state. */}
+                {job.status === "active" ? (
+                  <span className="mt-1 inline-flex font-mono text-xs font-medium text-brand-ink">
+                    {STATUS_LABEL[job.status]}
+                  </span>
+                ) : null}
               </div>
             ))}
-
-            {/* Job blocks */}
-            <div className="absolute inset-y-0 left-12 right-0">
-              {JOBS.map((job) => (
-                <div
-                  key={job.customer}
-                  className={cn(
-                    "absolute inset-x-0 overflow-hidden rounded-lg border px-3 py-2",
-                    STATUS_STYLE[job.status],
-                  )}
-                  style={{
-                    top: `calc(${job.start - START_HOUR} * var(--row) + 2px)`,
-                    height: `calc(${job.end - job.start} * var(--row) - 4px)`,
-                  }}
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p className="truncate text-xs font-semibold sm:text-sm">
-                      {job.customer}
-                    </p>
-                    <span className="tnum shrink-0 font-mono text-[10px] text-muted-foreground">
-                      {formatHour(job.start)}
-                    </span>
-                  </div>
-                  {/* Secondary lines are muted by COLOUR, not opacity (LAND-19).
-                      `opacity-70` stacked on a finished job's already-muted text
-                      came to 2.78:1; the muted token is 4.7:1 or better on all
-                      three job fills, in both themes. */}
-                  <p className="truncate text-[11px] text-muted-foreground">{job.service}</p>
-                  {/* A pinging dot on invented data is a live-status cue with
-                      nothing live behind it. The word alone carries the state. */}
-                  {job.status === "active" ? (
-                    <span className="mt-1 inline-flex font-mono text-[10px] text-brand-ink">
-                      {STATUS_LABEL[job.status]}
-                    </span>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-
-            {/* The one live element on the page: a marker on the real hour.
-
-                It is also the page's one authored motion (`.now-marker` in
-                globals.css): the dot lands on the hour rail and the line draws
-                across the day from it, the way a clock hand would arrive. It
-                only exists after mount, so it moves over content that is
-                already painted and costs the first paint nothing. Under
-                reduced motion it is simply there. */}
-            {now?.offset !== null && now?.offset !== undefined ? (
-              <div
-                className="now-marker pointer-events-none absolute inset-x-0 flex items-center gap-2"
-                style={{ top: `calc(${now.offset} * ${span} * var(--row))` }}
-                aria-hidden="true"
-              >
-                <span className="now-marker-dot h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
-                <span className="now-marker-line h-px flex-1 bg-brand/50" />
-              </div>
-            ) : null}
           </div>
-        </div>
-      </Card>
 
-      <figcaption className="sr-only">
-        Example day: five jobs between 7am and 6pm. Two finished, one in
-        progress, two still booked.
-      </figcaption>
-    </figure>
+          {/* The one live element on the page: a marker on the real hour.
+
+              It is also the page's one authored motion (`.now-marker` in
+              globals.css): the dot lands on the hour rail and the line draws
+              across the day from it, the way a clock hand would arrive. It
+              only exists after mount, so it moves over content that is
+              already painted and costs the first paint nothing. Under
+              reduced motion it is simply there. */}
+          {now?.offset !== null && now?.offset !== undefined ? (
+            <div
+              className="now-marker pointer-events-none absolute inset-x-0 flex items-center gap-2"
+              style={{ top: `calc(${now.offset} * ${span} * var(--row))` }}
+              aria-hidden="true"
+            >
+              <span className="now-marker-dot h-1.5 w-1.5 shrink-0 rounded-full bg-brand" />
+              <span className="now-marker-line h-px flex-1 bg-brand/50" />
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </Card>
   );
 }

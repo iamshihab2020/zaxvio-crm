@@ -51,6 +51,7 @@ import { TopCustomersCard } from "@/components/dashboard/home/top-customers-card
 import {
   ALL_WIDGETS,
   useDashboardWidgetPrefs,
+  type WidgetKey,
 } from "@/hooks/use-dashboard-widget-prefs";
 import {
   DATE_RANGE_KEYS,
@@ -102,6 +103,37 @@ function granularityForSpan(spanDays: number): DashboardRevenueGranularity {
   if (spanDays <= 31) return "day";
   if (spanDays <= 120) return "week";
   return "month";
+}
+
+/** The widgets that flow in the full-width grid under the top band, in order. */
+const GRID_WIDGETS: readonly WidgetKey[] = [
+  "weekAhead",
+  "invoiceAging",
+  "jobsManagement",
+  "quoteFunnel",
+  "retention",
+  "revenueByService",
+  "topCustomers",
+  "activity",
+];
+
+/**
+ * Stretch the grid's last widget across whatever its row has left, so the grid
+ * never ends on a hole whichever widgets are hidden: two columns from `md`,
+ * three from `xl`. The `xl` value always restates the span, because an odd
+ * count's `md` span would otherwise carry into a three-column row that is
+ * already full. Literal strings, so Tailwind's scanner sees every class.
+ */
+function fillLastRow(count: number): string {
+  const md = count % 2 === 1 ? "md:[&>*:last-child]:col-span-2" : "";
+  const rest = count % 3;
+  const xl =
+    rest === 1
+      ? "xl:[&>*:last-child]:col-span-3"
+      : rest === 2
+        ? "xl:[&>*:last-child]:col-span-2"
+        : "xl:[&>*:last-child]:col-span-1";
+  return cn(md, xl);
 }
 
 interface DashboardPageClientProps {
@@ -281,19 +313,11 @@ export function DashboardPageClient({
   const { kpis } = stats;
   const { visible } = prefs;
 
-  // Which widgets each zone holds. A zone with nothing visible isn't rendered,
-  // and the other one takes its columns, so Customize can't leave an empty
-  // third of the page behind.
-  const hasSide = visible.agenda || visible.weekAhead;
-  const hasGrid =
-    visible.invoiceAging ||
-    visible.jobsManagement ||
-    visible.quoteFunnel ||
-    visible.retention ||
-    visible.revenueByService ||
-    visible.topCustomers ||
-    visible.activity;
-  const hasMain = visible.revenue || hasGrid;
+  // The top band is Revenue beside Up next. Everything else flows in one
+  // full-width grid below it, counted so its last row can be filled.
+  const showAgenda = visible.agenda;
+  const showRevenue = visible.revenue;
+  const gridCount = GRID_WIDGETS.filter((key) => visible[key]).length;
 
   return (
     <section className="p-4 sm:p-6">
@@ -389,120 +413,115 @@ export function DashboardPageClient({
             )}
 
             {/*
-              Two zones, each a stack — not rows of fixed pairs.
+              A top band, then one flowing grid. Not two zones.
 
-              The page used to be a run of rows, each its own grid with
-              conditionally-rendered children, and that is why holes kept
-              appearing. With Quote Funnel off in Customize, Invoice Aging sat
-              alone beside 50% of nothing. And because a grid row is as tall as
-              its tallest child, the Agenda's long list stretched whatever sat
-              next to it, leaving a void under a short neighbour. Pinning every
-              row to `auto-rows-[24rem]` stopped that, but only by making every
-              widget scroll inside a box of one fixed height.
+              The page used to be two columns from `xl`: a side zone (Up next,
+              Week ahead) and a main zone (Revenue, then a two-up grid of every
+              other widget). The side zone held two cards and the main zone
+              eight, so from about a screen down the right third was empty for
+              the rest of the page. The user caught it on the first look.
 
-              A stack has no row to leave half empty. Hiding a widget lets the
-              ones under it move up, and each card is as tall as its content.
-              The one grid left is the two-up block in the main zone, where an
-              odd widget out spans the row instead of leaving half of it empty,
-              and where a row-mate still stretches to the taller of the pair.
+              Now the only pair is Revenue beside Up next, and Up next takes
+              Revenue's height and scrolls inside it (`fitRowAtXl`), so a busy
+              week can't open a gap under Revenue either. Everything else flows
+              in a single grid, two across from `md` and three from `xl`, and
+              `fillLastRow` stretches the last widget over whatever its row has
+              left, so hiding widgets in Customize never leaves a hole. Row-mates
+              stretch to the taller card (`h-full`), so rows end flush.
 
-              The side zone (Up next and Week ahead: today's work) is first in
-              the DOM, so on a phone the day comes before the money. From `xl`
-              it moves to the right third and the main zone (revenue, then the
-              analyst widgets) takes the left two. When one zone has nothing
-              visible the other takes all three columns.
+              Up next is first in the DOM, so on a phone the day still comes
+              before the money; from `xl` it moves to the right third of the band.
             */}
-            {(hasSide || hasMain) && (
+            {(showAgenda || showRevenue) && (
               <div className="grid gap-6 xl:grid-cols-3">
-                {hasSide && (
+                {showAgenda && (
                   <div
                     className={cn(
-                      "flex min-w-0 flex-col gap-6 xl:row-start-1",
-                      hasMain ? "xl:col-start-3" : "xl:col-span-3 xl:col-start-1",
+                      "flex min-w-0 flex-col xl:row-start-1",
+                      showRevenue ? "xl:col-start-3" : "xl:col-span-3",
                     )}
                   >
-                    {visible.agenda && (
-                      <WidgetErrorBoundary name="Up next">
-                        <AgendaTimeline agenda={stats.agenda} />
-                      </WidgetErrorBoundary>
-                    )}
-                    {visible.weekAhead && (
-                      <WidgetErrorBoundary name="Week ahead">
-                        <WeekAhead agenda={stats.agenda} />
-                      </WidgetErrorBoundary>
-                    )}
+                    <WidgetErrorBoundary name="Up next">
+                      <AgendaTimeline agenda={stats.agenda} fitRowAtXl={showRevenue} />
+                    </WidgetErrorBoundary>
                   </div>
                 )}
 
-                {hasMain && (
+                {showRevenue && (
                   <div
                     className={cn(
-                      "flex min-w-0 flex-col gap-6 xl:row-start-1",
-                      hasSide
-                        ? "xl:col-span-2 xl:col-start-1"
-                        : "xl:col-span-3 xl:col-start-1",
+                      "min-w-0 xl:col-start-1 xl:row-start-1",
+                      showAgenda ? "xl:col-span-2" : "xl:col-span-3",
                     )}
                   >
-                    {visible.revenue && (
-                      <WidgetErrorBoundary name="Revenue">
-                        <RevenueRangeChart
-                          data={stats.revenueTrend}
-                          granularity={stats.revenueGranularity}
-                          currentValue={kpis.rangeRevenue.amount}
-                          previousValue={kpis.rangeRevenue.previousAmount}
-                          billedValue={kpis.rangeRevenue.billedAmount}
-                          range={revenueRange}
-                          onRangeChange={handleRevenueRangeChange}
-                        />
-                      </WidgetErrorBoundary>
-                    )}
-
-                    {hasGrid && (
-                      <div className="grid gap-6 md:grid-cols-2 md:[&>*:last-child:nth-child(odd)]:col-span-2">
-                        {visible.invoiceAging && (
-                          <WidgetErrorBoundary name="Invoice aging">
-                            <InvoiceAging data={stats.invoiceAging} />
-                          </WidgetErrorBoundary>
-                        )}
-                        {visible.jobsManagement && (
-                          <WidgetErrorBoundary name="Jobs management">
-                            <JobsManagementPanel
-                              defaultPipeline={stats.jobPipeline}
-                              priorityBreakdown={stats.priorityBreakdown}
-                              serviceBreakdown={stats.serviceBreakdown}
-                              pipelineId={pipelineId}
-                              onPipelineChange={setPipelineId}
-                            />
-                          </WidgetErrorBoundary>
-                        )}
-                        {visible.quoteFunnel && (
-                          <WidgetErrorBoundary name="Quote funnel">
-                            <QuoteConversion data={stats.quoteSummary} />
-                          </WidgetErrorBoundary>
-                        )}
-                        {visible.retention && (
-                          <WidgetErrorBoundary name="Retention">
-                            <RetentionChart data={stats.retentionTrend} />
-                          </WidgetErrorBoundary>
-                        )}
-                        {visible.revenueByService && (
-                          <WidgetErrorBoundary name="Revenue by service">
-                            <RevenueByServiceChart data={stats.serviceRevenue} />
-                          </WidgetErrorBoundary>
-                        )}
-                        {visible.topCustomers && (
-                          <WidgetErrorBoundary name="Top customers">
-                            <TopCustomersCard data={stats.topCustomers} />
-                          </WidgetErrorBoundary>
-                        )}
-                        {visible.activity && (
-                          <WidgetErrorBoundary name="Activity feed">
-                            <RecentActivityFeed activities={stats.recentActivity} />
-                          </WidgetErrorBoundary>
-                        )}
-                      </div>
-                    )}
+                    <WidgetErrorBoundary name="Revenue">
+                      <RevenueRangeChart
+                        data={stats.revenueTrend}
+                        granularity={stats.revenueGranularity}
+                        currentValue={kpis.rangeRevenue.amount}
+                        previousValue={kpis.rangeRevenue.previousAmount}
+                        billedValue={kpis.rangeRevenue.billedAmount}
+                        range={revenueRange}
+                        onRangeChange={handleRevenueRangeChange}
+                      />
+                    </WidgetErrorBoundary>
                   </div>
+                )}
+              </div>
+            )}
+
+            {gridCount > 0 && (
+              <div
+                className={cn(
+                  "grid gap-6 md:grid-cols-2 xl:grid-cols-3",
+                  fillLastRow(gridCount),
+                )}
+              >
+                {visible.weekAhead && (
+                  <WidgetErrorBoundary name="Week ahead">
+                    <WeekAhead agenda={stats.agenda} />
+                  </WidgetErrorBoundary>
+                )}
+                {visible.invoiceAging && (
+                  <WidgetErrorBoundary name="Invoice aging">
+                    <InvoiceAging data={stats.invoiceAging} />
+                  </WidgetErrorBoundary>
+                )}
+                {visible.jobsManagement && (
+                  <WidgetErrorBoundary name="Jobs management">
+                    <JobsManagementPanel
+                      defaultPipeline={stats.jobPipeline}
+                      priorityBreakdown={stats.priorityBreakdown}
+                      serviceBreakdown={stats.serviceBreakdown}
+                      pipelineId={pipelineId}
+                      onPipelineChange={setPipelineId}
+                    />
+                  </WidgetErrorBoundary>
+                )}
+                {visible.quoteFunnel && (
+                  <WidgetErrorBoundary name="Quote funnel">
+                    <QuoteConversion data={stats.quoteSummary} />
+                  </WidgetErrorBoundary>
+                )}
+                {visible.retention && (
+                  <WidgetErrorBoundary name="Retention">
+                    <RetentionChart data={stats.retentionTrend} />
+                  </WidgetErrorBoundary>
+                )}
+                {visible.revenueByService && (
+                  <WidgetErrorBoundary name="Revenue by service">
+                    <RevenueByServiceChart data={stats.serviceRevenue} />
+                  </WidgetErrorBoundary>
+                )}
+                {visible.topCustomers && (
+                  <WidgetErrorBoundary name="Top customers">
+                    <TopCustomersCard data={stats.topCustomers} />
+                  </WidgetErrorBoundary>
+                )}
+                {visible.activity && (
+                  <WidgetErrorBoundary name="Activity feed">
+                    <RecentActivityFeed activities={stats.recentActivity} />
+                  </WidgetErrorBoundary>
                 )}
               </div>
             )}

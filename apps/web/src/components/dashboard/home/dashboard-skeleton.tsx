@@ -11,12 +11,12 @@ interface DashboardSkeletonProps {
 
 /**
  * Mirrors the *default* dashboard: a toolbar, an overdue banner, four KPI
- * tiles, then the two zones — "Up next" and the week strip on the side,
- * revenue and a pair of mid-size widgets in the main column.
+ * tiles, the top band (Revenue beside Up next), then the flowing grid with the
+ * default three widgets (Week ahead, Invoice aging, Jobs management).
  *
- * The side zone comes first here exactly as it does in the page, so on a phone
- * the skeleton stacks in the order the content will arrive in, and from `xl`
- * it moves to the right third in the same place.
+ * Up next comes first here exactly as it does in the page, so on a phone the
+ * skeleton stacks in the order the content will arrive in, and from `xl` it
+ * moves to the right third of the band, taking Revenue's height.
  *
  * There used to be two skeletons — this one and a separate `loading.tsx` drawing
  * 4 KPI cards with 3-column rows — and neither matched the page, so every load
@@ -56,12 +56,13 @@ export function DashboardSkeleton({ hideToolbar = false }: DashboardSkeletonProp
         ))}
       </div>
 
+      {/* Top band: Up next first in the DOM, Revenue beside it from `xl`. */}
       <div className="grid gap-6 xl:grid-cols-3">
-        {/* Side zone */}
-        <div className="flex min-w-0 flex-col gap-6 xl:col-start-3 xl:row-start-1">
+        <div className="flex min-w-0 flex-col xl:col-start-3 xl:row-start-1">
           {/* Up next: header, the "Today" label, then six 48px rows on the
-              4rem time column. */}
-          <Card className="p-4 sm:p-6">
+              4rem time column. From `xl` it takes Revenue's height, as the
+              real card does, and clips what doesn't fit. */}
+          <Card className="overflow-hidden p-4 sm:p-6 xl:flex-1 xl:[contain:size]">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <Skeleton className="h-4 w-20" />
@@ -79,20 +80,10 @@ export function DashboardSkeleton({ hideToolbar = false }: DashboardSkeletonProp
               ))}
             </div>
           </Card>
-
-          {/* Week ahead */}
-          <Card className="p-4 sm:p-6">
-            <div className="flex items-center justify-between gap-3">
-              <Skeleton className="h-4 w-28" />
-              <Skeleton className="h-4 w-16" />
-            </div>
-            <Skeleton className="mt-4 h-[180px] w-full" />
-          </Card>
         </div>
 
-        {/* Main zone */}
-        <div className="flex min-w-0 flex-col gap-6 xl:col-span-2 xl:col-start-1 xl:row-start-1">
-          {/* Revenue: title and range tabs, the headline figure, the chart. */}
+        {/* Revenue: title and range tabs, the headline figure, the chart. */}
+        <div className="min-w-0 xl:col-span-2 xl:col-start-1 xl:row-start-1">
           <Card className="p-4 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Skeleton className="h-4 w-32" />
@@ -101,16 +92,21 @@ export function DashboardSkeleton({ hideToolbar = false }: DashboardSkeletonProp
             <Skeleton className="mt-4 h-8 w-40" />
             <Skeleton className="mt-4 h-[200px] w-full sm:h-[260px]" />
           </Card>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            {Array.from({ length: 2 }).map((_, i) => (
-              <Card key={i} className="p-4 sm:p-6">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="mt-4 h-[220px] w-full" />
-              </Card>
-            ))}
-          </div>
         </div>
+      </div>
+
+      {/* The flowing grid with the default three widgets: two across from `md`
+          (the third spanning the row, as `fillLastRow` does), three from `xl`. */}
+      <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Card
+            key={i}
+            className={i === 2 ? "p-4 sm:p-6 md:col-span-2 xl:col-span-1" : "p-4 sm:p-6"}
+          >
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="mt-4 h-[220px] w-full" />
+          </Card>
+        ))}
       </div>
     </div>
   );

@@ -9,22 +9,28 @@ import { Section, SectionHeading } from "./section";
  * elapsed clock carries the claim itself and lets the reader check it: the
  * last marker reads 0:10, and it is the promise. It is also the page's own
  * material, since the product's unit of measure is time.
+ *
+ * `iso` is the same duration for `<time>`, so a screen reader and a crawler get
+ * "2 minutes" rather than a bare "0:02".
  */
 const STEPS = [
   {
     at: "0:00",
+    iso: "PT0M",
     title: "Create the account",
     description:
       "An email and a password is the whole of it. No card, no sales call, and no demo to sit through first.",
   },
   {
     at: "0:02",
+    iso: "PT2M",
     title: "Add your services and hours",
     description:
       "What you do, what you charge, and when you work. Customers who book through your link are added for you.",
   },
   {
     at: "0:10",
+    iso: "PT10M",
     title: "Book the first job",
     description:
       "Put a job on the board yourself, or send your booking link and let the customer put it there for you.",
@@ -33,7 +39,7 @@ const STEPS = [
 
 export function HowItWorksSection() {
   return (
-    <Section surface="base" labelledBy="how-it-works-heading">
+    <Section surface="alt" labelledBy="how-it-works-heading">
       <SectionHeading
         id="how-it-works-heading"
         title="Up and running in ten minutes."
@@ -41,44 +47,36 @@ export function HowItWorksSection() {
       />
 
       {/*
-        A ruled sequence on a left time rail, not three equal cards.
+        Three columns from `lg`, each opened by a hairline and the clock reading
+        set at display size, so the 0:10 at the end is the biggest claim on the
+        row. On a phone they stack in the same order with the same rule.
 
-        Three sections on this page were rendering the same `md:grid-cols-3`
-        card grid, which is the layout family a reader recognises fastest and
-        the one the page could least afford to repeat. This one gives it up
-        most naturally: the steps are ordered and timed, and a vertical rail
-        with the clock running down it shows that, where three side-by-side
-        cards actively hid it. It also drops the card chrome from a section
-        that never needed elevation to separate three items.
+        The earlier version was a vertical rail with the times in a narrow left
+        gutter, which suited a three-line list but left the right two thirds of
+        a wide screen empty. The steps are still ordered and timed; the clock
+        reading is what says so, not the rail.
       */}
-      <ol role="list" className="mt-10 sm:mt-12">
+      <ol role="list" className="mt-14 grid gap-12 lg:mt-16 lg:grid-cols-3 lg:gap-x-12">
         {STEPS.map((step, i) => (
           <Reveal
             as="li"
             key={step.at}
             delay={i * 90}
-            className="group grid grid-cols-[3.25rem_1fr] gap-x-4 sm:grid-cols-[4.5rem_1fr] sm:gap-x-6"
+            className="border-t border-border pt-6"
           >
-            <div className="flex flex-col items-start">
-              <span className="tnum py-1 font-mono text-sm font-medium text-brand-ink">
-                {step.at}
-              </span>
-              {/* The rail stops at the last step rather than trailing into
-                  whitespace below it. */}
-              <span
-                aria-hidden="true"
-                className="w-px flex-1 bg-border group-last:hidden"
-              />
-            </div>
-
-            <div className="pb-8 group-last:pb-0">
-              <h3 className="font-heading text-lg font-semibold text-ink">
-                {step.title}
-              </h3>
-              <p className="mt-2 max-w-prose text-sm leading-relaxed text-muted-foreground text-pretty">
-                {step.description}
-              </p>
-            </div>
+            <time
+              dateTime={step.iso}
+              className="tnum block font-heading text-5xl font-bold tracking-tight text-brand-ink sm:text-6xl"
+            >
+              {step.at}
+              <span className="sr-only"> elapsed</span>
+            </time>
+            <h3 className="mt-5 font-heading text-xl font-semibold tracking-tight text-ink">
+              {step.title}
+            </h3>
+            <p className="mt-3 max-w-md text-base leading-relaxed text-muted-foreground text-pretty sm:text-lg">
+              {step.description}
+            </p>
           </Reveal>
         ))}
       </ol>

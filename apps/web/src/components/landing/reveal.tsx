@@ -78,11 +78,16 @@ export function Reveal({
     };
   }, []);
 
+  /* A typed style object rather than a cast: the custom property is declared
+     on the type, so a typo in its name is a compile error. */
+  const style: (React.CSSProperties & Record<"--reveal-delay", string>) | undefined =
+    delay ? { "--reveal-delay": `${delay}ms` } : undefined;
+
   return (
     <Tag
       ref={ref as React.Ref<HTMLDivElement & HTMLLIElement>}
       className={cn("reveal", ready && "reveal-ready", visible && "is-visible", className)}
-      style={delay ? ({ "--reveal-delay": `${delay}ms` } as React.CSSProperties) : undefined}
+      style={style}
     >
       {children}
     </Tag>
